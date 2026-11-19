@@ -8,7 +8,6 @@ from __future__ import annotations
 import importlib
 import json
 import sys
-import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -31,6 +30,7 @@ from omnibase_core.models.event_bus.model_node_broker_binding import (
 from omnibase_core.models.event_bus.model_node_broker_resolution_error import (
     ModelNodeBrokerResolutionError,
 )
+from omnibase_core.models.event_bus.model_run_node_hosted import ModelRunNodeHosted
 from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
 from omnibase_core.utils.util_safe_yaml_loader import load_and_validate_yaml_model
 
@@ -92,37 +92,6 @@ def _resolve_binding(node_id: str) -> ModelNodeBrokerBinding:
         if exc.overlay_path is not None:
             extra["overlay_path"] = exc.overlay_path
         _emit_error(node_id, exc.message, **extra)
-
-
-def run_node_in_process(
-    node_id: str, contract_path: Path, payload: dict[str, object], timeout: int
-) -> dict[str, object]:
-    """Host the node here on the in-memory bus (overlay ``type: inmemory``, OMN-22362)."""
-    from pydantic import BaseModel
-
-    from omnibase_core.enums.enum_workflow_result import EnumWorkflowResult
-    from omnibase_core.runtime.runtime_local import RuntimeLocal
-
-    with tempfile.TemporaryDirectory(prefix="onex-run-node-") as scratch:
-        input_path = Path(scratch) / "input.json"
-        input_path.write_text(json.dumps(payload), encoding="utf-8")
-        runtime = RuntimeLocal(
-            workflow_path=contract_path,
-            state_root=Path(scratch) / "state",
-            input_path=input_path,
-            timeout=timeout,
-        )
-        result = runtime.run()
-    if result is not EnumWorkflowResult.COMPLETED:
-        raise ModelOnexError(
-            error_code=EnumCoreErrorCode.RUNTIME_ERROR,
-            message=f"Node '{node_id}' hosted in process ended {result.value}: "
-            f"{runtime.last_error or 'no error recorded'}",
-        )
-    produced = runtime.handler_result
-    if isinstance(produced, BaseModel):
-        return produced.model_dump(mode="json")
-    return dict(produced) if isinstance(produced, dict) else {"result": produced}
 
 
 def _coerce_contract_metadata(
@@ -224,8 +193,7 @@ def publish_and_poll(
 ) -> dict[str, object] | None:
     """Publish a contract-routed command envelope and poll for its terminal event.
 
-    ``client_security`` carries the librdkafka security settings from
-    :func:`_resolve_client_security_config`; both clients use them.
+    ``client_security`` carries the librdkafka security settings; both clients use them.
 
     Returns the response dict, or None on timeout.
     """
@@ -423,7 +391,7 @@ def run_node(node_id: str, input_json: str, timeout: int) -> None:
             )
         else:
             response = {
-                "payload": run_node_in_process(
+                "payload": ModelRunNodeHosted.run(
                     node_id,
                     contract_path,
                     _normalize_payload(

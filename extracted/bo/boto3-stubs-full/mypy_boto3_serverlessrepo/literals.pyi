@@ -43,6 +43,7 @@ ListApplicationsPaginatorName = Literal["list_applications"]
 StatusType = Literal["ACTIVE", "EXPIRED", "PREPARING"]
 ServerlessApplicationRepositoryServiceName = Literal["serverlessrepo"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

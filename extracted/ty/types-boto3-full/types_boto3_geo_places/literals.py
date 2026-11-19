@@ -160,6 +160,7 @@ TypePlacementType = Literal["AfterBaseName", "BeforeBaseName"]
 ZipClassificationCodeType = Literal["Military", "PostOfficeBoxes", "Unique"]
 LocationServicePlacesV2ServiceName = Literal["geo-places"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

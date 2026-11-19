@@ -636,6 +636,14 @@ RULE_FIXES: dict[str, dict[str, str]] = {
     "SKY-D377": {
         "default": "Remove the duplicated keys so the file says once what runs."
     },
+    "SKY-D378": {
+        "default": "Resolve the joined path and check that it stays inside the base directory; do not rely on removing or rejecting `..`.",
+        "python": "Use `Path(base, name).resolve()` and require `is_relative_to(Path(base).resolve())` before the file operation.",
+    },
+    "SKY-D379": {
+        "default": "Rewrite nested or adjacent repeats so they cannot match the same text, or limit the input length before matching.",
+        "python": "Make the repeated parts mutually exclusive, use a possessive repeat or atomic group (`(?>...)`), or cap `len(text)` first.",
+    },
     "SKY-D510": {
         "default": "Reject __proto__, constructor and prototype keys before merging objects."
     },
@@ -796,6 +804,18 @@ RULE_FIXES: dict[str, dict[str, str]] = {
     "SKY-L043": {
         "default": "Wait on an explicit completion signal with a bounded timeout instead of assuming a fixed delay is sufficient."
     },
+    "SKY-L044": {
+        "default": "Call the code under test and assert on the value it returns instead of values the test builds itself."
+    },
+    "SKY-L045": {
+        "default": "Replace the always-true condition with a check of the value the code is expected to produce."
+    },
+    "SKY-L046": {
+        "default": "Assert on the stored result, or remove the assignment if the call is only checked for not raising."
+    },
+    "SKY-L047": {
+        "default": "Remove the repeated test, or change it to cover the case its name describes."
+    },
     "SKY-P401": {
         "default": "Read in bounded chunks, or check the size before reading everything."
     },
@@ -835,6 +855,15 @@ RULE_FIXES: dict[str, dict[str, str]] = {
         "default": "Use for...of with await (or Promise.all) instead of an async forEach callback."
     },
     "SKY-Q407": {"default": "Await the mapped promises with Promise.all."},
+    "SKY-Q408": {
+        "default": "Declare the imported npm package in the package.json that owns this source, or remove the import."
+    },
+    "SKY-Q409": {
+        "default": "Declare the package that supplies this script binary, or replace the script command."
+    },
+    "SKY-Q410": {
+        "default": "Await or return the local async result, handle rejection with .catch(...), or use void for intentional fire-and-forget work."
+    },
     "SKY-Q501": {"default": "Split the class by responsibility into smaller classes."},
     "SKY-Q502": {"default": "Split the file into modules by responsibility."},
     "SKY-Q701": {
@@ -889,6 +918,9 @@ RULE_FIXES: dict[str, dict[str, str]] = {
     "SKY-SCA-INT001": {
         "default": "Regenerate the lockfile with your package manager so every entry has a hash."
     },
+    "SKY-SCA-NEW001": {
+        "default": "Open the registry page and check it is the package you meant. Remove it if not; list it in approved_packages under [tool.skylos.supply_chain] if it is."
+    },
     "SKY-SCA-LIC001": {
         "default": "Replace the dependency, or record a license exception your policy allows."
     },
@@ -930,7 +962,7 @@ RULE_FIXES: dict[str, dict[str, str]] = {
 }
 
 _DEAD_CODE_RULES = frozenset(
-    {"SKY-U001", "SKY-U002", "SKY-U003", "SKY-U004", "SKY-U005", "SKY-U006"}
+    {"SKY-U001", "SKY-U002", "SKY-U003", "SKY-U004", "SKY-U005", "SKY-U006", "SKY-U007"}
 )
 _CATEGORY_RULES = {
     "unused_functions": "SKY-U001",

@@ -48,6 +48,7 @@ ListMountTargetsPaginatorName = Literal["list_mount_targets"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
 S3FilesServiceName = Literal["s3files"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

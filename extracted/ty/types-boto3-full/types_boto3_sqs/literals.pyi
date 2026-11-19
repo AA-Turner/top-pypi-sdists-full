@@ -108,6 +108,7 @@ QueueAttributeNameType = Literal[
 ]
 SQSServiceName = Literal["sqs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

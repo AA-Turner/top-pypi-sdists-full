@@ -15,7 +15,7 @@ We are interested in the p-value, which is 0.01256 for
 deformation. We repeat the analysis with area (0.0002183) and Young's
 modulus (0.0002771). The p-values indicate that MG-63 (mean elastic
 modulus 1.26 kPa) cells are softer than SSCs (mean elastic modulus 1.54 kPa).
-The figure reproduces the last subplot of figure 6b im :cite:`Herbig2018`.
+The figure reproduces the last subplot of figure 6b in :cite:`Herbig2018`.
 """
 import dclab
 from dclab import lme4
@@ -51,7 +51,7 @@ for ds in datasets:
     ds.config["calculation"]["emodulus lut"] = "LE-2D-FEM-19"
     ds.config["calculation"]["emodulus medium"] = "CellCarrier"
     ds.config["calculation"]["emodulus temperature"] = 23.0
-    ds.config["calculation"]["emodulus viscosity model"] = 'buyukurganci-2022'
+    ds.config["calculation"]["emodulus viscosity model"] = "buyukurganci-2022"
 
 # setup lme4 analysis
 rlme4 = lme4.Rlme4(model="lmer")
@@ -61,27 +61,28 @@ rlme4.add_dataset(ds_mg63_rep1, group="control", repetition=1)
 rlme4.add_dataset(ds_mg63_rep2, group="control", repetition=2)
 rlme4.add_dataset(ds_mg63_rep3, group="control", repetition=3)
 
-# perform analysis for deformation
+# perform analysis for area, deformation, and Young's modulus
 for feat in ["area_um", "deform", "emodulus"]:
     res = rlme4.fit(feature=feat)
-    print("Results for {}:".format(feat))
+    print(f"Results for {feat}:")
     print("  p-value", res["anova p-value"])
     print("  mean of MG-63", res["fixed effects intercept"])
     print("  fixed effect size", res["fixed effects treatment"])
 
 # prepare for plotting
-df = pd.DataFrame()
+dfs = []
 for ds in datasets:
     group = ds.config["experiment"]["sample"].split()[0]
     rep = ds.config["experiment"]["sample"].split()[-1]
     dfi = pd.DataFrame.from_dict(
-        {"area_m": ds["area_um"][ds.filter.all],
+        {"area_um": ds["area_um"][ds.filter.all],
          "deform": ds["deform"][ds.filter.all],
          "emodulus": ds["emodulus"][ds.filter.all],
          "group and repetition": [group + " " + rep] * ds.filter.all.sum(),
          "group": [group] * ds.filter.all.sum(),
          })
-    df = df.append(dfi)
+    dfs.append(dfi)
+df = pd.concat(dfs, ignore_index=True)
 
 # plot
 fig = plt.figure(figsize=(8, 5))
@@ -99,7 +100,7 @@ y3 = 6.2
 ax.plot([-.5, -.5, 1, 1], [y1, y1+h, y1+h, y1], lw=1, c="k")
 ax.plot([2, 2, 4.5, 4.5], [y2, y2+h, y2+h, y2], lw=1, c="k")
 ax.plot([.25, .25, 3.25, 3.25], [y1+h, y1+2*h, y1+2*h, y2+h], lw=1, c="k")
-ax.text(2, y3, "*"*numstars, ha='center', va='bottom', color="k")
+ax.text(2, y3, "*"*numstars, ha="center", va="bottom", color="k")
 ax.set_ylim(0, 7)
 
 plt.tight_layout()

@@ -18,6 +18,9 @@ from omnimarket.models.landing_ledger_row import (
     ModelLandingLedgerRow,
     ModelLandingLedgerRows,
 )
+from omnimarket.models.model_landing_review import (
+    ModelLandingReviewFacts,
+)
 
 
 class ModelLandingCauseFix(BaseModel):
@@ -30,6 +33,16 @@ class ModelLandingCauseFix(BaseModel):
     cause: str
 
 
+class ModelLandingCauseOwnerSkipped(BaseModel):
+    """An open CLAIM whose cause owner ``ModelLandingCauseOwner`` refuses: left out of ``cause_owners`` and reported here."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    lane: str
+    claim: str = Field(description="The CLAIM's timestamp.")
+    reason: str
+
+
 class ModelLandingLedgerFacts(BaseModel):
     """The ledger-derived facts the landing controller reads that need only the rows."""
 
@@ -39,18 +52,35 @@ class ModelLandingLedgerFacts(BaseModel):
     fixer_hold: tuple[str, ...] = Field(
         description="Repos (or 'all') under the fixer kill switch."
     )
+    fixer_hold_released_prs: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "owner/repo#n lifted out of a fixer HOLD by a scoped RELEASE (re= plus pr=); "
+            "the rest of that repository stays held."
+        ),
+    )
     cause_owners: tuple[ModelLandingCauseOwner, ...]
+    cause_owners_skipped: tuple[ModelLandingCauseOwnerSkipped, ...] = Field(
+        default=(),
+        description="CLAIMs whose cause owner the model refuses; skipped, never raised.",
+    )
     cause_releases: tuple[ModelLandingCauseRelease, ...]
     cause_fixes: tuple[ModelLandingCauseFix, ...]
     lab_passes: dict[str, tuple[str, ...]] = Field(
         description="repo#n -> every head a lab proof PASS readback recorded."
+    )
+    review: dict[str, ModelLandingReviewFacts] = Field(
+        default_factory=dict,
+        description="repo#n -> the review fact of each PR a STATUS row marks as new work or a reviewer lane gave a verdict on. A PR named by no row has no entry: the caller sends new_work false for it.",
     )
     drain_lane: str = Field(description="The live repo drain lane, or ''.")
 
 
 __all__: list[str] = [
     "ModelLandingCauseFix",
+    "ModelLandingCauseOwnerSkipped",
     "ModelLandingLedgerFacts",
     "ModelLandingLedgerRow",
     "ModelLandingLedgerRows",
+    "ModelLandingReviewFacts",
 ]

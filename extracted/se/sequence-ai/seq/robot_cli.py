@@ -200,7 +200,7 @@ def robot_record(name: str, out: str | None = None, *, base_url: str | None = No
 
 
                 _note(f"{said['robot']} is connected to teleop alone, which no worker serves: none of its steps come "
-                      "here - its own SDK writes them to a file where it runs ($SEQUENCES_RECORD_DIR, else the "
+                      "here - sequence-ai on the robot writes them to a file where it runs ($SEQUENCES_RECORD_DIR, else the "
                       "folder it runs in); this waits in case it connects to a policy")
             try:
                 for item in rec.steps():

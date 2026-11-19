@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol, TypedDict, cast
 
@@ -26,7 +27,6 @@ from bitfab.constants import (
     _seed_context,
     replay_item_running,
 )
-from bitfab.default_sandboxes import default_sandboxes
 from bitfab.error_chain import describe_error, serialize_error
 from bitfab.git_command import run_git
 from bitfab.integration_fixture import extract_integration_fixtures
@@ -55,8 +55,8 @@ from bitfab.sandbox import (
     Sandbox,
     SandboxSession,
     SandboxStartCtx,
-    combine_sandboxes,
 )
+from bitfab.sandbox_modes import SandboxModeSetting, resolve_sandboxes
 from bitfab.selective_replay import (
     SelectiveReplayOptions,
     SelectiveReplayRuntime,
@@ -998,12 +998,14 @@ def replay(
     dataset_ids: list[str] | None = None,
     grader_ids: list[str] | None = None,
     only_with_assertions: bool = False,
+    only_drafts: bool = False,
     category_ids: list[str] | None = None,
     skip_assertion_judging: bool = False,
     judge_assertions: bool | None = None,
     mock: MockStrategy = "marked",
     mock_override: MockOverrideInput | list[MockOverrideInput] | None = None,
     sandboxes: list[Sandbox] | None = None,
+    sandbox_modes: Mapping[str, SandboxModeSetting] | None = None,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
     adapt_inputs: (
         Callable[
@@ -1150,22 +1152,29 @@ def replay(
             check you don't want to add permanently. Each must be an active/live
             grader in the same org and trace function, or the server rejects the
             replay.
-        skip_assertion_judging: Don't judge approved assertions on each
-            replay. Judging is on by default: every approved assertion is
+        skip_assertion_judging: Don't judge confirmed assertions on each
+            replay. Judging is on by default: every confirmed assertion is
             judged as its replay finishes and the verdict is saved as that
             assertion's agent verdict, and each judgement costs model calls.
         only_with_assertions: Replay only the selected traces that carry at
-            least one approved assertion. Narrows whatever ``limit``,
+            least one confirmed assertion. Narrows whatever ``limit``,
             ``trace_ids`` or ``dataset_ids`` chose, so a run that measures
             assertion outcomes doesn't pay to re-execute traces nothing can
             grade. With ``limit`` it selects the N most recent traces that HAVE
-            approved assertions, rather than filtering the N most recent down to
-            however few do. An assertion still awaiting review doesn't count: a
-            replay is only judged against assertions a person has approved, so a
+            confirmed assertions, rather than filtering the N most recent down to
+            however few do. A draft assertion doesn't count: a replay is only
+            judged against assertions a person has confirmed, so a
             trace carrying nothing but drafts has nothing here to measure. A
             selection that narrows to nothing replays nothing.
-        category_ids: Replay only the selected traces that carry an
-            approved assertion in one of these categories. Narrows a
+        only_drafts: Replay only the selected traces that carry at least
+            one draft assertion: not confirmed, not rejected, and not
+            archived. Narrows whatever ``limit``, ``trace_ids`` or
+            ``dataset_ids`` chose, the way ``only_with_assertions`` does. With
+            ``dataset_ids`` it replays the part of the dataset with a draft
+            assertion, and the experiment shows as a subset of that
+            dataset. A selection that narrows to nothing replays nothing.
+        category_ids: Replay only the selected traces that carry a
+            confirmed assertion in one of these categories. Narrows a
             ``trace_ids`` or ``dataset_ids`` selection the way
             ``only_with_assertions`` does, but counts only assertions filed
             under a named category. It changes which traces replay, not which
@@ -1197,6 +1206,16 @@ def replay(
             or ``mock`` strategy. Built-in sandboxes (the Gmail and GitHub
             sandboxes) are always on; passing one with the same name replaces it, for example
             to change where its starting state comes from.
+        sandbox_modes: The mode of each built-in sandbox, keyed by service
+            (``"gmail"``, ``"github"``). ``True`` runs the service's default
+            mode, ``False`` turns its sandbox off, and a string names a mode:
+            ``{"gmail": "read-real-write-fake"}`` reads the real mailbox and
+            keeps writes in the sandbox (see :func:`~bitfab.gmail_sandbox`),
+            and ``{"gmail": "recorded"}`` answers from the original trace's
+            recorded mail. Gmail's default mode is ``"read-real-write-fake"``;
+            a service left out keeps the mode it runs in without this option
+            (Gmail: ``"recorded"``). A sandbox set here cannot also be passed
+            in ``sandboxes``.
         experimental_selective_replay: Opt-in must_run manifest. The server
             protects required subtrees and ancestors, combining assertion targets
             and recorded reuse eligibility.
@@ -1253,8 +1272,8 @@ def replay(
             ``carried_over=True`` and no payloads. The traces, attempts and
             graders come from that experiment, so passing ``trace_ids``,
             ``limit``, ``dataset_id``, ``dataset_ids``, ``attempts``,
-            ``grader_ids``, ``only_with_assertions``, ``category_ids`` or
-            ``dry_run`` with it is an error. Database branching and its
+            ``grader_ids``, ``only_with_assertions``, ``only_drafts``,
+            ``category_ids`` or ``dry_run`` with it is an error. Database branching and its
             settings also come from the experiment, so ``db_branch`` is
             ignored.
         force: Resume even when the experiment had activity in the last two
@@ -1327,6 +1346,7 @@ def replay(
             attempts=attempts,
             grader_ids=grader_ids,
             only_with_assertions=only_with_assertions,
+            only_drafts=only_drafts,
             category_ids=category_ids,
             dry_run=dry_run,
             experimental_selective_replay=experimental_selective_replay,
@@ -1366,7 +1386,7 @@ def replay(
         *normalize_mock_overrides(mock_override),
         *client._mock_overrides,
     ]
-    resolved_sandboxes = combine_sandboxes(sandboxes, default_sandboxes())
+    resolved_sandboxes = resolve_sandboxes(sandboxes, sandbox_modes)
     if experimental_selective_replay is not None:
         wire_options(experimental_selective_replay)
         if mock != "marked" or resolved_mock_overrides:
@@ -1456,6 +1476,7 @@ def replay(
             grader_ids=grader_ids,
             db_branch_settings=db_branch_settings,
             only_with_assertions=only_with_assertions,
+            only_drafts=only_drafts,
             category_ids=category_ids,
             skip_assertion_judging=skip_assertion_judging,
             attempts=resolved_attempts,
@@ -2208,6 +2229,7 @@ def execute_replay_item(
     mock: MockStrategy = "marked",
     mock_override: MockOverrideInput | list[MockOverrideInput] | None = None,
     sandboxes: list[Sandbox] | None = None,
+    sandbox_modes: Mapping[str, SandboxModeSetting] | None = None,
     adapt_inputs: (
         Callable[
             [list[Any], dict[str, Any], AdaptContext], tuple[list[Any], dict[str, Any]]
@@ -2249,7 +2271,7 @@ def execute_replay_item(
             replayed_trace_id=replayed_trace_id,
             dry_run=dry_run,
             attempt=attempt,
-            sandboxes=combine_sandboxes(sandboxes, default_sandboxes()),
+            sandboxes=resolve_sandboxes(sandboxes, sandbox_modes),
         )
     )
     if not dry_run:
@@ -2412,6 +2434,7 @@ def _refuse_selection_with_resume(
     attempts: int | _ConcurrencyUnset,
     grader_ids: list[str] | None,
     only_with_assertions: bool,
+    only_drafts: bool,
     category_ids: list[str] | None,
     dry_run: bool,
     experimental_selective_replay: SelectiveReplayOptions | None,
@@ -2426,6 +2449,7 @@ def _refuse_selection_with_resume(
             ("attempts", not isinstance(attempts, _ConcurrencyUnset)),
             ("grader_ids", grader_ids is not None),
             ("only_with_assertions", only_with_assertions),
+            ("only_drafts", only_drafts),
             ("category_ids", category_ids is not None),
             ("dry_run", dry_run),
             (
@@ -3261,6 +3285,10 @@ async def _execute_item_async(
                 selective_replay.assert_no_safety_conflict()
             except RuntimeError as error:
                 replay_error = error
+        session = replay_ctx.get(SANDBOX_SESSION_KEY)
+        sandbox_failure = session.failure() if session is not None else None
+        if sandbox_failure is not None and replay_error is None:
+            replay_error = sandbox_failure
         _replay_context.reset(token)
         running.close()
 

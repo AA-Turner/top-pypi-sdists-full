@@ -4,6 +4,7 @@
 # These are ported from cmemcached to ensure compatibility.
 
 import pylibmc
+import pytest
 from tests import PylibmcTestCase
 
 a           = "a"
@@ -29,24 +30,22 @@ class TestCmemcached(PylibmcTestCase):
         assert self.mc.delete(str12345)
         assert self.mc.get(str12345) is None
 
-        # This test only works with old memcacheds. This has become a "client
-        # error" in memcached.
-        try:
-            assert not self.mc.delete(hello_world)
-        except pylibmc.ClientError:
-            pass
+        # A space is not allowed in a key with the text protocol.
+        with pytest.raises(ValueError):
+            self.mc.delete(hello_world)
 
     def testGetMulti(self):
         self.mc.set("a", "valueA")
         self.mc.set("b", "valueB")
         self.mc.set("c", "valueC")
-        result = self.mc.get_multi(["a", "b", "c", "", "hello world"])
+        result = self.mc.get_multi(["a", "b", "c", ""])
         assert result == {'a': 'valueA', 'b': 'valueB', 'c': 'valueC'}
+        # One bad key fails the whole call, before anything is sent.
+        with pytest.raises(ValueError):
+            self.mc.get_multi(["a", "b", "c", "", "hello world"])
 
     def testBigGetMulti(self):
         count = 10 ** 3
-        # Python 2: .encode() is a no-op on these byte strings since they
-        # only contain bytes that can be implicitly decoded as ASCII.
         keys = ['key%d' % i for i in range(count)]
         pairs = zip(keys, ['value%d' % i for i in range(count)])
 

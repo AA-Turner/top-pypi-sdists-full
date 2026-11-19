@@ -1,5 +1,0 @@
----
-features:
-  - |
-    ``dns_domain`` attribute support has been added to the network
-    port resource

@@ -59,6 +59,7 @@ SSEStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
 SourceTypeType = Literal["CLUSTER", "PARAMETER_GROUP", "SUBNET_GROUP"]
 DAXServiceName = Literal["dax"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

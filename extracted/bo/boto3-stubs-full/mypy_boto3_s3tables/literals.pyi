@@ -117,6 +117,7 @@ TableTypeType = Literal["aws", "customer"]
 UnmatchedSourceFieldsPolicyType = Literal["drop", "fail"]
 S3TablesServiceName = Literal["s3tables"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -23,6 +23,8 @@ namespace sogen
 
     namespace
     {
+        constexpr uint32_t k_client_thread_info_sending_message = 0x2;
+
         enum class wait_state
         {
             not_signaled,
@@ -1024,13 +1026,28 @@ namespace sogen
         this->message_wait_return_register = abi.return_value(emu);
     }
 
-    // A WH_GETMESSAGE hook sees a message before GetMessage returns it, so a waiting GetMessage runs again instead of
-    // being completed by the scheduler.
-    bool emulator_thread::has_hooked_message(windows_emulator& win_emu)
+    // GetMessage dispatches pending sent messages before retrieving a queued message, and a WH_GETMESSAGE hook sees
+    // the queued message before GetMessage returns it. Both cases require a waiting GetMessage to run again instead
+    // of being completed by the scheduler.
+    bool emulator_thread::needs_message_wait_restart(windows_emulator& win_emu)
     {
-        return this->get_message_hook && this->await_msg &&
-               this->peek_pending_message(win_emu, this->await_msg->hwnd_filter, this->await_msg->filter_min, this->await_msg->filter_max)
-                   .has_value();
+        if (!this->await_msg)
+        {
+            return false;
+        }
+
+        if (!this->pending_sent_messages.empty())
+        {
+            return true;
+        }
+
+        if (this->get_message_hook)
+        {
+            const auto& wait = *this->await_msg;
+            return this->peek_pending_message(win_emu, wait.hwnd_filter, wait.filter_min, wait.filter_max).has_value();
+        }
+
+        return false;
     }
 
     // A parked thread resumes right after its syscall instruction.
@@ -1054,6 +1071,7 @@ namespace sogen
         this->await_objects = {};
         this->await_msg = {};
         this->await_msg_mask = {};
+        this->await_msg_ready_status = {};
         this->await_io_completion = {};
         this->await_debug_event = {};
         this->await_file_io = {};
@@ -1201,6 +1219,10 @@ namespace sogen
         }
 
         auto status = this->message_queue_status_bits;
+        if (!this->pending_sent_messages.empty())
+        {
+            status |= QS_SENDMESSAGE;
+        }
         const auto has_pending_paint = std::ranges::any_of(win_emu.process.windows, [this, &win_emu](const auto& entry) {
             const auto& win = entry.second;
             return win.thread_id == this->id && (win.update_pending || win.internal_paint_pending) &&
@@ -1287,8 +1309,8 @@ namespace sogen
         return std::nullopt;
     }
 
-    std::optional<msg> emulator_thread::peek_pending_message(windows_emulator& win_emu, hwnd hwnd_filter, UINT filter_min, UINT filter_max,
-                                                             bool remove)
+    std::optional<msg> emulator_thread::select_pending_message(windows_emulator& win_emu, hwnd hwnd_filter, UINT filter_min,
+                                                               UINT filter_max, bool remove)
     {
         if (auto queued_message = this->peek_queued_message(win_emu.process, hwnd_filter, filter_min, filter_max, remove))
         {
@@ -1333,6 +1355,30 @@ namespace sogen
         }
 
         return std::nullopt;
+    }
+
+    std::optional<msg> emulator_thread::peek_pending_message(windows_emulator& win_emu, hwnd hwnd_filter, UINT filter_min, UINT filter_max,
+                                                             message_retrieval_mode mode)
+    {
+        const bool remove = mode != message_retrieval_mode::peek;
+        const auto message = this->select_pending_message(win_emu, hwnd_filter, filter_min, filter_max, remove);
+
+        // Native Windows keeps this token through dispatch, but invalidates it on the next removal,
+        // except when GetMessage retrieves WM_QUIT.
+        if (message && remove && !(mode == message_retrieval_mode::get && message->message == WM_QUIT))
+        {
+            this->last_raw_input_.reset();
+            if (message->message == WM_INPUT)
+            {
+                const auto input = this->queued_raw_inputs_.extract(message->lParam);
+                if (input)
+                {
+                    this->last_raw_input_ = retrieved_raw_input{.token = input.key(), .payload = input.mapped()};
+                }
+            }
+        }
+
+        return message;
     }
 
     bool emulator_thread::can_coalesce_message(const msg& msg) const
@@ -1386,6 +1432,37 @@ namespace sogen
         win_emu.wake_idle_vcpu();
     }
 
+    void emulator_thread::post_raw_input(windows_emulator& win_emu, const hwnd window, const uint32_t token,
+                                         const raw_input_payload& payload)
+    {
+        if (this->is_terminated() || (this->last_raw_input_ && this->last_raw_input_->token == token))
+        {
+            return;
+        }
+
+        if (this->queued_raw_inputs_.try_emplace(token, payload).second)
+        {
+            this->post_message(win_emu, {.window = window, .message = WM_INPUT, .wParam = RIM_INPUT, .lParam = token});
+        }
+    }
+
+    const raw_input_payload* emulator_thread::find_raw_input(const emulator_pointer token) const
+    {
+        if (this->last_raw_input_ && this->last_raw_input_->token == token)
+        {
+            return &this->last_raw_input_->payload;
+        }
+
+        const auto input = this->queued_raw_inputs_.find(token);
+        return input != this->queued_raw_inputs_.end() ? &input->second : nullptr;
+    }
+
+    void emulator_thread::clear_raw_input()
+    {
+        this->queued_raw_inputs_.clear();
+        this->last_raw_input_.reset();
+    }
+
     // Activating a window moves the keyboard focus to it; losing activation takes the focus away.
     void emulator_thread::set_active_window(const hwnd window)
     {
@@ -1435,8 +1512,11 @@ namespace sogen
         }
 
         this->client_thread_info->access([&](USER_CLIENTTHREADINFO& info) {
+            info.flags = (info.flags & ~k_client_thread_info_sending_message) |
+                         (this->active_sent_messages.empty() ? 0 : k_client_thread_info_sending_message);
             info.change_bits = static_cast<uint16_t>(this->queue_status_changed_bits);
-            info.wake_bits = static_cast<uint16_t>(this->message_queue_status_bits);
+            info.wake_bits =
+                static_cast<uint16_t>(this->message_queue_status_bits | (this->pending_sent_messages.empty() ? 0 : QS_SENDMESSAGE));
             info.focus_window = this->focus_window;
             info.active_window = this->active_window;
         });
@@ -1450,6 +1530,11 @@ namespace sogen
             {
                 ++it;
                 continue;
+            }
+
+            if (it->message == WM_INPUT)
+            {
+                this->queued_raw_inputs_.erase(it->lParam);
             }
 
             const auto removed_bits = get_message_queue_status_bits(*it);
@@ -1492,6 +1577,11 @@ namespace sogen
         if (this->is_terminated() || this->suspended > 0)
         {
             return false;
+        }
+
+        if (const auto* wait = this->current_sent_message_wait())
+        {
+            return wait->result.has_value() || !this->pending_sent_messages.empty();
         }
 
         auto& process = win_emu.process;
@@ -1565,7 +1655,9 @@ namespace sogen
 
             if (this->await_msg_mask.has_value() && message_ready && (this->await_any || this->await_objects.empty()))
             {
-                this->mark_as_ready(static_cast<NTSTATUS>(STATUS_WAIT_0 + this->await_objects.size()));
+                const auto status =
+                    this->await_msg_ready_status.value_or(static_cast<NTSTATUS>(STATUS_WAIT_0 + this->await_objects.size()));
+                this->mark_as_ready(status);
                 return true;
             }
 
@@ -1745,13 +1837,13 @@ namespace sogen
 
         if (this->await_msg.has_value())
         {
-            if (this->get_message_hook)
+            if (this->get_message_hook || !this->pending_sent_messages.empty())
             {
                 return false;
             }
 
             if (const auto m = this->peek_pending_message(win_emu, this->await_msg->hwnd_filter, this->await_msg->filter_min,
-                                                          this->await_msg->filter_max, true))
+                                                          this->await_msg->filter_max, message_retrieval_mode::get))
             {
                 this->await_msg->message.write(*m);
                 this->record_current_message(*m);

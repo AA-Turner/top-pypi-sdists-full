@@ -60,6 +60,7 @@ ShapeType = Literal["Composite", "List", "Scalar"]
 StyleTypeType = Literal["Default", "SpellByLetter", "SpellByWord"]
 LexRuntimeV2ServiceName = Literal["lexv2-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

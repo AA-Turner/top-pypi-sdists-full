@@ -51,6 +51,7 @@ StateEnumType = Literal["ACTIVE", "CREATED", "DELETING"]
 TelemetryType = Literal["errors", "http", "performance"]
 CloudWatchRUMServiceName = Literal["rum"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

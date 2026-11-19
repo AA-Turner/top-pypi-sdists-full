@@ -113,6 +113,7 @@ TypeType = Literal[
 ]
 DataExchangeServiceName = Literal["dataexchange"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

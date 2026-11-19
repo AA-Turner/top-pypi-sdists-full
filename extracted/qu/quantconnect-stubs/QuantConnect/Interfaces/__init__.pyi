@@ -502,7 +502,7 @@ class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictio
         Creates a new dictionary from the given sequence of elements with a value provided by the user.
         
         :param sequence: Sequence of elements which is to be used as keys for the new dictionary
-        :param value: Value which is set to each each element of the dictionary
+        :param value: Value which is set to each element of the dictionary
         :returns: Returns a new dictionary with the given sequence of elements as the keys of the dictionary.
         Each element of the newly created dictionary is set to the provided value.
         """
@@ -1803,7 +1803,7 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
     @abc.abstractmethod
     def securities(self) -> QuantConnect.Securities.SecurityManager:
         """
-        Security object collection class stores an array of objects representing representing each security/asset
+        Security object collection class stores an array of objects representing each security/asset
         we have a subscription for.
         """
         ...

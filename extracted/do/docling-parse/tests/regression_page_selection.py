@@ -320,6 +320,7 @@ REGRESSION_PAGE_SELECTION: Dict[str, List[int]] = {
     "amt_handbook_sample.pdf": [1],
     "annots_01.pdf": [1],
     "annots_02.pdf": [1],
+    "asmeconf-accessible-PDF-UA-2.pdf": [1],  # RoleMapNS (#458).
     "b33ee337-1bc8-4e74-bb4d-2efb78996075-64.pdf": [1],
     "b3f8917b0485daed_0007.pdf": [1],
     "b5a2a4f812b9d285_0002.pdf": [1],
@@ -441,6 +442,7 @@ REGRESSION_PAGE_SELECTION: Dict[str, List[int]] = {
     "font_10.pdf": [1],
     "font_11.pdf": [1, 2],
     "form_fields.pdf": [1, 2, 3, 4, 5],
+    "ga-drivers-manual-2023-2024.pdf": [10],  # Missing CID-keyed CFF glyphs (#466).
     "indexed_device_n.pdf": [1],
     "indexed_iccbased.pdf": [1],
     "inflate_jpeg.pdf": [1],
@@ -480,6 +482,7 @@ REGRESSION_PAGE_SELECTION: Dict[str, List[int]] = {
     "stream_parameter_misinterpretation_02.pdf": [1],
     "table_mislabeled_as_picture.pdf": [1],
     "table_of_contents_01.pdf": [1, 2, 3, 4],
+    "tagpdf.pdf": [7],  # RoleMapNS (#458).
     "test-parent-mediabox.pdf": [1],
     "text_as_lines_01.pdf": [1, 2, 3],
     "text_as_lines_02.pdf": [1],

@@ -137,6 +137,7 @@ StandardUnitType = Literal[
 UnprocessedStatusEventFailureReasonType = Literal["INTERNAL_ERROR", "THROTTLED", "VALIDATION_ERROR"]
 CloudWatchApplicationSignalsServiceName = Literal["application-signals"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

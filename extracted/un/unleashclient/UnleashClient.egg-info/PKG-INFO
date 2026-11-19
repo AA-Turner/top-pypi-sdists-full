@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: UnleashClient
-Version: 6.9.1
+Version: 7.0.0
 Summary: Python client for the Unleash feature toggle system!
 Author-email: Ivan Lee <ivanklee86@gmail.com>
 Project-URL: Homepage, https://github.com/Unleash/unleash-python-sdk
@@ -12,23 +12,20 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Typing :: Typed
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: requests
 Requires-Dist: fcache
-Requires-Dist: mmh3
 Requires-Dist: apscheduler<4.0.0
 Requires-Dist: importlib_metadata
 Requires-Dist: python-dateutil
 Requires-Dist: semver<4.0.0
-Requires-Dist: yggdrasil-engine<3.0.0,>=2.0.0
+Requires-Dist: yggdrasil-engine<4.0.0,>=3.0.0
 Requires-Dist: launchdarkly-eventsource
 Provides-Extra: async
 Requires-Dist: aiohttp>=3.9; extra == "async"
@@ -41,6 +38,10 @@ Dynamic: license-file
 Unleash is a private, secure, and scalable [feature management platform](https://www.getunleash.io/) built to reduce the risk of releasing new features and accelerate software development. This server-side Python SDK is designed to help you integrate with Unleash and evaluate feature flags inside your application.
 
 You can use this client with [Unleash Enterprise](https://www.getunleash.io/pricing?utm_source=readme&utm_medium=python) or [Unleash Open Source](https://github.com/Unleash/unleash).
+
+> **Migrating to v7**
+>
+> The client's settings are now grouped into option objects, and every argument after `url` and `app_name` is keyword-only. Read the [v7 migration guide](./v7_MIGRATION_GUIDE.md) before upgrading.
 
 > **Migrating to v6**
 >
@@ -65,7 +66,7 @@ from UnleashClient import UnleashClient
 client = UnleashClient(
     url="https:<YOUR-API-URL>",
     app_name="my-python-app",
-    custom_headers={'Authorization': '<API token>'})
+    api_key="<API token>")
 
 client.initialize_client()
 ```
@@ -145,32 +146,73 @@ The client will evaluate the fallback function if the feature flag is not found 
 
 ### Configuration options
 
-The UnleashClient constructor supports the following configuration options:
+`url` and `app_name` are required. Everything else is a keyword argument, and related settings are grouped into option objects:
 
-| Parameter              | Description                                                                                                                                     | Default                   |
-| ------------              | ------------                                                                                                                                   | ------------              |
-| url                      | URL of your Unleash server. E.g. `https://app.unleash-hosted.com/demo/api/` Required.                                                             | None                      |
-| app_name                  | Name of the application using the client. Required.                                                                                             | None                      |
-| environment               | Logical environment name (deprecated).                                                                                                         | "default"                 |
-| instance_id               | Unique identifier for this client instance.                                                                                                     | "unleash-client-python"   |
-| refresh_interval       | How often to fetch feature flags (seconds).                                                                                                     | 15                        |
-| refresh_jitter            | Jitter to add to refresh interval (seconds).                                                                                                     | None                      |
-| metrics_interval       | How often to send metrics to Unleash (seconds).                                                                                                 | 60                        |
-| metrics_jitter            | Jitter to add to metrics interval (seconds).                                                                                                     | None                      |
-| disable_metrics           | Disable sending usage metrics.                                                                                                                 | False                     |
-| disable_registration      | Disable client registration.                                                                                                                     | False                     |
-| custom_headers            | Additional HTTP headers (e.g. Authorization).                                                                                                     | None                      |
-| custom_options            | Extra options for [HTTP requests](https://requests.readthedocs.io/en/latest/api/#main-interface).                                                 | None                      |
-| request_timeout           | HTTP request timeout (seconds).                                                                                                                 | 30                        |
-| request_retries           | HTTP request retry count.                                                                                                                         | 3                         |
-| custom_strategies      | Dict of `{name: strategy}` for custom activation strategies. See [custom strategies](#custom-strategies) for more information.                      | None                      |
-| cache_directory          | Location for the on-disk cache. Auto-determined.                                                                                                  | None                      |
-| cache                  | Custom cache implementation (must extend BaseCache). See [custom cache](#custom-cache) for more information                                       | BaseCache                 |
-| scheduler              | Custom APScheduler instance. Auto-created.                                                                                                       | BaseScheduler             |
-| verbose_log_level      | Python logging level for debugging feature flag failures. See <https://docs.python.org/3/library/logging.html#logging-levels> for more information. | 30                        |
-| scheduler_executor      | APScheduler executor name to use.                                                                                                                 | None                      |
-| multiple_instance_mode    | How to handle multiple client instances (BLOCK, WARN, SILENTLY_ALLOW).                                                                         | WARN                      |
-| event_callback          | Function to handle impression events. See [impression data](#impression-data) for more information.                                               | None                      |
+```python
+from UnleashClient import (
+    MetricsOptions, PollingOptions, RequestsTransport, UnleashClient,
+)
+
+client = UnleashClient(
+    url="https://YOUR-API-URL",
+    app_name="my-python-app",
+    api_key="<API token>",
+    transport=RequestsTransport(timeout=10),
+    mode=PollingOptions(interval=30),
+    metrics=MetricsOptions(disabled=True),
+)
+```
+
+Settings can't be changed after the client is created.
+
+| Parameter              | Description                                                                                                                               | Default             |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| url                    | URL of your Unleash server, e.g. `https://app.unleash-hosted.com/demo/api/`. Required.                                                    | —                   |
+| app_name               | Name of the application using the client. Required.                                                                                       | —                   |
+| api_key                | Client API token, sent as the `Authorization` header. | None                |
+| identity               | How the client identifies itself. See [`IdentityOptions`](#identityoptions).                                                              | `IdentityOptions()` |
+| mode                   | How the client receives flag updates: [`PollingOptions`](#pollingoptions) or [`StreamingOptions`](#streamingoptions).                     | `PollingOptions()`  |
+| metrics                | How the client reports to the server. See [`MetricsOptions`](#metricsoptions).                                                            | `MetricsOptions()`  |
+| verbose_log_level      | [Log level](https://docs.python.org/3/library/logging.html#logging-levels) for messages about unknown flags and failed impression events. | 30                  |
+| custom_strategies      | Dict of `{name: strategy}` for custom activation strategies. See [custom strategies](#custom-strategies).                                 | None                |
+| cache                  | Custom cache implementation (must extend `BaseCache`). See [custom cache](#custom-cache).                                                 | `FileCache`         |
+| cache_directory        | Directory for the default `FileCache`. When unset, a platform-specific user cache directory is used. Ignored when `cache` is given.       | None                |
+| scheduler              | Custom APScheduler instance. When unset, the client creates a `BackgroundScheduler`. Sync client only.                                    | None                |
+| scheduler_executor     | Name of the executor to use on your custom `scheduler`. Required with `scheduler`. Sync client only.                                      | None                |
+| multiple_instance_mode | How to handle multiple client instances (`BLOCK`, `WARN`, `SILENTLY_ALLOW`).                                                              | `WARN`              |
+| event_callback         | Function that receives impression and lifecycle events. See [events and impression data](#events-and-impression-data).                    | None                |
+| transport              | How requests are sent, including headers, timeout, proxy and TLS settings. See [custom HTTP transport](#custom-http-transport).    | `RequestsTransport` or `AiohttpTransport` |
+
+#### `IdentityOptions`
+
+| Parameter          | Description                                                                            | Default              |
+| ------------------ | -------------------------------------------------------------------------------------- | -------------------- |
+| instance_id        | Unique identifier for this client instance.                                            | "unleash-python-sdk" |
+| sdk_flavor         | Identifier of an integration built on this SDK (e.g. an OpenFeature provider).         | None                 |
+| sdk_flavor_version | Version of the integration named by `sdk_flavor`.                                      | None                 |
+
+#### `PollingOptions`
+
+The default: the client fetches feature flags from the server on an interval.
+
+| Parameter    | Description                                           | Default |
+| ------------ | ----------------------------------------------------- | ------- |
+| interval     | How often to fetch feature flags (seconds).           | 15      |
+| jitter       | Maximum random delay added to each refresh (seconds). | None    |
+| project_name | Only fetch the feature flags of this project.         | None    |
+
+#### `StreamingOptions`
+
+Experimental: the client keeps a streaming connection open and receives flag updates as they happen. Pass `mode=StreamingOptions()`. It has no settings yet. `AsyncUnleashClient` doesn't support streaming.
+
+#### `MetricsOptions`
+
+| Parameter            | Description                                                | Default |
+| -------------------- | ---------------------------------------------------------- | ------- |
+| interval             | How often to send metrics to Unleash (seconds).            | 60      |
+| jitter               | Maximum random delay added to each metrics send (seconds). | None    |
+| disabled             | Disable sending usage metrics.                             | False   |
+| disable_registration | Disable client registration.                               | False   |
 
 ### Bootstrap
 
@@ -272,7 +314,7 @@ client = UnleashClient(
 
     url="https://YOUR-API-URL",
     app_name="my-python-app",
-    custom_headers={'Authorization': '<API token>'},
+    api_key="<API token>",
     custom_strategies = my_custom_strategies
 )
 
@@ -310,7 +352,7 @@ def example_callback(event: UnleashEvent):
 client = UnleashClient(
     url="https://YOUR-API-URL",
     app_name="my-python-app",
-    custom_headers={'Authorization': '<API token>'},
+    api_key="<API token>",
     event_callback=example_callback
 )
 client.initialize_client()
@@ -348,7 +390,7 @@ def example_callback(event: UnleashEvent):
 client = UnleashClient(
     url="https://YOUR-API-URL",
     app_name="my-python-app",
-    custom_headers={'Authorization': '<API token>'},
+    api_key="<API token>",
     event_callback=example_callback
 )
 client.initialize_client()
@@ -362,7 +404,7 @@ Impact metrics are lightweight, application-level time-series metrics stored and
 
 These metrics help validate feature impact and automate release processes. For instance, you can monitor usage patterns or performance to determine if a feature meets its goals.
 
-The SDK automatically attaches context labels to metrics: `appName` and `environment`.
+The SDK automatically attaches context labels to metrics: `appName` and `environment`. The environment is taken from your API token, or is `"default"` when the token doesn't name one.
 
 #### Counters
 
@@ -450,6 +492,216 @@ client = UnleashClient(
 )
 ```
 
+### Custom HTTP transport
+
+By default, `UnleashClient` sends its requests with `requests`, on a new session for every request, and `AsyncUnleashClient` with one `aiohttp` session. Pass `transport=` to choose how requests are sent:
+
+- `RequestsTransport(session)` or `AiohttpTransport(session)` to keep the default library but configure the session;
+- any object with an `execute(request) -> Response` method, to use another HTTP library. For `AsyncUnleashClient`, `execute` is `async`.
+
+Pass the API token as `api_key`, not as an `Authorization` header in the `headers` of `RequestsTransport` or `AiohttpTransport`. If you also set `api_key`, the header is ignored with a warning. Without `api_key`, the client raises `ValueError` if an `Authorization` header is passed.
+
+#### Custom `requests` session
+
+The session is used for every request and never closed by the client: close it yourself after `client.destroy()`.
+
+```python
+import requests
+from UnleashClient import RequestsTransport, UnleashClient
+
+session = requests.Session()
+
+# examples
+# proxy
+session.proxies = {"https": "http://proxy.internal:3128"}
+
+# A private CA, or a client certificate for mutual TLS
+session.verify = "/etc/ssl/certs/internal-ca.pem"
+session.cert = ("/etc/unleash/client.crt", "/etc/unleash/client.key")
+
+# hooks
+session.hooks["response"].append(
+    lambda resp, *args, **kwargs: metrics.observe(resp.elapsed.total_seconds())
+)
+
+client = UnleashClient(
+    url="https://YOUR-API-URL",
+    app_name="my-python-app",
+    api_key="<API token>",
+    transport=RequestsTransport(
+        session,
+        headers={"X-Team": "checkout"},  # sent with every request
+        timeout=10,                      # seconds, for the connection and each read
+    ),
+)
+```
+
+A session also keeps connections open between polls, instead of opening a new one each time.
+
+`RequestsTransport` takes `headers` and `timeout` with or without a session. The SDK's own headers take precedence over custom ones.
+
+#### Custom `aiohttp` session
+
+The same for `AsyncUnleashClient`, with an `aiohttp.ClientSession`. Create it inside a coroutine, since aiohttp needs a running event loop, and close it after the client:
+
+```python
+import ssl
+import aiohttp
+from UnleashClient import AiohttpTransport
+from UnleashClient.clients.async_unleash_client import AsyncUnleashClient
+
+# examples
+tls = ssl.create_default_context(cafile="/etc/ssl/certs/internal-ca.pem")
+tls.load_cert_chain("/etc/unleash/client.crt", "/etc/unleash/client.key")
+
+async def main():
+    async with aiohttp.ClientSession(
+        trust_env=True,
+        connector=aiohttp.TCPConnector(ssl=tls),
+        trace_configs=[my_trace_config],  # e.g. aiohttp tracing for OpenTelemetry
+    ) as session:
+        async with AsyncUnleashClient(
+            url="https://YOUR-API-URL",
+            app_name="my-python-app",
+            api_key="<API token>",
+            transport=AiohttpTransport(session, headers={"X-Team": "checkout"}, timeout=10),
+        ) as client:
+            ...
+```
+
+`AiohttpTransport`'s `timeout` applies to every request, in place of the session's own. Every status reaches the client as a response, even on a session created with `raise_for_status=True`.
+
+An `AiohttpTransport()` without a session opens its own; if you create one and pass it in, close it with `await transport.aclose()` after the client.
+
+#### Another HTTP library
+
+A transport receives a `Request` (`method`, a `Method`: `GET` or `POST`, plus `url`, `headers`, `params` and `body`) and returns a `Response` (`status`, `headers`, `body` as bytes). Every status is a response: raise only when no response arrived, such as on a connection error or a timeout. The client logs the error and reports a failed request. For example, with [httpx](https://www.python-httpx.org/):
+
+```python
+import httpx
+from UnleashClient import Request, Response, UnleashClient
+
+class HttpxTransport:
+    def __init__(self, client: httpx.Client) -> None:
+        self._client = client
+
+    def execute(self, request: Request) -> Response:
+        resp = self._client.request(
+            request.method,
+            request.url,
+            headers=dict(request.headers),
+            params=dict(request.params),
+            content=request.body,
+        )
+        return Response(status=resp.status_code, headers=resp.headers, body=resp.content)
+
+with httpx.Client(timeout=30) as http_client:
+    client = UnleashClient(
+        url="https://YOUR-API-URL",
+        app_name="my-python-app",
+        api_key="<API token>",
+        transport=HttpxTransport(http_client),
+    )
+```
+
+For `AsyncUnleashClient`, `execute` is `async`. The same with `httpx.AsyncClient`:
+
+```python
+import httpx
+from UnleashClient import Request, Response
+from UnleashClient.clients.async_unleash_client import AsyncUnleashClient
+
+class HttpxAsyncTransport:
+    def __init__(self, client: httpx.AsyncClient) -> None:
+        self._client = client
+
+    async def execute(self, request: Request) -> Response:
+        resp = await self._client.request(
+            request.method,
+            request.url,
+            headers=dict(request.headers),
+            params=dict(request.params),
+            content=request.body,
+        )
+        return Response(status=resp.status_code, headers=resp.headers, body=resp.content)
+
+async def main():
+    async with httpx.AsyncClient(timeout=30) as http_client:
+        async with AsyncUnleashClient(
+            url="https://YOUR-API-URL",
+            app_name="my-python-app",
+            api_key="<API token>",
+            transport=HttpxAsyncTransport(http_client),
+        ) as client:
+            ...
+```
+
+The response headers can be a plain `dict`: the client looks them up case-insensitively.
+
+#### Tests without a server
+
+A fake transport lets your tests choose the flags without a server or HTTP mocking:
+
+```python
+import json
+from UnleashClient import Method, Request, Response, UnleashClient
+
+class FakeTransport:
+    def __init__(self, *flags):
+        self._features = json.dumps({"version": 1, "features": list(flags)}).encode()
+        self.requests = []  # what the SDK sent
+
+    def execute(self, request: Request) -> Response:
+        self.requests.append(request)
+        if request.method == Method.GET:
+            return Response(status=200, headers={}, body=self._features)
+        return Response(status=202, headers={}, body=b"")  # registration and metrics
+
+def flag(name, enabled):
+    return {"name": name, "enabled": enabled, "strategies": [{"name": "default", "parameters": {}}]}
+
+def test_new_checkout_is_on(tmp_path):
+    transport = FakeTransport(flag("new-checkout", True))
+
+    with UnleashClient(
+        "http://unleash.test/api", "my-app-tests",
+        transport=transport, cache_directory=str(tmp_path),
+    ) as client:
+        assert client.is_enabled("new-checkout")
+```
+
+For `AsyncUnleashClient`, make `execute` `async` and the test a coroutine, here with [pytest-asyncio](https://pytest-asyncio.readthedocs.io/):
+
+```python
+import pytest
+from UnleashClient.clients.async_unleash_client import AsyncUnleashClient
+
+
+class FakeAsyncTransport(FakeTransport):
+    async def execute(self, request: Request) -> Response:
+        return super().execute(request)
+
+@pytest.mark.asyncio
+async def test_new_checkout_is_on(tmp_path):
+    transport = FakeAsyncTransport(flag("new-checkout", True))
+
+    async with AsyncUnleashClient(
+        "http://unleash.test/api", "my-app-tests",
+        transport=transport, cache_directory=str(tmp_path),
+    ) as client:
+        assert client.is_enabled("new-checkout")
+```
+
+All four examples are in [`examples/`](examples/) and run as part of the SDK's tests.
+
+#### Things to know
+
+- **Don't retry in your transport.** The client already retries a failed feature fetch up to 3 times, with a backoff. A `requests` session with a retrying adapter mounted logs a warning, because failed fetches would be retried twice over. aiohttp has no retry setting, but resends a GET once by itself when the server drops a reused connection; that's expected, and not a retry to turn off.
+- **Don't log request headers.** They include your API token.
+- **Don't add an HTTP cache.** The client already sends `If-None-Match` and handles `304 Not Modified`. A caching session (such as CacheControl or requests-cache) turns each 304 into its cached 200, so the client reloads unchanged flags on every poll. The flags stay correct.
+- **Create the session in the process that uses it.** With a forking server, such as gunicorn with `--preload` or uWSGI without `lazy-apps`, build the session together with the client in each worker. Forked processes must not share open connections. See [running in multi-process setups](#running-in-multi-process-setups).
+- **Streaming mode doesn't use the transport.** With `mode=StreamingOptions()`, the stream connects with the SDK's own headers and a 30 second timeout. Custom transport's headers, timeout, proxy and TLS settings don't apply to it.
+
 ## Running in multi-process setups
 
 The Python SDK runs a background thread to keep feature flags in sync with the Unleash server. Some runtime environments, like WSGI servers and Celery workers, need extra setup to make sure the SDK works correctly.
@@ -476,7 +728,7 @@ from celery.signals import worker_process_init
 client = UnleashClient(
     url="https://YOUR-API-URL",
     app_name="my-python-app",
-    custom_headers={'Authorization': '<API token>'}
+    api_key="<API token>"
 )
 
 @worker_process_init.connect

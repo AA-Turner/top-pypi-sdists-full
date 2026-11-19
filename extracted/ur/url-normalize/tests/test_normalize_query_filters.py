@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from url_normalize import url_normalize
+from url_normalize import url_humanize, url_normalize
 from url_normalize.param_allowlist import get_allowed_params
 
 
@@ -17,7 +17,7 @@ def test_param_filtering_disabled_by_default():
 
 
 def test_empty_query():
-    """Test handling empty query strings."""
+    """Remove an empty query delimiter by default."""
     assert url_normalize("https://example.com/page?") == "https://example.com/page"
 
 
@@ -57,6 +57,83 @@ def test_custom_list_allowlist():
     )
 
 
+@pytest.mark.parametrize("api", [url_normalize, url_humanize])
+@pytest.mark.parametrize(
+    "allowlist", ["id", {"example.com": "id"}, {"EXAMPLE.COM.": "id"}]
+)
+def test_single_name_allowlist_keeps_the_whole_name(api, allowlist):
+    """Do not split a multi-character allowed name into individual characters."""
+    # Single-name support also exists in w3lib 2.5.0's test_url_query_cleaner:
+    # https://github.com/scrapy/w3lib/blob/v2.5.0/tests/test_url.py
+    assert (
+        api(
+            "https://example.com/?id=123&i=456&d=789&id=987&drop=1",
+            param_allowlist=allowlist,
+        )
+        == "https://example.com/?id=123&id=987"
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "query", "expected"),
+    [
+        ("", "=empty&drop=1", "=empty"),
+        ("page,id", "page,id=literal&page=1&id=2", "page,id=literal"),
+        ("café", "caf%C3%A9=1&drop=2", "caf%C3%A9=1"),  # codespell:ignore caf
+        ("a%2fb", "a%2Fb=1&a/b=2", "a%2Fb=1"),
+    ],
+)
+def test_single_name_allowlist_preserves_name_boundaries(name, query, expected):
+    """Use existing key normalization without inventing comma or empty-name rules."""
+    assert (
+        url_normalize(f"https://example.com/?{query}", param_allowlist=name)
+        == f"https://example.com/?{expected}"
+    )
+
+
+@pytest.mark.parametrize("api", [url_normalize, url_humanize])
+def test_single_name_allowlist_on_relative_reference(api):
+    """Apply a global name without requiring an authority or losing path policies."""
+    assert (
+        api(
+            "../a//b?id=1&drop=2#",
+            param_allowlist="id",
+            collapse_slashes=False,
+            keep_empty_components=True,
+        )
+        == "../a//b?id=1#"
+    )
+
+
+@pytest.mark.parametrize("api", [url_normalize, url_humanize])
+@pytest.mark.parametrize(
+    ("options", "expected_query"),
+    [
+        ({"param_allowlist": ["id"]}, "?id=1"),
+        ({"param_allowlist": {"google.com": ["id"]}}, "?id=1"),
+        ({"param_allowlist": ["id"], "filter_params": False}, "?id=1"),
+        ({"param_allowlist": []}, ""),
+        ({"param_allowlist": {}}, ""),
+        ({"param_allowlist": {"other.example": ["id"]}}, ""),
+        ({"param_allowlist": None}, "?id=1&q=hello&drop=2"),
+        ({"param_allowlist": None, "filter_params": True}, "?q=hello"),
+    ],
+)
+def test_explicit_allowlist_enables_filtering(api, options, expected_query):
+    """Apply supplied rules, including empty ones, instead of built-in defaults."""
+    value = "https://google.com/?id=1&q=hello&drop=2"
+    assert api(value, **options) == f"https://google.com/{expected_query}"
+
+
+def test_domain_allowlist_can_mix_single_names_and_lists():
+    """Accept both rule forms without changing a caller-owned dictionary."""
+    rules = {"one.example": "id", "two.example": ["q"]}
+    assert get_allowed_params("one.example", rules) == {"id"}
+    assert get_allowed_params("two.example", rules) == {"q"}
+    assert get_allowed_params("other.example", rules) == set()
+    assert rules == {"one.example": "id", "two.example": ["q"]}
+
+
 @pytest.mark.parametrize("separator", [".", "\u3002", "\uff0e", "\uff61"])
 def test_custom_allowlist_matches_trailing_idna_separator(separator):
     """Match custom domain keys with any IDNA trailing label separator."""
@@ -67,6 +144,28 @@ def test_custom_allowlist_matches_trailing_idna_separator(separator):
             param_allowlist={f"example.com{separator}": ["q"]},
         )
         == "https://example.com/?q=1"
+    )
+
+
+@pytest.mark.parametrize("key", [".example.com", "example..com", "example.com.."])
+def test_custom_allowlist_distinguishes_empty_host_labels(key):
+    """Match unusual hostnames only to their own allowlist entries."""
+    allowlist = {key: ["q"], "EXAMPLE.COM.": ["keep"]}
+    assert (
+        url_normalize(
+            "https://example.com/?q=1&keep=2",
+            filter_params=True,
+            param_allowlist=allowlist,
+        )
+        == "https://example.com/?keep=2"
+    )
+    assert (
+        url_normalize(
+            f"https://{key}/?q=1&keep=2",
+            filter_params=True,
+            param_allowlist=allowlist,
+        )
+        == f"https://{key}/?q=1"
     )
 
 
@@ -242,6 +341,39 @@ def test_custom_allowlist_normalizes_bracketed_keys(key):
     )
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_custom_allowlist_matches_equivalent_ipv6_spellings(reverse):
+    """Match expanded and compressed IPv6 addresses on either side of filtering."""
+    host, key = "[2001:0DB8:0:0:0:0:0:1]", "[2001:db8::1]"
+    if reverse:
+        host, key = key, host
+    allowlist = {key: ["q"]}
+    assert (
+        url_normalize(
+            f"https://{host}/?q=1&drop=2",
+            filter_params=True,
+            param_allowlist=allowlist,
+        )
+        == "https://[2001:db8::1]/?q=1"
+    )
+    assert allowlist == {key: ["q"]}
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_custom_allowlist_prefers_canonical_ipv6_key(reverse):
+    """Keep the canonical rule authoritative when IPv6 spellings become aliases."""
+    entries = [("[2001:0DB8:0:0:0:0:0:1]", ["q"]), ("[2001:db8::1]", ["keep"])]
+    allowlist = dict(reversed(entries) if reverse else entries)
+    assert (
+        url_normalize(
+            "https://[2001:0DB8:0:0:0:0:0:1]/?q=1&keep=2",
+            filter_params=True,
+            param_allowlist=allowlist,
+        )
+        == "https://[2001:db8::1]/?keep=2"
+    )
+
+
 @pytest.mark.parametrize("allowed", [[], ["q"]])
 @pytest.mark.parametrize("reverse", [False, True])
 def test_custom_allowlist_canonical_key_takes_precedence(allowed, reverse):
@@ -259,13 +391,14 @@ def test_custom_allowlist_canonical_key_takes_precedence(allowed, reverse):
     )
 
 
-def test_custom_allowlist_ignores_unrelated_invalid_domain():
+@pytest.mark.parametrize("invalid_domain", ["a" * 64 + ".example", "bad\x1bc.example"])
+def test_custom_allowlist_ignores_unrelated_invalid_domain(invalid_domain):
     """Keep a malformed unrelated key from breaking a valid domain lookup."""
     assert (
         url_normalize(
             "https://пример.рф/?q=1",
             filter_params=True,
-            param_allowlist={"a" * 64 + ".example": [], "пример.рф": ["q"]},
+            param_allowlist={invalid_domain: [], "пример.рф": ["q"]},
         )
         == "https://xn--e1afmkfd.xn--p1ai/?q=1"
     )
@@ -288,3 +421,19 @@ def test_filtering_resolves_domain_rules_once_per_url(host):
         expected += "?" + "&".join(f"q={index}" for index in range(50))
     assert result == expected
     lookup.assert_called_once_with(host, allowlist)
+
+
+@pytest.mark.parametrize("api", [url_normalize, url_humanize])
+@pytest.mark.parametrize(
+    ("allowed", "expected"), [("a/b", "a/b=2"), ("a%2fb", "a%2Fb=1")]
+)
+def test_query_allowlist_distinguishes_reserved_escapes(api, allowed, expected):
+    """Normalize escape case in allowlists without conflating literal punctuation."""
+    assert (
+        api(
+            "https://example.com/?a%2Fb=1&a/b=2",
+            filter_params=True,
+            param_allowlist=[allowed],
+        )
+        == f"https://example.com/?{expected}"
+    )

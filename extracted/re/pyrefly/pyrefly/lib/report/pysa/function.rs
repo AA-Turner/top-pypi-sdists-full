@@ -13,6 +13,7 @@ use dupe::Dupe;
 use pyrefly_graph::index::Idx;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::Param;
 use pyrefly_types::callable::Params;
@@ -27,7 +28,6 @@ use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
-use ruff_text_size::TextRange;
 use serde::Serialize;
 
 use crate::alt::class::class_field::ClassField;
@@ -55,6 +55,7 @@ use crate::report::pysa::scope::ScopeParent;
 use crate::report::pysa::scope::get_scope_parent;
 use crate::report::pysa::types::PysaType;
 use crate::report::pysa::types::is_callable_like;
+use crate::types::env::TypeEnv;
 
 /// Represents a unique identifier for a function **within a module**.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -498,8 +499,15 @@ impl DecoratedFunction<'_> {
         &self.undecorated.metadata
     }
 
-    fn id_range(&self) -> TextRange {
-        self.undecorated.identifier.range()
+    /// The name in the function's `def` statement.
+    fn identifier(&self, context: &ModuleAnswersContext) -> ShortIdentifier {
+        let bindings = context.bindings();
+        ShortIdentifier::new(
+            &bindings
+                .get(bindings.get(self.idx).undecorated_idx)
+                .def
+                .name,
+        )
     }
 
     fn defining_cls(&self) -> Option<&Class> {
@@ -533,7 +541,8 @@ impl<'a> FunctionNode<'a> {
                 assert_decorated_function_in_context(function, context)
             }
             FunctionNode::ClassField { class, .. } => {
-                assert_eq!(class.module(), &context.module_info);
+                assert_eq!(class.module_name(), context.module_info.name());
+                assert_eq!(class.module_path(), context.module_info.path());
             }
         }
     }
@@ -569,7 +578,7 @@ impl<'a> FunctionNode<'a> {
         self.assert_in_context(context);
         match self {
             FunctionNode::DecoratedFunction(function) => {
-                let definition_binding = Key::Definition(function.undecorated.identifier);
+                let definition_binding = Key::Definition(function.identifier(context));
                 let idx = context.bindings().key_to_idx(&definition_binding);
                 context.answers.get_idx(idx).unwrap().ty().clone()
             }
@@ -587,7 +596,8 @@ impl<'a> FunctionNode<'a> {
                 match decorated_type {
                     Type::Overload(overload) => export_overload_signatures(&overload, context),
                     _ => {
-                        let return_binding = Key::ReturnType(function.undecorated.identifier);
+                        let return_binding =
+                            Key::ReturnType(function.identifier(&context.answers_context));
                         let idx = context
                             .answers_context
                             .bindings()
@@ -671,7 +681,7 @@ impl<'a> FunctionNode<'a> {
             }
             FunctionNode::ClassField { class, name, .. } => FunctionRef {
                 module_id: context.module_id,
-                module_name: class.module().name(),
+                module_name: class.module_name(),
                 function_id: FunctionId::ClassField {
                     class_id: ClassId::from_class(class),
                     field_id: ClassFieldId::from_class_and_name(class, name, context),
@@ -688,7 +698,7 @@ impl<'a> FunctionNode<'a> {
                 Some(cls) => ScopeParent::Class {
                     class_id: ClassId::from_class(cls),
                 },
-                None => get_scope_parent(context, function.id_range()),
+                None => get_scope_parent(context, function.identifier(context).range()),
             },
             FunctionNode::ClassField { class, .. } => ScopeParent::Class {
                 class_id: ClassId::from_class(class),
@@ -776,7 +786,7 @@ impl<'a> FunctionNode<'a> {
         self.assert_in_context(context);
         match self {
             FunctionNode::DecoratedFunction(function) => {
-                let range = function.id_range();
+                let range = function.identifier(context).range();
                 Ast::locate_node(&context.ast, range.start())
                     .iter()
                     .find_map(|node| match node {
@@ -835,7 +845,7 @@ pub fn get_all_functions<'a>(
                         _ => true,
                     }
                 })
-                .map(|(name, field)| (class.clone(), Cow::Owned(name.into_owned()), field))
+                .map(|(name, field)| (class, Cow::Owned(name.into_owned()), field))
                 // Required by borrow checker.
                 // This is fine because the amount of class fields should be small.
                 .collect::<Vec<_>>()
@@ -850,6 +860,7 @@ pub fn get_all_functions<'a>(
 
 pub fn export_all_functions(
     context: &ModuleAnswersContext,
+    env: &dyn TypeEnv,
 ) -> ModuleFunctionDefinitions<FunctionBaseDefinition> {
     let mut function_base_definitions = ModuleFunctionDefinitions::new();
 
@@ -860,6 +871,13 @@ pub fn export_all_functions(
 
         let current_function = function.as_function_ref(context);
         let parent = function.get_scope_parent(context);
+        let name_location = match &function {
+            FunctionNode::DecoratedFunction(f) => Some(PysaLocation::from_text_range(
+                f.identifier(context).range(),
+                &context.module_info,
+            )),
+            FunctionNode::ClassField { .. } => None,
+        };
         assert!(
             function_base_definitions
                 .0
@@ -867,12 +885,7 @@ pub fn export_all_functions(
                     current_function.function_id.clone(),
                     FunctionBaseDefinition {
                         name: current_function.function_name.clone(),
-                        name_location: match &function {
-                            FunctionNode::DecoratedFunction(f) => Some(
-                                PysaLocation::from_text_range(f.id_range(), &context.module_info),
-                            ),
-                            FunctionNode::ClassField { .. } => None,
-                        },
+                        name_location,
                         parent,
                         is_overload: function.is_overload(),
                         is_staticmethod: function.is_staticmethod(),
@@ -881,11 +894,11 @@ pub fn export_all_functions(
                         is_property_setter: function.is_property_setter(),
                         is_stub: function.is_stub(),
                         is_def_statement: function.is_def_statement(),
-                        defining_class: function.defining_cls().map(|class| ClassRef {
-                            module_id: context.module_id,
-                            class_id: ClassId::from_class(class),
-                            class: class.clone(),
-                        }),
+                        defining_class: function.defining_cls().map(|class| ClassRef::new(
+                            context.module_id,
+                            class,
+                            env
+                        )),
                     },
                 )
                 .is_none(),

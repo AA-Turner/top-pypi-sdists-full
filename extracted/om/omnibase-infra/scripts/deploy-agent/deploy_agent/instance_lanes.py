@@ -51,13 +51,14 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import shlex
 import subprocess
 import tarfile
 import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Final, NoReturn
+from typing import Any, Final, NoReturn
 
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -67,7 +68,8 @@ from deploy_agent.events import (
     ModelLaneMirrorForwarder,
     ModelLaneMirrorReceipt,
 )
-from deploy_agent.routing import ROUTING_TABLE_RELPATH, RoutingTableError
+from deploy_agent.routing import ROUTING_TABLE_RELPATH, PhaseName, RoutingTableError
+from omnibase_core.validators.no_unguarded_git_subprocess import scrub_git_location_env
 
 #: The key an instance's composition sits under in the routing table.
 LANE_KEY: Final = "lane"
@@ -90,10 +92,21 @@ class ModelInstanceLane(BaseModel):
     postgres_container: str
     runtime_container: str
     health_ports: ModelHealthPorts
-    disabled_phases: tuple[str, ...] = ()
+    disabled_phases: tuple[PhaseName, ...] = ()
     disabled_services: tuple[str, ...] = ()
     receipt_lane: str
     proves: tuple[str, ...]
+
+
+def _routing_instances(text: str) -> dict[str, Any]:
+    """The routing table's parsed document, which declares an ``instances`` map."""
+    try:
+        raw = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise RoutingTableError(f"routing table is not YAML: {exc}") from exc
+    if not isinstance(raw, dict) or not isinstance(raw.get("instances"), dict):
+        raise RoutingTableError("routing table declares no instances")
+    return raw
 
 
 def parse_instance_lanes(text: str) -> dict[str, ModelInstanceLane]:
@@ -102,12 +115,7 @@ def parse_instance_lanes(text: str) -> dict[str, ModelInstanceLane]:
     Refuses when a non-default instance has no block, when the default
     instance has one, or when a block does not validate.
     """
-    try:
-        raw = yaml.safe_load(text)
-    except yaml.YAMLError as exc:
-        raise RoutingTableError(f"routing table is not YAML: {exc}") from exc
-    if not isinstance(raw, dict) or not isinstance(raw.get("instances"), dict):
-        raise RoutingTableError("routing table declares no instances")
+    raw = _routing_instances(text)
     default = str(raw.get("default_instance") or "").strip()
     lanes: dict[str, ModelInstanceLane] = {}
     for name, spec in raw["instances"].items():
@@ -139,14 +147,18 @@ def parse_instance_lanes(text: str) -> dict[str, ModelInstanceLane]:
     return lanes
 
 
-def load_instance_lanes(repo_root: str | Path) -> dict[str, ModelInstanceLane]:
-    """The blocks in ``repo_root``'s committed table."""
+def _read_routing_table(repo_root: str | Path) -> str:
+    """The text of ``repo_root``'s committed routing table."""
     path = Path(repo_root) / ROUTING_TABLE_RELPATH
     try:
-        text = path.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8")
     except OSError as exc:
         raise RoutingTableError(f"routing table unreadable at {path}: {exc}") from exc
-    return parse_instance_lanes(text)
+
+
+def load_instance_lanes(repo_root: str | Path) -> dict[str, ModelInstanceLane]:
+    """The blocks in ``repo_root``'s committed table."""
+    return parse_instance_lanes(_read_routing_table(repo_root))
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +194,11 @@ LANE_ENV_FRAGMENT_SUFFIX: Final = ".runtime.env.json"
 #: act switches, read through contract ``${env.VAR:default}`` references whose
 #: inline default is the shipped behaviour; and the lane class the runtime is an
 #: instance of with the class contracts it takes, read by the auto-wiring
-#: ownership filter.
+#: ownership filter; and the five provenance variables the Kafka envelope publish
+#: seam stamps from (OMN-23981): LANE, HOST, INSTALL_SOURCE and REVISION all set,
+#: LANE_KIND unset for lane dev or stability, else mac_unit, lane_worktree or
+#: hand_run. Literals, not read from ``omnibase_infra``, which the agent's env need
+#: not carry; a test pins them to ``ModelEventProvenanceOverlay.VARIABLES``.
 LANE_ENV_FRAGMENT_SCHEMA_KEYS: Final[dict[str, frozenset[str]]] = {
     "runtime_lane_env.v1": frozenset(
         {
@@ -194,6 +210,14 @@ LANE_ENV_FRAGMENT_SCHEMA_KEYS: Final[dict[str, frozenset[str]]] = {
             "ONEX_CI_RED_TRIAGE_ACT_DEV_HEAD",
             "ONEX_RUNTIME_LANE_CLASS",
             "ONEX_RUNTIME_LANE_CLASS_CONTRACTS",
+            "ONEX_PROVENANCE_LANE",
+            "ONEX_PROVENANCE_LANE_KIND",
+            "ONEX_PROVENANCE_HOST",
+            "ONEX_PROVENANCE_INSTALL_SOURCE",
+            "ONEX_PROVENANCE_REVISION",
+            "COST_ESTIMATOR_WEB_SOURCE_REPOSITORY",
+            "COST_ESTIMATOR_WEB_SOURCE_URL",
+            "ESTIMATOR_GATE_OPEN_SOURCES",
         }
     ),
 }
@@ -217,12 +241,7 @@ class ModelLaneEnvFragment(BaseModel):
 
 def instance_runtime_lanes_from_text(text: str) -> dict[str, str]:
     """Each instance's runtime lane id: its ``verify.receipt_lane``."""
-    try:
-        raw = yaml.safe_load(text)
-    except yaml.YAMLError as exc:
-        raise RoutingTableError(f"routing table is not YAML: {exc}") from exc
-    if not isinstance(raw, dict) or not isinstance(raw.get("instances"), dict):
-        raise RoutingTableError("routing table declares no instances")
+    raw = _routing_instances(text)
     lanes: dict[str, str] = {}
     for name, spec in raw["instances"].items():
         verify = spec.get("verify") if isinstance(spec, dict) else None
@@ -242,12 +261,7 @@ def instance_runtime_lanes_from_text(text: str) -> dict[str, str]:
 
 def load_instance_runtime_lanes(repo_root: str | Path) -> dict[str, str]:
     """The runtime lane ids in ``repo_root``'s committed table."""
-    path = Path(repo_root) / ROUTING_TABLE_RELPATH
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise RoutingTableError(f"routing table unreadable at {path}: {exc}") from exc
-    return instance_runtime_lanes_from_text(text)
+    return instance_runtime_lanes_from_text(_read_routing_table(repo_root))
 
 
 def parse_lane_env_fragment(text: str, *, lane_id: str, source: str) -> dict[str, str]:
@@ -270,8 +284,7 @@ def parse_lane_env_fragment(text: str, *, lane_id: str, source: str) -> dict[str
         )
     if fragment.lane_id != lane_id:
         raise LaneEnvFragmentError(
-            f"{source}: lane_id {fragment.lane_id!r} is not the lane it is read "
-            f"for, {lane_id!r}"
+            f"{source}: lane_id {fragment.lane_id!r} is not the lane it is read for, {lane_id!r}"
         )
     refused = sorted(set(fragment.env) - allowed)
     if refused:
@@ -303,13 +316,7 @@ def read_lane_env_fragment(
         return {}
 
     def git(*args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", "-C", str(clone), *args],
-            capture_output=True,
-            text=True,
-            timeout=GIT_READ_TIMEOUT_SECONDS,
-            check=False,
-        )
+        return _git_text(_default_run, clone, *args)
 
     if git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").returncode != 0:
         raise LaneEnvFragmentError(
@@ -351,19 +358,12 @@ def discover_lane_overlay_clone(search_root: Path) -> Path | None:
         child
         for child in search_root.iterdir()
         if (child / ".git").exists()
-        and subprocess.run(
-            [
-                "git",
-                "-C",
-                str(child),
-                "cat-file",
-                "-e",
-                f"{LANE_ENV_FRAGMENT_REF}:{LANE_ENV_FRAGMENT_DIR}",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=GIT_READ_TIMEOUT_SECONDS,
-            check=False,
+        and _git_text(
+            _default_run,
+            child,
+            "cat-file",
+            "-e",
+            f"{LANE_ENV_FRAGMENT_REF}:{LANE_ENV_FRAGMENT_DIR}",
         ).returncode
         == 0
     )
@@ -384,8 +384,7 @@ def default_instance_lane_env_exports(repo_root: str | Path, search_root: Path) 
     does, and a refresh never undoes what the agent applied. The overlay clone
     is the one under ``search_root`` that carries fragments.
     """
-    path = Path(repo_root) / ROUTING_TABLE_RELPATH
-    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    raw = _routing_instances(_read_routing_table(repo_root))
     default = str(raw.get("default_instance") or "").strip()
     lanes = load_instance_runtime_lanes(repo_root)
     if default not in lanes:
@@ -470,6 +469,8 @@ class _LaneMirrorStopError(Exception):
 def _default_run(
     argv: list[str], timeout: float, env: Mapping[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
+    if argv[0] == "git":
+        env = scrub_git_location_env(os.environ if env is None else env)
     return subprocess.run(
         argv,
         capture_output=True,

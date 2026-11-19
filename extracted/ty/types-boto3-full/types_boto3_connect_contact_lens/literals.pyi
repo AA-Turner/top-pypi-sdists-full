@@ -52,6 +52,7 @@ SentimentValueType = Literal["NEGATIVE", "NEUTRAL", "POSITIVE"]
 TagComparisonTypeType = Literal["EQUALS", "NOT_EQUALS"]
 ConnectContactLensServiceName = Literal["connect-contact-lens"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

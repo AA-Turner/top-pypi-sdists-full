@@ -9,6 +9,7 @@ import re
 import threading
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from fractions import Fraction
 from sys import _getframe
 from time import process_time
 from traceback import extract_stack, format_tb
@@ -18,7 +19,6 @@ from typing import (
     Callable,
     Dict,
     List,
-    NewType,
     NoReturn,
     Optional,
     Sequence,
@@ -27,12 +27,22 @@ from typing import (
     Type,
     TypeVar,
     cast,
+    overload,
 )
 
 import z3  # type: ignore
 
 from crosshair import dynamic_typing, smt
 from crosshair.condition_parser import ConditionExpr
+from crosshair.copyext import (
+    CopyFailure,
+    CopyMode,
+    LazyCopySource,
+    copy_failures,
+    deepcopyext,
+    memoize_copy,
+    note_lazy_copy_source,
+)
 from crosshair.smtlib import parse_smtlib_literal
 from crosshair.tracers import NoTracing, ResumedTracing, is_tracing
 from crosshair.util import (
@@ -51,6 +61,8 @@ from crosshair.util import (
     in_debug,
     name_of_type,
 )
+
+_INTERRUPTING_EXCEPTIONS = (NotDeterministic, UnknownSatisfiability, PathTimeout)
 
 
 @functools.total_ordering
@@ -152,7 +164,31 @@ class CallAnalysis:
 
 
 HeapRef = smt.declare_sort("HeapRef")
-SnapshotRef = NewType("SnapshotRef", int)
+
+
+class SymbolicHeap(LazyCopySource):
+    """
+    Maps HeapRef terms to Python objects.
+
+    Deep-copying a heap deep-copies its objects in the same memo, so a deep-copied
+    symbolic container resolves HeapRef terms to copies of the original's objects.
+    Objects found later are copied into each heap as they are found; failures of
+    those copies are recorded in `copy_failures`, and count as failures of the
+    copy that created the heap.
+    """
+
+    def __init__(self) -> None:
+        self.objects: Dict[int, object] = {}
+        self.copy_failures: List[CopyFailure] = []
+
+    def __deepcopy__(self, memo: Dict) -> "SymbolicHeap":
+        with NoTracing():
+            result = SymbolicHeap()
+            memoize_copy(self, result, memo)
+            note_lazy_copy_source(result, memo)
+            result.objects = deepcopyext(self.objects, CopyMode.BEST_EFFORT, memo)
+        return result
+
 
 # Returned by StateSpace.smt_fanout on the branch where no supplied expression
 # holds (only reachable when called with none_of_the_above_weight > 0).
@@ -183,11 +219,11 @@ def _ground_int_bits(term: smt.ExprRef) -> Optional[int]:
     simplifier left unfolded, possibly wrapped in +/-/* or to_int -- or None when
     the term isn't a recognized ground arithmetic shape (e.g. it has a free var)."""
     if z3.is_int_value(term):
-        return term.as_long().bit_length()
+        return smt.numeral_to_int(term).bit_length()
     if z3.is_rational_value(term):
         return max(
-            abs(term.numerator_as_long()).bit_length(),
-            abs(term.denominator_as_long()).bit_length(),
+            smt.numeral_to_int(term.numerator()).bit_length(),
+            smt.numeral_to_int(term.denominator()).bit_length(),
         )
     if z3.is_app(term):
         kind, kids = term.decl().kind(), term.children()
@@ -222,7 +258,7 @@ def _realize_capped_int(value: smt.ExprRef) -> Optional[int]:
     folded = z3.simplify(value, max_degree=MAX_REALIZED_INT_BITS)
     if not z3.is_int_value(folded):
         raise CrosshairUnsupported("could not realize integer", value.sexpr()[:60])
-    return folded.as_long()
+    return smt.numeral_to_int(folded)
 
 
 def is_smt_variable(expr: smt.ExprRef) -> bool:
@@ -234,7 +270,12 @@ def model_value_to_python(value: smt.ExprRef) -> object:
         if isinstance(value, z3.AlgebraicNumRef):
             # Force irrational values to be rational:
             value = value.approx(precision=20)
-        return float(value.as_fraction())
+        return float(
+            Fraction(
+                smt.numeral_to_int(value.numerator()),
+                smt.numeral_to_int(value.denominator()),
+            )
+        )
     elif z3.is_seq(value):
         ret = []
         while value.num_args() == 2:
@@ -245,8 +286,10 @@ def model_value_to_python(value: smt.ExprRef) -> object:
         return ret
     elif z3.is_fp(value):
         return parse_smtlib_literal(value.sexpr())
+    elif z3.is_int_value(value):
+        return smt.numeral_to_int(value)
     elif hasattr(value, "py_value"):
-        if z3.is_int(value) and not z3.is_int_value(value):
+        if z3.is_int(value):
             realized = _realize_capped_int(value)
             if realized is not None:
                 return realized
@@ -868,7 +911,8 @@ class StateSpace:
             self.smt_rlimit = None
         self.choices_made: List[SearchTreeNode] = []
         self.status_cap: Optional[VerificationStatus] = None
-        self.heaps: List[List[Tuple[smt.ExprRef, Type, object]]] = [[]]
+        self.heap = SymbolicHeap()
+        self._heap_entries: List[Tuple[smt.ExprRef, Type, object]] = []
         self.next_uniq = 1
         self.is_detached = False
         self._extras = {}
@@ -1290,61 +1334,53 @@ class StateSpace:
                         debug("Realized at", ch_stack())
                     return ret
 
-    def current_snapshot(self) -> SnapshotRef:
-        return SnapshotRef(len(self.heaps) - 1)
-
-    def checkpoint(self):
-        self.heaps.append(
-            [(ref, typ, copy.deepcopy(val)) for (ref, typ, val) in self.heaps[-1]]
-        )
-
-    def add_value_to_heaps(self, ref: smt.ExprRef, typ: Type, value: object) -> None:
-        # TODO: needs more testing
-        for heap in self.heaps[:-1]:
-            heap.append((ref, typ, copy.deepcopy(value)))
-        self.heaps[-1].append((ref, typ, value))
-
     def find_key_in_heap(
         self,
         ref: smt.ExprRef,
         typ: Type,
         proxy_generator: Callable[[Type], object],
-        snapshot: SnapshotRef = SnapshotRef(-1),
+        heap: SymbolicHeap,
     ) -> object:
+        """
+        Find the object in `heap` that `ref` refers to.
+
+        Calls `proxy_generator` when `ref` is distinct from all previously found
+        refs. Each heap receives its own copy of that new object, taken before
+        any heap could mutate it.
+        """
         with NoTracing():
-            # TODO: needs more testing
-            for curref, curtyp, curval in self.heaps[snapshot]:
-
+            for idx, (curref, curtyp, _) in enumerate(self._heap_entries):
                 # TODO: using unify() is almost certainly wrong; just because the types
-                # have some instances in common does not mean that `curval` actually
+                # have some instances in common does not mean that the object actually
                 # satisfies the requirements of `typ`:
-                could_match = dynamic_typing.unify(curtyp, typ)
-                if not could_match:
+                if not dynamic_typing.unify(curtyp, typ):
                     continue
-                if self.smt_fork(curref == ref, probability_true=0.1):
-                    debug(
-                        "Heap key lookup ",
-                        ref,
-                        ": Found existing. ",
-                        "type:",
-                        name_of_type(type(curval)),
-                        "id:",
-                        id(curval) % 1000,
-                    )
-                    return curval
-            ret = proxy_generator(typ)
-            debug(
-                "Heap key lookup ",
-                ref,
-                ": Created new. ",
-                "type:",
-                name_of_type(type(ret)),
-                "id:",
-                id(ret) % 1000,
-            )
+                if self.smt_fork(smt.eq(curref, ref), probability_true=0.1):
+                    debug("Heap key lookup", ref, ": Found existing", curref)
+                    return self._heap_object(heap, idx)
+            self._heap_entries.append((ref, typ, proxy_generator(typ)))
+            debug("Heap key lookup", ref, ": Created new", name_of_type(typ))
+            return self._heap_object(heap, len(self._heap_entries) - 1)
 
-            self.add_value_to_heaps(ref, typ, ret)
-            return ret
+    @assert_tracing(False)
+    def _heap_object(self, heap: SymbolicHeap, idx: int) -> object:
+        if idx not in heap.objects:
+            _, _, unmutated = self._heap_entries[idx]
+            heap.objects[idx] = self.copy_into_heap(unmutated, heap)
+        return heap.objects[idx]
+
+    @assert_tracing(False)
+    def copy_into_heap(self, unmutated: object, heap: SymbolicHeap) -> object:
+        """
+        Deep-copy `unmutated`, retargeting its HeapRef lookups from `self.heap` to `heap`.
+
+        Records copy failures in `heap.copy_failures`.
+        """
+        memo: Dict = {id(self.heap): heap}
+        memo[id(memo)] = [self.heap]
+        cpy = deepcopyext(unmutated, CopyMode.BEST_EFFORT, memo)
+        heap.copy_failures.extend(copy_failures(memo))
+        return cpy
 
     def uniq(self):
         self.next_uniq += 1
@@ -1429,15 +1465,38 @@ class StateSpace:
             self.smt_rlimit = int(self.smt_rlimit * smt_multiple)
             self.solver.set("rlimit", self.smt_rlimit)
 
-    def detach_path(self, currently_handling: Optional[BaseException] = None) -> None:
+    @overload
+    def detach_path(self, exc: None = None) -> None: ...
+
+    @overload
+    def detach_path(self, exc: BaseException) -> BaseException: ...
+
+    @overload
+    def detach_path(self, exc: Optional[BaseException]) -> Optional[BaseException]: ...
+
+    def detach_path(
+        self, exc: Optional[BaseException] = None
+    ) -> Optional[BaseException]:
         """
         Mark the current path exhausted.
 
         Also verifies all deferred assumptions.
         After detaching, the space may continue to be used (for example, to print
         realized symbolics).
+        If given an exception that ends the path, returns a deeply realized copy of it.
+        Internal exceptions that may interrupt any operation (timeouts,
+        nondeterminism, solver failures) are returned as-is.
         """
         assert is_tracing()
+        self._detach_path(exc)
+        if exc is None or isinstance(exc, _INTERRUPTING_EXCEPTIONS):
+            return exc
+        with NoTracing():
+            realized = deepcopyext(exc, CopyMode.REALIZE, {})
+            realized.__traceback__ = exc.__traceback__
+        return realized
+
+    def _detach_path(self, currently_handling: Optional[BaseException]) -> None:
         with NoTracing():
             if self.is_detached:
                 return
@@ -1445,10 +1504,7 @@ class StateSpace:
             # (likely) counterexample generation to follow.
             self.extend_timeouts(constant_factor=4.0, smt_multiple=2.0)
             self.is_detached = True
-            if isinstance(
-                currently_handling,
-                (NotDeterministic, UnknownSatisfiability, PathTimeout),
-            ):
+            if isinstance(currently_handling, _INTERRUPTING_EXCEPTIONS):
                 # These exceptions can happen at any time; we may not be at a stem node.
                 node = DetachedPathNode()
                 self.choices_made.append(node)

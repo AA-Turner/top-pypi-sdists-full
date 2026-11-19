@@ -84,6 +84,7 @@ VcfVersionType = Literal["SELF_DEPLOYED", "VCF-5.2.1", "VCF-5.2.2"]
 VlanStateType = Literal["CREATED", "CREATE_FAILED", "CREATING", "DELETED", "DELETING"]
 EVSServiceName = Literal["evs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

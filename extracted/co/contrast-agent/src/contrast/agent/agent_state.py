@@ -30,6 +30,7 @@ from contrast.agent.framework import UNKNOWN_FRAMEWORK, Framework
 from contrast.agent.inventory.library_reader import LibraryReader
 from contrast.agent.policy import registry_v2
 from contrast.agent.settings import Settings
+from contrast.patches import gunicorn_patch
 from contrast.reporting import fireball
 from contrast.reporting.request_masker import RequestMasker
 from contrast.utils import timer
@@ -232,14 +233,6 @@ def _log_environment(settings: Settings):
         default_encoding=DEFAULT_ENCODING,
         debug_info={"sys.argv": sys.argv} if log_level == "DEBUG" else None,
     )
-
-    # py310: remove
-    if sys.version_info[:2] == (3, 10):
-        _log_and_warn_deprecated(
-            "Contrast Security support for Python 3.10 is deprecated "
-            "and will be removed in a future release after Python 3.15 "
-            "support has been added"
-        )
 
 
 def add_config_watchers(config: AgentConfig) -> None:
@@ -492,6 +485,10 @@ def initialize():
             logger.warning("Contrast Agent is disabled by local configuration.")
             module.settings.log_effective_config()
             return
+
+        # Must happen before any background thread starts, so that a gunicorn master
+        # that initialized the agent waits for all of them before forking workers.
+        gunicorn_patch.register_patches()
 
         add_config_watchers(module.settings.config)
         setup_security_logger(module.settings.config)

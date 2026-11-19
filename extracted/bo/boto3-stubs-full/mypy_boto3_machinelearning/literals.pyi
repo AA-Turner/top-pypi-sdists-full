@@ -101,6 +101,7 @@ SortOrderType = Literal["asc", "dsc"]
 TaggableResourceTypeType = Literal["BatchPrediction", "DataSource", "Evaluation", "MLModel"]
 MachineLearningServiceName = Literal["machinelearning"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

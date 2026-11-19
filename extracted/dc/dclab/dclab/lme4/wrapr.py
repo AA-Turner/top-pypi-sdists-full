@@ -1,6 +1,7 @@
 """R lme4 wrapper"""
 import logging
 import numbers
+import os
 import pathlib
 import tempfile
 from importlib import resources as importlib_resources
@@ -16,8 +17,8 @@ from . import rsetup
 logger = logging.getLogger(__name__)
 
 
-class Rlme4(object):
-    def __init__(self, model="lmer", feature="deform"):
+class Rlme4:
+    def __init__(self, model="lmer", feature="deform", bs_iter=1000):
         """Perform an R-lme4 analysis with RT-DC data
 
         Parameters
@@ -27,19 +28,27 @@ class Rlme4(object):
 
             - "lmer": linear mixed model using lme4's ``lmer``
             - "glmer+loglink": generalized linear mixed model using
-              lme4's ``glmer`` with an additional a log-link function
-              via the ``family=Gamma(link='log'))`` keyword.
+              lme4's ``glmer`` with an additional log-link function
+              via the ``family=Gamma(link='log')`` keyword.
         feature: str
             Dclab feature for which to compute the model
+        bs_iter: int
+            Number of bootstrapping iterations for the differential
+            feature analysis (only used if reservoir data are given,
+            see :func:`Rlme4.get_differential_dataset`). Note that the
+            time required for fitting the model increases with this
+            number, especially for "glmer+loglink".
         """
         #: modeling method to use (e.g. "lmer")
         self.model = None
         #: dclab feature for which to perform the analysis
         self.feature = None
-        #: list of [RTDCBase, column, repetition, chip_region]
+        #: number of bootstrapping iterations for differential features
+        self.bs_iter = None
+        #: list of [RTDCBase, group, repetition, chip_region]
         self.data = []
 
-        self.set_options(model=model, feature=feature)
+        self.set_options(model=model, feature=feature, bs_iter=bs_iter)
 
         # Make sure that lme4 is available
         if not rsetup.has_lme4():
@@ -61,8 +70,8 @@ class Rlme4(object):
 
         Notes
         -----
-        - For each repetition, there must be a "treatment" (``1``) and a
-          "control" (``0``) group.
+        - For each repetition, there must be a "treatment" and a
+          "control" group.
         - If you would like to perform a differential feature analysis,
           then you need to pass at least a reservoir and a channel
           dataset (with same parameters for `group` and `repetition`).
@@ -75,10 +84,10 @@ class Rlme4(object):
         # make sure there are no doublets
         for ii, dd in enumerate(self.data):
             if dd[1] == group and dd[2] == repetition and dd[3] == region:
-                raise ValueError("A dataset with group '{}', ".format(group)
-                                 + "repetition '{}', and ".format(repetition)
-                                 + "'{}' region has already ".format(region)
-                                 + "been added (index {})!".format(ii))
+                raise ValueError(f"A dataset with group '{group}', "
+                                 f"repetition '{repetition}', and "
+                                 f"'{region}' region has already "
+                                 f"been added (index {ii})!")
 
         self.data.append([ds, group, repetition, region])
 
@@ -86,8 +95,8 @@ class Rlme4(object):
         """Perform sanity checks on ``self.data``"""
         # Check that we have enough data
         if len(self.data) < 3:
-            msg = "Linear mixed effects models require repeated " \
-                  + "measurements. Please add more repetitions."
+            msg = ("Linear mixed effects models require repeated "
+                   "measurements. Please add more repetitions.")
             raise ValueError(msg)
 
     def fit(self, model=None, feature=None):
@@ -118,9 +127,13 @@ class Rlme4(object):
             - "lmer": linear mixed model using lme4's ``lmer``
             - "glmer+loglink": generalized linear mixed model using
               lme4's ``glmer`` with an additional log-link function
-              via ``family=Gamma(link='log'))`` :cite:`lme4`
+              via ``family=Gamma(link='log')`` :cite:`lme4`
+
+            If None, the value set previously (e.g. in ``__init__``)
+            is used.
         feature: str (optional)
-            dclab feature for which to compute the model
+            dclab feature for which to compute the model. If None,
+            the value set previously (e.g. in ``__init__``) is used.
 
         Returns
         -------
@@ -131,11 +144,11 @@ class Rlme4(object):
             - "feature": name of the feature used for the analysis
               ``self.feature``
             - "fixed effects intercept": Mean of ``self.feature`` for all
-              controls; In the case of the "glmer+loglink" model, the intercept
+              controls; in the case of the "glmer+loglink" model, the intercept
               is already back transformed from log space.
             - "fixed effects treatment": The fixed effect size between the mean
               of the controls and the mean of the treatments relative to
-              "fixed effects intercept"; In the case of the "glmer+loglink"
+              "fixed effects intercept"; in the case of the "glmer+loglink"
               model, the fixed effect is already back transformed from log
               space.
             - "fixed effects repetitions": The effects (intercept and
@@ -189,8 +202,9 @@ class Rlme4(object):
         # Run R with the given template script
         rscript = importlib_resources.read_text("dclab.lme4",
                                                 "lme4_template.R")
-        _, script_path = tempfile.mkstemp(prefix="dclab_lme4_", suffix=".R",
-                                          text=True)
+        fd, script_path = tempfile.mkstemp(prefix="dclab_lme4_", suffix=".R",
+                                           text=True)
+        os.close(fd)
         script_path = pathlib.Path(script_path)
         rscript = rscript.replace("<MODEL_NAME>", self.model)
         rscript = rscript.replace("<FEATURES>", arr2str(features_c))
@@ -198,7 +212,11 @@ class Rlme4(object):
         rscript = rscript.replace("<GROUPS>", arr2str(groups_c))
         script_path.write_text(rscript, encoding="utf-8")
 
-        result = rsetup.run_command((rsetup.get_r_script_path(), script_path))
+        try:
+            result = rsetup.run_command((rsetup.get_r_script_path(),
+                                         script_path))
+        finally:
+            script_path.unlink(missing_ok=True)
 
         ret_dict = self.parse_result(result)
         ret_dict["is differential"] = self.is_differential()
@@ -214,26 +232,39 @@ class Rlme4(object):
 
         The most famous use case is differential deformation. The idea
         is that you cannot tell what the difference in deformation
-        from channel to reservoir, because you never measure the
+        from channel to reservoir is, because you never measure the
         same object in the reservoir and the channel. You usually just
         have two distributions. Comparing distributions is possible
         via bootstrapping. And then, instead of running the lme4
         analysis with the channel deformation data, it is run with
         the differential deformation (subtraction of the bootstrapped
         deformation distributions for channel and reservoir).
+
+        The number of bootstrapping iterations (the number of values
+        per group and repetition) is given by :attr:`Rlme4.bs_iter`.
+
+        Returns
+        -------
+        features: list of 1d ndarrays
+            Differential feature data (bootstrapped channel medians
+            minus bootstrapped reservoir medians, `bs_iter` values each)
+        groups: list of str
+            Group of each item in `features`
+        repetitions: list of int
+            Repetition of each item in `features`
         """
         features = []
         groups = []
         repetitions = []
         # compute differential features
-        for grp in sorted(set([dd[1] for dd in self.data])):
+        for grp in sorted({dd[1] for dd in self.data}):
             # repetitions per groups
-            grp_rep = sorted(set([dd[2] for dd in self.data if dd[1] == grp]))
+            grp_rep = sorted({dd[2] for dd in self.data if dd[1] == grp})
             for rep in grp_rep:
                 feat_cha = self.get_feature_data(grp, rep, region="channel")
                 feat_res = self.get_feature_data(grp, rep, region="reservoir")
-                bs_cha, bs_res = bootstrapped_median_distributions(feat_cha,
-                                                                   feat_res)
+                bs_cha, bs_res = bootstrapped_median_distributions(
+                    feat_cha, feat_res, bs_iter=self.bs_iter)
                 # differential feature
                 features.append(bs_cha - bs_res)
                 groups.append(grp)
@@ -265,9 +296,9 @@ class Rlme4(object):
                 ds = dd[0]
                 break
         else:
-            raise ValueError("Dataset for group '{}', repetition".format(group)
-                             + " '{}', and region".format(repetition)
-                             + " '{}' not found!".format(region))
+            raise ValueError(f"Dataset for group '{group}', repetition"
+                             f" '{repetition}', and region"
+                             f" '{region}' not found!")
         fdata = ds[self.feature][ds.filter.all]
         fdata_valid = fdata[~np.logical_or(np.isnan(fdata), np.isinf(fdata))]
         return fdata_valid
@@ -280,15 +311,30 @@ class Rlme4(object):
 
         See Also
         --------
-        get_differential_features: for an explanation
+        get_differential_dataset: for an explanation
         """
         for dd in self.data:
             if dd[3] == "reservoir":
                 return True
-        else:
-            return False
+        return False
 
     def parse_result(self, result):
+        """Parse the output of the lme4 R script into a dictionary
+
+        Parameters
+        ----------
+        result: str
+            Output of the R script; items are separated by "OUTPUT"
+            and have the form "key: value".
+
+        Returns
+        -------
+        ret_dict: dict
+            Parsed results (see :meth:`Rlme4.fit`); numbers are
+            converted to float, "NA" to nan, "model converged" to
+            bool, and "fixed effects repetitions" to an array of
+            shape (2, number of repetitions).
+        """
         resd = result.split("OUTPUT")
         ret_dict = {}
         for item in resd:
@@ -316,19 +362,35 @@ class Rlme4(object):
             ret_dict[key] = value
         return ret_dict
 
-    def set_options(self, model=None, feature=None):
-        """Set analysis options"""
+    def set_options(self, model=None, feature=None, bs_iter=None):
+        """Set analysis options
+
+        Parameters
+        ----------
+        model: str or None
+            "lmer" or "glmer+loglink"; None keeps the current value
+        feature: str or None
+            Scalar dclab feature; None keeps the current value
+        bs_iter: int or None
+            Number of bootstrapping iterations (positive integer);
+            None keeps the current value
+        """
         if model is not None:
             assert model in ["lmer", "glmer+loglink"]
             self.model = model
         if feature is not None:
             assert dfn.scalar_feature_exists(feature)
             self.feature = feature
+        if bs_iter is not None:
+            if not isinstance(bs_iter, numbers.Integral) or bs_iter < 1:
+                raise ValueError(
+                    f"`bs_iter` must be a positive integer, got '{bs_iter}'")
+            self.bs_iter = int(bs_iter)
 
 
 def arr2str(a):
     """Convert an array to a string"""
-    if isinstance(a.dtype.type, np.integer):
+    if np.issubdtype(a.dtype, np.integer):
         return ",".join(str(dd) for dd in a.tolist())
     elif a.dtype.type == np.str_:
         return ",".join(f"'{dd}'" for dd in a.tolist())
@@ -341,8 +403,8 @@ def bootstrapped_median_distributions(a, b, bs_iter=1000, rs=117):
 
     Parameters
     ----------
-    a, b: 1d ndarray of length N
-        Input data
+    a, b: 1d ndarrays
+        Input data (may have different lengths)
     bs_iter: int
         Number of bootstrapping iterations to perform
         (output size).
@@ -352,7 +414,7 @@ def bootstrapped_median_distributions(a, b, bs_iter=1000, rs=117):
     Returns
     -------
     median_dist_a, median_dist_b: 1d arrays of length bs_iter
-        Boostrap distribution of medians for ``a`` and ``b``.
+        Bootstrap distribution of medians for ``a`` and ``b``.
 
     See Also
     --------

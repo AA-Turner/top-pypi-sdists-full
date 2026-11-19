@@ -573,9 +573,9 @@ def _register_entity_and_metrics(mcp, svc):
         4. `record` = the raw source record, any kind, pageable
 
         ### VIEW OPTION DESCRIPTIONS:
-        1. `grep` = transcript only: literal, case-insensitive; not with `start_line`
-        2. `context_lines` = transcript only: lines around each grep hit (max 20)
-        3. `start_line` = transcript only: read from line N; continue with `cursor`
+        1. `grep` = transcript/content: literal, case-insensitive; not with `start_line`
+        2. `context_lines` = transcript/content: lines around each hit (max 20)
+        3. `start_line` = transcript/content: read from line N; continue with `cursor`
         4. `field` = record only: a dotted field ("metadata.summary") or a path list
         5. `requirement` = artifact versions only: ">=2"-style; versions are monotonic ints, not semver
         6. `compare_to` = code on a run only: `run:<ref>` to diff against

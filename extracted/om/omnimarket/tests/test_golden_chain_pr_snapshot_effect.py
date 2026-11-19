@@ -17,10 +17,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from omnimarket.nodes.node_merge_sweep_compute.handlers.handler_merge_sweep import (
-    ModelMergeSweepRequest,
-    ModelPRInfo,
-)
+from omnimarket.models.merge_sweep.model_pr_info import ModelPRInfo
+from omnimarket.models.merge_sweep.model_sweep_request import ModelMergeSweepRequest
 from omnimarket.nodes.node_pr_snapshot_effect.handlers.handler_pr_snapshot import (
     HandlerPrSnapshot,
     _checks_pass,
@@ -302,8 +300,9 @@ class TestHandlerPrSnapshotGoldenChain:
 
     def test_default_repos_contains_all_org_repos(self) -> None:
         """DEFAULT_REPOS includes all expected OmniNode-ai repos."""
-        assert len(DEFAULT_REPOS) == 11
+        assert len(DEFAULT_REPOS) == 10
         assert all(r.startswith("OmniNode-ai/") for r in DEFAULT_REPOS)
+        assert "OmniNode-ai/omnibase_compat" not in DEFAULT_REPOS
         assert "OmniNode-ai/omniclaude" in DEFAULT_REPOS
         assert "OmniNode-ai/omnimarket" in DEFAULT_REPOS
 

@@ -3915,6 +3915,7 @@ WeekDayType = Literal["friday", "monday", "saturday", "sunday", "thursday", "tue
 ZeroSizePreferenceType = Literal["default", "retain"]
 EC2ServiceName = Literal["ec2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

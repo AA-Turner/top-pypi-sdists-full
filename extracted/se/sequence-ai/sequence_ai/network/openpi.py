@@ -7,11 +7,10 @@ robot and handing its policy each JPEG picture as the array it reads (patch).
 
 On the robot:
 
-    from openpi_client import websocket_client_policy
     from sequence_ai.network import openpi
     from sequence_ai.network.openpi import image_tools     # in place of openpi_client's: pictures go as JPEG
 
-    policy = websocket_client_policy.WebsocketClientPolicy(host, port)
+    policy = openpi.connect(host, port)    # openpi_client's WebsocketClientPolicy, once the server answers
     kept = openpi.keep(policy)             # BBR and TCP keepalive on its socket; a WebSocket ping while it is idle
     observation["observation/image"] = image_tools.convert_to_uint8(image_tools.resize_with_pad(frame, 224, 224))
     action = policy.infer(observation)     # as before: the client, its protocol and its responses are openpi's own
@@ -36,31 +35,31 @@ Pictures, whose infer() turns each picture back into the array the policy reads 
 WHY on openpi's own client and server: nothing of openpi's is replaced. The msgpack layout, the protocol and the policy
 are unchanged; only the socket's options, the idle time between two infer() calls and the pictures' encoding change. A
 robot that still sends arrays is served as before.
+WHY no ping while infer() runs, and no pong timeout on either end: openpi's server runs its policy on its event loop,
+which sends and answers no ping while an inference runs, and a first inference compiles the model for tens of seconds.
+A late pong then means a long inference, not a dead connection: keep() pings only an idle connection and lifts the
+client library's own pong timeout, and patch() has the server wait for each pong as long as it takes. A robot that
+connects while another robot's first inference runs waits as long for its handshake, which openpi_client gives up on
+at once (TimeoutError): connect() waits for it.
 WHY JPEG: a 224 x 224 picture is 150,528 bytes as an array, and its JPEG at frames.DEFAULT_JPEG_QUALITY a small part of
 that (the run below has two of them in each request), at a quality that moves a π0.5 policy's actions by about a tenth
 of what its own sampling noise does (frames.DEFAULT_JPEG_QUALITY has the measurement).
 
-Verified against openpi-client 0.1.0 on a local connection (tests/network/test_openpi.py), and patch() against a
-server module built as openpi's websocket_policy_server.py is (tests/network/test_openpi_server.py). Measured on a
-WebSocket connection of the kind openpi's client holds (the websockets library on both ends, a stand-in for the client,
-two cloud machines; bench/ws_bench.py, docs/measurements.md): a 100 KB upload 0.53 s after each response took 37.6,
-44.4, 82.4 and 163.8 ms at RTTs of 11, 21, 41 and 81 ms, and 12.7, 22.7, 41.8 and 82.6 ms with keep(), 40 uploads per
-cell. With openpi's own server and client (π0.5 on an L4, the client in a Linux virtual machine on a home connection,
-301 KB per request, one 45 s episode each): the time a request spent outside inference had a median of 181 and 152 ms
-without keep(); with it, 92 ms, and 157 ms in an episode that lost packets; with the BBR module loaded as well, 86 and
-91 ms. With openpi's own server and client again (π0.5 on an L4, the robot a simulated arm on a Mac on a home
-connection, one 45 s episode each), the pictures as JPEG and the server's pings as patch() and image_tools make them:
-each request's upload went from 301.5 KB to 18.8 KB, and the time it spent outside the server from a median of 153.8
-to 58.1 ms, over RTTs of 56.5 and 37.5 ms. In that run the server, started through another script as `python -m`
-starts it, took about 20 ms longer for each inference than openpi's own launch of the same script did, with or without
-the pings and the decoding; why is not known. openpi's server answers no ping while it runs inference, so the robot's
-ping waits for the answer and the robot can stay silent longer than a retransmission timeout: from Linux robots 30 and
-75 ms from the server (CUBIC, no BBR, 301 KB per request, six 45 s episodes each), the window before a request was half
-the one after the previous upload for 373 of 482 and 270 of 477 requests with keep(), against 3 of 429 and 3 of 477
-without it. The 301 KB upload still fitted in the 215 packets left in most requests, so at 30 ms keep() still cut the
-time outside inference from 91.2 to 37.1 ms (at 75 ms it was 86.7 ms without and 100.5 ms with it); a larger upload
-would not have fitted. BBR on the robot avoids the restart (window.py).
-bench/ measures your link, and window.py documents where the same mechanism helped and where it did not.
+Verified against openpi-client 0.1.0 on a local connection (tests/network/test_openpi.py), and patch() against a server
+module built as openpi's websocket_policy_server.py is (tests/network/test_openpi_server.py). Measured on a WebSocket
+connection of the kind openpi's client holds (the websockets library on both ends, a stand-in for the client, two cloud
+machines; bench/ws_bench.py, docs/measurements.md): a 100 KB upload 0.53 s after each response took 37.6, 44.4, 82.4 and
+163.8 ms at RTTs of 11, 21, 41 and 81 ms, and 12.7, 22.7, 41.8 and 82.6 ms with keep(), 40 uploads per cell. With
+openpi's own server and client (π0.5 on an L4, the client in a Linux virtual machine on a home connection, 301 KB per
+request, one 45 s episode each): the time a request spent outside inference had a median of 181 and 152 ms without
+keep(); with it, 92 ms; with the BBR module loaded as well, 86 and 91 ms. With openpi's own server and client again
+(π0.5 on an L4, the robot a simulated arm on a Mac on a home connection, one 45 s episode each), the pictures as JPEG
+and the server's pings as patch() and image_tools make them: each request's upload went from 301.5 KB to 18.8 KB, and
+the time it spent outside the server from a median of 153.8 to 58.1 ms, over RTTs of 56.5 and 37.5 ms. From a Linux
+robot 30 ms from openpi's own server (CUBIC, 301 KB per request, six 45 s episodes each), keep() cut the time outside
+inference from 91.2 to 37.1 ms. With openpi's own server on Linux, also load BBR (`sudo modprobe tcp_bbr`, which keep()
+then puts on the connection) so the window holds across a pause (window.py).
+bench/ measures your link.
 
 keep() reads the client's `_ws`, the connection it keeps, and patch() the server module's `_server` and
 WebsocketPolicyServer: a client or a server built otherwise (another version, another transport) raises TypeError
@@ -72,12 +71,15 @@ import functools
 import os
 import runpy
 import sys
+import threading
+import time
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from . import frames, ping, window
 
 PONG_S = 5.0       # how long a pong may take: past it the connection is considered dead and the pings stop
+RETRY_S = 1.0      # connect(): between two handshakes the server did not answer
 
 
 @dataclass
@@ -93,6 +95,24 @@ class Kept:
     def close(self) -> None:
         """Stop the pings. The connection is the client's, and stays open."""
         self.warm.close()
+
+
+def connect(host: str = "0.0.0.0", port: Optional[int] = None, *, api_key: Optional[str] = None,
+            wait_s: float = 600.0) -> Any:
+    """openpi_client's WebsocketClientPolicy(host, port, api_key), made once its server answers the handshake. openpi_client
+    waits for a server that is not listening yet; this waits as well for one that listens and has not answered yet -
+    loading its policy, or running another robot's first inference on its event loop - which openpi_client gives up on
+    at once with TimeoutError. TimeoutError past `wait_s` seconds."""
+    from openpi_client import websocket_client_policy
+
+    end = time.monotonic() + wait_s
+    while True:
+        try:
+            return websocket_client_policy.WebsocketClientPolicy(host, port, api_key=api_key)
+        except TimeoutError:
+            if time.monotonic() >= end:
+                raise
+            time.sleep(RETRY_S)
 
 
 def keep(policy: Any, *, every_s: float = 0.1, for_s: float = 60.0) -> Kept:
@@ -112,17 +132,27 @@ def keep(policy: Any, *, every_s: float = 0.1, for_s: float = 60.0) -> Kept:
             continue
         took.append((level, name, value))
 
-    def ping() -> None:
-        if not ws.ping().wait(PONG_S):
-            raise TimeoutError(f"no pong in {PONG_S:g} s")
+    flying = threading.Event()     # an infer() in flight: the connection is not idle, and its server pongs no ping
+
+    def ping() -> bool:
+        if flying.is_set():
+            return False
+        if ws.ping().wait(PONG_S):
+            return True
+        if flying.is_set():
+            return False           # an infer() began meanwhile: its server answers the ping once it is done
+        raise TimeoutError(f"no pong in {PONG_S:g} s")
 
     warm = window.Warm(ping, every_s=every_s, for_s=for_s)
+    ws.ping_timeout = None         # the library's own keepalive waits for each pong as long as an inference takes
     infer = policy.infer
 
     def infer_and_mark(obs):
+        flying.set()
         try:
             return infer(obs)
         finally:
+            flying.clear()
             warm.used()
 
     policy.infer = infer_and_mark
@@ -235,12 +265,14 @@ class _Pinging:
         return getattr(self.library, name)
 
 
-def patch(*, every_s: float = ping.EVERY_S, timeout_s: float = ping.TIMEOUT_S, server: Any = None) -> None:
+def patch(*, every_s: float = ping.EVERY_S, timeout_s: Optional[float] = None, server: Any = None) -> None:
     """
     openpi's own policy server, from now on in this process: each connection pinged every `every_s` (ping.py has why
     100 ms), and the policy each WebsocketPolicyServer is then made with handed to Pictures, so a picture a robot sends
     as JPEG reaches it as the array it reads. A robot that sends arrays is served as before. Call it before the server
-    is made; a second call only changes the interval.
+    is made; a second call only changes the interval. `timeout_s`: how long the server waits for a pong before it drops
+    the connection - None, the default, as long as it takes, since openpi's server answers no ping while its policy
+    infers (the module's docstring).
 
     `server` is the module that defines openpi's WebsocketPolicyServer, openpi.serving.websocket_policy_server when not
     given. Raises TypeError for a module not built as that one is, a WebsocketPolicyServer started through the
@@ -256,7 +288,8 @@ def patch(*, every_s: float = ping.EVERY_S, timeout_s: float = ping.TIMEOUT_S, s
     if not isinstance(made, type) or not callable(getattr(library, "serve", None)):
         raise TypeError("this server is not built as openpi's websocket_policy_server.py is (a WebsocketPolicyServer "
                         "started through the websockets library's serve, at `_server`): nothing to change")
-    options = ping.websockets_options(every_s, timeout_s)
+    options = (ping.websockets_options(every_s, timeout_s) if timeout_s is not None
+               else {"ping_interval": ping.websockets_options(every_s)["ping_interval"], "ping_timeout": None})
     if isinstance(library, _Pinging):
         library.options = options
         return

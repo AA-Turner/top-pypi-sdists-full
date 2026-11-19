@@ -41,6 +41,7 @@ ListContainersPaginatorName = Literal["list_containers"]
 MethodNameType = Literal["DELETE", "GET", "HEAD", "PUT"]
 MediaStoreServiceName = Literal["mediastore"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

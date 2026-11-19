@@ -2,20 +2,19 @@
 # SPDX-License-Identifier: MIT
 """HandlerContextPackOrchestrator: the one callable path to a context package (OMN-21110, TA.8).
 
-``handle(ModelContextPackCommand) -> ModelContextPackBuilt``. It resolves the profile by
-name, reads each tier the profile selects from the source bound to that factor through
-``ProtocolContextTierSource`` (the knowledge assembler's fan-out shape), builds the pack and
-renders it. A required tier whose source answers anything but ``resolved`` fails the build
-``REQUIRED_FACTOR_MISSING``; an optional tier's other statuses are listed per tier and the
-tier is omitted. Optional tiers that do not fit the budget are dropped lowest precedence
-first and listed in ``excluded_by_budget``. When the required tiers alone are still over
-budget, the cited entries of every required tier are charged first. Each tier is then
-selected inside its share of what is left: the newest, whole entries only and never
-truncated (OMN-21111).
-``OPERATOR_WORDS_UNRECORDED`` is carried whole (the carry rule). A cited entry that does not
-fit, or a tier left with no entry, fails the build ``TOKEN_BUDGET_EXCEEDED``. Each tier is
-read at its own revision when the request names one in ``tier_revisions``.
-When sources are omitted, handlers are loaded from the contract; explicit mappings are used as supplied.
+``handle(ModelContextPackCommand) -> ModelContextPackBuilt``. It resolves the profile by name, reads
+each tier the profile selects from the source bound to that factor through
+``ProtocolContextTierSource`` (the knowledge assembler's fan-out shape), builds the pack and renders
+it. A required tier whose source answers anything but ``resolved`` fails the build
+``REQUIRED_FACTOR_MISSING`` unless ``fails_build`` excuses it; an optional tier's other statuses are
+listed per tier and the tier is omitted. Optional tiers that do not fit the budget are dropped
+lowest precedence first and listed in ``excluded_by_budget``. When the required tiers alone are
+still over budget, the cited entries of every required tier are charged first. Each tier is then
+selected inside its share of what is left: the newest, whole entries only and never truncated
+(OMN-21111). ``OPERATOR_WORDS_UNRECORDED`` is carried whole (the carry rule). A cited entry that
+does not fit, or a tier left with no entry, fails the build ``TOKEN_BUDGET_EXCEEDED``. Each tier is
+read at its own revision when the request names one in ``tier_revisions``. When sources are omitted,
+handlers are loaded from the contract; explicit mappings are used as supplied.
 
 Identities follow plan section 6: ``candidate_id`` is uuid5 over the build's inputs,
 contracts and ``implementation_identity``; ``assembly_hash`` is the pack hash over the
@@ -84,6 +83,7 @@ from omnimarket.models.context_task_kind_rules import (
 )
 from omnimarket.nodes.node_context_pack_builder_compute.handlers.handler_context_pack_builder import (
     HandlerContextPackBuilder,
+    fails_build,
 )
 from omnimarket.nodes.node_context_pack_orchestrator.protocols import (
     ProtocolContextTierSource,
@@ -106,6 +106,8 @@ from omnimarket.pack.model_context_pack_builder_result import (
     EnumContextPackBuilderStatus,
 )
 from omnimarket.pack.model_context_profile import ModelContextProfile
+
+from ..container.container_parts import resolve_parts
 
 REDUCER_VERSION = "context-pack-orchestrator/1"
 
@@ -269,10 +271,9 @@ class HandlerContextPackOrchestrator:
         clock: Callable[[], float] | None = None,
     ) -> None:
         self._sources = {} if sources is None else dict(sources)
-        self._resolver = profile_resolver or HandlerContextProfileResolver()
-        self._builder = builder or HandlerContextPackBuilder()
-        self._renderer = renderer or HandlerContextPackRender()
-        self._task_kind_rules = task_kind_rules or HandlerContextTaskKindRules()
+        self._resolver, self._builder, self._renderer, self._task_kind_rules = (
+            resolve_parts(profile_resolver, builder, renderer, task_kind_rules)
+        )
         self._implementation_identity = (
             implementation_identity or default_implementation_identity
         )
@@ -378,7 +379,7 @@ class HandlerContextPackOrchestrator:
             usable = answer.status is EnumContextSourceStatus.RESOLVED and bool(entries)
             if usable:
                 entries_by_factor[factor] = entries
-            elif factor in required:
+            elif fails_build(profile, factor, answer):
                 missing.append(factor)
             tiers.append(
                 ModelContextPackTierStatus(
@@ -588,10 +589,12 @@ class HandlerContextPackOrchestrator:
         pack = built.context_pack
         assembly_hash = _assembly_hash(pack)
 
-        refs = self._chunk_refs(entries_by_factor)
-        unrecorded = entries_by_factor.get(
-            EnumContextFactor.OPERATOR_WORDS_UNRECORDED, ()
-        )
+        # The builder drops a content duplicate (OMN-21125), so a ref computed
+        # from the raw entries can name a chunk the pack no longer carries and
+        # fail the render UNKNOWN_CHUNK_REF. Keep only the refs of the chunks
+        # the pack holds, in the order the entries produced them.
+        refs = self._chunk_refs(entries_by_factor, {c.chunk_id for c in pack.chunks})
+        words = entries_by_factor.get(EnumContextFactor.OPERATOR_WORDS_UNRECORDED, ())
         rendered: ModelContextPackRenderResult = self._renderer.handle(
             ModelContextPackRenderRequest(
                 pack=pack,
@@ -602,7 +605,7 @@ class HandlerContextPackOrchestrator:
                     final_pack_hash=built.pack_hash,
                     version_vector_hash=version_vector_hash,
                     profile_name=request.profile_name,
-                    unrecorded_prompt_count=len(unrecorded),
+                    unrecorded_prompt_count=len(words),
                     reviewed_prompt_count=0,
                     scrubbed_span_count=0,
                     transcript_extract_candidate_count=len(
@@ -617,7 +620,7 @@ class HandlerContextPackOrchestrator:
                         prompt_id=entry.source_ref or entry.text_sha256[:16],
                         capture_sequence=index,
                     )
-                    for index, entry in enumerate(_unique_by_ref(unrecorded))
+                    for index, entry in enumerate(_unique_by_ref(words))
                 ),
             )
         )
@@ -663,6 +666,7 @@ class HandlerContextPackOrchestrator:
         entries_by_factor: Mapping[
             EnumContextFactor, tuple[ModelContextSourceEntry, ...]
         ],
+        pack_chunk_ids: set[str],
     ) -> tuple[ModelContextPackRenderChunkRef, ...]:
         refs: dict[str, ModelContextPackRenderChunkRef] = {}
         for factor, entries in entries_by_factor.items():
@@ -682,7 +686,7 @@ class HandlerContextPackOrchestrator:
                         row_lane=lane,
                     ),
                 )
-        return tuple(refs.values())
+        return tuple(r for c, r in refs.items() if c in pack_chunk_ids)
 
 
 # Carried whole and verbatim: only an operator's review row removes a prompt (carry rule).

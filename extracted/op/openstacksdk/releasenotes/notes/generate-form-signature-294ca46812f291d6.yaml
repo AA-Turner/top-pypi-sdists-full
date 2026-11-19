@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added methods to manage object store temp-url keys and
-    generate signatures needed for FormPost middleware.

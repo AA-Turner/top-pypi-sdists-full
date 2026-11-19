@@ -1359,6 +1359,7 @@ WordCloudWordPaddingType = Literal["LARGE", "MEDIUM", "NONE", "SMALL"]
 WordCloudWordScalingType = Literal["EMPHASIZE", "NORMAL"]
 QuickSightServiceName = Literal["quicksight"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

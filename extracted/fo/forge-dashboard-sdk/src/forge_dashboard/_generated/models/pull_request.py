@@ -215,6 +215,15 @@ class PullRequest:
                 `ci` is pending (other runs are going) or failing for another
                 reason too. Always present; false on Forgejo, which has no
                 such state.
+            checks_incomplete (bool): True while the forge has not yet listed every check of the head
+                commit, so `checks` counts some of them and the rest will arrive:
+                a client shouldn't present the counts as final. A fact only; the
+                client decides how to say it. Always present, and false when the
+                list is complete or the forge can't tell. On Forgejo it is true
+                when a run that is still running has jobs the counts leave out,
+                or has no job yet. On GitHub it is always false: the rollup
+                reports its checks by state and says nothing about checks still
+                to be created.
             review_comments (int): How many review comments the pull request has, the ones on a
                 line of code. Ordinary conversation comments are counted apart,
                 in `conversationComments`. Always present, and 0 when
@@ -443,6 +452,7 @@ class PullRequest:
     stack_children: list[int]
     requested_reviewer_logins: list[str]
     awaiting_workflow_approval: bool
+    checks_incomplete: bool
     review_comments: int
     conversation_comments: int
     closes_issues: list[ClosingIssue]
@@ -561,6 +571,8 @@ class PullRequest:
 
 
         awaiting_workflow_approval = self.awaiting_workflow_approval
+
+        checks_incomplete = self.checks_incomplete
 
         review_comments = self.review_comments
 
@@ -700,6 +712,7 @@ class PullRequest:
             "stackChildren": stack_children,
             "requestedReviewerLogins": requested_reviewer_logins,
             "awaitingWorkflowApproval": awaiting_workflow_approval,
+            "checksIncomplete": checks_incomplete,
             "reviewComments": review_comments,
             "conversationComments": conversation_comments,
             "closesIssues": closes_issues,
@@ -879,6 +892,8 @@ class PullRequest:
 
 
         awaiting_workflow_approval = d.pop("awaitingWorkflowApproval")
+
+        checks_incomplete = d.pop("checksIncomplete")
 
         review_comments = d.pop("reviewComments")
 
@@ -1098,6 +1113,7 @@ class PullRequest:
             stack_children=stack_children,
             requested_reviewer_logins=requested_reviewer_logins,
             awaiting_workflow_approval=awaiting_workflow_approval,
+            checks_incomplete=checks_incomplete,
             review_comments=review_comments,
             conversation_comments=conversation_comments,
             closes_issues=closes_issues,

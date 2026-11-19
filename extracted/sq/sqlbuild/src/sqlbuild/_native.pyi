@@ -191,6 +191,8 @@ OLD_NAME_VIEW_TABLE_NAME: str
 MICROBATCH_TABLE_NAME: str
 NODE_RESULTS_TABLE_NAME: str
 OBSERVATIONS_TABLE_NAME: str
+RUNS_TABLE_NAME: str
+DYNAMIC_PAUSES_TABLE_NAME: str
 AUDIT_RESULTS_TABLE_NAME: str
 JANITOR_EVENTS_TABLE_NAME: str
 COLUMN_NODE_TYPE: str
@@ -3707,6 +3709,12 @@ def build_deferred_locations(
     default_database: str | None,
     render_qualified_name: Callable[..., str | None],
 ) -> dict[str, CompiledRelationLocation]: ...
+def gather_deferred_relations(
+    *,
+    adapter: BaseAdapter,
+    connection: object,
+    deferred_locations: Mapping[str, CompiledRelationLocation],
+) -> dict[str, RelationInfo]: ...
 def build_python_relation_targets(
     *,
     adapter: BaseAdapter,
@@ -4309,6 +4317,7 @@ class NativeModelValidator:
         names: tuple[set[str], set[str], set[str], set[str], set[str]],
         custom_materializations: set[str],
         microbatch_concurrency: bool,
+        adapter: str | None = None,
     ) -> None: ...
     @staticmethod
     def from_inputs(
@@ -5541,6 +5550,13 @@ def build_observations_create_table_sql(
     render_qualified_name: Callable[..., str | None],
     render_framework_type: Callable[[FrameworkType], str],
 ) -> str: ...
+def build_runs_create_table_sql(
+    *,
+    database: str | None,
+    schema: str,
+    render_qualified_name: Callable[..., str | None],
+    render_framework_type: Callable[[FrameworkType], str],
+) -> str: ...
 def build_audit_results_prune_sql(
     *,
     database: str | None,
@@ -6560,6 +6576,7 @@ class BuildCommandRequest(NativeRecord):
     defer_to: str | None
     defer_clone_from: str | None
     defer_sources_to: str | None
+    plan_from: str | None
     selected_target: str | None
     cursor_overrides: CursorOverrides | None
     no_color: bool
@@ -6576,6 +6593,7 @@ class BuildCommandRequest(NativeRecord):
     allow_retention_decrease: bool
     allow_missing_migration_origin: bool
     allow_snapshot_schema_change: bool
+    ignore_dynamic_grace: bool
     concurrency: int | None
     select: tuple[str, ...]
     exclude: tuple[str, ...]
@@ -6603,6 +6621,7 @@ class BuildCommandRequest(NativeRecord):
         defer_to: str | None = None,
         defer_clone_from: str | None = None,
         defer_sources_to: str | None = None,
+        plan_from: str | None = None,
         selected_target: str | None = None,
         cursor_overrides: CursorOverrides | None = None,
         no_color: bool = False,
@@ -6619,6 +6638,7 @@ class BuildCommandRequest(NativeRecord):
         allow_retention_decrease: bool = False,
         allow_missing_migration_origin: bool = False,
         allow_snapshot_schema_change: bool = False,
+        ignore_dynamic_grace: bool = False,
         concurrency: int | None = None,
         select: tuple[str, ...] = (),
         exclude: tuple[str, ...] = (),
@@ -6971,6 +6991,7 @@ class PlanCommandRequest(NativeRecord):
     no_sql_validation: bool
     defer_to: str | None
     defer_sources_to: str | None
+    plan_from: str | None
     selected_target: str | None
     as_target: str | None
     cursor_overrides: CursorOverrides | None
@@ -6997,6 +7018,7 @@ class PlanCommandRequest(NativeRecord):
         no_sql_validation: bool = False,
         defer_to: str | None = None,
         defer_sources_to: str | None = None,
+        plan_from: str | None = None,
         selected_target: str | None = None,
         as_target: str | None = None,
         cursor_overrides: CursorOverrides | None = None,
@@ -10234,6 +10256,7 @@ class CompilePipelineOptions(NativeRecord):
     accepts_unit_test_selectors: bool
     sql_test_selection: SqlTestSelection
     source_lexical_syntax: SqlLexicalSyntax | None
+    plan_from: str | None
     ignore_audit_failures: bool
     def __init__(
         self,
@@ -10262,6 +10285,7 @@ class CompilePipelineOptions(NativeRecord):
         accepts_unit_test_selectors: bool = ...,
         sql_test_selection: SqlTestSelection = ...,
         source_lexical_syntax: SqlLexicalSyntax | None = ...,
+        plan_from: str | None = ...,
         ignore_audit_failures: bool = ...,
     ) -> None: ...
 
@@ -10501,12 +10525,14 @@ class DeferralInputs(NativeRecord):
 
     deferred_locations: dict[str, CompiledRelationLocation] | None
     deferred_relations: dict[str, RelationInfo] | None
+    defer_to: str | None
     defer_sources_to: str | None
     source_deferral_enabled: bool
     def __init__(
         self,
         deferred_locations: dict[str, CompiledRelationLocation] | None = ...,
         deferred_relations: dict[str, RelationInfo] | None = ...,
+        defer_to: str | None = ...,
         defer_sources_to: str | None = ...,
         source_deferral_enabled: bool = ...,
     ) -> None: ...
@@ -11744,6 +11770,7 @@ class WarehouseGroup(StrEnum):
 
     BUILD = "build"
     QUERY = "query"
+    SYNC = "sync"
 
 class SourceWriteStrategy(StrEnum):
     APPEND = "append"
@@ -11956,10 +11983,12 @@ class TargetWarehousesConfig(NativeRecord):
 
     build: str | None
     query: str | None
+    sync: str | None
     def __init__(
         self,
         build: str | None = ...,
         query: str | None = ...,
+        sync: str | None = ...,
     ) -> None: ...
 
 class TargetConfig(NativeRecord):
@@ -11988,6 +12017,8 @@ class TargetConfig(NativeRecord):
     concurrency: int | None
     catalog_connection: str | None
     ignore_audit_failures: bool | None
+    plan_from: str | None
+    pause_dynamic: bool | None
     def __init__(
         self,
         connection: dict[str, object] = ...,
@@ -12013,6 +12044,8 @@ class TargetConfig(NativeRecord):
         concurrency: int | None = ...,
         catalog_connection: str | None = ...,
         ignore_audit_failures: bool | None = ...,
+        plan_from: str | None = ...,
+        pause_dynamic: bool | None = ...,
     ) -> None: ...
 
 class LocalTargetConfig(NativeRecord):
@@ -12041,6 +12074,8 @@ class LocalTargetConfig(NativeRecord):
     concurrency: int | None
     catalog_connection: str | None
     ignore_audit_failures: bool | None
+    plan_from: str | None
+    pause_dynamic: bool | None
     def __init__(
         self,
         connection: dict[str, object] = ...,
@@ -12067,6 +12102,8 @@ class LocalTargetConfig(NativeRecord):
         concurrency: int | None = ...,
         catalog_connection: str | None = ...,
         ignore_audit_failures: bool | None = ...,
+        plan_from: str | None = ...,
+        pause_dynamic: bool | None = ...,
     ) -> None: ...
 
 class SettingsConfig(NativeRecord):
@@ -12092,6 +12129,7 @@ class SettingsConfig(NativeRecord):
     allow_missing_secrets: bool
     allow_warehouse_round_trips: bool
     ignore_audit_failures: bool
+    record_run_host: bool
     def __init__(
         self,
         sql_analysis: bool = ...,
@@ -12114,6 +12152,7 @@ class SettingsConfig(NativeRecord):
         allow_missing_secrets: bool = ...,
         allow_warehouse_round_trips: bool = ...,
         ignore_audit_failures: bool = ...,
+        record_run_host: bool = ...,
     ) -> None: ...
     @property
     def sql_validation(self) -> bool: ...
@@ -13491,6 +13530,9 @@ class PlanAction(StrEnum):
     LOAD_SEED = "load_seed"
     SKIP = "skip"
     CUSTOM = "custom"
+    CREATE_DYNAMIC = "create_dynamic"
+    ALTER_DYNAMIC = "alter_dynamic"
+    KEEP_DYNAMIC = "keep_dynamic"
 
 class PlanReason(StrEnum):
     FIRST_RUN = "first_run"
@@ -13558,6 +13600,7 @@ class MaterializationType(StrEnum):
     SNAPSHOT = "snapshot"
     SEED = "seed"
     CUSTOM = "custom"
+    DYNAMIC = "dynamic"
     @classmethod
     def is_table_backed(cls, *, materialized: object | None) -> bool: ...
 
@@ -14079,6 +14122,13 @@ class ModelPlanEntry(NativeRecord):
     max_duration: str | None
     max_duration_seconds: int | None
     max_duration_source: str | None
+    reinitialised_by: str | None
+    target_lag: str | None
+    refresh_mode: str | None
+    refresh_warehouse: str | None
+    refresh_on_build: bool
+    dynamic_readers: tuple[str, ...]
+    dynamic_paused: bool
     def __init__(
         self,
         key: CompiledObjectKey,
@@ -14168,6 +14218,13 @@ class ModelPlanEntry(NativeRecord):
         max_duration: str | None = ...,
         max_duration_seconds: int | None = ...,
         max_duration_source: str | None = ...,
+        reinitialised_by: str | None = ...,
+        target_lag: str | None = ...,
+        refresh_mode: str | None = ...,
+        refresh_warehouse: str | None = ...,
+        refresh_on_build: bool = ...,
+        dynamic_readers: tuple[str, ...] = ...,
+        dynamic_paused: bool = ...,
     ) -> None: ...
 
 class CloneSourcePlanEntry(NativeRecord):

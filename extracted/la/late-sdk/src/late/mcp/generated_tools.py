@@ -1091,6 +1091,7 @@ def register_generated_tools(mcp, _get_client):
             "microsoftads",
             "whopads",
             "applovinads",
+            "snapchatads",
             "hubspot",
             "webflow",
             "googleanalytics",
@@ -2317,10 +2318,11 @@ def register_generated_tools(mcp, _get_client):
         contact_defaults: dict[str, Any] | None = None,
         report_deals: bool | None = None,
         use_deals_as_results: bool | None = None,
+        qualified_leads: dict[str, Any] | None = None,
     ) -> str:
         """Update HubSpot account settings
 
-        Turn contact sync, message logging, delivery status or deal reporting on or off for a connected HubSpot portal, or set defaults for the contact properties the portal requires. Send at least one field; omitted fields keep their value. Settings survive reconnecting the same portal.
+        Turn contact sync, message logging, delivery status, deal reporting or qualified leads on or off for a connected HubSpot portal, or set defaults for the contact properties the portal requires. Send at least one field; omitted fields keep their value. Settings survive reconnecting the same portal.
 
         Platforms: hubspot
 
@@ -2330,8 +2332,9 @@ def register_generated_tools(mcp, _get_client):
             log_messages: Log inbound and outbound inbox messages on the contact's HubSpot timeline.
             log_delivery_status: Add the delivery status of each outgoing WhatsApp, SMS or RCS message to its timeline entry and update it as the message is delivered, read or fails. A failure shows the reason and its code. Only applies while `logMessages` is on.
             contact_defaults: Values for contact properties your portal requires on create, keyed by HubSpot internal name (lowercase letters, digits, underscores), for example `{"lifecyclestage": "lead"}`. Replaces the whole map; send `{}` to clear it. Clears `syncIssue` until the next contact create tells whether the portal accepts them.
-            report_deals: Send each deal that becomes closed won as a Purchase to the profile's event destinations, about once an hour. Requires the portal to have granted `crm.objects.deals.read`; otherwise 400. Deals closed before it was turned on are not sent.
-            use_deals_as_results: Count each closed-won deal as a sale with its amount on the ad campaign that brought its contact, in `GET /v1/ads/campaign-results` and ad rules. Requires `crm.objects.deals.read`; otherwise 400. Turning it on fills in the deals of the last 90 days, never sent to the ad platforms."""
+            report_deals: Send each deal that becomes closed won as a Purchase to the profile's event destinations, about every 15 minutes. Requires the portal to have granted `crm.objects.deals.read`; otherwise 400. Deals closed before it was turned on are not sent.
+            use_deals_as_results: Count each closed-won deal as a sale with its amount on the ad campaign that brought its contact, in `GET /v1/ads/campaign-results` and ad rules. Requires `crm.objects.deals.read`; otherwise 400. Turning it on fills in the deals of the last 90 days, never sent to the ad platforms.
+            qualified_leads: Count a contact as a `QualifiedLead` event once `property` holds one of `values`, checked every 15 minutes. It carries the contact's hashed email and phone and its ad campaign, and counts in campaign results and ad rules. It goes to the forwarding rules that name `QualifiedLead`, and is retracted when the contact drops to another value. Contacts that qualified before the rule was turned on are not counted. Object with keys: enabled (boolean, required); property (string, required) - HubSpot internal name of the contact property, for example `lifecyclestage`.; values (list of string, required) - The values that count as qualified. At least one while `enabled` is true."""
         client = _get_client()
         try:
             response = client.accounts.update_hub_spot_settings(
@@ -2342,6 +2345,33 @@ def register_generated_tools(mcp, _get_client):
                 contact_defaults=contact_defaults,
                 report_deals=report_deals,
                 use_deals_as_results=use_deals_as_results,
+                qualified_leads=qualified_leads,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List HubSpot contact properties",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_list_hub_spot_contact_properties(account_id: str) -> str:
+        """List HubSpot contact properties
+
+        The connected portal's visible contact properties, with the values of those that have a fixed list. Use it to pick the property and values of `qualifiedLeads`. Cached for 10 minutes.
+
+        Platforms: hubspot
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.list_hub_spot_contact_properties(
+                account_id=account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -6133,6 +6163,15 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaign_results_list_campaign_results(
         from_date: str,
         to_date: str,
+        model: Literal[
+            "last_click",
+            "first_touch",
+            "last_non_direct",
+            "linear",
+            "position_based",
+            "time_decay",
+            "w_shaped",
+        ] = "last_click",
         campaign_ids: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
@@ -6150,6 +6189,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             from_date: (required)
             to_date: Inclusive. At most 400 days after `fromDate`. (required)
+            model: Attribution model your stored sales and leads count under. `last_click` (default) counts each event whole for the campaign it matched. The others split it across the campaigns of its earlier touches, so counts and revenue can be fractional. Uploads read the same under every model.
             campaign_ids: Comma-separated platform campaign ids, at most 500. Omit for all campaigns.
             limit: Campaigns per page.
             cursor: `nextCursor` from the previous page."""
@@ -6158,6 +6198,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaign_results.list_campaign_results(
                 from_date=from_date,
                 to_date=to_date,
+                model=model,
                 campaign_ids=campaign_ids,
                 limit=limit,
                 cursor=cursor,
@@ -6205,7 +6246,18 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_campaign_results_get_campaign_results_totals(
-        from_date: str, to_date: str, ad_account_ids: str | None = None
+        from_date: str,
+        to_date: str,
+        model: Literal[
+            "last_click",
+            "first_touch",
+            "last_non_direct",
+            "linear",
+            "position_based",
+            "time_decay",
+            "w_shaped",
+        ] = "last_click",
+        ad_account_ids: str | None = None,
     ) -> str:
         """Get your results totals
 
@@ -6220,11 +6272,171 @@ def register_generated_tools(mcp, _get_client):
         Args:
             from_date: (required)
             to_date: Inclusive. At most 400 days after `fromDate`. (required)
+            model: Attribution model your stored sales and leads count under. `last_click` (default) counts each event whole for the campaign it matched. The others split it across the campaigns of its earlier touches, so counts and revenue can be fractional. Uploads read the same under every model.
             ad_account_ids: Comma-separated platform ad account ids, at most 100. Omit for every ad account your key can see."""
         client = _get_client()
         try:
             response = client.ad_campaign_results.get_campaign_results_totals(
-                from_date=from_date, to_date=to_date, ad_account_ids=ad_account_ids
+                from_date=from_date,
+                to_date=to_date,
+                model=model,
+                ad_account_ids=ad_account_ids,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List the events that count as campaign results",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaign_results_get_campaign_result_events() -> str:
+        """List the events that count as campaign results
+
+        The names of the events sent to `POST /v1/events` that your team counts as campaign results. Only these are tied to a campaign when they arrive. Until you choose, they are `Purchase`, `Lead` and `QualifiedLead`.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.get_campaign_result_events()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Choose the events that count as campaign results",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaign_results_set_campaign_result_events(
+        event_names: list[str] | None,
+    ) -> str:
+        """Choose the events that count as campaign results
+
+        Sets which stored events are tied to a campaign when they arrive and add to its results.
+
+        `Purchase` adds `sales` and `revenue`, `Lead` adds `leads` and `QualifiedLead` adds `qualified_leads`. Any other event adds 1 per event to a metric keyed `event_` plus its name in lowercase, e.g. `event_completeregistration`, which formulas and rules can read.
+
+        Events stored before the change keep how they were counted. Send `null` to go back to `Purchase`, `Lead` and `QualifiedLead`.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            event_names: (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.set_campaign_result_events(
+                event_names=event_names
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get the Tag new ads setting",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaign_results_get_tag_new_ads() -> str:
+        """Get the Tag new ads setting
+
+        Whether new Meta and Google ads created through Zernio carry the Zernio ad tag (`zrn=<platform ad id>` on the landing URL) when the create request does not set `tracking.zernioTag`. Off until you turn it on.
+
+        Platforms: meta, google"""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.get_tag_new_ads()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Turn Tag new ads on or off",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaign_results_set_tag_new_ads(enabled: bool) -> str:
+        """Turn Tag new ads on or off
+
+        With `enabled: true`, every new Meta and Google ad created through `POST /v1/ads/create` carries `zrn=<platform ad id>` on its landing URL, so the conversions it brings are tied to its campaign. A request that sets `tracking.zernioTag` keeps its own choice.
+
+        The same rules as `tracking.zernioTag` apply: lead forms, call ads, existing creatives and app promotion are skipped, and a Google ad is tagged only when it inherits no final URL suffix. Existing ads are never changed.
+
+        Platforms: meta, google
+
+        Args:
+            enabled: (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.set_tag_new_ads(enabled=enabled)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get your profit setting",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaign_results_get_campaign_result_profit() -> str:
+        """Get your profit setting
+
+        The margin and cost per order your team's profit metrics use. Both are `null` until you set them.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.get_campaign_result_profit()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set your margin and cost per order",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaign_results_set_campaign_result_profit(
+        margin_percent: float, cost_per_order: float | None = None
+    ) -> str:
+        """Set your margin and cost per order
+
+        With a `marginPercent`, your team gets three built-in formulas, listed in `GET /v1/ads/campaign-results/metrics` and readable in `GET /v1/ads/campaign-results`, the Campaigns table and ad rules (`result:profit`), under every attribution model:
+
+        - `profit` = `revenue * marginPercent / 100 - sales * costPerOrder`
+        - `poas` = `profit / spend` (profit on ad spend)
+        - `profit_after_ads` = `profit - spend`
+
+        `revenue` and `sales` are the values counted from `Purchase` events or the ones you upload. `costPerOrder` is in each ad account's currency, the one its revenue is counted in. Values are rounded to 2 decimals. Send `marginPercent: null` to remove the profit metrics.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            margin_percent: (required)
+            cost_per_order: Needs a marginPercent. Omitted: none."""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.set_campaign_result_profit(
+                margin_percent=margin_percent, cost_per_order=cost_per_order
             )
             return _format_response(response)
         except Exception as e:
@@ -6241,7 +6453,9 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaign_results_list_campaign_result_metrics() -> str:
         """List your result metrics
 
-        The metric keys your team has sent, with their label and kind, then the formulas: your own and the built-in ones (`cac_percent`, `cost_per_sale`, `cost_per_qualified_lead`, `lead_to_sale`, `qualified_rate`). A new key appears as a `count` labelled from the key; name it, or define a formula, with `PUT /v1/ads/campaign-results/metrics/{key}`.
+        The metric keys your team has sent, with their label and kind, then the formulas: your own and the built-in ones (`cac_percent`, `cost_per_sale`, `cost_per_qualified_lead`, `lead_to_sale`, `qualified_rate`).
+
+        Once you set a margin with `PUT /v1/ads/campaign-results/profit`, the built-ins add `profit`, `poas` and `profit_after_ads`. A new key appears as a `count` labelled from the key; name it, or define a formula, with `PUT /v1/ads/campaign-results/metrics/{key}`.
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
         client = _get_client()
@@ -7013,6 +7227,7 @@ def register_generated_tools(mcp, _get_client):
             "completed",
             "cancelled",
             "error",
+            "not_deleted",
         ]
         | None = None,
         ad_account_id: str | None = None,
@@ -8736,6 +8951,7 @@ def register_generated_tools(mcp, _get_client):
             "completed",
             "cancelled",
             "error",
+            "not_deleted",
         ]
         | None = None,
         ad_account_id: str | None = None,
@@ -8754,6 +8970,15 @@ def register_generated_tools(mcp, _get_client):
         daily_level: Literal["campaign", "adset", "ad"] = "campaign",
         compare: Literal["previous"] | None = None,
         results: bool | None = None,
+        model: Literal[
+            "last_click",
+            "first_touch",
+            "last_non_direct",
+            "linear",
+            "position_based",
+            "time_decay",
+            "w_shaped",
+        ] = "last_click",
         depth: Literal["campaign", "adset", "ad"] = "campaign",
     ) -> str:
         """Get campaign tree
@@ -8824,6 +9049,7 @@ def register_generated_tools(mcp, _get_client):
         - `ad`: on every ad in `ads[]` as well. Heaviest (a long range × up to 100 ads per ad set); scope with `campaignId` to keep responses small.
                 compare: Set to `previous` to also read the period of the same length that ends the day before `fromDate`. Every campaign, ad set and ad gains `previousMetrics` (same fields as `metrics`) and the response gains `previousRange`, so a table can show the change against the previous period in one call.
                 results: Set to `true` to add your own results (see [Campaign results](/guides/campaign-results)): every campaign gains `results`, the values you sent for the range plus each formula they allow, and the response gains `resultMetrics` to label them.
+                model: With `results=true`: the attribution model your stored sales and leads count under in `results`. Uploaded values are the same under every model.
                 depth: How deep the tree goes. Metrics always roll up over every ad, whatever the depth.
 
         - `ad` (default): campaigns, their ad sets and each ad set's ads.
@@ -8853,6 +9079,7 @@ def register_generated_tools(mcp, _get_client):
                 daily_level=daily_level,
                 compare=compare,
                 results=results,
+                model=model,
                 depth=depth,
             )
             return _format_response(response)
@@ -10331,6 +10558,8 @@ def register_generated_tools(mcp, _get_client):
 
         Lists a Performance Max campaign's asset groups with their linked text, image and YouTube assets.
 
+        Each asset carries Google's policy review of it in that group (`policySummary`), and each group its `primaryStatus` and `primaryStatusReasons`, so a disapproved asset or group shows here without a separate call. `GET /v1/ads/{adId}/review` reads the same verdict live for one asset group.
+
         campaignId is the platform campaign id returned by creation or the campaign list. The campaign must be visible to the caller.
 
         ### Caching
@@ -10669,6 +10898,7 @@ def register_generated_tools(mcp, _get_client):
         catalog_intro_cards: list[dict[str, Any]] | None = None,
         multi_advertiser: Literal["OPT_IN", "OPT_OUT"] | None = None,
         ai_disclosure: Literal["OPT_IN", "OPT_OUT"] | None = None,
+        website_only: bool | None = None,
         retry_on_server_error: bool | None = None,
         validate_only: bool | None = None,
         budget_amount: float | None = None,
@@ -10976,7 +11206,7 @@ def register_generated_tools(mcp, _get_client):
         - Demand Gen names its ad group with `demandGen.adGroupName`, and Performance Max with `assetGroup.name`.
         - For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.
                 ad_name: Meta only. Exact ad name, overriding the default `name`. On the multi-creative shape it names every ad, numbered `#1`, `#2`... when there are several, unless a `creatives[]` entry sets its own `name`.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Opt-in: set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the landing ...
                 goal: The ad's goal. Available goals vary by platform. When omitted, it is inferred from the ad (see `appliedDefaults.goal` in the response); the attach shape inherits it from the ad set.
 
         **Meta**
@@ -11055,6 +11285,11 @@ def register_generated_tools(mcp, _get_client):
         - Omitted: leaves Meta's default.
 
         Applied to each new creative (standalone, creatives[] and attach shapes) and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
+                website_only: Meta only. Sets the creative's applink_treatment to web_only, so Ads Manager shows Website as the only destination instead of App with a website backup.
+
+        - Omitted or false: keeps Meta's default.
+        - Applies to new creatives (single, creatives[] and adSetId attach); rejected with existingCreativeId.
+        - Meta rejects it when the campaign uses Website and App conversion locations.
                 retry_on_server_error: Meta only (a 400 elsewhere). When Meta answers a create with a 5xx and reading the parent back by name finds no such object, Zernio sends the create again (at most 3 POSTs per object, never for an object created ACTIVE) and reports it in `recoveredWrites`.
 
         `false` never sends it again: the request fails with 502 and `details.unconfirmedWrite`, so you can check the parent yourself. One object found by name is still reused.
@@ -11067,7 +11302,8 @@ def register_generated_tools(mcp, _get_client):
         Before the dry run, Meta validateOnly runs the account status and payment checks of GET /v1/ads/accounts/health: an ad account that is not ready answers its blocker `code` (`ad_account_unusable`, `ad_account_payment_required`) with `details.hint` and `details.fix`, and Meta is not called.
 
         - Supported: a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, placementAssets with an existing video id in every slot and no thumbnails, or existingCreativeId.
-        - Return 400: dynamicCreative, translations, carouselCards, placement videos by URL or with thumbnails, new video uploads, creatives[], adSetId, RESERVED buying.
+        - Also supported: carouselCards whose cards are images or existing video.id videos, sent by URL with nothing uploaded.
+        - Return 400: dynamicCreative, translations, carousel cards with video.url, placement videos by URL or with thumbnails, new video uploads, creatives[], adSetId, RESERVED buying.
         - Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped.
         - When Meta cannot dry-run the nested tree, the campaign and creative are validated alone and the adSet and ad nodes return unverified with the reason. This covers code 2, and two errors Meta returns but then creates normally (below).
         - Code 1 (unknown error) on an OFFSITE_CONVERSIONS ad set nested in a new campaign (some website-conversion ad sets).
@@ -11188,7 +11424,7 @@ def register_generated_tools(mcp, _get_client):
                 lead_gen_form_id: Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms.
 
         - Meta (facebook/instagram): the leadgen_forms ID. The ad set's promoted_object.page_id, LEAD_GENERATION optimization and destination_type ON_AD are derived automatically from the goal.
-        - Meta: also required on every ATTACH (`adSetId`) call targeting a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set).
+        - Meta: also required on every ATTACH (`adSetId`) call targeting an Instant Form lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set, so Zernio returns a 400 naming `leadGenFormId` before uploading anything). This includes a carousel attached with `carouselCards`.
         - Meta: `placementAssets`, `dynamicCreative` and `carouselCards` (multi-card Instant-Form lead ad) ARE supported on instant-form lead ads. `linkUrl` and per-card `linkUrl` are optional, forwarded as real destinations when sent, else falling back to Meta's lead-form link.
         - LinkedIn: the adForm ID. The creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve.
         - Reddit: rejected with 400 on every goal (Reddit retired its native lead forms).
@@ -11390,7 +11626,7 @@ def register_generated_tools(mcp, _get_client):
 
         A creative replaced later through /v1/ads/{adId} follows the same rule.
                 dynamic_creative: Meta only. Dynamic Creative: supply a POOL of assets and Meta auto-combines and optimises them into the best-performing variations within a single ad (mapped to the creative's `asset_feed_spec`). - The top-level single-creative fields (`imageUrl`, `headline`, `body`, `linkUrl`, `callToAction`) are ignored when this is set. - Mutually exclusive with the `creatives[]` multi-creative shape. - Exactly ONE of `imageUrls` / `videoUrls` is required (Meta allows one ad format per asset feed; sending both → 400). - Limits remain 10 images or videos and 5 bodies, titles or descriptions. - Multiple headlines go in `titles`; multiple primary texts go in `bodies`. - The ad set is created with `is_dynamic_creative: true`. Combining this field with `adSetId` returns 400: omit `adSetId` to create a new dynamic ad set. Object with keys: imageUrls (list of string) - Pool of image URLs (1-10). Uploaded to the ad account and referenced by hash in the asset feed. Mutually exclusive with `videoUrls`.; videoUrls (list of string) - Pool of video URLs (1-10). Uploaded to the ad account and referenced by video id in the asset feed. No thumbnails are needed: Meta auto-generates a poster per ...; bodies (list of string) - Primary-text variations (the body copy).; titles (list of string) - Headline variations.; descriptions (list of string) - Description (link caption) variations.; linkUrls (list of string) - Destination URL variations. At least one is required unless `goal` is `lead_generation`.; callToActionTypes (list of string) - CTA-button variations. Required.; adFormat (one of: SINGLE_IMAGE, CAROUSEL_IMAGE, SINGLE_VIDEO) - Asset-feed ad format. Must match the pool: SINGLE_IMAGE / CAROUSEL_IMAGE require `imageUrls`, SINGLE_VIDEO requires `videoUrls` (400 otherwise). Defaults to ...
-                carousel_cards: Carousel cards. Behavior per platform: **Reddit:** builds a carousel ad. Each card has its image, destination (card `linkUrl`, falling back to top-level `linkUrl`; 400 when neither is set), call to action (card `callToAction`, falling back to the top-level one) and caption (card `headline`, else `description`). `headline` is still required. **Meta only:** a hand-built carousel of 2-10 authored cards, sent in order as the creative's `link_data.child_attachments`. Unlike `dynamicCreative`, you author every card's copy and link. - Meta may still reorder cards for performance (`multi_share_optimized` defaults to true); send `optimizeCardOrder: false` to keep your order. - Requires top-level `body` and `callToAction`; `linkUrl` too UNLESS `leadGenFormId` is set. These become the ad's Destination and button (`link_data.link` / `link_data.call_to_action`) and the per-card fallback. - Mutually exclusive with `imageUrl`/`video`, `creatives[]`, `dynamicCreative`, `placementAssets`, `existingCreativeId`, `adSetId` and goal `catalog_sales`. - With `leadGenFormId` it builds a carousel Instant-Form lead ad: `linkUrl` and per-card `linkUrl` become OPTIONAL, forwarded as real destinations when sent; when omitted, the destination falls back to Meta's lead-form link. Each item is an object with keys: imageUrl (string, required) - Card image; uploaded to the ad account and referenced by hash.; linkUrl (string) - Card destination URL. Defaults to the top-level linkUrl, or Meta's lead-form link when leadGenFormId is set and neither is provided.; headline (string) - Card headline, shown below the card image.; description (string) - Card description, shown under the headline.; callToAction (string) - Card CTA override. Defaults to the top-level callToAction; same enum.
+                carousel_cards: Carousel cards. Behavior per platform: **Reddit:** builds a carousel ad. Each card has its image, destination (card `linkUrl`, falling back to top-level `linkUrl`; 400 when neither is set), call to action (card `callToAction`, falling back to the top-level one) and caption (card `headline`, else `description`). `headline` is still required. **Meta only:** a hand-built carousel of 2-10 authored cards, sent in order as the creative's `link_data.child_attachments`. Unlike `dynamicCreative`, you author every card's copy and link. - Meta may still reorder cards for performance (`multi_share_optimized` defaults to true); send `optimizeCardOrder: false` to keep your order. - Requires top-level `body` and `callToAction`; `linkUrl` too UNLESS `leadGenFormId` is set. These become the ad's Destination and button (`link_data.link` / `link_data.call_to_action`) and the per-card fallback. - Each card is an image card (`imageUrl`) or a video card (`video`), never both. Image and video cards can be mixed. - With `leadGenFormId` it builds a carousel Instant-Form lead ad: `linkUrl` and per-card `linkUrl` become OPTIONAL, forwarded as real destinations when sent; when omitted, the destination falls back to Meta's lead-form link. - With `adSetId` it adds one carousel ad to that existing ad set, which keeps its budget, schedule, targeting and optimization. An Instant Form ad set (destination ON_AD, LEAD_GENERATION or QUALITY_LEAD optimization) needs `leadGenFormId` on every ad: without it the request is a 400 naming `leadGenFormId`. - Also works with `existingCampaignId` and `optimizeCardOrder`. - Mutually exclusive with `imageUrl`/`video`, `creatives[]`, `dynamicCreative`, `placementAssets`, `existingCreativeId`, `bodies`/`headlines`, `translations` and catalog template creatives (goal `catalog_sales`, or `promotedObject.productSetId`). The 400 names the conflicting field. - `validateOnly` dry-runs image cards and `video.id` cards without uploading; a card with `video.url` is a 400 there. Each item is an object with keys: imageUrl (string) - Image card: the card image, uploaded to the ad account and referenced by hash.; video (object with keys url, id, thumbnailUrl) - Meta only (a 400 on Reddit, whose carousels are images only). Video card, sent as the card's `video_id`. Needs `url` or `id`.; linkUrl (string) - Card destination URL. Defaults to the top-level linkUrl, or Meta's lead-form link when leadGenFormId is set and neither is provided.; headline (string) - Card headline, shown below the card image.; description (string) - Card description, shown under the headline.; callToAction (string) - Card CTA override. Defaults to the top-level callToAction; same enum.
                 optimize_card_order: Meta only (a 400 on any other platform), and only with `carouselCards` (a 400 without them). Sets the creative's `link_data.multi_share_optimized`.
 
         - `false`: keeps the cards in the order given. Meta then takes at most 5 cards, so `false` with more than 5 `carouselCards` is a 400.
@@ -11537,6 +11773,7 @@ def register_generated_tools(mcp, _get_client):
             "catalog_intro_cards": catalog_intro_cards,
             "multi_advertiser": multi_advertiser,
             "ai_disclosure": ai_disclosure,
+            "website_only": website_only,
             "retry_on_server_error": retry_on_server_error,
             "validate_only": validate_only,
             "budget_amount": budget_amount,
@@ -11662,6 +11899,7 @@ def register_generated_tools(mcp, _get_client):
                 catalog_intro_cards=catalog_intro_cards,
                 multi_advertiser=multi_advertiser,
                 ai_disclosure=ai_disclosure,
+                website_only=website_only,
                 retry_on_server_error=retry_on_server_error,
                 validate_only=validate_only,
                 budget_amount=budget_amount,
@@ -13609,7 +13847,7 @@ def register_generated_tools(mcp, _get_client):
             filters: Each item is an object with keys: field (one of: name, campaign_name, adset_name, goal; required) - The object's own name, its campaign's or ad set's name, or the campaign goal (objective) as the platform reports it.; op (one of: contains, not_contains, equals, not_equals, starts_with; required); value (string, required)
             groups: Each item is an object with keys: name (string, required) - Unique in the rule, ignoring case.; filters (list of objects with keys field, op, value, required)
             lifecycle: Object with keys: confirmChecks (integer) - Matching runs in a row before acting. Defaults to 1.; hold (object with keys all) - Keeps an open alert open after the conditions stop matching.; critical (object with keys all) - Marks an open alert critical.
-            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, of, required) (required)
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, model, compareTo, of, required) (required)
             actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook, and the alert to every `send` destination.; send (list of objects with keys accountId, channelId) - Also send a short alert through accounts you connected: what matched, the values and what the rule did. Up to 5 destinations, checked when the rule is saved. ... (required)
             schedule: Leave it out to run every 60 minutes. Object with keys: everyMinutes (one of: 15, 30, 60, 180, 360, 720, 1440) - How often the rule runs, in minutes. Null on a rule that runs at set times.; times (list of objects with keys days, at) - Set weekly times in the ad account timezone, instead of an interval. A rule that changes ads needs a cooldown of at least the shortest gap between two times.; startsAt (string) - The rule runs from this time on.; endsAt (string) - The rule stops running after this time.; quietHours (object with keys from, to) - A daily window in the ad account timezone when the rule does not run, like `{ \"from\": \"22:00\", \"to\": \"06:00\" }`. It may wrap past midnight; the first run ...
             cooldown_minutes: How long the rule leaves an object alone after acting on it.
@@ -13836,7 +14074,7 @@ def register_generated_tools(mcp, _get_client):
             filters: Each item is an object with keys: field (one of: name, campaign_name, adset_name, goal; required) - The object's own name, its campaign's or ad set's name, or the campaign goal (objective) as the platform reports it.; op (one of: contains, not_contains, equals, not_equals, starts_with; required); value (string, required)
             groups: Null removes the groups; each campaign is then judged on its own. Each item is an object with keys: name (string, required) - Unique in the rule, ignoring case.; filters (list of objects with keys field, op, value, required)
             lifecycle: Null removes it; every matching run then acts and notifies again. Object with keys: confirmChecks (integer) - Matching runs in a row before acting. Defaults to 1.; hold (object with keys all) - Keeps an open alert open after the conditions stop matching.; critical (object with keys all) - Marks an open alert critical.
-            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, of, required)
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, model, compareTo, of, required)
             actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook, and the alert to every `send` destination.; send (list of objects with keys accountId, channelId) - Also send a short alert through accounts you connected: what matched, the values and what the rule did. Up to 5 destinations, checked when the rule is saved. ...
             schedule: Object with keys: everyMinutes (one of: 15, 30, 60, 180, 360, 720, 1440) - How often the rule runs, in minutes. Null on a rule that runs at set times.; times (list of objects with keys days, at) - Set weekly times in the ad account timezone, instead of an interval. A rule that changes ads needs a cooldown of at least the shortest gap between two times.; startsAt (string) - The rule runs from this time on.; endsAt (string) - The rule stops running after this time.; quietHours (object with keys from, to) - A daily window in the ad account timezone when the rule does not run, like `{ \"from\": \"22:00\", \"to\": \"06:00\" }`. It may wrap past midnight; the first run ...
             cooldown_minutes
@@ -16990,7 +17228,7 @@ def register_generated_tools(mcp, _get_client):
             trigger: Object with keys: type (string, required); every (one of: 15m, 30m, 1h, 3h, 6h, 12h, 1d) - Run every interval. Send this or `times`, not both.; times (list of objects with keys days, at) - Set weekly times. Send this or `every`, not both.; startsAt (string) - Runs from this time on.; endsAt (string) - Stops running after this time. Must be after `startsAt`.; quietHours (object with keys from, to) - A daily window with no checks. It may wrap past midnight, such as `22:00` to `06:00`.
             subjects: Object with keys: each (one of: campaign, adset, ad, keyword, search_term; required) - The objects judged one by one.; adAccounts (list of objects with keys accountId, adAccountId, required) - The ad account to check. One per ad rule, and an edit cannot move it to another.; campaignIds (list of string) - Only these platform campaigns or their ad sets and ads. Leave out to check the whole ad account.; filters (list of objects with keys field, op, value) - All must hold.; groups (list of objects with keys name, filters) - Judges campaigns together (campaign rules only): each group's numbers are summed and its rates computed on the totals, and a matching group acts on each of ...
             filter: Object with keys: field (string, required) - A fact name from the catalog.; op (one of: equals, not_equals, contains, not_contains, starts_with, ends_with, exists, not_exists, matches, greater_than, less_than, greater_or_equal, less_or_equal, before, after, has_tag, not_has_tag, is_true, is_false; required); value (string or number, required)
-            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, of, required)
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, model, compareTo, of, required)
             alert: Object with keys: confirmChecks (integer); hold (object with keys all); critical (object with keys all)
             steps: The steps the automation's kind takes. Each item is an object with keys: id (string); type (string, required)
             limits: Object with keys: cooldown (string) - How long an object is left alone after the rule acts on it. Whole minutes, up to `30d`.; maxChangesPerDay (integer) - Most changes across the last 24 hours. Needs an `ads.*` step.; maxChangesPerObject (integer) - Most times the rule may change one object, counted over the last 400 days. Needs an `ads.*` step."""
@@ -21387,6 +21625,7 @@ def register_generated_tools(mcp, _get_client):
         impact: Literal["none", "additive", "action_required"] | None = None,
         platform: str | None = None,
         before: str | None = None,
+        cursor: str | None = None,
         limit: int = 20,
     ) -> str:
         """List API changelog entries
@@ -21406,11 +21645,17 @@ def register_generated_tools(mcp, _get_client):
             impact: Only entries with this impact. `action_required` lists the changes an integration may need to act on.
             platform: Only entries tagged with this platform or area slug (see `platforms` on the entry). One slug per request.
             before: Only entries published strictly before this instant. Pass the previous page's `nextCursor`.
+            cursor: Same as `before`, for clients that send `nextCursor` back as `cursor`. `before` wins when both are set.
             limit"""
         client = _get_client()
         try:
             response = client.changelog.list_changelog(
-                type=type, impact=impact, platform=platform, before=before, limit=limit
+                type=type,
+                impact=impact,
+                platform=platform,
+                before=before,
+                cursor=cursor,
+                limit=limit,
             )
             return _format_response(response)
         except Exception as e:
@@ -25833,7 +26078,7 @@ def register_generated_tools(mcp, _get_client):
         4. `instagram_login_method_mismatch`: an Instagram Login authorization landed on a profile whose Instagram account is connected through Facebook Login, so nothing changed. To refresh it, connect again with `loginMethod=facebook_login`. To move it to Instagram Login, disconnect it first.
                 scopes: Comma-separated permission areas to request instead of the platform's full permission set.
 
-        **Values:** `posting`, `analytics`, `comments`, `messaging`, `ads`; on google and microsoft, `email`, `calendar`, `files`, `contacts`, `directory`; on microsoft only, `shared_mailboxes`. `directory` (people search) works on microsoft, and on google only through your own OAuth app for now.
+        **Values:** `posting`, `analytics`, `comments`, `messaging`, `ads`; on google and microsoft, `email`, `calendar`, `files`, `contacts`, `directory`; on microsoft only, `shared_mailboxes`. `directory` adds people search (Google: `directory.readonly` and `contacts.other.readonly`; Microsoft: `People.Read` and `User.ReadBasic.All`).
 
         `shared_mailboxes` (Microsoft only) adds `Mail.ReadWrite.Shared` and `Mail.Send.Shared`, so the account can add shared mailboxes it has access to with `POST /v1/email/shared-mailboxes`. Pass it next to `email`. To add it to a connected account, reconnect with `scopes=email,shared_mailboxes`.
 
@@ -26366,38 +26611,57 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         redirect_url: str | None = None,
         reconnect_account_id: str | None = None,
+        welcome: bool | None = None,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        welcome_theme: str | None = None,
     ) -> str:
         """Get Google Analytics OAuth connect URL
 
-        Starts OAuth for Google Analytics (GA4). Each connected GA4 property becomes its own account with platform `googleanalytics`; it reads reports and does not post.
+            Starts OAuth for Google Analytics (GA4). Each connected GA4 property becomes its own account with platform `googleanalytics`; it reads reports and does not post.
 
-        Requested scope: `https://www.googleapis.com/auth/analytics.readonly`.
+            Requested scope: `https://www.googleapis.com/auth/analytics.readonly`.
 
-        ### Flow
+            ### Flow
 
-        Redirect the user to `authUrl`.
+            Redirect the user to `authUrl`.
 
-        - **One readable property:** Zernio connects it and redirects to `redirect_url` (or the dashboard) with `connected=googleanalytics`, `profileId`, `accountId` and `username` (the property name).
-        - **Several properties:** the user first picks one on a Zernio-hosted page, which then redirects the same way.
+            - **One readable property:** Zernio connects it and redirects to `redirect_url` (or the dashboard) with `connected=googleanalytics`, `profileId`, `accountId` and `username` (the property name).
+            - **Several properties:** the user first picks one on a Zernio-hosted page, which then redirects the same way.
 
-        ### Your own property picker
+            ### Your own property picker
 
-        Add `headless=true` to `redirect_url`. Zernio then redirects there with `step=select_property`, `profileId`, `platform=googleanalytics` and a `pendingDataToken` for `GET /v1/connect/googleanalytics/properties` and `POST /v1/connect/googleanalytics/select-property`.
+            Add `headless=true` to `redirect_url`. Zernio then redirects there with `step=select_property`, `profileId`, `platform=googleanalytics` and a `pendingDataToken` for `GET /v1/connect/googleanalytics/properties` and `POST /v1/connect/googleanalytics/select-property`.
 
-        ### Errors
+            ### Errors
 
-        On failure the redirect carries `error`, `platform=googleanalytics` and `error_message`. Errors include: ...
+            On failure the redirect carries `error`, `platform=googleanalytics` and `error_message`. Errors include: ...
 
-        Args:
-            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
-            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
-            reconnect_account_id: Zernio account ID of the Google Analytics account being reconnected. Picking a different property then fails instead of adding a second account."""
+            Args:
+                profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+                redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+                reconnect_account_id: Zernio account ID of the Google Analytics account being reconnected. Picking a different property then fails instead of adding a second account.
+                welcome: When `true`, `authUrl` opens on the Zernio-hosted welcome screen with your brand, as on GET /v1/connect/{platform}, naming Google Analytics.
+
+        - With no `redirect_url`, the flow ends on the branded result page instead of the Zernio dashboard.
+        - When left out, the screen shows if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`). Pass `false` to skip it.
+        - Cannot be combined with `headless=true` in `redirect_url` (400 `INVALID_FIELD_VALUE`).
+                brand_name: Welcome screen only: your product name in its heading. Same rules as on GET /v1/connect/{platform}.
+                logo_url: Welcome screen only: https URL of your square logo. Rejected with 400 `INVALID_FIELD_VALUE` when the welcome screen is not shown.
+                primary_color: Welcome screen only: hex colour (`#RRGGBB`) of its button.
+                welcome_theme: Welcome screen only: a URL-encoded JSON object restyling and rewording the welcome screen and the result page, with the keys documented on GET /v1/connect/{platform}. Rejected when the welcome screen is not shown."""
         client = _get_client()
         try:
             response = client.connect.get_google_analytics_connect_url(
                 profile_id=profile_id,
                 redirect_url=redirect_url,
                 reconnect_account_id=reconnect_account_id,
+                welcome=welcome,
+                brand_name=brand_name,
+                logo_url=logo_url,
+                primary_color=primary_color,
+                welcome_theme=welcome_theme,
             )
             return _format_response(response)
         except Exception as e:
@@ -26486,40 +26750,59 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         redirect_url: str | None = None,
         reconnect_account_id: str | None = None,
+        welcome: bool | None = None,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        welcome_theme: str | None = None,
     ) -> str:
         """Get Google Search Console OAuth connect URL
 
-        Starts OAuth for Google Search Console. Each connected site becomes its own account with platform `googlesearchconsole`; it reads Google Search data and does not post.
+            Starts OAuth for Google Search Console. Each connected site becomes its own account with platform `googlesearchconsole`; it reads Google Search data and does not post.
 
-        Requested scope: `https://www.googleapis.com/auth/webmasters.readonly`.
+            Requested scope: `https://www.googleapis.com/auth/webmasters.readonly`.
 
-        ### Flow
+            ### Flow
 
-        Redirect the user to `authUrl`.
+            Redirect the user to `authUrl`.
 
-        - **One verified site:** Zernio connects it and redirects to `redirect_url` (or the dashboard) with `connected=googlesearchconsole`, `profileId`, `accountId` and `username` (the site, such as `acme.com`).
-        - **Several sites:** the user first picks one on a Zernio-hosted page, which then redirects the same way.
+            - **One verified site:** Zernio connects it and redirects to `redirect_url` (or the dashboard) with `connected=googlesearchconsole`, `profileId`, `accountId` and `username` (the site, such as `acme.com`).
+            - **Several sites:** the user first picks one on a Zernio-hosted page, which then redirects the same way.
 
-        ### Your own site picker
+            ### Your own site picker
 
-        Add `headless=true` to `redirect_url`. Zernio then redirects there with `step=select_site`, `profileId`, `platform=googlesearchconsole` and a `pendingDataToken` for `GET /v1/connect/googlesearchconsole/sites` and `POST /v1/connect/googlesearchconsole/select-site`.
+            Add `headless=true` to `redirect_url`. Zernio then redirects there with `step=select_site`, `profileId`, `platform=googlesearchconsole` and a `pendingDataToken` for `GET /v1/connect/googlesearchconsole/sites` and `POST /v1/connect/googlesearchconsole/select-site`.
 
-        ### Errors
+            ### Errors
 
-        On failure the redirect carries `error`, `platform=googlesearchconsole` and `error_message`. ...
+            On failure the redirect carries `error`, `platform=googlesearchconsole` and `error_message`. ...
 
-        Platforms: googlesearchconsole
+            Platforms: googlesearchconsole
 
-        Args:
-            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
-            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
-            reconnect_account_id: Zernio account ID of the Google Search Console account being reconnected. Picking a different site then fails instead of adding a second account."""
+            Args:
+                profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+                redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+                reconnect_account_id: Zernio account ID of the Google Search Console account being reconnected. Picking a different site then fails instead of adding a second account.
+                welcome: When `true`, `authUrl` opens on the Zernio-hosted welcome screen with your brand, as on GET /v1/connect/{platform}, naming Google Search Console.
+
+        - With no `redirect_url`, the flow ends on the branded result page instead of the Zernio dashboard.
+        - When left out, the screen shows if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`). Pass `false` to skip it.
+        - Cannot be combined with `headless=true` in `redirect_url` (400 `INVALID_FIELD_VALUE`).
+                brand_name: Welcome screen only: your product name in its heading. Same rules as on GET /v1/connect/{platform}.
+                logo_url: Welcome screen only: https URL of your square logo. Rejected with 400 `INVALID_FIELD_VALUE` when the welcome screen is not shown.
+                primary_color: Welcome screen only: hex colour (`#RRGGBB`) of its button.
+                welcome_theme: Welcome screen only: a URL-encoded JSON object restyling and rewording the welcome screen and the result page, with the keys documented on GET /v1/connect/{platform}. Rejected when the welcome screen is not shown."""
         client = _get_client()
         try:
             response = client.connect.get_google_search_console_connect_url(
                 profile_id=profile_id,
                 redirect_url=redirect_url,
                 reconnect_account_id=reconnect_account_id,
+                welcome=welcome,
+                brand_name=brand_name,
+                logo_url=logo_url,
+                primary_color=primary_color,
+                welcome_theme=welcome_theme,
             )
             return _format_response(response)
         except Exception as e:
@@ -27965,6 +28248,7 @@ def register_generated_tools(mcp, _get_client):
         api_key: str,
         event_key: str,
         profile_id: str,
+        report_key: str | None = None,
         name: str | None = None,
         state: str | None = None,
         redirect_url: str | None = None,
@@ -27975,11 +28259,16 @@ def register_generated_tools(mcp, _get_client):
 
         Zernio checks both keys with Axon before saving them. The account then receives the conversion events you forward to it (`POST /v1/events`, forwarding rules), and its Event Key works as a site tag on tracking sites.
 
+        Add the optional Report Key to sync AppLovin spend. Every few hours Zernio reads spend, impressions and clicks per campaign and creative set for the last 7 days, so AppLovin campaigns show in the ads campaign listings and in campaign results.
+
+        Zernio checks the Report Key with AppLovin before saving it. Connecting again without a Report Key keeps the one already saved.
+
         Requires the Ads add-on.
 
         Args:
             api_key: Conversion API key from the Keys page of Axon Ads Manager. (required)
             event_key: Event Key from the Keys page of Axon Ads Manager: 8 to 128 letters, digits, dots, dashes or underscores. (required)
+            report_key: Optional Report Key from the Keys page of your AppLovin account. With it, Zernio syncs AppLovin spend per campaign.
             name: Optional display name for the account.
             profile_id: Your Zernio profile ID (required)
             state: Optional state passthrough for the connect flow.
@@ -27989,6 +28278,52 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.connect_app_lovin_ads_credentials(
                 api_key=api_key,
                 event_key=event_key,
+                report_key=report_key,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect a Snapchat Ads pixel",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_snapchat_ads_credentials(
+        access_token: str,
+        pixel_id: str,
+        profile_id: str,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect a Snapchat Ads pixel
+
+        Connect a Snap Pixel with its Pixel ID and a Conversions API token generated in Snapchat Ads Manager (Business Details, Conversions API Tokens, visible to Organization Admins).
+
+        Zernio checks the token against the pixel on Snap's validate endpoint before saving it. The account then receives the conversion events you forward to it (`POST /v1/events`, forwarding rules). Connecting the same pixel again replaces its token.
+
+        Requires the Ads add-on.
+
+        Args:
+            access_token: Conversions API token from the organization that owns the pixel. (required)
+            pixel_id: Snap Pixel ID from Events Manager, a UUID. (required)
+            name: Optional display name for the account.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_snapchat_ads_credentials(
+                access_token=access_token,
+                pixel_id=pixel_id,
                 name=name,
                 profile_id=profile_id,
                 state=state,
@@ -30900,10 +31235,13 @@ def register_generated_tools(mcp, _get_client):
             "stripe",
             "web",
             "salesforce",
+            "postback",
         ]
         | None = None,
         platform: str | None = None,
         delivery_status: Literal["sent", "failed"] | None = None,
+        from_ad: bool | None = None,
+        campaign_id: str | None = None,
         cursor: str | None = None,
     ) -> str:
         """List stored events
@@ -30916,7 +31254,7 @@ def register_generated_tools(mcp, _get_client):
 
         Paginate with `cursor`: pass the `nextCursor` of the previous page until it comes back `null`.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, reddit, openai, applovinads, googleanalytics, stripe, hubspot, salesforce
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, stripe, hubspot, salesforce
 
         Args:
             profile_id: The profile to list. Omit to cover every profile you can access.
@@ -30927,6 +31265,8 @@ def register_generated_tools(mcp, _get_client):
             source: Only events from this source, such as `stripe` for the payments of a connected Stripe account.
             platform: Only events sent to this ad platform, such as `metaads` or `googleads`.
             delivery_status: Only events whose latest send to a destination (of `platform`, when given) was accepted (`sent`) or was not (`failed`: failed or still retrying).
+            from_ad: `true`: only events carrying an ad click or a campaign (a gclid, gbraid or wbraid, a `zrn`, or a matched campaign). `false`: only the others.
+            campaign_id: Only events of this ad platform campaign id: matched to it, or behind a Google click of it.
             cursor: `nextCursor` from the previous page."""
         client = _get_client()
         try:
@@ -30939,6 +31279,8 @@ def register_generated_tools(mcp, _get_client):
                 source=source,
                 platform=platform,
                 delivery_status=delivery_status,
+                from_ad=from_ad,
+                campaign_id=campaign_id,
                 cursor=cursor,
             )
             return _format_response(response)
@@ -30976,10 +31318,9 @@ def register_generated_tools(mcp, _get_client):
         Zernio also stores each event for the profile's reporting.
 
         - Email, phone and `externalId` are stored only as SHA-256 hashes.
-        - `sourceUrl` keeps only its origin, path and attribution parameters (`utm_*`, `gclid`, `fbclid`, `ttclid`, `li_fat_id`, `epik`, `rdt_cid`, `gbraid`, `wbraid`).
-        - Events sent with `testCode` are forwarded but not ...
+        - `sourceUrl` keeps only its origin, path and attribution parameters (`utm_*`, `zrn`, `zcid`, `gclid`, `gbraid`, `wbraid`, `fbclid`, `ttclid`, `twclid`, `msclkid`, `li_fat_id`, `epik`, `rdt_cid`, `oppref`, `aleid`, ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, reddit, openai, applovinads, googleanalytics
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics
 
         Args:
             profile_id: Profile the events belong to. Its saved destinations receive the events. (required)
@@ -30997,6 +31338,129 @@ def register_generated_tools(mcp, _get_client):
                 consent=consent,
                 test_code=test_code,
                 mode=mode,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List the touch paths that lead to conversions",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_get_conversion_paths(
+        from_date: str, to_date: str, profile_id: str | None = None, limit: int = 10
+    ) -> str:
+        """List the touch paths that lead to conversions
+
+        The most frequent sequences of touches people made before a conversion (sale, lead or another counted event) whose time falls in the range: ad clicks, tagged visits, search, referrals and earlier lead forms, oldest first.
+
+        Only conversions with more than one touch have a path. Without `profileId` it covers every profile you can access. Requires the Ads add-on.
+
+        Args:
+            profile_id: The profile to read. Omit for every profile you can access.
+            from_date: (required)
+            to_date: Inclusive. At most 400 days after `fromDate`. (required)
+            limit"""
+        client = _get_client()
+        try:
+            response = client.conversions.get_conversion_paths(
+                profile_id=profile_id, from_date=from_date, to_date=to_date, limit=limit
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get post-purchase survey answers",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_get_survey_answers(
+        from_date: str, to_date: str, profile_id: str | None = None
+    ) -> str:
+        """Get post-purchase survey answers
+
+        How buyers said they heard about the store, from the \"How did you hear about us?\" block on the Shopify thank-you page. Each answer comes with its orders and their revenue.
+
+        Revenue is what the orders are worth now (refunds taken off), summed across currencies as sent. Without `profileId` it covers every profile you can access. Requires the Ads add-on.
+
+        Args:
+            profile_id: The profile to read. Omit for every profile you can access.
+            from_date: First day an answer was given. (required)
+            to_date: Inclusive. At most 400 days after `fromDate`. (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.get_survey_answers(
+                profile_id=profile_id, from_date=from_date, to_date=to_date
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get buyer cohorts by first purchase month and first channel",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_get_ltv_cohorts(
+        from_month: str, to_month: str, profile_id: str | None = None
+    ) -> str:
+        """Get buyer cohorts by first purchase month and first channel
+
+        Buyers grouped by the month of their first purchase and the platform that first brought them, with their purchases added up over the year after (months 0, 1, 3, 6 and 12).
+
+        A buyer is a hashed email, else external id, else phone. The first channel is the first touch's platform, else the first purchase's own campaign, else `none`. Values stay in each purchase's currency, one row per currency. Requires the Ads add-on.
+
+        Args:
+            profile_id: The profile to read. Omit for every profile you can access.
+            from_month: (required)
+            to_month: (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.get_ltv_cohorts(
+                profile_id=profile_id, from_month=from_month, to_month=to_month
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get delivery accuracy per destination",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_get_events_accuracy(
+        profile_id: str | None = None,
+        period: Literal["today", "7d", "30d", "90d"] = "7d",
+    ) -> str:
+        """Get delivery accuracy per destination
+
+        For each forwarding rule of a profile: what its destination received over a period, and how many of the profile's real sales reached it.
+
+        `deliveries` counts every event sent to the destination in the period, whatever its source, by the latest outcome of each. `accuracy` compares only sales: Shopify and WooCommerce orders and Stripe payments, as Elevar's Channel Accuracy does. Sales a rule leaves out by choice do not count against it.
+
+        Without `profileId` it covers every profile you can access. Requires the Ads add-on.
+
+        Args:
+            profile_id: The profile to read. Omit to cover every profile you can access.
+            period: The window, ending now: `today` (since 00:00 UTC), or the last 7, 30 or 90 days."""
+        client = _get_client()
+        try:
+            response = client.conversions.get_events_accuracy(
+                profile_id=profile_id, period=period
             )
             return _format_response(response)
         except Exception as e:
@@ -31036,21 +31500,32 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def conversions_get_events_overview_daily(
-        profile_id: str | None = None, period: Literal["today", "7d", "30d"] = "7d"
+        profile_id: str | None = None,
+        period: Literal["today", "7d", "30d", "90d"] = "7d",
+        event_name: str | None = None,
+        sources: str | None = None,
+        platform: str | None = None,
     ) -> str:
         """Get daily tracking figures
 
-        The tracking figures of a period, day by day (UTC): events stored, events sent to the ad platforms and how many they accepted, plus the period's totals in the same shape as the overview's `today`.
+        The tracking figures of a period, day by day (UTC): events stored per event name, events sent to each ad platform and how many it accepted, the period's totals in the same shape as the overview's `today`, and how many website conversions each platform's browser pixel missed.
 
-        An event sent to a destination counts once, on the day of its first send, by its latest outcome. Without `profileId` it covers every profile you can access. Requires the Ads add-on.
+        An event sent to a destination counts once, on the day of its first send, by its latest outcome. Without `profileId` it covers every profile you can access. `eventName`, `sources` and `platform` narrow every figure. Requires the Ads add-on.
 
         Args:
             profile_id: The profile to read. Omit to cover every profile you can access, summed across them.
-            period: The days to cover, each ending today (UTC): `today`, the last 7 days or the last 30 days."""
+            period: The days to cover, each ending today (UTC): `today`, the last 7, 30 or 90 days.
+            event_name: Only events of this name, such as `Purchase`.
+            sources: Comma-separated sources (`web`, `shopify`, `stripe`, `api`...). Only events from them.
+            platform: Only sends to this platform (`metaads`, `googleads`...), and only the events sent to it."""
         client = _get_client()
         try:
             response = client.conversions.get_events_overview_daily(
-                profile_id=profile_id, period=period
+                profile_id=profile_id,
+                period=period,
+                event_name=event_name,
+                sources=sources,
+                platform=platform,
             )
             return _format_response(response)
         except Exception as e:
@@ -31294,6 +31769,7 @@ def register_generated_tools(mcp, _get_client):
                 "stripe",
                 "web",
                 "salesforce",
+                "postback",
             ]
         ]
         | None = None,
@@ -31305,7 +31781,7 @@ def register_generated_tools(mcp, _get_client):
 
         Pick `destinationId` from `GET /v1/ads/conversions/destinations`. Set `eventNames` to forward only those events, such as only `Purchase`; leave it out to forward every event.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, reddit, openai, applovinads, googleanalytics, hubspot, salesforce
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, hubspot, salesforce
 
         Args:
             profile_id: (required)
@@ -31469,6 +31945,7 @@ def register_generated_tools(mcp, _get_client):
         consent_mode: Literal["eu_opt_in", "opt_in", "opt_out"] | None = None,
         custom_hostname: str | None = None,
         proxy_path: str | None = None,
+        google_tag_ids: list[str] | None = None,
     ) -> str:
         """Update a tracking site
 
@@ -31478,13 +31955,16 @@ def register_generated_tools(mcp, _get_client):
 
         `proxyPath` serves the tag from a path of the site itself, such as `brand.com/zt`, through a proxy on your server. The response's `proxy.secret` signs what the proxy forwards. `null` removes it.
 
+        `googleTagIds` lists the site's own Google tags that the same proxy relays to Google's tag gateway. Load each from its `proxy.googleTags[].src` instead of googletagmanager.com. `null` or an empty list removes them.
+
         Args:
             site_id: (required)
             name
             domains: Hosts allowed to send events, such as `brand.com`. Events from any other origin are dropped.
             consent_mode
             custom_hostname: A subdomain of one of the site's domains, never the domain itself. `null` removes it.
-            proxy_path: The path your server forwards to the collector, such as `/zt`. `null` removes it."""
+            proxy_path: The path your server forwards to the collector, such as `/zt`. `null` removes it.
+            google_tag_ids: Google tag ids such as `GTM-XXXXXXX`, `G-XXXXXXXXXX` or `AW-XXXXXXXXXX`, up to 10. `null` or `[]` removes them."""
         client = _get_client()
         try:
             response = client.conversions.update_tracking_site(
@@ -31494,6 +31974,7 @@ def register_generated_tools(mcp, _get_client):
                 consent_mode=consent_mode,
                 custom_hostname=custom_hostname,
                 proxy_path=proxy_path,
+                google_tag_ids=google_tag_ids,
             )
             return _format_response(response)
         except Exception as e:
@@ -36418,39 +36899,43 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Send an email
 
-        Sends from the connected mailbox and returns the stored sent copy.
+            Sends from the connected mailbox and returns the stored sent copy.
 
-        The message is mirrored into the inbox (`message.sent` fires once) and counted against the mailbox's daily cap. The cap is reported in the `X-Zernio-Send-Limit`, `X-Zernio-Send-Remaining` and `X-Zernio-Send-Reset` response headers, plus `X-Zernio-Send-Doubles-At` while the cap can still double.
+            The message is mirrored into the inbox (`message.sent` fires once) and counted against the mailbox's daily cap. The cap is reported in the `X-Zernio-Send-Limit`, `X-Zernio-Send-Remaining` and `X-Zernio-Send-Reset` response headers, plus `X-Zernio-Send-Doubles-At` while the cap can still double.
 
-        ### Sending limits
+            ### Sending limits
 
-        These mailboxes are for one-to-one mail, not bulk sends. Protection on every mailbox:
+            These mailboxes are for one-to-one mail, not bulk sends. Protection on every mailbox:
 
-        - Daily cap: Microsoft 1,000; Google Workspace 500; Gmail consumer 200; IMAP 200. Reaching it answers 429 `email_send_cap_reached` with `details.cap`.
-        - The cap of a Microsoft, Google Workspace or Gmail mailbox doubles once (2,000, 1,000 and 400) after 14 days with a successful send, counted since its last spam signal and never past the provider's own limit. Days need not be consecutive.
-        - A spam signal starts the count over and returns the cap to its base. Signals: a same-body burst, a send refused over the mailbox's ...
+            - Daily cap: Microsoft 1,000; Google Workspace 500; Gmail consumer 200; IMAP 200. Reaching it answers 429 `email_send_cap_reached` with `details.cap`.
+            - The cap of a Microsoft, Google Workspace or Gmail mailbox doubles once (2,000, 1,000 and 400) after 14 days with a successful send, counted since its last spam signal and never past the provider's own limit. Days need not be consecutive.
+            - A spam signal starts the count over and returns the cap to its base. Signals: a same-body burst, a send refused over the mailbox's ...
 
-        Args:
-            account_id: (required)
-            to: Each item is an object with keys: email (string, required); name (string) (required)
-            cc: Each item is an object with keys: email (string, required); name (string)
-            bcc: Each item is an object with keys: email (string, required); name (string)
-            reply_to: Each item is an object with keys: email (string, required); name (string)
-            from_name
-            from_: Send from another address listed by `GET /v1/email/send-as`; on Outlook, declare a shared mailbox there first. An address not on the list answers 400, and Outlook refusing it at send time answers 403. Omitted, the mail leaves from the mailbox address.
-            append_signature: Appends the signature of the sending address: its Zernio default first, else its Gmail signature. 400 when it has neither.
-            signature_id: Appends this Zernio signature instead. Wins over `appendSignature`.
-            subject: (required)
-            text: Plain-text body. One of `text` or `html` is required.
-            html
-            attachments: 25 MB in total on every provider. Send files over 4 MB by url: request bodies are capped at 4.5 MB. Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
-            headers: Custom `X-` headers only. `List-Unsubscribe` is dropped on Microsoft and reported in `metadata.droppedHeaders`.
-            metadata
-            scheduled_for: Send later, between 1 minute and 30 days from now. The request answers 202 with the scheduled send; it leaves within a minute of this time through the same caps as an immediate send. List or cancel it under `/v1/email/messages/scheduled`.
-            hold_as_draft: Needs `scheduledFor`. Saves the email as a draft in the mailbox now and sends that draft at `scheduledFor`, with any edits the user made in their mail app. A draft deleted or sent from the mailbox first fails the send (`email.send_failed`). Cancelling deletes the draft.
-            track_opens: Adds an open pixel to the html and fires `email.opened`. Needs `html`.
-            track_links: Rewrites every http(s) link in the html through a Zernio redirect and fires `email.link_clicked`. Needs `html`.
-            track_replies: Fires `email.thread_replied` when someone else writes in this message's thread. Works with text or html."""
+            Args:
+                account_id: (required)
+                to: Each item is an object with keys: email (string, required); name (string) (required)
+                cc: Each item is an object with keys: email (string, required); name (string)
+                bcc: Each item is an object with keys: email (string, required); name (string)
+                reply_to: Each item is an object with keys: email (string, required); name (string)
+                from_name
+                from_: Send from another address listed by `GET /v1/email/send-as`; on Outlook, declare a shared mailbox there first. An address not on the list answers 400, and Outlook refusing it at send time answers 403. Omitted, the mail leaves from the mailbox address.
+                append_signature: Appends the signature of the sending address: its Zernio default first, else its Gmail signature. 400 when it has neither.
+                signature_id: Appends this Zernio signature instead. Wins over `appendSignature`.
+                subject: (required)
+                text: Plain-text body. One of `text` or `html` is required.
+                html
+                attachments: 25 MB in total on every provider. Send files over 4 MB by url: request bodies are capped at 4.5 MB. Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
+                headers: Custom headers: `X-` names, plus `List-Unsubscribe`, `List-Unsubscribe-Post`, `List-Id`, `Precedence` and `Auto-Submitted`. Other names, values with line breaks and header lines over 998 characters answer 400.
+
+        `List-Unsubscribe` takes one or more `<https://...>` or `<mailto:...>` URIs separated by commas. `List-Unsubscribe-Post` must be exactly `List-Unsubscribe=One-Click` and needs an https URI in `List-Unsubscribe` (RFC 8058).
+
+        Gmail and IMAP send them all. Outlook sends only `X-` headers: the others are left out and named in `metadata.droppedHeaders` on the sent message.
+                metadata
+                scheduled_for: Send later, between 1 minute and 30 days from now. The request answers 202 with the scheduled send; it leaves within a minute of this time through the same caps as an immediate send. List or cancel it under `/v1/email/messages/scheduled`.
+                hold_as_draft: Needs `scheduledFor`. Saves the email as a draft in the mailbox now and sends that draft at `scheduledFor`, with any edits the user made in their mail app. A draft deleted or sent from the mailbox first fails the send (`email.send_failed`). Cancelling deletes the draft.
+                track_opens: Adds an open pixel to the html and fires `email.opened`. Needs `html`.
+                track_links: Rewrites every http(s) link in the html through a Zernio redirect and fires `email.link_clicked`. Needs `html`.
+                track_replies: Fires `email.thread_replied` when someone else writes in this message's thread. Works with text or html."""
         client = _get_client()
         try:
             response = client.email.send_email_message(
@@ -36697,33 +37182,37 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Reply to a message
 
-        Replies inside the provider's thread: the provider builds the quoted original and threading headers, your `html` or `text` goes above the quote. `to`, `cc`, `bcc`, `replyTo`, `subject`, `headers` and `attachments` are honoured.
+            Replies inside the provider's thread: the provider builds the quoted original and threading headers, your `html` or `text` goes above the quote. `to`, `cc`, `bcc`, `replyTo`, `subject`, `headers` and `attachments` are honoured.
 
-        `scheduledFor` schedules the reply (202) and `trackOpens`, `trackLinks` and `trackReplies` track it, as on send; `holdAsDraft` holds it as a reply draft in the thread until then. Same protection, caps and headers as sending.
+            `scheduledFor` schedules the reply (202) and `trackOpens`, `trackLinks` and `trackReplies` track it, as on send; `holdAsDraft` holds it as a reply draft in the thread until then. Same protection, caps and headers as sending.
 
-        Args:
-            message_id: (required)
-            account_id: (required)
-            to: Each item is an object with keys: email (string, required); name (string) (required)
-            cc: Each item is an object with keys: email (string, required); name (string)
-            bcc: Each item is an object with keys: email (string, required); name (string)
-            reply_to: Each item is an object with keys: email (string, required); name (string)
-            from_name
-            from_: Send from another address listed by `GET /v1/email/send-as`; on Outlook, declare a shared mailbox there first. An address not on the list answers 400, and Outlook refusing it at send time answers 403. Omitted, the mail leaves from the mailbox address.
-            append_signature: Appends the signature of the sending address: its Zernio default first, else its Gmail signature. 400 when it has neither.
-            signature_id: Appends this Zernio signature instead. Wins over `appendSignature`.
-            subject: Optional on replies; the provider keeps the thread subject. (required)
-            text: Plain-text body. One of `text` or `html` is required.
-            html
-            attachments: 25 MB in total on every provider. Send files over 4 MB by url: request bodies are capped at 4.5 MB. Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
-            headers: Custom `X-` headers only. `List-Unsubscribe` is dropped on Microsoft and reported in `metadata.droppedHeaders`.
-            metadata
-            scheduled_for: Send later, between 1 minute and 30 days from now. The request answers 202 with the scheduled send; it leaves within a minute of this time through the same caps as an immediate send. List or cancel it under `/v1/email/messages/scheduled`.
-            hold_as_draft: Needs `scheduledFor`. Saves the email as a draft in the mailbox now and sends that draft at `scheduledFor`, with any edits the user made in their mail app. A draft deleted or sent from the mailbox first fails the send (`email.send_failed`). Cancelling deletes the draft.
-            track_opens: Adds an open pixel to the html and fires `email.opened`. Needs `html`.
-            track_links: Rewrites every http(s) link in the html through a Zernio redirect and fires `email.link_clicked`. Needs `html`.
-            track_replies: Fires `email.thread_replied` when someone else writes in this message's thread. Works with text or html.
-            mode"""
+            Args:
+                message_id: (required)
+                account_id: (required)
+                to: Each item is an object with keys: email (string, required); name (string) (required)
+                cc: Each item is an object with keys: email (string, required); name (string)
+                bcc: Each item is an object with keys: email (string, required); name (string)
+                reply_to: Each item is an object with keys: email (string, required); name (string)
+                from_name
+                from_: Send from another address listed by `GET /v1/email/send-as`; on Outlook, declare a shared mailbox there first. An address not on the list answers 400, and Outlook refusing it at send time answers 403. Omitted, the mail leaves from the mailbox address.
+                append_signature: Appends the signature of the sending address: its Zernio default first, else its Gmail signature. 400 when it has neither.
+                signature_id: Appends this Zernio signature instead. Wins over `appendSignature`.
+                subject: Optional on replies; the provider keeps the thread subject. (required)
+                text: Plain-text body. One of `text` or `html` is required.
+                html
+                attachments: 25 MB in total on every provider. Send files over 4 MB by url: request bodies are capped at 4.5 MB. Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
+                headers: Custom headers: `X-` names, plus `List-Unsubscribe`, `List-Unsubscribe-Post`, `List-Id`, `Precedence` and `Auto-Submitted`. Other names, values with line breaks and header lines over 998 characters answer 400.
+
+        `List-Unsubscribe` takes one or more `<https://...>` or `<mailto:...>` URIs separated by commas. `List-Unsubscribe-Post` must be exactly `List-Unsubscribe=One-Click` and needs an https URI in `List-Unsubscribe` (RFC 8058).
+
+        Gmail and IMAP send them all. Outlook sends only `X-` headers: the others are left out and named in `metadata.droppedHeaders` on the sent message.
+                metadata
+                scheduled_for: Send later, between 1 minute and 30 days from now. The request answers 202 with the scheduled send; it leaves within a minute of this time through the same caps as an immediate send. List or cancel it under `/v1/email/messages/scheduled`.
+                hold_as_draft: Needs `scheduledFor`. Saves the email as a draft in the mailbox now and sends that draft at `scheduledFor`, with any edits the user made in their mail app. A draft deleted or sent from the mailbox first fails the send (`email.send_failed`). Cancelling deletes the draft.
+                track_opens: Adds an open pixel to the html and fires `email.opened`. Needs `html`.
+                track_links: Rewrites every http(s) link in the html through a Zernio redirect and fires `email.link_clicked`. Needs `html`.
+                track_replies: Fires `email.thread_replied` when someone else writes in this message's thread. Works with text or html.
+                mode"""
         client = _get_client()
         try:
             response = client.email.reply_email_message(
@@ -36922,7 +37411,7 @@ def register_generated_tools(mcp, _get_client):
             text
             html
             attachments: Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
-            headers: Custom `X-` headers only.
+            headers: Same headers as on `POST /v1/email/messages`: `X-` names plus `List-Unsubscribe`, `List-Unsubscribe-Post`, `List-Id`, `Precedence` and `Auto-Submitted`. Outlook drafts leave out all but `X-` headers.
             metadata: Kept with the draft and returned on the sent message and its email.* webhooks.
             in_reply_to: Makes a reply draft in that message's thread, addressed and threaded like a reply. Not with `forwardOf`.
             reply_all: With `inReplyTo`: address every recipient of the original. Leave out `to`, `cc` and `bcc`.
@@ -41871,7 +42360,7 @@ def register_generated_tools(mcp, _get_client):
 
         `false` never sends it again: the request fails with 502 and `details.unconfirmedWrite`, so you can check the parent yourself. One object found by name is still reused.
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Opt-in: set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the landing ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
                 ad_account_id: Meta ad account ID, e.g. `act_123456789`. (required)
                 name: Ad display name. Used to derive campaign / ad set names.
@@ -41910,13 +42399,13 @@ def register_generated_tools(mcp, _get_client):
         single-creative shape if neither `video` nor an existing post reference is supplied.
                 video: Video creative for single-creative shape. Mutually exclusive with `imageUrl` and with `creatives[]`. Required on the single-creative shape if neither `imageUrl` nor an existing post reference is supplied. Object with keys: url (string) - Public URL of the video to upload. Provide either `url` or `id`.; id (string) - Reuse a video already uploaded to this ad account (list them with GET /v1/ads/videos) instead of re-uploading. Wins over `url`. Provide either `url` or `id`. ...; thumbnailUrl (string) - OPTIONAL: when omitted, the poster is auto-generated from Meta's own preferred video thumbnail. When Meta produces no candidate the request fails with a 502 ...
                 welcome_message: Custom chat welcome message (Meta's `page_welcome_message`, "Mensaje de bienvenida" / "Mensaje predefinido" in Ads Manager). Single-creative shape only; for `creatives[]` set it per entry. Object with keys: text (string, required) - Greeting shown when the chat opens. Replaces Meta's default (\"Hi! Can we help you?\").; prefillText (string) - Message put into the user's text input, ready to send. Replaces Meta's default (\"Hi! I want more info.\"). Lets one ad steer the opening message toward what it ...; quickReplies (list of objects with keys title, payload) - Tappable chips under the greeting instead of a prefilled message. Exactly one of prefillText or quickReplies. Put your own campaign or ad key in each payload. ...
-                carousel_cards: Messaging and CTWA only (a 400 on POST /v1/ads/call). A hand-built carousel of 2-10 image cards, sent to Meta in the given order as `link_data.child_attachments`. - Meta may reorder cards for performance, since `multi_share_optimized` defaults to true; `optimizeCardOrder: false` keeps your order. - Every card (and the carousel) carries the destination's messaging call to action (WHATSAPP_MESSAGE, MESSAGE_PAGE or INSTAGRAM_MESSAGE), so a tap on any card opens the conversation. - Replaces `imageUrl` / `video` (sending either is a 400). - `body` is required as the primary text. `headline` is optional and only names the creative (each card has its own `headline`). A top-level `description` is a 400 (set it per card). - `welcomeMessage`, `whatsappPhoneNumber` and `destinations` apply as on a single-image ad. - Also a 400 with `placementAssets`, `platformPostId`, `existingPostId` or `objectStoryId`. - Single-creative shape; for `creatives[]` set it per entry. Each item is an object with keys: imageUrl (string, required) - Card image. Uploaded to the ad account and sent as the card image_hash (by URL on validateOnly).; headline (string) - Card title (Meta name).; description (string) - Card description, under the title.; callToAction (string) - Optional. Must equal the destination's messaging call to action (WHATSAPP_MESSAGE for whatsapp, MESSAGE_PAGE for messenger, INSTAGRAM_MESSAGE for ...; linkUrl (string) - Not accepted: a 400. The card tap opens the conversation, not a website.
+                carousel_cards: Messaging and CTWA only (a 400 on POST /v1/ads/call). A hand-built carousel of 2-10 image or video cards, sent to Meta in the given order as `link_data.child_attachments`. - Meta may reorder cards for performance, since `multi_share_optimized` defaults to true; `optimizeCardOrder: false` keeps your order. - Every card (and the carousel) carries the destination's messaging call to action (WHATSAPP_MESSAGE, MESSAGE_PAGE or INSTAGRAM_MESSAGE), so a tap on any card opens the conversation. - Replaces `imageUrl` / `video` (sending either is a 400). - `body` is required as the primary text. `headline` is optional and only names the creative (each card has its own `headline`). A top-level `description` is a 400 (set it per card). - `welcomeMessage`, `whatsappPhoneNumber` and `destinations` apply as on a single-image ad. - Also a 400 with `placementAssets`, `platformPostId`, `existingPostId` or `objectStoryId`. - Single-creative shape; for `creatives[]` set it per entry. Each item is an object with keys: imageUrl (string) - Image card. Uploaded to the ad account and sent as the card image_hash (by URL on validateOnly).; video (object with keys url, id, thumbnailUrl) - Video card, sent as the card's `video_id`. Needs `url` or `id`. On validateOnly only `id` works, since `url` needs an upload first.; headline (string) - Card title (Meta name).; description (string) - Card description, under the title.; callToAction (string) - Optional. Must equal the destination's messaging call to action (WHATSAPP_MESSAGE for whatsapp, MESSAGE_PAGE for messenger, INSTAGRAM_MESSAGE for ...; linkUrl (string) - Not accepted: a 400. The card tap opens the conversation, not a website.
                 optimize_card_order: Only with `carouselCards` (a 400 without them). Single-creative shape; for `creatives[]` set it per entry. Sets the creative's `link_data.multi_share_optimized`.
 
         - `false`: keeps the cards in the order given. Meta then takes at most 5 cards, so `false` with more than 5 `carouselCards` is a 400.
         - `true`: lets Meta pick and reorder the cards for performance (up to 10).
         - Omitted: nothing is sent and Meta's default (`true`) applies.
-                creatives: Multi-creative shape: N CTWA ads under one campaign + one ad set, sharing budget and targeting. Fresh and existing creatives can be mixed. Each entry supplies headline, body, and image/video, or a platformPostId or objectStoryId reference. Mutually exclusive with the top-level single-creative fields (`headline` / `body` / `imageUrl` / `video`): setting both is a 400. This differs from `POST /v1/ads/create`, where the top-level fields are silently ignored in multi-creative mode. Each item is an object with keys: platformPostId (string) - Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Mutually exclusive with objectStoryId and fresh creative ...; existingPostId (string) - Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.; objectStoryId (string) - Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId ...; creativeFeatures (object) - Replaces the top-level creativeFeatures map for this item. Omit to inherit; an empty object clears inherited enrollment choices.; headline (string); body (string) - Primary text shown above the image / video.; imageUrl (string) - Image asset. Mutually exclusive with this entry's `video`. Required if neither `video` nor an existing post reference is supplied.; video (object with keys url, id, thumbnailUrl) - Video creative. Mutually exclusive with this entry's `imageUrl`. Required if neither `imageUrl` nor an existing post reference is supplied.; welcomeMessage (object with keys text, prefillText, quickReplies) - Custom chat welcome message for this entry: `text` plus exactly one of `prefillText` or `quickReplies` (400 otherwise). Same shape as the top-level ...; carouselCards (list of objects with keys imageUrl, headline, description, callToAction, linkUrl) - A 2-10 card carousel for this entry instead of `imageUrl` / `video`; `body` is required. Same rules as the top-level `carouselCards`. Carousel and ...
+                creatives: Multi-creative shape: N CTWA ads under one campaign + one ad set, sharing budget and targeting. Fresh and existing creatives can be mixed. Each entry supplies headline, body, and image/video, or a platformPostId or objectStoryId reference. Mutually exclusive with the top-level single-creative fields (`headline` / `body` / `imageUrl` / `video`): setting both is a 400. This differs from `POST /v1/ads/create`, where the top-level fields are silently ignored in multi-creative mode. Each item is an object with keys: platformPostId (string) - Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Mutually exclusive with objectStoryId and fresh creative ...; existingPostId (string) - Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.; objectStoryId (string) - Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId ...; creativeFeatures (object) - Replaces the top-level creativeFeatures map for this item. Omit to inherit; an empty object clears inherited enrollment choices.; headline (string); body (string) - Primary text shown above the image / video.; imageUrl (string) - Image asset. Mutually exclusive with this entry's `video`. Required if neither `video` nor an existing post reference is supplied.; video (object with keys url, id, thumbnailUrl) - Video creative. Mutually exclusive with this entry's `imageUrl`. Required if neither `imageUrl` nor an existing post reference is supplied.; welcomeMessage (object with keys text, prefillText, quickReplies) - Custom chat welcome message for this entry: `text` plus exactly one of `prefillText` or `quickReplies` (400 otherwise). Same shape as the top-level ...; carouselCards (list of objects with keys imageUrl, video, headline, description, callToAction, linkUrl) - A 2-10 card carousel for this entry instead of `imageUrl` / `video`; `body` is required. Same rules as the top-level `carouselCards`. Carousel and ...
                 ad_set_id: Attaches the creatives to this EXISTING messaging ad set instead of building a campaign, so the ad set keeps its learning phase. Its `destination_type` must match the ad's destination.
 
         The ad set then owns budget, targeting and schedule, so these are rejected with a 400 alongside it: `budgetAmount`, `budgetType`, `budgetLevel`, `startDate`, `endDate`, `objective`, `campaignStatus`, `adSetStatus`, `existingCampaignId`, the special ad category fields, and every targeting field except `ageMin`, `ageMax`, `placements` and `advantageAudience`.
@@ -42068,7 +42557,7 @@ def register_generated_tools(mcp, _get_client):
         When someone clicks the ad, the workflow starts in the conversation the click opens (on the first message, a postback or a standalone referral carrying the ad id), ahead of keyword-matched workflows, if it is active on the receiving account.
                 validate_only: Dry-runs the ad on Meta with execution_options validate_only, as ONE inline campaign + ad set + creative + ad (or creative + ad on the existing ad set with `adSetId`). Nothing is uploaded, created or stored; media is checked by URL.
 
-        - **Supported:** one creative with `imageUrl`, image `placementAssets`, `carouselCards`, an existing `video.id`, or an existing post.
+        - **Supported:** one creative with `imageUrl`, image `placementAssets`, `carouselCards` (image cards or existing `video.id` cards), an existing `video.id`, or an existing post.
         - **Returns 400:** several creatives, a new `video.url` and video `placementAssets` (they need uploads first).
 
         Success returns 200 with per-node results; a Meta rejection returns the Meta error."""
@@ -42398,7 +42887,7 @@ def register_generated_tools(mcp, _get_client):
 
         `false` never sends it again: the request fails with 502 and `details.unconfirmedWrite`, so you can check the parent yourself. One object found by name is still reused.
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Opt-in: set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the landing ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
                 ad_account_id: Meta ad account ID, e.g. `act_123456789`. (required)
                 name: Ad display name. Used to derive campaign / ad set names.
@@ -42437,13 +42926,13 @@ def register_generated_tools(mcp, _get_client):
         single-creative shape if neither `video` nor an existing post reference is supplied.
                 video: Video creative for single-creative shape. Mutually exclusive with `imageUrl` and with `creatives[]`. Required on the single-creative shape if neither `imageUrl` nor an existing post reference is supplied. Object with keys: url (string) - Public URL of the video to upload. Provide either `url` or `id`.; id (string) - Reuse a video already uploaded to this ad account (list them with GET /v1/ads/videos) instead of re-uploading. Wins over `url`. Provide either `url` or `id`. ...; thumbnailUrl (string) - OPTIONAL: when omitted, the poster is auto-generated from Meta's own preferred video thumbnail. When Meta produces no candidate the request fails with a 502 ...
                 welcome_message: Custom chat welcome message (Meta's `page_welcome_message`, "Mensaje de bienvenida" / "Mensaje predefinido" in Ads Manager). Single-creative shape only; for `creatives[]` set it per entry. Object with keys: text (string, required) - Greeting shown when the chat opens. Replaces Meta's default (\"Hi! Can we help you?\").; prefillText (string) - Message put into the user's text input, ready to send. Replaces Meta's default (\"Hi! I want more info.\"). Lets one ad steer the opening message toward what it ...; quickReplies (list of objects with keys title, payload) - Tappable chips under the greeting instead of a prefilled message. Exactly one of prefillText or quickReplies. Put your own campaign or ad key in each payload. ...
-                carousel_cards: Messaging and CTWA only (a 400 on POST /v1/ads/call). A hand-built carousel of 2-10 image cards, sent to Meta in the given order as `link_data.child_attachments`. - Meta may reorder cards for performance, since `multi_share_optimized` defaults to true; `optimizeCardOrder: false` keeps your order. - Every card (and the carousel) carries the destination's messaging call to action (WHATSAPP_MESSAGE, MESSAGE_PAGE or INSTAGRAM_MESSAGE), so a tap on any card opens the conversation. - Replaces `imageUrl` / `video` (sending either is a 400). - `body` is required as the primary text. `headline` is optional and only names the creative (each card has its own `headline`). A top-level `description` is a 400 (set it per card). - `welcomeMessage`, `whatsappPhoneNumber` and `destinations` apply as on a single-image ad. - Also a 400 with `placementAssets`, `platformPostId`, `existingPostId` or `objectStoryId`. - Single-creative shape; for `creatives[]` set it per entry. Each item is an object with keys: imageUrl (string, required) - Card image. Uploaded to the ad account and sent as the card image_hash (by URL on validateOnly).; headline (string) - Card title (Meta name).; description (string) - Card description, under the title.; callToAction (string) - Optional. Must equal the destination's messaging call to action (WHATSAPP_MESSAGE for whatsapp, MESSAGE_PAGE for messenger, INSTAGRAM_MESSAGE for ...; linkUrl (string) - Not accepted: a 400. The card tap opens the conversation, not a website.
+                carousel_cards: Messaging and CTWA only (a 400 on POST /v1/ads/call). A hand-built carousel of 2-10 image or video cards, sent to Meta in the given order as `link_data.child_attachments`. - Meta may reorder cards for performance, since `multi_share_optimized` defaults to true; `optimizeCardOrder: false` keeps your order. - Every card (and the carousel) carries the destination's messaging call to action (WHATSAPP_MESSAGE, MESSAGE_PAGE or INSTAGRAM_MESSAGE), so a tap on any card opens the conversation. - Replaces `imageUrl` / `video` (sending either is a 400). - `body` is required as the primary text. `headline` is optional and only names the creative (each card has its own `headline`). A top-level `description` is a 400 (set it per card). - `welcomeMessage`, `whatsappPhoneNumber` and `destinations` apply as on a single-image ad. - Also a 400 with `placementAssets`, `platformPostId`, `existingPostId` or `objectStoryId`. - Single-creative shape; for `creatives[]` set it per entry. Each item is an object with keys: imageUrl (string) - Image card. Uploaded to the ad account and sent as the card image_hash (by URL on validateOnly).; video (object with keys url, id, thumbnailUrl) - Video card, sent as the card's `video_id`. Needs `url` or `id`. On validateOnly only `id` works, since `url` needs an upload first.; headline (string) - Card title (Meta name).; description (string) - Card description, under the title.; callToAction (string) - Optional. Must equal the destination's messaging call to action (WHATSAPP_MESSAGE for whatsapp, MESSAGE_PAGE for messenger, INSTAGRAM_MESSAGE for ...; linkUrl (string) - Not accepted: a 400. The card tap opens the conversation, not a website.
                 optimize_card_order: Only with `carouselCards` (a 400 without them). Single-creative shape; for `creatives[]` set it per entry. Sets the creative's `link_data.multi_share_optimized`.
 
         - `false`: keeps the cards in the order given. Meta then takes at most 5 cards, so `false` with more than 5 `carouselCards` is a 400.
         - `true`: lets Meta pick and reorder the cards for performance (up to 10).
         - Omitted: nothing is sent and Meta's default (`true`) applies.
-                creatives: Multi-creative shape: N CTWA ads under one campaign + one ad set, sharing budget and targeting. Fresh and existing creatives can be mixed. Each entry supplies headline, body, and image/video, or a platformPostId or objectStoryId reference. Mutually exclusive with the top-level single-creative fields (`headline` / `body` / `imageUrl` / `video`): setting both is a 400. This differs from `POST /v1/ads/create`, where the top-level fields are silently ignored in multi-creative mode. Each item is an object with keys: platformPostId (string) - Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Mutually exclusive with objectStoryId and fresh creative ...; existingPostId (string) - Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.; objectStoryId (string) - Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId ...; creativeFeatures (object) - Replaces the top-level creativeFeatures map for this item. Omit to inherit; an empty object clears inherited enrollment choices.; headline (string); body (string) - Primary text shown above the image / video.; imageUrl (string) - Image asset. Mutually exclusive with this entry's `video`. Required if neither `video` nor an existing post reference is supplied.; video (object with keys url, id, thumbnailUrl) - Video creative. Mutually exclusive with this entry's `imageUrl`. Required if neither `imageUrl` nor an existing post reference is supplied.; welcomeMessage (object with keys text, prefillText, quickReplies) - Custom chat welcome message for this entry: `text` plus exactly one of `prefillText` or `quickReplies` (400 otherwise). Same shape as the top-level ...; carouselCards (list of objects with keys imageUrl, headline, description, callToAction, linkUrl) - A 2-10 card carousel for this entry instead of `imageUrl` / `video`; `body` is required. Same rules as the top-level `carouselCards`. Carousel and ...
+                creatives: Multi-creative shape: N CTWA ads under one campaign + one ad set, sharing budget and targeting. Fresh and existing creatives can be mixed. Each entry supplies headline, body, and image/video, or a platformPostId or objectStoryId reference. Mutually exclusive with the top-level single-creative fields (`headline` / `body` / `imageUrl` / `video`): setting both is a 400. This differs from `POST /v1/ads/create`, where the top-level fields are silently ignored in multi-creative mode. Each item is an object with keys: platformPostId (string) - Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Mutually exclusive with objectStoryId and fresh creative ...; existingPostId (string) - Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.; objectStoryId (string) - Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId ...; creativeFeatures (object) - Replaces the top-level creativeFeatures map for this item. Omit to inherit; an empty object clears inherited enrollment choices.; headline (string); body (string) - Primary text shown above the image / video.; imageUrl (string) - Image asset. Mutually exclusive with this entry's `video`. Required if neither `video` nor an existing post reference is supplied.; video (object with keys url, id, thumbnailUrl) - Video creative. Mutually exclusive with this entry's `imageUrl`. Required if neither `imageUrl` nor an existing post reference is supplied.; welcomeMessage (object with keys text, prefillText, quickReplies) - Custom chat welcome message for this entry: `text` plus exactly one of `prefillText` or `quickReplies` (400 otherwise). Same shape as the top-level ...; carouselCards (list of objects with keys imageUrl, video, headline, description, callToAction, linkUrl) - A 2-10 card carousel for this entry instead of `imageUrl` / `video`; `body` is required. Same rules as the top-level `carouselCards`. Carousel and ...
                 ad_set_id: Attaches the creatives to this EXISTING messaging ad set instead of building a campaign, so the ad set keeps its learning phase. Its `destination_type` must match the ad's destination.
 
         The ad set then owns budget, targeting and schedule, so these are rejected with a 400 alongside it: `budgetAmount`, `budgetType`, `budgetLevel`, `startDate`, `endDate`, `objective`, `campaignStatus`, `adSetStatus`, `existingCampaignId`, the special ad category fields, and every targeting field except `ageMin`, `ageMax`, `placements` and `advantageAudience`.
@@ -42898,7 +43387,7 @@ def register_generated_tools(mcp, _get_client):
 
         `false` never sends it again: the request fails with 502 and `details.unconfirmedWrite`, so you can check the parent yourself. One object found by name is still reused.
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Opt-in: set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the landing ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
                 ad_account_id: Meta ad account ID, e.g. `act_123456789`. (required)
                 name: Ad display name. Used to derive campaign / ad set names.
@@ -42937,13 +43426,13 @@ def register_generated_tools(mcp, _get_client):
         single-creative shape if neither `video` nor an existing post reference is supplied.
                 video: Video creative for single-creative shape. Mutually exclusive with `imageUrl` and with `creatives[]`. Required on the single-creative shape if neither `imageUrl` nor an existing post reference is supplied. Object with keys: url (string) - Public URL of the video to upload. Provide either `url` or `id`.; id (string) - Reuse a video already uploaded to this ad account (list them with GET /v1/ads/videos) instead of re-uploading. Wins over `url`. Provide either `url` or `id`. ...; thumbnailUrl (string) - OPTIONAL: when omitted, the poster is auto-generated from Meta's own preferred video thumbnail. When Meta produces no candidate the request fails with a 502 ...
                 welcome_message: Custom chat welcome message (Meta's `page_welcome_message`, "Mensaje de bienvenida" / "Mensaje predefinido" in Ads Manager). Single-creative shape only; for `creatives[]` set it per entry. Object with keys: text (string, required) - Greeting shown when the chat opens. Replaces Meta's default (\"Hi! Can we help you?\").; prefillText (string) - Message put into the user's text input, ready to send. Replaces Meta's default (\"Hi! I want more info.\"). Lets one ad steer the opening message toward what it ...; quickReplies (list of objects with keys title, payload) - Tappable chips under the greeting instead of a prefilled message. Exactly one of prefillText or quickReplies. Put your own campaign or ad key in each payload. ...
-                carousel_cards: Messaging and CTWA only (a 400 on POST /v1/ads/call). A hand-built carousel of 2-10 image cards, sent to Meta in the given order as `link_data.child_attachments`. - Meta may reorder cards for performance, since `multi_share_optimized` defaults to true; `optimizeCardOrder: false` keeps your order. - Every card (and the carousel) carries the destination's messaging call to action (WHATSAPP_MESSAGE, MESSAGE_PAGE or INSTAGRAM_MESSAGE), so a tap on any card opens the conversation. - Replaces `imageUrl` / `video` (sending either is a 400). - `body` is required as the primary text. `headline` is optional and only names the creative (each card has its own `headline`). A top-level `description` is a 400 (set it per card). - `welcomeMessage`, `whatsappPhoneNumber` and `destinations` apply as on a single-image ad. - Also a 400 with `placementAssets`, `platformPostId`, `existingPostId` or `objectStoryId`. - Single-creative shape; for `creatives[]` set it per entry. Each item is an object with keys: imageUrl (string, required) - Card image. Uploaded to the ad account and sent as the card image_hash (by URL on validateOnly).; headline (string) - Card title (Meta name).; description (string) - Card description, under the title.; callToAction (string) - Optional. Must equal the destination's messaging call to action (WHATSAPP_MESSAGE for whatsapp, MESSAGE_PAGE for messenger, INSTAGRAM_MESSAGE for ...; linkUrl (string) - Not accepted: a 400. The card tap opens the conversation, not a website.
+                carousel_cards: Messaging and CTWA only (a 400 on POST /v1/ads/call). A hand-built carousel of 2-10 image or video cards, sent to Meta in the given order as `link_data.child_attachments`. - Meta may reorder cards for performance, since `multi_share_optimized` defaults to true; `optimizeCardOrder: false` keeps your order. - Every card (and the carousel) carries the destination's messaging call to action (WHATSAPP_MESSAGE, MESSAGE_PAGE or INSTAGRAM_MESSAGE), so a tap on any card opens the conversation. - Replaces `imageUrl` / `video` (sending either is a 400). - `body` is required as the primary text. `headline` is optional and only names the creative (each card has its own `headline`). A top-level `description` is a 400 (set it per card). - `welcomeMessage`, `whatsappPhoneNumber` and `destinations` apply as on a single-image ad. - Also a 400 with `placementAssets`, `platformPostId`, `existingPostId` or `objectStoryId`. - Single-creative shape; for `creatives[]` set it per entry. Each item is an object with keys: imageUrl (string) - Image card. Uploaded to the ad account and sent as the card image_hash (by URL on validateOnly).; video (object with keys url, id, thumbnailUrl) - Video card, sent as the card's `video_id`. Needs `url` or `id`. On validateOnly only `id` works, since `url` needs an upload first.; headline (string) - Card title (Meta name).; description (string) - Card description, under the title.; callToAction (string) - Optional. Must equal the destination's messaging call to action (WHATSAPP_MESSAGE for whatsapp, MESSAGE_PAGE for messenger, INSTAGRAM_MESSAGE for ...; linkUrl (string) - Not accepted: a 400. The card tap opens the conversation, not a website.
                 optimize_card_order: Only with `carouselCards` (a 400 without them). Single-creative shape; for `creatives[]` set it per entry. Sets the creative's `link_data.multi_share_optimized`.
 
         - `false`: keeps the cards in the order given. Meta then takes at most 5 cards, so `false` with more than 5 `carouselCards` is a 400.
         - `true`: lets Meta pick and reorder the cards for performance (up to 10).
         - Omitted: nothing is sent and Meta's default (`true`) applies.
-                creatives: Multi-creative shape: N CTWA ads under one campaign + one ad set, sharing budget and targeting. Fresh and existing creatives can be mixed. Each entry supplies headline, body, and image/video, or a platformPostId or objectStoryId reference. Mutually exclusive with the top-level single-creative fields (`headline` / `body` / `imageUrl` / `video`): setting both is a 400. This differs from `POST /v1/ads/create`, where the top-level fields are silently ignored in multi-creative mode. Each item is an object with keys: platformPostId (string) - Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Mutually exclusive with objectStoryId and fresh creative ...; existingPostId (string) - Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.; objectStoryId (string) - Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId ...; creativeFeatures (object) - Replaces the top-level creativeFeatures map for this item. Omit to inherit; an empty object clears inherited enrollment choices.; headline (string); body (string) - Primary text shown above the image / video.; imageUrl (string) - Image asset. Mutually exclusive with this entry's `video`. Required if neither `video` nor an existing post reference is supplied.; video (object with keys url, id, thumbnailUrl) - Video creative. Mutually exclusive with this entry's `imageUrl`. Required if neither `imageUrl` nor an existing post reference is supplied.; welcomeMessage (object with keys text, prefillText, quickReplies) - Custom chat welcome message for this entry: `text` plus exactly one of `prefillText` or `quickReplies` (400 otherwise). Same shape as the top-level ...; carouselCards (list of objects with keys imageUrl, headline, description, callToAction, linkUrl) - A 2-10 card carousel for this entry instead of `imageUrl` / `video`; `body` is required. Same rules as the top-level `carouselCards`. Carousel and ...
+                creatives: Multi-creative shape: N CTWA ads under one campaign + one ad set, sharing budget and targeting. Fresh and existing creatives can be mixed. Each entry supplies headline, body, and image/video, or a platformPostId or objectStoryId reference. Mutually exclusive with the top-level single-creative fields (`headline` / `body` / `imageUrl` / `video`): setting both is a 400. This differs from `POST /v1/ads/create`, where the top-level fields are silently ignored in multi-creative mode. Each item is an object with keys: platformPostId (string) - Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Mutually exclusive with objectStoryId and fresh creative ...; existingPostId (string) - Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.; objectStoryId (string) - Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId ...; creativeFeatures (object) - Replaces the top-level creativeFeatures map for this item. Omit to inherit; an empty object clears inherited enrollment choices.; headline (string); body (string) - Primary text shown above the image / video.; imageUrl (string) - Image asset. Mutually exclusive with this entry's `video`. Required if neither `video` nor an existing post reference is supplied.; video (object with keys url, id, thumbnailUrl) - Video creative. Mutually exclusive with this entry's `imageUrl`. Required if neither `imageUrl` nor an existing post reference is supplied.; welcomeMessage (object with keys text, prefillText, quickReplies) - Custom chat welcome message for this entry: `text` plus exactly one of `prefillText` or `quickReplies` (400 otherwise). Same shape as the top-level ...; carouselCards (list of objects with keys imageUrl, video, headline, description, callToAction, linkUrl) - A 2-10 card carousel for this entry instead of `imageUrl` / `video`; `body` is required. Same rules as the top-level `carouselCards`. Carousel and ...
                 ad_set_id: Attaches the creatives to this EXISTING messaging ad set instead of building a campaign, so the ad set keeps its learning phase. Its `destination_type` must match the ad's destination.
 
         The ad set then owns budget, targeting and schedule, so these are rejected with a 400 alongside it: `budgetAmount`, `budgetType`, `budgetLevel`, `startDate`, `endDate`, `objective`, `campaignStatus`, `adSetStatus`, `existingCampaignId`, the special ad category fields, and every targeting field except `ageMin`, `ageMax`, `placements` and `advantageAudience`.
@@ -44560,7 +45049,7 @@ def register_generated_tools(mcp, _get_client):
                 date_from: Alias of fromDate, kept for existing callers
                 date_to: Alias of toDate, kept for existing callers
                 include_hidden
-                search: Search posts by text content.
+                search: Search posts by text content. Not available with `source=external` (400).
                 tags: Comma-separated tags (at most 20). Returns only posts carrying every listed tag, matched exactly and case-sensitively against the tags set when the post was created. An empty value means no tag filter. `tag` is accepted as an alias.
                 sort_by: Sort order for results.
                 account_id: Filter posts to those published via a specific account (24-char hex ObjectId)."""
@@ -48595,6 +49084,217 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
 
+    # TRACKING_LINKS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List tracking links",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def tracking_links_list_tracking_links(
+        profile_id: str | None = None,
+        site_id: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> str:
+        """List tracking links
+
+        The tracking links of your workspace in creation order. Pass `profileId` or `siteId` to list one profile's or one site's links.
+
+        Args:
+            profile_id
+            site_id
+            limit
+            cursor: `pagination.nextCursor` from the previous page."""
+        client = _get_client()
+        try:
+            response = client.tracking_links.list_tracking_links(
+                profile_id=profile_id, site_id=site_id, limit=limit, cursor=cursor
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a tracking link",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_links_create_tracking_link(
+        idempotency_key: str,
+        site_id: str,
+        name: str,
+        destinations: list[dict[str, Any]] | None,
+        campaign: dict[str, Any] | None = None,
+    ) -> str:
+        """Create a tracking link
+
+        Creates a short link on a tracking site. Each click goes to one of `destinations`, picked by weight, so the link also split-tests landing pages. Put `url` in your ads and give `postbackUrl` to the network that reports conversions server to server.
+
+        Args:
+            idempotency_key: A unique key per link you create, such as a UUID. A retry with the same key and body returns the same link. (required)
+            site_id: The tracking site the link belongs to. The link takes its profile. (required)
+            name: (required)
+            destinations: Each item is an object with keys: url (string, required) - An https landing page. Each click adds its click id as `zcid`, and fills any parameter set to `{zcid}`, such as `sub1={zcid}` on an affiliate network's offer ...; weight (integer, required) - This page's share of clicks, relative to the other destinations' weights. (required)
+            campaign: Object with keys: platform (string) - The ad platform, such as `metaads` or `googleads`.; campaignId (string) - The platform's campaign id.; utmCampaign (string) - The `utm_campaign` value the campaign uses."""
+        client = _get_client()
+        try:
+            response = client.tracking_links.create_tracking_link(
+                idempotency_key=idempotency_key,
+                site_id=site_id,
+                name=name,
+                destinations=destinations,
+                campaign=campaign,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a tracking link",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def tracking_links_get_tracking_link(link_id: str) -> str:
+        """Get a tracking link
+
+        One link, with its URL and postback URL.
+
+        Args:
+            link_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.tracking_links.get_tracking_link(link_id=link_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a tracking link",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_links_update_tracking_link(
+        link_id: str,
+        name: str | None = None,
+        destinations: list[dict[str, Any]] | None = None,
+        campaign: dict[str, Any] | None = None,
+        status: Literal["active", "paused"] | None = None,
+    ) -> str:
+        """Update a tracking link
+
+        Changes the link's name, destinations, campaign hints or status. Send at least one field. `status: paused` turns the link off until it is set back to `active`. `campaign: null` removes the hints. The code and URL never change.
+
+        Args:
+            link_id: (required)
+            name
+            destinations: Each item is an object with keys: url (string, required) - An https landing page. Each click adds its click id as `zcid`, and fills any parameter set to `{zcid}`, such as `sub1={zcid}` on an affiliate network's offer ...; weight (integer, required) - This page's share of clicks, relative to the other destinations' weights.
+            campaign: Object with keys: platform (string) - The ad platform, such as `metaads` or `googleads`.; campaignId (string) - The platform's campaign id.; utmCampaign (string) - The `utm_campaign` value the campaign uses.
+            status"""
+        client = _get_client()
+        try:
+            response = client.tracking_links.update_tracking_link(
+                link_id=link_id,
+                name=name,
+                destinations=destinations,
+                campaign=campaign,
+                status=status,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a tracking link",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_links_delete_tracking_link(link_id: str) -> str:
+        """Delete a tracking link
+
+        The link and its postback URL stop working at once. Conversions already stored are kept.
+
+        Args:
+            link_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.tracking_links.delete_tracking_link(link_id=link_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Rotate a tracking link's postback URL",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def tracking_links_rotate_tracking_link_postback_token(
+        link_id: str, idempotency_key: str
+    ) -> str:
+        """Rotate a tracking link's postback URL
+
+        Issues a new `postbackUrl`. The old one stops working at once, so update it at the network right after.
+
+        Args:
+            link_id: (required)
+            idempotency_key: A unique key per rotation, such as a UUID. (required)"""
+        client = _get_client()
+        try:
+            response = client.tracking_links.rotate_tracking_link_postback_token(
+                link_id=link_id, idempotency_key=idempotency_key
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a tracking link's results",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def tracking_links_get_tracking_link_stats(
+        link_id: str, from_date: str, to_date: str
+    ) -> str:
+        """Get a tracking link's results
+
+        Clicks, conversions and revenue of one link over a range of days (UTC), and its clicks per destination, the result of a split test. Clicks leave out bots.
+
+        Conversions are the link's postbacks plus website conversions carrying the click id of one of its clicks, less any retracted. The range is at most 90 days, the time clicks are kept.
+
+        Args:
+            link_id: (required)
+            from_date: First day of the range, `YYYY-MM-DD`. (required)
+            to_date: Last day of the range, `YYYY-MM-DD`. (required)"""
+        client = _get_client()
+        try:
+            response = client.tracking_links.get_tracking_link_stats(
+                link_id=link_id, from_date=from_date, to_date=to_date
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
     # TRACKING_TAGS
 
     @mcp.tool(
@@ -49850,13 +50550,15 @@ def register_generated_tools(mcp, _get_client):
 
         Your balance's auto top-up rule: when your balance drops below `belowCents`, we bring it back to `toCents` from the billing owner's saved card, tax added on top as for any top-up.
 
+        One charge is never more than `toCents` plus tax, unless the balance is below $0 (a purchase, usage past $0) or a monthly renewal is due, which the same charge also covers.
+
         Account credit you held when you moved to the balance pays an auto top-up first, without a card charge or invoice (see `recentCreditRecharges` on `GET /v1/balance`). The card is charged only once that credit is used up, and only while the balance is still below `belowCents`.
 
         The first read gives the default rule, sized from your last 30 days of pay-per-use: below about a week of spend (at least $5), back up by about two more weeks (at least $20).
 
-        - 409 `balance_billing_required`: the account is not on the prepaid balance, nor moved onto it at a date still ahead. An account moved onto it can read and change its rule before that date; nothing is charged until it.
+        Auto top-up turned on in the dashboard while adding funds starts from that payment instead: back to the amount paid (at most $20), below a quarter of it in whole dollars (at least $1).
 
-        A profile-scoped key answers 403."""
+        - ..."""
         client = _get_client()
         try:
             response = client.treasury.get_auto_recharge()
@@ -49878,27 +50580,31 @@ def register_generated_tools(mcp, _get_client):
         to_cents: int | None = None,
         monthly_limit_cents: int | None = None,
         alert_below_cents: int | None = None,
+        consent_wording: str | None = None,
     ) -> str:
         """Update auto top-up settings
 
         Changes the auto top-up rule. Omitted fields keep their value.
 
-        A declined auto top-up is retried 1 hour, 1 day and 3 days later, with an email each time. After the last retry fails, auto top-up switches off (`disabledReason: payment_failed`) until the card is updated. Adding funds yourself resets the retries.
+        An auto top-up declined for insufficient funds or card velocity is retried once, 3 days later (`retryCount` 1, `nextRetryAt` set). Any other decline is not retried.
 
-        A bank asking for 3D Secure counts as a decline: the charge happens while you are away, so the email asks you to add funds in Billing.
+        A failure that is not the card's (an outage) is tried again an hour later and never counts toward `retryCount`.
+
+        When the last try fails, auto top-up switches off (`disabledReason: payment_failed`) until the card is updated, and the billing owner gets one email. Adding funds yourself resets the retry.
+
+        A bank asking for 3D Secure counts as a decline that is not retried: the charge happens while you are away, so the email asks you to update the card in Billing.
 
         A pay-per-use request that finds the balance at $0 runs the auto top-up first (with the rule on, a saved card and no retry pending) and goes through when the charge lands, so a new balance at $0 is charged on first use.
 
-        When this month's auto top-ups plus the next one would pass `monthlyLimitCents`, the card is not charged and you get one email that month. At $0, pay-per-use then answers 402 `usage_limit_reached`.
-
-        - 400: a field is out of range, `toCents` is not at least $5 above `belowCents`, or, while auto top-up is on, `monthlyLimitCents` ...
+        When this month's auto top-ups plus the next one would pass `monthlyLimitCents`, ...
 
         Args:
             enabled: Turns auto top-up on or off. A rule switched off by failed charges stays off until the card is updated.
-            below_cents: The below amount, in cents: when the balance drops below this, auto top-up brings it back to toCents. At least $5.
-            to_cents: The back-to amount, in cents. At least $5 above belowCents, so at least $10.
+            below_cents: The below amount, in cents: when the balance drops below this, auto top-up brings it back to toCents. At least $1.
+            to_cents: The back-to amount, in cents. At least $4 above belowCents, so at least $5.
             monthly_limit_cents: Most auto top-up may add per calendar month (UTC), before tax. At least the back-to amount (toCents) while auto top-up is on. Null for no limit.
-            alert_below_cents: Email the billing owner once each time the balance drops below this. Null for no email."""
+            alert_below_cents: Email the billing owner once each time the balance drops below this. Null for no email.
+            consent_wording: The auto top-up line you showed the user, recorded as their consent: our line for the saved amounts (see getAutoRecharge), with or without VAT. Omit it to record our own line."""
         client = _get_client()
         try:
             response = client.treasury.update_auto_recharge(
@@ -49907,6 +50613,7 @@ def register_generated_tools(mcp, _get_client):
                 to_cents=to_cents,
                 monthly_limit_cents=monthly_limit_cents,
                 alert_below_cents=alert_below_cents,
+                consent_wording=consent_wording,
             )
             return _format_response(response)
         except Exception as e:
@@ -51434,6 +52141,9 @@ def register_generated_tools(mcp, _get_client):
     def voice_get_voice_call_estimate(
         to: str,
         from_: str | None = None,
+        from_number_id: str | None = None,
+        trunk_id: str | None = None,
+        via: Literal["trunk", "voice"] | None = None,
         forward_to: str | None = None,
         minutes: int = 1,
         recording: bool | None = None,
@@ -51441,28 +52151,34 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Estimate call cost
 
-        Pre-call cost estimate for a PSTN call: the carrier leg plus optional recording and transcription add-ons.
+        Pre-call cost estimate for an outbound phone call, placed through the Voice API or through a [SIP trunk](/platforms/voice/integrations/elevenlabs).
 
-        The per-minute figure is the most a minute can cost to that destination, so the final charge can be lower.
+        Rates come from the carrier's live price list. The carrier prices a route by the caller ID, so pass the number you will call from (`from` or `fromNumberId`).
 
-        The carrier figure follows the carrier's per-destination rate card: a call dialed from a number in the destination country uses the local mobile rate, and a `tel:` forward destination is quoted as a second carrier leg billed from the same number.
+        - **Caller-ID rates.** A caller in the destination country gets local rates. EEA callers get cheaper rates to EEA destinations, and some caller prefixes pay a surcharge. `rates.*.origination` names the band used.
+        - **Mobile and landline.** `rates.mobile` and `rates.landline` are quoted separately, with every network the carrier lists. `lineType` says which one `to` is, and `perMinuteUsd` follows it.
+        - **Trunk or Voice API.** Trunk calls bill twice the carrier rate. Voice API calls add a $0.002/min call-control fee before the markup, plus optional forward, recording and transcription legs.
 
-        The real cost comes from the settled carrier record after the call.
-
-        Parity endpoint of `GET /v1/whatsapp/calls/estimate`, minus the Meta line. PSTN calls have no separate Meta bill, so `totalCostUSD` equals `billableCostUSD`.
+        `via` defaults to `trunk` when the caller number is attached to a SIP trunk (or `trunkId` is ...
 
         Args:
             to: Destination number, E.164 (leading + optional). (required)
-            from_: The number the call would dial from, E.164. When it is verified on a Branded Calling identity and `to` is a US number, the estimate includes the per-call Branded Calling surcharge.
-            forward_to: Destination the call bridges to: `tel:+E164`, `sip:...` or `wss://...`. Defaults to the dialing number's configured forward. A `tel:` destination adds a second carrier leg to the quote. Encode the `+` as `%2B`.
+            from_: Caller ID the call would present, E.164. Picks the carrier's caller-ID rates, and prices a trunk call when the number is attached to a SIP trunk. A verified Branded Calling number calling the US adds the per-call surcharge.
+            from_number_id: Id of one of your numbers to use as the caller ID, instead of `from`.
+            trunk_id: SIP trunk the call goes through. Prices it as a trunk call and checks that trunk's limits. Without `from`, a number attached to the trunk is the caller ID.
+            via: Force trunk or Voice API pricing. Defaults from the caller number, see above. `trunk` without a caller ID quotes the dearest caller band.
+            forward_to: Voice API only. Destination the call bridges to: `tel:+E164`, `sip:...` or `wss://...`. Defaults to the dialing number's configured forward. A `tel:` destination adds a second carrier leg to the quote. Encode the `+` as `%2B`.
             minutes
-            recording
-            transcription"""
+            recording: Voice API only.
+            transcription: Voice API only."""
         client = _get_client()
         try:
             response = client.voice.get_voice_call_estimate(
                 to=to,
                 from_=from_,
+                from_number_id=from_number_id,
+                trunk_id=trunk_id,
+                via=via,
                 forward_to=forward_to,
                 minutes=minutes,
                 recording=recording,
@@ -51856,7 +52572,9 @@ def register_generated_tools(mcp, _get_client):
     def webhooks_get_webhook_settings() -> str:
         """List webhooks
 
-        Retrieve all configured webhooks for the authenticated user. Supports up to 50 webhooks per user. A profile-scoped API key, or a team member limited to specific profiles, gets 403."""
+        Retrieve all configured webhooks for the authenticated user. Supports up to 50 webhooks per user. A profile-scoped API key, or a team member limited to specific profiles, gets 403.
+
+        The signing `secret` is returned only to the account owner and admins (and their API keys). Other team members get each webhook without it."""
         client = _get_client()
         try:
             response = client.webhooks.get_webhook_settings()
@@ -52050,6 +52768,8 @@ def register_generated_tools(mcp, _get_client):
 
             Create a new webhook configuration. Maximum 50 webhooks per user.
 
+            Only the account owner and admins (and their API keys) can create, update or delete webhooks. Any other team member gets 403 and can still list them.
+
             `name`, `url` and `events` are required. `url` must be a valid URL and `events` must contain at least one event. Whitespace is trimmed from `url` before validation.
 
             ### Auto-disable
@@ -52065,9 +52785,7 @@ def register_generated_tools(mcp, _get_client):
 
             A restricted (zrk_) API key can only subscribe to events whose resource group the key holds. An event outside the key's groups is rejected with 403, so a restricted key can never create a subscription broader than itself.
 
-            ### Filtering what is delivered
-
-            `disabledResourceGroups` restricts the subscription itself, independently of which key or session later reads it. Events in a disabled group are dropped ...
+            ### Filtering what is delivered ...
 
             Args:
                 name: Webhook name (1-50 characters) (required)
@@ -52289,6 +53007,8 @@ def register_generated_tools(mcp, _get_client):
 
             Update an existing webhook configuration. All fields except `webhookId` are optional; only provided fields will be updated.
 
+            Only the account owner and admins (and their API keys) can create, update or delete webhooks. Any other team member gets 403 and can still list them.
+
             `webhookId` is the same name the other /v1/webhooks operations use (logs, redeliver, test). The deprecated `_id` is still accepted in its place.
 
             ### Validation
@@ -52310,7 +53030,7 @@ def register_generated_tools(mcp, _get_client):
 
             ### Restricted keys
 
-            A restricted (zrk_) API key can only set `events` to events whose resource group the key holds. An event outside the key's groups is rejected with 403. It also cannot widen an ...
+            A restricted (zrk_) API key ...
 
             Args:
                 webhook_id: Webhook ID to update. Required unless the deprecated `_id` is sent instead.
@@ -52374,6 +53094,8 @@ def register_generated_tools(mcp, _get_client):
 
         Permanently delete a webhook configuration.
 
+        Only the account owner and admins (and their API keys) can create, update or delete webhooks. Any other team member gets 403 and can still list them.
+
         Args:
             webhook_id: Webhook ID to delete, the same name the other /v1/webhooks operations use (logs, redeliver, test). Required unless the deprecated `id` is sent instead.
             id: Alias of webhookId, kept for existing callers"""
@@ -52406,7 +53128,7 @@ def register_generated_tools(mcp, _get_client):
 
         Retrieve recorded webhook delivery attempts for the authenticated user, most recent first.
 
-        A profile-scoped API key, or a team member limited to specific profiles, gets 403.
+        Delivery logs carry full payloads, so only the account owner and admins (and their API keys) can read them. Any other team member, a profile-scoped API key, or a team member limited to specific profiles, gets 403.
 
         Logs are retained for 30 days. Supports filtering by status, event type, webhook ID, and event ID, plus offset-based pagination.
 
@@ -52469,7 +53191,7 @@ def register_generated_tools(mcp, _get_client):
         resource-group checks as live delivery, against both the key's groups and the
         subscription's `disabledResourceGroups`.
 
-        A profile-scoped API key, or a team member limited to specific profiles, gets 403.
+        Only the account owner and admins (and their API keys) can replay deliveries. Any other team member, a profile-scoped API key, or a team member limited to specific profiles, gets 403.
 
         Args:
             webhook_id: ID of the webhook subscription that delivered the event (required)

@@ -93,6 +93,7 @@ S3EndpointTypeType = Literal["GLOBAL", "REGIONAL"]
 VendorGuidanceType = Literal["ACTIVE", "DELETED", "DISCONTINUED"]
 GreengrassV2ServiceName = Literal["greengrassv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

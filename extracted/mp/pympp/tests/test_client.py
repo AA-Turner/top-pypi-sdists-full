@@ -1022,10 +1022,12 @@ class TestPaymentTransport:
         final, so the client must not sign and broadcast a second payment."""
         challenge = Challenge(id="test-id", method="tempo", intent="charge", request={})
         offer = {"www-authenticate": challenge.to_www_authenticate("example.com")}
+        fresh = Challenge(id="fresh-id", method="tempo", intent="charge", request={})
+        new_offer = {"www-authenticate": fresh.to_www_authenticate("example.com")}
         inner = MockTransport(
             [
                 httpx.Response(402, headers=offer),
-                httpx.Response(402, headers=offer, content=b"payment refused"),
+                httpx.Response(402, headers=new_offer, content=b"payment refused"),
             ]
         )
         method = MockMethod()
@@ -1151,7 +1153,89 @@ class TestPaymentTransport:
         method.create_credential.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_handles_multiple_www_authenticate_headers(self) -> None:
+    @pytest.mark.parametrize("header", ["Authorization", "X-Payment", ""])
+    async def test_unsupported_credential_header_challenge_is_skipped(self, header: str) -> None:
+        """A challenge selecting any field but Payment-Authorization gets no credential."""
+        valid = Challenge(id="valid", method="tempo", intent="charge", request={"amount": "1"})
+        unsupported = (
+            'Payment id="unsupported", realm="example.com", method="tempo", '
+            f'intent="charge", request="e30", header="{header}"'
+        )
+        inner = MockTransport(
+            [
+                httpx.Response(
+                    402,
+                    headers=[
+                        ("www-authenticate", unsupported),
+                        ("www-authenticate", valid.to_www_authenticate("example.com")),
+                    ],
+                ),
+                httpx.Response(200),
+            ]
+        )
+        method = MockMethod()
+        transport = PaymentTransport(methods=[method.client], inner=inner)
+
+        response = await transport.handle_async_request(httpx.Request("GET", "https://example.com"))
+
+        assert response.status_code == 200
+        method.create_credential.assert_called_once()
+        assert method.create_credential.call_args.args[0].id == "valid"
+        assert "authorization" in inner.requests[1].headers
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("header", ["Authorization", "X-Payment"])
+    async def test_only_unsupported_credential_header_challenge_is_not_paid(
+        self, header: str
+    ) -> None:
+        unsupported = (
+            'Payment id="unsupported", realm="example.com", method="tempo", '
+            f'intent="charge", request="e30", header="{header}"'
+        )
+        inner = MockTransport([httpx.Response(402, headers={"www-authenticate": unsupported})])
+        method = MockMethod()
+        transport = PaymentTransport(methods=[method.client], inner=inner)
+
+        with pytest.raises(NoMethodFoundError) as info:
+            await transport.handle_async_request(httpx.Request("GET", "https://example.com"))
+
+        assert isinstance(info.value.__cause__, ParseError)
+        assert len(inner.requests) == 1
+        method.create_credential.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_credential_header_case_variant_is_echoed_unchanged(self) -> None:
+        """The field is canonical Payment-Authorization; the echo keeps the issuer's spelling."""
+        www_authenticate = (
+            'Payment id="lower", realm="example.com", method="tempo", '
+            'intent="charge", request="e30", header="payment-authorization"'
+        )
+        inner = MockTransport(
+            [
+                httpx.Response(402, headers={"www-authenticate": www_authenticate}),
+                httpx.Response(200),
+            ]
+        )
+
+        async def create(params: CredentialParams) -> str:
+            return Credential(challenge=params.challenge.to_echo(), payload={}).to_authorization()
+
+        client = ClientMethod(
+            method=Method(name="tempo", intent="charge", request_model=dict, payload_model=dict),
+            create_credential=create,
+        )
+        transport = PaymentTransport(methods=[client], inner=inner)
+
+        response = await transport.handle_async_request(httpx.Request("GET", "https://example.com"))
+
+        assert response.status_code == 200
+        retry = inner.requests[1]
+        assert "authorization" not in retry.headers
+        names = [name for name, _ in retry.headers.raw if name.lower() == b"payment-authorization"]
+        assert names == [b"Payment-Authorization"]
+        sent = Credential.from_authorization(retry.headers["payment-authorization"])
+        assert sent.challenge.header == "payment-authorization"
+
         """Should find matching method across multiple WWW-Authenticate headers."""
         tempo_challenge = Challenge(
             id="test-id",
@@ -1643,7 +1727,9 @@ class TestPaymentTransport:
 
         assert response.status_code == 200
         assert len(inner.requests) == 4
-        assert method.create_credential.await_count == 3
+        # The same Challenge resends the same credential, signed once (mppx Fetch).
+        assert method.create_credential.await_count == 1
+        assert len({r.headers["authorization"] for r in inner.requests[1:]}) == 1
 
     @pytest.mark.asyncio
     async def test_retries_payment_for_fresh_402_challenge(self) -> None:
@@ -2297,10 +2383,14 @@ async def test_native_evm_authorization_is_not_replaced_after_402(fresh_id):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("wildcard", [False, True])
-async def test_cancelled_credential_observer_preserves_completed_push(wildcard):
+@pytest.mark.parametrize("payload_type", ["hash", "zone"])
+async def test_cancelled_credential_observer_preserves_completed_push(wildcard, payload_type):
     challenge = Challenge(id="test-id", method="tempo", intent="charge", request={"amount": "1000"})
     tx_hash = "0x" + "ab" * 32
-    credential = make_credential(payload={"type": "hash", "hash": tx_hash}, challenge_id="test-id")
+    payload = {"type": payload_type, "hash": tx_hash}
+    if payload_type == "zone":
+        payload |= {"senderTag": "0x" + "cd" * 32, "zoneId": 3}
+    credential = make_credential(payload=payload, challenge_id="test-id")
     method = MockMethod()
     method.create_credential.return_value = credential
     inner = MockTransport(

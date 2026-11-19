@@ -294,7 +294,7 @@ ParameterTypeType = Literal[
     "VARBYTE",
     "VARCHAR",
 ]
-PopulateIntermediateTableAnalysisTypeType = Literal["QUERY"]
+PopulateIntermediateTableAnalysisTypeType = Literal["JOB", "QUERY"]
 PrivacyBudgetTemplateAutoRefreshType = Literal["CALENDAR_MONTH", "NONE"]
 PrivacyBudgetTypeType = Literal["ACCESS_BUDGET", "DIFFERENTIAL_PRIVACY"]
 ProtectedJobAnalysisTypeType = Literal["DIRECT_ANALYSIS"]
@@ -408,6 +408,7 @@ TargetProtectedQueryStatusType = Literal["CANCELLED"]
 WorkerComputeTypeType = Literal["CR.1X", "CR.4X", "CR.8X"]
 CleanRoomsServiceServiceName = Literal["cleanrooms"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -516,6 +517,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -700,6 +702,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -767,6 +770,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

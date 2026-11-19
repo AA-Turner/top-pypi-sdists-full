@@ -37,7 +37,6 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent
 #: The project to gate defaults to the CURRENT DIRECTORY, not to anything derived
 #: from where this file sits. It used to be the script's parent, which was the
 #: core's repo root while this lived in that repo's scripts/ - and became `src/`
@@ -421,7 +420,7 @@ def _validate_entry(path: Path, i: int, entry: object) -> None:
             raise GateBroken(
                 f"{where} ({version}) has no '{leg}' record, so there is nothing to "
                 f"compare this build against. The ledger is written only by "
-                f"`version_gate.py record`; a hand edit or a bad merge is the usual "
+                f"`python -m invisible_core.release record`; a hand edit or a bad merge is the usual "
                 f"cause. Restore it from git history rather than re-recording, or the "
                 f"record of what was actually published is lost.")
         if not isinstance(blob.get("files"), dict) or not blob["files"]:
@@ -548,7 +547,7 @@ REMEDY = """
        roll a new seal (a new firefox-N tag in src/invisible_core/seal.json).
        The version follows the tag on its own, no hand edit.
 
-  Then re-run: python scripts/version_gate.py check
+  Then re-run: python -m invisible_core.release check
 """
 
 
@@ -647,7 +646,7 @@ def cmd_check(args) -> int:
             print("  cannot tell those apart, so it will not guess in the direction")
             print("  that lets everything through.")
             print("\n  If nothing has ever been published, say so:")
-            print("    python scripts/version_gate.py check --first-release")
+            print("    python -m invisible_core.release check --first-release")
             print("  If something HAS been published, restore the ledger from git")
             print("  history. Do not re-record: `record` would write today's digests")
             print("  as if they were what shipped, and the real record is then gone.")
@@ -824,8 +823,8 @@ def cmd_publish(args) -> int:
     """check -> upload -> record, in one command, so the gate cannot be skipped.
 
     This exists because the first version of this gate was wired to nothing:
-    `grep -rn version_gate` over the whole workbench found the script, its test
-    and a comment, and an operator running `twine upload dist/*` by hand would
+    `grep -rn` for the gate's name over the whole workbench found one script, its
+    test and a comment, and an operator running `twine upload dist/*` by hand would
     never have touched it. A gate that depends on somebody remembering it is a
     runbook note wearing a gate's clothes.
 
@@ -1221,7 +1220,7 @@ def _verify_first_release(url: str) -> int:
 class _Parser(argparse.ArgumentParser):
     """Argparse exits 2 on a usage error. In this gate 2 means EXIT_BROKEN.
 
-    So `version_gate.py chekc` and "the gate could not reach a verdict" were the
+    So `python -m invisible_core.release chekc` and "the gate could not reach a verdict" were the
     same number, and a caller reading the exit code could not tell a typo from a
     broken gate. `EXIT_USAGE = 3` had been declared for exactly this and used
     nowhere - open item 5 in `18-gate-inventory.md`, alongside the note that a
@@ -1241,7 +1240,7 @@ class _Parser(argparse.ArgumentParser):
 def main(argv=None) -> int:
     argv = list(sys.argv[1:]) if argv is None else list(argv)
     p = _Parser(
-        prog="version_gate.py",
+        prog="python -m invisible_core.release",
         description="Refuse to publish a core whose content changed but whose version did not.")
     p.add_argument("--project-root", default=str(DEFAULT_ROOT),
                    help="the invisible_core repo root (default: this script's parent)")

@@ -1,31 +1,70 @@
 [build-system]
-requires = ["setuptools>=62", "setuptools_scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
-[tool.setuptools_scm]
+[project]
+name = "opentelemetry-resourcedetector-kubernetes"
+dynamic = ["version"]
+description = "An OpenTelemetry package to populate Resource attributes for Kubernetes pods"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Chris Guidry", email = "chris@theguidrys.us" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+dependencies = [
+    "opentelemetry-sdk",
+    "opentelemetry-semantic-conventions",
+]
 
-[tool.black]
-skip-string-normalization = true
-target-version = ['py39']
+[dependency-groups]
+dev = [
+    "codespell>=2.4.1",
+    "loq>=0.1.0a3",
+    "prek>=0.3.1",
+    "pyright>=1.1.408",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.6.0",
+    "pytest>=9.0.2",
+]
 
-[tool.coverage.report]
-omit = []
+[project.urls]
+"Repository" = "https://github.com/chrisguidry/opentelemetry-resourcedetector-kubernetes"
+"Bug Tracker" = "https://github.com/chrisguidry/opentelemetry-resourcedetector-kubernetes/issues"
 
-[tool.isort]
-profile = "black"
+[tool.hatch.version]
+source = "vcs"
 
-[tool.mypy]
-namespace_packages = true
+[tool.hatch.build.targets.wheel]
+packages = ["src/opentelemetry_resourcedetector_kubernetes"]
+
+[tool.ruff]
+target-version = "py311"
 
 [tool.pytest.ini_options]
-minversion = "6.0"
-addopts = """
-    -n 2
-    -W error
-    --cov=src
-    --cov=tests
-    --cov-branch
-    --cov-report=term-missing
-    --cov-fail-under=100
-    --no-cov-on-fail
-"""
+addopts = [
+    "--cov=src/opentelemetry_resourcedetector_kubernetes",
+    "--cov=tests",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-branch",
+    "--cov-fail-under=100",
+    "-n",
+    "2",
+]
+filterwarnings = ["error"]
+
+[tool.pyright]
+include = ["src", "tests"]
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"

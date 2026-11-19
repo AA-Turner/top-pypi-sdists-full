@@ -89,6 +89,7 @@ ReplicationStateType = Literal["DISABLED", "ENABLED"]
 RuleStateType = Literal["DISABLED", "ENABLED", "ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS"]
 EventBridgeServiceName = Literal["events"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

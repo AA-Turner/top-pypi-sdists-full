@@ -63,6 +63,7 @@ VerificationStatusType = Literal["INVALID", "VALID"]
 VoiceMessageBodyTextTypeType = Literal["SSML", "TEXT"]
 EndUserMessagingServiceName = Literal["endusermessaging"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

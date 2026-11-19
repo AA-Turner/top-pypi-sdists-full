@@ -25,6 +25,7 @@ __all__ = ("ResourceServiceName", "ServiceName", "SignerDataPlaneServiceName")
 
 SignerDataPlaneServiceName = Literal["signer-data"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

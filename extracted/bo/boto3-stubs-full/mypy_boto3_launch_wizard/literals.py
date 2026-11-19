@@ -71,6 +71,7 @@ WorkloadDeploymentPatternStatusType = Literal["ACTIVE", "DELETED", "DISABLED", "
 WorkloadStatusType = Literal["ACTIVE", "DELETED", "DISABLED", "INACTIVE"]
 LaunchWizardServiceName = Literal["launch-wizard"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

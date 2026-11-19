@@ -98,25 +98,22 @@ def test_contour_unknown_offset():
     tdms_path = retrieve_data("fmt-tdms_fl-image-bright_2017.zip")
     cont_path = tdms_path.with_name("M4_0.040000ul_s_contours.txt")
     # Insert a false contour
-    imaginary_contour = "\n".join([
-        "Contour in frame 141",
-        "(198, 30)",
-        "(197, 29)",
-        "(196, 28)",
-        "(196, 27)",
-        "(195, 27)",
-        "(194, 26)",
-        "(193, 25)",
-        "(192, 24)",
-        "(191, 25)",
-        "",
-    ])
+    imaginary_contour = ("Contour in frame 141\n"
+                         "(198, 30)\n"
+                         "(197, 29)\n"
+                         "(196, 28)\n"
+                         "(196, 27)\n"
+                         "(195, 27)\n"
+                         "(194, 26)\n"
+                         "(193, 25)\n"
+                         "(192, 24)\n"
+                         "(191, 25)\n")
     cont_data = cont_path.read_text()
     cont_path.write_text(imaginary_contour + cont_data)
     ds = dclab.new_dataset(tdms_path)
     with pytest.raises(dclab.rtdc_dataset.fmt_tdms.exc.ContourIndexingError,
                        match=r"Contour data has unknown offset \(frame 141\)"):
-        ds["contour"].shape  # raises the error
+        _ = ds["contour"].shape  # raises the error
 
     with pytest.raises(dclab.rtdc_dataset.fmt_tdms.exc.ContourIndexingError,
                        match=r"Contour data has unknown offset \(frame 141\)"):
@@ -243,6 +240,25 @@ def test_hdf5_shape_trace():
     assert len(ds["trace"]["fl1_raw"][0]) == 1000
 
 
+def test_hdf5_shape_trace_incomplete_last_event():
+    """Trace data with an incomplete last event (size % spe != 0)"""
+    path = pathlib.Path(retrieve_data("fmt-tdms_fl-image_2016.zip"))
+    tpath = path.with_name(path.name[:-5] + "_traces.tdms")
+    # append a few samples to the trace data
+    channels = []
+    for group in nptdms.TdmsFile(str(tpath)).groups():
+        for ch in group.channels():
+            if ch.data.size:
+                channels.append(nptdms.ChannelObject(
+                    group.name, ch.name, np.concatenate([ch.data,
+                                                         ch.data[:7]])))
+    with nptdms.TdmsWriter(str(tpath)) as writer:
+        writer.write_segment(channels)
+    ds = new_dataset(path)
+    assert ds["trace"]["fl1_raw"].shape == (44, 1000)
+    assert ds["trace"].shape == (2, 44, 1000)
+
+
 def test_fluorescence_config():
     ds1 = new_dataset(retrieve_data("fmt-tdms_minimal_2016.zip"))
     assert "fluorescence" not in ds1.config
@@ -252,19 +268,19 @@ def test_fluorescence_config():
 
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'fmt_tdms.exc.'
-                            + 'InitialFrameMissingWarning')
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "fmt_tdms.exc."
+                            "InitialFrameMissingWarning")
 def test_image_basic():
     ds = new_dataset(retrieve_data("fmt-tdms_fl-image_2016.zip"))
     # Transition image
     assert np.allclose(ds["image"][0], 0)
-    # Real image
-    # 2025-01-23: paulmueller added the atol value, because CI was failing
-    #             on macOS. Possible reason is underlying ffmpeg build
-    #             for M1 etc. arm processors :zany_face:
-    assert np.allclose(np.average(ds["image"][1]), 45.1490478515625,
-                       atol=0.5)
+    # Real images
+    # 2026-11-17: dclab uses a bitexact conversion from YUV to RGB in
+    #             ffmpeg, so these values must be identical on all
+    #             platforms (previously, they differed on ARM processors).
+    assert np.average(ds["image"][1]) == 46.006144205729164
+    assert np.average(ds["image"][2]) == 45.931193033854164
 
 
 @pytest.mark.filterwarnings(
@@ -290,10 +306,34 @@ def test_image_corrupt():
         assert False
 
 
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "fmt_tdms.exc.SlowVideoWarning")
+def test_image_index_error_workaround():
+    """Seeking workaround when imageio raises an IndexError"""
+    path = pathlib.Path(retrieve_data("fmt-tdms_fl-image_2016.zip"))
+
+    class MockReader:
+        def __init__(self):
+            self.calls = 0
+
+        def get_data(self, idx):
+            self.calls += 1
+            if self.calls == 1:
+                raise IndexError("frame not found")
+            return np.full((4, 5, 3), idx, dtype=np.uint8)
+
+    im = dclab.rtdc_dataset.fmt_tdms.event_image.ImageMap(
+        path.with_name("M1_imaq.avi"))
+    im._cap = MockReader()
+    image = im[2]
+    assert image.shape == (4, 5)
+    assert np.all(image == 2)
+
+
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'fmt_tdms.exc.CorruptFrameWarning')
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "fmt_tdms.exc.CorruptFrameWarning")
 def test_image_out_of_bounds():
     ds = new_dataset(retrieve_data("fmt-tdms_fl-image_2016.zip"))
     assert len(ds["image"]) == 3
@@ -315,12 +355,12 @@ def test_index_slicing_tdms_fails(feat, idxs):
         ds[feat][idxs]
 
 
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'fmt_tdms.exc.'
-                            + 'InitialFrameMissingWarning')
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'feat_anc_core.ancillary_feature.'
-                            + 'BadFeatureSizeWarning')
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "fmt_tdms.exc."
+                            "InitialFrameMissingWarning")
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "feat_anc_core.ancillary_feature."
+                            "BadFeatureSizeWarning")
 def test_large_fov():
     ds = new_dataset(retrieve_data("fmt-tdms_fl-image-large-fov_2017.zip"))
     # initial image is missing
@@ -392,12 +432,12 @@ def test_load_tdms_simple():
 
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'fmt_tdms.exc.'
-                            + 'InitialFrameMissingWarning')
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'feat_anc_core.ancillary_feature.'
-                            + 'BadFeatureSizeWarning')
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "fmt_tdms.exc."
+                            "InitialFrameMissingWarning")
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "feat_anc_core.ancillary_feature."
+                            "BadFeatureSizeWarning")
 def test_mask_basic():
     ds = new_dataset(retrieve_data("fmt-tdms_fl-image_2016.zip"))
     assert len(ds["mask"]) == 12
@@ -515,6 +555,17 @@ def test_pixel_size():
     assert ds.config["imaging"]["pixel size"] == 0.12
 
 
+@pytest.mark.filterwarnings(
+    "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
+def test_hash_without_camera_ini():
+    """The _camera.ini file is optional"""
+    path = pathlib.Path(retrieve_data("fmt-tdms_fl-image_2016.zip"))
+    hash_with = new_dataset(path).hash
+    path.with_name("M1_camera.ini").unlink()
+    hash_without = new_dataset(path).hash
+    assert hash_without != hash_with
+
+
 def test_project_path():
     tfile = retrieve_data("fmt-tdms_minimal_2016.zip")
     ds = dclab.new_dataset(tfile)
@@ -554,7 +605,7 @@ def test_trace_import_fail():
     # make sure undefined trace data does not raise an error
     tdms_path = retrieve_data("fmt-tdms_fl-image_2016.zip")
     dclab.definitions.FLUOR_TRACES.append("peter")
-    dclab.rtdc_dataset.fmt_tdms.naming.tr_data_map["peter"] = [u'ukwn', u'ha']
+    dclab.rtdc_dataset.fmt_tdms.naming.tr_data_map["peter"] = ["ukwn", "ha"]
     new_dataset(tdms_path)
     # clean up
     dclab.rtdc_dataset.fmt_tdms.naming.tr_data_map.pop("peter")
@@ -574,9 +625,9 @@ def test_trace_methods():
 
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'fmt_tdms.exc.'
-                            + 'MultipleSamplesPerEventFound')  # desired
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "fmt_tdms.exc."
+                            "MultipleSamplesPerEventFound")  # desired
 def test_trace_wrong_samples_per_event():
     """The "samples per event" should be a constant for trace data
 
@@ -639,5 +690,5 @@ if __name__ == "__main__":
     # Run all tests
     loc = locals()
     for key in list(loc.keys()):
-        if key.startswith("test_") and hasattr(loc[key], "__call__"):
+        if key.startswith("test_") and callable(loc[key]):
             loc[key]()

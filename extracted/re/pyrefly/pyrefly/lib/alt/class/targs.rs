@@ -35,13 +35,13 @@ use crate::types::class::ClassType;
 use crate::types::literal::Lit;
 use crate::types::quantified::AnchorIndex;
 use crate::types::quantified::Quantified;
+use crate::types::quantified::QuantifiedAnchor;
 use crate::types::quantified::QuantifiedIdentity;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::quantified::QuantifiedOrigin;
 use crate::types::tuple::Tuple;
 use crate::types::type_var::PreInferenceVariance;
 use crate::types::type_var::Restriction;
-use crate::types::typed_dict::TypedDict;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::Substitution;
@@ -89,9 +89,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     ) -> ClassType {
         let targs = match self.get_class_tparams(cls) {
             Some(tparams) => {
-                self.create_targs(cls.name(), tparams.dupe(), targs, range, true, errors)
+                self.create_targs(cls.name(self), tparams.dupe(), targs, range, true, errors)
             }
-            None => self.reject_targs_without_tparams(cls.name(), &targs, range, errors),
+            None => self.reject_targs_without_tparams(cls.name(self), &targs, range, errors),
         };
         ClassType::new(cls.dupe(), targs)
     }
@@ -104,15 +104,16 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         validate_restriction: bool,
         errors: &ErrorCollector,
     ) -> Type {
-        let metadata = self.get_metadata_for_class(cls);
         let tparams = self.get_class_tparams(cls).dupe();
 
         // We didn't find any type parameters for this class, but it may have ones we don't know about if:
         // - the class inherits from Any, or
         // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
         //   arguments because we found an error in them.
-        let has_unknown_tparams = tparams.as_ref().is_none_or(|tparams| tparams.is_empty())
-            && (metadata.has_base_any() || metadata.has_generic_base_class());
+        let has_unknown_tparams = tparams.as_ref().is_none_or(|tparams| tparams.is_empty()) && {
+            let metadata = self.get_metadata_for_class(cls);
+            metadata.has_base_any() || metadata.has_generic_base_class()
+        };
 
         let targs = if !targs.is_empty() && has_unknown_tparams {
             // Accept any number of arguments (by ignoring them).
@@ -120,14 +121,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         } else {
             match tparams {
                 Some(tparams) => self.create_targs(
-                    cls.name(),
+                    cls.name(self),
                     tparams.dupe(),
                     targs,
                     range,
                     validate_restriction,
                     errors,
                 ),
-                None => self.reject_targs_without_tparams(cls.name(), &targs, range, errors),
+                None => self.reject_targs_without_tparams(cls.name(self), &targs, range, errors),
             }
         };
         self.type_of_instance(cls, targs)
@@ -245,7 +246,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     Self::add_implicit_any_error(
                         errors,
                         range,
-                        format_generic_entity("class", cls.name(), &tparams_for_error),
+                        format_generic_entity("class", cls.name(self), &tparams_for_error),
                         Some(tparam.name().as_str()),
                     );
                 }
@@ -318,7 +319,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         // in TypeEqCtx handles pairing with other synthetic quantifieds correctly.
         let identity = QuantifiedIdentity::new(
             self.module().name(),
-            AnchorIndex::first(TextRange::default()),
+            AnchorIndex::first(QuantifiedAnchor::None),
             QuantifiedOrigin::synthetic(),
         );
         let quantified = Quantified::new(
@@ -344,7 +345,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         // in TypeEqCtx handles pairing with other synthetic quantifieds correctly.
         let identity = QuantifiedIdentity::new(
             self.module().name(),
-            AnchorIndex::new(TextRange::default(), 1),
+            AnchorIndex::new(QuantifiedAnchor::None, 1),
             QuantifiedOrigin::synthetic(),
         );
         let quantified = Quantified::new(
@@ -368,12 +369,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     /// AnswersSolver::instantiate() to get an instance type.
     pub fn as_class_type_unchecked(&self, class: &Class) -> ClassType {
         ClassType::new(class.dupe(), self.targs_of_tparams(class))
-    }
-
-    /// Gets this Class as a TypedDict with its tparams as the arguments.
-    pub fn as_typed_dict_unchecked(&self, class: &Class) -> TypedDict {
-        let targs = self.targs_of_tparams(class);
-        TypedDict::new(class.clone(), targs)
     }
 
     /// Instantiates a class or typed dictionary with fresh variables for its type parameters.
@@ -452,13 +447,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
     }
 
+    /// Deliberately does not consult `ClassMetadata`. A TypedDict instance is an ordinary
+    /// `ClassType`; the sites that need TypedDict behavior check the metadata themselves. This
+    /// keeps a class used only as an annotation from forcing its metadata, which would resolve
+    /// its bases and cascade up the MRO.
     fn type_of_instance(&self, cls: &Class, targs: TArgs) -> Type {
-        let metadata = self.get_metadata_for_class(cls);
-        if metadata.is_typed_dict() {
-            self.heap.mk_typed_dict(TypedDict::new(cls.dupe(), targs))
-        } else {
-            self.heap.mk_class_type(ClassType::new(cls.dupe(), targs))
-        }
+        self.heap.mk_class_type(ClassType::new(cls.dupe(), targs))
     }
 
     /// Type arguments applied to something with no type parameters. There is
@@ -584,14 +578,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let mut suffix = Vec::new();
         for arg in args {
             match arg {
-                Type::Unpack(inner) if let Type::Tuple(Tuple::Concrete(elts)) = &**inner => {
+                Type::Unpack(inner, ..) if let Type::Tuple(Tuple::Concrete(elts)) = &**inner => {
                     if middle.is_empty() {
                         prefix.extend_from_slice(elts);
                     } else {
                         suffix.extend_from_slice(elts);
                     }
                 }
-                Type::Unpack(t) => {
+                Type::Unpack(t, ..) => {
                     if !suffix.is_empty() {
                         middle.push(self.heap.mk_unbounded_tuple(self.unions(suffix)));
                         suffix = Vec::new();
@@ -664,7 +658,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 ErrorKind::InvalidParamSpec,
                 format!(
                     "Expected a valid ParamSpec expression, got `{}`",
-                    self.for_display(arg.clone())
+                    self.display(arg.clone())
                 ),
             );
             Type::Ellipsis
@@ -680,7 +674,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         match arg {
-            Type::Unpack(_) => self.error(
+            Type::Unpack(..) => self.error(
                 errors,
                 range,
                 ErrorKind::BadUnpacking,
@@ -719,7 +713,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     let arg =
                         if let Type::Literal(lit) = arg
                             && let Lit::Int(i) = &lit.value
-                            && matches!(param.upper_bound(self.stdlib, self.heap), Type::Int(_))
+                            && matches!(param.upper_bound(self, self.heap), Type::Int(_))
                         {
                             Type::Int(i.as_i64().map(Int::Literal).unwrap_or_else(|| {
                                 Int::Symbolic(Box::new(Type::Literal(lit.clone())))
@@ -739,17 +733,17 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             let arg = arg.clone();
                             arg.transform(&mut |x| match x {
                                 Type::TypeVar(tv) => {
-                                    *x = tv.upper_bound(self.stdlib, self.heap);
+                                    *x = tv.upper_bound(self, self.heap);
                                 }
                                 Type::TypeLevelDslCall(call) => {
-                                    *x = call.type_for_generic_bound_check()
+                                    *x = call.type_for_generic_bound_check(self)
                                 }
                                 _ => {}
                             })
                         };
                         self.check_type(
                             &arg_for_check,
-                            &param.upper_bound(self.stdlib, self.heap),
+                            &param.upper_bound(self, self.heap),
                             range,
                             errors,
                             tcc,
@@ -769,7 +763,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         match arg {
-            Type::Unpack(_) => {
+            Type::Unpack(..) => {
                 // Shape argument parsing normally rejects this first; keep the
                 // targ-level recovery path for callers that bypass that parser.
                 self.error(
@@ -794,7 +788,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     format!(
                         "Expected a valid Int expression for type parameter `{}`, got `{}`",
                         param.name(),
-                        self.for_display(arg.clone())
+                        self.display(arg.clone())
                     ),
                 );
                 gradual_size()

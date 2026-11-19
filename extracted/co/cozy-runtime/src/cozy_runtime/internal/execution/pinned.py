@@ -48,12 +48,22 @@ class _Buffer:
 _LIVE: weakref.WeakValueDictionary[int, _Buffer] = weakref.WeakValueDictionary()
 #: buffers whose tensors went, held until the stream passes their last use
 _GOING: list[tuple[torch.cuda.Event | None, Tensor]] = []
+#: host wholes made in this process (`made`)
+_MADE = 0
+
+
+def made() -> int:
+    """How many host wholes this process has made: a pass that made one took the host rung, and a
+    graph of it would hold that whole on the card (`graphs`)."""
+    return _MADE
 
 
 def empty(shape: Sequence[int], dtype: torch.dtype, device: torch.device) -> Tensor:
     """An uninitialized CUDA tensor of `shape` on `device`, in pinned host memory. One at a time
     stays pinned: a new one waits for the stream to pass the last use of those that went."""
+    global _MADE
     settle()
+    _MADE += 1
     nbytes = math.prod(shape) * dtype.itemsize
     buffer = _Buffer(max(nbytes, dtype.itemsize))
     flat = torch.as_tensor(buffer)  # its storage holds `buffer`
@@ -81,6 +91,11 @@ def read(src: Tensor) -> Tensor:
     out = torch.empty(src.shape, dtype=src.dtype, device=src.device)
     out.copy_(host if src.is_contiguous() else src, non_blocking=True)
     return out
+
+
+def held(tensor: Tensor) -> bool:
+    """Whether `tensor` is a view of a pinned buffer."""
+    return _host(tensor) is not None
 
 
 def settle() -> None:

@@ -57,6 +57,13 @@ DEPLOY WAIT (OMN-19811, OMN-20509)
     then reads idle or unreadable, the lane gets ``SETTLE_GRACE_SECONDS`` more
     to come back before the wait ends RED; the budget still bounds all of it.
 
+    ``LANE_DEPLOY_WAIT_WHILE_BUSY`` (true/1/yes, case-insensitive) also waits
+    when the chosen lane answers but its agent reads busy (OMN-20410). The
+    lane must answer again after the deploy, sharing the same wait budget; an
+    agent that stops answering after it read busy keeps the wait going, and
+    an agent that was never readable, or is undeclared, warns that deploy
+    state is unknown.
+
 NO RESPONDER IS RED, NEVER A SKIP
     An empty or unset list, a malformed entry, or no eligible lane answering
     exits 1 naming every lane tried and why. There is no default lane.
@@ -118,26 +125,24 @@ def _check_url(lane: str, field: str, value: Any) -> str:
     return value.rstrip("/")
 
 
-def parse_lanes(raw: str) -> list[dict[str, Any]]:
-    """Validate the overlay list. Raises OverlayError; never returns a default."""
+def parse_lanes(raw: str, source: str = "LAB_LANES_JSON") -> list[dict[str, Any]]:
+    """Validate the overlay list; ``source`` names the variable it came from."""
     if not raw or not raw.strip():
-        raise OverlayError(
-            "no lab lane is declared; set the repository variable LAB_LANES_JSON"
-        )
+        raise OverlayError(f"no lab lane declared; set repository variable {source}")
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise OverlayError(f"LAB_LANES_JSON is not JSON: {exc}") from exc
+        raise OverlayError(f"{source} is not JSON: {exc}") from exc
     if not isinstance(data, list) or not data:
-        raise OverlayError("LAB_LANES_JSON must be a non-empty JSON list")
+        raise OverlayError(f"{source} must be a non-empty JSON list")
     lanes: list[dict[str, Any]] = []
     seen: set[str] = set()
     for index, entry in enumerate(data):
         if not isinstance(entry, dict):
-            raise OverlayError(f"LAB_LANES_JSON[{index}] is not an object")
+            raise OverlayError(f"{source}[{index}] is not an object")
         name = entry.get("name")
         if not isinstance(name, str) or not NAME_RE.match(name):
-            raise OverlayError(f"LAB_LANES_JSON[{index}] has no valid name")
+            raise OverlayError(f"{source}[{index}] has no valid name")
         if name in seen:
             raise OverlayError(f"lane {name!r} is declared twice")
         seen.add(name)
@@ -245,12 +250,18 @@ def deploy_agent_busy_reason(snapshot: Mapping[str, Any]) -> str | None:
 
 
 def _busy_agents(
-    candidates: Sequence[Mapping[str, Any]], timeout: float, note: str = ""
+    candidates: Sequence[Mapping[str, Any]],
+    timeout: float,
+    note: str = "",
+    *,
+    unreadable: list[str] | None = None,
 ) -> dict[str, str]:
     """Lane name -> busy detail for every candidate whose agent reads busy now."""
     busy: dict[str, str] = {}
     for candidate in candidates:
         snapshot = read_deploy_agent(candidate["deploy_agent_url"], timeout)
+        if snapshot is None and unreadable is not None:
+            unreadable.append(candidate["name"])
         reason = deploy_agent_busy_reason(snapshot) if snapshot is not None else None
         if reason is not None:
             busy[candidate["name"]] = (
@@ -333,7 +344,8 @@ def main(environ: Mapping[str, str] | None = None) -> int:
         match[field] = want
     timeout = float(env.get("LANE_PROBE_TIMEOUT_SECONDS", "10"))
     try:
-        lanes = parse_lanes(env.get("LAB_LANES_JSON", ""))
+        var = env.get("LAB_LANES_VAR") or "LAB_LANES_JSON"
+        lanes = parse_lanes(env.get("LAB_LANES_JSON", ""), var)
     except OverlayError as exc:
         _say(f"::error::{exc}")
         return 1
@@ -356,7 +368,72 @@ def main(environ: Mapping[str, str] | None = None) -> int:
     )
     waited: float | None = None
     wait_detail = ""
+    total_budget = wait_budget
+    wait_while_busy = env.get("LANE_DEPLOY_WAIT_WHILE_BUSY", "").lower() in {
+        "true",
+        "1",
+        "yes",
+    }
+    if lane is not None and wait_budget > 0 and wait_while_busy:
+        if "deploy_agent_url" not in lane:
+            _say(
+                f"::warning::lab lane {lane['name']} declares no deploy_agent_url; "
+                "deploy state unknown"
+            )
+        else:
+            started = time.monotonic()
+            unreadable: list[str] = []
+            busy = _busy_agents([lane], timeout, unreadable=unreadable)
+            if unreadable and not busy:
+                _say(
+                    f"::warning::lab lane {lane['name']} deploy agent is unreadable; "
+                    "deploy state unknown"
+                )
+            if busy:
+                _say("lab lane deploy wait started -- " + " | ".join(busy.values()))
+                last_detail = " | ".join(busy.values())
+                # An agent that stops answering after it read busy is still
+                # mid-deploy (it re-execs): only a readable, not-busy read ends
+                # the wait.
+                while busy or unreadable:
+                    if busy:
+                        last_detail = " | ".join(busy.values())
+                        pre_busy.update(busy)
+                    waited = time.monotonic() - started
+                    remaining = wait_budget - waited
+                    if remaining <= 0:
+                        _say(
+                            f"::error::lab lane {lane['name']} answers, but its "
+                            f"deploy agent still reads busy after {waited:g}s of "
+                            f"the {wait_budget:g}s budget ({last_detail}"
+                            f"{'; agent unreadable on the last read' if unreadable else ''}"
+                            "); no probe may submit into a deploy. That is RED, "
+                            "not a pass."
+                        )
+                        return 1
+                    time.sleep(min(poll, remaining))
+                    unreadable = []
+                    busy = _busy_agents([lane], timeout, unreadable=unreadable)
+                waited = time.monotonic() - started
+                wait_budget = max(0.0, wait_budget - waited)
+                lane, tried = choose_lane(
+                    lanes, require, lambda url: http_health(url, timeout), match
+                )
+                end_reason = (
+                    f"lane {lane['name']} answers"
+                    if lane is not None
+                    else "lane silent"
+                )
+                wait_detail = (
+                    f"; deploy wait: {last_detail}; waited {waited:g}s of "
+                    f"{total_budget:g}s budget ({end_reason})"
+                )
+                if lane is not None or wait_budget <= 0:
+                    _say(
+                        f"lab lane deploy wait ended -- {wait_detail.removeprefix('; ')}"
+                    )
     if lane is None and wait_budget > 0:
+        already_waited = waited or 0.0
         started = time.monotonic()
         last_busy = dict(pre_busy)
         saw_busy = bool(pre_busy)
@@ -392,13 +469,13 @@ def main(environ: Mapping[str, str] | None = None) -> int:
                 lanes, require, lambda url: http_health(url, timeout), match
             )
         if waited is not None:
-            waited = time.monotonic() - started
+            waited = already_waited + time.monotonic() - started
             if lane is not None:
                 end_reason = f"lane {lane['name']} answers"
             wait_detail = (
                 "; deploy wait: "
                 + " | ".join(last_busy.values())
-                + f"; waited {waited:g}s of {wait_budget:g}s budget ({end_reason})"
+                + f"; waited {waited:g}s of {total_budget:g}s budget ({end_reason})"
             )
             _say(f"lab lane deploy wait ended -- {wait_detail.removeprefix('; ')}")
     for line in tried:

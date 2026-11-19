@@ -190,8 +190,9 @@ class Serving:
     """A Model class's serving facts, as its `serving` attribute. Every field has a default, so
     a class states only what differs; a subclass's `serving` replaces its base's.
 
-    - `encoded_leaves`: the Runtime may replace a linear with one whose weight is its stored
-      encoding (the code reaches its components through their forward only). False refuses.
+    - `encoded_leaves`: the Runtime may replace a linear, or a Conv3d of an int8 lane, with one
+      whose weight is its stored encoding (the code reaches its components through their
+      forward only). False refuses.
     - `min_bits`: the lowest weight precision the lane rules pick by themselves (`MIN_BITS`).
     - `attention_bits`: the lowest attention precision its sites tolerate, whole or per
       component-qualified module prefix. 4 serves 8-bit kernels until a measured quality pass
@@ -340,6 +341,11 @@ class Residency(Protocol):
         """Of a component a loop of forwards can't hold whole, a binding over the blocks used since
         `since_ns` that fit beside `reserve` and the rest streaming, the bytes kept and those still
         read a forward; None when none fits."""
+        ...
+
+    def gathering(self, component: str) -> AbstractContextManager[None]:
+        """While a loop streams it: its embedding tables gather their rows on the host once
+        their device page has gone, never filling whole again."""
         ...
 
     def represent(

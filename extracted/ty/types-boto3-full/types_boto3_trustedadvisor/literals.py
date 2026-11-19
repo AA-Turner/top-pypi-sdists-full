@@ -109,6 +109,7 @@ UpdateRecommendationLifecycleStageType = Literal[
 ]
 TrustedAdvisorPublicAPIServiceName = Literal["trustedadvisor"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

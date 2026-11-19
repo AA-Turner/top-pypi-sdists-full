@@ -36,7 +36,7 @@ from datamodel_code_generator._openapi_wire_plan import (
     media_encodings,
     parameter_plans,
     part_json,
-    plan_wire,
+    plan_styles,
     single_media,
 )
 from datamodel_code_generator._runtime.model_codecs.media import (
@@ -52,13 +52,11 @@ from datamodel_code_generator._runtime.model_codecs.media import (
 )
 from datamodel_code_generator._target_contract import (
     OAUTH_SCHEMES,
-    WRAPPER_KINDS,
     BuiltinType,
     ConstructorType,
     GeneratedSymbolType,
     GenericType,
     ImportedType,
-    KnownBackendValue,
     LiteralMapping,
     LiteralScalar,
     LiteralSequence,
@@ -77,12 +75,10 @@ from datamodel_code_generator._target_contract import (
     operation_schemes,
     parameter_place,
     range_start,
-    scheme_catalogues,
     scope_problem,
     security_requirements,
     type_uses,
     unresolved_reference,
-    uses_by_id,
     wrapped_facts,
 )
 from datamodel_code_generator._target_naming import NameScope, fold_key, windows_device
@@ -93,6 +89,7 @@ from datamodel_code_generator._target_operations import (
     alias,
     argument_names,
     binding_problem,
+    claim,
     declared_by,
     declared_in,
     declared_media_type,
@@ -107,7 +104,7 @@ from datamodel_code_generator._target_operations import (
     response_bodyless,
     type_names,
 )
-from datamodel_code_generator._target_types import present, sole_present
+from datamodel_code_generator._target_types import is_alias, present, sole_present
 from datamodel_code_generator._url_redaction import redact_reference
 from datamodel_code_generator.enums import DataModelType, OpenAPIVersion
 from datamodel_code_generator.imports import Import
@@ -167,8 +164,6 @@ _STRICT_BYTES: Final = ("pydantic", "StrictBytes")
 _STRICT_KEYWORD: Final = ("strict", LiteralScalar(kind="bool", value=True))
 _DOCUMENTATION: Final = frozenset({"title", "description", "examples", "deprecated"})
 _NULL: Final = LiteralScalar("none", None)
-_TRUE: Final = KnownBackendValue(LiteralScalar(kind="bool", value=True))
-_BY_NAME: Final = frozenset({"populate_by_name", "validate_by_name"})
 _LITERAL_KINDS: Final = frozenset({"bool", "int", "float", "str"})
 _CONSTRAINTS: Final = frozenset({
     "allow_inf_nan",
@@ -642,13 +637,13 @@ class Planner:  # noqa: PLR0904
         self.wire = wire
         self.types = types
         self.unspelled: set[TypeUseId] = set()
-        self.uses = uses_by_id(request.batch)
+        self.uses = wire.tables.uses
         self.tables = wire.kinds.tables
         self.symbols = self.tables.symbols
         self.members = self.tables.members
         self.extras = extras_symbols(self.symbols, self.members)
         self.parameter_plans = parameter_plans(wire)
-        self.scheme_catalogues = scheme_catalogues(request.batch)
+        self.scheme_catalogues = wire.tables.schemes
         self.schemes: dict[str, SchemeSpec] = {}
         assert request.batch.names is not None
         self.target_names = request.batch.names
@@ -714,28 +709,19 @@ class Planner:  # noqa: PLR0904
 
     def operation_names(self, operations: tuple[OperationContract, ...]) -> list[str]:
         """Name each operation's handler: explicit names first, which must differ, then derived ones suffixed apart."""
-        explicit = [name for operation in operations if (name := self.names.get(operation.id.use_site.pointer))]
+        names, taken = claim(
+            self.target_names,
+            NameScope(),
+            [
+                self.names.get(operation.id.use_site.pointer)
+                or (derived_name(self.target_names, operation), local(operation), (self.group_name(operation),))
+                for operation in operations
+            ],
+        )
         self.problems.extend(
-            _problem("F_NAME_CONFLICT", f"Several operation names become {stable_repr(name)}")
-            for name, count in sorted(Counter(explicit).items())
-            if count > 1
+            _problem("F_NAME_CONFLICT", f"Several operation names become {stable_repr(name)}") for name in taken
         )
-        derived = [operation for operation in operations if operation.id.use_site.pointer not in self.names]
-        bases = [derived_name(self.target_names, operation) for operation in derived]
-        claimed = dict(
-            zip(
-                (operation.id for operation in derived),
-                self.target_names.claim(
-                    NameScope(explicit),
-                    [
-                        (base, local(operation), (self.group_name(operation),))
-                        for operation, base in zip(derived, bases, strict=True)
-                    ],
-                ),
-                strict=True,
-            )
-        )
-        return [self.names.get(operation.id.use_site.pointer) or claimed[operation.id] for operation in operations]
+        return names
 
     def groups(self, specs: tuple[OperationSpec, ...]) -> tuple[GroupSpec, ...]:
         """Group operations by first tag in first-occurrence order, naming router files and services apart.
@@ -747,27 +733,22 @@ class Planner:  # noqa: PLR0904
         members: dict[str, list[OperationSpec]] = {}
         for spec in specs:
             members.setdefault(spec.group, []).append(spec)
-        scope = NameScope(
-            (*BUILDER_NAMES, *EXPORTED_NAMES), folded=True, target_python_version=self.target_names.python_version
+        version = self.target_names.python_version
+        claimed, taken = claim(
+            self.target_names,
+            NameScope((*BUILDER_NAMES, *EXPORTED_NAMES), folded=True, target_python_version=version),
+            [
+                self.config.router_names.get(key)
+                or (self.target_names.function(group_basis(key)), local(members[key][0].contract), ())
+                for key in members
+            ],
+            refused={name for name in self.config.router_names.values() if _file_stem_conflict(name, version)},
         )
-        conflicts = {
-            name
-            for key in members
-            if (name := self.config.router_names.get(key)) is not None
-            and (_file_stem_conflict(name, self.target_names.python_version) or not scope.take(name))
-        }
-        derived = [key for key in members if key not in self.config.router_names]
-        bases = [self.target_names.function(group_basis(key)) for key in derived]
-        claimed = self.target_names.claim(
-            scope, [(base, local(members[key][0].contract), ()) for key, base in zip(derived, bases, strict=True)]
-        )
-        stems = {
-            key: self.config.router_names.get(key) or dict(zip(derived, claimed, strict=True))[key] for key in members
-        }
-        conflicts.update(stem for stem in stems.values() if _file_stem_conflict(stem, self.target_names.python_version))
+        stems = dict(zip(members, claimed, strict=True))
+        taken.extend(stem for stem in claimed if _file_stem_conflict(stem, version))
         self.problems.extend(
             _problem("F_NAME_CONFLICT", f"Several router groups or reserved names take {stable_repr(stem)}")
-            for stem in sorted(conflicts)
+            for stem in sorted(set(taken))
         )
         named = [key for key in members if stems[key] != "service"]
         services = dict(
@@ -1003,9 +984,7 @@ class Planner:  # noqa: PLR0904
         factory: TypeView | None = None
         while (
             isinstance(value, GeneratedSymbolType)
-            and value.symbol not in seen
-            and self.symbols[value.symbol].kind in WRAPPER_KINDS
-            and (facts := wrapped_facts(self.members, value.symbol)) is not None
+            and (facts := self.tables.wrapped(value, seen)) is not None
             and (plain := self.plain(value.symbol, facts, frozenset(seen))) is not None
         ):
             seen.add(value.symbol)
@@ -1068,12 +1047,9 @@ class Planner:  # noqa: PLR0904
         A tuple keeps its members, as FastAPI reads none natively.
         """
         match value:
-            case GeneratedSymbolType() if (
-                value.symbol not in seen
-                and self.symbols[value.symbol].kind == "alias"
-                and (facts := wrapped_facts(self.members, value.symbol)) is not None
-                and (plain := self.plain(value.symbol, facts, seen)) is not None
-            ):
+            case GeneratedSymbolType() if (facts := self.tables.wrapped(value, seen, is_alias)) is not None and (
+                plain := self.plain(value.symbol, facts, seen)
+            ) is not None:
                 return plain
             case GenericType():
                 fixed = value.tuple_form == "fixed"
@@ -1119,11 +1095,7 @@ class Planner:  # noqa: PLR0904
                 return any(self.strict_bytes(item, seen) for item in value.arguments)
             case ImportedType():
                 return (value.import_.from_, value.import_.import_) == _STRICT_BYTES
-            case GeneratedSymbolType() if (
-                value.symbol not in seen
-                and self.symbols[value.symbol].kind in WRAPPER_KINDS
-                and (facts := wrapped_facts(self.members, value.symbol)) is not None
-            ):
+            case GeneratedSymbolType() if (facts := self.tables.wrapped(value, seen)) is not None:
                 return self.strict_bytes(facts.type, seen | {value.symbol})
             case _:
                 pass
@@ -1306,7 +1278,7 @@ class Planner:  # noqa: PLR0904
             and field.slot is not None
             and member.name not in encoded
             and (name := field.slot.name) not in names
-            and self.by_name(field.consumer)
+            and self.symbols[field.consumer].by_name
         )
         additional: FieldPlan | JsonPartSpec | FilePartSpec | None = None
         extras = form_extras(self.wire.kinds, media.use)
@@ -1336,14 +1308,6 @@ class Planner:  # noqa: PLR0904
             encoded=tuple(plan for plan in encoded.values() if plan is not None),
         )
 
-    def by_name(self, symbol: SymbolId) -> bool:
-        """Return whether a model, by its own configuration or one it inherits, validates its fields by name too."""
-        declared = self.symbols[symbol]
-        settings = () if declared.facts is None else declared.facts.configuration
-        return any(setting.name in _BY_NAME and setting.value == _TRUE for setting in settings) or any(
-            self.by_name(base) for base in declared.bases
-        )
-
     def encoded(self, media: MediaSpec, members: tuple[FormMember, ...]) -> dict[str, ParameterPlan | None]:
         """Return the query parameter plans of the form members that the form's own text or parts do not read.
 
@@ -1362,9 +1326,9 @@ class Planner:  # noqa: PLR0904
         )
         if not encodings:
             return {}
-        wire = plan_wire(self.request.batch, (), operations=frozenset(), styles={media.use.id: encodings})
-        self.problems.extend(_problem(item.code, item.message, item.source) for item in wire.diagnostics)
-        plans = {plan.name: plan for _, planned in wire.styles for plan in planned}
+        planned, diagnostics = plan_styles(self.wire.tables, media.use, encodings)
+        self.problems.extend(_problem(item.code, item.message, item.source) for item in diagnostics)
+        plans = {plan.name: plan for plan in planned}
         return {child.name or "": plans.get(child.name or "") for child in encodings}
 
     def form_plan(
@@ -1530,20 +1494,15 @@ class Planner:  # noqa: PLR0904
             support.append(Argument(name="body", kind="body", location="body"))
             if len(body.media) > 1:
                 support.append(Argument(name="media_type", kind="media_type", location="media_type"))
-        self.problems.extend(
-            _problem(
-                "F_NAME_CONFLICT",
-                f"The arguments of {label(operation)} take {stable_repr(name)} twice",
-                operation.id.use_site,
-            )
-            for name, count in sorted(Counter([*filter(None, given), "self", *(item.name for item in support)]).items())
-            if count > 1
-        )
         python_names = argument_names(
+            SERVER,
             self.target_names,
-            NameScope((*RESERVED, *filter(None, given))),
+            operation,
             [(parameter.wire_name, name, parameter.local) for parameter, name in zip(ordered, given, strict=True)],
             scopes,
+            held=("self", *(item.name for item in support)),
+            reserved=RESERVED,
+            problems=self.problems,
         )
         arguments = [
             Argument(

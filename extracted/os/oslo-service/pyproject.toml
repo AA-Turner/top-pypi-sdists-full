@@ -9,13 +9,13 @@ readme = "README.rst"
 authors = [
     {name = "OpenStack", email = "openstack-discuss@lists.openstack.org"},
 ]
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dynamic = ["version", "dependencies"]
 classifiers = [
     "Environment :: OpenStack",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
@@ -36,15 +37,46 @@ threading = [
     "cotyledon>=2.2.0",  # Apache-2.0
     "futurist>=3.1.1",  # Apache-2.0
 ]
+eventlet = [
+    "eventlet>=0.27.0", # MIT
+]
 
 [project.entry-points."oslo.config.opts"]
-"oslo.service.periodic_task" = "oslo_service.periodic_task:list_opts"
-"oslo.service.service" = "oslo_service.service:list_opts"
-"oslo.service.sslutils" = "oslo_service.sslutils:list_opts"
-"oslo.service.wsgi" = "oslo_service.wsgi:list_opts"
+"oslo.service.periodic_task" = "oslo_service.opts:list_periodic_task_opts"
+"oslo.service.service" = "oslo_service.opts:list_service_opts"
+"oslo.service.sslutils" = "oslo_service.opts:list_ssl_opts"
+"oslo.service.wsgi" = "oslo_service.opts:list_wsgi_opts"
 
-[tool.setuptools]
-packages = ["oslo_service"]
+[tool.setuptools.packages.find]
+include = ["oslo_service*"]
 
-[tool.bandit]
-exclude_dirs = ["tests"]
+[tool.coverage.run]
+source = [
+    "oslo_service"
+]
+branch = true
+parallel = true
+omit = [
+    "oslo_service/tests/*"
+]
+
+[tool.coverage.report]
+ignore_errors = true
+show_missing = true
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.format]
+quote-style = "preserve"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["E", "F", "G", "LOG", "S", "UP"]
+external = ["H"]
+ignore = [
+    "S101",  # asserts are only used for type narrowing
+]
+
+[tool.ruff.lint.per-file-ignores]
+"oslo_service/tests/*" = ["S"]

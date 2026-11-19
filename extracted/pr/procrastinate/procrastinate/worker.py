@@ -28,6 +28,7 @@ WORKER_NAME = "worker"
 WORKER_CONCURRENCY = 1  # maximum number of parallel jobs
 FETCH_JOB_POLLING_INTERVAL = 5.0  # seconds
 ABORT_JOB_POLLING_INTERVAL = 5.0  # seconds
+STOP_FETCH_JOB_TIMEOUT = 10.0  # seconds
 
 
 class Worker:
@@ -97,6 +98,7 @@ class Worker:
         self._job_semaphore = asyncio.Semaphore(self.concurrency)
         self._stop_event = asyncio.Event()
         self.shutdown_graceful_timeout = shutdown_graceful_timeout
+        self._database_unresponsive = False
         self._job_ids_to_abort: dict[int, job_context.AbortReason] = {}
         self.run_task: asyncio.Task[Any] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -393,14 +395,11 @@ class Worker:
                 if self._stop_event.is_set():
                     break
 
-                assert self.worker_id is not None
-                job = await self.app.job_manager.fetch_job(
-                    queues=self.queues, worker_id=self.worker_id
-                )
+                self._new_job_event.clear()
+                job = await self._fetch_job()
             finally:
                 if (not job or self._stop_event.is_set()) and acquire_sem_task.done():
                     self._job_semaphore.release()
-                self._new_job_event.clear()
 
             if not job:
                 break
@@ -427,10 +426,46 @@ class Worker:
             self._running_jobs[job_task] = context
 
             def on_job_complete(task: asyncio.Task):
-                del self._running_jobs[task]
+                completed = self._running_jobs.pop(task)
                 self._job_semaphore.release()
+                # A job waiting on this lock was skipped by the last fetch and
+                # would otherwise sit until the next notification or poll.
+                if completed.job.lock is not None:
+                    self._new_job_event.set()
 
             job_task.add_done_callback(on_job_complete)
+
+    async def _fetch_job(self) -> jobs.Job | None:
+        assert self.worker_id is not None
+        fetch_task = asyncio.create_task(
+            self.app.job_manager.fetch_job(
+                queues=self.queues, worker_id=self.worker_id
+            ),
+            name="fetch_job",
+        )
+        await utils.wait_any(asyncio.shield(fetch_task), self._stop_event.wait())
+        if not fetch_task.done():
+            # A fetch blocked on a half-open connection never returns, and would
+            # keep the worker from ever seeing the stop request.
+            await asyncio.wait({fetch_task}, timeout=STOP_FETCH_JOB_TIMEOUT)
+        if not fetch_task.done():
+            self.logger.warning(
+                "Fetching a job did not complete after the worker was asked to "
+                "stop: the database seems unresponsive. Giving up on it",
+                extra=self._log_extra(
+                    action="stop_fetch_job_timeout",
+                    queues=self.queues,
+                    context=None,
+                    job_result=None,
+                ),
+            )
+            self._database_unresponsive = True
+            fetch_task.cancel()
+            fetch_task.add_done_callback(
+                lambda task: task.cancelled() or task.exception()
+            )
+            return None
+        return fetch_task.result()
 
     async def run(self):
         """
@@ -441,6 +476,7 @@ class Worker:
         # the first await: anything later (e.g. the top of the run loop task) can
         # run after a fresh stop() and erase it, leaving the worker unstoppable.
         self._stop_event.clear()
+        self._database_unresponsive = False
 
         logger.debug("Pruning stalled workers with old heartbeats")
         pruned_workers = await self.app.job_manager.prune_stalled_workers(
@@ -531,7 +567,9 @@ class Worker:
         reason: job_context.AbortReason,
     ):
         assert context.job.id
-        self._job_ids_to_abort[context.job.id] = reason
+        # Keep the first reason: a user abort must not become a retryable
+        # shutdown abort when the graceful timeout expires.
+        self._job_ids_to_abort.setdefault(context.job.id, reason)
 
         log_message: str
         task = self.app.tasks.get(context.job.task_name)
@@ -553,41 +591,66 @@ class Worker:
         Gracefully shutdown the worker by cancelling side tasks
         and waiting for all pending jobs.
         """
-        await utils.cancel_and_capture_errors(side_tasks)
+        # These must outlive the drain: running jobs can still be aborted, and the
+        # worker must not look dead to stalled-worker recovery while it waits.
+        side_tasks_to_stop_late = ["poll_jobs_to_abort", "update_heartbeats"]
+        late_side_tasks = [
+            t for t in side_tasks if t.get_name() in side_tasks_to_stop_late
+        ]
+        await utils.cancel_and_capture_errors(
+            [t for t in side_tasks if t not in late_side_tasks]
+        )
 
-        now = time.time()
-        for context in self._running_jobs.values():
-            duration = now - context.start_timestamp
-            self.logger.info(
-                f"Waiting for job to finish: worker: {context.job.call_string} (started {duration:.3f} s ago)",
+        try:
+            now = time.time()
+            for context in self._running_jobs.values():
+                duration = now - context.start_timestamp
+                self.logger.info(
+                    f"Waiting for job to finish: worker: {context.job.call_string} (started {duration:.3f} s ago)",
+                    extra=self._log_extra(
+                        context=None, action="ending_job", job_result=None
+                    ),
+                )
+
+            if self._running_jobs:
+                await asyncio.wait(
+                    self._running_jobs, timeout=self.shutdown_graceful_timeout
+                )
+
+            # As a reminder, tasks have a done callback that
+            # removes them from the self._running_jobs dict,
+            # so as the tasks stop, this dict will shrink.
+            if self._running_jobs:
+                self.logger.info(
+                    f"{len(self._running_jobs)} jobs still running after graceful timeout. Aborting them",
+                    extra=self._log_extra(
+                        action="stop_worker",
+                        queues=self.queues,
+                        context=None,
+                        job_result=None,
+                    ),
+                )
+                await self._abort_running_jobs()
+        finally:
+            await utils.cancel_and_capture_errors(late_side_tasks)
+
+        assert self.worker_id is not None
+        if self._database_unresponsive:
+            self.logger.warning(
+                "Not unregistering the worker from the unresponsive database. "
+                "It will be pruned once its heartbeat is stale",
                 extra=self._log_extra(
-                    context=None, action="ending_job", job_result=None
-                ),
-            )
-
-        if self._running_jobs:
-            await asyncio.wait(
-                self._running_jobs, timeout=self.shutdown_graceful_timeout
-            )
-
-        # As a reminder, tasks have a done callback that
-        # removes them from the self._running_jobs dict,
-        # so as the tasks stop, this dict will shrink.
-        if self._running_jobs:
-            self.logger.info(
-                f"{len(self._running_jobs)} jobs still running after graceful timeout. Aborting them",
-                extra=self._log_extra(
-                    action="stop_worker",
+                    action="skip_unregister_worker",
                     queues=self.queues,
                     context=None,
                     job_result=None,
                 ),
             )
-            await self._abort_running_jobs()
-
-        assert self.worker_id is not None
-        await self.app.job_manager.unregister_worker(self.worker_id)
-        logger.debug(f"Unregistered finished worker {self.worker_id} from the database")
+        else:
+            await self.app.job_manager.unregister_worker(self.worker_id)
+            logger.debug(
+                f"Unregistered finished worker {self.worker_id} from the database"
+            )
         self.worker_id = None
 
         self.logger.info(
@@ -621,24 +684,28 @@ class Worker:
     async def _monitor_side_tasks(self, side_tasks: list[asyncio.Task[Any]]):
         """Monitor side tasks and stop the worker if any task fails"""
         try:
-            done, _pending = await asyncio.wait(
-                side_tasks, return_when=asyncio.FIRST_COMPLETED
-            )
-            for task in done:
-                if exc := task.exception():
-                    self.logger.error(
-                        f"Side task {task.get_name()} failed with exception: {exc}, stopping worker",
-                        extra=self._log_extra(
-                            action="side_task_failed",
-                            context=None,
-                            job_result=None,
-                            task_name=task.get_name(),
-                            exception=str(exc),
-                        ),
-                        exc_info=exc,
-                    )
-                    self.stop()
-                    return
+            pending = set(side_tasks)
+            while pending:
+                done, pending = await asyncio.wait(
+                    pending, return_when=asyncio.FIRST_COMPLETED
+                )
+                for task in done:
+                    if task.cancelled():
+                        continue
+                    if exc := task.exception():
+                        self.logger.error(
+                            f"Side task {task.get_name()} failed with exception: {exc}, stopping worker",
+                            extra=self._log_extra(
+                                action="side_task_failed",
+                                context=None,
+                                job_result=None,
+                                task_name=task.get_name(),
+                                exception=str(exc),
+                            ),
+                            exc_info=exc,
+                        )
+                        self.stop()
+                        return
         except Exception as exc:
             self.logger.exception(
                 "Side task monitor failed",

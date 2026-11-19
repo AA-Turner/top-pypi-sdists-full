@@ -114,6 +114,7 @@ VpcLinkStatusType = Literal["AVAILABLE", "DELETING", "FAILED", "INACTIVE", "PEND
 VpcLinkVersionType = Literal["V2"]
 ApiGatewayV2ServiceName = Literal["apigatewayv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

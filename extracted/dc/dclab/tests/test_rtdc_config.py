@@ -31,11 +31,11 @@ def equals(a, b):
         if np.isnan(a):
             assert np.isnan(b)
         else:
-            assert np.allclose(a, b), "a={} vs b={}".format(a, b)
+            assert np.allclose(a, b), f"a={a} vs b={b}"
     elif isinstance(a, np.ndarray):
         assert np.all(a == b), f"{a=} vs {b=}"
     else:
-        assert a == b, "a={} vs b={}".format(a, b)
+        assert a == b, f"a={a} vs b={b}"
     return True
 
 
@@ -45,6 +45,21 @@ def test_config_basic():
     pytest.importorskip("nptdms")
     ds = new_dataset(retrieve_data("fmt-tdms_fl-image_2016.zip"))
     assert ds.config["imaging"]["roi size y"] == 96.
+
+
+def test_config_copy_disable_checks():
+    """Copying a configuration must not remove unknown keys"""
+    cfg = dccfg.Configuration(cfg={"setup": {"channel width": 20,
+                                             "unknown key": "picard"},
+                                   "unknown section": {"riker": 1}},
+                              disable_checks=True)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cfg2 = cfg.copy()
+    assert cfg2.disable_checks
+    assert cfg2["setup"]["channel width"] == 20
+    assert cfg2["setup"]["unknown key"] == "picard"
+    assert cfg2["unknown section"]["riker"] == 1
 
 
 @pytest.mark.filterwarnings(
@@ -90,6 +105,40 @@ def test_config_save_load():
         pass
 
 
+def test_config_save_load_hash_in_value(tmp_path):
+    """A hash in a value must not be treated as a comment"""
+    cfg = dccfg.Configuration()
+    cfg["experiment"]["sample"] = "cells #3"
+    cfg.save(tmp_path / "config.txt")
+    loaded = dccfg.load_from_file(tmp_path / "config.txt")
+    assert loaded["experiment"]["sample"] == "cells #3"
+
+
+def test_config_load_comments_and_key_outside_section(tmp_path):
+    path = tmp_path / "config.txt"
+    path.write_text("# comment\n"
+                    "sample = ignored\n"
+                    "[experiment]\n"
+                    "  # indented comment\n"
+                    "#run index = 5\n"
+                    "sample = cells\n")
+    loaded = dccfg.load_from_file(path)
+    assert list(loaded.keys()) == ["experiment"]
+    assert dict(loaded["experiment"]) == {"sample": "cells"}
+
+
+def test_config_load_empty_key(tmp_path):
+    """Lines with an empty key are ignored"""
+    path = tmp_path / "config.txt"
+    path.write_text("[experiment]\n"
+                    " = 5\n"
+                    "sample = cells\n")
+    loaded = dccfg.load_from_file(path)
+    assert dict(loaded["experiment"]) == {"sample": "cells"}
+
+
+@pytest.mark.filterwarnings(
+    "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.parametrize("value", [True, False, 0.5, 2])
 def test_config_save_load_hdf5_bool_or_float(value, tmp_path):
     """Bool-or-float metadata are numpy scalars when read from HDF5"""
@@ -319,9 +368,9 @@ def test_user_section_set_save_reload_empty_dict():
 def test_user_section_set_save_reload_empty_key(user_config):
     """Empty or only-whitespace 'user' section keys not allowed"""
     h5path = retrieve_data("fmt-hdf5_fl_2018.zip")
-    with new_dataset(h5path) as ds:
-        with pytest.warns(dccfg.BadUserConfigurationKeyWarning):
-            ds.config.update({"user": user_config})
+    with (new_dataset(h5path) as ds,
+          pytest.warns(dccfg.BadUserConfigurationKeyWarning)):
+        ds.config.update({"user": user_config})
 
 
 def test_user_section_set_save_reload_fmt_dict():
@@ -394,6 +443,33 @@ def test_user_section_set_save_reload_fmt_hdf5_basic():
 
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
+def test_user_section_set_save_reload_fmt_hdf5_colon_in_key():
+    """User-defined metadata keys may contain colons"""
+    h5path = retrieve_data("fmt-hdf5_fl_2018.zip")
+    with dclab.RTDCWriter(h5path) as hw:
+        hw.store_metadata({"user": {"time:start": "12:00"}})
+    with h5py.File(h5path, "r") as h5:
+        assert h5.attrs["user:time:start"] == "12:00"
+    with new_dataset(h5path) as ds:
+        assert ds.config["user"]["time:start"] == "12:00"
+    # the low-level HDF5 metadata check must work as well
+    dclab.rtdc_dataset.check_dataset(h5path)
+
+
+@pytest.mark.filterwarnings(
+    "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
+def test_hdf5_root_attribute_without_section():
+    """Root attributes without a section (no colon) are ignored"""
+    h5path = retrieve_data("fmt-hdf5_fl_2018.zip")
+    with h5py.File(h5path, "a") as h5:
+        h5.attrs["version"] = "1.0"
+    with new_dataset(h5path) as ds:
+        assert "version" not in ds.config
+        assert len(ds) == 7
+
+
+@pytest.mark.filterwarnings(
+    "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 def test_user_section_set_save_reload_fmt_hdf5_containers():
     """Check that 'user' section metadata works for container data types"""
     h5path = retrieve_data("fmt-hdf5_fl_2018.zip")
@@ -414,8 +490,8 @@ def test_user_section_set_save_reload_fmt_hdf5_containers():
         assert all(h5.attrs["user:outlet"] == outlet)
     # now check again with dclab
     with new_dataset(expath) as ds2:
-        for k1 in metadata:
-            assert all(metadata[k1] == ds2.config["user"][k1])
+        for k1, v1 in metadata.items():
+            assert all(v1 == ds2.config["user"][k1])
 
 
 @pytest.mark.filterwarnings(
@@ -445,11 +521,11 @@ def test_user_section_set_save_reload_fmt_hierarchy():
 
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.export.'
-                            + 'LimitingExportSizeWarning')
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'fmt_tdms.exc.'
-                            + 'InitialFrameMissingWarning')
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset.export."
+                            "LimitingExportSizeWarning")
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "fmt_tdms.exc."
+                            "InitialFrameMissingWarning")
 def test_user_section_set_save_reload_fmt_tdms():
     """Check that 'user' section metadata works for RTDC_TDMS"""
     pytest.importorskip("nptdms")

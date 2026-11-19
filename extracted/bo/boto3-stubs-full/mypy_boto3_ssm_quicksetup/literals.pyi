@@ -50,6 +50,7 @@ StatusType = Literal[
 StatusTypeType = Literal["AsyncExecutions", "Deployment"]
 SystemsManagerQuickSetupServiceName = Literal["ssm-quicksetup"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

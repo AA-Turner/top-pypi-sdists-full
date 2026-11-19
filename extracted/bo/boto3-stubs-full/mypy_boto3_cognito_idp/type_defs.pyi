@@ -66,6 +66,7 @@ from .literals import (
     RecoveryOptionNameTypeType,
     ReplicaRoleTypeType,
     ReplicaStatusTypeType,
+    RestoreStatusTypeType,
     RevokeAssociatedSessionsTypeType,
     RiskDecisionTypeType,
     RiskLevelTypeType,
@@ -158,6 +159,8 @@ __all__ = (
     "AuthEventTypeTypeDef",
     "AuthenticationResultTypeTypeDef",
     "BlobTypeDef",
+    "CancelPointInTimeRecoveryRequestTypeDef",
+    "CancelPointInTimeRecoveryResponseTypeDef",
     "ChallengeResponseTypeTypeDef",
     "ChangePasswordRequestTypeDef",
     "ClientAuthenticationResultTypeTypeDef",
@@ -222,6 +225,8 @@ __all__ = (
     "DescribeManagedLoginBrandingByClientResponseTypeDef",
     "DescribeManagedLoginBrandingRequestTypeDef",
     "DescribeManagedLoginBrandingResponseTypeDef",
+    "DescribePointInTimeRecoveryRequestTypeDef",
+    "DescribePointInTimeRecoveryResponseTypeDef",
     "DescribeResourceServerRequestTypeDef",
     "DescribeResourceServerResponseTypeDef",
     "DescribeRiskConfigurationRequestTypeDef",
@@ -296,6 +301,8 @@ __all__ = (
     "InboundFederationLambdaTypeTypeDef",
     "InitiateAuthRequestTypeDef",
     "InitiateAuthResponseTypeDef",
+    "InitiatePointInTimeRecoveryRequestTypeDef",
+    "InitiatePointInTimeRecoveryResponseTypeDef",
     "IssuerConfigurationTypeTypeDef",
     "KeyConfigurationTypeTypeDef",
     "LambdaConfigTypeTypeDef",
@@ -311,6 +318,8 @@ __all__ = (
     "ListIdentityProvidersRequestPaginateTypeDef",
     "ListIdentityProvidersRequestTypeDef",
     "ListIdentityProvidersResponseTypeDef",
+    "ListPointInTimeRecoveriesRequestTypeDef",
+    "ListPointInTimeRecoveriesResponseTypeDef",
     "ListResourceServersRequestPaginateTypeDef",
     "ListResourceServersRequestTypeDef",
     "ListResourceServersResponseTypeDef",
@@ -363,6 +372,9 @@ __all__ = (
     "RespondToAuthChallengeRequestTypeDef",
     "RespondToAuthChallengeResponseTypeDef",
     "ResponseMetadataTypeDef",
+    "RestorationDescriptionTypeTypeDef",
+    "RestorationTypeTypeDef",
+    "RestorePreviewTypeTypeDef",
     "RevokeTokenRequestTypeDef",
     "RevokeUserSessionRequestTypeDef",
     "RiskConfigurationTypeTypeDef",
@@ -397,6 +409,8 @@ __all__ = (
     "SmsMfaConfigTypeTypeDef",
     "SoftwareTokenMfaConfigTypeTypeDef",
     "SoftwareTokenMfaSettingsTypeTypeDef",
+    "StartPointInTimeRecoveryRequestTypeDef",
+    "StartPointInTimeRecoveryResponseTypeDef",
     "StartUserImportJobRequestTypeDef",
     "StartUserImportJobResponseTypeDef",
     "StartWebAuthnRegistrationRequestTypeDef",
@@ -407,6 +421,7 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TermsDescriptionTypeTypeDef",
     "TermsTypeTypeDef",
+    "TimestampTypeDef",
     "TokenValidityUnitsTypeTypeDef",
     "UICustomizationTypeTypeDef",
     "UntagResourceRequestTypeDef",
@@ -695,6 +710,10 @@ class NewDeviceMetadataTypeTypeDef(TypedDict):
     DeviceKey: NotRequired[str]
     DeviceGroupKey: NotRequired[str]
 
+class CancelPointInTimeRecoveryRequestTypeDef(TypedDict):
+    UserPoolId: str
+    RestoreId: str
+
 class ChangePasswordRequestTypeDef(TypedDict):
     ProposedPassword: str
     AccessToken: str
@@ -962,6 +981,10 @@ class DescribeManagedLoginBrandingRequestTypeDef(TypedDict):
     ManagedLoginBrandingId: str
     ReturnMergedResources: NotRequired[bool]
 
+class DescribePointInTimeRecoveryRequestTypeDef(TypedDict):
+    UserPoolId: str
+    RestoreId: str
+
 class DescribeResourceServerRequestTypeDef(TypedDict):
     UserPoolId: str
     Identifier: str
@@ -1117,6 +1140,8 @@ class InboundFederationLambdaTypeTypeDef(TypedDict):
     LambdaVersion: Literal["V1_0"]
     LambdaArn: str
 
+TimestampTypeDef = Union[datetime, str]
+
 class PreTokenGenerationVersionConfigTypeTypeDef(TypedDict):
     LambdaVersion: PreTokenGenerationLambdaVersionTypeType
     LambdaArn: str
@@ -1149,6 +1174,16 @@ class ProviderDescriptionTypeDef(TypedDict):
     ProviderType: NotRequired[IdentityProviderTypeTypeType]
     LastModifiedDate: NotRequired[datetime]
     CreationDate: NotRequired[datetime]
+
+class ListPointInTimeRecoveriesRequestTypeDef(TypedDict):
+    UserPoolId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class RestorationDescriptionTypeTypeDef(TypedDict):
+    RestoreId: NotRequired[str]
+    RestoreStatus: NotRequired[RestoreStatusTypeType]
+    RestoreTimestamp: NotRequired[datetime]
 
 class ListResourceServersRequestTypeDef(TypedDict):
     UserPoolId: str
@@ -1250,6 +1285,12 @@ class PasswordPolicyTypeTypeDef(TypedDict):
     PasswordHistorySize: NotRequired[int]
     TemporaryPasswordValidityDays: NotRequired[int]
 
+class RestorePreviewTypeTypeDef(TypedDict):
+    Entity: NotRequired[str]
+    CreateCount: NotRequired[int]
+    UpdateCount: NotRequired[int]
+    DeleteCount: NotRequired[int]
+
 class RevokeTokenRequestTypeDef(TypedDict):
     Token: str
     ClientId: str
@@ -1282,6 +1323,10 @@ class SignInPolicyTypeOutputTypeDef(TypedDict):
 
 class SignInPolicyTypeTypeDef(TypedDict):
     AllowedFirstAuthFactors: NotRequired[Sequence[AuthFactorTypeType]]
+
+class StartPointInTimeRecoveryRequestTypeDef(TypedDict):
+    UserPoolId: str
+    RestoreId: str
 
 class StartUserImportJobRequestTypeDef(TypedDict):
     UserPoolId: str
@@ -1984,6 +2029,10 @@ class SetUserPoolSessionConfigurationResponseTypeDef(TypedDict):
     TokenSession: UserPoolTokenSessionConfigTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class InitiatePointInTimeRecoveryRequestTypeDef(TypedDict):
+    UserPoolId: str
+    RestoreTimestamp: TimestampTypeDef
+
 class LambdaConfigTypeTypeDef(TypedDict):
     PreSignUp: NotRequired[str]
     CustomMessage: NotRequired[str]
@@ -2012,6 +2061,11 @@ LimitDefinitionTypeUnionTypeDef = Union[
 
 class ListIdentityProvidersResponseTypeDef(TypedDict):
     Providers: list[ProviderDescriptionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListPointInTimeRecoveriesResponseTypeDef(TypedDict):
+    Restorations: list[RestorationDescriptionTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2044,6 +2098,13 @@ class NotifyConfigurationTypeTypeDef(TypedDict):
     BlockEmail: NotRequired[NotifyEmailTypeTypeDef]
     NoActionEmail: NotRequired[NotifyEmailTypeTypeDef]
     MfaEmail: NotRequired[NotifyEmailTypeTypeDef]
+
+class RestorationTypeTypeDef(TypedDict):
+    RestoreId: NotRequired[str]
+    RestoreStatus: NotRequired[RestoreStatusTypeType]
+    RestoreTimestamp: NotRequired[datetime]
+    TriggerTimestamp: NotRequired[datetime]
+    RestorePreview: NotRequired[list[RestorePreviewTypeTypeDef]]
 
 RiskExceptionConfigurationTypeUnionTypeDef = Union[
     RiskExceptionConfigurationTypeTypeDef, RiskExceptionConfigurationTypeOutputTypeDef
@@ -2310,6 +2371,22 @@ class SetLogDeliveryConfigurationRequestTypeDef(TypedDict):
 class AccountTakeoverRiskConfigurationTypeTypeDef(TypedDict):
     Actions: AccountTakeoverActionsTypeTypeDef
     NotifyConfiguration: NotRequired[NotifyConfigurationTypeTypeDef]
+
+class CancelPointInTimeRecoveryResponseTypeDef(TypedDict):
+    Restoration: RestorationTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribePointInTimeRecoveryResponseTypeDef(TypedDict):
+    Restoration: RestorationTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class InitiatePointInTimeRecoveryResponseTypeDef(TypedDict):
+    Restoration: RestorationTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartPointInTimeRecoveryResponseTypeDef(TypedDict):
+    Restoration: RestorationTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class AddCustomAttributesRequestTypeDef(TypedDict):
     UserPoolId: str

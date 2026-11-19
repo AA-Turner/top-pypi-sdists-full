@@ -49,7 +49,7 @@ class VoiceCloningStreamingClient:
         **Beta.** WebSocket channel for real-time Instant Voice Cloning synthesis.
 
         Protocol matches Bulbul TTS WebSocket: send `config` once with exactly one
-        of a saved `voice_id` or base64 `ref_audio` (optional `ref_text`), then
+        of a saved `voice_id` or base64 `ref_audio` (`ref_text` has been deprecated), then
         incremental `text` and `flush` messages. The server streams base64 `audio`
         frames and a `final` event.
 
@@ -147,7 +147,7 @@ class AsyncVoiceCloningStreamingClient:
         **Beta.** WebSocket channel for real-time Instant Voice Cloning synthesis.
 
         Protocol matches Bulbul TTS WebSocket: send `config` once with exactly one
-        of a saved `voice_id` or base64 `ref_audio` (optional `ref_text`), then
+        of a saved `voice_id` or base64 `ref_audio` (`ref_text` has been deprecated), then
         incremental `text` and `flush` messages. The server streams base64 `audio`
         frames and a `final` event.
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
-import re
 from collections.abc import AsyncGenerator, Callable, Coroutine, Iterable
 from typing import Any, TypeVar, cast
 
@@ -14,7 +13,7 @@ import psycopg2.extras
 import psycopg2.sql
 from psycopg2.extras import Json, RealDictCursor
 
-from procrastinate import connector, exceptions, manager, sql, utils
+from procrastinate import connector, exceptions, sql, utils
 from procrastinate.contrib.psycopg2 import psycopg2_connector
 
 logger = logging.getLogger(__name__)
@@ -33,18 +32,9 @@ async def wrap_exceptions() -> AsyncGenerator[None, None]:
     try:
         yield
     except psycopg2.errors.UniqueViolation as exc:
-        constraint_name = exc.diag.constraint_name
-        queueing_lock = None
-        if constraint_name == manager.QUEUEING_LOCK_CONSTRAINT:
-            assert exc.diag.message_detail
-            match = re.search(r"Key \((.*?)\)=\((.*?)\)", exc.diag.message_detail)
-            assert match
-            column, queueing_lock = match.groups()
-            assert column == "queueing_lock"
-
-        raise exceptions.UniqueViolation(
-            constraint_name=constraint_name, queueing_lock=queueing_lock
-        )
+        raise exceptions.UniqueViolation.from_detail(
+            exc.diag.message_detail, constraint_name=exc.diag.constraint_name
+        ) from exc
     except psycopg2.Error as exc:
         raise exceptions.ConnectorException from exc
 
@@ -316,6 +306,7 @@ class AiopgConnector(connector.BaseAsyncConnector):
             return
 
         while True:
+            utils.raise_if_cancelling()
             async with self.pool.acquire() as connection:
                 for channel_name in channels:
                     await self._execute_query_connection(
@@ -337,6 +328,7 @@ class AiopgConnector(connector.BaseAsyncConnector):
     ) -> None:
         # We'll leave this loop with a CancelledError, when we get cancelled
         while True:
+            utils.raise_if_cancelling()
             # because of https://github.com/aio-libs/aiopg/issues/249 for
             # aiopg<1.3.0, we could get stuck in here forever if the connection
             # closes. That's why we need timeout and if connection is closed,
@@ -350,7 +342,7 @@ class AiopgConnector(connector.BaseAsyncConnector):
                 await on_notification(
                     channel=notification.channel, payload=notification.payload
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except psycopg2.Error:
                 # aiopg>=1.3.1 will raise if the connection is closed while

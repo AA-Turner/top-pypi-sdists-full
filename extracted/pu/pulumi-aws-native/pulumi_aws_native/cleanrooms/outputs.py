@@ -1502,7 +1502,7 @@ class ConfiguredTableAnalysisRuleList(dict):
 @pulumi.output_type
 class ConfiguredTableAnalysisRulePolicy(dict):
     def __init__(__self__, *,
-                 v1: Any):
+                 v1: Union['outputs.ConfiguredTableAnalysisRulePolicyV10Properties', 'outputs.ConfiguredTableAnalysisRulePolicyV11Properties', 'outputs.ConfiguredTableAnalysisRulePolicyV12Properties']):
         """
         :param Union['ConfiguredTableAnalysisRulePolicyV10Properties', 'ConfiguredTableAnalysisRulePolicyV11Properties', 'ConfiguredTableAnalysisRulePolicyV12Properties'] v1: Controls on the query specifications that can be run on a configured table.
         """
@@ -1510,7 +1510,7 @@ class ConfiguredTableAnalysisRulePolicy(dict):
 
     @_builtins.property
     @pulumi.getter
-    def v1(self) -> Any:
+    def v1(self) -> Union['outputs.ConfiguredTableAnalysisRulePolicyV10Properties', 'outputs.ConfiguredTableAnalysisRulePolicyV11Properties', 'outputs.ConfiguredTableAnalysisRulePolicyV12Properties']:
         """
         Controls on the query specifications that can be run on a configured table.
         """
@@ -1705,7 +1705,7 @@ class ConfiguredTableAssociationAnalysisRuleList(dict):
 @pulumi.output_type
 class ConfiguredTableAssociationAnalysisRulePolicy(dict):
     def __init__(__self__, *,
-                 v1: Any):
+                 v1: Union['outputs.ConfiguredTableAssociationAnalysisRulePolicyV10Properties', 'outputs.ConfiguredTableAssociationAnalysisRulePolicyV11Properties', 'outputs.ConfiguredTableAssociationAnalysisRulePolicyV12Properties']):
         """
         :param Union['ConfiguredTableAssociationAnalysisRulePolicyV10Properties', 'ConfiguredTableAssociationAnalysisRulePolicyV11Properties', 'ConfiguredTableAssociationAnalysisRulePolicyV12Properties'] v1: The policy for the configured table association analysis rule.
         """
@@ -1713,7 +1713,7 @@ class ConfiguredTableAssociationAnalysisRulePolicy(dict):
 
     @_builtins.property
     @pulumi.getter
-    def v1(self) -> Any:
+    def v1(self) -> Union['outputs.ConfiguredTableAssociationAnalysisRulePolicyV10Properties', 'outputs.ConfiguredTableAssociationAnalysisRulePolicyV11Properties', 'outputs.ConfiguredTableAssociationAnalysisRulePolicyV12Properties']:
         """
         The policy for the configured table association analysis rule.
         """
@@ -3275,6 +3275,8 @@ class MembershipProtectedJobS3OutputConfigurationInput(dict):
         suggest = None
         if key == "keyPrefix":
             suggest = "key_prefix"
+        elif key == "resultFormat":
+            suggest = "result_format"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in MembershipProtectedJobS3OutputConfigurationInput. Access the value via the '{suggest}' property getter instead.")
@@ -3289,7 +3291,8 @@ class MembershipProtectedJobS3OutputConfigurationInput(dict):
 
     def __init__(__self__, *,
                  bucket: _builtins.str,
-                 key_prefix: Optional[_builtins.str] = None):
+                 key_prefix: Optional[_builtins.str] = None,
+                 result_format: Optional['MembershipResultFormat'] = None):
         """
         :param _builtins.str bucket: The S3 bucket for job output.
         :param _builtins.str key_prefix: The S3 prefix to unload the protected job results.
@@ -3297,6 +3300,8 @@ class MembershipProtectedJobS3OutputConfigurationInput(dict):
         pulumi.set(__self__, "bucket", bucket)
         if key_prefix is not None:
             pulumi.set(__self__, "key_prefix", key_prefix)
+        if result_format is not None:
+            pulumi.set(__self__, "result_format", result_format)
 
     @_builtins.property
     @pulumi.getter
@@ -3313,6 +3318,11 @@ class MembershipProtectedJobS3OutputConfigurationInput(dict):
         The S3 prefix to unload the protected job results.
         """
         return pulumi.get(self, "key_prefix")
+
+    @_builtins.property
+    @pulumi.getter(name="resultFormat")
+    def result_format(self) -> Optional['MembershipResultFormat']:
+        return pulumi.get(self, "result_format")
 
 
 @pulumi.output_type

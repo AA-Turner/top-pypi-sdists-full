@@ -32,9 +32,12 @@ from __future__ import annotations
 
 import ast
 import builtins
+import hashlib
+import io
 import os
 import re
 import sys
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -101,12 +104,28 @@ INCOMPLETE_NOTE = (
     "caller analysis stopped at a limit before every chain was followed; the "
     "finding is kept because an exhausted analysis is not proof of safety"
 )
+FILENAME_UNVERIFIED = (
+    "filename check body is present; native-string/runtime assumptions remain unverified"
+)
 
 _MAX_CHAINS = 4
+# While checking a symlink finding for a review item, one chain per distinct
+# origin is enough: chains merged into one fact set share every later step
+# and proof, so a same-origin duplicate cannot carry a different verdict.
+_CHAIN_POLICY = ContextVar("path_provenance_chain_policy", default=(_MAX_CHAINS, False))
 _MAX_STEPS = 32
 _MAX_CALLER_DEPTH = 32
 _MAX_SITES = 512
 _MAX_WORK = 400000
+# Shared by every finding of one scan: once spent, every later finding is
+# kept as incomplete without analysis. Blind repositories needed 35k-320k
+# operations for complete caller resolution (a few seconds at most).
+_MAX_RESOLUTION_WORK = 1000000
+# Model-write analysis (which code may rewrite a request model) resolves every
+# receiver in the process once and caches it. It gets its own budget so it
+# does not starve caller discovery for later findings.
+_MAX_MODEL_RESOLUTION_WORK = 400000
+_MAX_RESOLUTION_DEPTH = 32
 _MAX_VALUE_DEPTH = 12
 _MAX_PARAM_VALUE_DEPTH = 3
 _MAX_FIXPOINT_ROUNDS = 8
@@ -171,6 +190,17 @@ _TORNADO_ARGUMENT_METHODS = frozenset(
     {"get_argument", "get_arguments", "get_query_argument", "get_query_arguments",
      "get_body_argument", "get_body_arguments", "get_cookie", "decode_argument"}
 )  # fmt: skip
+_BUILTIN_METHOD_NAMES = frozenset(
+    name
+    for kind in (dict, list, set, frozenset, str, bytes, bytearray, tuple, int, float, object, io.TextIOWrapper, io.BytesIO)
+    for name in dir(kind)
+)
+_WSGI_REQUEST_KEYS = frozenset({"wsgi.input", "SERVER_NAME", "RAW_URI"})
+_ASGI_REQUEST_KEYS = frozenset({"path", "raw_path", "query_string", "headers", "subprotocols"})
+_GATEWAY_STEP = re.compile(r" (WSGI|ASGI) request data `(?:environ|scope)`")
+_GATEWAY_READ = re.compile(r" (?:item of `|passes through `|derived by `|returned by calling `|`[^`]+` iterates )")
+_WSGI_SIGNATURE = ("environ", "start_response")
+_ASGI_SIGNATURE = ("scope", "receive", "send")
 _TORNADO_VERBS = frozenset({"get", "post", "put", "patch", "delete", "head", "options"})
 _SAFE_CALLS = frozenset(
     {"builtins.int", "builtins.float", "builtins.bool", "builtins.len",
@@ -381,6 +411,79 @@ _CLOCK_CALLS = frozenset(
 )
 _NUMERIC_CLOCK_DIRECTIVES = frozenset("YmdHMSfjy")
 _PYDANTIC_MODELS = frozenset({"pydantic.BaseModel", "pydantic.main.BaseModel"})
+# Calls whose result is always a builtin scalar for scalar arguments.
+_SCALAR_CONVERTERS = frozenset(
+    {"builtins.float", "builtins.int", "builtins.str", "builtins.bool",
+     "builtins.round", "builtins.abs", "builtins.min", "builtins.max"}
+)  # fmt: skip
+# Environment reads return ``str`` or the given scalar default.
+_ENVIRONMENT_READS = frozenset({"os.environ.get", "os.getenv"})
+_SCALAR_STR_METHODS = frozenset(
+    {"strip", "lstrip", "rstrip", "lower", "upper", "casefold", "isdigit",
+     "isdecimal", "startswith", "endswith"}
+)  # fmt: skip
+# Names whose use lets a function body reach or rewrite arbitrary objects.
+_MODEL_REFLECTIVE_NAMES = frozenset(
+    {"setattr", "delattr", "getattr", "vars", "globals", "locals", "exec",
+     "eval", "compile", "__import__", "__builtins__", "object", "type", "super",
+     "classmethod", "staticmethod", "property", "memoryview"}
+)  # fmt: skip
+# Builtins that cannot store into or keep a reference to their arguments.
+_MODEL_PURE_BUILTINS = frozenset(
+    f"builtins.{name}"
+    for name in ("abs", "all", "any", "bool", "chr", "divmod", "float", "format",
+                 "hash", "int", "isinstance", "issubclass", "len", "max", "min",
+                 "ord", "pow", "repr", "round", "str", "sum")
+)  # fmt: skip
+# Standard-library modules whose functions and classes never assign
+# attributes of the objects passed to them.
+_MODEL_PURE_MODULES = frozenset(
+    {"math", "cmath", "os.path", "posixpath", "ntpath", "pathlib", "re",
+     "json", "time", "datetime", "shlex", "string", "statistics", "decimal",
+     "fractions", "ipaddress", "uuid", "hashlib", "base64", "binascii",
+     "textwrap", "unicodedata"}
+)  # fmt: skip
+
+
+def _closed_function_value(value):
+    """A function value that whoever calls it cannot pass anything to: no
+    parameter left after binding ``self``/``cls``, and no ``*args`` or
+    ``**kwargs``. A thread target such as ``self._loop`` is the common case.
+    Its body's own writes are collected as separate effects, and its closure
+    and defaults are still followed by the caller."""
+    fn = value.node
+    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        return False
+    if getattr(fn, "decorator_list", None) and not all(
+        _decorator_names_are(decorator, {"staticmethod", "classmethod"})
+        for decorator in fn.decorator_list
+    ):
+        return False
+    args = fn.args
+    if args.vararg or args.kwarg:
+        return False
+    params = [*args.posonlyargs, *args.args, *args.kwonlyargs]
+    if value.bound and params and not _is_static(fn):
+        params = params[1:]
+    return not params
+
+
+def _decorator_names_are(decorator, names):
+    return isinstance(decorator, ast.Name) and decorator.id in names
+
+
+def _model_pure_callable(name):
+    """Whether external callable ``name`` cannot write its arguments."""
+    if name in _MODEL_PURE_BUILTINS:
+        return True
+    module, _, attr = name.rpartition(".")
+    if module == "builtins":
+        return attr.endswith(("Error", "Exception", "Warning"))
+    while module:
+        if module in _MODEL_PURE_MODULES:
+            return True
+        module = module.rpartition(".")[0]
+    return False
 _PYDANTIC_FIELDS = frozenset({"pydantic.Field", "pydantic.fields.Field"})
 _PYDANTIC_CONFIGS = frozenset({"pydantic.ConfigDict", "pydantic.config.ConfigDict"})
 _FASTAPI_BODIES = frozenset(
@@ -429,6 +532,10 @@ _MODEL_HOOK_ATTRIBUTES = frozenset(
 )  # fmt: skip
 
 
+def _origin_kept(chains, chain):
+    return bool(chain) and any(existing[:1] == chain[:1] for existing in chains)
+
+
 def _extend(chain, step):
     if len(chain) >= _MAX_STEPS:
         return (*chain[: _MAX_STEPS - 1], step)
@@ -458,10 +565,13 @@ class _Facts:
         return facts
 
     def add(self, other):
+        max_chains, distinct_origins = _CHAIN_POLICY.get()
         for kind in self.KINDS:
             mine = self.chains[kind]
             for chain in other.chains[kind]:
-                if len(mine) >= _MAX_CHAINS:
+                if distinct_origins and _origin_kept(mine, chain):
+                    continue
+                if len(mine) >= max_chains:
                     break
                 if chain not in mine:
                     mine.append(chain)
@@ -475,11 +585,14 @@ class _Facts:
 
     def moved(self, source, target, step):
         """The same facts with ``source`` chains re-filed under ``target``."""
+        max_chains, distinct_origins = _CHAIN_POLICY.get()
         facts = _Facts()
         for kind in self.KINDS:
             facts.chains[kind] = list(self.chains[kind])
         for chain in self.chains[source]:
-            if len(facts.chains[target]) < _MAX_CHAINS:
+            if distinct_origins and _origin_kept(facts.chains[target], chain):
+                continue
+            if len(facts.chains[target]) < max_chains:
                 facts.chains[target].append(_extend(chain, step))
         facts.chains[source] = []
         return facts
@@ -495,6 +608,10 @@ class _Bind:
     value: ast.AST | None
     scope: object
     top_level: bool = False
+    # ``a, b = f()``: position of this name and the target's length, so a
+    # call whose returns are all tuples of that length is read element-wise.
+    index: int | None = None
+    arity: int | None = None
 
 
 @dataclass(eq=False)
@@ -567,9 +684,18 @@ _OPERATORS = {ast.Div: "/", ast.Add: "+", ast.Mod: "%", ast.Mult: "*", ast.Sub: 
 
 def _describe(node, depth=0):
     """Identifiers and structure of ``node``; literal contents are withheld."""
+    if depth == 0:
+        cached = getattr(node, "_skylos_description", None)
+        if cached is not None:
+            return cached
     text = _describe_parts(node, depth)
     if len(text) > 60:
-        return text[:57] + "..."
+        text = text[:57] + "..."
+    if depth == 0:
+        try:
+            node._skylos_description = text
+        except AttributeError:
+            return text
     return text
 
 
@@ -882,9 +1008,11 @@ class _Unit:
     def _bind_name(self, scope, name, bind):
         self._binding_scope(scope, name).add(name, bind)
 
-    def _bind_target(self, target, value, statement, scope, top, kind):
+    def _bind_target(self, target, value, statement, scope, top, kind, index=None, arity=None):
         if isinstance(target, ast.Name):
-            self._bind_name(scope, target.id, _Bind(kind, statement, value, scope, top))
+            self._bind_name(
+                scope, target.id, _Bind(kind, statement, value, scope, top, index, arity)
+            )
         elif isinstance(target, (ast.Tuple, ast.List)):
             pairs = None
             if (
@@ -897,8 +1025,13 @@ class _Unit:
                 for item, item_value in pairs:
                     self._bind_target(item, item_value, statement, scope, top, kind)
             else:
-                for item in target.elts:
-                    self._bind_target(item, value, statement, scope, top, "unpack")
+                starred = any(isinstance(item, ast.Starred) for item in target.elts)
+                arity = None if starred else len(target.elts)
+                for position, item in enumerate(target.elts):
+                    self._bind_target(
+                        item, value, statement, scope, top, "unpack",
+                        None if starred else position, arity,
+                    )
         elif isinstance(target, ast.Starred):
             self._bind_target(target.value, value, statement, scope, top, "unpack")
         elif isinstance(target, ast.Attribute):
@@ -1014,6 +1147,10 @@ class _Unit:
             current = self.parents.get(id(current))
 
 
+class _ResolutionLimit(RuntimeError):
+    """Caller/value resolution stopped before it could prove a verdict."""
+
+
 class _Project:
     """Source of every Python file under the scan root, indexed for lookups."""
 
@@ -1031,6 +1168,7 @@ class _Project:
         self.class_info = {}
         self.calls_by_name = {}
         self.dynamic_calls = []
+        self._dynamic_call_targets = {}
         self.computed_calls = []
         self.loads_by_name = {}
         self.attr_stores = {}
@@ -1038,6 +1176,9 @@ class _Project:
         self._value_active = set()
         self._mro_cache = {}
         self._subclasses = None
+        self._method_families = None
+        self._class_statements = {}
+        self._setattr_calls = {}
         self._site_cache = {}
         self._param_value_active = set()
         self._import_maps = {}
@@ -1057,6 +1198,26 @@ class _Project:
         self._importers = None
         self._dynamic_loaders = {}
         self._string_annotations = {}
+        self._resolution_work = 0
+        self._model_resolution_window = 0
+        self._model_resolution_work = 0
+
+    def _charge_resolution(self):
+        # Caller discovery can enter values() again with depth=0. Its work is
+        # separate from _Tracer.trace(), and shared across every finding.
+        if self._model_resolution_window:
+            self._model_resolution_work += 1
+            if self._model_resolution_work > _MAX_MODEL_RESOLUTION_WORK:
+                raise _ResolutionLimit(
+                    "model write analysis work budget reached "
+                    f"({_MAX_MODEL_RESOLUTION_WORK} operations)"
+                )
+            return
+        self._resolution_work += 1
+        if self._resolution_work > _MAX_RESOLUTION_WORK:
+            raise _ResolutionLimit(
+                f"caller resolution work budget reached ({_MAX_RESOLUTION_WORK} operations)"
+            )
 
     @classmethod
     def load(cls, root, files=None, complete=True):
@@ -1245,10 +1406,6 @@ class _Project:
                     key = base.attr
                 if key is not None:
                     self.subscript_stores_by_name.setdefault(key, []).append((unit, target, value, statement, scope))
-        for unit in self.units:
-            for call, scope in unit.calls:
-                if isinstance(call.func, (ast.Call, ast.Subscript)):
-                    self.dynamic_calls.append((unit, call, scope))
 
     def import_map(self, unit):
         cached = self._import_maps.get(id(unit))
@@ -1572,6 +1729,7 @@ class _Project:
             return self._value_cache[key]
         if key in self._value_active:
             return None
+        self._charge_resolution()
         self._value_active.add(key)
         try:
             result = self._values(unit, scope, expr, depth)
@@ -1628,6 +1786,7 @@ class _Project:
         return frozenset(result)
 
     def bind_values(self, unit, owner, bind, depth):
+        self._charge_resolution()
         if bind.kind == "def":
             cls_node = None
             if owner.kind == "class":
@@ -1781,6 +1940,86 @@ class _Project:
         if name.startswith("builtins.") and name.endswith(("Error", "Exception", "Warning")):
             return True
         return False
+
+    def class_statements(self, cls_node):
+        """Class-body assignments and function definitions by the name they
+        bind, in body order."""
+        index = self._class_statements.get(id(cls_node))
+        if index is not None:
+            return index
+        index = {}
+        for statement in cls_node.body:
+            if isinstance(statement, (ast.Assign, ast.AnnAssign)) and statement.value is not None:
+                targets = getattr(statement, "targets", None) or [statement.target]
+                names = {target.id for target in targets if isinstance(target, ast.Name)}
+                for name in names:
+                    index.setdefault(name, []).append(statement)
+            elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                index.setdefault(statement.name, []).append(statement)
+        self._class_statements[id(cls_node)] = index
+        return index
+
+    def setattr_calls(self, unit):
+        calls = self._setattr_calls.get(id(unit))
+        if calls is None:
+            calls = [
+                call
+                for call, _ in unit.calls
+                if isinstance(call.func, ast.Name) and call.func.id == "setattr" and len(call.args) >= 2
+            ]
+            self._setattr_calls[id(unit)] = calls
+        return calls
+
+    def method_family(self, fn):
+        """Name of the one project class hierarchy that defines every
+        function called ``fn.name``, or None.
+
+        A call ``obj.name(...)`` on an unresolved receiver can then reach only
+        that hierarchy among project code. Names that built-in containers,
+        strings or files also define are never accepted, because the receiver
+        may be one of those, and neither is a name the project also calls on
+        an external object.
+        """
+        label = _function_label(fn)
+        if self._method_families is None:
+            self._method_families = {}
+            self._functions_by_label = {}
+            for info in self.function_info.values():
+                node = info[2].node
+                self._functions_by_label.setdefault(_function_label(node), []).append(info)
+            self._external_method_names = set()
+            for unit in self.units:
+                for call, scope in unit.calls:
+                    func = call.func
+                    if not isinstance(func, ast.Attribute):
+                        continue
+                    values = self.values(unit, scope, func)
+                    if values and any(value.kind in {"ext", "extattr"} for value in values):
+                        self._external_method_names.add(func.attr)
+        if label in self._method_families:
+            return self._method_families[label]
+        self._method_families[label] = None
+        if label.startswith("__") or label in _BUILTIN_METHOD_NAMES or label in self._external_method_names:
+            return None
+        own = self.function_info.get(id(fn))
+        if own is None or own[3] is None:
+            return None
+        root = None
+        order, external = self.mro(own[3])
+        if external:
+            return None
+        for _, cls_node in order:
+            if any(isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == label for item in cls_node.body):
+                root = cls_node
+        if root is None:
+            return None
+        members = {id(root)}
+        members.update(id(node) for _, node in self.subclasses(root))
+        for info in self._functions_by_label.get(label, ()):
+            if info[3] is None or id(info[3]) not in members:
+                return None
+        self._method_families[label] = root.name
+        return root.name
 
     def subclasses(self, cls_node):
         if self._subclasses is None:
@@ -2161,6 +2400,11 @@ class _Project:
             return cached
         if id(fn) in self._sites_active:
             return _Sites(escapes=[_step(unit, fn, "call graph cycle while resolving callers")])
+        self._charge_resolution()
+        if len(self._sites_active) >= _MAX_RESOLUTION_DEPTH:
+            raise _ResolutionLimit(
+                f"caller resolution depth limit reached ({_MAX_RESOLUTION_DEPTH} nested functions)"
+            )
         self._sites_active.add(id(fn))
         try:
             sites = self._call_sites(unit, fn)
@@ -2230,14 +2474,17 @@ class _Project:
         seen_refs = set()
         index = 0
         while index < len(keys):
+            self._charge_resolution()
             key = keys[index]
             index += 1
             for call_unit, call, scope in self.calls_by_name.get(key, ()):
+                self._charge_resolution()
                 if id(call) in seen_calls:
                     continue
                 seen_calls.add(id(call))
                 self._classify_call(call_unit, scope, call, fn, owner, sites)
             for ref_unit, ref, scope in self.loads_by_name.get(key, ()):
+                self._charge_resolution()
                 if id(ref) in seen_refs:
                     continue
                 seen_refs.add(id(ref))
@@ -2245,11 +2492,24 @@ class _Project:
         for call_unit, call, scope in self.dynamic_calls:
             if id(call) in seen_calls:
                 continue
+            targets = self._dynamic_call_targets.get(id(call))
+            if targets is not None and id(fn) not in targets:
+                continue
+            self._charge_resolution()
             values = self.values(call_unit, scope, call.func)
+            # values() already memoizes completed depth-zero resolutions. Reuse
+            # their function identities too: unrelated caller queries should
+            # not spend the shared work budget on the same dynamic call again.
+            # An active recursive value has no completed cache entry and must
+            # remain eligible for a later query.
+            value_key = (id(call.func), id(scope))
+            if values is not None or value_key in self._value_cache:
+                self._dynamic_call_targets[id(call)] = self._call_target_ids(values)
             if values and self._targets(values, fn, owner):
                 seen_calls.add(id(call))
                 self._classify_call(call_unit, scope, call, fn, owner, sites)
         for call_unit, call, scope in self.computed_calls:
+            self._charge_resolution()
             if id(call) not in seen_calls and self._computed_call_reaches(call_unit, scope, call, unit, fn, definer):
                 step = _step(
                     call_unit,
@@ -2259,6 +2519,21 @@ class _Project:
                 sites.escapes.append(step)
                 sites.computed.append((step, call_unit))
         return sites
+
+    def _call_target_ids(self, values):
+        targets = set()
+        for value in values or ():
+            if value.kind == "fn":
+                targets.add(id(value.node))
+            elif value.kind == "partial":
+                targets.update(
+                    id(target.node) for target in value.extra[0] if target.kind == "fn"
+                )
+            elif value.kind == "cls":
+                initializer = self.init_of(value.node)
+                if initializer is not None:
+                    targets.add(id(initializer))
+        return frozenset(targets)
 
     def _computed_call_reaches(self, unit, scope, call, fn_unit, fn, definer):
         func = call.func
@@ -3186,6 +3461,8 @@ class _Tracer:
         self.param_memo = {}
         self.attr_memo = {}
         self.global_memo = {}
+        self.import_memo = {}
+        self.import_cyclic = set()
         self.local_memo = {}
         self.limited = 0
         self.trace_memo = {}
@@ -3412,7 +3689,14 @@ class _Tracer:
                 ):
                     hidden = proofs[guard[1][0]](unit, scope, guard[0], node.id)
                     if hidden is not None:
-                        step = _step(unit, node, f"`{node.id}` {guard[1][0]}")
+                        text = f"`{node.id}` {guard[1][0]}"
+                        if guard[1][0] == "passes a body-proven filename check":
+                            validators = self._guard_validators(
+                                unit, scope, guard[0], node.id
+                            )
+                            if validators:
+                                text += f" ({', '.join(validators)})"
+                        step = _step(unit, node, text)
                         return _with_hidden_callers(
                             _Facts.leaf(SAFE, step), hidden, step
                         )
@@ -3426,12 +3710,22 @@ class _Tracer:
             facts.add(self._local_writes(unit, owner, node.id, binds))
         if facts.empty():
             return _Facts.leaf(UNKNOWN, _step(unit, node, f"no binding of `{node.id}` reaches here"))
+        if self.filename_proofs:
+            note = self._filename_guard_uncertainty(unit, scope, node, binds)
+            if note is not None:
+                return facts.then(note)
         return facts
 
     def _bind_facts(self, unit, owner, bind, name, env):
         kind = bind.kind
         if kind == "param":
             return self._param(unit, owner, bind.node, env)
+        if kind == "unpack" and bind.index is not None:
+            element = self._unpacked_call_element(unit, bind, env)
+            if element is not None:
+                return element.then(
+                    _step(unit, bind.node, f"`{name}` = item {bind.index} of {_describe(bind.value)}")
+                )
         if kind in {"assign", "unpack", "augassign"}:
             return self.trace(unit, bind.scope, bind.value, env).then(
                 _step(unit, bind.node, f"`{name}` = {_describe(bind.value)}")
@@ -3457,6 +3751,27 @@ class _Tracer:
         return self.trace(unit, scope, iterable, env)
 
     def _imported(self, unit, bind, name):
+        """Facts of an imported name, followed once per import binding.
+
+        A re-export chain never passes through ``trace``, so without its own
+        memo every reader re-walks the whole chain. A cycle settles through
+        the shared fixpoint; one that never reaches a value is reported as
+        not followed instead of as having no value.
+        """
+        key = ("import", id(unit), id(bind), name)
+        if key in self.depth_of:
+            self.import_cyclic.update(
+                active for active in self.depth_of if active[0] == "import"
+            )
+        facts = self._memoized(
+            self.import_memo, key, lambda: self._imported_uncached(unit, bind, name)
+        )
+        settled = key in self.import_memo and key in self.import_cyclic
+        if settled and facts.empty():
+            return self._limit(unit, bind.node, f"import cycle of `{name}` not followed")
+        return facts
+
+    def _imported_uncached(self, unit, bind, name):
         module, member, level = bind.value
         if member is None:
             return _Facts.leaf(UNKNOWN, _step(unit, bind.node, f"module object `{name}`"))
@@ -3647,6 +3962,9 @@ class _Tracer:
         facts = _Facts()
         for kind, step in sites.entries:
             facts.add(_Facts.leaf(kind, step))
+        gateway = _gateway_parameter(fn, name)
+        if gateway and not sites.entries and not unit.is_test:
+            facts.add(_Facts.leaf(UNTRUSTED, _step(unit, fn, f"{gateway} request data `{name}` of `{_function_label(fn)}`")))
         for step in sites.escapes:
             facts.add(_Facts.leaf(UNKNOWN, step))
         if len(sites.resolved) > _MAX_SITES:
@@ -3655,9 +3973,15 @@ class _Tracer:
             facts.add(self._site_facts(fn, site, name))
         if len(sites.possible) > _MAX_SITES:
             facts.add(_Facts.leaf(UNKNOWN, _step(unit, fn, f"`{_function_label(fn)}` has more than {_MAX_SITES} unresolved possible callers")))
+        family = self.project.method_family(fn)
         for site in sites.possible[:_MAX_SITES]:
             unresolved = _step(site.unit, site.call, f"the receiver of `{_describe(site.call)}` is not resolved")
-            facts.add(self._site_facts(fn, site, name).moved(UNTRUSTED, UNKNOWN, unresolved).moved(INCOMPLETE, UNKNOWN, unresolved))
+            traced = self._site_facts(fn, site, name)
+            if family and isinstance(site.call.func, ast.Attribute):
+                only = _step(site.unit, site.call, f"`{_function_label(fn)}` is defined only by `{family}` and its subclasses in the scanned project")
+                facts.add(traced.then(only).moved(INCOMPLETE, UNKNOWN, unresolved))
+                continue
+            facts.add(traced.moved(UNTRUSTED, UNKNOWN, unresolved).moved(INCOMPLETE, UNKNOWN, unresolved))
         if not sites.resolved and not sites.possible and not sites.entries and not sites.escapes:
             facts.add(_Facts.leaf(UNKNOWN, _step(unit, fn, f"no call of `{_function_label(fn)}` in the scanned project")))
         return facts
@@ -4225,15 +4549,13 @@ class _Tracer:
         found = False
         for cls_unit, cls in classes:
             class_scope = cls_unit.class_scopes[id(cls)]
-            for statement in cls.body:
-                if isinstance(statement, (ast.Assign, ast.AnnAssign)) and statement.value is not None:
-                    targets = getattr(statement, "targets", None) or [statement.target]
-                    if any(isinstance(target, ast.Name) and target.id == attr for target in targets):
-                        found = True
-                        facts.add(self.trace(cls_unit, class_scope, statement.value).then(
-                            _step(cls_unit, statement, f"class attribute `{cls.name}.{attr}`")
-                        ))
-                elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) and statement.name == attr:
+            for statement in project.class_statements(cls).get(attr, ()):
+                if isinstance(statement, (ast.Assign, ast.AnnAssign)):
+                    found = True
+                    facts.add(self.trace(cls_unit, class_scope, statement.value).then(
+                        _step(cls_unit, statement, f"class attribute `{cls.name}.{attr}`")
+                    ))
+                else:
                     found = True
                     if not _is_property(statement):
                         facts.add(_Facts.leaf(UNKNOWN, _step(cls_unit, statement, f"`{attr}` is a method object")))
@@ -4264,9 +4586,7 @@ class _Tracer:
                 facts.add(self.trace(store_unit, scope, value).then(_step(store_unit, statement, f"assigns `.{attr}`")))
         facts.add(self._attribute_container_writes(cls_node, attr, targets))
         for cls_unit, cls in classes:
-            for call, scope in cls_unit.calls:
-                if not (isinstance(call.func, ast.Name) and call.func.id == "setattr" and len(call.args) >= 2):
-                    continue
+            for call in project.setattr_calls(cls_unit):
                 name = call.args[1]
                 if isinstance(name, ast.Constant) and name.value != attr:
                     continue
@@ -4471,7 +4791,32 @@ class _Tracer:
             return self._environment(unit, node, node.slice)
         if self.project.constant_table(unit, scope, node.value):
             return _Facts.leaf(SAFE, _step(unit, node, f"entry of constant table `{_describe(node.value)}`"))
-        return self.trace(unit, scope, node.value, env).then(_step(unit, node, f"item of `{_describe(node.value)}`"))
+        base = self._gateway_item(unit, node, self.trace(unit, scope, node.value, env), node.slice)
+        return base.then(_step(unit, node, f"item of `{_describe(node.value)}`"))
+
+    def _gateway_item(self, unit, node, facts, key):
+        """Keep an item of a WSGI ``environ`` or ASGI ``scope`` untrusted only
+        when its key is one the client fills in. The server and the
+        application store their own objects under the other keys."""
+        chains = facts.chains[UNTRUSTED]
+        if not chains:
+            return facts
+        protocols = set()
+        for chain in chains:
+            marker = _GATEWAY_STEP.search(chain[0])
+            if marker is None or any(_GATEWAY_READ.search(step) for step in chain[1:]):
+                return facts
+            protocols.add(marker.group(1))
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            name = key.value
+            if "WSGI" in protocols and (name in _CGI_VARIABLES or name in _WSGI_REQUEST_KEYS or name.startswith("HTTP_")):
+                return facts
+            if "ASGI" in protocols and name in _ASGI_REQUEST_KEYS:
+                return facts
+            reason = f"`{name}` is set by the server or the application, not by the client"
+        else:
+            reason = "the key is chosen at run time"
+        return facts.moved(UNTRUSTED, UNKNOWN, _step(unit, node, reason))
 
     def _environment(self, unit, node, key):
         if isinstance(key, ast.Constant) and isinstance(key.value, str):
@@ -4528,12 +4873,18 @@ class _Tracer:
                 if not arguments:
                     return _Facts.leaf(SAFE, _step(unit, node, f"`.{func.attr}()` formats a date or time"))
                 return self._union(unit, scope, arguments, env).then(_step(unit, node, f"`.{func.attr}()` formats a date or time"))
+            if func.attr in {"get", "pop", "setdefault"} and node.args:
+                receiver = self._gateway_item(unit, node, receiver, node.args[0])
             if func.attr in _TRANSPARENT_METHODS and not (values and any(value.kind == "fn" for value in values)):
                 return _Facts().add(receiver).add(self._union(unit, scope, arguments, env)).then(
                     _step(unit, node, f"passes through `.{func.attr}()`")
                 )
             if receiver.chains[UNTRUSTED]:
                 return receiver.then(_step(unit, node, f"derived by `.{func.attr}()`"))
+        if isinstance(func, ast.Name) and values is None:
+            callee = self.trace(unit, scope, func, env)
+            if callee.chains[UNTRUSTED]:
+                return callee.then(_step(unit, node, f"returned by calling `{func.id}`"))
         return _Facts.leaf(UNKNOWN, _step(unit, node, f"return value of `{_describe(node)}` is not followed"))
 
     def _constructor_facts(self, unit, scope, node, value, env):
@@ -4924,24 +5275,53 @@ class _Tracer:
         _, external = self.project.mro(cls_node)
         return bool(external) and all(name.startswith("argparse.") for name in external)
 
-    def _returns(self, unit, scope, call, value, prebound, prebound_keywords, env):
+    def _unpacked_call_element(self, unit, bind, env):
+        """``a, b = helper()`` where every return of each resolved helper is
+        a tuple literal of the target's length: only item ``index`` reaches
+        the name. Anything else returns None and the whole value is traced."""
+        call = bind.value
+        if not isinstance(call, ast.Call):
+            return None
+        values = self.project.values(unit, bind.scope, call.func)
+        if not values or not all(value.kind == "fn" for value in values):
+            return None
+        for value in values:
+            returned = self.project.returned_values(value.node)
+            if not returned or not all(
+                isinstance(expr, ast.Tuple)
+                and len(expr.elts) == bind.arity
+                and not any(isinstance(item, ast.Starred) for item in expr.elts)
+                for expr in returned
+            ):
+                return None
+        facts = _Facts()
+        for value in values:
+            facts.add(
+                self._returns(unit, bind.scope, call, value, [], [], env, element=bind.index)
+            )
+        return facts
+
+    def _returns(self, unit, scope, call, value, prebound, prebound_keywords, env, element=None):
         """What a resolved call returns: the callee's summary, with each
-        parameter that reaches a return replaced by what this call passes."""
+        parameter that reaches a return replaced by what this call passes.
+        ``element`` selects one item of tuple returns (see
+        ``_unpacked_call_element``)."""
         fn = value.node
         info = self.project.function_info.get(id(fn))
         if info is None:
             return _Facts.leaf(UNKNOWN, _step(unit, call, f"`{_describe(call)}` is not resolved"))
         escapes = []
-        if self.filename_proofs and self._filename_call(
+        if element is None and self.filename_proofs and self._filename_call(
             unit, scope, call, value, prebound, prebound_keywords, env, escapes
         ):
             step = _step(
                 unit,
                 call,
-                "resolved helper produces only filename-component characters",
+                f"resolved helper {_validator_label(info[0], fn)} produces only "
+                "filename-component characters",
             )
             return _with_hidden_callers(_Facts.leaf(SAFE, step), escapes, step)
-        summary = self._summary(fn, info[0])
+        summary = self._summary(fn, info[0], element)
         facts = _Facts()
         for kind in _Facts.KINDS:
             if kind != PARAMETER:
@@ -4962,7 +5342,38 @@ class _Tracer:
             for item in tail:
                 passed = passed.then(item)
             facts.add(passed)
+        if self.filename_proofs and self._filename_body(info[0], fn) is not None:
+            # The body match alone is not a runtime safety proof. Retain the
+            # original facts and describe the unverified assumption on this
+            # exact data-flow chain, without changing its classification.
+            facts = facts.then(_step(unit, call, FILENAME_UNVERIFIED))
         return facts
+
+    def _filename_guard_uncertainty(self, unit, scope, use, binds):
+        """A preceding reject-on-change check whose helper body is known.
+        This is diagnostic evidence only; it never establishes safety."""
+        if scope.kind != "function":
+            return None
+        for statement in scope.node.body:
+            if getattr(statement, "lineno", 0) >= use.lineno:
+                break
+            if not isinstance(statement, ast.If) or not self._guard_terminates(unit, scope, statement.body):
+                continue
+            test = statement.test
+            if not isinstance(test, ast.Compare) or len(test.ops) != 1 or not isinstance(test.ops[0], ast.NotEq):
+                continue
+            if any(bind.kind != "param" and statement.lineno <= getattr(bind.node, "lineno", 0) <= use.lineno for bind in binds):
+                continue
+            for candidate, original in ((test.left, test.comparators[0]), (test.comparators[0], test.left)):
+                if not isinstance(original, ast.Name) or original.id != use.id:
+                    continue
+                call = self._single_assigned_value(unit, scope, candidate, statement) if isinstance(candidate, ast.Name) else candidate
+                if not isinstance(call, ast.Call):
+                    continue
+                values = self.project.values(unit, scope, call.func)
+                if values and all(value.kind == "fn" and self._filename_body(value.unit, value.node) is not None for value in values):
+                    return _step(unit, statement, FILENAME_UNVERIFIED)
+        return None
 
     @staticmethod
     def _filename_literal(node):
@@ -4989,14 +5400,24 @@ class _Tracer:
         if not isinstance(generator, (ast.GeneratorExp, ast.ListComp)) or len(generator.generators) != 1:
             return False
         iterator = generator.generators[0]
-        if iterator.is_async or iterator.ifs or not isinstance(iterator.target, ast.Name):
+        if iterator.is_async or not isinstance(iterator.target, ast.Name):
             return False
         if not isinstance(iterator.iter, ast.Name) or iterator.iter.id != parameter:
             return False
         item = generator.elt
+        char = iterator.target.id
+        if iterator.ifs:
+            # The dropping form ``c for c in raw if c.isalnum() or c in '-_'``
+            # keeps exactly the characters the replacing form keeps.
+            if (
+                len(iterator.ifs) != 1
+                or not isinstance(item, ast.Name)
+                or item.id != char
+            ):
+                return False
+            item = ast.IfExp(test=iterator.ifs[0], body=item, orelse=ast.Constant(""))
         if not isinstance(item, ast.IfExp) or not self._filename_literal(item.orelse):
             return False
-        char = iterator.target.id
         if not isinstance(item.body, ast.Name) or item.body.id != char:
             return False
 
@@ -5045,6 +5466,22 @@ class _Tracer:
         body = list(fn.body)
         if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
             body.pop(0)
+        parameter = positional[0].arg
+        if len(body) == 1 and isinstance(body[0], ast.Return):
+            # ``return ''.join(...)`` is the same filter without the local.
+            returned = body[0].value
+            if (
+                isinstance(returned, ast.BoolOp)
+                and isinstance(returned.op, ast.Or)
+                and len(returned.values) == 2
+            ):
+                fallback = returned.values[1]
+                if not self._filename_literal(fallback) and not self._filename_clock(
+                    unit, fallback
+                ):
+                    return None
+                returned = returned.values[0]
+            return parameter if self._filename_filter(returned, parameter) else None
         if len(body) != 2 or not isinstance(body[0], ast.Assign) or not isinstance(body[1], ast.Return):
             return None
         assignment = body[0]
@@ -5618,7 +6055,7 @@ class _Tracer:
                 self._plain_model_statement(unit, scope, statement)
                 for statement in cls_node.body
             )
-            plain = plain and not self._class_written(cls_node)
+            plain = plain and not self._model_window(self._class_written, cls_node)
         self.plain_model_memo[id(cls_node)] = plain
         return plain
 
@@ -5692,6 +6129,89 @@ class _Tracer:
             and isinstance(node.operand.value, (int, float))
         )
 
+    def _inert_field_default(self, unit, scope, node, depth=0):
+        """A field default that runs no code when the class is built and is
+        a builtin scalar: a literal, or a name bound once at module level in
+        the project to a scalar expression (``float(os.environ.get(...))``,
+        ``os.getenv(...) == "1"``, arithmetic on such names). An imported or
+        computed object could carry ``__set_name__`` or descriptor hooks that
+        rewrite the model, so it is not inert."""
+        if self._inert_model_default(node):
+            return True
+        if depth > 4:
+            return False
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            found = unit.lookup(scope, node.id)
+            if found is None:
+                return False
+            owner, binds = found
+            if owner.kind != "module" or len(binds) != 1:
+                return False
+            bind = binds[0]
+            if bind.kind != "assign" or not bind.top_level or bind.scope is not owner:
+                return False
+            dynamic, rebound = unit.rebinding()
+            if dynamic or node.id in rebound or unit.star_import:
+                return False
+            return self._scalar_expression(unit, owner, bind.value, depth + 1)
+        return False
+
+    def _scalar_expression(self, unit, scope, node, depth):
+        """An expression whose value is always a builtin scalar or None."""
+        if depth > 4 or node is None:
+            return False
+        if isinstance(node, ast.Constant):
+            return isinstance(node.value, (str, int, float, bool, bytes, type(None)))
+        if isinstance(node, ast.Name):
+            return self._inert_field_default(unit, scope, node, depth)
+        if isinstance(node, ast.UnaryOp):
+            return self._scalar_expression(unit, scope, node.operand, depth + 1)
+        if isinstance(node, ast.BinOp):
+            return self._scalar_expression(
+                unit, scope, node.left, depth + 1
+            ) and self._scalar_expression(unit, scope, node.right, depth + 1)
+        if isinstance(node, ast.BoolOp):
+            return all(
+                self._scalar_expression(unit, scope, value, depth + 1)
+                for value in node.values
+            )
+        if isinstance(node, ast.Compare):
+            # A comparison of scalars is a bool. Rich comparisons on other
+            # objects could return anything, so the operands must be scalar.
+            return all(
+                self._scalar_expression(unit, scope, part, depth + 1)
+                for part in [node.left, *node.comparators]
+            )
+        if isinstance(node, ast.IfExp):
+            return all(
+                self._scalar_expression(unit, scope, part, depth + 1)
+                for part in (node.test, node.body, node.orelse)
+            )
+        if isinstance(node, ast.Call) and not any(
+            isinstance(argument, ast.Starred) for argument in node.args
+        ) and all(keyword.arg is not None for keyword in node.keywords):
+            arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
+            if self._external_call(unit, scope, node, _SCALAR_CONVERTERS):
+                return all(
+                    self._scalar_expression(unit, scope, argument, depth + 1)
+                    for argument in arguments
+                )
+            if self._external_call(unit, scope, node, _ENVIRONMENT_READS):
+                return all(
+                    self._scalar_expression(unit, scope, argument, depth + 1)
+                    for argument in arguments
+                )
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in _SCALAR_STR_METHODS
+                and self._scalar_expression(unit, scope, node.func.value, depth + 1)
+            ):
+                return all(
+                    self._scalar_expression(unit, scope, argument, depth + 1)
+                    for argument in arguments
+                )
+        return False
+
     def _plain_model_statement(self, unit, scope, statement):
         if isinstance(statement, ast.Pass):
             return True
@@ -5710,7 +6230,7 @@ class _Tracer:
             if not self._inert_model_annotation(unit, scope, statement.annotation):
                 return False
             value = statement.value
-            if value is None or self._inert_model_default(value):
+            if value is None or self._inert_field_default(unit, scope, value):
                 return True
             if not isinstance(value, ast.Call) or not self._external_call(
                 unit, scope, value, _PYDANTIC_FIELDS
@@ -5721,7 +6241,9 @@ class _Tracer:
             ):
                 return False
             arguments = [*value.args, *(keyword.value for keyword in value.keywords)]
-            return all(self._inert_model_default(argument) for argument in arguments)
+            return all(
+                self._inert_field_default(unit, scope, argument) for argument in arguments
+            )
         if isinstance(statement, ast.Assign):
             if len(statement.targets) != 1 or not isinstance(
                 statement.targets[0], ast.Name
@@ -5751,7 +6273,14 @@ class _Tracer:
         if info is None:
             return False
         unit, definer, _scope, _owner = info
-        allowed = {"builtins.staticmethod", "builtins.classmethod"}
+        # A context-manager decorator only wraps the generator; its body runs
+        # with exactly the arguments this call passes.
+        allowed = {
+            "builtins.staticmethod",
+            "builtins.classmethod",
+            "contextlib.contextmanager",
+            "contextlib.asynccontextmanager",
+        }
         return all(
             not isinstance(decorator, ast.Call)
             and self._external_call(
@@ -6033,13 +6562,22 @@ class _Tracer:
                         for keyword in parent.keywords
                     )
                 )
+                # ``model_copy``/``copy`` build a new instance of the
+                # receiver's own class (``update=`` skips validation), so they
+                # matter only for that class; see _project_attribute_writes.
+                copying = (
+                    not readonly
+                    and node.attr in {"model_copy", "copy"}
+                    and isinstance(parent, ast.Call)
+                    and parent.func is node
+                )
                 effects.append(
                     (
                         unit,
                         scope,
                         node.value,
                         node.attr,
-                        "read" if readonly else True,
+                        "read" if readonly else "copy" if copying else True,
                     )
                 )
         for call, scope in unit.calls:
@@ -6075,12 +6613,45 @@ class _Tracer:
                 continue
             if id(call) in framework_decorators:
                 continue
+            invoked = self._indirect_call_function(unit, scope, call, targets)
             for argument in [
                 *call.args,
                 *(keyword.value for keyword in call.keywords),
             ]:
+                if argument is invoked:
+                    continue
                 effects.append((unit, scope, argument, None, True))
         return tuple(effects)
+
+    def _indirect_call_function(self, unit, scope, call, targets):
+        """The project function a thread/process/timer starter invokes.
+
+        ``threading.Thread(target=f, args=(...))`` calls ``f`` with exactly
+        its ``args``/``kwargs``, which stay recorded as effects of this call,
+        and ``f``'s own body effects are collected where it is defined. So
+        ``f`` itself hands nothing new to the starter."""
+        if not targets or not all(
+            target.kind == "ext" and target.name in _INDIRECT_CALLERS
+            for target in targets
+        ):
+            return None
+        names = {_INDIRECT_CALLERS[target.name] for target in targets}
+        if len(names) != 1:
+            return None
+        (name,) = names
+        if name == "first":
+            function = call.args[0] if call.args else None
+        else:
+            function = next(
+                (keyword.value for keyword in call.keywords if keyword.arg == name),
+                None,
+            )
+        if function is None or isinstance(function, ast.Starred):
+            return None
+        values = self.project.values(unit, scope, function)
+        if not values or not all(value.kind == "fn" for value in values):
+            return None
+        return function
 
     def _inert_instance_class(self, cls_node, active=frozenset()):
         """Only a known ordinary constructor can exclude a different model.
@@ -6145,6 +6716,90 @@ class _Tracer:
             complete = complete and known
         return frozenset(classes), complete
 
+    def _inert_model_function(self, unit, fn, active=frozenset()):
+        """A project function whose body cannot change any object it reaches.
+
+        An escaping function value is normally given every model authority of
+        its module, because opaque code may call it with a model instance.
+        That is only possible through code in its body, so a body with no
+        attribute, subscript or name store/delete, no reflective name or
+        dunder access, no reference to a model class or API, and no call
+        except pure builtins and other inert project functions (with no bare
+        name handed to an unresolved call) cannot write a model or hand one
+        to code that could. A sort key such as ``lambda item: item.score`` is
+        the common case."""
+        memo = getattr(self, "inert_model_function_memo", None)
+        if memo is None:
+            memo = self.inert_model_function_memo = {}
+        if id(fn) in memo:
+            return memo[id(fn)]
+        if id(fn) in active or len(active) >= 8:
+            return False
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            return False
+        if getattr(fn, "decorator_list", None):
+            memo[id(fn)] = False
+            return False
+        body = fn.body if isinstance(fn.body, list) else [fn.body]
+        inert = all(
+            self._inert_model_node(unit, node, active | {id(fn)})
+            for statement in body
+            for node in ast.walk(statement)
+        )
+        memo[id(fn)] = inert
+        return inert
+
+    def _inert_model_node(self, unit, node, active):
+        if isinstance(node, (ast.Global, ast.Nonlocal, ast.Delete)):
+            return False
+        if isinstance(node, (ast.Yield, ast.YieldFrom, ast.Await)):
+            return False
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            return False
+        ctx = getattr(node, "ctx", None)
+        if isinstance(node, (ast.Attribute, ast.Subscript, ast.Starred)) and isinstance(
+            ctx, (ast.Store, ast.Del)
+        ):
+            return False
+        if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+            return False
+        if isinstance(node, ast.Name):
+            if node.id in _MODEL_REFLECTIVE_NAMES:
+                return False
+            if isinstance(ctx, ast.Load):
+                scope = unit.scope_of(node)
+                for value in self.project.values(unit, scope, node) or ():
+                    if value.kind == "cls" and self._pydantic_instance_class(
+                        value.node
+                    ):
+                        return False
+                    if value.kind == "ext" and (
+                        value.name in self._model_api_authorities()
+                        or value.name.split(".", 1)[0] in {"pydantic", "fastapi"}
+                    ):
+                        return False
+            return True
+        if not isinstance(node, ast.Call):
+            return True
+        scope = unit.scope_of(node)
+        values = self.project.values(unit, scope, node.func) or ()
+        if values and all(
+            value.kind == "ext" and _model_pure_callable(value.name)
+            for value in values
+        ):
+            return True
+        if isinstance(node.func, ast.Name):
+            return bool(values) and all(
+                value.kind == "fn"
+                and self._inert_model_function(value.unit, value.node, active)
+                for value in values
+            )
+        arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
+        return not any(
+            isinstance(argument.value if isinstance(argument, ast.Starred) else argument, ast.Name)
+            for argument in arguments
+        ) and not any(keyword.arg is None for keyword in node.keywords)
+
     def _model_function_authorities(self, unit):
         memo = getattr(self, "model_function_authority_memo", None)
         if memo is None:
@@ -6171,18 +6826,20 @@ class _Tracer:
         return memo[id(unit)]
 
     def _model_receiver_types(self, unit, scope, expr, active=frozenset()):
-        if active:
-            return self._model_receiver_type_facts(unit, scope, expr, active)
         memo = getattr(self, "model_type_memo", None)
         if memo is None:
             memo = self.model_type_memo = {}
         key = (id(unit), id(scope), id(expr))
-        if key not in memo:
-            result = self._model_receiver_type_facts(unit, scope, expr, active)
-            if not result[1]:
-                return result
+        if key in memo:
+            return memo[key]
+        cuts = getattr(self, "model_type_cuts", 0)
+        result = self._model_receiver_type_facts(unit, scope, expr, active)
+        # The entry call's answer is the cycle's full fixpoint. A nested answer
+        # is reusable only when no cycle was cut beneath it, because a cut
+        # drops types that reach this node only through a frame above it.
+        if result[1] and (not active or getattr(self, "model_type_cuts", 0) == cuts):
             memo[key] = result
-        return memo[key]
+        return result
 
     def _model_receiver_type_facts(self, unit, scope, expr, active):
         """Possible instance/class capabilities, plus whether all are known.
@@ -6198,8 +6855,14 @@ class _Tracer:
         if expr is None:
             return frozenset(), False
         if key in active:
-            self.model_effects_incomplete = True
-            return frozenset(), False
+            # A back-edge (``x = x.next``, mutual recursion) can only carry
+            # types that the cycle's other bindings already supply, and the
+            # frame that is resolving ``key`` explores those itself. The cut is
+            # counted so no answer computed beneath it is memoized (see
+            # ``_model_receiver_types``). Treating a cycle as unknown used to
+            # mark every model in the process as possibly rewritten.
+            self.model_type_cuts = getattr(self, "model_type_cuts", 0) + 1
+            return frozenset(), True
         if len(active) >= 24:
             self.model_effects_incomplete = True
             return frozenset(), False
@@ -6251,7 +6914,14 @@ class _Tracer:
         if values and not follow_name and all(value.kind == "fn" for value in values):
             captured = []
             for value in values:
-                captured.append((self._model_function_authorities(value.unit), False))
+                if _closed_function_value(value) or self._inert_model_function(
+                    value.unit, value.node
+                ):
+                    captured.append((frozenset(), True))
+                else:
+                    captured.append(
+                        (self._model_function_authorities(value.unit), False)
+                    )
                 fn_scope = value.unit.function_scopes.get(id(value.node))
                 if fn_scope is None:
                     continue
@@ -6478,6 +7148,12 @@ class _Tracer:
                     continue
                 if capability == "read" and complete:
                     continue
+                if (
+                    capability == "copy"
+                    and complete
+                    and not self._model_types_overlap(classes, cls_node)
+                ):
+                    continue
                 if capability == "constructor":
                     values = self.project.values(unit, scope, receiver)
                     if values and all(
@@ -6578,8 +7254,16 @@ class _Tracer:
         )
 
     def _attribute_assigned(self, cls_node, attr):
-        writes = self._project_attribute_writes(cls_node)
+        writes = self._model_window(self._project_attribute_writes, cls_node)
         return None in writes or attr in writes
+
+    def _model_window(self, function, *args):
+        """Run model-write analysis against its own resolution budget."""
+        self.project._model_resolution_window += 1
+        try:
+            return function(*args)
+        finally:
+            self.project._model_resolution_window -= 1
 
     def _native_type_guard(self, unit, owner, use, binds):
         """A dominating exact type check; isinstance permits str overrides."""
@@ -6679,6 +7363,28 @@ class _Tracer:
             ):
                 return tuple(dict.fromkeys(escapes))
         return None
+
+    def _guard_validators(self, unit, scope, statement, name):
+        """Labels of the body-proven helpers a reject-on-change guard calls."""
+        test = statement.test
+        if not isinstance(test, ast.Compare) or len(test.ops) != 1:
+            return []
+        labels = []
+        for candidate, original in (
+            (test.left, test.comparators[0]),
+            (test.comparators[0], test.left),
+        ):
+            if not isinstance(original, ast.Name) or original.id != name:
+                continue
+            call = candidate
+            if isinstance(candidate, ast.Name) and candidate.id != name:
+                call = self._single_assigned_value(unit, scope, candidate, statement)
+            if not isinstance(call, ast.Call):
+                continue
+            for value in self.project.values(unit, scope, call.func) or ():
+                if value.kind == "fn" and value.unit is not None:
+                    labels.append(_validator_label(value.unit, value.node))
+        return sorted(set(labels))
 
     def _filename_pattern_guard(self, unit, scope, statement, name):
         """Hidden-caller steps (possibly none) when ``statement`` rejects
@@ -6888,18 +7594,23 @@ class _Tracer:
             return None
         return bind.value
 
-    def _summary(self, fn, fn_unit):
+    def _summary(self, fn, fn_unit, element=None):
         """Return provenance of ``fn`` once: parameters that reach a return
-        stay placeholders (``parameter`` chains) for each call to fill in."""
-        key = ("summary", id(fn))
-        return self._memoized(self.summary_memo, key, lambda: self._summary_uncached(fn, fn_unit))
+        stay placeholders (``parameter`` chains) for each call to fill in.
+        With ``element``, only that item of each (tuple) return."""
+        key = ("summary", id(fn)) if element is None else ("summary", id(fn), element)
+        return self._memoized(
+            self.summary_memo, key, lambda: self._summary_uncached(fn, fn_unit, element)
+        )
 
-    def _summary_uncached(self, fn, fn_unit):
+    def _summary_uncached(self, fn, fn_unit, element=None):
         env = (id(fn), None, None)
         returned = self.project.returned_values(fn)
         name = getattr(fn, "name", "lambda")
         if not returned:
             return _Facts.leaf(SAFE, _step(fn_unit, fn, f"`{name}` returns None"))
+        if element is not None:
+            returned = [expr.elts[element] for expr in returned]
         facts = _Facts()
         for expr in returned:
             facts.add(self.trace(fn_unit, fn_unit.scope_of(expr), expr, env).then(
@@ -6948,6 +7659,14 @@ def _untrusted_message(finding, source):
         where = "this filesystem path"
         if served:
             where = f"the path {served.group(1)}() serves"
+        provenance = (finding.get("metadata") or {}).get("path_provenance") or {}
+        if provenance.get("validation_uncertainty"):
+            return (
+                f"Possible path traversal needs review: {source} reaches {where} "
+                "through project callers. A filename check body is present, but "
+                "its native-string/runtime assumptions could not be verified; "
+                "review the existing validation and containment."
+            )
         return (
             f"Possible path traversal: {source} reaches {where} through project "
             "callers with no containment check; resolve it and check it stays "
@@ -6956,16 +7675,38 @@ def _untrusted_message(finding, source):
     if rule == "SKY-D324":
         return (
             f"Possible symlink-following write: {source} reaches this path through "
-            "project callers; reject symlinks or open with O_NOFOLLOW and check containment."
+            "project callers. Redirecting this write through a symlink requires "
+            "an attacker to create or replace a path entry; that filesystem access "
+            "is not established by this source trace. Reject symlinks or open "
+            "with O_NOFOLLOW and check containment."
         )
     if "unbounded" in message:
         return (
             f"Possible symlink-following or unbounded read: {source} reaches this "
-            "path through project callers; require a regular in-root file and a size cap."
+            "path through project callers. Symlink redirection requires an "
+            "attacker to create or replace a path entry; that access is not "
+            "established by this source trace. Require a regular in-root file "
+            "and a size cap."
         )
     return (
         f"Possible symlink-following read: {source} reaches this path through "
-        "project callers; require a regular in-root file."
+        "project callers. Symlink redirection requires an attacker to create "
+        "or replace a path entry; that access is not established by this source "
+        "trace. Require a regular in-root file."
+    )
+
+
+def _component_review_message(finding, source, review):
+    operation = "write" if finding.get("rule_id") == "SKY-D324" else "read"
+    validated = ", ".join(review["proofs"])
+    return (
+        f"Review (not blocking): {source} selects only one filename component "
+        f"of this {operation} path, validated by {validated}. Following a "
+        "symlink here also needs an untrusted party to create or replace an "
+        "entry in this directory or its parents, which the trace does not "
+        "show. Close it for a deployment where only trusted writers control "
+        "the directory and its parents; otherwise reject symlinks (O_NOFOLLOW) "
+        "and check containment."
     )
 
 
@@ -6997,6 +7738,14 @@ def _provenance_record(status, function, facts, project, limits):
             record[kind] = [list(chain) for chain in chains]
     if limits:
         record["limits"] = list(limits)
+    unverified = list(dict.fromkeys(
+        step for chain in facts.chains[UNTRUSTED][:1] for step in chain
+        if FILENAME_UNVERIFIED in step
+    ))
+    if unverified:
+        record["validation_uncertainty"] = {
+            "status": "unverified", "check": "filename_filter_body", "steps": unverified,
+        }
     return record
 
 
@@ -7009,14 +7758,18 @@ def _evidence(chain, finding):
     }.get(rule, "filesystem path")
     steps = [_strip_location(step) for step in chain]
     source = steps[0]
+    unverified = any(FILENAME_UNVERIFIED in step for step in steps)
     return {
         "evidence_kind": "python_path_taint",
         "source": source,
         "sources": [source],
         "sink": sink,
         "path": [f"untrusted input from {source}", *steps[1:]],
-        "guards_seen": [],
-        "guards_missing": ["resolved-path containment check against a fixed base"],
+        "guards_seen": [FILENAME_UNVERIFIED] if unverified else [],
+        "guards_missing": [
+            "proof of effective filename validation or resolved-path containment"
+            if unverified else "resolved-path containment check against a fixed base"
+        ],
         "analysis_complete": False,
     }
 
@@ -7124,14 +7877,25 @@ def _resolve(findings, root, files, complete, suppressed):
     project = _Project.load(root, files, complete)
     tracers = {}
     kept = []
+    resolution_error = None
     for finding in findings:
         if not needs_provenance(finding):
             kept.append(finding)
             continue
-        try:
-            verdict = _classify(project, tracers, finding)
-        except (RecursionError, MemoryError, ValueError, TypeError, AttributeError, KeyError, IndexError) as error:
-            verdict = _failed_verdict(finding, project, type(error).__name__)
+        if resolution_error is not None:
+            verdict = _failed_verdict(finding, project, resolution_error)
+        else:
+            try:
+                verdict = _classify(project, tracers, finding)
+            except _ResolutionLimit as error:
+                # Interrupted project indexes can contain provisional entries.
+                # Preserve every later candidate as incomplete instead of
+                # reusing any partial project or tracer cache as a proof.
+                resolution_error = str(error)
+                tracers.clear()
+                verdict = _failed_verdict(finding, project, resolution_error)
+            except (RecursionError, MemoryError, ValueError, TypeError, AttributeError, KeyError, IndexError) as error:
+                verdict = _failed_verdict(finding, project, type(error).__name__)
         if verdict is None:
             kept.append(finding)
             continue
@@ -7144,10 +7908,32 @@ def _resolve(findings, root, files, complete, suppressed):
             evidence = _evidence(chain, finding)
             metadata["path_source"] = RESOLVED_CALLER_SOURCE
             metadata["security_evidence"] = evidence
-            updated["message"] = _untrusted_message(finding, evidence["source"])
+            updated["message"] = _untrusted_message(updated, evidence["source"])
+            review = record.get("component_review")
+            if review:
+                updated["message"] = _component_review_message(
+                    updated, evidence["source"], review
+                )
+                updated["review_item"] = {
+                    "kind": "directory_entry_access",
+                    "group": review["group"],
+                    "blocking": False,
+                }
             kept.append(updated)
             continue
         if status == INCOMPLETE:
+            kept.append(updated)
+            continue
+        if record.get("shared_temp_path"):
+            operation = "write" if updated.get("rule_id") == "SKY-D324" else "read"
+            updated["reason"] = SHARED_TEMP_REASON
+            updated["message"] = (
+                f"Possible symlink-following {operation} at a predictable "
+                "temporary path: the fixed name sits in a shared temporary "
+                "directory, where any local user can create it first. Open it "
+                "with O_NOFOLLOW (and O_EXCL when creating), or use a private "
+                "directory from tempfile.mkdtemp()."
+            )
             kept.append(updated)
             continue
         updated["category"] = "danger"
@@ -7222,11 +8008,232 @@ def _classify(project, tracers, finding):
             limits.append("the scan covers part of the project; callers outside it are not visible")
     if facts.empty():
         facts.add(_Facts.leaf(UNKNOWN, _sink_step(unit, finding, operand)))
+    shared_temp = rule in _SYMLINK_RULES and _shared_temp_location(project, facts)
+    review = None
+    if status == UNTRUSTED and rule in _SYMLINK_RULES and not shared_temp:
+        review = _component_review(project, tracers, unit, operand, sink_scope, rule)
     chain = None
     if facts.chains[UNTRUSTED]:
         chain = facts.chains[UNTRUSTED][0]
     record = _provenance_record(status, _function_name(unit, operand), facts, project, limits)
+    if shared_temp and status in {SAFE, UNKNOWN} and not _unpredictable_name(facts):
+        record["shared_temp_path"] = True
+    if review is not None:
+        record["component_review"] = review
     return status, record, chain
+
+
+_SYMLINK_RULES = frozenset({"SKY-D324", "SKY-D325"})
+# Chains kept per kind while checking a symlink finding for a review item.
+_REVIEW_MAX_CHAINS = 128
+_SHARED_TEMP_CALLS = ("tempfile.gettempdir", "tempfile.gettempdirb", "tempfile.mktemp")
+_SHARED_TEMP_PREFIXES = (
+    "/tmp/", "/var/tmp/", "/dev/shm/", "/private/tmp/", "/private/var/tmp/"
+)
+_UNPREDICTABLE_CALLS = (
+    "uuid.uuid4", "secrets.token_hex", "secrets.token_urlsafe", "random.randint",
+    "random.random",
+)
+_COMPONENT_PROOFS = (
+    "produces only filename-component characters",
+    "passes a body-proven filename check",
+    PATTERN_CHECK,
+    ALLOWLIST_CHECK,
+)
+SHARED_TEMP_REASON = "Predictable name in a shared temporary directory"
+COMPONENT_REVIEW_PREREQUISITE = (
+    "an untrusted party can create or replace an entry in this directory or "
+    "its parents"
+)
+
+
+def _validator_label(unit, fn):
+    return f"`{getattr(fn, 'name', '<lambda>')}` ({unit.rel}:{getattr(fn, 'lineno', 0)})"
+
+
+def _component_review(project, tracers, unit, operand, sink_scope, rule):
+    """Review details when request input reaches a symlink-following sink only
+    as one validated filename component.
+
+    The traversal rule's proofs (a body-proven filter or reject-on-change
+    guard, a full-match pattern, a constant allowlist) must remove every
+    untrusted chain for this operand, and at least one of them must be
+    visible. The caller then selects a single entry name; whether an attacker
+    can create or replace that entry is a separate capability the trace does
+    not establish, so the finding stays reported as a review item. Shared
+    temporary directories never qualify. The re-trace keeps more chains per
+    kind than ordinary reports so a capped list cannot hide a proof or a
+    shared-temp origin; if even that list is full, nothing is concluded."""
+    if not project.complete:
+        return None
+    key = ("component-review", sink_scope)
+    tracer = tracers.get(key)
+    if tracer is None:
+        tracer = _Tracer(project, TRAVERSAL_RULE)
+        tracer._stdin_sink_scope = sink_scope
+        tracers[key] = tracer
+    tracer.work = 0
+    token = _CHAIN_POLICY.set((_REVIEW_MAX_CHAINS, True))
+    try:
+        return _component_review_record(tracer, unit, operand, rule)
+    finally:
+        _CHAIN_POLICY.reset(token)
+
+
+def _component_review_record(tracer, unit, operand, rule):
+    traversal = tracer.trace(unit, unit.scope_of(operand), operand)
+    if (
+        tracer.work > _MAX_WORK
+        or any(len(chains) >= _REVIEW_MAX_CHAINS for chains in traversal.chains.values())
+        or traversal.chains[UNTRUSTED]
+        or traversal.chains[INCOMPLETE]
+        or _shared_temp_location(tracer.project, traversal)
+    ):
+        return None
+    proofs = sorted(
+        {
+            _component_proof_label(step)
+            for chain in traversal.chains[SAFE]
+            for step in chain
+            if any(marker in step for marker in _COMPONENT_PROOFS)
+        }
+    )
+    if not proofs:
+        return None
+    directory = _review_directory(tracer, unit, operand)
+    if directory is None:
+        directory = ("site", unit.rel, operand.lineno, operand.col_offset, rule)
+    # Keep source literals out of the report. A shared validator alone
+    # says nothing about who administers two different directories.
+    group = hashlib.sha256(repr((directory, proofs)).encode()).hexdigest()
+    return {
+        "status": "caller_selects_one_filename_component",
+        "proofs": proofs,
+        "open_prerequisite": COMPONENT_REVIEW_PREREQUISITE,
+        "group": "symlink-entry-access|" + group,
+    }
+
+
+def _review_directory(tracer, unit, operand):
+    """Recognize a direct join or the join passed to a storage helper.
+    An ambiguous caller or a more complex path keeps its own review item."""
+    scope = unit.scope_of(operand)
+    if isinstance(operand, ast.Name):
+        binding = unit.lookup(scope, operand.id)
+        if not binding or len(binding[1]) != 1 or binding[1][0].kind != "param":
+            return None
+        fn = binding[0].node
+        sites = tracer.project.call_sites(unit, fn)
+        if len(sites.resolved) != 1 or any(
+            (sites.possible, sites.escapes, sites.entries, sites.computed)
+        ):
+            return None
+        arguments = tracer.project.bind_argument(fn, sites.resolved[0], operand.id)
+        if len(arguments) != 1:
+            return None
+        operand, unit, scope = arguments[0]
+    if not (
+        isinstance(operand, ast.Call)
+        and len(operand.args) in {2, 3}
+        and not operand.keywords
+        and tracer._external_call(unit, scope, operand, {"os.path.join"})
+    ):
+        return None
+    base, component, *leaf = operand.args
+    if isinstance(base, ast.Name):
+        binding = unit.lookup(scope, base.id)
+        if not binding or binding[0] is not unit.module or len(binding[1]) != 1:
+            return None
+        bind = binding[1][0]
+        if (
+            bind.kind != "assign"
+            or not bind.top_level
+            or unit.star_import
+            or not tracer._global_writes(unit, base.id, [bind]).empty()
+        ):
+            return None
+        base = bind.value
+    if not (
+        isinstance(base, ast.Constant)
+        and isinstance(base.value, str)
+        and base.value.startswith("/")
+    ):
+        return None
+    if leaf and not (
+        isinstance(leaf[0], ast.Constant)
+        and isinstance(leaf[0].value, str)
+        and re.fullmatch(r"[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*", leaf[0].value)
+    ):
+        return None
+    component_facts = tracer.trace(unit, scope, component)
+    if any(chains for kind, chains in component_facts.chains.items() if kind != SAFE):
+        return None
+    if not component_facts.chains[SAFE] or not all(
+        any(marker in step for step in chain for marker in _COMPONENT_PROOFS)
+        for chain in component_facts.chains[SAFE]
+    ):
+        return None
+    # With a final leaf the validator selects a child directory of the base.
+    # With no leaf the validator selects the filename inside the base itself.
+    return ("directory", base.value, bool(leaf))
+
+
+def _component_proof_label(step):
+    """A helper proof is named by the validator it ran, wherever it was
+    called; other proofs keep their location."""
+    text = _strip_location(step)
+    validators = re.findall(r"`[^`]+` \([^)]*:\d+\)", text)
+    return ", ".join(validators) if validators else step
+
+
+def _unpredictable_name(facts):
+    return any(
+        f"`{name}()`" in step
+        for chains in facts.chains.values()
+        for chain in chains
+        for step in chain
+        for name in _UNPREDICTABLE_CALLS
+    )
+
+
+def _shared_temp_location(project, facts):
+    """Whether a recorded chain starts in a shared temporary directory:
+    ``tempfile.gettempdir()``/``mktemp()`` or a ``/tmp``, ``/var/tmp`` or
+    ``/dev/shm`` literal on a recorded line. Private ``mkstemp``/``mkdtemp``
+    paths do not count."""
+    units = getattr(project, "_units_by_rel", None)
+    if units is None:
+        units = project._units_by_rel = {
+            unit.rel: unit for unit in project.by_path.values()
+        }
+    temp_lines = getattr(project, "_shared_temp_lines", None)
+    if temp_lines is None:
+        temp_lines = project._shared_temp_lines = {}
+    for chains in facts.chains.values():
+        for chain in chains:
+            for step in chain:
+                if any(f"`{name}()`" in step for name in _SHARED_TEMP_CALLS):
+                    return True
+                location = step.split(" ", 1)[0]
+                rel, _, line = location.rpartition(":")
+                if not line.isdigit() or rel not in units:
+                    continue
+                if rel not in temp_lines:
+                    temp_lines[rel] = _shared_temp_literal_lines(units[rel].tree)
+                if int(line) in temp_lines[rel]:
+                    return True
+    return False
+
+
+def _shared_temp_literal_lines(tree):
+    lines = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Constant) or not isinstance(node.value, (str, bytes)):
+            continue
+        text = node.value if isinstance(node.value, str) else node.value.decode("latin-1")
+        if (text + "/").startswith(_SHARED_TEMP_PREFIXES):
+            lines.update(range(node.lineno, getattr(node, "end_lineno", node.lineno) + 1))
+    return frozenset(lines)
 
 
 _HTTP_REQUEST_FIELDS = frozenset(
@@ -7253,6 +8260,27 @@ _HTTP_REQUEST_FIELDS = frozenset(
         "body",
     }
 )
+
+
+def _gateway_parameter(fn, name):
+    """Name the server gateway protocol whose callable signature ``fn`` has
+    when ``name`` is the parameter that carries the request.
+
+    PEP 3333 calls a WSGI application with ``(environ, start_response)`` and
+    the ASGI specification calls an application with ``(scope, receive,
+    send)``. Only the complete signature counts; one matching name does not.
+    """
+    args = fn.args
+    if args.vararg or args.kwarg or args.kwonlyargs:
+        return None
+    names = [arg.arg for arg in [*args.posonlyargs, *args.args]]
+    if names and names[0] in {"self", "cls"}:
+        names = names[1:]
+    if names == list(_WSGI_SIGNATURE) and name == "environ":
+        return "WSGI"
+    if names == list(_ASGI_SIGNATURE) and name in {"scope", "receive"}:
+        return "ASGI"
+    return None
 
 
 def _reads_request_attributes(fn, name):

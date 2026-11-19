@@ -1,10 +1,11 @@
-"""Isaac 0.5 deployments in the SDK: a preset (or the repo's own adapter, or the robot's shapes)
-on the base weights, RTC chosen per run. Its legacy path (the create, Detect and embodiment
-code in ``checkpoints_cmd``) stays until DSL-348 moves it onto units."""
+"""SDK adapter for the original per-robot Isaac 0.5 deployments."""
 
-from __future__ import annotations
+from dreamscale_core.families import ISAAC05
 
 from dreamscale.deploy_bases import Base, DeployBase, cmd
+
+# The original CLI also accepted the lower-case model label without spaces.
+CLI_ALIAS = ISAAC05.label.lower().replace(" ", "")
 
 # Build steps in order, with the intake phases each covers.
 BUILD_STEPS = (
@@ -16,9 +17,9 @@ BUILD_STEPS = (
     # Intake reports its final phase a moment before the row's status flips.
     ("Testing on a server", ("qualifying", "ready", "failed")),
 )
-# Measured builds took 11–18 minutes (2026-10-09 to 2026-10-12, dev and prod).
 TYPICAL_BUILD = "usually about 15 min"
-CLI = Base({"bimanual_yam": "Bimanual YAM", "so101": "SO-101"}, BUILD_STEPS, TYPICAL_BUILD)
+CLI = Base({"bimanual_yam": "Bimanual YAM", "so101": "SO-101"},
+                  BUILD_STEPS, TYPICAL_BUILD)
 
 
 def robot_line(checkpoint: dict) -> str:
@@ -45,8 +46,9 @@ PREVIEW_CONTRACT = {
     "task_prepare_timeout_s": 300.0,
 }
 BASE = DeployBase(
-    family="isaac05", name="isaac0.5", label="Isaac 0.5", cli=CLI,
-    aliases=("isaac05", "perceptron-isaac05"), robot_line=robot_line, runner=runner,
+    family="isaac05", name="perceptron-isaac05", label="Isaac 0.5", cli=CLI,
+    aliases=("isaac05", CLI_ALIAS), robot_line=robot_line, runner=runner, claims_model=True,
+    row_models=("perceptron-isaac05-yam", "perceptron-isaac05-so101"),
     rtc_refusal_fix="choose RTC per run with `dreamscale run … --rtc`",
     preview_contract=PREVIEW_CONTRACT,
 )

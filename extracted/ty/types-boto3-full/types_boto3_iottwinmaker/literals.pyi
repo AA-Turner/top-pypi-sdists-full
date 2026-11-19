@@ -89,6 +89,7 @@ UpdateReasonType = Literal[
 ]
 IoTTwinMakerServiceName = Literal["iottwinmaker"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

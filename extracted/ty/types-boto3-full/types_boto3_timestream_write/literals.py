@@ -54,6 +54,7 @@ TableStatusType = Literal["ACTIVE", "DELETING", "RESTORING"]
 TimeUnitType = Literal["MICROSECONDS", "MILLISECONDS", "NANOSECONDS", "SECONDS"]
 TimestreamWriteServiceName = Literal["timestream-write"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

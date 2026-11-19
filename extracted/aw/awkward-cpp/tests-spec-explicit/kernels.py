@@ -1,4 +1,5 @@
 
+import functools
 import numpy
 from numpy import uint8
 kMaxInt64  = 9223372036854775806
@@ -1849,17 +1850,16 @@ awkward_UnionArray8_U32_validity = awkward_UnionArray_validity
 def awkward_argsort(
   toptr, fromptr, length, offsets, offsetslength, ascending, stable
 ):
-    result = []
-    indices = list(range(length))
+    result = list(range(length))
     for i in range(offsetslength - 1):
-        sub_indices = indices[offsets[i]:offsets[i+1]]
+        sub_indices = result[offsets[i]:offsets[i+1]]
         sorted_indices = sorted(
             sub_indices,
             key=lambda x: fromptr[x],
             reverse=not ascending
         )
         local_sorted_indices = [idx - offsets[i] for idx in sorted_indices]
-        result.extend(local_sorted_indices)
+        result[offsets[i]:offsets[i+1]] = local_sorted_indices
     for i in range(length):
         toptr[i] = result[i]
 
@@ -2152,29 +2152,35 @@ awkward_reduce_min_complex64_complex64_64 = awkward_reduce_min_complex
 awkward_reduce_min_complex128_complex128_64 = awkward_reduce_min_complex
 
 
-def awkward_reduce_prod(toptr, fromptr, offsets, outlength):
+def awkward_reduce_prod(toptr, fromptr, offsets, outlength, output_type=None):
     for bin in range(outlength):
         acc = 1
         for i in range(offsets[bin], offsets[bin + 1]):
             acc *= fromptr[i]
+        if output_type in ("int32_t", "uint32_t", "int64_t", "uint64_t"):
+            bits = 32 if "32" in output_type else 64
+            modulus = 1 << bits
+            acc = int(acc) % modulus
+            if output_type.startswith("int") and acc >= modulus // 2:
+                acc -= modulus
         toptr[bin] = acc
 
-awkward_reduce_prod_int64_int8_64 = awkward_reduce_prod
-awkward_reduce_prod_uint64_uint8_64 = awkward_reduce_prod
-awkward_reduce_prod_int64_int16_64 = awkward_reduce_prod
-awkward_reduce_prod_uint64_uint16_64 = awkward_reduce_prod
-awkward_reduce_prod_int64_int32_64 = awkward_reduce_prod
-awkward_reduce_prod_uint64_uint32_64 = awkward_reduce_prod
-awkward_reduce_prod_int64_int64_64 = awkward_reduce_prod
-awkward_reduce_prod_uint64_uint64_64 = awkward_reduce_prod
-awkward_reduce_prod_float32_float32_64 = awkward_reduce_prod
-awkward_reduce_prod_float64_float64_64 = awkward_reduce_prod
-awkward_reduce_prod_int32_int8_64 = awkward_reduce_prod
-awkward_reduce_prod_uint32_uint8_64 = awkward_reduce_prod
-awkward_reduce_prod_int32_int16_64 = awkward_reduce_prod
-awkward_reduce_prod_uint32_uint16_64 = awkward_reduce_prod
-awkward_reduce_prod_int32_int32_64 = awkward_reduce_prod
-awkward_reduce_prod_uint32_uint32_64 = awkward_reduce_prod
+awkward_reduce_prod_int64_int8_64 = functools.partial(awkward_reduce_prod, output_type='int64_t')
+awkward_reduce_prod_uint64_uint8_64 = functools.partial(awkward_reduce_prod, output_type='uint64_t')
+awkward_reduce_prod_int64_int16_64 = functools.partial(awkward_reduce_prod, output_type='int64_t')
+awkward_reduce_prod_uint64_uint16_64 = functools.partial(awkward_reduce_prod, output_type='uint64_t')
+awkward_reduce_prod_int64_int32_64 = functools.partial(awkward_reduce_prod, output_type='int64_t')
+awkward_reduce_prod_uint64_uint32_64 = functools.partial(awkward_reduce_prod, output_type='uint64_t')
+awkward_reduce_prod_int64_int64_64 = functools.partial(awkward_reduce_prod, output_type='int64_t')
+awkward_reduce_prod_uint64_uint64_64 = functools.partial(awkward_reduce_prod, output_type='uint64_t')
+awkward_reduce_prod_float32_float32_64 = functools.partial(awkward_reduce_prod, output_type='float')
+awkward_reduce_prod_float64_float64_64 = functools.partial(awkward_reduce_prod, output_type='double')
+awkward_reduce_prod_int32_int8_64 = functools.partial(awkward_reduce_prod, output_type='int32_t')
+awkward_reduce_prod_uint32_uint8_64 = functools.partial(awkward_reduce_prod, output_type='uint32_t')
+awkward_reduce_prod_int32_int16_64 = functools.partial(awkward_reduce_prod, output_type='int32_t')
+awkward_reduce_prod_uint32_uint16_64 = functools.partial(awkward_reduce_prod, output_type='uint32_t')
+awkward_reduce_prod_int32_int32_64 = functools.partial(awkward_reduce_prod, output_type='int32_t')
+awkward_reduce_prod_uint32_uint32_64 = functools.partial(awkward_reduce_prod, output_type='uint32_t')
 
 
 def awkward_reduce_prod_complex(toptr, fromptr, offsets, outlength):
@@ -2230,38 +2236,44 @@ awkward_reduce_prod_bool_complex64_64 = awkward_reduce_prod_bool_complex
 awkward_reduce_prod_bool_complex128_64 = awkward_reduce_prod_bool_complex
 
 
-def awkward_reduce_sum(toptr, fromptr, offsets, outlength):
+def awkward_reduce_sum(toptr, fromptr, offsets, outlength, output_type=None):
     for bin in range(outlength):
         acc = 0
         for i in range(offsets[bin], offsets[bin + 1]):
             acc += fromptr[i]
+        if output_type in ("int32_t", "uint32_t", "int64_t", "uint64_t"):
+            bits = 32 if "32" in output_type else 64
+            modulus = 1 << bits
+            acc = int(acc) % modulus
+            if output_type.startswith("int") and acc >= modulus // 2:
+                acc -= modulus
         toptr[bin] = acc
 
-awkward_reduce_sum_int64_int8_64 = awkward_reduce_sum
-awkward_reduce_sum_uint64_uint8_64 = awkward_reduce_sum
-awkward_reduce_sum_int64_int16_64 = awkward_reduce_sum
-awkward_reduce_sum_uint64_uint16_64 = awkward_reduce_sum
-awkward_reduce_sum_int64_int32_64 = awkward_reduce_sum
-awkward_reduce_sum_uint64_uint32_64 = awkward_reduce_sum
-awkward_reduce_sum_int64_int64_64 = awkward_reduce_sum
-awkward_reduce_sum_uint64_uint64_64 = awkward_reduce_sum
-awkward_reduce_sum_float32_float32_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_float64_64 = awkward_reduce_sum
-awkward_reduce_sum_int32_int8_64 = awkward_reduce_sum
-awkward_reduce_sum_uint32_uint8_64 = awkward_reduce_sum
-awkward_reduce_sum_int32_int16_64 = awkward_reduce_sum
-awkward_reduce_sum_uint32_uint16_64 = awkward_reduce_sum
-awkward_reduce_sum_int32_int32_64 = awkward_reduce_sum
-awkward_reduce_sum_uint32_uint32_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_int8_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_uint8_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_int16_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_uint16_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_int32_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_uint32_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_int64_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_uint64_64 = awkward_reduce_sum
-awkward_reduce_sum_float64_float32_64 = awkward_reduce_sum
+awkward_reduce_sum_int64_int8_64 = functools.partial(awkward_reduce_sum, output_type='int64_t')
+awkward_reduce_sum_uint64_uint8_64 = functools.partial(awkward_reduce_sum, output_type='uint64_t')
+awkward_reduce_sum_int64_int16_64 = functools.partial(awkward_reduce_sum, output_type='int64_t')
+awkward_reduce_sum_uint64_uint16_64 = functools.partial(awkward_reduce_sum, output_type='uint64_t')
+awkward_reduce_sum_int64_int32_64 = functools.partial(awkward_reduce_sum, output_type='int64_t')
+awkward_reduce_sum_uint64_uint32_64 = functools.partial(awkward_reduce_sum, output_type='uint64_t')
+awkward_reduce_sum_int64_int64_64 = functools.partial(awkward_reduce_sum, output_type='int64_t')
+awkward_reduce_sum_uint64_uint64_64 = functools.partial(awkward_reduce_sum, output_type='uint64_t')
+awkward_reduce_sum_float32_float32_64 = functools.partial(awkward_reduce_sum, output_type='float')
+awkward_reduce_sum_float64_float64_64 = functools.partial(awkward_reduce_sum, output_type='double')
+awkward_reduce_sum_int32_int8_64 = functools.partial(awkward_reduce_sum, output_type='int32_t')
+awkward_reduce_sum_uint32_uint8_64 = functools.partial(awkward_reduce_sum, output_type='uint32_t')
+awkward_reduce_sum_int32_int16_64 = functools.partial(awkward_reduce_sum, output_type='int32_t')
+awkward_reduce_sum_uint32_uint16_64 = functools.partial(awkward_reduce_sum, output_type='uint32_t')
+awkward_reduce_sum_int32_int32_64 = functools.partial(awkward_reduce_sum, output_type='int32_t')
+awkward_reduce_sum_uint32_uint32_64 = functools.partial(awkward_reduce_sum, output_type='uint32_t')
+awkward_reduce_sum_float64_int8_64 = functools.partial(awkward_reduce_sum, output_type='double')
+awkward_reduce_sum_float64_uint8_64 = functools.partial(awkward_reduce_sum, output_type='double')
+awkward_reduce_sum_float64_int16_64 = functools.partial(awkward_reduce_sum, output_type='double')
+awkward_reduce_sum_float64_uint16_64 = functools.partial(awkward_reduce_sum, output_type='double')
+awkward_reduce_sum_float64_int32_64 = functools.partial(awkward_reduce_sum, output_type='double')
+awkward_reduce_sum_float64_uint32_64 = functools.partial(awkward_reduce_sum, output_type='double')
+awkward_reduce_sum_float64_int64_64 = functools.partial(awkward_reduce_sum, output_type='double')
+awkward_reduce_sum_float64_uint64_64 = functools.partial(awkward_reduce_sum, output_type='double')
+awkward_reduce_sum_float64_float32_64 = functools.partial(awkward_reduce_sum, output_type='double')
 
 
 def awkward_reduce_sumofsquares(toptr, fromptr, offsets, outlength):

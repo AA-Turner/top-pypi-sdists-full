@@ -65,6 +65,7 @@ PolicyTypeType = Literal["STATIC", "TEMPLATE_LINKED"]
 ValidationModeType = Literal["OFF", "STRICT"]
 VerifiedPermissionsServiceName = Literal["verifiedpermissions"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1,4 +1,5 @@
 import pathlib
+import sys
 import tempfile
 import traceback
 
@@ -17,7 +18,7 @@ from dclab.rtdc_dataset.feat_anc_core.ancillary_feature import (
 from dclab.rtdc_dataset.feat_temp import deregister_all
 from dclab.rtdc_dataset.fmt_hierarchy import ChildNDArray
 
-from helper_methods import retrieve_data
+from helper_methods import example_data_dict, retrieve_data
 
 data_dir = pathlib.Path(__file__).parent / "data"
 
@@ -26,7 +27,6 @@ data_dir = pathlib.Path(__file__).parent / "data"
 def cleanup_plugin_features():
     """Fixture used to cleanup plugin feature tests"""
     # code run before the test
-    pass
     # then the test is run
     yield
     # code run after the test
@@ -201,7 +201,7 @@ def test_pf_bad_plugin_feature_name_list():
     """Basic test of a bad feature name for PlugInFeature"""
     info = example_plugin_info_single_feature()
     info["feature names"] = "Peter-Pan's Best Friend!"
-    with pytest.raises(ValueError, match="must be a list, got"):
+    with pytest.raises(TypeError, match="must be a list, got"):
         PlugInFeature("Peter-Pan's Best Friend!", info)
 
 
@@ -241,6 +241,35 @@ def test_pf_exists_in_hierarchy():
         assert dclab.dfn.feature_exists(pf.feature_name)
         child = dclab.new_dataset(ds)
         assert pf.feature_name in child
+
+
+def test_pf_identifier_method_constants_and_names():
+    """Methods that differ only in constants or names have different ids"""
+    def get_identifier(method):
+        info = example_plugin_info_single_feature()
+        info["method"] = method
+        pf = PlugInFeature("circ_per_area", info)
+        identifier = pf.plugin_feature_info["identifier"]
+        remove_all_plugin_features()
+        return identifier
+
+    def method_inner(factor):
+        def inner(rtdc_ds):
+            return {"circ_per_area": rtdc_ds["circ"] * factor}
+        return inner
+
+    ids = [
+        get_identifier(lambda ds: {"circ_per_area": ds["circ"] * 2}),
+        get_identifier(lambda ds: {"circ_per_area": ds["circ"] * 3}),
+        get_identifier(lambda ds: {"circ_per_area": np.sin(ds["circ"])}),
+        get_identifier(lambda ds: {"circ_per_area": np.cos(ds["circ"])}),
+    ]
+    assert len(set(ids)) == 4
+    # identical methods yield the same identifier
+    assert ids[0] == get_identifier(
+        lambda ds: {"circ_per_area": ds["circ"] * 2})
+    # nested code objects are hashed as well (not their memory address)
+    assert get_identifier(method_inner) == get_identifier(method_inner)
 
 
 @pytest.mark.filterwarnings(
@@ -430,7 +459,7 @@ def test_pf_import_error_attribution_issue_160_1():
     should be raised.
     """
     with pytest.raises(PluginImportError,
-                       match="The plugin could be not be found"):
+                       match="The plugin could not be found"):
         import_plugin_feature_script("/does/not/exist/laksdlaisdlaism.py")
 
 
@@ -493,14 +522,37 @@ def test_pf_import_plugin_info():
 def test_pf_import_plugin_info_bad_path():
     """Raise error when a bad pathname is given"""
     bad_plugin_path = "not/a/real/path/plugin.py"
-    with pytest.raises(PluginImportError, match="could be not be found"):
+    with pytest.raises(PluginImportError, match="could not be found"):
         import_plugin_feature_script(bad_plugin_path)
+
+
+def test_pf_import_plugin_same_name_different_directory(tmp_path):
+    """Plugins with identical file names must not be confused"""
+    for name in ["a", "b"]:
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "my_plugin_same_name.py").write_text(
+            f"info = {{'description': '{name}'}}\n")
+    info_a = import_plugin_feature_script(
+        tmp_path / "a" / "my_plugin_same_name.py")
+    info_b = import_plugin_feature_script(
+        tmp_path / "b" / "my_plugin_same_name.py")
+    assert info_a["description"] == "a"
+    # this returned the info of plugin "a"
+    assert info_b["description"] == "b"
+
+
+def test_pf_import_plugin_sys_path_unchanged():
+    """Importing a plugin must not modify `sys.path`"""
+    sys_path = list(sys.path)
+    import_plugin_feature_script(data_dir / "feat_anc_plugin_creative.py")
+    # The first item was removed and the plugin directory was left in it.
+    assert sys.path == sys_path
 
 
 def test_pf_incorrect_input_info():
     """Raise error when info is not a dictionary"""
     info = ["this", "is", "not", "a", "dict"]
-    with pytest.raises(ValueError, match="must be a dict"):
+    with pytest.raises(TypeError, match="must be a dict"):
         PlugInFeature("feature_1", info)
 
 
@@ -517,7 +569,7 @@ def test_pf_incorrect_input_method():
     info = example_plugin_info_single_feature()
     # set `info["method"]` to something that isn't callable
     info["method"] = "this_is_a_string"
-    with pytest.raises(ValueError, match="is not callable"):
+    with pytest.raises(TypeError, match="is not callable"):
         PlugInFeature("circ_per_area", info)
 
 
@@ -627,7 +679,7 @@ def test_pf_input_no_feature_labels():
     pf = PlugInFeature(feature_name, info)
     assert dclab.dfn.feature_exists(feature_name)
     label = dclab.dfn.get_feature_label(feature_name)
-    assert label == "Plugin feature {}".format(feature_name)
+    assert label == f"Plugin feature {feature_name}"
     assert label == pf.plugin_feature_info["feature label"]
 
 
@@ -780,6 +832,27 @@ def test_pf_remove_plugin_feature():
         remove_plugin_feature(not_a_plugin_instance)
 
 
+def test_pf_replace_plugin_feature_cache(tmp_path):
+    """Replacing a plugin must invalidate the cached feature data"""
+    ds = dclab.new_dataset({"circ": np.array([0.5, 0.6]),
+                            "deform": np.array([0.5, 0.4])})
+    for factor in [2, 3]:
+        plugin_path = tmp_path / f"plugin_factor_{factor}.py"
+        plugin_path.write_text(
+            "def compute(rtdc_ds):\n"
+            f"    return {{'circ_times_factor': rtdc_ds['circ'] * {factor}}}\n"
+            "\n"
+            "info = {'method': compute,\n"
+            "        'feature names': ['circ_times_factor'],\n"
+            "        'features required': ['circ']}\n"
+        )
+        dclab.load_plugin_feature(plugin_path)
+        # This returned the cached data of the first plugin.
+        assert np.allclose(ds["circ_times_factor"], [0.5 * factor,
+                                                     0.6 * factor])
+        remove_all_plugin_features()
+
+
 def test_pf_try_existing_feature_fails():
     """An existing feature name is not allowed"""
     info = example_plugin_info_single_feature()
@@ -801,7 +874,7 @@ def test_pf_with_empty_feature_label_string():
     assert dclab.dfn.feature_exists("circ_per_area")
     label = dclab.dfn.get_feature_label("circ_per_area")
     assert label != ""
-    assert label == "Plugin feature {}".format(feature_name)
+    assert label == f"Plugin feature {feature_name}"
 
 
 def test_pf_with_feature_label():
@@ -828,7 +901,7 @@ def test_pf_with_no_feature_label():
     assert dclab.dfn.feature_exists("circ_per_area")
     label = dclab.dfn.get_feature_label("circ_per_area")
     assert label is not None
-    assert label == "Plugin feature {}".format(feature_name)
+    assert label == f"Plugin feature {feature_name}"
 
 
 @pytest.mark.filterwarnings(
@@ -934,6 +1007,42 @@ if __name__ == "__main__":
     # Run all tests
     loc = locals()
     for key in list(loc.keys()):
-        if key.startswith("test_") and hasattr(loc[key], "__call__"):
+        if key.startswith("test_") and callable(loc[key]):
             loc[key]()
             remove_all_plugin_features()
+
+
+def test_pf_missing_required_feature_error_message():
+    """The KeyError should name the missing required features (#150)"""
+    info = example_plugin_info_single_feature()
+    pf = PlugInFeature("circ_per_area", info)
+    ds = dclab.new_dataset({"area_um": np.linspace(10, 20, 5),
+                            "deform": np.linspace(.01, .02, 5)})
+    assert pf.get_missing_requirements(ds) == ["feature 'circ'"]
+    with pytest.raises(KeyError,
+                       match="PlugInFeature \\(priority 0\\) requires "
+                             "feature 'circ'"):
+        ds["circ_per_area"]
+
+
+def test_pf_method_check_required_error_message():
+    """The KeyError should mention the failed custom check (#150)"""
+    info = example_plugin_info_single_feature()
+    info["method check required"] = lambda rtdc_ds: False
+    pf = PlugInFeature("circ_per_area", info)
+    ddict = example_data_dict(size=5, keys=["area_um", "circ", "deform"])
+    ds = dclab.new_dataset(ddict)
+    assert pf.get_missing_requirements(ds) == [
+        ("custom requirement check (e.g. 'method check required' of "
+         "plugin features)")]
+    with pytest.raises(KeyError, match="custom requirement check"):
+        ds["circ_per_area"]
+
+
+def test_pf_no_missing_requirements():
+    info = example_plugin_info_single_feature()
+    pf = PlugInFeature("circ_per_area", info)
+    ddict = example_data_dict(size=5, keys=["area_um", "circ", "deform"])
+    ds = dclab.new_dataset(ddict)
+    assert pf.get_missing_requirements(ds) == []
+    assert "circ_per_area" in ds

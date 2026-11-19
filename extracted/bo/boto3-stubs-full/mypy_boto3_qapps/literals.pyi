@@ -79,6 +79,7 @@ SenderType = Literal["SYSTEM", "USER"]
 SubmissionMutationKindType = Literal["add", "delete", "edit"]
 QAppsServiceName = Literal["qapps"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

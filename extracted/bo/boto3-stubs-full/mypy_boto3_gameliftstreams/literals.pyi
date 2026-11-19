@@ -137,6 +137,7 @@ StreamUrlStatusReasonType = Literal[
 StreamUrlStatusType = Literal["ACTIVE", "EXPIRED", "LIMIT_REACHED", "REVOKED"]
 GameLiftStreamsServiceName = Literal["gameliftstreams"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

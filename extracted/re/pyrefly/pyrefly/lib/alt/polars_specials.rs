@@ -5,12 +5,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-//! Column-aware typing for Polars and pandas DataFrames.
+//! Column-aware typing for Polars, Narwhals, and pandas DataFrames.
 
 use pyrefly_types::data_frame::DataFrameKind;
 use pyrefly_types::data_frame::DataFrameSchema;
 use pyrefly_types::data_frame::SchemaCompleteness;
 use pyrefly_types::data_frame::SchemaRole;
+use pyrefly_types::known_class::KnownClass;
 use pyrefly_types::polars_dtype::PolarsArrayShape;
 use pyrefly_types::polars_dtype::PolarsDType;
 use pyrefly_types::series::SeriesSchema;
@@ -46,12 +47,16 @@ use crate::binding::polars::polars_column_mutation;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::types::class::Class;
+use crate::types::env::TypeEnv;
 use crate::types::function::FuncDefId;
 use crate::types::function::FunctionKind;
 use crate::types::literal::Lit;
 
 const POLARS_MODULE: &str = "polars";
 const POLARS_MODULE_PREFIX: &str = "polars.";
+const NARWHALS_MODULE: &str = "narwhals";
+const NARWHALS_MODULE_PREFIX: &str = "narwhals.";
+const NARWHALS_STABLE_NAMESPACES: [&str; 2] = ["narwhals.stable.v1", "narwhals.stable.v2"];
 const POLARS_ALL_COLUMNS: &str = "*";
 const POLARS_DEFAULT_INFER_SCHEMA_LENGTH: usize = 100;
 const POLARS_DEFAULT_JOIN_SUFFIX: &str = "_right";
@@ -67,6 +72,10 @@ enum RuntimeClass {
     PolarsLazyFrame,
     PolarsCol,
     PolarsSchema,
+    NarwhalsDataFrame,
+    NarwhalsLazyFrame,
+    NarwhalsSeries,
+    NarwhalsExpr,
     PandasDataFrame,
     Date,
     Datetime,
@@ -75,22 +84,46 @@ enum RuntimeClass {
 }
 
 impl RuntimeClass {
+    fn known_classes(self) -> &'static [KnownClass] {
+        match self {
+            Self::PolarsDataFrame => &[KnownClass::PolarsDataFrame],
+            Self::PolarsSeries => &[KnownClass::PolarsSeries],
+            Self::PolarsDataFrameSeries => &[KnownClass::PolarsDataFrameSeries],
+            Self::PolarsExpr => &[KnownClass::PolarsExpr],
+            Self::PolarsLazyFrame => &[KnownClass::PolarsLazyFrame],
+            Self::PolarsCol => &[KnownClass::PolarsCol],
+            Self::PolarsSchema => &[KnownClass::PolarsSchema],
+            Self::NarwhalsDataFrame => &[
+                KnownClass::NarwhalsDataFrame,
+                KnownClass::NarwhalsStableV1DataFrame,
+                KnownClass::NarwhalsStableV2DataFrame,
+            ],
+            Self::NarwhalsLazyFrame => &[
+                KnownClass::NarwhalsLazyFrame,
+                KnownClass::NarwhalsStableV1LazyFrame,
+                KnownClass::NarwhalsStableV2LazyFrame,
+            ],
+            Self::NarwhalsSeries => &[
+                KnownClass::NarwhalsSeries,
+                KnownClass::NarwhalsStableV1Series,
+                KnownClass::NarwhalsStableV2Series,
+            ],
+            Self::NarwhalsExpr => &[
+                KnownClass::NarwhalsExpr,
+                KnownClass::NarwhalsStableV1Expr,
+                KnownClass::NarwhalsStableV2Expr,
+            ],
+            Self::PandasDataFrame => &[KnownClass::PandasDataFrame],
+            Self::Date => &[KnownClass::DatetimeDate],
+            Self::Datetime => &[KnownClass::Datetime],
+            Self::Time => &[KnownClass::DatetimeTime],
+            Self::Timedelta => &[KnownClass::DatetimeTimedelta],
+        }
+    }
+
     fn matches(self, cls: &Class) -> bool {
-        let (module, name) = match self {
-            Self::PolarsDataFrame => ("polars.dataframe.frame", "DataFrame"),
-            Self::PolarsSeries => ("polars.series.series", "Series"),
-            Self::PolarsDataFrameSeries => ("polars.dataframe.frame", "Series"),
-            Self::PolarsExpr => ("polars.expr.expr", "Expr"),
-            Self::PolarsLazyFrame => ("polars.lazyframe.frame", "LazyFrame"),
-            Self::PolarsCol => ("polars.functions.col", "Col"),
-            Self::PolarsSchema => ("polars.schema", "Schema"),
-            Self::PandasDataFrame => ("pandas.core.frame", "DataFrame"),
-            Self::Date => ("datetime", "date"),
-            Self::Datetime => ("datetime", "datetime"),
-            Self::Time => ("datetime", "time"),
-            Self::Timedelta => ("datetime", "timedelta"),
-        };
-        cls.has_toplevel_qname(module, name)
+        cls.known()
+            .is_some_and(|known| self.known_classes().contains(&known))
     }
 }
 
@@ -98,8 +131,8 @@ fn is_polars_dataframe(cls: &Class) -> bool {
     RuntimeClass::PolarsDataFrame.matches(cls)
 }
 
-pub fn is_polars_series(cls: &Class) -> bool {
-    RuntimeClass::PolarsSeries.matches(cls)
+pub fn is_polars_api_series(cls: &Class) -> bool {
+    RuntimeClass::PolarsSeries.matches(cls) || RuntimeClass::NarwhalsSeries.matches(cls)
 }
 
 /// Identifies the callable object that also supports `pl.col.name` access.
@@ -107,12 +140,28 @@ pub fn is_polars_col(cls: &Class) -> bool {
     RuntimeClass::PolarsCol.matches(cls)
 }
 
-fn is_polars_expr(cls: &Class) -> bool {
-    RuntimeClass::PolarsExpr.matches(cls)
+fn is_polars_api_expr(cls: &Class) -> bool {
+    RuntimeClass::PolarsExpr.matches(cls) || RuntimeClass::NarwhalsExpr.matches(cls)
 }
 
 fn is_polars_lazyframe(cls: &Class) -> bool {
     RuntimeClass::PolarsLazyFrame.matches(cls)
+}
+
+/// The library an eager frame class belongs to, for the libraries following the Polars API.
+fn eager_frame_kind(cls: &Class) -> Option<DataFrameKind> {
+    if is_polars_dataframe(cls) {
+        Some(DataFrameKind::Polars)
+    } else if RuntimeClass::NarwhalsDataFrame.matches(cls) {
+        Some(DataFrameKind::Narwhals)
+    } else {
+        None
+    }
+}
+
+/// Whether the class is a lazy frame of a library following the Polars API.
+fn is_lazy_frame(cls: &Class) -> bool {
+    is_polars_lazyframe(cls) || RuntimeClass::NarwhalsLazyFrame.matches(cls)
 }
 
 fn column_transform_schema<'b>(base: &'b Type, args: &Arguments) -> Option<&'b DataFrameSchema> {
@@ -211,15 +260,15 @@ fn polars_dtype_from_scalar_type(ty: &Type) -> Option<PolarsDType> {
     let Type::ClassType(cls) = ty else {
         return None;
     };
-    Some(if cls.is_builtin("bool") {
+    Some(if cls.is(KnownClass::Bool) {
         PolarsDType::Boolean
-    } else if cls.is_builtin("int") {
+    } else if cls.is(KnownClass::Int) {
         PolarsDType::Int64
-    } else if cls.is_builtin("float") {
+    } else if cls.is(KnownClass::Float) {
         PolarsDType::Float64
-    } else if cls.is_builtin("str") {
+    } else if cls.is(KnownClass::Str) {
         PolarsDType::String
-    } else if cls.is_builtin("bytes") {
+    } else if cls.is(KnownClass::Bytes) {
         PolarsDType::Binary
     } else {
         return None;
@@ -236,18 +285,23 @@ fn is_polars_selector_name(name: &Name) -> bool {
 }
 
 /// Map a resolved type to the Polars dtype it names, e.g. the `pl.Float64` class to `Float64`.
-/// Only the modeled scalar dtypes from the `polars` package are recognized; anything else is `None`.
-fn polars_dtype_from_type(ty: &Type) -> Option<PolarsDType> {
+/// Only the modeled scalar dtypes are recognized, and only from a package whose dtype classes
+/// carry Polars' names and meanings; anything else is `None`.
+fn polars_dtype_from_type<E: TypeEnv + ?Sized>(env: &E, ty: &Type) -> Option<PolarsDType> {
     let cls = match ty {
         Type::ClassDef(cls) => cls,
         Type::ClassType(cls) => cls.class_object(),
         _ => return None,
     };
     let module = cls.module_name();
-    if module.as_str() != POLARS_MODULE && !module.as_str().starts_with(POLARS_MODULE_PREFIX) {
+    let module = module.as_str();
+    let in_package = |root: &str, prefix: &str| module == root || module.starts_with(prefix);
+    if !in_package(POLARS_MODULE, POLARS_MODULE_PREFIX)
+        && !in_package(NARWHALS_MODULE, NARWHALS_MODULE_PREFIX)
+    {
         return None;
     }
-    PolarsDType::from_polars_name(cls.name().as_str())
+    PolarsDType::from_polars_name(cls.name(env).as_str())
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -329,7 +383,30 @@ enum PolarsFrameConversion {
 
 impl PolarsFunction {
     fn from_id(id: &FuncDefId) -> Self {
-        match (id.qname.id().as_str(), id.qname.module_name().as_str()) {
+        let name = id.qname.id().as_str();
+        let module = id.qname.module_name();
+        let module = module.as_str();
+        if module == "narwhals.functions" {
+            return match name {
+                "col" => Self::Col,
+                "concat" => Self::Concat,
+                "len_" => Self::Len,
+                "lit" => Self::Lit,
+                "when" => Self::When,
+                _ => Self::Unmodeled,
+            };
+        }
+        if NARWHALS_STABLE_NAMESPACES.contains(&module) {
+            return match name {
+                "col" => Self::Col,
+                "concat" => Self::Concat,
+                "len" => Self::Len,
+                "lit" => Self::Lit,
+                "when" => Self::When,
+                _ => Self::Unmodeled,
+            };
+        }
+        match (name, module) {
             ("col", "polars.functions.col") => Self::Col,
             ("concat", "polars.functions.eager") => Self::Concat,
             ("len", "polars.functions.len") => Self::Len,
@@ -341,13 +418,13 @@ impl PolarsFunction {
         }
     }
 
-    fn from_callee(callee: &Type) -> Option<Self> {
+    fn from_callee(env: &dyn TypeEnv, callee: &Type) -> Option<Self> {
         if let Type::ClassType(cls) = callee
             && is_polars_col(cls.class_object())
         {
             return Some(Self::Col);
         }
-        match callee.callee_kind() {
+        match callee.callee_kind(env) {
             Some(CalleeKind::Function(FunctionKind::Def(id))) => Some(Self::from_id(&id)),
             _ => None,
         }
@@ -355,8 +432,11 @@ impl PolarsFunction {
 }
 
 /// For a resolved `polars.col` or `polars.lit`, whether strings name columns rather than values.
-pub(crate) fn polars_function_treats_strings_as_columns(callee: &Type) -> Option<bool> {
-    match PolarsFunction::from_callee(callee)? {
+pub(crate) fn polars_function_treats_strings_as_columns(
+    env: &dyn TypeEnv,
+    callee: &Type,
+) -> Option<bool> {
+    match PolarsFunction::from_callee(env, callee)? {
         PolarsFunction::Col => Some(true),
         PolarsFunction::Lit => Some(false),
         _ => None,
@@ -723,6 +803,54 @@ impl ExprValue {
             ExprValue::Dtype(d) => d.is_integer(),
         }
     }
+
+    /// The dtype of the column this value produces. On Narwhals frames, an integer literal that
+    /// fits in 32 bits is `Unknown` because Narwhals does not guarantee its dtype.
+    fn column_dtype(self, kind: DataFrameKind) -> PolarsDType {
+        match self {
+            ExprValue::IntLit(v) if kind == DataFrameKind::Narwhals && i32::try_from(v).is_ok() => {
+                PolarsDType::Unknown
+            }
+            value => value.dtype(),
+        }
+    }
+}
+
+/// Computes the result of an expression node from its operands. On Narwhals frames, the result
+/// is `Unknown` unless Narwhals guarantees its dtype, which requires every numeric operand and the
+/// result to be `Int64` or `Float64`. `narwhals_unspecified` marks an operation whose dtype
+/// Narwhals does not guarantee even then.
+fn computed_value<const N: usize>(
+    kind: DataFrameKind,
+    operands: [ExprValue; N],
+    narwhals_unspecified: bool,
+    compute: impl FnOnce([ExprValue; N]) -> Option<ExprValue>,
+) -> Option<ExprValue> {
+    match kind {
+        DataFrameKind::Polars => return compute(operands),
+        DataFrameKind::Narwhals => {}
+        DataFrameKind::Pandas => {
+            unreachable!("Polars expressions are only evaluated on Polars-API frames")
+        }
+    }
+    if narwhals_unspecified {
+        return Some(ExprValue::Dtype(PolarsDType::Unknown));
+    }
+    let unspecified = |value: &ExprValue| match value {
+        ExprValue::Dtype(PolarsDType::Int64 | PolarsDType::Float64) => false,
+        ExprValue::Dtype(PolarsDType::Unknown) => true,
+        ExprValue::Dtype(d) => d.is_numeric(),
+        ExprValue::IntLit(_) | ExprValue::FloatLit => false,
+    };
+    if operands.iter().any(unspecified) {
+        return Some(ExprValue::Dtype(PolarsDType::Unknown));
+    }
+    let result = compute(operands)?;
+    Some(if unspecified(&result) {
+        ExprValue::Dtype(PolarsDType::Unknown)
+    } else {
+        result
+    })
 }
 
 fn literal_value(expr: &Expr) -> Option<ExprValue> {
@@ -747,7 +875,7 @@ fn series_method_schema(base: &Type) -> Option<&DataFrameSchema> {
     let Type::DataFrame(schema) = base else {
         return None;
     };
-    (schema.kind == DataFrameKind::Polars && schema.is_complete()).then_some(&**schema)
+    (schema.kind.is_polars_api() && schema.is_complete()).then_some(&**schema)
 }
 
 fn get_column_name_arg(args: &Arguments) -> Option<&Expr> {
@@ -1094,7 +1222,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 },
             );
         }
-        match PolarsFunction::from_callee(callee) {
+        match PolarsFunction::from_callee(self, callee) {
             Some(PolarsFunction::Csv(function)) => {
                 return self
                     .infer_polars_csv_schema(arguments, function)
@@ -1108,9 +1236,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 return self
                     .infer_polars_concat(arguments)
                     .map(
-                        |(columns, completeness)| PolarsCallSpecialization::DataFrame {
+                        |(columns, completeness, kind)| PolarsCallSpecialization::DataFrame {
                             columns,
-                            kind: DataFrameKind::Polars,
+                            kind,
                             completeness,
                         },
                     );
@@ -1118,7 +1246,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             _ => {}
         }
         if let Type::ClassDef(cls) = callee
-            && is_polars_series(cls)
+            && RuntimeClass::PolarsSeries.matches(cls)
         {
             return self
                 .infer_series_dtype(arguments)
@@ -1162,7 +1290,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             return Some(dtype);
         }
         let ty = self.expr_infer(e, &self.error_swallower());
-        polars_dtype_from_type(&ty)
+        polars_dtype_from_type(self, &ty)
     }
 
     fn polars_nested_dtype_from_call(&self, call: &ExprCall) -> Option<PolarsDType> {
@@ -1174,7 +1302,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         if module.as_str() != POLARS_MODULE && !module.as_str().starts_with(POLARS_MODULE_PREFIX) {
             return None;
         }
-        match cls.name().as_str() {
+        match cls.name(self).as_str() {
             "Array" => {
                 if !arguments_are_valid(&call.arguments, 2, Some(&["inner", "shape"])) {
                     return None;
@@ -1656,14 +1784,20 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         Some(entries)
     }
 
-    /// Interpret supported `Annotated[pl.DataFrame, ...]` metadata as a schema contract.
-    pub fn polars_dataframe_annotated_type(&self, inner: &Type, metadata: &[Type]) -> Option<Type> {
+    /// Interpret supported `Annotated[pl.DataFrame, ...]` or `Annotated[pl.LazyFrame, ...]`
+    /// metadata as a schema contract.
+    pub fn polars_frame_annotated_type(&self, inner: &Type, metadata: &[Type]) -> Option<Type> {
         let Type::ClassType(underlying) = inner else {
             return None;
         };
-        if !is_polars_dataframe(underlying.class_object()) {
-            return None;
-        }
+        let class = underlying.class_object();
+        let kind = if is_polars_lazyframe(class) {
+            DataFrameKind::Polars
+        } else if RuntimeClass::NarwhalsLazyFrame.matches(class) {
+            DataFrameKind::Narwhals
+        } else {
+            eager_frame_kind(class)?
+        };
         let (schema_cls, completeness) = match metadata {
             [Type::ClassDef(schema_cls)] => (schema_cls, SchemaCompleteness::Complete),
             [Type::ClassDef(schema_cls), tail] if tail.is_ellipsis_value() => {
@@ -1676,7 +1810,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 underlying: underlying.clone(),
                 columns: self.schema_class_columns(schema_cls)?,
                 completeness,
-                kind: DataFrameKind::Polars,
+                kind,
                 role: SchemaRole::Contract,
             }
             .to_type(),
@@ -1703,7 +1837,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
         let mut columns = Vec::with_capacity(fields.len());
         for (name, field) in &fields {
-            columns.push((name.clone(), polars_dtype_from_type(&field.ty())?));
+            columns.push((name.clone(), polars_dtype_from_type(self, &field.ty())?));
         }
         Some(columns)
     }
@@ -1714,10 +1848,13 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         expr: &Expr,
     ) -> Option<(Vec<(Name, PolarsDType)>, SchemaCompleteness)> {
         let ty = self.expr_infer(expr, &self.error_swallower());
-        let Type::TypedDict(typed_dict) = &ty else {
-            return None;
+        let fields = match &ty {
+            Type::ClassType(ct) if self.is_typed_dict_class(ct.class_object()) => {
+                self.typed_dict_fields(ct)
+            }
+            Type::AnonymousTypedDict(typed_dict) => typed_dict.fields.iter().cloned().collect(),
+            _ => return None,
         };
-        let fields = self.typed_dict_fields(typed_dict);
         if fields.is_empty() {
             return None;
         }
@@ -2068,7 +2205,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     fn infer_polars_concat(
         &self,
         arguments: &Arguments,
-    ) -> Option<(Vec<(Name, PolarsDType)>, SchemaCompleteness)> {
+    ) -> Option<(Vec<(Name, PolarsDType)>, SchemaCompleteness, DataFrameKind)> {
         let [items] = &arguments.args[..] else {
             return None;
         };
@@ -2081,25 +2218,30 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let schemas = elts
             .iter()
             .map(|e| match self.expr_infer(e, &self.error_swallower()) {
-                Type::DataFrame(schema) if schema.kind == DataFrameKind::Polars => {
-                    Some((schema.columns, schema.completeness))
+                Type::DataFrame(schema) if schema.kind.is_polars_api() => {
+                    Some((schema.columns, schema.completeness, schema.kind))
                 }
                 _ => None,
             })
             .collect::<Option<Vec<_>>>()?;
-        let completeness = schemas
-            .iter()
-            .fold(SchemaCompleteness::Complete, |completeness, (_, next)| {
-                completeness.combine(*next)
-            });
+        let completeness = schemas.iter().fold(
+            SchemaCompleteness::Complete,
+            |completeness, (_, next, _)| completeness.combine(*next),
+        );
         let (first, rest) = schemas.split_first()?;
+        let kind = first.2;
+        // Concatenating frames from different libraries, e.g. a Polars frame with a Narwhals one,
+        // is not something either library supports, so fall back rather than merge across kinds.
+        if rest.iter().any(|(_, _, other)| *other != kind) {
+            return None;
+        }
         let columns = match how {
             ConcatHow::Vertical => rest
                 .iter()
-                .all(|(columns, _)| columns == &first.0)
+                .all(|(columns, _, _)| columns == &first.0)
                 .then(|| first.0.clone())?,
             ConcatHow::VerticalRelaxed => {
-                let names_match = rest.iter().all(|(columns, _)| {
+                let names_match = rest.iter().all(|(columns, _, _)| {
                     columns.len() == first.0.len()
                         && columns.iter().zip(&first.0).all(|((n, _), (m, _))| n == m)
                 });
@@ -2111,15 +2253,17 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     .iter()
                     .enumerate()
                     .map(|(i, (name, dtype))| {
-                        let folded = rest.iter().try_fold(dtype.clone(), |acc, (columns, _)| {
-                            acc.supertype(columns[i].1.clone())
-                        })?;
+                        let folded = rest
+                            .iter()
+                            .try_fold(dtype.clone(), |acc, (columns, _, _)| {
+                                acc.supertype(columns[i].1.clone())
+                            })?;
                         Some((name.clone(), folded))
                     })
                     .collect::<Option<Vec<_>>>()?
             }
         };
-        Some((columns, completeness))
+        Some((columns, completeness, kind))
     }
 
     /// Anchors on the first non-null element; only Polars reports later mismatches.
@@ -2343,7 +2487,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     }
                     PolarsOutputSource::Expr(expr) => self
                         .eval_polars_expr(expr, schema, errors)
-                        .map(ExprValue::dtype),
+                        .map(|value| value.column_dtype(schema.kind)),
                     PolarsOutputSource::Unmodeled => None,
                 };
                 if dtype.is_some() && !resolved_names.insert(output.name.clone()) {
@@ -2405,7 +2549,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         if let [arg] = &positional_expressions(args)[..]
@@ -2426,7 +2570,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     /// Remove statically named columns while preserving order.
     fn polars_drop(&self, base: &Type, args: &Arguments, errors: &ErrorCollector) -> Option<Type> {
         let schema = column_transform_schema(base, args)?;
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         let positional = args
@@ -2470,7 +2614,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let [Expr::Dict(mapping)] = &args.args[..] else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         let mut renames: SmallMap<Name, (Name, TextRange)> =
@@ -2538,13 +2682,38 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         }
                         Some(PolarsExprMethod::Reducer(reducer)) => {
                             let inner = self.eval_polars_expr(&attr.value, schema, errors)?;
-                            return Some(ExprValue::Dtype(reducer.output_dtype(inner.dtype())?));
+                            return match reducer {
+                                // `Identity` is `min`, `max`, `first`, or `last`. Narwhals
+                                // guarantees that these keep the input dtype, so unlike the other
+                                // reducers they are not limited to `Int64` and `Float64` inputs.
+                                Reducer::Identity => {
+                                    Some(ExprValue::Dtype(inner.column_dtype(schema.kind)))
+                                }
+                                _ => {
+                                    // Narwhals does not guarantee the dtype of an integer sum,
+                                    // even of an `Int64` column.
+                                    let narwhals_unspecified =
+                                        matches!(reducer, Reducer::Sum) && inner.is_integer();
+                                    computed_value(
+                                        schema.kind,
+                                        [inner],
+                                        narwhals_unspecified,
+                                        |[inner]| {
+                                            reducer
+                                                .output_dtype(inner.dtype())
+                                                .map(ExprValue::Dtype)
+                                        },
+                                    )
+                                }
+                            };
                         }
                         None => {}
                     }
                 }
                 match self.polars_function(&call.func)? {
-                    PolarsFunction::Len => Some(ExprValue::Dtype(PolarsDType::UInt32)),
+                    PolarsFunction::Len => computed_value(schema.kind, [], false, |[]| {
+                        Some(ExprValue::Dtype(PolarsDType::UInt32))
+                    }),
                     PolarsFunction::Col => {
                         let [arg] = &call.arguments.args[..] else {
                             return None;
@@ -2576,11 +2745,19 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             Expr::BinOp(binop) => {
                 let a = self.eval_polars_expr(&binop.left, schema, errors)?;
                 let b = self.eval_polars_expr(&binop.right, schema, errors)?;
-                combine_binop(binop.op, a, b)
+                // Narwhals does not guarantee the dtype of an integer power or bitwise operation.
+                let narwhals_unspecified = matches!(
+                    binop.op,
+                    Operator::Pow | Operator::BitAnd | Operator::BitOr | Operator::BitXor
+                ) && a.is_integer()
+                    && b.is_integer();
+                computed_value(schema.kind, [a, b], narwhals_unspecified, |[a, b]| {
+                    combine_binop(binop.op, a, b)
+                })
             }
             Expr::UnaryOp(unary) => {
                 let a = self.eval_polars_expr(&unary.operand, schema, errors)?;
-                unary_value(unary.op, a)
+                computed_value(schema.kind, [a], false, |[a]| unary_value(unary.op, a))
             }
             Expr::Compare(cmp) => {
                 let ([op], [left, right]) = (&*cmp.ops, &*cmp.operands) else {
@@ -2605,7 +2782,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     }
 
     fn polars_function(&self, func: &Expr) -> Option<PolarsFunction> {
-        PolarsFunction::from_callee(&self.expr_infer(func, &self.error_swallower()))
+        PolarsFunction::from_callee(self, &self.expr_infer(func, &self.error_swallower()))
     }
 
     fn polars_col_attribute_name(&self, expr: &Expr) -> Option<Name> {
@@ -2816,7 +2993,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     fn is_polars_expr_value(&self, expr: &Expr) -> bool {
         matches!(
             self.expr_infer(expr, &self.error_swallower()),
-            Type::ClassType(cls) if is_polars_expr(cls.class_object())
+            Type::ClassType(cls) if is_polars_api_expr(cls.class_object())
         )
     }
 
@@ -2830,7 +3007,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         match self.polars_projection(schema, args, errors)? {
@@ -2871,7 +3048,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         // Validate every output name before emitting diagnostics.
@@ -2946,7 +3123,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             ColumnArg::Opaque => None,
             ColumnArg::Expr => Some(
                 self.eval_polars_expr(expr, schema, errors)
-                    .map_or(PolarsDType::Unknown, ExprValue::dtype),
+                    .map_or(PolarsDType::Unknown, |value| {
+                        value.column_dtype(schema.kind)
+                    }),
             ),
         }
     }
@@ -2969,7 +3148,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 self.expr_infer(expr, errors);
                 let dtype = if self.polars_expr_aggregates(expr) {
                     self.eval_polars_expr(expr, schema, errors)
-                        .map_or(PolarsDType::Unknown, ExprValue::dtype)
+                        .map_or(PolarsDType::Unknown, |value| {
+                            value.column_dtype(schema.kind)
+                        })
                 } else {
                     // Evaluate for column-existence errors, but the list dtype is unmodeled.
                     self.eval_polars_expr(expr, schema, errors);
@@ -3089,7 +3270,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         for arg in args.args.iter() {
@@ -3112,7 +3293,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         if let Some(ArgumentValue::Present(by)) = extract_argument(args, 0, "by") {
@@ -3145,7 +3326,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         if let Some(ArgumentValue::Present(subset)) = extract_argument(args, 0, "subset") {
@@ -3177,7 +3358,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         if let Some(ArgumentValue::Present(subset)) = extract_argument(args, 0, "subset") {
@@ -3207,7 +3388,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         // A bare `Expr::Starred` is treated as a type form, so infer its value instead.
@@ -3259,7 +3440,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars || !args.args.is_empty() {
+        if !schema.kind.is_polars_api() || !args.args.is_empty() {
             return None;
         }
         // Delegate keyword validation and the result class to the stub.
@@ -3275,7 +3456,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         );
         match (conversion, result) {
             (PolarsFrameConversion::Lazy, Type::ClassType(cls))
-                if is_polars_lazyframe(cls.class_object()) =>
+                if is_lazy_frame(cls.class_object()) =>
             {
                 Some(
                     DataFrameSchema {
@@ -3287,7 +3468,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 )
             }
             (PolarsFrameConversion::Collect, Type::ClassType(cls))
-                if is_polars_dataframe(cls.class_object()) =>
+                if eager_frame_kind(cls.class_object()).is_some() =>
             {
                 Some(
                     DataFrameSchema {
@@ -3308,7 +3489,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let [arg] = &args.args[..] else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         let columns = match arg {
@@ -3355,7 +3536,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if schema.kind != DataFrameKind::Polars {
+        if !schema.kind.is_polars_api() {
             return None;
         }
         let [other_expr] = &args.args[..] else {
@@ -3546,7 +3727,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         matches!(
             self.expr_infer(callee, &self.error_swallower()),
             Type::ClassDef(cls)
-                if is_polars_series(&cls) || RuntimeClass::PolarsDataFrameSeries.matches(&cls)
+                if is_polars_api_series(&cls) || RuntimeClass::PolarsDataFrameSeries.matches(&cls)
         )
     }
 
@@ -3622,7 +3803,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             None,
         );
         match (dtype, result) {
-            (Some(dtype), Type::ClassType(cls)) if is_polars_series(cls.class_object()) => {
+            (Some(dtype), Type::ClassType(cls)) if is_polars_api_series(cls.class_object()) => {
                 SeriesSchema {
                     underlying: cls,
                     dtype,

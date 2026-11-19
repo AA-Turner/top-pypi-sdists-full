@@ -1,12 +1,12 @@
 Metadata-Version: 2.5
 Name: omnibase_infra
-Version: 0.38.76
+Version: 0.38.78
 Summary: ONEX Infrastructure - Service integration and database infrastructure tools
 Author-email: "OmniNode.ai" <contact@omninode.ai>
 License: MIT
 License-File: LICENSE
 Requires-Python: >=3.12
-Requires-Dist: a2a-sdk<2.0.0,>=0.3.4
+Requires-Dist: a2a-sdk<1.0.0,>=0.3.4
 Requires-Dist: aiofiles<26.0.0,>=23.2.1
 Requires-Dist: aiohttp<4.0.0,>=3.14.4
 Requires-Dist: aiokafka[snappy]<0.15.0,>=0.11.0
@@ -23,19 +23,18 @@ Requires-Dist: httpx<0.29.0,>=0.28.1
 Requires-Dist: infisicalsdk<2.0.0,>=1.0.15
 Requires-Dist: jinja2<4.0.0,>=3.1.6
 Requires-Dist: jsonschema<5.0.0,>=4.20.0
-Requires-Dist: mcp<3.0.0,>=1.25.0
+Requires-Dist: mcp<3.0.0,>=2.3.0
 Requires-Dist: neo4j<7.0.0,>=5.15.0
-Requires-Dist: omnibase-compat==0.5.7
-Requires-Dist: omnibase-core<0.48.0,>=0.47.31
-Requires-Dist: omnibase-spi==0.23.7
+Requires-Dist: omnibase-core<0.48.0,>=0.47.62
+Requires-Dist: omnibase-spi<0.24.0,>=0.23.15
 Requires-Dist: opentelemetry-api<2.0.0,>=1.27.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.27.0
-Requires-Dist: opentelemetry-instrumentation-aiohttp-client<0.66,>=0.48b0
-Requires-Dist: opentelemetry-instrumentation-asyncpg<0.66,>=0.48b0
-Requires-Dist: opentelemetry-instrumentation-fastapi<0.66,>=0.48b0
-Requires-Dist: opentelemetry-instrumentation-kafka-python<0.66,>=0.48b0
-Requires-Dist: opentelemetry-instrumentation-redis<0.66,>=0.48b0
-Requires-Dist: opentelemetry-instrumentation<0.66,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-aiohttp-client<0.67,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-asyncpg<0.67,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-fastapi<0.67,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-kafka-python<0.67,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-redis<0.67,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation<0.67,>=0.48b0
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.27.0
 Requires-Dist: packaging<27.0,>=23.0
 Requires-Dist: prometheus-client<0.27.0,>=0.19.0
@@ -64,3 +63,12 @@ Description-Content-Type: text/markdown
 omnibase_infra provides ONEX infrastructure implementations, service integrations, and runtime tooling.
 
 Documentation: [knowledge_base](https://github.com/OmniNode-ai/knowledge_base).
+
+## Dev work-ledger reads
+
+`onex ledger query --bus-lane dev` calls the work-ledger read node and prints its full JSON answer including freshness and parity. For ledger-ask and catchup configure `ONEX_LEDGER_BUS_READ_COMMAND='onex ledger query --bus-lane dev --stdin'`. The machine's issued dev credential and declared lane transport are resolved automatically. `--stdin` preserves the caller's correlation and filters and refuses query filter flags. Failed reads are nonzero and print no answer on stdout. Production is refused. This client does not flip ledger authority or certify seven exact parity days or concurrent claim-token uniqueness.
+
+```shell
+export ONEX_LEDGER_BUS_READ_COMMAND='onex ledger query --bus-lane dev --stdin'
+onex ledger query --bus-lane dev --query rows --ticket OMN-20740
+```

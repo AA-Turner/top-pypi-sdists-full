@@ -24,6 +24,7 @@ from typing import IO, Any, Union
 from botocore.response import StreamingBody
 
 from .literals import (
+    AccountSharedPoolDeliveryModeType,
     AttachmentContentDispositionType,
     AttachmentContentTransferEncodingType,
     BehaviorOnMxFailureType,
@@ -67,6 +68,7 @@ from .literals import (
     ReviewStatusType,
     ScalingModeType,
     SendingStatusType,
+    SharedPoolDeliveryModeType,
     StatusType,
     SubscriptionStatusType,
     SuppressionConfidenceVerdictThresholdType,
@@ -152,6 +154,7 @@ __all__ = (
     "DeleteTenantRequestTypeDef",
     "DeleteTenantResourceAssociationRequestTypeDef",
     "DeliverabilityTestReportTypeDef",
+    "DeliveryAttributesTypeDef",
     "DeliveryOptionsTypeDef",
     "DestinationTypeDef",
     "DetailsTypeDef",
@@ -313,6 +316,7 @@ __all__ = (
     "PlacementStatisticsTypeDef",
     "PricingAttributesTypeDef",
     "PutAccountDedicatedIpWarmupAttributesRequestTypeDef",
+    "PutAccountDeliveryAttributesRequestTypeDef",
     "PutAccountDetailsRequestTypeDef",
     "PutAccountPricingAttributesRequestTypeDef",
     "PutAccountSendingAttributesRequestTypeDef",
@@ -505,6 +509,7 @@ class DeliveryOptionsTypeDef(TypedDict):
     TlsPolicy: NotRequired[TlsPolicyType]
     SendingPoolName: NotRequired[str]
     MaxDeliverySeconds: NotRequired[int]
+    SharedPoolDeliveryMode: NotRequired[SharedPoolDeliveryModeType]
 
 class SendingOptionsTypeDef(TypedDict):
     SendingEnabled: NotRequired[bool]
@@ -656,6 +661,9 @@ class DeliverabilityTestReportTypeDef(TypedDict):
     FromEmailAddress: NotRequired[str]
     CreateDate: NotRequired[datetime]
     DeliverabilityTestStatus: NotRequired[DeliverabilityTestStatusType]
+
+class DeliveryAttributesTypeDef(TypedDict):
+    SharedPoolDeliveryMode: NotRequired[AccountSharedPoolDeliveryModeType]
 
 class RouteDetailsTypeDef(TypedDict):
     Region: str
@@ -1003,6 +1011,9 @@ class MessageInsightsFiltersTypeDef(TypedDict):
 class PutAccountDedicatedIpWarmupAttributesRequestTypeDef(TypedDict):
     AutoWarmupEnabled: NotRequired[bool]
 
+class PutAccountDeliveryAttributesRequestTypeDef(TypedDict):
+    SharedPoolDeliveryMode: AccountSharedPoolDeliveryModeType
+
 class PutAccountDetailsRequestTypeDef(TypedDict):
     MailType: MailTypeType
     WebsiteURL: str
@@ -1026,6 +1037,7 @@ class PutConfigurationSetDeliveryOptionsRequestTypeDef(TypedDict):
     TlsPolicy: NotRequired[TlsPolicyType]
     SendingPoolName: NotRequired[str]
     MaxDeliverySeconds: NotRequired[int]
+    SharedPoolDeliveryMode: NotRequired[SharedPoolDeliveryModeType]
 
 class PutConfigurationSetReputationOptionsRequestTypeDef(TypedDict):
     ConfigurationSetName: str
@@ -1991,6 +2003,7 @@ class GetAccountResponseTypeDef(TypedDict):
     Details: AccountDetailsTypeDef
     VdmAttributes: VdmAttributesTypeDef
     PricingAttributes: PricingAttributesTypeDef
+    DeliveryAttributes: DeliveryAttributesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetConfigurationSetResponseTypeDef(TypedDict):

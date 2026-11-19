@@ -265,11 +265,13 @@ from sarj_python_lint.rules.no_sys_path_mutation import NoSysPathMutation
 from sarj_python_lint.rules.no_unknown_pydantic_validator_field import NoUnknownPydanticValidatorField
 from sarj_python_lint.rules.no_unobserved_task_exception import NoUnobservedTaskException
 from sarj_python_lint.rules.no_unscoped_async_client_factory import NoUnscopedAsyncClientFactory
+from sarj_python_lint.rules.no_value_error_forwarder import NoValueErrorForwarder
 from sarj_python_lint.rules.no_work_verb_get_route import NoWorkVerbGetRoute
 from sarj_python_lint.rules.numeric_literal_separators import NumericLiteralSeparators
 from sarj_python_lint.rules.prefer_application_model_joins import PreferApplicationModelJoins
 from sarj_python_lint.rules.prefer_bulk_upsert import PreferBulkUpsert
 from sarj_python_lint.rules.prefer_coordinated_state_owner import PreferCoordinatedStateOwner
+from sarj_python_lint.rules.prefer_defaultdict import PreferDefaultdict
 from sarj_python_lint.rules.prefer_direct_import_module import PreferDirectImportModule
 from sarj_python_lint.rules.prefer_discriminated_model_union import PreferDiscriminatedModelUnion
 from sarj_python_lint.rules.prefer_explicit_class_contract import PreferExplicitClassContract
@@ -280,6 +282,7 @@ from sarj_python_lint.rules.prefer_optional_composite import PreferOptionalCompo
 from sarj_python_lint.rules.prefer_outcome_variants import PreferOutcomeVariants
 from sarj_python_lint.rules.prefer_precise_object_contract import PreferPreciseObjectContract
 from sarj_python_lint.rules.prefer_psycopg_executemany import PreferPsycopgExecutemany
+from sarj_python_lint.rules.prefer_pydantic_field_bounds import PreferPydanticFieldBounds
 from sarj_python_lint.rules.prefer_pydantic_model_assertion import PreferPydanticModelAssertion
 from sarj_python_lint.rules.prefer_pytest_dependency_fixtures import PreferPytestDependencyFixtures
 from sarj_python_lint.rules.prefer_runtime_validation import PreferRuntimeValidation
@@ -305,6 +308,9 @@ from sarj_python_lint.rules.test_without_explicit_oracle import NoExplicitTestOr
 
 _AUTHORING_REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
     {
+        PreferPydanticFieldBounds.id: PreferPydanticFieldBounds,
+        NoValueErrorForwarder.id: NoValueErrorForwarder,
+        PreferDefaultdict.id: PreferDefaultdict,
         NoNonlocalStatement.id: NoNonlocalStatement,
         NoUnscopedAsyncClientFactory.id: NoUnscopedAsyncClientFactory,
         PsycopgSqlFormatFieldMismatch.id: PsycopgSqlFormatFieldMismatch,

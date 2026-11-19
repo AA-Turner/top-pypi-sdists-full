@@ -27,6 +27,7 @@ __all__ = (
     "BraketServiceName",
     "CancellationStatusType",
     "CompressionTypeType",
+    "DeviceStatusReasonCodeType",
     "DeviceStatusType",
     "DeviceTypeType",
     "ExperimentalCapabilitiesEnablementTypeType",
@@ -55,7 +56,8 @@ __all__ = (
 AssociationTypeType = Literal["RESERVATION_TIME_WINDOW_ARN"]
 CancellationStatusType = Literal["CANCELLED", "CANCELLING"]
 CompressionTypeType = Literal["GZIP", "NONE"]
-DeviceStatusType = Literal["OFFLINE", "ONLINE", "RETIRED"]
+DeviceStatusReasonCodeType = Literal["MAINTENANCE", "OUTSIDE_AVAILABILITY_WINDOW", "RESERVATION"]
+DeviceStatusType = Literal["OFFLINE", "ONLINE", "PAUSED", "RETIRED"]
 DeviceTypeType = Literal["QPU", "SIMULATOR"]
 ExperimentalCapabilitiesEnablementTypeType = Literal["ALL", "NONE"]
 HybridJobAdditionalAttributeNameType = Literal["QueueInfo"]
@@ -107,13 +109,6 @@ InstanceTypeType = Literal[
     "ml.m5.4xlarge",
     "ml.m5.large",
     "ml.m5.xlarge",
-    "ml.p2.16xlarge",
-    "ml.p2.8xlarge",
-    "ml.p2.xlarge",
-    "ml.p3.16xlarge",
-    "ml.p3.2xlarge",
-    "ml.p3.8xlarge",
-    "ml.p3dn.24xlarge",
     "ml.p4d.24xlarge",
     "ml.t3.2xlarge",
     "ml.t3.large",
@@ -150,6 +145,7 @@ SearchSpendingLimitsFilterOperatorType = Literal["EQUAL"]
 SearchSpendingLimitsPaginatorName = Literal["search_spending_limits"]
 BraketServiceName = Literal["braket"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

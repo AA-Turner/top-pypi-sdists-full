@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: monai
-Version: 1.6.1
+Version: 1.6.2
 Summary: AI Toolkit for Healthcare Imaging
 Author-email: MONAI Consortium <monai.contact@gmail.com>
-License: Apache License 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://project-monai.github.io/
 Project-URL: Documentation, https://monai.readthedocs.io/
 Project-URL: Bug Tracker, https://github.com/Project-MONAI/MONAI/issues
@@ -44,7 +44,6 @@ Requires-Dist: imagecodecs; (platform_system == "Linux" or platform_system == "D
 Requires-Dist: itk>=5.2; extra == "all"
 Requires-Dist: jsonschema; extra == "all"
 Requires-Dist: lmdb; extra == "all"
-Requires-Dist: lpips==0.1.4; extra == "all"
 Requires-Dist: matplotlib>=3.6.3; extra == "all"
 Requires-Dist: mlflow>=3.15.2; extra == "all"
 Requires-Dist: nibabel; extra == "all"
@@ -111,7 +110,7 @@ Requires-Dist: jsonschema; extra == "jsonschema"
 Provides-Extra: lmdb
 Requires-Dist: lmdb; extra == "lmdb"
 Provides-Extra: lpips
-Requires-Dist: lpips==0.1.4; extra == "lpips"
+Requires-Dist: torchvision; extra == "lpips"
 Provides-Extra: matplotlib
 Requires-Dist: matplotlib>=3.6.3; extra == "matplotlib"
 Provides-Extra: mlflow

@@ -76,8 +76,32 @@ def test_compose_mounts_typed_overlay_without_model_endpoint_env_wiring() -> Non
         )
     assert lane_overlay_mounts(COMPOSE_INFRA) == {
         service: [LANE_OVERLAY_MOUNT]
-        for service in _RUNTIME_SERVICES | {"tenant-projection-writer"}
+        for service in _RUNTIME_SERVICES
+        | {"tenant-projection-writer", "projection-claude-hook-events-writer"}
     }
+
+
+def test_every_service_that_renders_bifrost_mounts_the_overlay_it_pins() -> None:
+    """A kernel service that pins the overlay path must also mount the file.
+
+    OMN-21433: projection-claude-hook-events-writer inherited the pin from
+    x-runtime-env but declared no mount, so its entrypoint preflight raised
+    "Bifrost lane overlay not found" on every boot. The pin and the mount are
+    one decision; this reads the pin from the rendered environment so a new
+    kernel service cannot carry one without the other.
+    """
+    services = yaml.safe_load(COMPOSE_INFRA.read_text(encoding="utf-8"))["services"]
+    pinned = {
+        name
+        for name, service in services.items()
+        if (service.get("environment") or {}).get("BIFROST_LANE_OVERLAY_PATH")
+        == LANE_OVERLAY_TARGET
+    }
+
+    # Positive control: the services the pin is known to reach are found.
+    assert pinned >= _RUNTIME_SERVICES
+    assert "projection-claude-hook-events-writer" in pinned
+    assert pinned == set(lane_overlay_mounts(COMPOSE_INFRA))
 
 
 def test_receipt_mode_has_no_legacy_home_dotenv_loader() -> None:
@@ -155,14 +179,28 @@ def test_stability_lane_mounts_the_overlay_at_the_pinned_path() -> None:
 
 
 def test_standalone_lane_files_pin_and_mount_their_own_overlay() -> None:
-    """Each standalone recipe binds its project's overlay at the shared path."""
+    """Each standalone recipe binds its project's overlay at the shared path.
+
+    Both runtimes pin the path, and every service that names a non-empty
+    BIFROST_LANE_OVERLAY_PATH mounts it. The collaborator lane's delegation
+    writer merges that lane's runtime env and renders from the path too
+    (OMN-17427); a service that blanks it, such as projection-api, mounts nothing.
+    """
     runtime_services = {"omninode-runtime", "runtime-effects"}
     for path in _STANDALONE_RENDERING_LANE_FILES.values():
-        assert lane_overlay_mounts(path) == {
-            service: [LANE_OVERLAY_MOUNT] for service in runtime_services
-        }
         services = load_compose(path)["services"]
-        for service in runtime_services:
+        carriers = {
+            name
+            for name, service in services.items()
+            if ((service or {}).get("environment") or {}).get(
+                "BIFROST_LANE_OVERLAY_PATH"
+            )
+        }
+        assert runtime_services <= carriers
+        assert lane_overlay_mounts(path) == {
+            service: [LANE_OVERLAY_MOUNT] for service in carriers
+        }
+        for service in carriers:
             assert services[service]["environment"]["BIFROST_LANE_OVERLAY_PATH"] == (
                 LANE_OVERLAY_TARGET
             )

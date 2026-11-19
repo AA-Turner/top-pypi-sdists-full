@@ -123,6 +123,7 @@ PreferenceValueType = Literal["DISABLED", "ENABLED"]
 SearchOptionType = Literal["STARTS_WITH"]
 BillingServiceName = Literal["billing"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

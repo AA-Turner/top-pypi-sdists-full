@@ -71,6 +71,7 @@ TraceSegmentDestinationStatusType = Literal["ACTIVE", "PENDING"]
 TraceSegmentDestinationType = Literal["CloudWatchLogs", "XRay"]
 XRayServiceName = Literal["xray"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

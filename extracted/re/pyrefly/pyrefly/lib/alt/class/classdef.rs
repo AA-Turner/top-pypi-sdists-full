@@ -5,16 +5,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::sync::Arc;
-
-use dupe::Dupe;
-use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_types::callable::Callable;
-use pyrefly_types::class::PrecomputedTParams;
-use pyrefly_types::quantified::Quantified;
+use pyrefly_types::class::DjangoSpecialization;
+use pyrefly_types::known_class::KnownClass;
 use pyrefly_types::special_form::SpecialForm;
-use ruff_python_ast::Identifier;
 use ruff_python_ast::name::Name;
+use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
@@ -26,7 +23,6 @@ use crate::alt::types::class_metadata::ClassDisjointBase;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::EnumMetadata;
-use crate::binding::binding::ClassDefData;
 use crate::binding::binding::KeyAbstractClassCheck;
 use crate::binding::binding::KeyClassBaseType;
 use crate::binding::binding::KeyClassDisjointBase;
@@ -34,7 +30,6 @@ use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSubscriptSymmetry;
-use crate::error::collector::ErrorCollector;
 use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
@@ -63,74 +58,18 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
     }
 
-    pub fn class_definition(
-        &self,
-        def_index: ClassDefIndex,
-        x: &ClassDefData,
-        parent: &NestingContext,
-        is_protocol: bool,
-        tparams_require_binding: bool,
-        errors: &ErrorCollector,
-    ) -> Class {
-        // Legacy type variables can produce a cycle, so their tparams are left to
-        // the class's `KeyTParams` binding. Everything else is computed here, and
-        // a class that turns out to declare nothing records no tparams at all.
-        let precomputed_tparams = if tparams_require_binding {
-            PrecomputedTParams::FromBinding
-        } else {
-            let tparams =
-                self.calculate_class_tparams_no_legacy(&x.name, x.type_params.as_deref(), errors);
-            if tparams.is_empty() {
-                PrecomputedTParams::NotGeneric
-            } else {
-                PrecomputedTParams::Precomputed(Arc::new(tparams))
-            }
-        };
+    /// The class defined at `def_index` in this module.
+    pub fn class_definition(&self, def_index: ClassDefIndex) -> Class {
         Class::new(
+            self.module().key(),
             def_index,
-            x.name.clone(),
-            parent.dupe(),
-            self.module().dupe(),
-            precomputed_tparams,
-            is_protocol,
-        )
-    }
-
-    pub fn functional_class_definition(
-        &self,
-        def_index: ClassDefIndex,
-        name: &Identifier,
-        parent: &NestingContext,
-    ) -> Class {
-        Class::new(
-            def_index,
-            name.clone(),
-            parent.dupe(),
-            self.module().dupe(),
-            PrecomputedTParams::NotGeneric,
-            false,
+            self.bindings().metadata().get_class(def_index).def.known(),
         )
     }
 
     pub fn get_metadata_for_class(&self, cls: &Class) -> &ClassMetadata {
         self.get_from_class(cls, &KeyClassMetadata(cls.index()))
             .unwrap_or(ClassMetadata::recursive())
-    }
-
-    pub fn shaped_array_shape_for_class(&self, cls: &Class) -> Option<Quantified> {
-        // Shaped-array registration is explicit per class, via the `@shaped_array` decorator.
-        self.get_metadata_for_class(cls)
-            .shaped_array_shape()
-            .cloned()
-    }
-
-    pub fn shaped_array_shape_for_class_type(&self, cls: &ClassType) -> Option<Quantified> {
-        self.shaped_array_shape_for_class(cls.class_object())
-    }
-
-    pub fn uses_builtin_shaped_array_indexing(&self, cls: &Class) -> bool {
-        self.get_metadata_for_class(cls)
-            .uses_builtin_shaped_array_indexing()
     }
 
     pub fn get_abstract_members_for_class(&self, cls: &Class) -> &AbstractClassMembers {
@@ -147,6 +86,35 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     pub fn get_base_types_for_class(&self, cls: &Class) -> &ClassBases {
         self.get_from_class(cls, &KeyClassBaseType(cls.index()))
             .unwrap_or(ClassBases::recursive())
+    }
+
+    /// The source range of the decorator at `position` in the decorator list of `cls`, which must
+    /// be defined in this module. Answers store the position rather than the range, so that an
+    /// edit that only moves the class leaves them unchanged.
+    pub fn class_decorator_range(&self, cls: &Class, position: usize) -> TextRange {
+        assert_eq!(
+            cls.module_path(),
+            self.module().path(),
+            "a class's decorator and base ranges are looked up in the module that defines it",
+        );
+        let bindings = self.bindings();
+        let metadata = bindings.get(bindings.key_to_idx(&KeyClassMetadata(cls.index())));
+        bindings.idx_to_key(metadata.decorators[position]).range()
+    }
+
+    /// The source range of the base at `position` in the base class list of `cls`, which must be
+    /// defined in this module. See `class_decorator_range`.
+    pub fn class_base_range(&self, cls: &Class, position: usize) -> TextRange {
+        assert_eq!(
+            cls.module_path(),
+            self.module().path(),
+            "a class's decorator and base ranges are looked up in the module that defines it",
+        );
+        let bindings = self.bindings();
+        bindings
+            .get(bindings.key_to_idx(&KeyClassBaseType(cls.index())))
+            .bases[position]
+            .range()
     }
 
     pub fn get_mro_for_class(&self, cls: &Class) -> &ClassMro {
@@ -180,14 +148,24 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     pub fn unwrap_class_object_silently(&self, ty: &Type) -> Option<(TParams, Type)> {
         match ty {
-            Type::ClassDef(c) if c.is_builtin("tuple") => Some(self.instantiate_unbounded_tuple()),
+            Type::ClassDef(c) if c.is(KnownClass::Tuple) => {
+                Some(self.instantiate_unbounded_tuple())
+            }
             Type::ClassDef(c) => Some((
                 self.get_class_tparams(c)
                     .map_or_else(TParams::default, |tparams| (**tparams).clone()),
                 self.instantiate(c),
             )),
+            Type::SpecializedClassDef(c) => Some((TParams::empty(), Type::ClassType(c.clone()))),
             Type::TypeAlias(ta) => {
                 self.unwrap_class_object_silently(&self.get_type_alias(ta).as_value(self.stdlib))
+            }
+            Type::Intersect(intersection) => {
+                // A class-object member proves that the intersection is a class object.
+                intersection
+                    .0
+                    .iter()
+                    .find_map(|member| self.unwrap_class_object_silently(member))
             }
             // Note that for the purposes of type narrowing, we always unwrap Type::Type(Type::ClassType),
             // but it's not always a valid argument to isinstance/issubclass. expr_infer separately checks
@@ -254,7 +232,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     pub fn as_superclass(&self, class: &ClassType, want: &Class) -> Option<ClassType> {
         if class.class_object() == want {
             Some(class.clone())
-        } else if !class.class_object().is_builtin("tuple")
+        } else if let Some(DjangoSpecialization::EffectiveBase(base)) =
+            class.django_specialization()
+            && self.has_superclass(base.class_object(), want)
+        {
+            self.as_superclass(base, want)
+        } else if !class.class_object().is(KnownClass::Tuple)
             && let Some(tuple) = self.as_tuple(class)
             && self.has_superclass(self.stdlib.tuple_object(), want)
         {
@@ -267,7 +250,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             self.as_superclass(&tuple_class, want)
         } else {
             self.get_ancestor(class.class_object(), want)
-                .map(|ancestor| ancestor.substitute_with(&class.substitution()))
+                .map(|ancestor| ancestor.substitute_with(&class.substitution(), self))
         }
     }
 

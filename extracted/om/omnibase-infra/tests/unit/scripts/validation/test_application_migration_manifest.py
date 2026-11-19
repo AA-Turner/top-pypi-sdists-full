@@ -880,6 +880,10 @@ def test_checked_in_manifest_is_exact_and_all_blockers_are_explicit() -> None:
     # lab_job_state and lab_job_transitions read models and 0001 grants the
     # runtime role on both. Vendored FIRST ahead of omnimarket#3434; the live
     # count below includes both declarations.
+    # 329 -> 330 for OMN-17427: node_llm_delegation_call_effect/0000
+    # creates delegation_lab_jobs and delegation_lab_job_outbox and grants the
+    # runtime role on both. Vendored FIRST ahead of omnimarket#4277; the live
+    # count below includes this declaration.
     live_node_sql_count = len(list((MIGRATIONS_DIR / "nodes").glob("*/*.sql")))
     assert len(result.declarations) + len(result.blocked) == live_node_sql_count
     assert result.blocked == ()
@@ -1222,7 +1226,12 @@ def test_duplicate_verified_adoptions_are_rejected(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "filename",
-    ["0000_create_work_ledger.sql", "0001_grant_omninode_runtime_work_ledger.sql"],
+    [
+        "0000_create_work_ledger.sql",
+        "0001_grant_omninode_runtime_work_ledger.sql",
+        "0007_work_ledger_history_import.sql",
+        "0008_grant_omninode_runtime_ledger_line_citation.sql",
+    ],
 )
 def test_work_ledger_migrations_are_declared_in_the_internal_domain(
     filename: str,

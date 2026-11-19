@@ -92,6 +92,7 @@ TokenStatusType = Literal["CREATING", "DELETING", "OPERATIONAL"]
 UpdateIpAddressOperationType = Literal["ADD", "REMOVE", "UPDATE"]
 Route53GlobalResolverServiceName = Literal["route53globalresolver"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -23,6 +23,7 @@ from pydantic import (
     ConfigDict,
     Field,
     JsonValue,
+    TypeAdapter,
     ValidationError,
     field_validator,
     model_validator,
@@ -30,6 +31,8 @@ from pydantic import (
 
 from omnimarket.models.delegation.wire.model_delegate_skill_response import (
     ModelDelegateSkillResponse,
+    declares_failed_acceptance,
+    failed_acceptance_reason,
 )
 
 logger = logging.getLogger(__name__)
@@ -316,7 +319,8 @@ class ModelDelegationEventProjectionRow(BaseModel):
     # OMN-20717: NULL for a call that was not priced, never an invented zero.
     cost_usd: Decimal | None
     cost_savings_usd: Decimal
-    latency_ms: int
+    # OMN-24615 AC8: NULL for a call that did not complete and timed nothing (latency 0), never a measured 0 ms.
+    latency_ms: int | None
     repo_name: str | None = None
     is_shadow: bool = False
     prompt_text: str | None = None
@@ -339,7 +343,17 @@ class ModelDelegationEventProjectionRow(BaseModel):
         metrics = event.metrics
         delegated_to = event.model_name or event.provider or "delegate-skill"
         tokens_to_compliance = metrics.tokens_to_compliance or metrics.total_tokens
-        quality_detail = event.error_message or event.status
+        # OMN-21607: a row that failed its acceptance check says which
+        # criterion it failed, not just the status the port reported.
+        quality_detail = (
+            event.error_message
+            or (
+                failed_acceptance_reason(event)
+                if declares_failed_acceptance(event)
+                else ""
+            )
+            or event.status
+        )
         return cls(
             correlation_id=event.correlation_id,
             session_id=event.session_id,
@@ -365,7 +379,11 @@ class ModelDelegationEventProjectionRow(BaseModel):
             # column. Keep that compatibility projection numeric; the typed
             # receipt and savings_estimates row preserve unresolved as null.
             cost_savings_usd=Decimal(str(metrics.cost_savings_usd or 0.0)),
-            latency_ms=metrics.latency_ms,
+            latency_ms=(
+                None
+                if metrics.latency_ms == 0 and event.status != "completed"
+                else metrics.latency_ms
+            ),
             repo_name=event.repo_name,
             prompt_text=event.prompt_text,
             # OMN-13596: never write a timeout/error string into response_text
@@ -772,10 +790,32 @@ def _payload_with_envelope_timestamp(
     return normalized
 
 
+#: The payload keys ``ModelDelegateSkillTerminalProjection.emitted_at`` reads,
+#: in its alias order.
+_TERMINAL_TIME_KEYS = ("emitted_at", "emittedAt", "timestamp")
+_AWARE_DATETIME: TypeAdapter[datetime] = TypeAdapter(AwareDatetime)
+
+
 def _has_timestamp(payload: Mapping[str, object]) -> bool:
-    return any(
-        payload.get(key) is not None for key in ("emitted_at", "emittedAt", "timestamp")
-    )
+    return any(payload.get(key) is not None for key in _TERMINAL_TIME_KEYS)
+
+
+def terminal_event_time(payload: Mapping[str, object]) -> datetime | None:
+    """The time ``from_payload`` records for a delegate-skill terminal, or None.
+
+    OMN-19996. The same rule the delegation_events row's ``timestamp`` comes
+    from: the payload's own ``emitted_at`` (or its aliases) when present, else
+    the wire envelope's ``envelope_timestamp``. Where ``from_payload`` would
+    fall back to the current time this returns None, so a caller never records
+    an invented time. Raises ``ValidationError`` for a value that is not an
+    aware time, as ``from_payload`` does.
+    """
+    normalized = _payload_with_envelope_timestamp(payload)
+    for key in _TERMINAL_TIME_KEYS:
+        value = normalized.get(key)
+        if value is not None:
+            return _AWARE_DATETIME.validate_python(value)
+    return None
 
 
 __all__ = [
@@ -786,4 +826,5 @@ __all__ = [
     "ModelDelegationEventProjectionRow",
     "ModelProjectionEnvelopeMetadata",
     "ModelTaskDelegatedSavingsSource",
+    "terminal_event_time",
 ]

@@ -205,6 +205,7 @@ TlogAccessModeType = Literal["BackupOnly", "PreferBackup", "PreferTlog", "TlogOn
 VersionStatusType = Literal["OUTDATED", "UNSUPPORTED", "UP_TO_DATE"]
 DatabaseMigrationServiceServiceName = Literal["dms"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

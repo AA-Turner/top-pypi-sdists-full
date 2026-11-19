@@ -125,6 +125,7 @@ VerificationStatusType = Literal[
 VerificationTypeType = Literal["BUSINESS_VERIFICATION", "REGISTRANT_VERIFICATION"]
 PartnerCentralAccountAPIServiceName = Literal["partnercentral-account"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

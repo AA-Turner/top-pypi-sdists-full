@@ -115,6 +115,7 @@ SystemTemplateFilterNameType = Literal["FLOW_TEMPLATE_ID"]
 UploadStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 IoTThingsGraphServiceName = Literal["iotthingsgraph"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

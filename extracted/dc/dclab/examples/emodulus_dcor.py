@@ -33,13 +33,13 @@ labels = []  # list of flow rate labels
 # load the data
 for loc in ds_loc:
     ds = dclab.new_dataset(loc)
-    labels.append("{:.2f}".format(ds.config["setup"]["flow rate"]))
+    labels.append(f"{ds.config['setup']['flow rate']:.2f}")
     # emodulus computation
     ds.config["calculation"]["emodulus lut"] = "LE-2D-FEM-19"
     ds.config["calculation"]["emodulus medium"] = ds.config["setup"]["medium"]
     ds.config["calculation"]["emodulus temperature"] = \
         ds.config["setup"]["temperature"]
-    ds.config["calculation"]["emodulus viscosity model"] = 'buyukurganci-2022'
+    ds.config["calculation"]["emodulus viscosity model"] = "buyukurganci-2022"
     # filtering
     ds.config["filtering"]["area_ratio min"] = 1.0
     ds.config["filtering"]["area_ratio max"] = 1.1
@@ -54,7 +54,7 @@ for loc in ds_loc:
     ds.apply_filter()
     # Create a hierarchy child for convenience reasons
     # (Otherwise we would have to do e.g. ds["deform"][ds.filter.all]
-    # everytime we need to access a feature)
+    # every time we need to access a feature)
     ds_list.append(dclab.new_dataset(ds))
 
 # plot
@@ -67,9 +67,8 @@ data_deform = [di["deform"] for di in ds_list]
 # Uncomment this line if you are not filtering invalid events (above)
 # data_deform = [d[~np.isnan(d)] for d in data_deform]
 bplot1 = ax1.boxplot(data_deform,
-                     vert=True,
                      patch_artist=True,
-                     labels=labels,
+                     tick_labels=labels,
                      )
 
 # box plot for Young's modulus
@@ -79,15 +78,14 @@ data_emodulus = [di["emodulus"] for di in ds_list]
 # Uncomment this line if you are not filtering invalid events (above)
 # data_emodulus = [d[~np.isnan(d)] for d in data_emodulus]
 bplot2 = ax2.boxplot(data_emodulus,
-                     vert=True,
                      patch_artist=True,
-                     labels=labels,
+                     tick_labels=labels,
                      )
 
 # colors
 colors = ["#0008A5", "#A5008D", "#A50100"]
 for bplot in (bplot1, bplot2):
-    for patch, color in zip(bplot['boxes'], colors):
+    for patch, color in zip(bplot["boxes"], colors):
         patch.set_facecolor(color)
 
 # axes

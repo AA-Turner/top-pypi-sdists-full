@@ -187,6 +187,7 @@ Protocol Compatibility:
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
 import inspect
 import json
@@ -198,8 +199,8 @@ import threading
 import time
 from collections import OrderedDict, defaultdict
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Final, cast
 from uuid import UUID, uuid4
@@ -231,6 +232,7 @@ from omnibase_infra.enums.enum_kafka_permanent_failure import (
     EnumKafkaPermanentFailure,
 )
 from omnibase_infra.errors import (
+    DispatchCancelledError,
     DispatchDeadlineExceededError,
     DlqPersistenceUnconfirmedError,
     EventPayloadTooLargeError,
@@ -266,11 +268,7 @@ from omnibase_infra.event_bus.lane_client_transport_binding import (
     resolve_lane_client_transport,
 )
 from omnibase_infra.event_bus.mixin_kafka_broadcast import MixinKafkaBroadcast
-from omnibase_infra.event_bus.mixin_kafka_dlq import (
-    _REPLAY_COUNT_HEADER,
-    _REPLAY_COUNT_PARSE_FAILURE_SENTINEL,
-    MixinKafkaDlq,
-)
+from omnibase_infra.event_bus.mixin_kafka_dlq import MixinKafkaDlq
 from omnibase_infra.event_bus.models import (
     ModelEventBusReadiness,
     ModelEventHeaders,
@@ -283,20 +281,62 @@ from omnibase_infra.event_bus.models.config.model_kafka_connect_retry_policy imp
 )
 from omnibase_infra.event_bus.topic_constants import is_dlq_topic
 from omnibase_infra.event_bus.topic_violation_alerter import TopicViolationAlerter
+from omnibase_infra.handlers.handler_consumer_coordinator_rejoin.handler import (
+    HandlerConsumerCoordinatorRejoin,
+)
 from omnibase_infra.handlers.kafka_permanent_failure import (
     classify_permanent_kafka_failure,
     kafka_failure_types,
 )
+from omnibase_infra.handlers.kafka_publish_headers import headers_for_unheadered_publish
+from omnibase_infra.handlers.kafka_transactional_producer import (
+    KafkaTransactionalProducer,
+    open_kafka_transactional_producer,
+)
+from omnibase_infra.handlers.projection_failure_fingerprint import (
+    projection_failure_fingerprint,
+)
 from omnibase_infra.mixins import MixinAsyncCircuitBreaker
 from omnibase_infra.models import ModelNodeIdentity
+from omnibase_infra.models.event_bus import ModelReadCommittedTopics
+from omnibase_infra.models.event_bus.model_dlq_replay_headers import (
+    REPLAY_COUNT_HEADER,
+    REPLAY_TARGET_GROUP_HEADER,
+    ModelDlqReplayTarget,
+    resolve_replay_count,
+)
+from omnibase_infra.models.event_bus.model_kafka_ungrouped_reader import (
+    UNGROUPED_AUTO_OFFSET_RESET,
+)
+from omnibase_infra.models.event_bus.model_kafka_ungrouped_reader import (
+    ModelKafkaUngroupedReader as KafkaUngroupedReader,
+)
+from omnibase_infra.models.event_bus.model_live_dispatch_settler import (
+    ModelLiveDispatchSettler,
+)
+from omnibase_infra.models.event_bus.model_orphaned_dispatch import (
+    ModelOrphanedDispatch,
+)
+from omnibase_infra.models.event_bus.model_serial_batch_withhold import (
+    ModelSerialBatchWithhold,
+)
+from omnibase_infra.models.event_bus.model_subscription_handle import (
+    ModelSubscriptionHandle,
+)
 from omnibase_infra.models.health.enum_consumer_health_event_type import (
     EnumConsumerHealthEventType,
 )
 from omnibase_infra.models.health.enum_consumer_health_severity import (
     EnumConsumerHealthSeverity,
 )
+from omnibase_infra.models.health.enum_consumer_stall_reason import (
+    EnumConsumerStallReason,
+)
 from omnibase_infra.models.health.model_consumer_group_rejoin_event import (
     ModelConsumerGroupRejoinEvent,
+)
+from omnibase_infra.models.health.model_consumer_rejoin_alarm import (
+    ModelConsumerRejoinAlarm,
 )
 from omnibase_infra.models.health.model_consumer_sync_status import (
     ModelConsumerSyncStatus,
@@ -306,9 +346,6 @@ from omnibase_infra.models.health.model_dispatch_deadline_status import (
 )
 from omnibase_infra.observability.wiring_health import (
     MixinEmissionCounter,
-)
-from omnibase_infra.protocols.protocol_rejoinable_consumer import (
-    ProtocolRejoinableConsumer,
 )
 from omnibase_infra.topics.topic_namespace import apply_topic_namespace
 from omnibase_infra.utils import apply_instance_discriminator, compute_consumer_group_id
@@ -373,68 +410,26 @@ def _record_coordinate(msg: object) -> tuple[int, int] | None:
     return (partition, offset)
 
 
-@dataclass(frozen=True)
-class OrphanedDispatch:
-    """What an abandoned dispatch was doing when its deadline expired (OMN-19355)."""
-
-    topic: str
-    group_id: str
-    subscription_id: str
-    correlation_id: UUID
-    record_coordinate: tuple[int, int] | None
-    started_at: float
-    #: Loop time the dispatch was abandoned; the OMN-20464 degraded grace runs
-    #: from here, not from ``started_at``.
-    abandoned_at: float
-
-    def describe(self, now: float) -> str:
-        partition, offset = self.record_coordinate or (None, None)
-        return (
-            f"{self.topic} partition={partition} offset={offset} "
-            f"subscription={self.subscription_id} age={now - self.started_at:.0f}s"
-        )
+# OMN-17427: one log line per failed consume-loop iteration, written by the
+# arm that caught the failure.
+_CONSUME_ITERATION_FAILED = (
+    "consume_loop_iteration_failed topic=%s group=%s error_type=%s error=%s "
+    "consecutive_failures=%d -- replacing the consumer and polling on; the "
+    "loop does not end (OMN-17427)"
+)
 
 
-class SerialBatchWithhold:
-    """Pins a serial batch's fetch positions while one dispatch is slow (OMN-19355).
-
-    After ``getmany`` the consumer's fetch position is past the whole batch,
-    and under ``enable_auto_commit`` that position is what the client commits
-    on its own cadence. Seeking is the only action that withholds it
-    (OMN-15232). ``engage`` seeks the in-flight record's partition back to that
-    record and every partition of the batch not yet started back to its first
-    record, so the next auto-commit covers nothing that has not finished. The
-    serial loop then refetches from those positions instead of continuing the
-    batch it already holds.
-    """
-
-    __slots__ = ("_consumer", "_positions", "engaged")
-
-    def __init__(
-        self,
-        consumer: AIOKafkaConsumer,
-        positions: list[tuple[TopicPartition, int]],
-    ) -> None:
-        self._consumer = consumer
-        self._positions = positions
-        self.engaged = False
-
-    def engage(self) -> None:
-        if self.engaged:
-            return
-        self.engaged = True
-        for partition, offset in self._positions:
-            try:
-                self._consumer.seek(partition, offset)
-            except Exception:
-                logger.exception(
-                    "slow_dispatch_withhold_failed topic=%s partition=%s offset=%s "
-                    "-- could not pin the fetch position at an unfinished record; "
-                    "auto-commit may commit past it (OMN-19355)",
-                    partition.topic,
-                    partition.partition,
-                    offset,
-                )
+def _consume_failure_extra(
+    topic: str, group_id: str, correlation_id: UUID, error: BaseException
+) -> dict[str, str]:
+    """Structured fields of a ``consume_loop_iteration_failed`` line."""
+    return {
+        "topic": topic,
+        "group_id": group_id,
+        "correlation_id": str(correlation_id),
+        "error": str(error),
+        "error_type": type(error).__name__,
+    }
 
 
 class EventBusKafka(
@@ -595,6 +590,9 @@ class EventBusKafka(
         self._producer: AIOKafkaProducer | None = None
         self._consumers: dict[str, AIOKafkaConsumer] = {}
         self._group_consumers: dict[tuple[str, str], AIOKafkaConsumer] = {}
+        # OMN-17427: group-less reads (subscribe_ungrouped) hold no group, so
+        # nothing on the broker names them; close() must find them here.
+        self._ungrouped_readers: set[KafkaUngroupedReader] = set()
         # OMN-18640: one rejoin supervisor per (topic, group). Holds the
         # per-consumer stall state and the typed rejoin history a readiness
         # probe reads.
@@ -604,6 +602,7 @@ class EventBusKafka(
         # unsubscribed, and the evidence that this runtime wedged and
         # recovered must outlive the consumer it happened to.
         self._consumer_rejoin_events: list[ModelConsumerGroupRejoinEvent] = []
+        self._consumer_rejoin_alarms: list[ModelConsumerRejoinAlarm] = []
         # Keys currently being started (reserved under lock before await consumer.start())
         self._pending_consumer_keys: set[tuple[str, str]] = set()
 
@@ -614,6 +613,7 @@ class EventBusKafka(
         # the ``subscribe`` that starts the loop; read once when the loop
         # starts.
         self._consume_concurrency: dict[tuple[str, str], int] = {}
+        self._read_committed = ModelReadCommittedTopics.load()
 
         # OMN-20117: every subscriber dispatch that has not settled, on every
         # path. ``close()`` waits for these with the producer still open, so a
@@ -621,7 +621,14 @@ class EventBusKafka(
         # and cancels the ones left at the end of the drain so a
         # cancellation-aware handler can answer its caller before the bus
         # refuses publishes.
-        self._live_dispatches: set[asyncio.Future[None]] = set()
+        # OMN-21229: each maps to the subscription whose callback it runs, so a
+        # handle can drain exactly its own in-flight callback.
+        self._live_dispatches: dict[asyncio.Future[None], str] = {}
+        # OMN-21229: subscriptions whose handle has paused; a consumer whose
+        # every subscription is paused stops fetching and releases its batch.
+        self._paused_subscriptions: set[str] = set()
+        # OMN-21229: serial (topic, group) pairs with a fetched batch being run.
+        self._active_serial_batches: set[tuple[str, str]] = set()
         # OMN-20117: the concurrent driver's per-record tasks, which own the
         # finish-and-commit accounting for a settled dispatch. ``close()``
         # waits for them after settling the dispatches so the commit lands
@@ -633,7 +640,7 @@ class EventBusKafka(
         # thread cannot be killed, so these are counted rather than stopped:
         # each one still holds whatever its handler held.
         self._orphaned_dispatches: OrderedDict[
-            asyncio.Future[None], OrphanedDispatch
+            asyncio.Future[None], ModelOrphanedDispatch
         ] = OrderedDict()
         self._dispatch_deadline_expiries = 0
 
@@ -659,6 +666,13 @@ class EventBusKafka(
         # Background consumer tasks
         self._consumer_tasks: dict[str, asyncio.Task[None]] = {}
         self._group_consumer_tasks: dict[tuple[str, str], asyncio.Task[None]] = {}
+        # OMN-17427: one bus-level task that restarts a consume task which has
+        # ended or stopped polling while its subscription is registered.
+        # Started with the first consumer, stopped by close().
+        self._consume_watchdog_task: asyncio.Task[None] | None = None
+        # Monotonic clock for the watchdog and the rejoin supervisors;
+        # replaced by a fake in tests so a parked bound need not be waited out.
+        self._clock: Callable[[], float] = time.monotonic
 
         # Topics marked as required for readiness (OMN-1931)
         # Readiness is blocked until all required topics have active consumers
@@ -666,6 +680,7 @@ class EventBusKafka(
 
         # Producer lock for independent producer access (avoids deadlock with main lock)
         self._producer_lock = asyncio.Lock()
+        self._transactional_producers: list[KafkaTransactionalProducer] = []
         # OMN-18925: how many connect attempts the last successful start()
         # needed. A broker that answers first time and one that answers on
         # the third are different facts, and the second is the early
@@ -891,6 +906,17 @@ class EventBusKafka(
             return {}
         return {"api_version": self._config.api_version}
 
+    def _new_producer(self, **producer_kwargs: object) -> AIOKafkaProducer:
+        """The one construction of an aiokafka producer for this bus's cluster."""
+        return AIOKafkaProducer(
+            bootstrap_servers=self._bootstrap_servers,
+            max_request_size=self._config.max_request_size,
+            retry_backoff_ms=self._config.reconnect_backoff_ms,
+            **self._build_client_version_kwargs(AIOKafkaProducer),
+            **self._build_auth_kwargs(),
+            **producer_kwargs,
+        )
+
     async def start(self) -> None:
         """Start the event bus and connect to Kafka.
 
@@ -942,14 +968,9 @@ class EventBusKafka(
                 # every attempt: a producer whose start() failed is not
                 # documented as restartable, so reusing it would test a
                 # different path from the one a fresh connect takes.
-                self._producer = AIOKafkaProducer(
-                    bootstrap_servers=self._bootstrap_servers,
+                self._producer = self._new_producer(
                     acks=self._config.acks_aiokafka,
                     enable_idempotence=self._config.enable_idempotence,
-                    max_request_size=self._config.max_request_size,
-                    retry_backoff_ms=self._config.reconnect_backoff_ms,
-                    **self._build_client_version_kwargs(AIOKafkaProducer),
-                    **self._build_auth_kwargs(),
                 )
                 await self._producer.start()
 
@@ -1130,7 +1151,27 @@ class EventBusKafka(
             # six delegate-skill terminals to the DLQ on one dev-lane restart.
             self._shutdown = True
 
+        # OMN-21229: pause every subscription, drain what is running, then
+        # stop. The consume loops leave on ``_shutdown`` by themselves; only a
+        # loop that has not left after the grace is cancelled.
+        for sub_topic, sub_group in list(self._group_consumers):
+            self._paused_subscriptions.update(
+                sid
+                for gid, sid, _ in self._subscribers.get(sub_topic, [])
+                if gid == sub_group
+            )
         await self._settle_live_dispatches()
+
+        # OMN-17427: stop the watchdog before the consume tasks, or it would
+        # read the tasks cancelled below as dead and restart them.
+        watchdog = self._consume_watchdog_task
+        self._consume_watchdog_task = None
+        if watchdog is not None and not watchdog.done():
+            watchdog.cancel()
+            try:
+                await watchdog
+            except asyncio.CancelledError:
+                pass
 
         async with self._lock:
             self._closing = True
@@ -1145,6 +1186,11 @@ class EventBusKafka(
         # outliving the EventBusKafka instance (inherited from MixinAsyncCircuitBreaker)
         await self.cancel_active_recovery()
 
+        running = [task for task in tasks_to_cancel if not task.done()]
+        if running:
+            await asyncio.wait(
+                running, timeout=self._config.consumer_shutdown_cancel_grace_seconds
+            )
         for task in tasks_to_cancel:
             if not task.done():
                 task.cancel()
@@ -1171,6 +1217,8 @@ class EventBusKafka(
             self._group_consumers.clear()
             # OMN-18640: the supervisors hold per-group stall state that is
             # meaningless once the consumers are gone.
+            for supervisor in self._rejoin_supervisors.values():
+                supervisor.end_episode(recovered=False)
             self._rejoin_supervisors.clear()
 
         for consumer in consumers_to_close:
@@ -1178,6 +1226,14 @@ class EventBusKafka(
                 await consumer.stop()
             except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
                 logger.warning(f"Error stopping consumer: {e}")
+
+        for reader in list(self._ungrouped_readers):
+            await reader.stop()
+        self._ungrouped_readers.clear()
+
+        for transactional in self._transactional_producers:
+            await transactional.close()
+        self._transactional_producers.clear()
 
         # Close producer with proper locking
         async with self._producer_lock:
@@ -1207,59 +1263,12 @@ class EventBusKafka(
     async def _settle_live_dispatches(self) -> None:
         """Let running dispatches finish, then cancel the rest (OMN-20117).
 
-        Runs with the producer open. First waits up to
-        ``consumer_shutdown_drain_seconds`` for every live subscriber dispatch
-        to return, so a handler that finishes in that window publishes its
-        terminal and has its record committed. Then cancels whatever is still
-        running and waits up to ``consumer_shutdown_cancel_grace_seconds`` for
-        those to settle: a handler that answers its cancellation with a typed
-        failure terminal publishes it here, so its caller is told instead of
-        waiting out its window. A cancelled dispatch that returns nothing is
-        never committed past, so the next consumer redelivers its record.
-
-        Only the INNER dispatch futures are cancelled, never the consume
-        tasks awaiting them. Those tasks see the dispatch settle through their
-        own ``asyncio.wait`` and account for it exactly as for any other
-        outcome: a returned dispatch is finished and committed, a cancelled
-        one is not.
+        See ``ModelLiveDispatchSettler``. Runs with the producer open.
         """
-        live = {dispatch for dispatch in self._live_dispatches if not dispatch.done()}
-        drain = self._config.consumer_shutdown_drain_seconds
-        grace = self._config.consumer_shutdown_cancel_grace_seconds
-        if live:
-            logger.info(
-                "shutdown_drain_started live_dispatches=%d drain_seconds=%.1f "
-                "-- publishing stays open until they settle (OMN-20117)",
-                len(live),
-                drain,
-            )
-            if drain > 0:
-                _, live = await asyncio.wait(live, timeout=drain)
-        if live:
-            logger.warning(
-                "shutdown_drain_expired cancelling=%d cancel_grace_seconds=%.1f "
-                "-- a handler may answer its cancellation with a failure "
-                "terminal; a record whose handler does not is left uncommitted "
-                "and is redelivered to the next consumer (OMN-20117)",
-                len(live),
-                grace,
-            )
-            for dispatch in live:
-                dispatch.cancel()
-            if grace > 0:
-                _, unsettled = await asyncio.wait(live, timeout=grace)
-                if unsettled:
-                    logger.warning(
-                        "shutdown_cancel_grace_expired unsettled=%d -- these "
-                        "dispatches ignored cancellation; their records stay "
-                        "uncommitted (OMN-20117)",
-                        len(unsettled),
-                    )
-        # Let the record tasks awaiting the settled dispatches run their
-        # accounting (finish, commit) before the consumers are stopped.
-        accounting = {task for task in self._record_tasks if not task.done()}
-        if accounting:
-            await asyncio.wait(accounting, timeout=max(grace, 1.0))
+        await ModelLiveDispatchSettler(
+            drain_seconds=self._config.consumer_shutdown_drain_seconds,
+            grace_seconds=self._config.consumer_shutdown_cancel_grace_seconds,
+        ).settle(self._live_dispatches, self._record_tasks)
 
     async def publish(
         self,
@@ -1319,7 +1328,12 @@ class EventBusKafka(
         # Create headers if not provided, deriving identity from the body
         # rather than inventing it (OMN-18914).
         if headers is None:
-            headers = self._headers_for_unheadered_publish(topic, value)
+            headers = headers_for_unheadered_publish(
+                topic,
+                value,
+                environment=self._environment,
+                minted_identity_topics=self._minted_identity_topics,
+            )
 
         # Validate topic name (Kafka naming rules)
         self._validate_topic_name(topic, headers.correlation_id)
@@ -1338,6 +1352,24 @@ class EventBusKafka(
 
         # Publish with retry
         return await self._publish_with_retry(topic, key, value, kafka_headers, headers)
+
+    async def transactional_producer(
+        self, transactional_id: str
+    ) -> KafkaTransactionalProducer:
+        """Open a transactional producer under a caller-fixed id (OMN-21228).
+
+        Initializing the producer fences every older producer holding the same
+        ``transactional_id``: their next publish fails and nothing they sent is
+        visible to a ``read_committed`` reader. The producer is closed with the
+        bus. See ``omnibase_infra.handlers.kafka_transactional_producer``.
+
+        Raises:
+            InfraUnavailableError: If the bus has not been started.
+            InfraConnectionError: If the producer cannot initialize.
+        """
+        producer = await open_kafka_transactional_producer(self, transactional_id)
+        self._transactional_producers.append(producer)
+        return producer
 
     async def _ensure_producer(self, correlation_id: UUID) -> None:
         """Lazily recreate the Kafka producer if it was destroyed.
@@ -1381,14 +1413,9 @@ class EventBusKafka(
         )
 
         try:
-            self._producer = AIOKafkaProducer(
-                bootstrap_servers=self._bootstrap_servers,
+            self._producer = self._new_producer(
                 acks=self._config.acks_aiokafka,
                 enable_idempotence=self._config.enable_idempotence,
-                max_request_size=self._config.max_request_size,
-                retry_backoff_ms=self._config.reconnect_backoff_ms,
-                **self._build_client_version_kwargs(AIOKafkaProducer),
-                **self._build_auth_kwargs(),
             )
 
             await asyncio.wait_for(
@@ -1973,11 +2000,13 @@ class EventBusKafka(
         purpose: EnumConsumerGroupPurpose = EnumConsumerGroupPurpose.CONSUME,
         required_for_readiness: bool = False,
         auto_offset_reset: str | None = None,
-    ) -> Callable[[], Awaitable[None]]:
+    ) -> ModelSubscriptionHandle:
         """Subscribe to topic with callback handler.
 
         Registers a callback to be invoked for each message received on the topic.
-        Returns an unsubscribe function to remove the subscription.
+        Returns a handle with ``pause``, ``drain`` and ``stop`` (OMN-21229);
+        awaiting the handle itself is ``stop``. A subscribe that fails or is
+        cancelled returns no handle and leaves no callback behind.
 
         The consumer group ID is either provided directly via ``group_id`` or
         derived from ``node_identity`` using the canonical format:
@@ -2019,7 +2048,7 @@ class EventBusKafka(
                 policy under test.
 
         Returns:
-            Async unsubscribe function to remove this subscription
+            The subscription handle (``await handle()`` stops it)
 
         Raises:
             ValueError: If neither ``node_identity`` nor ``group_id`` is provided,
@@ -2099,9 +2128,29 @@ class EventBusKafka(
         # calls during cold start.  _pending_consumer_keys (set above under
         # the lock) guards against duplicate starts across concurrent callers.
         if need_consumer_start:
-            await self._start_consumer_for_topic_unlocked(
-                topic, effective_group_id, auto_offset_reset_override=auto_offset_reset
-            )
+            try:
+                await self._start_consumer_for_topic_unlocked(
+                    topic,
+                    effective_group_id,
+                    auto_offset_reset_override=auto_offset_reset,
+                )
+            except BaseException:
+                # No unsubscribe handle escapes a failed/cancelled attach. Remove
+                # only this call's intent so retry cannot duplicate its callback;
+                # other callers' subscriptions must keep their ownership.
+                async with self._lock:
+                    remaining = [
+                        (sub_group_id, sub_id, callback)
+                        for sub_group_id, sub_id, callback in self._subscribers.get(
+                            topic, []
+                        )
+                        if sub_id != subscription_id
+                    ]
+                    if remaining:
+                        self._subscribers[topic] = remaining
+                    else:
+                        self._subscribers.pop(topic, None)
+                raise
 
         async with self._lock:
             logger.debug(
@@ -2114,36 +2163,195 @@ class EventBusKafka(
                 },
             )
 
+        async def pause() -> None:
+            self._paused_subscriptions.add(subscription_id)
+            self._pause_group_consumer(topic, effective_group_id)
+
+        async def drain() -> None:
+            await self._drain_subscription(topic, effective_group_id, subscription_id)
+
+        async def stop() -> None:
+            await self._remove_subscription(topic, effective_group_id, subscription_id)
+
+        return ModelSubscriptionHandle.bind(
+            topic=topic,
+            consumer_group=effective_group_id,
+            subscription_key=subscription_id,
+            pause=pause,
+            drain=drain,
+            stop=stop,
+        )
+
+    def _group_paused(self, topic: str, group_id: str) -> bool:
+        """True when every subscription of the group has been paused (OMN-21229)."""
+        subscription_ids = [
+            sid for gid, sid, _ in self._subscribers.get(topic, []) if gid == group_id
+        ]
+        return bool(subscription_ids) and all(
+            sid in self._paused_subscriptions for sid in subscription_ids
+        )
+
+    def _pause_group_consumer(self, topic: str, group_id: str) -> None:
+        """Stop the group's consumer fetching once its whole group is paused.
+
+        Re-applied by the consume loop on every poll, because a rebalance
+        replaces the assignment and drops the pause with it.
+        """
+        consumer = self._group_consumers.get((topic, group_id))
+        if consumer is None or not self._group_paused(topic, group_id):
+            return
+        consumer.pause(*consumer.assignment())
+
+    async def _drain_subscription(
+        self, topic: str, group_id: str, subscription_id: str
+    ) -> None:
+        """Wait for a subscription's in-flight callback and fetched batch (OMN-21229).
+
+        Nothing is cancelled. The wait is bounded by the dispatch deadline,
+        past which the bus abandons a dispatch anyway; whatever is left then is
+        logged and stays uncommitted, so the next consumer is handed it again.
+        """
+        bound = self._config.effective_dispatch_deadline_seconds
+        try:
+            async with asyncio.timeout(bound):
+                live = {
+                    dispatch
+                    for dispatch, owner in self._live_dispatches.items()
+                    if owner == subscription_id and not dispatch.done()
+                }
+                if live:
+                    await asyncio.wait(live)
+                while (topic, group_id) in self._active_serial_batches:
+                    await asyncio.sleep(0.01)
+                accounting = {task for task in self._record_tasks if not task.done()}
+                if accounting:
+                    await asyncio.wait(accounting)
+        except TimeoutError:
+            logger.warning(
+                "subscription_drain_expired topic=%s group=%s subscription=%s "
+                "bound_seconds=%.1f -- unfinished records stay uncommitted "
+                "(OMN-21229)",
+                topic,
+                group_id,
+                subscription_id,
+                bound,
+            )
+
+    async def _remove_subscription(
+        self, topic: str, group_id: str, subscription_id: str
+    ) -> None:
+        """Remove one subscription, and its consumer when it was the last."""
+        async with self._lock:
+            try:
+                subs = self._subscribers.get(topic, [])
+                for i, (_gid, sid, _) in enumerate(subs):
+                    if sid == subscription_id:
+                        subs.pop(i)
+                        break
+                self._paused_subscriptions.discard(subscription_id)
+                logger.debug(
+                    "Subscriber removed",
+                    extra={
+                        "topic": topic,
+                        "group_id": group_id,
+                        "subscription_id": subscription_id,
+                    },
+                )
+                remaining = self._subscribers.get(topic, [])
+                if not any(gid == group_id for gid, _, _ in remaining):
+                    await self._stop_consumer_for_topic(topic, group_id)
+            except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                logger.warning(f"Error during unsubscribe: {e}")
+
+    async def subscribe_ungrouped(
+        self,
+        topic: str,
+        on_message: Callable[[ModelEventMessage], Awaitable[None]],
+    ) -> Callable[[], Awaitable[None]]:
+        """Read ``topic`` from its log end with no consumer group (OMN-17427).
+
+        For a one-shot request/reply caller: it reads one reply and leaves, so a
+        consumer group would only be left behind on the broker (Empty, with
+        committed offsets) until offset retention expired it. This takes the
+        topic's partitions directly, commits nothing, and returns only after
+        every assigned partition has a resolved position, so a record published
+        as soon as this returns is delivered to ``on_message``. The returned
+        unsubscribe stops the consumer; nothing remains on the broker.
+
+        Raises:
+            InfraUnavailableError: When the bus has not been started.
+            InfraTimeoutError: When the assignment or a position does not
+                resolve within the bus's startup budget.
+            InfraConnectionError: When the consumer cannot start.
+        """
+        correlation_id = uuid4()
+        self._validate_topic_name(topic, correlation_id)
+        if not self._started:
+            raise InfraUnavailableError(
+                "Event bus not started. Call start() first.",
+                context=ModelInfraErrorContext.with_correlation(
+                    correlation_id=correlation_id,
+                    transport_type=EnumInfraTransportType.KAFKA,
+                    operation="subscribe_ungrouped",
+                    target_name=f"kafka.{self._environment}",
+                ),
+                topic=topic,
+            )
+        consumer = AIOKafkaConsumer(
+            apply_topic_namespace(topic),
+            bootstrap_servers=self._bootstrap_servers,
+            group_id=None,
+            auto_offset_reset=UNGROUPED_AUTO_OFFSET_RESET,
+            enable_auto_commit=False,
+            retry_backoff_ms=self._config.reconnect_backoff_ms,
+            max_partition_fetch_bytes=self._config.max_partition_fetch_bytes,
+            **self._read_committed.consumer_kwargs(topic),
+            **self._build_client_version_kwargs(AIOKafkaConsumer),
+            **self._build_auth_kwargs(),
+        )
+        reader = KafkaUngroupedReader(
+            consumer=consumer,
+            topic=topic,
+            on_message=on_message,
+            to_message=self._kafka_msg_to_model,
+        )
+        context = ModelInfraErrorContext.with_correlation(
+            correlation_id=correlation_id,
+            transport_type=EnumInfraTransportType.KAFKA,
+            operation="subscribe_ungrouped",
+            target_name=f"kafka.{topic}",
+        )
+        servers = self._sanitize_bootstrap_servers(self._bootstrap_servers)
+        try:
+            await reader.start(timeout_seconds=self._timeout_seconds)
+        except TimeoutError as exc:
+            raise InfraTimeoutError(
+                f"Timeout starting group-less read of topic {topic} after "
+                f"{self._timeout_seconds}s",
+                context=ModelTimeoutErrorContext(
+                    transport_type=EnumInfraTransportType.KAFKA,
+                    operation="subscribe_ungrouped",
+                    target_name=f"kafka.{topic}",
+                    correlation_id=correlation_id,
+                    timeout_seconds=self._timeout_seconds,
+                ),
+                topic=topic,
+                servers=servers,
+            ) from exc
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            raise InfraConnectionError(
+                f"Failed to start group-less read of topic {topic}: {exc}",
+                context=context,
+                topic=topic,
+                servers=servers,
+            ) from exc
+        self._ungrouped_readers.add(reader)
+
         async def unsubscribe() -> None:
-            """Remove this subscription from the topic."""
-            async with self._lock:
-                try:
-                    # Find and remove the subscription
-                    subs = self._subscribers.get(topic, [])
-                    for i, (_gid, sid, _) in enumerate(subs):
-                        if sid == subscription_id:
-                            subs.pop(i)
-                            break
-
-                    logger.debug(
-                        "Subscriber removed",
-                        extra={
-                            "topic": topic,
-                            "group_id": effective_group_id,
-                            "subscription_id": subscription_id,
-                        },
-                    )
-
-                    # Stop consumer if no more subscribers for this topic
-                    remaining = self._subscribers.get(topic, [])
-                    if not any(
-                        sub_group_id == effective_group_id
-                        for sub_group_id, _, _ in remaining
-                    ):
-                        await self._stop_consumer_for_topic(topic, effective_group_id)
-
-                except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
-                    logger.warning(f"Error during unsubscribe: {e}")
+            self._ungrouped_readers.discard(reader)
+            await reader.stop()
 
         return unsubscribe
 
@@ -2424,12 +2632,12 @@ class EventBusKafka(
         Returns:
             An unstarted ``AIOKafkaConsumer``.
         """
-        # OMN-20117: a subscription that declared consume concurrency commits
-        # its own low watermark (``ConcurrentCommitLedger``). Auto-commit would
-        # commit the fetch position instead, which is past every record still
-        # in flight, so a restart would resume past them and they would never
-        # be redelivered.
-        concurrent = self._consume_concurrency.get((topic, group_id), 1) > 1
+        # OMN-21229: no consumer auto-commits. Auto-commit commits the FETCH
+        # position, which is past every record fetched and not yet finished, so
+        # a stop or a crash resumed past work that never ran. The serial path
+        # commits each record as it completes and the concurrent path commits
+        # its low watermark (OMN-20117); neither is ever past an unfinished
+        # record.
         binding = self.resolve_bus_binding(topic, consumer_group=effective_group_id)
         return AIOKafkaConsumer(
             # PHYSICAL name. Every other use of ``topic`` in this class -- the
@@ -2442,7 +2650,7 @@ class EventBusKafka(
             group_id=binding.consumer_group,
             group_instance_id=group_instance_id,
             auto_offset_reset=auto_offset_reset,
-            enable_auto_commit=self._config.enable_auto_commit and not concurrent,
+            enable_auto_commit=False,
             session_timeout_ms=self._config.session_timeout_ms,
             heartbeat_interval_ms=self._config.heartbeat_interval_ms,
             max_poll_interval_ms=self._config.max_poll_interval_ms,
@@ -2455,6 +2663,7 @@ class EventBusKafka(
             # and for why the OMN-16267 ">= max_request_size" coupling is not
             # required against a KIP-74 broker.
             max_partition_fetch_bytes=self._config.max_partition_fetch_bytes,
+            **self._read_committed.consumer_kwargs(topic),
             **self._build_client_version_kwargs(AIOKafkaConsumer),
             **self._build_auth_kwargs(),
         )
@@ -2736,6 +2945,7 @@ class EventBusKafka(
         task = asyncio.create_task(self._consume_loop(topic, group_id, correlation_id))
         self._group_consumer_tasks[consumer_key] = task
         self._refresh_topic_consumer_views(topic)
+        self._ensure_consume_watchdog()
 
         logger.info(
             f"Started consumer for topic {topic}",
@@ -2815,7 +3025,9 @@ class EventBusKafka(
                     pass
 
             consumer = self._group_consumers.pop(consumer_key, None)
-            self._rejoin_supervisors.pop(consumer_key, None)  # OMN-18640
+            supervisor = self._rejoin_supervisors.pop(consumer_key, None)  # OMN-18640
+            if supervisor is not None:
+                supervisor.end_episode(recovered=False)
             if consumer is not None:
                 try:
                     await consumer.stop()
@@ -2847,21 +3059,8 @@ class EventBusKafka(
 
     @staticmethod
     def _projection_failure_fingerprint(exc: BaseException) -> str:
-        """Identify a failure so "the same refusal again" is decidable.
-
-        The count must reset when the failure CHANGES, because a write path
-        being repaired in stages reports a different error as it goes and such a
-        record is progressing toward a row rather than stuck. Fingerprinting on
-        the type alone would miss that -- every refusal on this path is a
-        ``ProjectionNotMaterializedError`` -- so the underlying cause's type and
-        the rendered message are folded in. The message is hashed rather than
-        stored: it carries the payload's own identifiers on some paths, and a
-        cache of error strings keyed by offset is not a thing this class should
-        hold.
-        """
-        cause = exc.__cause__
-        parts = f"{type(exc).__name__}|{type(cause).__name__ if cause else ''}|{exc}"
-        return hashlib.sha256(parts.encode("utf-8", "replace")).hexdigest()[:32]
+        """Identify a failure so "the same refusal again" is decidable (OMN-23024)."""
+        return projection_failure_fingerprint(exc)
 
     def _record_projection_withhold(
         self,
@@ -2928,14 +3127,14 @@ class EventBusKafka(
 
         ``on_slow_dispatch`` is called once, if the dispatch is still running
         after ``consumer_dispatch_withhold_after_seconds``. The serial loop
-        uses it to pin the fetch position (``SerialBatchWithhold``).
+        uses it to pin the fetch position (``ModelSerialBatchWithhold``).
         """
         loop = asyncio.get_running_loop()
         started_at = loop.time()
         deadline = self._config.effective_dispatch_deadline_seconds
         dispatch = asyncio.ensure_future(callback(event_message))
-        self._live_dispatches.add(dispatch)
-        dispatch.add_done_callback(self._live_dispatches.discard)
+        self._live_dispatches[dispatch] = subscription_id
+        dispatch.add_done_callback(lambda f: self._live_dispatches.pop(f, None))
         try:
             if on_slow_dispatch is None:
                 done, _ = await asyncio.wait({dispatch}, timeout=deadline)
@@ -2957,15 +3156,31 @@ class EventBusKafka(
             raise
 
         if done:
+            if dispatch.cancelled():
+                # OMN-17427: the callback raised CancelledError from inside its
+                # own coroutine (the awaiting task was not cancelled, or the
+                # arm above would have run). Re-raised as itself it ended the
+                # consume task; as a typed handler failure it takes the retry
+                # and DLQ arms like any other, and the loop polls on.
+                partition, offset = record_coordinate or (None, None)
+                raise DispatchCancelledError(
+                    f"subscriber {subscription_id} ended in CancelledError for "
+                    f"{topic} partition {partition} offset {offset} while the "
+                    "consume loop was not being cancelled (OMN-17427)",
+                    topic=topic,
+                    partition=partition,
+                    offset=offset,
+                    subscription_id=subscription_id,
+                )
             dispatch.result()
             return
 
         self._adopt_orphaned_dispatch(
             dispatch,
-            OrphanedDispatch(
+            ModelOrphanedDispatch(
                 topic=topic,
-                group_id=group_id,
-                subscription_id=subscription_id,
+                consumer_group=group_id,
+                subscription_key=subscription_id,
                 correlation_id=correlation_id,
                 record_coordinate=record_coordinate,
                 started_at=started_at,
@@ -2986,7 +3201,7 @@ class EventBusKafka(
         )
 
     def _adopt_orphaned_dispatch(
-        self, dispatch: asyncio.Future[None], orphan: OrphanedDispatch
+        self, dispatch: asyncio.Future[None], orphan: ModelOrphanedDispatch
     ) -> None:
         """Count an abandoned dispatch until it returns on its own (OMN-19355)."""
         self._orphaned_dispatches[dispatch] = orphan
@@ -3023,8 +3238,8 @@ class EventBusKafka(
             limit,
             extra={
                 "topic": orphan.topic,
-                "group_id": orphan.group_id,
-                "subscription_id": orphan.subscription_id,
+                "group_id": orphan.consumer_group,
+                "subscription_id": orphan.subscription_key,
                 "correlation_id": str(orphan.correlation_id),
                 "orphaned_dispatches": orphaned,
                 "orphan_limit": limit,
@@ -3051,8 +3266,8 @@ class EventBusKafka(
             len(self._orphaned_dispatches),
             extra={
                 "topic": orphan.topic,
-                "group_id": orphan.group_id,
-                "subscription_id": orphan.subscription_id,
+                "group_id": orphan.consumer_group,
+                "subscription_id": orphan.subscription_key,
                 "correlation_id": str(orphan.correlation_id),
                 "orphaned_dispatches": len(self._orphaned_dispatches),
             },
@@ -3525,7 +3740,7 @@ class EventBusKafka(
         topic: str,
         group_id: str,
         correlation_id: UUID,
-        e: Exception,
+        e: BaseException,
     ) -> None:
         """Emit a consumer health event for an unexpected consume-loop error."""
         if self._health_emitter is None:
@@ -3601,6 +3816,10 @@ class EventBusKafka(
             supervisor.sync_status() for supervisor in self._rejoin_supervisors.values()
         )
 
+    def consumer_rejoin_alarms(self) -> tuple[ModelConsumerRejoinAlarm, ...]:
+        """Bounded recovery alarm history, independent of health emission."""
+        return tuple(self._consumer_rejoin_alarms)
+
     def _rejoin_supervisor_for(
         self, topic: str, group_id: str
     ) -> ConsumerRejoinSupervisor:
@@ -3610,13 +3829,8 @@ class EventBusKafka(
         if existing is not None:
             return existing
 
-        async def _recreate() -> ProtocolRejoinableConsumer:
-            return cast(
-                "ProtocolRejoinableConsumer",
-                await self._rebuild_consumer_for_rejoin(topic, group_id),
-            )
-
         supervisor = ConsumerRejoinSupervisor(
+            coordinator_handler=HandlerConsumerCoordinatorRejoin(),
             topic=topic,
             group_id=group_id,
             policy=ModelConsumerRejoinPolicy(
@@ -3628,8 +3842,19 @@ class EventBusKafka(
                 sync_unready_seconds=self._config.consumer_sync_unready_seconds,
             ),
             poll_timeout_ms=self._config.consumer_poll_timeout_ms,
-            recreate_consumer=_recreate,
+            recreate_consumer=partial(
+                self._rebuild_consumer_for_rejoin, topic, group_id
+            ),
             emit_event=self._record_consumer_rejoin_event,
+            clock=self._clock,
+            broker=self._sanitize_bootstrap_servers(self._bootstrap_servers),
+            kafka_group_id=self._resolve_effective_group_id(
+                group_id, topic, uuid4(), (topic, group_id)
+            ),
+            coordinator_unavailable_seconds=self._config.consumer_coordinator_unavailable_seconds,
+            coordinator_rejoin_cooldown_seconds=self._config.consumer_coordinator_rejoin_cooldown_seconds,
+            probe_timeout_seconds=self._config.consumer_stall_probe_timeout_seconds,
+            emit_alarm=self._record_consumer_rejoin_alarm,
         )
         self._rejoin_supervisors[key] = supervisor
         return supervisor
@@ -3664,7 +3889,8 @@ class EventBusKafka(
 
         Raises:
             Exception: Propagated to the supervisor, which records a failed
-                rejoin and retries after the cooldown.
+                rejoin and retries after the cooldown. The half-started
+                replacement is stopped before the exception propagates.
         """
         effective_group_id = self._resolve_effective_group_id(
             group_id, topic, uuid4(), (topic, group_id)
@@ -3677,7 +3903,22 @@ class EventBusKafka(
             self._config.auto_offset_reset,
             group_id=group_id,
         )
-        await asyncio.wait_for(consumer.start(), timeout=self._timeout_seconds)
+        # A consumer whose start failed is never published; close it so retries
+        # every LOST_CONSUMER_RETRY_SECONDS do not leak clients (OMN-19513).
+        try:
+            await asyncio.wait_for(consumer.start(), timeout=self._timeout_seconds)
+        except BaseException:
+            try:
+                await consumer.stop()
+            except (KafkaError, OSError, RuntimeError) as cleanup_err:
+                logger.warning(
+                    "consumer_group_rejoin_cleanup_failed topic=%s group=%s error=%s",
+                    topic,
+                    effective_group_id,
+                    cleanup_err,
+                    exc_info=True,
+                )
+            raise
         self._group_consumers[(topic, group_id)] = consumer
         logger.warning(
             "consumer_group_rejoined topic=%s group=%s -- replacement consumer "
@@ -3687,6 +3928,142 @@ class EventBusKafka(
             extra={"topic": topic, "group_id": effective_group_id},
         )
         return consumer
+
+    # ------------------------------------------------------------------
+    # OMN-17427: consume-task watchdog
+    # ------------------------------------------------------------------
+
+    def _ensure_consume_watchdog(self) -> None:
+        """Start the consume-task watchdog once, with the first consumer."""
+        if self._shutdown:
+            return
+        task = self._consume_watchdog_task
+        if task is not None and not task.done():
+            return
+        self._consume_watchdog_task = asyncio.create_task(self._consume_watchdog_loop())
+
+    async def _consume_watchdog_loop(self) -> None:
+        """Sweep the consume tasks every declared interval until shutdown.
+
+        Nothing else reads a consume task back while the bus runs: before
+        OMN-17427 ``_group_consumer_tasks`` was consulted only by shutdown,
+        unsubscribe and a readiness view that one live sibling group could
+        hide. A sweep that raises is logged and the next one runs; the
+        watchdog itself must not be the thing that silently stops.
+        """
+        interval = self._config.consume_task_watchdog_interval_seconds
+        while not self._shutdown:
+            await asyncio.sleep(interval)
+            try:
+                await self._check_consume_tasks()
+            except Exception:
+                logger.exception("consume_task_watchdog_sweep_failed (OMN-17427)")
+
+    async def _check_consume_tasks(self) -> None:
+        """Restart every consume task that has ended or stopped polling.
+
+        A task is restarted when its subscription is still registered and it
+        is either DEAD (``done()`` while the bus runs) or PARKED (alive, with
+        no poll started or finished for longer than
+        ``effective_consume_task_parked_after_seconds``, which may come after
+        aiokafka's own ``max_poll_interval_ms`` has made the member leave its
+        group). The consumer is rebuilt in the same group from committed
+        offsets and a new loop is started, so the group regains a member
+        whether or not the eviction already happened. Each restart is a typed
+        rejoin event, and the rejoin cooldown bounds how often one group is
+        restarted.
+        """
+        parked_after = self._config.effective_consume_task_parked_after_seconds
+        for consumer_key in list(self._group_consumer_tasks):
+            if self._shutdown:
+                return
+            topic, group_id = consumer_key
+            async with self._lock:
+                task = self._group_consumer_tasks.get(consumer_key)
+                if task is None or self._shutdown:
+                    continue
+                if not any(
+                    sub_group_id == group_id
+                    for sub_group_id, _, _ in self._subscribers.get(topic, [])
+                ):
+                    continue
+
+                supervisor = self._rejoin_supervisor_for(topic, group_id)
+                await supervisor.supervise_consume_task(
+                    task_done=task.done(),
+                    parked_after_seconds=parked_after,
+                    restart=functools.partial(
+                        self._restart_consume_task, topic, group_id, task
+                    ),
+                )
+
+    async def _restart_consume_task(
+        self,
+        topic: str,
+        group_id: str,
+        task: asyncio.Task[None],
+        reason: EnumConsumerStallReason,
+        idle_seconds: float,
+    ) -> tuple[bool, str]:
+        """Replace one dead or parked consume task. Caller holds ``self._lock``.
+
+        Returns whether the consumer rebuild succeeded and its failure detail.
+        The new loop is started last, so the supervisor restarts its poll
+        clock before that loop first polls.
+        """
+        consumer_key = (topic, group_id)
+        task_error: BaseException | None = None
+        if task.done():
+            if not task.cancelled():
+                task_error = task.exception()
+            logger.error(
+                "consume_task_dead topic=%s group=%s error_type=%s error=%s -- "
+                "the consume task ended while its subscription is registered; "
+                "rebuilding the consumer and starting a new loop (OMN-17427)",
+                topic,
+                group_id,
+                type(task_error).__name__ if task_error is not None else "none",
+                task_error,
+                exc_info=task_error,
+                extra={"topic": topic, "group_id": group_id},
+            )
+        else:
+            logger.error(
+                "consume_task_parked topic=%s group=%s idle_seconds=%.1f "
+                "parked_after=%.1f -- the consume task has not polled within "
+                "the bound; cancelling it, rebuilding the consumer and starting "
+                "a new loop (OMN-17427)",
+                topic,
+                group_id,
+                idle_seconds,
+                self._config.effective_consume_task_parked_after_seconds,
+                extra={"topic": topic, "group_id": group_id},
+            )
+            task.cancel()
+            await asyncio.wait({task}, timeout=self._timeout_seconds)
+
+        succeeded = True
+        failure_detail = ""
+        try:
+            await self._replace_consumer(
+                topic, group_id, self._group_consumers.get(consumer_key)
+            )
+        except Exception as rebuild_error:
+            # The new loop is started anyway: it polls the old handle, fails,
+            # and replaces it on its own backoff, which retries far sooner
+            # than the cooldown would let this watchdog.
+            succeeded = False
+            failure_detail = f"{type(rebuild_error).__name__}: {rebuild_error}"
+            logger.exception(
+                "consume_task_restart_rebuild_failed topic=%s group=%s",
+                topic,
+                group_id,
+            )
+
+        new_task = asyncio.create_task(self._consume_loop(topic, group_id, uuid4()))
+        self._group_consumer_tasks[consumer_key] = new_task
+        self._refresh_topic_consumer_views(topic)
+        return succeeded, failure_detail
 
     async def _record_consumer_rejoin_event(
         self, event: ModelConsumerGroupRejoinEvent
@@ -3729,6 +4106,31 @@ class EventBusKafka(
             hostname=os.environ.get("HOSTNAME", ""),  # ONEX_EXCLUDE: env
             service_label="EventBusKafka",
         )
+
+    async def _record_consumer_rejoin_alarm(
+        self, alarm: ModelConsumerRejoinAlarm
+    ) -> None:
+        """Retain the alarm locally and mirror it onto the health topic best-effort."""
+        self._consumer_rejoin_alarms.append(alarm)
+        del self._consumer_rejoin_alarms[:-CONSUMER_REJOIN_HISTORY_CAPACITY]
+        if self._health_emitter is None:
+            return
+        try:
+            await self._health_emitter.emit_event(
+                consumer_identity=f"eventbus.{alarm.topic}",
+                consumer_group=alarm.consumer_group,
+                topic=alarm.topic,
+                event_type=EnumConsumerHealthEventType.CONSUMER_GROUP_STALLED,
+                severity=EnumConsumerHealthSeverity.CRITICAL,
+                correlation_id=alarm.event_id,
+                error_message=alarm.message[:500],
+                error_type=alarm.reason,
+                hostname=socket.gethostname(),
+                service_label="EventBusKafka",
+            )
+        except (OSError, RuntimeError, KafkaError):
+            # Health mirroring is best-effort; the local record above is the alarm.
+            logger.debug("consumer_group_rejoin_alarm_mirror_failed", exc_info=True)
 
     async def _process_consumed_record(
         self,
@@ -3773,6 +4175,20 @@ class EventBusKafka(
             partition's batch: those records sit past the rewind point and
             Kafka will redeliver them.
         """
+        # OMN-22822: a record the DLQ replay node addressed to one consumer
+        # group is that group's alone; any other group skips it and commits.
+        replay_target = ModelDlqReplayTarget.from_raw_msg(msg)
+        if replay_target.excludes(group_id):
+            logger.info(
+                "Skipping replayed record on %s: %s names consumer group '%s', "
+                "not '%s'",
+                topic,
+                REPLAY_TARGET_GROUP_HEADER,
+                replay_target.consumer_group,
+                group_id,
+            )
+            return False
+
         # Get subscribers snapshot early - needed for consumer group in DLQ
         async with self._lock:
             subscribers = [
@@ -3855,6 +4271,11 @@ class EventBusKafka(
         # Dispatch to all subscribers
         offset_may_advance = True
         for _sub_group_id, subscription_id, callback in subscribers:
+            # OMN-21229: pause is per subscription. The group's consumer keeps
+            # fetching while any sibling is live, so a paused subscription is
+            # skipped here instead of being handed the record.
+            if subscription_id in self._paused_subscriptions:
+                continue
             dispatch_offset_safe = await self._dispatch_to_subscriber(
                 callback,
                 subscription_id,
@@ -3897,9 +4318,15 @@ class EventBusKafka(
     ) -> None:
         """Background loop to consume messages and dispatch to subscribers.
 
-        This method runs in a background task and continuously polls the Kafka consumer
-        for new messages. It handles graceful cancellation, dispatches messages to all
-        registered subscribers, and logs all errors without terminating the loop.
+        Runs until the bus shuts down or the task itself is cancelled, and for
+        no other reason (OMN-17427). The ``try`` is per iteration: a poll or a
+        batch that raises is logged, reported, and answered by replacing the
+        consumer after a bounded backoff (:meth:`_recover_consume_iteration`),
+        and the loop polls on. Before OMN-17427 one ``try`` wrapped the whole
+        loop, so any such error ENDED the task with its consumer still started:
+        aiokafka kept the membership through heartbeats for
+        ``max_poll_interval_ms``, then left the group and never rejoined,
+        because a rejoin only happens inside the next poll.
 
         Args:
             topic: Topic being consumed.
@@ -3932,37 +4359,111 @@ class EventBusKafka(
         # Absent or 1 means the inline serial path below, unchanged.
         max_in_flight = self._consume_concurrency.get((topic, group_id), 1)
 
+        consecutive_failures = 0
+        needs_replacement = False
         try:
-            if max_in_flight > 1:
-                await self._consume_loop_concurrent(
-                    topic=topic,
-                    group_id=group_id,
-                    correlation_id=correlation_id,
-                    consumer=consumer,
-                    supervisor=supervisor,
-                    max_in_flight=max_in_flight,
-                )
-                return
-
-            # OMN-18640: poll with a deadline rather than iterating the
-            # consumer. ``async for msg in consumer`` never returns and never
-            # raises while aiokafka retries a dead group coordinator in its own
-            # background task, so a client that lost its coordinator across a
-            # broker restart waited here indefinitely -- 30 minutes on
-            # 2026-09-17 and 97 on 2026-09-18, both cleared only by recreating
-            # the container. Every bounded poll that comes back empty is an
-            # opportunity for the supervisor to ask whether the silence is
-            # idleness or a wedge, and to rebuild the consumer if it is a wedge.
             while not self._shutdown:
-                batch = await supervisor.next_batch(consumer)
-                consumer = cast("AIOKafkaConsumer", batch.consumer)
-                await self._process_serial_batch(
-                    batch.records,
+                batch: ModelConsumerPollBatch | None = None
+                try:
+                    if needs_replacement:
+                        consumer = await self._replace_consumer(
+                            topic, group_id, consumer
+                        )
+                        needs_replacement = False
+
+                    if max_in_flight > 1:
+                        # The concurrent driver polls in its own loop and
+                        # returns only on shutdown; any failure inside it
+                        # raises out to the arms below, after it has drained
+                        # every record it dispatched.
+                        await self._consume_loop_concurrent(
+                            topic=topic,
+                            group_id=group_id,
+                            correlation_id=correlation_id,
+                            consumer=consumer,
+                            supervisor=supervisor,
+                            max_in_flight=max_in_flight,
+                        )
+                        continue
+
+                    # OMN-18640: poll with a deadline rather than iterating the
+                    # consumer. ``async for msg in consumer`` never returns and
+                    # never raises while aiokafka retries a dead group
+                    # coordinator in its own background task, so a client that
+                    # lost its coordinator across a broker restart waited here
+                    # indefinitely -- 30 minutes on 2026-09-17 and 97 on
+                    # 2026-09-18, both cleared only by recreating the
+                    # container. Every bounded poll that comes back empty is an
+                    # opportunity for the supervisor to ask whether the
+                    # silence is idleness or a wedge, and to rebuild the
+                    # consumer if it is a wedge.
+                    self._pause_group_consumer(topic, group_id)
+                    batch = await supervisor.next_batch(consumer)
+                    consumer = cast("AIOKafkaConsumer", batch.consumer)
+                    consecutive_failures = 0
+                    self._active_serial_batches.add((topic, group_id))
+                    try:
+                        await self._process_serial_batch(
+                            batch.records,
+                            topic=topic,
+                            group_id=group_id,
+                            correlation_id=correlation_id,
+                            consumer=consumer,
+                        )
+                    finally:
+                        self._active_serial_batches.discard((topic, group_id))
+                    continue
+
+                except asyncio.CancelledError as cancelled:
+                    if self._shutdown or self._current_task_cancelling():
+                        raise
+                    # Not this task being cancelled: a CancelledError leaked
+                    # out of something the iteration awaited. It is that
+                    # thing failing, never the loop ending (OMN-17427).
+                    consecutive_failures += 1
+                    logger.exception(
+                        _CONSUME_ITERATION_FAILED,
+                        topic,
+                        group_id,
+                        type(cancelled).__name__,
+                        cancelled,
+                        consecutive_failures,
+                        extra=_consume_failure_extra(
+                            topic, group_id, correlation_id, cancelled
+                        ),
+                    )
+                    failure: BaseException = cancelled
+                except Exception as error:
+                    # Any failed iteration is answered by replacing the
+                    # consumer after a backoff, never by ending the loop.
+                    consecutive_failures += 1
+                    logger.exception(
+                        _CONSUME_ITERATION_FAILED,
+                        topic,
+                        group_id,
+                        type(error).__name__,
+                        error,
+                        consecutive_failures,
+                        extra=_consume_failure_extra(
+                            topic, group_id, correlation_id, error
+                        ),
+                    )
+                    failure = error
+
+                if max_in_flight > 1:
+                    # The driver may have rejoined onto a newer handle; the
+                    # live one is the one published for shutdown.
+                    consumer = self._group_consumers.get((topic, group_id), consumer)
+                await self._recover_consume_iteration(
                     topic=topic,
                     group_id=group_id,
                     correlation_id=correlation_id,
                     consumer=consumer,
+                    failed_batch=batch,
+                    error=failure,
+                    consecutive_failures=consecutive_failures,
                 )
+                needs_replacement = True
 
         except asyncio.CancelledError:
             # Graceful cancellation - this is expected during shutdown
@@ -3975,21 +4476,6 @@ class EventBusKafka(
             )
             raise  # Re-raise to properly handle task cancellation
 
-        except Exception as e:
-            logger.exception(
-                f"Consumer loop error for topic {topic}: {e}",
-                extra={
-                    "topic": topic,
-                    "correlation_id": str(correlation_id),
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                },
-            )
-            await self._emit_consume_loop_error_health_event(
-                topic, group_id, correlation_id, e
-            )
-            # Don't raise - allow task to complete and cleanup to proceed
-
         finally:
             logger.info(
                 f"Consumer loop exiting for topic {topic}",
@@ -3998,6 +4484,77 @@ class EventBusKafka(
                     "correlation_id": str(correlation_id),
                 },
             )
+
+    @staticmethod
+    def _current_task_cancelling() -> bool:
+        """True when the running task itself has a cancellation pending."""
+        task = asyncio.current_task()
+        return task is not None and task.cancelling() > 0
+
+    async def _recover_consume_iteration(
+        self,
+        *,
+        topic: str,
+        group_id: str,
+        correlation_id: UUID,
+        consumer: AIOKafkaConsumer,
+        failed_batch: ModelConsumerPollBatch | None,
+        error: BaseException,
+        consecutive_failures: int,
+    ) -> None:
+        """Report one failed consume-loop iteration and wait out its backoff.
+
+        The caller has already logged the failure (in its ``except`` arm, where
+        the exception is in hand). The caller replaces the consumer on its next iteration. Before that
+        replacement stops this consumer, every partition of a failed serial
+        batch is pinned back at the batch's first record: under auto-commit
+        ``stop()`` commits the fetch position, which after ``getmany`` is past
+        the whole batch, and records the batch never reached would otherwise
+        be committed past without having run. Records it did run are
+        redelivered -- at-least-once, the delivery contract of this path.
+        """
+        await self._emit_consume_loop_error_health_event(
+            topic, group_id, correlation_id, error
+        )
+
+        if failed_batch is not None and failed_batch.records:
+            starts = [
+                (partition, coordinate[1])
+                for partition, records in failed_batch.records.items()
+                if records
+                and (coordinate := _record_coordinate(records[0])) is not None
+            ]
+            if starts:
+                ModelSerialBatchWithhold(consumer, starts).engage()
+
+        backoff = min(
+            self._config.consume_loop_failure_backoff_initial_seconds
+            * 2 ** min(consecutive_failures - 1, 16),
+            self._config.consume_loop_failure_backoff_max_seconds,
+        )
+        await asyncio.sleep(backoff)
+
+    async def _replace_consumer(
+        self, topic: str, group_id: str, consumer: AIOKafkaConsumer | None
+    ) -> AIOKafkaConsumer:
+        """Stop ``consumer`` and start its replacement in the same group.
+
+        The replacement goes through :meth:`_rebuild_consumer_for_rejoin`, so it
+        joins the same effective group with the same instance id and resumes
+        from the committed offsets. A failure to start it propagates; the
+        consume loop answers it with its backoff and tries again.
+        """
+        if consumer is not None:
+            try:
+                await asyncio.wait_for(consumer.stop(), timeout=self._timeout_seconds)
+            except Exception as stop_error:
+                logger.exception(
+                    "consume_consumer_stop_failed topic=%s group=%s error=%s",
+                    topic,
+                    group_id,
+                    stop_error,
+                )
+        return await self._rebuild_consumer_for_rejoin(topic, group_id)
 
     async def _process_serial_batch(
         self,
@@ -4016,7 +4573,7 @@ class EventBusKafka(
 
         * **A slow dispatch.** Once a dispatch outlives
           ``consumer_dispatch_withhold_after_seconds`` the fetch positions are
-          pinned at the unfinished records (``SerialBatchWithhold``), so
+          pinned at the unfinished records (``ModelSerialBatchWithhold``), so
           auto-commit cannot commit past a record that may never finish. When
           the dispatch settles -- returned, or abandoned at its deadline and
           quarantined -- the position moves just past it and the loop polls
@@ -4043,7 +4600,7 @@ class EventBusKafka(
         for index, (partition, partition_records) in enumerate(partitions):
             for position, msg in enumerate(partition_records):
                 coordinate = _record_coordinate(msg)
-                if self._shutdown:
+                if self._shutdown or self._group_paused(topic, group_id):
                     logger.debug(
                         f"Consumer loop shutdown signal received for topic {topic}",
                         extra={
@@ -4064,7 +4621,7 @@ class EventBusKafka(
                         if later is not None:
                             remaining.append((later_partition, later[1]))
                     if remaining:
-                        SerialBatchWithhold(consumer, remaining).engage()
+                        ModelSerialBatchWithhold(consumer, remaining).engage()
                     return
 
                 if coordinate is None:
@@ -4085,7 +4642,7 @@ class EventBusKafka(
 
                 started = index > 0 or position > 0
                 if started and loop.time() - polled_at + deadline > budget:
-                    SerialBatchWithhold(consumer, unfinished).engage()
+                    ModelSerialBatchWithhold(consumer, unfinished).engage()
                     logger.info(
                         "serial_batch_cut_at_poll_budget topic=%s partition=%s "
                         "offset=%s elapsed=%.1fs deadline=%.1fs budget=%.1fs -- "
@@ -4101,7 +4658,7 @@ class EventBusKafka(
                     )
                     return
 
-                withhold = SerialBatchWithhold(consumer, unfinished)
+                withhold = ModelSerialBatchWithhold(consumer, unfinished)
                 rewound = await self._process_consumed_record(
                     msg,
                     topic,
@@ -4113,7 +4670,8 @@ class EventBusKafka(
                 if withhold.engaged:
                     if not rewound:
                         # Settled: returned, or quarantined with a confirmed
-                        # durable copy. Resume just past it.
+                        # durable copy. Commit it and resume just past it.
+                        await self._commit_completed_serial(consumer, msg)
                         try:
                             consumer.seek(partition, coordinate[1] + 1)
                         except Exception:
@@ -4130,6 +4688,40 @@ class EventBusKafka(
                     # Fetch position moved back; the remainder of this
                     # partition's batch is stale.
                     break
+                await self._commit_completed_serial(consumer, msg)
+
+    async def _commit_completed_serial(
+        self, consumer: AIOKafkaConsumer, msg: object
+    ) -> None:
+        """Commit just past one settled serial record (OMN-21229).
+
+        Called only after the record returned or was quarantined, never for one
+        that raised, was cancelled or asked for a rewind, so the committed
+        offset is never past an unfinished record. A refused commit (a
+        rebalance revoked the partition) is logged and the next settled record
+        commits a higher position; delivery stays at-least-once.
+        """
+        coordinate = _record_coordinate(msg)
+        if coordinate is None:
+            return
+        partition_id, offset = coordinate
+        try:
+            await consumer.commit(
+                {
+                    TopicPartition(str(getattr(msg, "topic", "")), partition_id): offset
+                    + 1
+                }
+            )
+        except Exception:
+            # Any failure to commit is a redelivery at worst, never a lost
+            # record, and the record has already completed: it must not end
+            # the batch or the loop.
+            logger.exception(
+                "serial_commit_refused partition=%s offset=%s -- the record is "
+                "redelivered at worst (OMN-21229)",
+                partition_id,
+                offset,
+            )
 
     async def _consume_loop_concurrent(
         self,
@@ -4322,10 +4914,15 @@ class EventBusKafka(
                 consumer = cast("AIOKafkaConsumer", batch.consumer)
 
                 for records in batch.records.values():
-                    if self._shutdown or rewind_requests or task_errors:
+                    if (
+                        self._shutdown
+                        or self._group_paused(topic, group_id)
+                        or rewind_requests
+                        or task_errors
+                    ):
                         break
                     for msg in records:
-                        if self._shutdown:
+                        if self._shutdown or self._group_paused(topic, group_id):
                             logger.debug(
                                 f"Consumer loop shutdown signal received for topic {topic}",
                                 extra={
@@ -4648,10 +5245,14 @@ class EventBusKafka(
                         for topic, task in self._consumer_tasks.items()
                     ]
 
+                # OMN-17427: a topic is alive only when EVERY group consuming
+                # it has a live task. ORing per topic let one live sibling hide
+                # a group whose loop had ended -- the 2026-10-22 shape, where
+                # one of three groups on a topic sat Empty with 0 members.
                 for (topic, _group_id), task in task_views:
                     consume_tasks_alive[topic] = consume_tasks_alive.get(
-                        topic, False
-                    ) or (not task.done())
+                        topic, True
+                    ) and (not task.done())
 
             # Determine required topics readiness
             required_topics_ready = consumers_started and all(
@@ -4706,19 +5307,8 @@ class EventBusKafka(
         """
         if not servers:
             return "unknown"
-
-        # Split by comma for multiple servers
-        server_list = [s.strip() for s in servers.split(",")]
-        sanitized = []
-
-        for server in server_list:
-            # Remove any user:pass@ prefix (credentials)
-            if "@" in server:
-                # Keep only the part after @
-                server = server.split("@", 1)[1]
-            sanitized.append(server)
-
-        return ",".join(sanitized)
+        # Keep only the part after any user:pass@ prefix of each server.
+        return ",".join(s.strip().split("@", 1)[-1] for s in servers.split(","))
 
     def _validate_topic_name(self, topic: str, correlation_id: UUID) -> None:
         """Validate Kafka topic name according to Kafka naming rules.
@@ -4792,87 +5382,6 @@ class EventBusKafka(
         )
         if self._topic_violation_alerter is not None:
             await self._topic_violation_alerter.maybe_alert(topic, reason)
-
-    @staticmethod
-    def _uuid_or_none(value: object) -> UUID | None:
-        """Return ``value`` as a UUID, or None if it is not one.
-
-        A body is untrusted input. A field that is present but malformed must
-        neither reach a UUID column nor fail a publish that would otherwise
-        have succeeded, so this narrows rather than raises (OMN-18914 AC3).
-        """
-        if not isinstance(value, str):
-            return None
-        try:
-            return UUID(value)
-        except ValueError:
-            return None
-
-    def _headers_for_unheadered_publish(
-        self, topic: str, value: bytes
-    ) -> ModelEventHeaders:
-        """Build wire headers for a caller that supplied none (OMN-18914).
-
-        The identity on the wire is the identity in the BODY wherever the body
-        states one. This is not a convenience: ``handler_ledger_projection``
-        fills ``public.event_ledger``'s ``correlation_id`` and ``envelope_id``
-        columns from these headers and never from the body, so a minted header
-        files the record under a correlation no other hop shares. That is what
-        left the delegation chain's head hop unjoinable and the chain canary
-        reporting ``ledger_chain_incomplete`` -- measured on the .201 dev lane,
-        a delegation whose body said ``da706588-…`` reached the wire as
-        ``3564c149-…``.
-
-        Only IDENTITY is derived. ``event_type`` stays the topic and ``source``
-        stays this bus's environment, deliberately: both already match every
-        correctly-headered row in ``event_ledger``, no defect argues against
-        them, and a body's own ``event_type`` is a different vocabulary (the
-        gateway writes ``omnimarket.delegate-skill`` where the wire says
-        ``onex.cmd.omnimarket.delegate-skill.v1``). Changing established
-        columns with no defect behind the change is how a fix acquires a
-        blast radius it was never measured for. ``ModelEventHeaders`` has no
-        ``tenant_id`` field at all, so no tenant can be carried here; that half
-        belongs to the gateway publisher (OMN-18915).
-
-        Minting survives where there is nothing to derive, and says so once per
-        topic -- a producer publishing without identity is a standing finding
-        worth a line, and worth exactly one.
-        """
-        body: object = None
-        try:
-            body = json.loads(value)
-        except (UnicodeDecodeError, ValueError):
-            body = None
-
-        correlation_id: UUID | None = None
-        message_id: UUID | None = None
-        if isinstance(body, dict):
-            correlation_id = self._uuid_or_none(body.get("correlation_id"))
-            message_id = self._uuid_or_none(body.get("envelope_id"))
-
-        if correlation_id is None and topic not in self._minted_identity_topics:
-            self._minted_identity_topics.add(topic)
-            logger.warning(
-                "Publishing to '%s' with no caller headers and no derivable "
-                "identity in the body; minting a correlation id. Records from "
-                "this producer cannot be joined to a delegation chain "
-                "(OMN-18914).",
-                topic,
-                extra={"topic": topic, "environment": self._environment},
-            )
-
-        identity: dict[str, UUID] = {}
-        if correlation_id is not None:
-            identity["correlation_id"] = correlation_id
-        if message_id is not None:
-            identity["message_id"] = message_id
-
-        return ModelEventHeaders(
-            source=self._environment,
-            event_type=topic,
-            timestamp=datetime.now(UTC),
-            **identity,
-        )
 
     def _model_headers_to_kafka(
         self, headers: ModelEventHeaders
@@ -5064,27 +5573,9 @@ class EventBusKafka(
         # drops the header, both paths reset replay lineage to 0 on every
         # republish and should_replay's guard never trips (the 2026-08-05
         # dev DLQ amplification incident).
-        replay_count_str = headers_dict.get(_REPLAY_COUNT_HEADER)
-        if replay_count_str is not None:
-            try:
-                parsed_replay_count = int(replay_count_str)
-            except (ValueError, TypeError):
-                logger.warning(
-                    "Malformed %s header %r, failing closed to stop replay",
-                    _REPLAY_COUNT_HEADER,
-                    replay_count_str,
-                )
-                retry_count = _REPLAY_COUNT_PARSE_FAILURE_SENTINEL
-            else:
-                if parsed_replay_count < 0:
-                    logger.warning(
-                        "Negative %s header value %d, failing closed to stop replay",
-                        _REPLAY_COUNT_HEADER,
-                        parsed_replay_count,
-                    )
-                    retry_count = _REPLAY_COUNT_PARSE_FAILURE_SENTINEL
-                else:
-                    retry_count = parsed_replay_count
+        retry_count = resolve_replay_count(
+            headers_dict.get(REPLAY_COUNT_HEADER), retry_count
+        )
 
         max_retries = self._parse_int_header(
             headers_dict.get("max_retries"), 3, "max_retries"

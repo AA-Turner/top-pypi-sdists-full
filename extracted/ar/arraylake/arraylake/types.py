@@ -32,6 +32,8 @@ from pydantic import (
     model_validator,
 )
 from pydantic.functional_validators import BeforeValidator
+from pydantic.json_schema import GetJsonSchemaHandler, JsonSchemaValue
+from pydantic_core import CoreSchema
 
 HTML = str
 
@@ -42,11 +44,14 @@ VALID_NAME = r"(\w[\w\.\-_]+)"
 MAX_REPO_NAME_LENGTH = 128
 # /{org}/{repo} URLs lose to these app routes: static children of app/src/app/(pages)/[org]/
 # (route groups flattened) plus the /:org/<x> redirect sources in app/next.config.js.
+# `bucket`, `repo` and `table` are the type segments of Arraylake URIs
+# (arraylake://{org}/{type}/...), which a repo of that name would shadow.
 RESERVED_REPO_NAMES = frozenset(
     {
         "access",
         "analytics",
         "billing",
+        "bucket",
         "buckets",
         "dap2",
         "edr",
@@ -54,11 +59,15 @@ RESERVED_REPO_NAMES = frozenset(
         "metrics",
         "optimization",
         "publish",
+        "queries",
+        "query",
+        "repo",
         "repos",
         "repositories",
         "services",
         "settings",
         "sql",
+        "table",
         "tables",
         "tiles",
         "virtual-chunks",
@@ -131,7 +140,7 @@ def validate_new_repo_name(v: str) -> str:
     if len(v) > MAX_REPO_NAME_LENGTH:
         raise ValueError(f"Repo name must be at most {MAX_REPO_NAME_LENGTH} characters long. Got {len(v)}.")
     if v.lower() in RESERVED_REPO_NAMES:
-        raise ValueError(f"Repo name {v!r} is reserved by the web app.")
+        raise ValueError(f"Repo name {v!r} is reserved.")
     return v
 
 
@@ -288,19 +297,23 @@ def dbid_validator(v: Any) -> DBIDBytes:
 DBID = Annotated[DBIDBytes, PlainValidator(dbid_validator)]
 
 
+_E = TypeVar("_E", bound=Enum)
+
+
+class _PublishKnownValues:
+    # The server reuses these models for its responses and only sends known values.
+    @staticmethod
+    def __get_pydantic_json_schema__(schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        return handler(schema)["anyOf"][0]
+
+
+# A newer server can send a value that this client does not know. Keep it as a str.
+OpenEnum: TypeAlias = Annotated[_E | str, Field(union_mode="left_to_right"), _PublishKnownValues]
+
+
 class RepoKind(StrEnum):
     V1 = "v1"
     Icechunk = "icechunk"
-
-
-def _tolerant_repo_kind(v: Any) -> Any:
-    """Coerce a recognized repo kind to :class:`RepoKind`, passing anything else through."""
-    if isinstance(v, str) and not isinstance(v, RepoKind):
-        try:
-            return RepoKind(v)
-        except ValueError:
-            return v
-    return v
 
 
 # The kind of a repo as reported by the server. A server newer than this client can
@@ -308,7 +321,7 @@ def _tolerant_repo_kind(v: Any) -> Any:
 # repo listing rather than just the unknown repo, so response parsing keeps the raw
 # string instead. Request bodies stay strictly typed as ``RepoKind``: a client can
 # only ask for kinds it knows how to open.
-ResponseRepoKind: TypeAlias = Annotated[RepoKind | str, BeforeValidator(_tolerant_repo_kind)]
+ResponseRepoKind: TypeAlias = OpenEnum[RepoKind]
 
 
 class SubscriptionType(StrEnum):
@@ -487,7 +500,7 @@ class RepoModifyBody(BaseModel):
 class RepoVisibilityModel(BaseModel):
     """The visibility of a repo"""
 
-    visibility: RepoVisibility
+    visibility: OpenEnum[RepoVisibility]
 
 
 class RepoVisibility(StrEnum):
@@ -499,7 +512,7 @@ class RepoVisibility(StrEnum):
     AUTHENTICATED_PUBLIC = "AUTHENTICATED_PUBLIC"
 
     # PUBLIC: Visible to anybody on the public internet.
-    # PUBLIC = "PUBLIC"
+    PUBLIC = "PUBLIC"
 
 
 Platform = Literal["s3", "s3-compatible", "minio", "gs", "azure"]
@@ -507,6 +520,7 @@ Platform = Literal["s3", "s3-compatible", "minio", "gs", "azure"]
 _REDACTED = "**********"
 
 
+# Server copy: server/arraylake_api/schema/credentials.py
 class RedactedReprModel(BaseModel):
     """Base model that masks sensitive fields in ``repr()``/``str()`` output.
 
@@ -581,10 +595,14 @@ class R2CustomerManagedRoleAuth(BaseModel):
         return _reveal_or_mask_secret(v, info)
 
 
+AZURE_STORAGE_ACCOUNT_PATTERN = r"^[a-z0-9]{3,24}$"
+AzureStorageAccount = Annotated[str, StringConstraints(pattern=AZURE_STORAGE_ACCOUNT_PATTERN)]
+
+
 class AzureDelegatedCredentialsAuth(BaseModel):
     method: Literal["azure_credential_delegation"]
     tenant_id: str  # Tenant ID where the storage account resides
-    storage_account: str  # Azure storage account name that contains the container/bucket
+    storage_account: AzureStorageAccount  # Azure storage account name that contains the container/bucket
 
 
 CustomerManagedRoleAuth: TypeAlias = (
@@ -615,7 +633,7 @@ class AnonymousAuth(BaseModel):
     # blob endpoint host (<storage_account>.blob.core.windows.net). It's carried here so
     # the account lives in auth_config for both anonymous and delegated Azure buckets, and
     # is left None for s3/gcs anonymous buckets. Required for azure (see NewBucket).
-    storage_account: str | None = None
+    storage_account: AzureStorageAccount | None = None
 
 
 AuthConfig: TypeAlias = CustomerManagedRoleAuth | BucketPolicyAuth | HmacAuth | AnonymousAuth
@@ -721,6 +739,7 @@ class BucketModel(BaseModel):
         else:
             raise ValueError(f"Unsupported platform for VCC store config: {self.platform}")
 
+    # Server copy: server/arraylake_api/services/icechunk_storage.py:bucket_obstore_store
     def as_obstore_store(
         self,
         credentials: TempCredentials | None,
@@ -1144,7 +1163,7 @@ class RepoOperationMode(StrEnum):
 
 
 class NewRepoOperationStatus(BaseModel):
-    mode: RepoOperationMode
+    mode: OpenEnum[RepoOperationMode]
     message: str | None = None
 
 
@@ -1404,8 +1423,8 @@ class RepoSubscriptionInfo(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     parent_repo: Repo | None
-    status: SubscriptionStatus = SubscriptionStatus.ACTIVE
-    subscription_type: SubscriptionType = SubscriptionType.DIRECT
+    status: OpenEnum[SubscriptionStatus] = SubscriptionStatus.ACTIVE
+    subscription_type: OpenEnum[SubscriptionType] = SubscriptionType.DIRECT
     # The alias lets this client parse servers that predate the rename and still emit marketplace_listing.
     exchange_listing: ExchangeListing | None = Field(validation_alias=AliasChoices("exchange_listing", "marketplace_listing"))
     # Deprecated mirror of exchange_listing: the server fills it for clients that predate the
@@ -1413,7 +1432,7 @@ class RepoSubscriptionInfo(BaseModel):
     marketplace_listing: ExchangeListing | None = None
     source_filter: DatasetFilter | None = None
     target_filter: DatasetFilter | None = None
-    pricing_type: SubscriptionPricingType | None = None
+    pricing_type: OpenEnum[SubscriptionPricingType] | None = None
     price_minor_units: int | None = None
     currency: str = "USD"
 
@@ -1436,7 +1455,7 @@ class Repo(ModelWithID):
     description: str | None = None
     metadata: RepoMetadataT | None = None
     created_by: UUID | None = None
-    visibility: RepoVisibility = RepoVisibility.PRIVATE
+    visibility: OpenEnum[RepoVisibility] = RepoVisibility.PRIVATE
     subscription: RepoSubscriptionInfo | None = None
     bucket: BucketResponse | None = None
     status: RepoOperationStatusResponse
@@ -1501,7 +1520,7 @@ class Author(BaseModel):
             return f"<{self.email}>"
 
 
-class OrgActions(Enum):
+class OrgActions(StrEnum):
     """Actions a user can take on a specific org"""
 
     CAN_MANAGE_USERS = "CAN_MANAGE_USERS"
@@ -1510,7 +1529,7 @@ class OrgActions(Enum):
     CAN_READ_REPOS_WITH_FLUX = "CAN_READ_REPOS_WITH_FLUX"
 
 
-class RepoActions(Enum):
+class RepoActions(StrEnum):
     """Actions a user can take on a specific repo"""
 
     CAN_READ_WITH_FLUX = "CAN_READ_WITH_FLUX"
@@ -1520,7 +1539,7 @@ class RepoActions(Enum):
     CAN_SYNC = "CAN_SYNC"
 
 
-class IcebergNamespaceActions(Enum):
+class IcebergNamespaceActions(StrEnum):
     """Actions a user can take on a specific iceberg namespace, or on a single
     table within it.
 
@@ -1540,7 +1559,7 @@ class Permission(BaseModel, Generic[ActionType]):
     """Holds a permission"""
 
     principal_id: UUID
-    actions: set[ActionType] = set()
+    actions: set[OpenEnum[ActionType]] = set()
 
 
 class PermissionBody(BaseModel):
@@ -1673,7 +1692,27 @@ class ApiClientResponse(BaseModel):
         return datetime_to_isoformat(dt)
 
 
-class S3Credentials(RedactedReprModel):
+# Server copy: server/arraylake_api/schema/credentials.py
+class CredentialRefresh(BaseModel):
+    """Absolute https URL that returns a fresh credential of the same shape; the caller sends its own Authorization."""
+
+    url: str
+
+
+# Server copy: server/arraylake_api/schema/credentials.py
+class _RefreshableCredentials(RedactedReprModel):
+    """A shared wire contract: fields are only ever added, with defaults, never renamed, removed or retyped.
+    Clients ignore unknown fields and treat an unknown ``provider`` as unsupported for that container."""
+
+    refresh: CredentialRefresh | None = None
+
+    def with_refresh(self, url: str) -> Self:
+        return self.model_copy(update={"refresh": CredentialRefresh(url=url)})
+
+
+# Server copy: server/arraylake_api/schema/credentials.py
+class S3Credentials(_RefreshableCredentials):
+    provider: Literal["s3"] = "s3"
     aws_access_key_id: str
     aws_secret_access_key: str
     aws_session_token: str | None
@@ -1682,7 +1721,9 @@ class S3Credentials(RedactedReprModel):
     __redacted_repr_fields__ = frozenset({"aws_access_key_id", "aws_secret_access_key", "aws_session_token"})
 
 
-class GSCredentials(RedactedReprModel):
+# Server copy: server/arraylake_api/schema/credentials.py
+class GSCredentials(_RefreshableCredentials):
+    provider: Literal["gcs"] = "gcs"
     access_token: str
     principal: str
     expiration: datetime | None
@@ -1690,24 +1731,43 @@ class GSCredentials(RedactedReprModel):
     __redacted_repr_fields__ = frozenset({"access_token"})
 
 
-class AzureCredentials(RedactedReprModel):
+# Server copy: server/arraylake_api/schema/credentials.py
+class AzureCredentials(_RefreshableCredentials):
+    provider: Literal["azure"] = "azure"
     sas_token: str  # User delegation SAS token
-    storage_account: str  # Storage account name
+    storage_account: AzureStorageAccount  # Storage account name
     expiration: datetime | None  # Token expiration
 
     __redacted_repr_fields__ = frozenset({"sas_token"})
 
 
-TempCredentials: TypeAlias = S3Credentials | GSCredentials | AzureCredentials
+KNOWN_CREDENTIAL_PROVIDERS = frozenset({"s3", "gcs", "azure"})
+
+
+# Server copy: server/arraylake_api/schema/credentials.py
+def _infer_credential_provider(value: Any) -> Any:
+    # Servers older than the provider field send no tag; infer it from the fields each shape always had.
+    if isinstance(value, Mapping) and "provider" not in value:
+        for field, provider in (("aws_access_key_id", "s3"), ("access_token", "gcs"), ("sas_token", "azure")):
+            if field in value:
+                return {**value, "provider": provider}
+    return value
+
+
+# Server copy: server/arraylake_api/schema/credentials.py
+# Validation picks the member by its provider literal; the schema stays a plain anyOf, since a oneOf would break old clients.
+TempCredentials: TypeAlias = Annotated[S3Credentials | GSCredentials | AzureCredentials, BeforeValidator(_infer_credential_provider)]
 
 
 ### Icechunk workarounds
 # GcsBearerCredential is not included in AnyGcsCredential, so we need to create a new type alias
+# Server copy: server/arraylake_api/services/icechunk_storage.py
 ICECHUNK_ANY_CREDENTIAL: TypeAlias = (
     icechunk.AnyS3Credential | icechunk.GcsBearerCredential | icechunk.AnyGcsCredential | icechunk.AnyAzureCredential | None
 )
 
 
+# Server copy: server/arraylake_api/schema/credentials.py
 class VirtualChunkCredentials(BaseModel):
     """Credentials and refresh metadata for a single virtual chunk bucket.
 
@@ -1779,6 +1839,7 @@ class VirtualChunkCredentials(BaseModel):
             raise ValueError(f"Unsupported platform for VCC store config: {self.platform}")
 
 
+# Server copy: server/arraylake_api/schema/credentials.py
 class OpenRepoResponse(BaseModel):
     """Everything the client needs to open an icechunk repo."""
 
@@ -1802,7 +1863,8 @@ class IcebergGrantResponse(BaseModel):
     """One iceberg grant row, as served by the namespace management API.
 
     ``table_name`` is None for a whole-namespace grant; ``namespace_name`` is
-    None when the namespace row no longer resolves.
+    None when the namespace row no longer resolves. ``table_path`` holds the
+    nested namespace levels between the namespace and a granted table.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -1810,7 +1872,8 @@ class IcebergGrantResponse(BaseModel):
     namespace_id: UUID
     namespace_name: str | None = None
     table_name: str | None = None
-    actions: set[IcebergNamespaceActions] = set()
+    table_path: list[str] = []
+    actions: set[OpenEnum[IcebergNamespaceActions]] = set()
 
 
 class IcebergNamespaceSubscription(BaseModel):
@@ -1827,7 +1890,7 @@ class IcebergNamespaceSubscription(BaseModel):
     provider_namespace: str | None = None
     #: The listing's public id, the one the exchange API speaks.
     listing_id: str | None = None
-    status: SubscriptionStatus
+    status: OpenEnum[SubscriptionStatus]
 
 
 class IcebergNamespaceResponse(BaseModel):
@@ -1848,8 +1911,8 @@ class IcebergNamespaceResponse(BaseModel):
     bucket_id: UUID | None = None
     bucket_nickname: str | None = None
     prefix: str
-    visibility: RepoVisibility = RepoVisibility.PRIVATE
-    effective_actions: set[IcebergNamespaceActions] = set()
+    visibility: OpenEnum[RepoVisibility] = RepoVisibility.PRIVATE
+    effective_actions: set[OpenEnum[IcebergNamespaceActions]] = set()
     #: The REST spec's properties map, owned by engines.
     properties: dict[str, str] = {}
     #: Arraylake-owned discovery fields, the same contract as a repo's.
@@ -1873,12 +1936,17 @@ IcebergTableSort = Literal["relevance", "updated", "created", "name"]
 
 
 class IcebergTableSummaryResponse(BaseModel):
-    """Catalog-row summary; listing does not load table metadata or record access."""
+    """Catalog-row summary; listing does not load table metadata or record access.
+
+    ``namespace`` is the top-level namespace and ``path`` the nested namespace
+    levels between it and the table (empty for a table directly in it).
+    """
 
     name: str
     namespace: str
+    path: list[str] = []
     table_uuid: UUID
-    effective_actions: set[IcebergNamespaceActions] = set()
+    effective_actions: set[OpenEnum[IcebergNamespaceActions]] = set()
     has_storage_override: bool = False
     created: datetime
     updated: datetime

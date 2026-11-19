@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sqlite3
+import tempfile
 from collections.abc import Iterator
 from datetime import date, datetime
 from decimal import Decimal
@@ -68,6 +69,7 @@ from omnimarket.projection.postgres_sync_database import PostgresSyncProjectionA
 from omnimarket.projection.protocol_database import ProtocolProjectionAttestedWrite
 from omnimarket.projection.runner import MessageMeta
 from omnimarket.projection.sqlite_database import SqliteDatabaseAdapter
+from tests.helpers.isolated_schema_sql import for_isolated_schema
 from tests.test_omn15359_ac3_replay_real_postgres import local_postgres  # noqa: F401
 from tests.test_omn16316_real_postgres_tenant_credentials_write_path import (
     TOPIC_REGISTERED,
@@ -219,7 +221,26 @@ _LLM_EVENTS: list[dict[str, Any]] = [
         "usage_source": "estimated",
         "timestamp": "2026-09-28T12:05:00+00:00",
     },
+    {
+        "call_id": "19968000-0000-4000-8000-0000000000a3",
+        "model_name": "qwen3-coder",
+        "session_id": "s-3",
+        "prompt_tokens": 40,
+        "completion_tokens": 8,
+        "usage_source": "measured",
+        "gpu_seconds": 3600.0,
+        "gpu_type": "parity_gpu",
+        "gpu_count": 2,
+        "timestamp": "2026-09-28T12:10:00+00:00",
+    },
 ]
+
+# One GPU type at 0.5 + 0.5 per hour: the a3 event (3600 s on 2 GPUs) folds 2.0 of
+# compute cost into its stored estimated_cost_usd on both stores.
+_PRICING_MANIFEST = (
+    "compute_cost:\n  parity_gpu:\n"
+    "    electricity_per_hour: 0.5\n    amortization_per_hour: 0.5\n"
+)
 
 
 def _write_delegation(adapter: Any) -> None:
@@ -230,9 +251,12 @@ def _write_delegation(adapter: Any) -> None:
 
 
 def _write_llm(adapter: Any) -> None:
-    handler = HandlerProjectionLlmCost(pricing_manifest_path=Path("/nonexistent"))
-    for event in _LLM_EVENTS:
-        handler.project(ModelLlmCallCompletedEvent(**event), adapter)
+    with tempfile.TemporaryDirectory() as manifest_dir:
+        manifest = Path(manifest_dir) / "pricing_manifest.yaml"
+        manifest.write_text(_PRICING_MANIFEST, encoding="utf-8")
+        handler = HandlerProjectionLlmCost(pricing_manifest_path=manifest)
+        for event in _LLM_EVENTS:
+            handler.project(ModelLlmCallCompletedEvent(**event), adapter)
 
 
 def _dsn(pg: _Postgres, schema: str) -> str:
@@ -291,7 +315,9 @@ async def test_writer_rows_equal_on_sqlite_and_postgres(
     async with _provisioned(pg) as (admin, schema):
         await _mirror_infra_usage_source_state(admin, schema)
         for migration in _LLM_COST_MIGRATIONS:
-            await admin.execute(migration.read_text(encoding="utf-8"))
+            await admin.execute(
+                for_isolated_schema(migration.read_text(encoding="utf-8"))
+            )
         postgres = PostgresSyncProjectionAdapter(_dsn(pg, schema))
         writer(postgres)
         pg_rows = _normalize(postgres.query(table))
@@ -330,6 +356,17 @@ def test_llm_replay_is_insert_only_on_sqlite(tmp_path: Path) -> None:
     _write_llm(sqlite)
     _write_llm(sqlite)
     assert len(sqlite.query("llm_call_metrics")) == len(_LLM_EVENTS)
+
+
+def test_compute_cost_folds_into_the_stored_estimate_on_sqlite(tmp_path: Path) -> None:
+    sqlite = SqliteDatabaseAdapter(tmp_path / "compute.sqlite")
+    _write_llm(sqlite)
+    stored = {
+        row["correlation_id"]: row["estimated_cost_usd"]
+        for row in sqlite.query("llm_call_metrics")
+    }
+    assert stored["19968000-0000-4000-8000-0000000000a3"] == 2.0
+    assert stored["19968000-0000-4000-8000-0000000000a1"] == 0.0012
 
 
 def test_both_stores_take_the_attested_insert_only_branch(tmp_path: Path) -> None:
@@ -522,7 +559,7 @@ async def test_store_neutral_rows_equal_on_sqlite_and_postgres(
         # The migration names ``public.``; keep the proof inside the throwaway schema.
         for migration in migrations:
             await admin.execute(
-                migration.read_text(encoding="utf-8")
+                for_isolated_schema(migration.read_text(encoding="utf-8"))
                 .replace("public.", f"{schema}.")
                 # A create migration may grant the cluster-scoped dashboard
                 # reader, which a throwaway database does not have.

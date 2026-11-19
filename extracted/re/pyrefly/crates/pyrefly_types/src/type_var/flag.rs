@@ -25,11 +25,15 @@ use std::fmt::Display;
 use std::slice;
 
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 
+use crate::env::TypeEnv;
 use crate::heap::TypeHeap;
+use crate::known_class::KnownClass;
 use crate::literal::Lit;
+use crate::quantified::TypeVarLike;
 use crate::simplify::unions;
 use crate::stdlib::Stdlib;
 use crate::tuple::Tuple;
@@ -59,7 +63,7 @@ fn int_tuple_length(tuple: &Tuple) -> Option<IntTupleLength> {
     fn is_int(ty: &Type) -> bool {
         match ty {
             Type::Any(_) | Type::Int(_) => true,
-            Type::ClassType(cls) => cls.is_builtin("int"),
+            Type::ClassType(cls) => cls.is(KnownClass::Int),
             Type::Literal(lit) => matches!(lit.value, Lit::Int(_)),
             Type::Union(union) => union.members.iter().all(is_int),
             Type::Quantified(q) => q
@@ -145,9 +149,9 @@ impl FlagMember {
     /// parsed separately because they can carry a fixed arity.
     fn from_type(ty: &Type) -> Option<Self> {
         match ty {
-            Type::ClassType(cls) if cls.is_builtin("int") => Some(Self::Int),
-            Type::ClassType(cls) if cls.is_builtin("bool") => Some(Self::Bool),
-            Type::ClassType(cls) if cls.is_builtin("str") => Some(Self::Str),
+            Type::ClassType(cls) if cls.is(KnownClass::Int) => Some(Self::Int),
+            Type::ClassType(cls) if cls.is(KnownClass::Bool) => Some(Self::Bool),
+            Type::ClassType(cls) if cls.is(KnownClass::Str) => Some(Self::Str),
             Type::None => Some(Self::NoneType),
             _ => None,
         }
@@ -156,9 +160,9 @@ impl FlagMember {
     /// Accepts this scalar member exactly rather than applying Python subtyping.
     fn accepts(self, ty: &Type) -> bool {
         match (self, ty) {
-            (Self::Int, Type::ClassType(cls)) => cls.is_builtin("int"),
-            (Self::Bool, Type::ClassType(cls)) => cls.is_builtin("bool"),
-            (Self::Str, Type::ClassType(cls)) => cls.is_builtin("str"),
+            (Self::Int, Type::ClassType(cls)) => cls.is(KnownClass::Int),
+            (Self::Bool, Type::ClassType(cls)) => cls.is(KnownClass::Bool),
+            (Self::Str, Type::ClassType(cls)) => cls.is(KnownClass::Str),
             (Self::NoneType, Type::None) => true,
             (Self::Int, Type::Int(_)) => true,
             (Self::Int, Type::Literal(lit)) => matches!(lit.value, Lit::Int(_)),
@@ -181,7 +185,9 @@ impl FlagMember {
 }
 
 /// The integer-tuple portion of a `Flag` domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash
+)]
 enum FlagTuple {
     Absent,
     Fixed(usize),
@@ -191,12 +197,12 @@ enum FlagTuple {
 impl FlagTuple {
     fn from_type(ty: &Type) -> Option<Self> {
         match ty {
-            Type::Tuple(Tuple::Unbounded(element)) if matches!(element.as_ref(), Type::ClassType(cls) if cls.is_builtin("int")) => {
+            Type::Tuple(Tuple::Unbounded(element)) if matches!(element.as_ref(), Type::ClassType(cls) if cls.is(KnownClass::Int)) => {
                 Some(Self::Unbounded)
             }
             Type::Tuple(Tuple::Concrete(elements))
                 if elements.iter().all(
-                    |element| matches!(element, Type::ClassType(cls) if cls.is_builtin("int")),
+                    |element| matches!(element, Type::ClassType(cls) if cls.is(KnownClass::Int)),
                 ) =>
             {
                 Some(Self::Fixed(elements.len()))
@@ -245,7 +251,7 @@ impl FlagTuple {
 
     fn accepts(self, ty: &Type) -> bool {
         let length = match ty {
-            Type::ClassType(cls) if cls.is_builtin("tuple") => IntTupleLength {
+            Type::ClassType(cls) if cls.is(KnownClass::Tuple) => IntTupleLength {
                 minimum: 0,
                 exact: false,
             },
@@ -277,7 +283,9 @@ impl Display for FlagMember {
 ///
 /// Invariant: a domain is never empty. `of` and `join` are the only constructors and both
 /// yield at least one member, so materialization may assume a member exists.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash
+)]
 pub struct FlagDomain {
     integer: bool,
     boolean: bool,
@@ -477,13 +485,13 @@ impl FlagDomain {
 
     /// The single type covering the whole domain: the member itself when there is only one,
     /// otherwise their union.
-    pub fn as_type(self, stdlib: &Stdlib, heap: &TypeHeap) -> Type {
-        let types = self.types(stdlib);
+    pub fn as_type(self, env: &dyn TypeEnv, heap: &TypeHeap) -> Type {
+        let types = self.types(env.stdlib());
         assert!(
             !types.is_empty(),
             "a `Flag` domain always has at least one member"
         );
-        unions(types, heap)
+        unions(types, env, heap)
     }
 }
 

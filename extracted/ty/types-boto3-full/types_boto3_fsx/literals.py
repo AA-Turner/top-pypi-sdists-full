@@ -257,6 +257,7 @@ WindowsAccessAuditLogLevelType = Literal[
 WindowsDeploymentTypeType = Literal["MULTI_AZ_1", "SINGLE_AZ_1", "SINGLE_AZ_2"]
 FSxServiceName = Literal["fsx"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

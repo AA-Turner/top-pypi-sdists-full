@@ -132,6 +132,7 @@ from lusid.exceptions import ApiException
 # import models into sdk package
 from lusid.models.a2_b_breakdown import A2BBreakdown
 from lusid.models.a2_b_category import A2BCategory
+from lusid.models.a2_b_correction_cause import A2BCorrectionCause
 from lusid.models.a2_b_data_record import A2BDataRecord
 from lusid.models.a2_b_movement_record import A2BMovementRecord
 from lusid.models.abor import Abor
@@ -213,6 +214,8 @@ from lusid.models.allocation_event_notice_cumulative import AllocationEventNotic
 from lusid.models.allocation_event_notice_event import AllocationEventNoticeEvent
 from lusid.models.allocation_event_notice_line import AllocationEventNoticeLine
 from lusid.models.allocation_event_notice_partner import AllocationEventNoticePartner
+from lusid.models.allocation_event_notice_partner_line import AllocationEventNoticePartnerLine
+from lusid.models.allocation_event_notice_transfer import AllocationEventNoticeTransfer
 from lusid.models.allocation_event_notice_unfunded_reconciliation import AllocationEventNoticeUnfundedReconciliation
 from lusid.models.allocation_event_notice_wire import AllocationEventNoticeWire
 from lusid.models.allocation_event_reallocate_request import AllocationEventReallocateRequest
@@ -562,6 +565,7 @@ from lusid.models.conversion_event import ConversionEvent
 from lusid.models.core_attribute_optionality_tolerance import CoreAttributeOptionalityTolerance
 from lusid.models.core_date_tolerance import CoreDateTolerance
 from lusid.models.core_matching_rule import CoreMatchingRule
+from lusid.models.core_matching_set_tolerance import CoreMatchingSetTolerance
 from lusid.models.core_rule_values import CoreRuleValues
 from lusid.models.core_string_cross_tolerance import CoreStringCrossTolerance
 from lusid.models.corporate_action import CorporateAction
@@ -801,6 +805,7 @@ from lusid.models.facility import Facility
 from lusid.models.facility_commitment_fee_event import FacilityCommitmentFeeEvent
 from lusid.models.facility_draw_event import FacilityDrawEvent
 from lusid.models.facility_interest_event import FacilityInterestEvent
+from lusid.models.facility_limit_change import FacilityLimitChange
 from lusid.models.facility_repayment_event import FacilityRepaymentEvent
 from lusid.models.facility_request import FacilityRequest
 from lusid.models.fee import Fee
@@ -1392,6 +1397,7 @@ from lusid.models.partner_capital_account import PartnerCapitalAccount
 from lusid.models.partner_capital_account_memo import PartnerCapitalAccountMemo
 from lusid.models.partner_capital_account_row import PartnerCapitalAccountRow
 from lusid.models.partner_capital_account_row_detail import PartnerCapitalAccountRowDetail
+from lusid.models.partner_interest_share import PartnerInterestShare
 from lusid.models.partner_performance import PartnerPerformance
 from lusid.models.partner_performance_cash_flow import PartnerPerformanceCashFlow
 from lusid.models.partner_performance_measures import PartnerPerformanceMeasures
@@ -2432,6 +2438,7 @@ __all__ = [
     "WorkspaceApi",
     "A2BBreakdown",
     "A2BCategory",
+    "A2BCorrectionCause",
     "A2BDataRecord",
     "A2BMovementRecord",
     "Abor",
@@ -2513,6 +2520,8 @@ __all__ = [
     "AllocationEventNoticeEvent",
     "AllocationEventNoticeLine",
     "AllocationEventNoticePartner",
+    "AllocationEventNoticePartnerLine",
+    "AllocationEventNoticeTransfer",
     "AllocationEventNoticeUnfundedReconciliation",
     "AllocationEventNoticeWire",
     "AllocationEventReallocateRequest",
@@ -2862,6 +2871,7 @@ __all__ = [
     "CoreAttributeOptionalityTolerance",
     "CoreDateTolerance",
     "CoreMatchingRule",
+    "CoreMatchingSetTolerance",
     "CoreRuleValues",
     "CoreStringCrossTolerance",
     "CorporateAction",
@@ -3101,6 +3111,7 @@ __all__ = [
     "FacilityCommitmentFeeEvent",
     "FacilityDrawEvent",
     "FacilityInterestEvent",
+    "FacilityLimitChange",
     "FacilityRepaymentEvent",
     "FacilityRequest",
     "Fee",
@@ -3692,6 +3703,7 @@ __all__ = [
     "PartnerCapitalAccountMemo",
     "PartnerCapitalAccountRow",
     "PartnerCapitalAccountRowDetail",
+    "PartnerInterestShare",
     "PartnerPerformance",
     "PartnerPerformanceCashFlow",
     "PartnerPerformanceMeasures",

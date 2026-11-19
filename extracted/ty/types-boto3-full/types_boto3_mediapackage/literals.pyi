@@ -93,6 +93,7 @@ StreamOrderType = Literal["ORIGINAL", "VIDEO_BITRATE_ASCENDING", "VIDEO_BITRATE_
 UtcTimingType = Literal["HTTP-HEAD", "HTTP-ISO", "HTTP-XSDATE", "NONE"]
 MediaPackageServiceName = Literal["mediapackage"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

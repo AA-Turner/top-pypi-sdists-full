@@ -94,6 +94,7 @@ from .literals import (
     StackSetOperationStatusType,
     StackSetStatusType,
     StackStatusType,
+    StageStatusType,
     TemplateFormatType,
     TemplateStageType,
     ThirdPartyTypeType,
@@ -312,6 +313,9 @@ __all__ = (
     "PublishTypeInputTypeDef",
     "PublishTypeOutputTypeDef",
     "RecordHandlerProgressInputTypeDef",
+    "RegionalStackInstancesDeploymentTypeDef",
+    "RegionalStagesTypeDef",
+    "RegionalStatusDetailTypeDef",
     "RegisterPublisherInputTypeDef",
     "RegisterPublisherOutputTypeDef",
     "RegisterTypeInputTypeDef",
@@ -330,6 +334,7 @@ __all__ = (
     "ResourceTargetDefinitionTypeDef",
     "ResourceToImportTypeDef",
     "ResponseMetadataTypeDef",
+    "RoleProvisioningTypeDef",
     "RollbackConfigurationOutputTypeDef",
     "RollbackConfigurationTypeDef",
     "RollbackConfigurationUnionTypeDef",
@@ -356,6 +361,7 @@ __all__ = (
     "StackInstanceResourceDriftsSummaryTypeDef",
     "StackInstanceSummaryTypeDef",
     "StackInstanceTypeDef",
+    "StackInstancesDeploymentTypeDef",
     "StackRefactorActionTypeDef",
     "StackRefactorSummaryTypeDef",
     "StackResourceDetailTypeDef",
@@ -377,6 +383,7 @@ __all__ = (
     "StackSetTypeDef",
     "StackSummaryTypeDef",
     "StackTypeDef",
+    "StagesTypeDef",
     "StartResourceScanInputTypeDef",
     "StartResourceScanOutputTypeDef",
     "StopStackSetOperationInputTypeDef",
@@ -1055,6 +1062,17 @@ class RecordHandlerProgressInputTypeDef(TypedDict):
     ResourceModel: NotRequired[str]
     ClientRequestToken: NotRequired[str]
 
+class RegionalStackInstancesDeploymentTypeDef(TypedDict):
+    Status: NotRequired[StageStatusType]
+    SucceededStackInstancesCount: NotRequired[int]
+    FailedStackInstancesCount: NotRequired[int]
+    CompletedStackInstancesCount: NotRequired[int]
+    PendingStackInstancesCount: NotRequired[int]
+    CancelledStackInstancesCount: NotRequired[int]
+    SkippedStackInstancesCount: NotRequired[int]
+    TotalStackInstancesCount: NotRequired[int]
+    PercentageCompleted: NotRequired[float]
+
 class RegisterPublisherInputTypeDef(TypedDict):
     AcceptTermsAndConditions: NotRequired[bool]
     ConnectionArn: NotRequired[str]
@@ -1069,6 +1087,14 @@ class ResourceDriftIgnoredAttributeTypeDef(TypedDict):
 class ResourceLocationTypeDef(TypedDict):
     StackName: str
     LogicalResourceId: str
+
+class RoleProvisioningTypeDef(TypedDict):
+    Status: NotRequired[StageStatusType]
+    SucceededAccountsCount: NotRequired[int]
+    FailedAccountsCount: NotRequired[int]
+    CompletedAccountsCount: NotRequired[int]
+    PendingAccountsCount: NotRequired[int]
+    PercentageCompleted: NotRequired[float]
 
 RollbackTriggerTypeDef = TypedDict(
     "RollbackTriggerTypeDef",
@@ -1127,6 +1153,16 @@ class StackDriftInformationTypeDef(TypedDict):
 class StackInstanceComprehensiveStatusTypeDef(TypedDict):
     DetailedStatus: NotRequired[StackInstanceDetailedStatusType]
 
+class StackInstancesDeploymentTypeDef(TypedDict):
+    Status: NotRequired[StageStatusType]
+    SucceededStackInstancesCount: NotRequired[int]
+    FailedStackInstancesCount: NotRequired[int]
+    CompletedStackInstancesCount: NotRequired[int]
+    PendingStackInstancesCount: NotRequired[int]
+    CancelledStackInstancesCount: NotRequired[int]
+    SkippedStackInstancesCount: NotRequired[int]
+    PercentageCompleted: NotRequired[float]
+
 class StackResourceDriftInformationTypeDef(TypedDict):
     StackResourceDriftStatus: StackResourceDriftStatusType
     LastCheckTimestamp: NotRequired[datetime]
@@ -1162,9 +1198,6 @@ class StackSetOperationPreferencesTypeDef(TypedDict):
     MaxConcurrentCount: NotRequired[int]
     MaxConcurrentPercentage: NotRequired[int]
     ConcurrencyMode: NotRequired[ConcurrencyModeType]
-
-class StackSetOperationStatusDetailsTypeDef(TypedDict):
-    FailedStackInstancesCount: NotRequired[int]
 
 class StopStackSetOperationInputTypeDef(TypedDict):
     StackSetName: str
@@ -1859,6 +1892,9 @@ class StackResourceDriftTypeDef(TypedDict):
     ModuleInfo: NotRequired[ModuleInfoTypeDef]
     DriftStatusReason: NotRequired[str]
 
+class RegionalStagesTypeDef(TypedDict):
+    RegionalStackInstancesDeployment: NotRequired[RegionalStackInstancesDeploymentTypeDef]
+
 class ResourceMappingTypeDef(TypedDict):
     Source: ResourceLocationTypeDef
     Destination: ResourceLocationTypeDef
@@ -1913,6 +1949,10 @@ class StackInstanceTypeDef(TypedDict):
     DriftStatus: NotRequired[StackDriftStatusType]
     LastDriftCheckTimestamp: NotRequired[datetime]
     LastOperationId: NotRequired[str]
+
+class StagesTypeDef(TypedDict):
+    RoleProvisioning: NotRequired[RoleProvisioningTypeDef]
+    StackInstancesDeployment: NotRequired[StackInstancesDeploymentTypeDef]
 
 class StackResourceDetailTypeDef(TypedDict):
     LogicalResourceId: str
@@ -1973,32 +2013,6 @@ class StackSetTypeDef(TypedDict):
 StackSetOperationPreferencesUnionTypeDef = Union[
     StackSetOperationPreferencesTypeDef, StackSetOperationPreferencesOutputTypeDef
 ]
-
-class StackSetOperationSummaryTypeDef(TypedDict):
-    OperationId: NotRequired[str]
-    Action: NotRequired[StackSetOperationActionType]
-    Status: NotRequired[StackSetOperationStatusType]
-    CreationTimestamp: NotRequired[datetime]
-    EndTimestamp: NotRequired[datetime]
-    StatusReason: NotRequired[str]
-    StatusDetails: NotRequired[StackSetOperationStatusDetailsTypeDef]
-    OperationPreferences: NotRequired[StackSetOperationPreferencesOutputTypeDef]
-
-class StackSetOperationTypeDef(TypedDict):
-    OperationId: NotRequired[str]
-    StackSetId: NotRequired[str]
-    Action: NotRequired[StackSetOperationActionType]
-    Status: NotRequired[StackSetOperationStatusType]
-    OperationPreferences: NotRequired[StackSetOperationPreferencesOutputTypeDef]
-    RetainStacks: NotRequired[bool]
-    AdministrationRoleARN: NotRequired[str]
-    ExecutionRoleName: NotRequired[str]
-    CreationTimestamp: NotRequired[datetime]
-    EndTimestamp: NotRequired[datetime]
-    DeploymentTargets: NotRequired[DeploymentTargetsOutputTypeDef]
-    StackSetDriftDetectionDetails: NotRequired[StackSetDriftDetectionDetailsTypeDef]
-    StatusReason: NotRequired[str]
-    StatusDetails: NotRequired[StackSetOperationStatusDetailsTypeDef]
 
 class ValidateTemplateOutputTypeDef(TypedDict):
     Parameters: list[TemplateParameterTypeDef]
@@ -2090,6 +2104,9 @@ class DetectStackResourceDriftOutputTypeDef(TypedDict):
     StackResourceDrift: StackResourceDriftTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class RegionalStatusDetailTypeDef(TypedDict):
+    Stages: NotRequired[RegionalStagesTypeDef]
+
 class CreateStackRefactorInputTypeDef(TypedDict):
     StackDefinitions: Sequence[StackDefinitionTypeDef]
     Description: NotRequired[str]
@@ -2159,6 +2176,12 @@ class ListStackInstancesOutputTypeDef(TypedDict):
 class DescribeStackInstanceOutputTypeDef(TypedDict):
     StackInstance: StackInstanceTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class StackSetOperationStatusDetailsTypeDef(TypedDict):
+    Stages: NotRequired[StagesTypeDef]
+    TotalAccountsCount: NotRequired[int]
+    TotalStackInstancesCount: NotRequired[int]
+    FailedStackInstancesCount: NotRequired[int]
 
 class DescribeStackResourceOutputTypeDef(TypedDict):
     StackResourceDetail: StackResourceDetailTypeDef
@@ -2242,15 +2265,6 @@ class UpdateStackSetInputTypeDef(TypedDict):
     Regions: NotRequired[Sequence[str]]
     CallAs: NotRequired[CallAsType]
     ManagedExecution: NotRequired[ManagedExecutionTypeDef]
-
-class ListStackSetOperationsOutputTypeDef(TypedDict):
-    Summaries: list[StackSetOperationSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class DescribeStackSetOperationOutputTypeDef(TypedDict):
-    StackSetOperation: StackSetOperationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class ResourceDetailTypeDef(TypedDict):
     ResourceType: NotRequired[str]
@@ -2408,6 +2422,33 @@ class UpdateStackInputTypeDef(TypedDict):
     DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
     DisableValidation: NotRequired[bool]
 
+class StackSetOperationSummaryTypeDef(TypedDict):
+    OperationId: NotRequired[str]
+    Action: NotRequired[StackSetOperationActionType]
+    Status: NotRequired[StackSetOperationStatusType]
+    CreationTimestamp: NotRequired[datetime]
+    EndTimestamp: NotRequired[datetime]
+    StatusReason: NotRequired[str]
+    StatusDetails: NotRequired[StackSetOperationStatusDetailsTypeDef]
+    OperationPreferences: NotRequired[StackSetOperationPreferencesOutputTypeDef]
+
+class StackSetOperationTypeDef(TypedDict):
+    OperationId: NotRequired[str]
+    StackSetId: NotRequired[str]
+    Action: NotRequired[StackSetOperationActionType]
+    Status: NotRequired[StackSetOperationStatusType]
+    OperationPreferences: NotRequired[StackSetOperationPreferencesOutputTypeDef]
+    RetainStacks: NotRequired[bool]
+    AdministrationRoleARN: NotRequired[str]
+    ExecutionRoleName: NotRequired[str]
+    CreationTimestamp: NotRequired[datetime]
+    EndTimestamp: NotRequired[datetime]
+    DeploymentTargets: NotRequired[DeploymentTargetsOutputTypeDef]
+    StackSetDriftDetectionDetails: NotRequired[StackSetDriftDetectionDetailsTypeDef]
+    StatusReason: NotRequired[str]
+    StatusDetails: NotRequired[StackSetOperationStatusDetailsTypeDef]
+    RegionalStatusDetails: NotRequired[dict[str, RegionalStatusDetailTypeDef]]
+
 class DescribeGeneratedTemplateOutputTypeDef(TypedDict):
     GeneratedTemplateId: str
     GeneratedTemplateName: str
@@ -2430,6 +2471,15 @@ ChangeTypeDef = TypedDict(
         "ResourceChange": NotRequired[ResourceChangeTypeDef],
     },
 )
+
+class ListStackSetOperationsOutputTypeDef(TypedDict):
+    Summaries: list[StackSetOperationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeStackSetOperationOutputTypeDef(TypedDict):
+    StackSetOperation: StackSetOperationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeChangeSetOutputTypeDef(TypedDict):
     ChangeSetName: str

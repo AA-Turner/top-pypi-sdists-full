@@ -147,6 +147,7 @@ VpcConnectionStateType = Literal[
 ]
 KafkaServiceName = Literal["kafka"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

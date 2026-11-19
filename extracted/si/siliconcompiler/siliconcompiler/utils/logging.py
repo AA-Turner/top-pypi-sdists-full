@@ -289,16 +289,20 @@ class SCBlankLoggerFormatter(logging.Formatter):
         super().__init__("%(message)s")
 
 
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def strip_ansi_codes(text: str) -> str:
+    """Removes ANSI escape sequences, such as a tool's color codes, from ``text``."""
+    return _ANSI_ESCAPE.sub("", text)
+
+
 class SCBlankColorlessLoggerFormatter(logging.Formatter):
     def __init__(self):
         super().__init__("%(message)s")
 
-        self.__rm = re.compile(u"\u001b\\[(\\d+)m")
-
     def format(self, record):
-        msg = super().format(record)
-
-        return self.__rm.sub("", msg)
+        return strip_ansi_codes(super().format(record))
 
 
 class SCDebugLoggerFormatter(logging.Formatter):
@@ -330,7 +334,7 @@ class SCInRunLoggerFormatter(logging.Formatter):
 
     @staticmethod
     def configure_format(fmt, project, step, index):
-        from siliconcompiler.remote import client
+        from siliconcompiler.remote import remote_step_name
 
         max_width = 20
 
@@ -345,7 +349,7 @@ class SCInRunLoggerFormatter(logging.Formatter):
         max_index_len = 1
 
         if project.option.get_remote():
-            nodes_to_run.append((client.remote_step_name, '0'))
+            nodes_to_run.append((remote_step_name, '0'))
         for future_step, future_index in nodes_to_run:
             max_step_len = max(len(future_step), max_step_len)
             max_index_len = max(len(future_index), max_index_len)

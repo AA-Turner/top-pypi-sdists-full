@@ -188,6 +188,7 @@ UnauthorizedCacheControlHeaderStrategyType = Literal[
 VpcLinkStatusType = Literal["AVAILABLE", "DELETING", "FAILED", "PENDING"]
 APIGatewayServiceName = Literal["apigateway"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

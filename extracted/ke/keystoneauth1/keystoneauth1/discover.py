@@ -22,10 +22,12 @@ raw data specified in version discovery responses.
 """
 
 import copy
+import json
 from collections.abc import Generator, Iterable
 import re
-from typing import Any, cast, Optional, TYPE_CHECKING
+from typing import Any, cast, Optional, TypeAlias, TYPE_CHECKING
 import urllib
+import warnings
 
 import os_service_types
 
@@ -33,6 +35,7 @@ from keystoneauth1 import _utils as utils
 from keystoneauth1 import exceptions
 
 if TYPE_CHECKING:
+    from keystoneauth1 import adapter as ks_adapter
     from keystoneauth1 import session as ks_session
 
 LOG = utils.get_logger(__name__)
@@ -41,6 +44,8 @@ _SERVICE_TYPES = os_service_types.ServiceTypes()
 
 _RAW_VERSION_T = str | int | float | Iterable[str | int | float]
 _PARSED_VERSION_T = tuple[int | float, ...]
+
+_Session: TypeAlias = 'ks_session.Session | ks_adapter.Adapter'
 
 
 def _str_or_latest(val: str | int | float) -> str:
@@ -63,11 +68,21 @@ def _int_or_latest(val: str | int | float) -> int | float:
     return LATEST if val == 'latest' or val == LATEST else int(val)
 
 
+def _get_version_header(service_type: str | None) -> str | None:
+    # Barbican omits microversion metadata from its legacy discovery document.
+    # Request its first microversion to obtain the document with the range.
+    if service_type == 'key-manager':
+        return 'key-manager 1.1'
+    return None
+
+
 def get_version_data(
-    session: 'ks_session.Session',
+    session: _Session,
     url: str,
     authenticated: bool | None = None,
     version_header: str | None = None,
+    *,
+    service_type: str | None = None,
 ) -> list[dict[str, Any]]:
     """Retrieve raw version data from a url.
 
@@ -99,17 +114,40 @@ def get_version_data(
         Defaults to None.
     :param version_header: provide the OpenStack-API-Version header for
         services which don't return version information without it, for
-        backward compatibility.
+        backward compatibility. Deprecated: provide service_type instead so
+        keystoneauth can apply the appropriate discovery behavior.
+    :param service_type: Service type used to apply service-specific discovery
+        behavior. For key-manager, a microversion header is sent automatically
+        unless version_header is explicitly supplied. (optional)
     :return: A list of dicts containing version information.
     """
+    if version_header is not None:
+        warnings.warn(
+            'The version_header argument is deprecated. Pass service_type '
+            'instead to enable service-specific discovery behavior.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        effective_header: str | None = version_header
+    else:
+        effective_header = _get_version_header(service_type)
     headers = {'Accept': 'application/json'}
-    if version_header:
-        headers['OpenStack-API-Version'] = version_header
+    if effective_header:
+        headers['OpenStack-API-Version'] = effective_header
 
     try:
-        resp = session.get(url, headers=headers, authenticated=authenticated)
-    except exceptions.Unauthorized:
-        resp = session.get(url, headers=headers, authenticated=True)
+        try:
+            resp = session.get(
+                url, headers=headers, authenticated=authenticated
+            )
+        except exceptions.Unauthorized:
+            resp = session.get(url, headers=headers, authenticated=True)
+    except exceptions.NotAcceptable:
+        if version_header is not None or service_type != 'key-manager':
+            raise
+        # Older Barbican deployments may reject the automatic probe. Retain
+        # legacy discovery without claiming a microversion range.
+        return get_version_data(session, url, authenticated=authenticated)
 
     try:
         body_resp = resp.json()
@@ -568,13 +606,19 @@ class Discover:
 
     def __init__(
         self,
-        session: 'ks_session.Session',
+        session: _Session,
         url: str,
         authenticated: bool | None = None,
+        *,
+        service_type: str | None = None,
     ):
         self._url = url
+        self._version_header = _get_version_header(service_type)
         self._data = get_version_data(
-            session, url, authenticated=authenticated
+            session,
+            url,
+            authenticated=authenticated,
+            service_type=service_type,
         )
 
     def raw_version_data(
@@ -1143,7 +1187,7 @@ class EndpointData:
 
     def get_current_versioned_data(
         self,
-        session: 'ks_session.Session',
+        session: _Session,
         allow: dict[str, Any] | None = None,
         cache: dict[str, Discover] | None = None,
         project_id: str | None = None,
@@ -1183,7 +1227,7 @@ class EndpointData:
 
     def get_versioned_data(
         self,
-        session: 'ks_session.Session',
+        session: _Session,
         allow: dict[str, Any] | None = None,
         cache: dict[str, Any] | None = None,
         allow_version_hack: bool = True,
@@ -1253,7 +1297,7 @@ class EndpointData:
         return new_data
 
     def get_all_version_string_data(
-        self, session: 'ks_session.Session', project_id: str | None = None
+        self, session: _Session, project_id: str | None = None
     ) -> list['VersionData']:
         """Return version data for all versions discovery can find.
 
@@ -1264,7 +1308,9 @@ class EndpointData:
         versions = []
         for vers_url in self._get_discovery_url_choices(project_id=project_id):
             try:
-                d = get_discovery(session, vers_url)
+                d = get_discovery(
+                    session, vers_url, service_type=self.service_type
+                )
             except Exception as e:
                 # Ignore errors here - we're just searching for one of the
                 # URLs that will give us data.
@@ -1301,7 +1347,7 @@ class EndpointData:
 
     def _set_version_info(
         self,
-        session: 'ks_session.Session',
+        session: _Session,
         allow: dict[str, Any],
         cache: dict[str, Discover] | None,
         allow_version_hack: bool,
@@ -1329,6 +1375,10 @@ class EndpointData:
         discovered_data = None
         # Maybe we've run discovery in the past and have a document that can
         # satisfy the request without further work
+        if self._disc and self._disc._version_header != _get_version_header(
+            self.service_type
+        ):
+            self._disc = None
         if self._disc:
             discovered_data = self._disc.versioned_data_for(
                 min_version=min_version,
@@ -1410,7 +1460,7 @@ class EndpointData:
 
     def _run_discovery(
         self,
-        session: 'ks_session.Session',
+        session: _Session,
         cache: dict[str, Discover] | None,
         min_version: _PARSED_VERSION_T | None,
         max_version: _PARSED_VERSION_T | None,
@@ -1437,7 +1487,11 @@ class EndpointData:
 
             try:
                 self._disc = get_discovery(
-                    session, vers_url, cache=cache, authenticated=False
+                    session,
+                    vers_url,
+                    cache=cache,
+                    authenticated=False,
+                    service_type=self.service_type,
                 )
                 break
             except (
@@ -1641,10 +1695,12 @@ class EndpointData:
 
 
 def get_discovery(
-    session: 'ks_session.Session',
+    session: _Session,
     url: str,
     cache: dict[str, Discover] | None = None,
     authenticated: bool | None = False,
+    *,
+    service_type: str | None = None,
 ) -> Discover:
     """Return the discovery object for a URL.
 
@@ -1662,6 +1718,8 @@ def get_discovery(
 
     :param session: A session object to discover with.
     :param url: The url to lookup.
+    :param service_type: Service type used to apply service-specific discovery
+        behavior. (optional)
     :param cache: A dict to be used for caching results, in addition to caching
         them on the Session. (optional) Defaults to None.
     :param authenticated: Include a token in the discovery call. (optional)
@@ -1704,20 +1762,32 @@ def get_discovery(
             parsed_url.fragment,
         ).geturl()
 
+    effective_header = _get_version_header(service_type)
+    # Preserve legacy URL-only keys for headerless discovery. JSON encoding
+    # makes header-specific keys unambiguous and distinct from ordinary URLs.
+    cache_key = (
+        json.dumps([url, effective_header]) if effective_header else url
+    )
+
     for cache in caches:
-        disc = cache.get(url)
+        disc = cache.get(cache_key)
 
         if disc:
             break
     else:
-        disc = Discover(session, url, authenticated=authenticated)
+        disc = Discover(
+            session,
+            url,
+            authenticated=authenticated,
+            service_type=service_type,
+        )
 
     # Whether we get one from fetching or from cache, set it in the
     # caches. This assures that if we combine sessions and auth plugins
     # that we don't make unnecessary calls.
     if disc:
         for cache in caches:
-            cache[url] = disc
+            cache[cache_key] = disc
 
     return disc
 

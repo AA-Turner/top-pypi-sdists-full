@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sigstore-models
-Version: 0.0.7
+Version: 0.0.8
 Summary: Pydantic based models for Sigstore's protobuf specifications
 Author: William Woodruff
 Author-email: William Woodruff <william@astral.sh>

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import copy
+import pickle
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -18,6 +20,22 @@ from ..conftest import MOCK_MODEL, Recorder, mock_llm, text_msg
 class Confirmation(pydantic.BaseModel):
     approved: bool
     reason: str = ""
+
+
+def test_hook_deferred_exception_survives_pickle_and_copy() -> None:
+    hook: ai.messages.HookPart[Any] = ai.messages.HookPart(
+        hook_id="approve_tc-1", hook_type="ToolApproval", status="pending"
+    )
+    exc = ai.HookDeferredException(hook)
+    exc.add_note("keep exception state")
+
+    restored = pickle.loads(pickle.dumps(exc))
+    assert restored.hook == hook
+    assert copy.copy(exc).hook == hook
+    assert copy.deepcopy(exc).hook == hook
+    assert restored.args == exc.args == (hook.hook_id,)
+    assert str(restored) == str(exc) == hook.hook_id
+    assert restored.__notes__ == ["keep exception state"]
 
 
 # -- resolve_hook() with live future (long-running mode) -------------------
@@ -331,6 +349,13 @@ async def test_hook_metadata_in_deferred() -> None:
     assert hooks[0].metadata == {"tool": "rm -rf", "path": "/"}
 
 
+async def test_hook_outside_run_has_a_clear_error() -> None:
+    with pytest.raises(
+        LookupError, match=r"^No active agent runtime: .*agent\.run\(\)\.$"
+    ):
+        await ai.hook("outside_run", payload=Confirmation)
+
+
 # -- telemetry spans --------------------------------------------------------
 
 
@@ -348,7 +373,7 @@ class _HookAgent(ai.Agent):
         await ai.hook(self.label, payload=Confirmation)
 
 
-def _hook_spans(recorder: Recorder) -> list[ai.experimental_telemetry.Span]:
+def _hook_spans(recorder: Recorder) -> list[ai.telemetry.Span]:
     return [s for s in recorder.ended if s.name == "hook"]
 
 
@@ -364,7 +389,7 @@ async def test_live_hook_span(recorder: Recorder) -> None:
                 ai.resolve_hook(my_agent.label, {"approved": True})
 
     (hook_span,) = _hook_spans(recorder)
-    assert isinstance(hook_span.data, ai.experimental_telemetry.HookSpanData)
+    assert isinstance(hook_span.data, ai.telemetry.HookSpanData)
     assert hook_span.data.status == "resolved"
     assert hook_span.data.resolution == {"approved": True}
     assert hook_span.data.tool_call_id is None
@@ -372,8 +397,8 @@ async def test_live_hook_span(recorder: Recorder) -> None:
     # The suspension's timeline: deferred once resolvers can see it,
     # resolved when the external input arrived.
     deferred, resolved = hook_span.events
-    assert deferred.name == ai.experimental_telemetry.HOOK_DEFERRED
-    assert resolved.name == ai.experimental_telemetry.HOOK_RESOLVED
+    assert deferred.name == ai.telemetry.HOOK_DEFERRED
+    assert resolved.name == ai.telemetry.HOOK_RESOLVED
     assert deferred.time_ns <= resolved.time_ns
 
 
@@ -403,12 +428,12 @@ async def test_cancelled_hook_span(recorder: Recorder) -> None:
                 await ai.cancel_hook(my_agent.label, reason="denied")
 
     (hook_span,) = _hook_spans(recorder)
-    assert isinstance(hook_span.data, ai.experimental_telemetry.HookSpanData)
+    assert isinstance(hook_span.data, ai.telemetry.HookSpanData)
     assert hook_span.data.status == "cancelled"
     assert hook_span.data.resolution is None
     deferred, cancelled = hook_span.events
-    assert deferred.name == ai.experimental_telemetry.HOOK_DEFERRED
-    assert cancelled.name == ai.experimental_telemetry.HOOK_CANCELLED
+    assert deferred.name == ai.telemetry.HOOK_DEFERRED
+    assert cancelled.name == ai.telemetry.HOOK_CANCELLED
     assert cancelled.attrs == {"reason": "denied"}
 
 
@@ -424,7 +449,7 @@ async def test_pre_registered_hook_is_replay_span(recorder: Recorder) -> None:
 
     (hook_span,) = _hook_spans(recorder)
     assert hook_span.replay
-    assert isinstance(hook_span.data, ai.experimental_telemetry.HookSpanData)
+    assert isinstance(hook_span.data, ai.telemetry.HookSpanData)
     assert hook_span.data.status == "resolved"
     # Pre-registration validated against the payload type, so the
     # recorded resolution is the full model dump, defaults included.

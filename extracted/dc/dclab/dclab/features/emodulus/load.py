@@ -1,3 +1,5 @@
+"""Loading and registration of look-up tables (LUTs) for Young's modulus
+computation"""
 from __future__ import annotations
 
 import atexit
@@ -22,11 +24,11 @@ atexit.register(_file_manager.close)
 EXTERNAL_LUTS = {}
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def get_internal_lut_names_dict() -> dict:
-    """Return list of internal lut names"""
+    """Return dictionary mapping internal LUT identifiers to LUT file names"""
     lutfiles = {}
-    for pp in importlib_resources.files('dclab.features.emodulus').iterdir():
+    for pp in importlib_resources.files("dclab.features.emodulus").iterdir():
         name = pp.name
         if name.startswith("lut_") and name.endswith(".txt"):
             lutfiles[name[4:-4]] = name
@@ -36,10 +38,18 @@ def get_internal_lut_names_dict() -> dict:
 def get_lut_path(path_or_id: str | pathlib.Path) -> pathlib.Path:
     """Find the path to a LUT
 
-    path_or_id
+    Parameters
+    ----------
+    path_or_id: str or pathlib.Path
         Identifier of a LUT. This can be either an existing path
-        (checked first), or an internal identifier (see
-        :func:`get_internal_lut_names_dict`).
+        (checked first), an internal identifier (see
+        :func:`get_internal_lut_names_dict`), or the identifier of an
+        external LUT registered with :func:`register_lut`.
+
+    Returns
+    -------
+    lut_path: pathlib.Path or str
+        Path to the LUT file
     """
     internal_dict = get_internal_lut_names_dict()
     if path_or_id == "FEM-2Daxis":
@@ -58,7 +68,7 @@ def get_lut_path(path_or_id: str | pathlib.Path) -> pathlib.Path:
         lut_path = EXTERNAL_LUTS[path_or_id]
     else:
         raise ValueError("File or LUT identifier does not exist: "
-                         + "'{}'".format(path_or_id))
+                         f"'{path_or_id}'")
     return lut_path
 
 
@@ -69,9 +79,11 @@ def load_lut(lut_data: str | pathlib.Path | tuple[npt.NDArray, dict] =
     Parameters
     ----------
     lut_data: pathlib.Path, str, or tuple of (np.ndarray of shape (N, 3), dict)
-        The LUT data to use. If it is in :func:`get_internal_lut_names_dict()`,
-        then the respective LUT will be used. Otherwise, a path to a
-        file on disk or a tuple (LUT array, metadata) is possible.
+        The LUT data to use. This can be a path to a LUT file on disk,
+        an internal LUT identifier (see
+        :func:`get_internal_lut_names_dict`), the identifier of a LUT
+        registered with :func:`register_lut`, or a tuple
+        (LUT array, metadata).
 
     Returns
     -------
@@ -82,8 +94,8 @@ def load_lut(lut_data: str | pathlib.Path | tuple[npt.NDArray, dict] =
 
     Notes
     -----
-    If lut_data is a tuple of (lut, meta), then nothing is actually
-    done (this is implemented for user convenience).
+    If lut_data is a tuple of (lut, meta), then only copies of `lut`
+    and `meta` are returned (this is implemented for user convenience).
     """
     if isinstance(lut_data, tuple):
         lut, meta = lut_data
@@ -93,8 +105,8 @@ def load_lut(lut_data: str | pathlib.Path | tuple[npt.NDArray, dict] =
         lut_path = get_lut_path(lut_data)
         lut, meta = load_mtext(lut_path)
     else:
-        raise ValueError("`name_path_arr` must be path, identifier, or tuple "
-                         f"of (array, dict), got '{lut_data}'!")
+        raise TypeError("`lut_data` must be path, identifier, or tuple "
+                        f"of (array, dict), got '{lut_data}'!")
     return lut, meta
 
 
@@ -108,7 +120,7 @@ def load_mtext(path: str | pathlib.Path) -> tuple[npt.NDArray, dict]:
     are stored as a json string between the "BEGIN METADATA" and
     the "END METADATA" tags. The last comment (#) line before the
     actual data defines the features with units in square
-    brackets and tab-separated. For instance:
+    brackets and tab-separated. For instance::
 
         # [...]
         #
@@ -148,20 +160,19 @@ def load_mtext(path: str | pathlib.Path) -> tuple[npt.NDArray, dict]:
     dump = []
     injson = False
     prev_line = ""
-    with path.open("r", errors='replace') as fd:
+    with path.open("r", errors="replace") as fd:
         while True:
             line = fd.readline()
             if fd.tell() == size:
                 # something went wrong
-                raise ValueError("EOF: Could not parse '{}'!".format(path))
+                raise ValueError(f"EOF: Could not parse '{path}'!")
             elif len(line.strip()) == 0:
                 # ignore empty lines
                 continue
             elif not line.strip().startswith("#"):
                 # we are done here
                 if prev_line == "":
-                    raise ValueError("No column header in '{}'!".format(
-                        path))
+                    raise ValueError(f"No column header in '{path}'!")
                 break
             elif line.startswith("# BEGIN METADATA"):
                 injson = True
@@ -177,7 +188,7 @@ def load_mtext(path: str | pathlib.Path) -> tuple[npt.NDArray, dict]:
     if dump:
         meta = json.loads("\n".join(dump))
     else:
-        raise ValueError("No metadata json dump in '{}'!".format(path))
+        raise ValueError(f"No metadata json dump in '{path}'!")
     # header
     feats = []
     units = []
@@ -189,7 +200,7 @@ def load_mtext(path: str | pathlib.Path) -> tuple[npt.NDArray, dict]:
             ft = hh
             un = ""
         if not dfn.scalar_feature_exists(ft):
-            raise ValueError("Scalar feature not known: '{}'".format(ft))
+            raise ValueError(f"Scalar feature not known: '{ft}'")
         feats.append(ft)
         units.append(un)
     # data
@@ -212,12 +223,13 @@ def load_mtext(path: str | pathlib.Path) -> tuple[npt.NDArray, dict]:
         elif ft == "volume":
             assert un == "um^3"
         else:
-            assert False, "Please add sanity check for {}!".format(ft)
+            assert False, f"Please add sanity check for {ft}!"
 
     return data, meta
 
 
-def register_lut(path: str | pathlib.Path, identifier: str = None) -> None:
+def register_lut(path: str | pathlib.Path,
+                 identifier: str | None = None) -> None:
     """Register an external LUT file in dclab
 
     This will add it to :const:`EXTERNAL_LUTS`, which is required
@@ -231,7 +243,7 @@ def register_lut(path: str | pathlib.Path, identifier: str = None) -> None:
         The identifier is used for ancillary emodulus computation
         via the [calculation]: "emodulus lut" key. It is also used as
         the key in :const:`EXTERNAL_LUTS` during registration. If not
-        specified, (default) then the identifier given as JSON metadata
+        specified (default), then the identifier given as JSON metadata
         in `path` is used.
     """
     if identifier is None:
@@ -239,14 +251,14 @@ def register_lut(path: str | pathlib.Path, identifier: str = None) -> None:
         try:
             identifier = md["identifier"]
         except KeyError:
-            raise ValueError("The given LUT file '{}' does ".format(path)
-                             + "not contain the 'identifier' keyword. You may "
-                             + "specify it via the `identifier` keyword to "
-                             + "this function.")
+            raise ValueError(f"The given LUT file '{path}' does "
+                             "not contain the 'identifier' keyword. You may "
+                             "specify it via the `identifier` keyword to "
+                             "this function.")
     if identifier in EXTERNAL_LUTS:
-        raise ValueError("A LUT with an identifier '{}' ".format(identifier)
-                         + "has already been registered!")
+        raise ValueError(f"A LUT with an identifier '{identifier}' "
+                         "has already been registered!")
     elif identifier in get_internal_lut_names_dict():
-        raise ValueError("The identifier '{}' is already ".format(identifier)
-                         + "in use by an internal LUT!")
+        raise ValueError(f"The identifier '{identifier}' is already "
+                         "in use by an internal LUT!")
     EXTERNAL_LUTS[identifier] = path

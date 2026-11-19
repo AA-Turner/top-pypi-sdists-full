@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import hashlib
-import importlib
+import importlib.util
 import pathlib
 import sys
 
@@ -14,6 +14,27 @@ from ..feat_anc_core import AncillaryFeature
 
 class PluginImportError(BaseException):
     pass
+
+
+def update_hash_with_code(hasher, code):
+    """Update `hasher` with the byte code, constants, and names of `code`
+
+    The byte code (`co_code`) alone is not sufficient, because e.g.
+    `lambda x: x * 2` and `lambda x: x * 3` only differ in their
+    constants (`co_consts`) and `np.sin` and `np.cos` only differ in
+    their names (`co_names`). Nested code objects (e.g. of inner
+    functions) are hashed recursively.
+    """
+    hasher.update(code.co_code)
+    hasher.update(repr(code.co_names).encode())
+    for const in code.co_consts:
+        if isinstance(const, type(code)):
+            update_hash_with_code(hasher, const)
+        elif isinstance(const, frozenset):
+            # the order of frozensets depends on PYTHONHASHSEED
+            hasher.update(repr(sorted(repr(c) for c in const)).encode())
+        else:
+            hasher.update(repr(const).encode())
 
 
 class PlugInFeature(AncillaryFeature):
@@ -33,12 +54,12 @@ class PlugInFeature(AncillaryFeature):
             At least the following keys must be specified:
 
             - "method": callable function computing the plugin feature
-              values (takes an :class`dclab.rtdc_dataset.core.RTDCBase`
+              values (takes an :class:`dclab.rtdc_dataset.core.RTDCBase`
               as argument)
             - "feature names": list of plugin feature names provided
               by the plugin
 
-            The following features are optional:
+            The following keys are optional:
 
             - "description": short (one-line) description of the plugin
             - "long description": long description of the plugin
@@ -59,7 +80,7 @@ class PlugInFeature(AncillaryFeature):
               whether the features can be computed (see the `req_func`
               parameter for :class:`.AncillaryFeature`)
             - "version": version of this plugin (please use
-              semantic verioning)
+              semantic versioning)
 
         plugin_path: str or pathlib.Path, optional
             path which was used to load the `PlugInFeature` with
@@ -67,7 +88,7 @@ class PlugInFeature(AncillaryFeature):
 
         Notes
         -----
-        `PluginFeature` inherits from :class:`AncillaryFeature
+        `PlugInFeature` inherits from :class:`AncillaryFeature
         <dclab.rtdc_dataset.feat_anc_core.ancillary_feature.AncillaryFeature>`.
         Please read the advanced section on `PluginFeatures` in the dclab docs.
         """
@@ -141,7 +162,8 @@ class PlugInFeature(AncillaryFeature):
         if isinstance(self.plugin_path, pathlib.Path):
             md5hasher.update(self.plugin_path.read_bytes())
         else:
-            md5hasher.update(original_info["method"].__code__.co_code)
+            update_hash_with_code(md5hasher,
+                                  original_info["method"].__code__)
         md5hasher.update(self.feature_name.encode("utf-8"))
         md5hasher.update(original_info.get("version", "").encode("utf-8"))
         for feat in original_info.get("features required", []):
@@ -175,31 +197,33 @@ class PlugInFeature(AncillaryFeature):
 
         Raises
         ------
-        ValueError
+        TypeError
             If the parameter `original_info` is not a dict.
-            If the `self.feature_name` is not in
-                `original_info["feature names"]`.
+            If `original_info["feature names"]` is not a list.
             If the `method` provided in parameter `original_info`
                 is not callable.
+        ValueError
+            If the `self.feature_name` is not in
+                `original_info["feature names"]`.
         """
         if not isinstance(original_info, dict):
-            raise ValueError(
+            raise TypeError(
                 "PlugInFeature parameter for `info` must be a dict, instead "
                 f"a '{type(original_info)}' was given.")
 
         if not isinstance(original_info["feature names"], list):
-            raise ValueError("'feature names' must be a list, "
-                             f"got '{type(original_info['feature names'])}'")
+            raise TypeError("'feature names' must be a list, "
+                            f"got '{type(original_info['feature names'])}'")
 
         if self.feature_name not in original_info["feature names"]:
             raise ValueError(
                 f"The feature name '{self.feature_name}' is not defined in "
-                + "the `info` dict of the plugin feature"
+                "the `info` dict of the plugin feature"
                 + (f" at {self.plugin_path}" if self.plugin_path else "")
                 + f". Defined names are '{original_info['feature names']}'.")
 
         if not callable(original_info["method"]):
-            raise ValueError(
+            raise TypeError(
                 "The `method` you have provided in the parameter `info` is "
                 f"not callable ('{original_info['method']}' is not "
                 "a function).")
@@ -211,7 +235,7 @@ def import_plugin_feature_script(
 
     Parameters
     ----------
-    plugin_path: str or Path
+    plugin_path: str or pathlib.Path
         pathname to a valid dclab plugin script
 
     Returns
@@ -223,7 +247,7 @@ def import_plugin_feature_script(
     Raises
     ------
     PluginImportError
-        If the plugin can not be found
+        If the plugin cannot be found or cannot be loaded
 
     Notes
     -----
@@ -231,19 +255,36 @@ def import_plugin_feature_script(
     """
     path = pathlib.Path(plugin_path)
     if not path.exists():
-        raise PluginImportError("The plugin could be not be found at "
+        raise PluginImportError("The plugin could not be found at "
                                 f"'{plugin_path}'!")
+    # Load the plugin directly from its file. The unique module name
+    # makes sure that we neither get nor replace a different module
+    # with the same name (e.g. a plugin with the same file name that
+    # was loaded from a different directory).
+    path_hash = hashlib.md5(str(path.resolve()).encode()).hexdigest()[:10]
+    module_name = f"dclab_plugin_{path.stem}_{path_hash}"
+    if module_name in sys.modules:
+        # plugin already imported
+        return sys.modules[module_name].info
+    # allow the plugin to import modules from its directory
+    plugin_dir = str(path.parent)
+    sys.path.insert(0, plugin_dir)
+    sys.dont_write_bytecode = True
     try:
-        # insert the plugin directory to sys.path so we can import it
-        sys.path.insert(-1, str(path.parent))
-        sys.dont_write_bytecode = True
-        plugin = importlib.import_module(path.stem)
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        plugin = importlib.util.module_from_spec(spec)
+        # The module must be in `sys.modules` while it is executed
+        # (required e.g. for dataclasses).
+        sys.modules[module_name] = plugin
+        spec.loader.exec_module(plugin)
     except BaseException as e:
+        sys.modules.pop(module_name, None)
         raise PluginImportError(
             f"The plugin {plugin_path} could not be loaded!") from e
     finally:
         # undo our path insertion
-        sys.path.pop(0)
+        if plugin_dir in sys.path:
+            sys.path.remove(plugin_dir)
         sys.dont_write_bytecode = False
 
     return plugin.info
@@ -255,7 +296,7 @@ def load_plugin_feature(
 
     Parameters
     ----------
-    plugin_path: str or Path
+    plugin_path: str or pathlib.Path
         pathname to a valid dclab plugin Python script
 
     Returns
@@ -265,7 +306,7 @@ def load_plugin_feature(
 
     Raises
     ------
-    ValueError
+    TypeError
         If the script dictionary "feature names" are not a list
 
     Notes
@@ -281,7 +322,7 @@ def load_plugin_feature(
     """
     info = import_plugin_feature_script(plugin_path)
     if not isinstance(info["feature names"], list):
-        raise ValueError(
+        raise TypeError(
             "'feature names' must be a list of strings.")
 
     plugin_list = []

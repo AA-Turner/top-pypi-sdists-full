@@ -145,6 +145,7 @@ SelfManagedCaseStatusType = Literal[
 UsefulnessRatingType = Literal["NOT_USEFUL", "USEFUL"]
 SecurityIncidentResponseServiceName = Literal["security-ir"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

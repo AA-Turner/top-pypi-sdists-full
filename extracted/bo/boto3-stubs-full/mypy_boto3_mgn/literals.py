@@ -386,6 +386,7 @@ WaveHealthStatusType = Literal["ERROR", "HEALTHY", "LAGGING"]
 WaveProgressStatusType = Literal["COMPLETED", "IN_PROGRESS", "NOT_STARTED"]
 MgnServiceName = Literal["mgn"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

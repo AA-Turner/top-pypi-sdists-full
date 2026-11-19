@@ -79,6 +79,7 @@ ResourceToTagType = Literal["lambda-function"]
 RunTypeType = Literal["CANARY_RUN", "DRY_RUN"]
 SyntheticsServiceName = Literal["synthetics"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

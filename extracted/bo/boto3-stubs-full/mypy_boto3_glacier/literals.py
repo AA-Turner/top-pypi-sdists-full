@@ -74,6 +74,7 @@ VaultExistsWaiterName = Literal["vault_exists"]
 VaultNotExistsWaiterName = Literal["vault_not_exists"]
 GlacierServiceName = Literal["glacier"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

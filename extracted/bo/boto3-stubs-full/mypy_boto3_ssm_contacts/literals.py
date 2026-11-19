@@ -71,6 +71,7 @@ ReceiptTypeType = Literal["DELIVERED", "ERROR", "READ", "SENT", "STOP"]
 ShiftTypeType = Literal["OVERRIDDEN", "REGULAR"]
 SSMContactsServiceName = Literal["ssm-contacts"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

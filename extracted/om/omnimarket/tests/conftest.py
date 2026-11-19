@@ -24,12 +24,17 @@ import pytest_asyncio
 import yaml
 
 from omnimarket.config.env_flags import env_flag
-from omnimarket.routing.task_class_contract_path import (
+from omnimarket.handlers.routing.task_class_contract_path import (
     TASK_CLASS_CONTRACT_PACKAGED_DEFAULT_PATH,
 )
+from omnimarket.handlers.runtime_delivery_host import RuntimeDeliveryHost
 
 # OMN-19987: the --refuse-skips option, for evidence checks that must not pass
 # when their proof skipped. Importing the hooks here loads them for every run.
+from tests.bus_lane_guard import (
+    assert_broker_in_declared_lane,
+    resolve_test_bus_broker,
+)
 from tests.refuse_skips import (
     pytest_addoption as pytest_addoption,
 )
@@ -170,7 +175,7 @@ def catalogue_picks_models(monkeypatch: pytest.MonkeyPatch) -> None:
     re-aims once) stays reachable from a row that sets ``customer_chooses_model``
     false, and the tests that exercise that path opt in here.
     """
-    from omnimarket.routing import byok_provider_backends as catalogue
+    from omnimarket.handlers.routing import byok_provider_backends as catalogue
 
     plans = {
         key: row.model_copy(update={"customer_chooses_model": False})
@@ -227,6 +232,20 @@ def _ensure_omni_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_real_models_dev_price_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No unit test reads models.dev to price a call (OMN-23413 AC35).
+
+    A delegation call on a customer key falls back to models.dev's price; every
+    test sees an empty index unless it serves its own.
+    """
+    from omnimarket.handlers import model_catalog
+
+    monkeypatch.setattr(
+        model_catalog, "pricing_models_dev_index", lambda: model_catalog.EMPTY_INDEX
+    )
+
+
+@pytest.fixture(autouse=True)
 def _no_real_byok_model_list_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     """No unit test reads a real provider's model list (OMN-20157).
 
@@ -241,7 +260,7 @@ def _no_real_byok_model_list_reads(monkeypatch: pytest.MonkeyPatch) -> None:
 
     import httpx
 
-    from omnimarket.routing import byok_model_discovery
+    from omnimarket.handlers.routing import byok_model_discovery
 
     real_get = byok_model_discovery.get_models_json
 
@@ -292,13 +311,30 @@ def _ensure_delegation_routing_tiers_path(monkeypatch: pytest.MonkeyPatch) -> No
     RED-refusal-path tests that ``delenv`` this key inside the test body are
     unaffected.
     """
-    from omnimarket.routing.routing_tiers_path import (
+    from omnimarket.handlers.routing.routing_tiers_path import (
         ROUTING_TIERS_PACKAGED_DEFAULT_PATH,
     )
 
     monkeypatch.setenv(
         "DELEGATION_ROUTING_TIERS_PATH", str(ROUTING_TIERS_PACKAGED_DEFAULT_PATH)
     )
+
+
+@pytest.fixture(autouse=True)
+def _paid_rung_size_band_rule_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Declare no paid-rung size band for the local dispatch port (OMN-23180).
+
+    The contract's default ``paid_from_size_band: L`` skips a paid rung for any
+    smaller request. Tests that walk a paid ladder with a short prompt are about
+    the ladder, not about which band may reach it, so the port reads no band
+    here. ``tests/unit/delegation/test_size_band_paid_rule.py`` binds the real
+    resolver back and tests the rule.
+    """
+    from omnimarket.nodes.node_delegate_skill_orchestrator.ports import (
+        port_local_delegation_dispatch as port_mod,
+    )
+
+    monkeypatch.setattr(port_mod, "resolve_paid_from_size_band", lambda _t: None)
 
 
 @pytest.fixture(autouse=True)
@@ -430,6 +466,9 @@ def _isolate_unit_env(
     """
     test_path = str(request.node.fspath)
     if "/tests/integration/" in test_path:
+        # OMN-17427: these tests reach a real broker, so the ambient value
+        # must not decide which one. Pin the declared test lane's broker.
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", _KAFKA_BOOTSTRAP)
         return
 
     # Clear Kafka broker env vars so unit tests never reach a live broker.
@@ -454,6 +493,30 @@ def _isolate_unit_env(
     # is set (OMN-21099); a lane shell exports the host's live journal, which
     # the resident drainer publishes, so a test falls back to ONEX_STATE_DIR.
     monkeypatch.delenv("ONEX_HOOK_EMIT_JOURNAL_DIR", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _close_runtime_delivery_hosts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[None, None, None]:
+    """OMN-24114: close every RuntimeDeliveryHost a test constructs.
+
+    A projection writer starts a daemon loop thread on its first delivery and
+    nothing ends it; the leftover threads (two with a retry task that never
+    ends) reach tests that patch time or asyncio process-wide, so every test
+    closes the hosts it made.
+    """
+    hosts: list[RuntimeDeliveryHost] = []
+    original_init = RuntimeDeliveryHost.__init__
+
+    def _record_init(self: RuntimeDeliveryHost, *args: Any, **kwargs: Any) -> None:
+        original_init(self, *args, **kwargs)
+        hosts.append(self)
+
+    monkeypatch.setattr(RuntimeDeliveryHost, "__init__", _record_init)
+    yield
+    for host in hosts:
+        host.close()
 
 
 @pytest.fixture(autouse=True)
@@ -610,7 +673,9 @@ _POSTGRES_PASSWORD = os.environ.get(
 )
 _POSTGRES_DB = os.environ.get("INTEGRATION_POSTGRES_DB", "omnibase_infra")
 
-_KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+# OMN-17427: the integration broker is the declared test lane's, never the
+# ambient KAFKA_BOOTSTRAP_SERVERS an operator machine exports for other lanes.
+_KAFKA_BOOTSTRAP = resolve_test_bus_broker()
 
 
 def _integration_dsn() -> str:
@@ -654,6 +719,7 @@ async def integration_kafka_bootstrap(request: pytest.FixtureRequest) -> str:
         pytest.skip("integration_kafka_bootstrap requires @pytest.mark.integration")
     from aiokafka import AIOKafkaProducer
 
+    assert_broker_in_declared_lane(_KAFKA_BOOTSTRAP)
     probe = AIOKafkaProducer(bootstrap_servers=_KAFKA_BOOTSTRAP)
     try:
         await asyncio.wait_for(probe.start(), timeout=5)
@@ -724,6 +790,7 @@ async def kafka_integration_bus(
     """
     if not request.node.get_closest_marker("integration"):
         pytest.skip("kafka_integration_bus requires @pytest.mark.integration")
+    assert_broker_in_declared_lane(_KAFKA_BOOTSTRAP)
 
     config = ModelKafkaEventBusConfig(
         bootstrap_servers=_KAFKA_BOOTSTRAP,
@@ -1110,6 +1177,55 @@ def _isolate_local_secret_store(
         "omnimarket.inference.local_byok_credential_adapter.default_evidence_db_path",
         lambda: _local_secret_store_root / f"{digest}.sqlite",
     )
+    # OMN-21921: a delegation key is read through the secret store node, whose
+    # overlay is read from the ONEX home. Point it at an empty one so a developer's
+    # own config.yaml never decides which store a unit test reads.
+    monkeypatch.setattr(
+        "omnibase_infra.doctor.delegation_doctor_support.default_onex_home",
+        lambda: _local_secret_store_root / "onex-home",
+    )
+
+
+# OMN-23631: the input ceilings are an overlay value of node_delegation_code_budget_compute and routing refuses
+# when no root holds that overlay (no packaged value, no fallback). Every test therefore starts with a root that holds
+# the node's test fixture overlay, put in front of the roots the environment already names; a test that sets its own
+# ONEX_SKILL_OVERLAY_ROOTS after this fixture replaces it and brings its own overlay.
+_CODE_BUDGET_FIXTURE_OVERLAY = (
+    Path(__file__).resolve().parent
+    / "nodes"
+    / "node_delegation_code_budget_compute"
+    / "fixtures"
+    / "overlays"
+    / "node_delegation_code_budget_compute"
+    / "overlay.yaml"
+)
+
+
+@pytest.fixture(scope="session")
+def code_budget_overlay_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    root = tmp_path_factory.mktemp("omn23631-code-budget-overlay")
+    target = root / "node_delegation_code_budget_compute" / "overlay.yaml"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        _CODE_BUDGET_FIXTURE_OVERLAY.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    return root
+
+
+@pytest.fixture(autouse=True)
+def _code_budget_overlay_in_roots(
+    monkeypatch: pytest.MonkeyPatch, code_budget_overlay_root: Path
+) -> None:
+    # OMN-23826: load_delegation_routing_overlay reads the delegation_routing document under these roots before the
+    # DELEGATION_ROUTING_OVERLAY_PATH pin, so a host whose roots hold the house document would route every test through
+    # it; the ambient roots that hold one are left out. A test that wants one names its own root.
+    ambient = [
+        root
+        for root in os.environ.get("ONEX_SKILL_OVERLAY_ROOTS", "").split(os.pathsep)
+        if root and not (Path(root) / "delegation_routing" / "overlay.yaml").is_file()
+    ]
+    roots = [str(code_budget_overlay_root), *ambient]
+    monkeypatch.setenv("ONEX_SKILL_OVERLAY_ROOTS", os.pathsep.join(roots))
 
 
 @pytest.fixture
@@ -1203,7 +1319,7 @@ def bind_bifrost_glm_endpoint(
 
 # ---------------------------------------------------------------------------
 # Lane intake (OMN-17942). Every Linear item a node opens is lane-created: it is
-# labelled, stamped with its lane, and counted against a daily budget. The
+# labelled and stamped with its lane. The
 # vocabulary comes from the installed omniclaude plugin in production; these
 # fixtures stand in for it, and tests/nodes/lane_intake covers the real wiring.
 # ---------------------------------------------------------------------------
@@ -1274,3 +1390,18 @@ def compaction_bus():
     yield factory
     for harness in reversed(harnesses):
         harness.close()
+
+
+@pytest.fixture
+def host_capacity_overlay(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """The ``host_capacity`` overlay at the starting values the node ships as its example (OMN-23337)."""
+    example = (
+        Path(__file__).resolve().parents[1]
+        / "src/omnimarket/nodes/node_host_capacity_compute/overlay.example.yaml"
+    )
+    root = tmp_path / "overlay_roots"
+    target = root / "host_capacity" / "overlay.yaml"
+    target.parent.mkdir(parents=True)
+    target.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.setenv("ONEX_SKILL_OVERLAY_ROOTS", str(root))
+    return target

@@ -1,4 +1,0 @@
----
-features:
-  - Add support for the ``enabled`` field of the ``Segment`` resource for
-    the instance HA service (Masakari).

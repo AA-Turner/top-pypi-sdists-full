@@ -141,6 +141,7 @@ VirtualInterfaceStateType = Literal[
 ]
 DirectConnectServiceName = Literal["directconnect"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

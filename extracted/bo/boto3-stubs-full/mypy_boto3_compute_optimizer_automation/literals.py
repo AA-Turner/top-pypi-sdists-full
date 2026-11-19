@@ -136,6 +136,7 @@ StepTypeType = Literal["CreateEbsSnapshot", "CreateEbsVolume", "DeleteEbsVolume"
 SummaryDimensionKeyType = Literal["EventStatus"]
 ComputeOptimizerAutomationServiceName = Literal["compute-optimizer-automation"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

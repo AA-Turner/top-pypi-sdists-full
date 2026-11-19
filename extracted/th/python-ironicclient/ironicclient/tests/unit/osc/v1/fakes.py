@@ -34,7 +34,7 @@ BAREMETAL_CHASSIS = {
     'extra': baremetal_chassis_extra,
 }
 
-baremetal_uuid = 'xxx-xxxxxx-xxxx'
+baremetal_uuid = '1be26c0b-03f2-4d2e-ae87-c02d7f33c123'
 baremetal_name = 'fake name'
 baremetal_owner = 'fake-owner'
 baremetal_instance_uuid = 'yyy-yyyyyy-yyyy'
@@ -58,12 +58,14 @@ baremetal_port_address = 'AA:BB:CC:DD:EE:FF'
 baremetal_port_extra = {'key1': 'value1',
                         'key2': 'value2'}
 baremetal_port_physical_network = 'physnet1'
+baremetal_port_name = 'fake port name'
 
 BAREMETAL_PORT = {
     'uuid': baremetal_port_uuid,
     'address': baremetal_port_address,
     'extra': baremetal_port_extra,
     'node_uuid': baremetal_uuid,
+    'name': baremetal_port_name,
 }
 
 baremetal_driver_hosts = ['fake-host1', 'fake-host2']

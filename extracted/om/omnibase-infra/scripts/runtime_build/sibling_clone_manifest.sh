@@ -42,22 +42,22 @@
 # directory name; SIBLING_CLONE_MANIFEST_DIST_NAMES[i] is the corresponding
 # uv.lock distribution (package) name for that same repo.
 # shellcheck disable=SC2034  # consumed by scripts that `source` this file
-SIBLING_CLONE_MANIFEST=(
-    "omnibase_infra"
-    "omnibase_core"
-    "omnibase_spi"
-    "omnibase_compat"
-    "omnimarket"
-)
+SIBLING_CLONE_MANIFEST=("omnibase_infra" "omnibase_core" "omnibase_spi" "omnimarket" "omniintelligence")
 
 # shellcheck disable=SC2034  # consumed by scripts that `source` this file
-SIBLING_CLONE_MANIFEST_DIST_NAMES=(
-    "omnibase-infra"
-    "omnibase-core"
-    "omnibase-spi"
-    "omnibase-compat"
-    "omnimarket"
-)
+SIBLING_CLONE_MANIFEST_DIST_NAMES=("omnibase-infra" "omnibase-core" "omnibase-spi" "omnimarket" "omninode-intelligence")
+
+# Siblings whose pin the consuming lock (omnimarket/uv.lock) does NOT carry
+# (OMN-22153). The sibling-pin preflight treats a requested package absent from
+# the lock as a hard error, which is right for a foundation package and wrong for
+# omniintelligence: omnimarket does not depend on it, so no lock can pin it. The
+# Dockerfile has always installed it by a registry range with no resolver, and
+# the dev lane now stages it at its newest dev-merge tag instead; that tag, not a
+# lock pin, is its version authority, and the first-party source audit proves it.
+# stage_workspace.sh leaves these out of the preflight's --repo arguments. Every
+# member must also be in SIBLING_VENDORED_REPOS, so this array cannot excuse a
+# package the build does not stage.
+SIBLING_LOCK_UNPINNED_REPOS=("omniintelligence")
 
 # ---------------------------------------------------------------------------
 # OMN-19072: every OTHER named sibling set lives here too.
@@ -74,20 +74,24 @@ SIBLING_CLONE_MANIFEST_DIST_NAMES=(
 # ---------------------------------------------------------------------------
 
 # Siblings vendored as SOURCE into the runtime image (rsync'd by
-# stage_workspace.sh, clean-checked-out to DEPLOY_REF by its RT-1 step, and
-# staged by prepr_verify_lane.sh), in install order: omnibase_core FIRST so
-# the dev-HEAD core is the resolved core for everything after it (OMN-13405).
-# A strict subset of SIBLING_CLONE_MANIFEST: omnibase_infra is the Docker build
-# context itself and omnibase_spi is installed from the published wheel. It is
-# also the key set of compute_workspace_provenance.py's WORKSPACE_PACKAGES,
-# which runs inside the image and cannot source this file; the parity test
-# holds the two equal.
+# stage_workspace.sh, clean-checked-out to their newest dev-merge tag by its RT-1
+# step, and staged by prepr_verify_lane.sh), in install order: omnibase_core
+# FIRST so the dev-HEAD core is the resolved core for everything after it
+# (OMN-13405). A strict subset of SIBLING_CLONE_MANIFEST: omnibase_infra is the
+# Docker build context itself. omnibase_spi joined the set under OMN-17427 stage
+# 0: it used to install from the package index at an exact version, and the dev
+# lane takes no first-party package from anything but a dev-merge tag. It is the
+# key set of compute_workspace_provenance.py's WORKSPACE_PACKAGES (less
+# omnimarket, which the infra image does not install), which runs inside the
+# image and cannot source this file; the parity test holds the two equal.
+# omniintelligence joined the set under OMN-22153: it used to install from the
+# package index by a range, so work merged to its dev branch (the http_mount of
+# OMN-21288) waited for a release train cut. The dev lane now builds it from its
+# newest dev-merge tag; non-dev lanes keep the registry install in
+# docker/Dockerfile.runtime. Like omnimarket it comes after the foundation
+# packages, and unlike omnimarket the image installs it.
 # shellcheck disable=SC2034  # consumed by scripts that `source` this file
-SIBLING_VENDORED_REPOS=(
-    "omnibase_core"
-    "omnibase_compat"
-    "omnimarket"
-)
+SIBLING_VENDORED_REPOS=("omnibase_core" "omnibase_spi" "omnimarket" "omniintelligence")
 
 # The lab scripts track no extra repository now that onex_change_control is
 # retired. This array stays as the place to add an extra tracked repository.
@@ -106,11 +110,12 @@ SIBLING_LAB_TAG_REPOS=(
     ${SIBLING_EXTRA_TRACKED_REPOS[@]+"${SIBLING_EXTRA_TRACKED_REPOS[@]}"}
 )
 
-# Tag-set members the lane refresh scripts do NOT move. omnibase_spi is
-# installed from the wheel its lock pins, and refresh_dev_lane.sh and
-# refresh_stability_lane.sh have never checked its clone out to the deployed
-# ref. OMN-19072 records that membership as it was; changing it would change
-# what a lane refresh does, which is out of that ticket's scope.
+# Tag-set members the lane refresh scripts do NOT move. refresh_dev_lane.sh and
+# refresh_stability_lane.sh have never checked omnibase_spi's clone out to the
+# deployed ref. OMN-19072 records that membership as it was; changing it would
+# change what a lane refresh does, which is out of that ticket's scope. The
+# build itself stages spi at its dev-merge tag in its own RT-1 worktree
+# (OMN-17427), so the clone the refresh leaves alone is not what is built.
 # shellcheck disable=SC2034  # consumed by scripts that `source` this file
 SIBLING_LANE_REFRESH_EXCLUDED_REPOS=(
     "omnibase_spi"
@@ -149,48 +154,40 @@ resolve_deploy_source_clone_root() {
     export OMNI_HOME
 }
 
-# OMN-20687: where `onex-runtime-deploy` lives. It is a console script of the
-# omnibase_internal project, not of omnibase_infra and not of the dispatch venv.
-# It is installed into that clone's own `.venv` by its `onex-internal-clone-sync`
-# timer, and nothing puts it on PATH, so a bare default of `onex-runtime-deploy`
-# made every lane refresh exit 64 on a host whose PATH did not carry it. The
-# clone lookup is the one omniclaude#2592 (OMN-17427) settled on for
-# `onex-host-reconcile`, in the same order, so the two commands cannot be found
-# in two different places.
+# OMN-20687, OMN-25330: where `onex-runtime-deploy` lives. It is a console script
+# of one first-party clone's own `.venv` (the clone that owns the runtime deploy
+# node), and nothing puts it on PATH. A bare default of `onex-runtime-deploy` made
+# every lane refresh exit 64 on a host whose PATH did not carry it. A lookup in a
+# fixed clone made it exit 64 on h201 after that command moved to another clone,
+# so a refresh run there read NOT RUNNING until the operator named the command by
+# hand. The lookup therefore names no clone: it takes the first first-party clone
+# under OMNI_HOME (SIBLING_CLONE_MANIFEST) whose venv holds the command.
 #
 # Resolution order; sets DEPLOY_RUNTIME and DEPLOY_RUNTIME_TRIED, always returns
 # 0 (each caller keeps its own `command -v` refusal and prints the tried list):
 #   1. DEPLOY_RUNTIME, when set: the operator named it, and it is used as given.
-#   2. The omnibase_internal clone's `.venv/bin/onex-runtime-deploy`. The clone is
-#      OMNIBASE_INTERNAL_HOME when set (and then no other clone is searched), else
-#      the sibling of OMNI_HOME as written, then the sibling of its resolved
-#      target. A symlinked OMNI_HOME can put a stale second copy beside the link
-#      (h201: ~/Code/omnibase_internal beside the link, /data/omninode/
-#      omnibase_internal beside the target), so the answer is the first candidate
-#      that holds an executable command, not the first directory.
+#   2. A clone's `.venv/bin/onex-runtime-deploy`. The clone is DEPLOY_RUNTIME_HOME
+#      when set (and then no other clone is searched), else each clone of
+#      SIBLING_CLONE_MANIFEST under OMNI_HOME in manifest order; the first
+#      executable command wins.
 #   3. `onex-runtime-deploy` on PATH.
 # Call it after OMNI_HOME is final (the operator env is loaded and
 # DEPLOY_SOURCE_CLONE_ROOT applied). When nothing is found DEPLOY_RUNTIME is the
 # bare name, so the plan the caller prints still reads.
 resolve_runtime_deploy() {
     local -a homes=()
-    local home resolved
+    local home name
     DEPLOY_RUNTIME_TRIED=""
     if [[ -n "${DEPLOY_RUNTIME:-}" ]]; then
         DEPLOY_RUNTIME_TRIED="DEPLOY_RUNTIME=${DEPLOY_RUNTIME}"
         return 0
     fi
-    if [[ -n "${OMNIBASE_INTERNAL_HOME:-}" ]]; then
-        homes+=("${OMNIBASE_INTERNAL_HOME%/}")
+    if [[ -n "${DEPLOY_RUNTIME_HOME:-}" ]]; then
+        homes+=("${DEPLOY_RUNTIME_HOME%/}")
     elif [[ -n "${OMNI_HOME:-}" ]]; then
-        # Lexical parents, not `/..`: the kernel resolves `link/..` through the
-        # symlink, which would make the "as written" candidate the resolved one.
-        home="${OMNI_HOME%/}"
-        homes+=("${home%/*}/omnibase_internal")
-        resolved="$(cd "${OMNI_HOME}" 2>/dev/null && pwd -P)" || resolved=""
-        if [[ -n "${resolved}" && "${resolved}" != "${home}" ]]; then
-            homes+=("${resolved%/*}/omnibase_internal")
-        fi
+        for name in "${SIBLING_CLONE_MANIFEST[@]}"; do
+            homes+=("${OMNI_HOME%/}/${name}")
+        done
     fi
     for home in ${homes[@]+"${homes[@]}"}; do
         DEPLOY_RUNTIME_TRIED+="${DEPLOY_RUNTIME_TRIED:+ }${home}/.venv/bin/onex-runtime-deploy"

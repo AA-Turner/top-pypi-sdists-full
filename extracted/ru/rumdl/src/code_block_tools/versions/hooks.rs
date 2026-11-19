@@ -33,9 +33,15 @@ pub(super) fn parse(text: &str, source: ToolVersionDefinition) -> Result<Expecte
     // Parser errors can contain arbitrary values and must never be quoted.
     let config: Config = match source {
         ToolVersionDefinition::PreCommit | ToolVersionDefinition::PreCommitYml => {
-            let mut value: serde_yaml::Value = serde_yaml::from_str(text).map_err(|_| error())?;
+            let mut options = crate::utils::yaml::options();
+            options.reject_unsupported_tags = true;
+            // Hook metadata is shallow. Reject excessive nesting before recursive
+            // Value deserialization can exhaust Windows' smaller main-thread stack.
+            options.budget.get_or_insert_with(Default::default).max_depth = 16;
+            let mut value: serde_json::Value =
+                serde_saphyr::from_str_with_options(text, options).map_err(|_| error())?;
             merge_yaml(&mut value, 0).map_err(|()| error())?;
-            serde_yaml::from_value(value).map_err(|_| error())?
+            serde_json::from_value(value).map_err(|_| error())?
         }
         ToolVersionDefinition::Prek => toml::from_str(text).map_err(|_| error())?,
         _ => return Err(error()),
@@ -91,23 +97,23 @@ pub(super) fn parse(text: &str, source: ToolVersionDefinition) -> Result<Expecte
 /// Resolve merge sources before their consumers. A single `apply_merge` pass
 /// leaves nested `<<` keys behind; repeating it also loses precedence when an
 /// earlier merge-list member inherits a key supplied directly by a later one.
-fn merge_yaml(value: &mut serde_yaml::Value, depth: usize) -> Result<(), ()> {
+fn merge_yaml(value: &mut serde_json::Value, depth: usize) -> Result<(), ()> {
     if depth >= 128 {
         return Err(());
     }
     match value {
-        serde_yaml::Value::Mapping(mapping) => {
+        serde_json::Value::Object(mapping) => {
             for child in mapping.values_mut() {
                 merge_yaml(child, depth + 1)?;
             }
             let merge = match mapping.remove("<<") {
                 None => return Ok(()),
-                Some(serde_yaml::Value::Mapping(merge)) => vec![serde_yaml::Value::Mapping(merge)],
-                Some(serde_yaml::Value::Sequence(merges)) => merges,
+                Some(source @ serde_json::Value::Object(_)) => vec![source],
+                Some(serde_json::Value::Array(merges)) => merges,
                 Some(_) => return Err(()),
             };
             for source in merge {
-                let serde_yaml::Value::Mapping(source) = source else {
+                let serde_json::Value::Object(source) = source else {
                     return Err(());
                 };
                 for (key, value) in source {
@@ -115,12 +121,11 @@ fn merge_yaml(value: &mut serde_yaml::Value, depth: usize) -> Result<(), ()> {
                 }
             }
         }
-        serde_yaml::Value::Sequence(sequence) => {
+        serde_json::Value::Array(sequence) => {
             for child in sequence {
                 merge_yaml(child, depth + 1)?;
             }
         }
-        serde_yaml::Value::Tagged(_) => return Err(()),
         _ => {}
     }
     Ok(())
@@ -189,4 +194,24 @@ fn djlint_hook(id: &str) -> bool {
         suffix,
         "" | "-django" | "-jinja" | "-nunjucks" | "-handlebars" | "-liquid" | "-golang" | "-tera" | "-askama"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deeply_nested_yaml_is_rejected_on_a_small_stack() {
+        // Approximate the default Windows main-thread stack on every platform.
+        std::thread::Builder::new()
+            .stack_size(1024 * 1024)
+            .spawn(|| {
+                let text = format!("repos: []\nx-deep: {}0{}\n", "[".repeat(140), "]".repeat(140));
+                let error = parse(&text, ToolVersionDefinition::PreCommit).unwrap_err();
+                assert!(error.starts_with("Cannot parse"), "{error}");
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
 }

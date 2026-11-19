@@ -106,6 +106,7 @@ ThresholdUnitType = Literal["COUNT", "PERCENTAGE"]
 ValidationModeType = Literal["CHECK_ALL"]
 GlueDataBrewServiceName = Literal["databrew"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

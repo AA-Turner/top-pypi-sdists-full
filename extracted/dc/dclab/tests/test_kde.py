@@ -6,7 +6,8 @@ import dclab
 from dclab import polygon_filter
 from dclab.external import skimage
 from dclab.kde import KernelDensityEstimator, binning
-from dclab.kde.binning import KernelDensityEstimationForEmtpyArrayWarning
+from dclab.kde.base import ContourSpacingTooLarge
+from dclab.kde.binning import KernelDensityEstimationForEmptyArrayWarning
 
 
 def test_contour_lines():
@@ -40,6 +41,22 @@ def test_contour_lines():
         np.concatenate((x0.reshape(-1, 1), y0.reshape(-1, 1)), axis=1),
         contours[0][0])
     assert nump2.sum() == 11
+
+
+def test_contour_lines_quantiles_ndarray():
+    ddict = example_data_dict(size=1000, keys=["area_um", "deform"])
+    ds = dclab.new_dataset(ddict)
+    kde_instance = KernelDensityEstimator(ds)
+    kwargs = {"xacc": 2, "yacc": 0.005}
+    contours = kde_instance.get_contour_lines(quantiles=[0.5, 0.9],
+                                              **kwargs)
+    contours_nd = kde_instance.get_contour_lines(
+        quantiles=np.array([0.5, 0.9]), **kwargs)
+    assert len(contours) == len(contours_nd) == 2
+    for cc, cc_nd in zip(contours, contours_nd):
+        assert len(cc) == len(cc_nd) > 0
+        for ci, ci_nd in zip(cc, cc_nd):
+            assert np.all(ci == ci_nd)
 
 
 def test_contour_lines_monotonous():
@@ -182,6 +199,31 @@ def test_contour_lines_auto_spacing_all_filtered():
     assert contours == []
 
 
+def test_contour_lines_no_contour_ret_levels():
+    """ret_levels must be honored when no contour can be computed"""
+    np.random.seed(47)
+    ds = dclab.new_dataset({
+        "area_um": np.random.normal(loc=100, scale=10, size=100),
+        "deform": np.random.normal(loc=.1, scale=.01, size=100),
+    })
+    kde_instance = KernelDensityEstimator(ds)
+    # spacing too large
+    with pytest.warns(ContourSpacingTooLarge, match="Contour not possible"):
+        contours, levels = kde_instance.get_contour_lines(
+            xax="area_um", yax="deform", xacc=1000, yacc=1000,
+            ret_levels=True)
+    assert contours == []
+    assert levels == []
+
+    # all events filtered (auto spacing)
+    ds.filter.manual[:] = False
+    ds.apply_filter()
+    contours, levels = kde_instance.get_contour_lines(
+        xax="area_um", yax="deform", ret_levels=True)
+    assert contours == []
+    assert levels == []
+
+
 def test_contour_lines_auto_spacing_nan():
     np.random.seed(47)
     x0 = np.random.normal(loc=100, scale=10, size=1000)
@@ -265,14 +307,14 @@ def test_kde_get_at_all_nan_inf():
     ds = dclab.new_dataset(ddict)
 
     kde_instance = KernelDensityEstimator(ds)
-    with pytest.warns(KernelDensityEstimationForEmtpyArrayWarning,
+    with pytest.warns(KernelDensityEstimationForEmptyArrayWarning,
                       match="KDE encountered an empty array"):
         sc = kde_instance.get_at(xax="area_um", yax="deform")
     assert np.all(np.isnan(sc))
 
     ds.filter.manual[0] = False
     ds.apply_filter()
-    with pytest.warns(KernelDensityEstimationForEmtpyArrayWarning,
+    with pytest.warns(KernelDensityEstimationForEmptyArrayWarning,
                       match="KDE encountered an empty array"):
         sc2 = kde_instance.get_at(xax="area_um", yax="deform",
                                   positions=(ds["area_um"], ds["deform"]))
@@ -359,6 +401,23 @@ def test_kde_get_at_positions():
     assert np.all(sc == sc2)
 
 
+def test_kde_get_at_positions_ndarray():
+    """positions may be an ndarray of shape (2, N)"""
+    ddict = example_data_dict()
+    ds = dclab.new_dataset(ddict)
+
+    kde_instance = KernelDensityEstimator(ds)
+
+    positions = [ds["area_um"][:10], ds["deform"][:10]]
+    sc = kde_instance.get_at(xax="area_um", yax="deform",
+                             positions=positions)
+    sc2 = kde_instance.get_at(xax="area_um", yax="deform",
+                              positions=np.array(positions))
+    assert sc.size == 10
+    assert np.all(np.isfinite(sc))
+    assert np.all(sc == sc2)
+
+
 def test_kde_log_get_at_out_of_bounds():
     ddict = example_data_dict(size=300, keys=["area_um", "deform"])
     ds = dclab.new_dataset(ddict)
@@ -386,7 +445,7 @@ def test_kde_get_raster_all_nan_inf():
     ds = dclab.new_dataset(ddict)
 
     kde_instance = KernelDensityEstimator(ds)
-    with pytest.warns(KernelDensityEstimationForEmtpyArrayWarning,
+    with pytest.warns(KernelDensityEstimationForEmptyArrayWarning,
                       match="KDE encountered an empty array"):
         x, y, z = kde_instance.get_raster(xax="area_um", yax="deform")
     assert x.shape == y.shape == z.shape
@@ -402,8 +461,17 @@ def test_kde_get_raster_empty():
 
     kde_instance = KernelDensityEstimator(ds)
 
-    with pytest.warns(KernelDensityEstimationForEmtpyArrayWarning,
+    with pytest.warns(KernelDensityEstimationForEmptyArrayWarning,
                       match="KDE encountered an empty array"):
         x, y, z = kde_instance.get_raster(xax="area_um", yax="deform")
     assert x.shape == y.shape == z.shape
     assert np.all(np.isnan(z))
+
+
+def test_kde_empty_array_warning_deprecated_alias():
+    from dclab.kde import binning
+    with pytest.warns(DeprecationWarning, match="EmptyArrayWarning"):
+        old = binning.KernelDensityEstimationForEmtpyArrayWarning
+    assert old is KernelDensityEstimationForEmptyArrayWarning
+    with pytest.raises(AttributeError):
+        binning.does_not_exist  # noqa: B018

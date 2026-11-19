@@ -72,8 +72,8 @@ def test_equals_shape():
     assert pf1.unique_id != pf2.unique_id
 
 
-@pytest.mark.filterwarnings('ignore::dclab.polygon_filter.'
-                            + 'FilterIdExistsWarning')
+@pytest.mark.filterwarnings("ignore::dclab.polygon_filter."
+                            "FilterIdExistsWarning")
 def test_import():
     ddict = example_data_dict(size=1000, keys=["aspect", "tilt"])
     ds = dclab.new_dataset(ddict)
@@ -198,8 +198,24 @@ def test_invert_copy():
     assert np.sum(ds.filter.all) == 0, "inverted+normal filter filters all"
 
 
-@pytest.mark.filterwarnings('ignore::dclab.polygon_filter.'
-                            + 'FilterIdExistsWarning')
+def test_invert_nan():
+    """Events with nan-values are included by inverted polygon filters
+
+    This is the documented behavior (see `PolygonFilter`).
+    """
+    pf = dclab.PolygonFilter(axes=["area_um", "deform"],
+                             points=[[0, 0], [1, 0], [1, 1]])
+    datax = np.array([0.8, np.nan, 5, 0.8, np.nan])
+    datay = np.array([0.2, 0.5, 5, np.nan, np.nan])
+    assert np.all(pf.filter(datax, datay)
+                  == [True, False, False, False, False])
+    pf_inv = pf.copy(invert=True)
+    assert np.all(pf_inv.filter(datax, datay)
+                  == [False, True, True, True, True])
+
+
+@pytest.mark.filterwarnings("ignore::dclab.polygon_filter."
+                            "FilterIdExistsWarning")
 def test_invert_saveload():
     ddict = example_data_dict(size=1234, keys=["aspect", "tilt"])
     # points of polygon filter
@@ -228,6 +244,20 @@ def test_invert_saveload():
     filt3.save(name)
     filt4 = dclab.PolygonFilter(filename=name)
     assert filt4 == filt3
+
+
+def test_invert_saveload_keyword_overridden(tmp_path):
+    """The "Inverted" value in a .poly file overrides `inverted`"""
+    path = tmp_path / "test.poly"
+    pf = dclab.PolygonFilter(axes=["area_um", "deform"],
+                             points=[[0, 0], [1, 0], [1, 1]],
+                             inverted=False)
+    pf.save(path)
+    assert "Inverted = False" in path.read_text()
+    dclab.PolygonFilter.clear_all_filters()
+
+    pf2 = dclab.PolygonFilter(filename=path, inverted=True)
+    assert not pf2.inverted
 
 
 def test_inverted_wrong():
@@ -263,8 +293,8 @@ def test_remove():
     assert len(dclab.PolygonFilter.instances) == 0
 
 
-@pytest.mark.filterwarnings('ignore::dclab.polygon_filter.'
-                            + 'FilterIdExistsWarning')
+@pytest.mark.filterwarnings("ignore::dclab.polygon_filter."
+                            "FilterIdExistsWarning")
 def test_save():
     _fd, tf = tempfile.mkstemp(prefix="dclab_polgyon_test")
     with open(tf, "w") as fd:
@@ -291,8 +321,41 @@ def test_save():
     assert names.count(names[0]) == 2
 
 
-@pytest.mark.filterwarnings('ignore::dclab.polygon_filter.'
-                            + 'FilterIdExistsWarning')
+def test_save_load_blank_lines(tmp_path):
+    """Blank lines in .poly files (e.g. hand-edited) are ignored"""
+    path = tmp_path / "test.poly"
+    pf1 = dclab.PolygonFilter(axes=["area_um", "deform"],
+                              points=[[0, 0], [1, 0], [1, 1]])
+    pf2 = dclab.PolygonFilter(axes=["area_um", "deform"],
+                              points=[[0, 0], [2, 0], [2, 2]])
+    dclab.PolygonFilter.save_all(path)
+    data = path.read_text()
+    path.write_text("\n" + data.replace("[Polygon 00000001]",
+                                        "\n\n[Polygon 00000001]") + "\n\n")
+    dclab.PolygonFilter.clear_all_filters()
+
+    pfs = dclab.PolygonFilter.import_all(path)
+    assert len(pfs) == 2
+    assert np.allclose(pfs[0].points, pf1.points)
+    assert np.allclose(pfs[1].points, pf2.points)
+
+
+def test_save_load_name_with_equals_sign(tmp_path):
+    """The name of a polygon filter may contain an equals sign"""
+    path = tmp_path / "test.poly"
+    pf = dclab.PolygonFilter(axes=["area_um", "deform"],
+                             points=[[0, 0], [1, 0], [1, 1]],
+                             name="deform=0.1 gate")
+    pf.save(path)
+    dclab.PolygonFilter.clear_all_filters()
+
+    pf2 = dclab.PolygonFilter(filename=path)
+    assert pf2.name == "deform=0.1 gate"
+    assert np.allclose(pf2.points, pf.points)
+
+
+@pytest.mark.filterwarnings("ignore::dclab.polygon_filter."
+                            "FilterIdExistsWarning")
 def test_save_multiple():
     _fd, tf = tempfile.mkstemp(prefix="dclab_polgyon_test")
     with open(tf, "w") as fd:
@@ -339,8 +402,8 @@ def test_state():
     assert pf.inverted
 
 
-@pytest.mark.filterwarnings('ignore::dclab.polygon_filter.'
-                            + 'FilterIdExistsWarning')
+@pytest.mark.filterwarnings("ignore::dclab.polygon_filter."
+                            "FilterIdExistsWarning")
 def test_unique_id():
     _fd, tf = tempfile.mkstemp(prefix="dclab_polgyon_test")
     with open(tf, "w") as fd:
@@ -352,8 +415,8 @@ def test_unique_id():
     assert pf.unique_id != pf2.unique_id
 
 
-@pytest.mark.filterwarnings('ignore::dclab.polygon_filter.'
-                            + 'FilterIdExistsWarning')
+@pytest.mark.filterwarnings("ignore::dclab.polygon_filter."
+                            "FilterIdExistsWarning")
 def test_with_rtdc_data_set():
     ddict = example_data_dict(size=821, keys=["aspect", "tilt"])
     ds = dclab.new_dataset(ddict)
@@ -380,3 +443,26 @@ def test_wrong_load_key():
 
     with pytest.raises(KeyError, match="Unknown variable: peter = 4"):
         dclab.PolygonFilter(filename=tf)
+
+
+@pytest.mark.parametrize("axis_line", ["X Axis", "Y Axis"])
+def test_load_missing_axis(tmp_path, axis_line):
+    path = tmp_path / "missing_axis.poly"
+    lines = [li for li in filter_data.split("\n")
+             if not li.startswith(axis_line)]
+    path.write_text("\n".join(lines))
+    with pytest.raises(dclab.polygon_filter.PolygonFilterError,
+                       match="'X Axis' or 'Y Axis' not defined"):
+        dclab.PolygonFilter(filename=path)
+
+
+def test_instance_exists():
+    dclab.PolygonFilter.clear_all_filters()
+    pf = dclab.PolygonFilter(axes=["area_um", "deform"],
+                             points=[[0, 0], [1, 1], [0, 1]])
+    assert dclab.PolygonFilter.instance_exists(pf.unique_id)
+    assert not dclab.PolygonFilter.instance_exists(pf.unique_id + 1)
+    # deprecated misspelled alias
+    with pytest.warns(DeprecationWarning, match="instance_exists"):
+        assert dclab.PolygonFilter.instace_exists(pf.unique_id)
+    dclab.PolygonFilter.clear_all_filters()

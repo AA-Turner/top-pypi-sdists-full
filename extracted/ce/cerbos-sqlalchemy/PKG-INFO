@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cerbos-sqlalchemy
-Version: 0.6.1
+Version: 0.6.2
 Summary: SQLAlchemy adapter for generating queries with Cerbos: an open core, language-agnostic, scalable authorization solution
 Author-Email: Cerbos Developers <sdk+sqlalchemy@cerbos.dev>
 License: Apache-2.0
@@ -592,7 +592,7 @@ recorded in that tier:
 | --- | --- |
 | core | 32 / 32 |
 | extended | 91 / 110 |
-| adversarial | 413 / 550 |
+| adversarial | 423 / 568 |
 
 Every case that does not pass is either refused with `UnsupportedPlanError` (81 cases) or is
 skipped because its golden file records a planner divergence, which no adapter can pass and the

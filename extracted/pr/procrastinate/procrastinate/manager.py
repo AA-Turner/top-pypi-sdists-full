@@ -13,6 +13,15 @@ from procrastinate import jobs as jobs_module
 logger = logging.getLogger(__name__)
 
 QUEUEING_LOCK_CONSTRAINT = "procrastinate_jobs_queueing_lock_idx_v1"
+LOCK_CONSTRAINT = "procrastinate_jobs_lock_idx_v1"
+
+
+def _as_ids(id: int | Iterable[int] | None) -> list[int] | None:
+    if id is None:
+        return None
+    if isinstance(id, int):
+        return [id]
+    return list(id)
 
 
 class NotificationCallback(Protocol):
@@ -85,7 +94,7 @@ class JobManager:
                     **self._defer_jobs_query_kwargs(jobs=jobs)
                 )
         except exceptions.UniqueViolation as exc:
-            self._raise_already_enqueued(exc=exc, queueing_lock=exc.queueing_lock)
+            self._raise_already_enqueued(exc=exc, jobs=jobs)
 
         return [
             job.evolve(id=results[index]["id"], status=jobs_module.Status.TODO.value)
@@ -120,7 +129,7 @@ class JobManager:
                     **self._defer_jobs_query_kwargs(jobs=jobs)
                 )
         except exceptions.UniqueViolation as exc:
-            self._raise_already_enqueued(exc=exc, queueing_lock=exc.queueing_lock)
+            self._raise_already_enqueued(exc=exc, jobs=jobs)
 
         return [
             job.evolve(id=results[index]["id"], status=jobs_module.Status.TODO.value)
@@ -136,6 +145,7 @@ class JobManager:
                     task_name=job.task_name,
                     priority=job.priority,
                     lock=job.lock,
+                    lock_mode=job.lock_mode,
                     queueing_lock=job.queueing_lock,
                     args=job.task_kwargs,
                     scheduled_at=job.scheduled_at,
@@ -145,14 +155,21 @@ class JobManager:
         }
 
     def _raise_already_enqueued(
-        self, exc: exceptions.UniqueViolation, queueing_lock: str | None
+        self, exc: exceptions.UniqueViolation, jobs: list[jobs_module.Job]
     ) -> NoReturn:
-        if exc.constraint_name == QUEUEING_LOCK_CONSTRAINT:
-            raise exceptions.AlreadyEnqueued(
+        if exc.constraint_name != QUEUEING_LOCK_CONSTRAINT:
+            raise exc
+        if len(jobs) == 1:
+            message = (
                 "Job cannot be enqueued: there is already a job in the queue "
-                f"with the queueing lock {queueing_lock}"
-            ) from exc
-        raise exc
+                f"with the queueing lock {jobs[0].queueing_lock}"
+            )
+        else:
+            message = (
+                "Jobs cannot be enqueued: one of them has the same queueing lock "
+                f"as a job already in the queue ({exc})"
+            )
+        raise exceptions.AlreadyEnqueued(message) from exc
 
     async def defer_periodic_job(
         self,
@@ -182,11 +199,12 @@ class JobManager:
                 queue=job.queue,
                 priority=job.priority,
                 lock=job.lock,
+                lock_mode=job.lock_mode,
                 queueing_lock=job.queueing_lock,
                 args=job.task_kwargs,
             )
         except exceptions.UniqueViolation as exc:
-            self._raise_already_enqueued(exc=exc, queueing_lock=job.queueing_lock)
+            self._raise_already_enqueued(exc=exc, jobs=[job])
 
         return result["id"]
 
@@ -209,9 +227,16 @@ class JobManager:
             None if no suitable job was found. The job otherwise.
         """
 
-        row = await self.connector.execute_query_one_async(
-            query=sql.queries["fetch_job"], queues=queues, worker_id=worker_id
-        )
+        try:
+            row = await self.connector.execute_query_one_async(
+                query=sql.queries["fetch_job"], queues=queues, worker_id=worker_id
+            )
+        except exceptions.UniqueViolation as exc:
+            # Workers fetching as a 'mutex' job becomes due may disagree on whether it
+            # holds its lock and pick two jobs sharing it: the database refuses one.
+            if exc.constraint_name != LOCK_CONSTRAINT:
+                raise
+            return None
 
         # fetch_tasks will always return a row, but is there's no relevant
         # value, it will all be None
@@ -665,7 +690,7 @@ class JobManager:
 
     async def list_jobs_async(
         self,
-        id: int | None = None,
+        id: int | Iterable[int] | None = None,
         queue: str | None = None,
         task: str | None = None,
         status: str | None = None,
@@ -679,7 +704,7 @@ class JobManager:
         Parameters
         ----------
         id:
-            Filter by job ID
+            Filter by job ID, or by several job IDs
         queue:
             Filter by job queue name
         task:
@@ -699,7 +724,7 @@ class JobManager:
         """
         rows = await self.connector.execute_query_all_async(
             query=sql.queries["list_jobs"],
-            id=id,
+            ids=_as_ids(id),
             queue_name=queue,
             task_name=task,
             status=status,
@@ -711,7 +736,7 @@ class JobManager:
 
     def list_jobs(
         self,
-        id: int | None = None,
+        id: int | Iterable[int] | None = None,
         queue: str | None = None,
         task: str | None = None,
         status: str | None = None,
@@ -724,7 +749,7 @@ class JobManager:
         """
         rows = self.connector.get_sync_connector().execute_query_all(
             query=sql.queries["list_jobs"],
-            id=id,
+            ids=_as_ids(id),
             queue_name=queue,
             task_name=task,
             status=status,

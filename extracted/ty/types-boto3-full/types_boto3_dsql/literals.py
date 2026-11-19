@@ -81,6 +81,7 @@ StreamOrderingType = Literal["UNORDERED"]
 StreamStatusType = Literal["ACTIVE", "CREATING", "DELETED", "DELETING", "FAILED", "IMPAIRED"]
 AuroraDSQLServiceName = Literal["dsql"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

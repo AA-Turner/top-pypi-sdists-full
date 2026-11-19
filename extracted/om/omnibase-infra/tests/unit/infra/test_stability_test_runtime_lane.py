@@ -30,13 +30,12 @@ RUNTIME_POLICY_ENV_FILE = REPO_ROOT / "docker" / "runtime-policy.env"
 # must agree with this constant, or the assertions below fail.
 STABILITY_TEST_TOPIC_PARTITIONS_PER_SHARD = 15000
 
-RUNTIME_SERVICES = ("omninode-runtime", "runtime-effects", "runtime-worker")
+RUNTIME_SERVICES = ("omninode-runtime", "runtime-worker")
 RUNTIME_ADDRESS_PREFIX = "runtime://omninode-pc/stability-test/"
 OUT_OF_LANE_SERVICES = {
     "agent-actions-consumer",
     "skill-lifecycle-consumer",
     "context-audit-consumer",
-    "intelligence-api",
     "omninode-contract-resolver",
     "phoenix",
     "autoheal",
@@ -53,7 +52,6 @@ PRODUCTION_CONTAINER_NAMES = {
     "omninode-agent-actions-consumer",
     "omninode-skill-lifecycle-consumer",
     "omninode-context-audit-consumer",
-    "omnibase-intelligence-api",
     "omnibase-intelligence-migration",
     "omninode-contract-resolver",
     "omnibase-infra-phoenix",
@@ -150,7 +148,8 @@ def test_stability_lane_runtime_services_do_not_reuse_production_names() -> None
         assert "stability-test" in container_name
         assert container_name not in PRODUCTION_CONTAINER_NAMES
         assert "image" not in service
-        assert "build" not in service
+        # OMN-24562: the runtime builds on omnimarket's composed image.
+        assert service["build"]["dockerfile"] == "Dockerfile.runtime"
         assert service["restart"] == "unless-stopped"
 
 
@@ -280,12 +279,13 @@ def test_stability_lane_runtime_ports_override_production_bindings() -> None:
         "${STABILITY_TEST_VALKEY_EXTERNAL_PORT:-26379}:6379"
     ]
     assert services["omninode-runtime"]["ports"] == [
-        "${STABILITY_TEST_RUNTIME_MAIN_PORT:?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_PORT}:8085"
+        "${STABILITY_TEST_RUNTIME_MAIN_PORT:?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_PORT}:8085",
+        "${STABILITY_TEST_RUNTIME_EFFECTS_PORT:?runtime policy contract must set STABILITY_TEST_RUNTIME_EFFECTS_PORT}:8085",
     ]
     assert policy_env["STABILITY_TEST_RUNTIME_MAIN_PORT"] == "18085"
-    assert services["runtime-effects"]["ports"] == [
-        "${STABILITY_TEST_RUNTIME_EFFECTS_PORT:?runtime policy contract must set STABILITY_TEST_RUNTIME_EFFECTS_PORT}:8085"
-    ]
+    # OMN-21288: main publishes the effects port; the old service stays opt-in.
+    assert services["runtime-effects"]["profiles"] == ["folded-effects"]
+    assert services["runtime-effects"]["ports"] == []
     assert policy_env["STABILITY_TEST_RUNTIME_EFFECTS_PORT"] == "18086"
 
 
@@ -636,3 +636,17 @@ def test_stability_lane_volumes_do_not_reuse_production_names() -> None:
         assert "stability-test" in concrete_name, volume_name
 
     assert len(concrete_names) == len(set(concrete_names))
+
+
+@pytest.mark.unit
+def test_stability_lane_main_carries_effects_environment_and_networks() -> None:
+    main = _load_overlay()["services"]["omninode-runtime"]
+    cred_home = "/home/${RUNTIME_USER_NAME:-omniinfra}"
+    assert main["environment"]["CODING_AGENT_CRED_HOME"] == cred_home
+    assert main["environment"]["ONEX_CODING_AGENT_WORKSPACE_ROOT"] == (
+        f"{cred_home}/agent-workspaces"
+    )
+    assert main["environment"]["OMNIBASE_INFRA_SAVINGS_KAFKA_BOOTSTRAP_SERVERS"] == (
+        "redpanda:9092"
+    )
+    assert set(main["networks"]) == {"omnibase-infra-network", "omnimemory-network"}

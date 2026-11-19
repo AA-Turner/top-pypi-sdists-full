@@ -180,6 +180,7 @@ StackSetOperationTypeType = Literal["CREATE", "DELETE", "UPDATE"]
 StatusType = Literal["AVAILABLE", "CREATING", "FAILED"]
 ServiceCatalogServiceName = Literal["servicecatalog"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

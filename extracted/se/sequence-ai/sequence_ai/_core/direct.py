@@ -441,7 +441,10 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
             try:
 
 
-                stuck_s = worker.stuck_after() if self._standby is not None else None
+
+
+
+                stuck_s = worker.stuck_after()
                 worker.chunk_s = self._chunk_s()
                 send = worker.post_act if stuck_s is None else self._act_unless_stuck(worker, stuck_s)
                 tried = time.monotonic()
@@ -592,11 +595,11 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
     def _act_unless_stuck(self, worker: _WorkerTransport, stuck_s: float) -> Callable[..., dict]:
         """worker.post_act, its answer waited for `stuck_s` (_WorkerTransport.stuck_after) on a thread of its own. Past
         that its worker is asked on another connection whether it still runs the act (stuck_probe):
-        - no answer in time: the worker is gone, and the act goes to the standby at once - _WorkerGone, which the act's
-          loop takes to the switch (_reconnect, _switch);
+        - no answer in time: the worker is gone - _WorkerGone, which the act's loop takes to the standby at once where
+          there is one, else through the gateway (_reconnect, _switch);
         - it runs it: the act waits on for its answer, as long as any act may;
         - it does not run it - the act's request, or its answer, still on its way or lost with its connection: the
-          worker is there, so the act never goes to the standby for that. Every worker runs an act once by its request
+          worker is there, so the act never goes elsewhere for that. Every worker runs an act once by its request
           id: an act that never reached it goes again under that id, on the
           connection the question opened, and one it answered is waited for on its own - and goes again, answered once
           more, when the next question finds it answered still: that connection lost it. At most _RESENDS times, the
@@ -667,8 +670,8 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
     def place(self) -> None:
         """One POST /v1/act/connect now: the robot's ask for a place, as wait_until_ready() sends it when its ready
         poll says the robot holds nothing (`cold`) or waits in line (`queued`) - a poll only looks. Seated on a running
-        worker, it returns, the connection to that worker opening behind it (prewarm); a worker started for it, nearest
-        it, or its place in line is raised as a first act's connect raises them (Unavailable warming / queued), as is
+        worker, it returns, the connection to that worker opening behind it (prewarm); a worker started for it,
+        or its place in line is raised as a first act's connect raises them (Unavailable warming / queued), as is
         anything else. A worker connection it still has holds no seat on the platform's word: it connects anew, as a
         reconnect does.
 """
@@ -817,11 +820,11 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
                   file=sys.stderr, flush=True)
 
     def _say_where(self, where: Any) -> None:
-        """How far from this robot the worker it now acts on runs, when no worker nearer it had room - or, a close-loop
-        seat (where["close_loop"]), that this worker, already running, still closes the robot's loop by the robot's own
-        network ("network") or the default round trip ("default"), rather than only that the round trip is longer: said
-        once each time its worker changes, on stderr as the seat's other notices are. No region is named, ours or a
-        provider's, whatever a platform sends; nothing of a worker near it, nor from a platform that says nothing.
+        """How far from this robot the worker it now acts on runs, when it runs far, and, where the platform says so
+        (where["close_loop"]), that it still closes the robot's loop by the robot's own network ("network") or the
+        default round trip ("default"): said once each time its worker changes, on stderr as the seat's other notices
+        are. No region is named, ours or a provider's, whatever a platform
+        sends; nothing of a worker near it, nor from a platform that says nothing.
         
 
 """
@@ -829,15 +832,14 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             return
         far = where.get("far_km")
         km = f"about {round(float(far), -2):,.0f} km from this robot" if isinstance(far, (int, float)) and far > 0 else ""
+        if not km:
+            return
         loop = where.get("close_loop")
         if loop in ("network", "default"):
             est = "your network's estimate" if loop == "network" else "the default round trip"
-            said = ((f"its worker runs {km}: " if km else "") + "no worker in this robot's own region had room, but "
-                    f"this one was already running and by {est} it still closes the loop")
-        elif km:
-            said = f"its worker runs {km}: no worker nearer it had room, so each act's round trip is that much longer"
+            said = f"its worker runs {km}, and by {est} it still closes the robot's loop"
         else:
-            return
+            said = f"its worker runs {km}, so each act's round trip is that much longer"
         print(f"[sequences] {self._model}: {said}", file=sys.stderr, flush=True)
 
 

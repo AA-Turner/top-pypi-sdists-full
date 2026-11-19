@@ -1,8 +1,9 @@
+import numpy as np
+
 from .. import units as pq
 from ..quantity import Quantity
 from ..uncertainquantity import UncertainQuantity
 from .common import TestCase
-import numpy as np
 
 
 class TestUncertainty(TestCase):
@@ -22,11 +23,9 @@ class TestUncertainty(TestCase):
 
     def test_rescale(self):
         a = UncertainQuantity([1, 1, 1], pq.m, [.1, .1, .1])
-        b = a.rescale(pq.ft)
-        self.assertQuantityEqual(
-            a.rescale('ft'),
-            [3.2808399, 3.2808399, 3.2808399]*pq.ft
-            )
+        expected = [3.2808399, 3.2808399, 3.2808399]*pq.ft
+        self.assertQuantityEqual(a.rescale(pq.ft), expected)
+        self.assertQuantityEqual(a.rescale('ft'), expected)
         self.assertQuantityEqual(
             a.rescale('ft').uncertainty,
             [0.32808399, 0.32808399, 0.32808399]*pq.ft
@@ -42,6 +41,29 @@ class TestUncertainty(TestCase):
         self.assertTrue(seventyish_km_rescaled_idempotent.dtype == np.float32)
         self.assertQuantityEqual(seventyish_km + in_meters, 2*seventy_km)
 
+    def test_creation_from_uncertain_quantity(self):
+        for magnitude, uncertainty in [(1, 0.1), ([1, 2], [0.1, 0.2])]:
+            source = UncertainQuantity(magnitude, pq.m, uncertainty)
+            for units in ['', pq.m, pq.cm]:
+                with self.subTest(magnitude=magnitude, units=str(units)):
+                    result = UncertainQuantity(source, units)
+                    expected_units = units or pq.m
+                    self.assertQuantityEqual(result, Quantity(magnitude, pq.m).rescale(expected_units))
+                    self.assertQuantityEqual(
+                        result.uncertainty, Quantity(uncertainty, pq.m).rescale(expected_units)
+                    )
+                    self.assertEqual(result.dimensionality, Quantity(1, expected_units).dimensionality)
+                    self.assertEqual(result.uncertainty.dimensionality, result.dimensionality)
+                    self.assertQuantityEqual(source, Quantity(magnitude, pq.m))
+                    self.assertQuantityEqual(source.uncertainty, Quantity(uncertainty, pq.m))
+
+    def test_creation_from_uncertain_quantity_with_explicit_uncertainty(self):
+        source = UncertainQuantity([1, 2], pq.m, [0.1, 0.2])
+        result = UncertainQuantity(source, pq.cm, uncertainty=[3, 4])
+        self.assertQuantityEqual(result, [100, 200] * pq.cm)
+        self.assertQuantityEqual(result.uncertainty, [3, 4] * pq.cm)
+        self.assertQuantityEqual(source.uncertainty, [0.1, 0.2] * pq.m)
+
 
     def test_set_uncertainty(self):
         a = UncertainQuantity([1, 2], 'm', [.1, .2])
@@ -53,6 +75,39 @@ class TestUncertainty(TestCase):
 
         self.assertRaises(ValueError, set_u, a, 1)
         self.assertRaises(ValueError, set_u, a, [1,2])
+
+    def test_uncertainquantity_add_subtract_exact(self):
+        # an operand without an uncertainty is treated as exact (#45)
+        a = UncertainQuantity([1., 2.], pq.m, [.1, .2])
+        cases = [
+            (lambda: a + 1*pq.m, [2., 3.]),
+            (lambda: 1*pq.m + a, [2., 3.]),
+            (lambda: a - 1*pq.cm, [.99, 1.99]),
+            (lambda: 1*pq.cm - a, [-.99, -1.99]),
+            (lambda: a - [1., 1.]*pq.m, [0., 1.]),
+        ]
+        for i, (f, expected) in enumerate(cases):
+            with self.subTest(case=i):
+                res = f()
+                self.assertIsInstance(res, UncertainQuantity)
+                self.assertQuantityEqual(res, expected*pq.m)
+                self.assertQuantityEqual(res.uncertainty, [.1, .2]*pq.m)
+
+    def test_uncertainquantity_add_subtract_dimensionless(self):
+        u = UncertainQuantity(1, pq.percent, .1)
+        cases = [(lambda: u + 1, 101), (lambda: 1 + u, 101), (lambda: u - 1, -99), (lambda: 1 - u, 99)]
+        for i, (f, expected) in enumerate(cases):
+            with self.subTest(case=i):
+                res = f()
+                self.assertIsInstance(res, UncertainQuantity)
+                self.assertQuantityEqual(res, expected*pq.percent)
+                self.assertQuantityEqual(res.uncertainty, .1*pq.percent)
+
+    def test_uncertainquantity_add_broadcast_exact(self):
+        d = UncertainQuantity(2., pq.dimensionless, .1)
+        res = d + np.array([1., 2.])
+        self.assertQuantityEqual(res, [3., 4.]*pq.dimensionless)
+        self.assertQuantityEqual(res.uncertainty, [.1, .1]*pq.dimensionless)
 
     def test_uncertainquantity_multiply(self):
         a = UncertainQuantity([1, 2], 'm', [.1, .2])

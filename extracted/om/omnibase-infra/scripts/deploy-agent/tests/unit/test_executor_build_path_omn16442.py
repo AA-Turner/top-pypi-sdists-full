@@ -8,7 +8,8 @@ source on the dev lane:
 
 1. ``assert_release_build_promoted`` applied the PROD promotion-lineage
    assertion (clean tree AND HEAD ancestor-of/equal-to ``origin/main``)
-   lane-blind, and ``trigger.py`` defaulted ``--build-source`` to ``release``.
+   lane-blind, and the operator trigger (since retired) defaulted ``--build-source``
+   to ``release``.
    Command ``c73cc38a`` was refused on DIRTY_TREE, and would have been refused
    on NOT_PROMOTED next: a dev head is by construction not an ancestor of a
    release-synced ``origin/main``, so release-mode on the dev lane can never
@@ -31,16 +32,16 @@ from __future__ import annotations
 
 import json
 import subprocess
+from contextlib import nullcontext
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
 from deploy_agent import agent as agent_mod
 from deploy_agent import executor as executor_mod
-from deploy_agent import trigger as trigger_mod
 from deploy_agent.agent import DeployAgent
 from deploy_agent.events import (
-    DEV_LANE_ONLY_BUILDABLE_SERVICES,
+    DEV_LANE_BUILD_SERVICES,
     BuildSource,
     EnumRuntimeLane,
     ModelRebuildRequested,
@@ -202,6 +203,7 @@ def _install_recording_stage_script(repo: Path) -> Path:
         'python3 -c "import json,os,sys; '
         "json.dump({'DEPLOY_REF': os.environ.get('DEPLOY_REF'), "
         "'OMNI_HOME': os.environ.get('OMNI_HOME'), "
+        "'DEPLOY_SIBLING_REFS': os.environ.get('DEPLOY_SIBLING_REFS'), "
         "'ALLOW_UNPINNED_DEPLOY_SOURCE': "
         "os.environ.get('ALLOW_UNPINNED_DEPLOY_SOURCE')}, "
         f"open({str(record)!r}, 'w'))\"\n"
@@ -218,7 +220,7 @@ def test_dev_workspace_build_stages_with_the_envelopes_ref(
     repo.mkdir()
     record = _install_recording_stage_script(repo)
     monkeypatch.setattr(executor_mod, "REPO_DIR", str(repo))
-    monkeypatch.setenv("OMNI_HOME", str(tmp_path / "omni_home"))
+    monkeypatch.setenv("OMNI_HOME", str(tmp_path / "registry_root"))
     monkeypatch.delenv("ALLOW_UNPINNED_DEPLOY_SOURCE", raising=False)
     monkeypatch.setattr(
         executor_mod,
@@ -237,7 +239,7 @@ def test_dev_workspace_build_stages_with_the_envelopes_ref(
 
     staged = json.loads(record.read_text())
     assert staged["DEPLOY_REF"] == "origin/dev"
-    assert staged["OMNI_HOME"] == str(tmp_path / "omni_home")
+    assert staged["OMNI_HOME"] == str(tmp_path / "registry_root")
     # The OMN-17291 guard is satisfied by supplying the pin, never opted out of.
     assert staged["ALLOW_UNPINNED_DEPLOY_SOURCE"] is None
 
@@ -249,19 +251,70 @@ def test_workspace_build_without_a_ref_exports_nothing_and_lets_the_guard_refuse
     repo = tmp_path / "repo"
     repo.mkdir()
     record = _install_recording_stage_script(repo)
-    monkeypatch.setenv("OMNI_HOME", str(tmp_path / "omni_home"))
+    monkeypatch.setenv("OMNI_HOME", str(tmp_path / "registry_root"))
     monkeypatch.delenv("DEPLOY_REF", raising=False)
 
-    DeployExecutor._stage_workspace(str(repo), str(tmp_path / "omni_home"))
+    DeployExecutor._stage_workspace(str(repo), str(tmp_path / "registry_root"))
 
     staged = json.loads(record.read_text())
     assert staged["DEPLOY_REF"] is None
+
+
+def test_staging_exports_the_commands_sibling_tags_as_refs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OMN-21485: sibling_tags name the exact tag the build stages.
+
+    A stability follow stages the tag the decision compared against, not the
+    newest dev tag, so the per-sibling refs must reach stage_workspace.sh as
+    ``DEPLOY_SIBLING_REFS`` in the ``repo=tag`` shape the script parses.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    record = _install_recording_stage_script(repo)
+    monkeypatch.setenv("OMNI_HOME", str(tmp_path / "registry_root"))
+    monkeypatch.delenv("DEPLOY_SIBLING_REFS", raising=False)
+
+    DeployExecutor._stage_workspace(
+        str(repo),
+        str(tmp_path / "registry_root"),
+        sibling_tags={"omnimarket": "dev-20261013120000-aaaaaaaaaaaa"},
+    )
+
+    staged = json.loads(record.read_text())
+    assert staged["DEPLOY_SIBLING_REFS"] == "omnimarket=dev-20261013120000-aaaaaaaaaaaa"
+
+
+def test_staging_without_sibling_refs_exports_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No sibling_tags means the call adds no DEPLOY_SIBLING_REFS.
+
+    The ambient environment carries none here (delenv above), so the staging
+    script sees the newest-dev-tag follow, exactly as before OMN-21485.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    record = _install_recording_stage_script(repo)
+    monkeypatch.setenv("OMNI_HOME", str(tmp_path / "registry_root"))
+    monkeypatch.delenv("DEPLOY_SIBLING_REFS", raising=False)
+
+    DeployExecutor._stage_workspace(str(repo), str(tmp_path / "registry_root"))
+
+    staged = json.loads(record.read_text())
+    assert staged["DEPLOY_SIBLING_REFS"] is None
 
 
 def test_rebuild_scope_threads_lane_and_ref_into_compose_build(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: list[dict[str, object]] = []
+    effect = executor_mod.load_dev_boot_guard(
+        "nodes.node_setup_local_provision_effect.runtime_cost_estimator_build"
+    )
+    monkeypatch.setattr(
+        effect.HandlerCostEstimatorBuild, "handle", lambda self, request: None
+    )
 
     def fake_compose_build(
         self: DeployExecutor,
@@ -274,10 +327,18 @@ def test_rebuild_scope_threads_lane_and_ref_into_compose_build(
 
     monkeypatch.setattr(DeployExecutor, "_compose_build", fake_compose_build)
     monkeypatch.setattr(DeployExecutor, "_compose_up", lambda *a, **k: None)
-
-    # No self_update stub: OMN-16442 (#3331) removed self-update from this
-    # path entirely, so reaching it would be a defect rather than a call to
-    # neutralise. test_self_update_job_boundary_omn16442.py owns that.
+    monkeypatch.setattr(
+        executor_mod, "_hold_build_context", lambda purpose: nullcontext()
+    )
+    monkeypatch.setattr(
+        executor_mod,
+        "_compose_env",
+        lambda *a, **k: {
+            "COST_ESTIMATOR_WEB_SOURCE_REPOSITORY": "web-front-end",
+            "COST_ESTIMATOR_WEB_SOURCE_URL": "https://example.invalid/web-front-end.git",
+        },
+    )
+    monkeypatch.setattr(DeployExecutor, "_preflight_runtime_boot", lambda *a, **k: None)
     DeployExecutor().rebuild_scope(
         Scope.RUNTIME,
         [],
@@ -288,11 +349,6 @@ def test_rebuild_scope_threads_lane_and_ref_into_compose_build(
         lane=EnumRuntimeLane.DEV,
     )
 
-    # OMN-18108: a DEV runtime rebuild issues a SECOND, additive build for the
-    # services declared only in the lane overlay. Both builds carry the same
-    # lane and ref, which is what this test is about; the second names its
-    # services explicitly and skips re-staging the siblings the first already
-    # vendored.
     assert captured[0] == {
         "build_source": BuildSource.WORKSPACE,
         "runtime_lane": EnumRuntimeLane.DEV,
@@ -302,7 +358,7 @@ def test_rebuild_scope_threads_lane_and_ref_into_compose_build(
     assert captured[1]["build_source"] == BuildSource.WORKSPACE
     assert captured[1]["runtime_lane"] == EnumRuntimeLane.DEV
     assert captured[1]["git_ref"] == "origin/dev"
-    assert captured[1]["services"] == DEV_LANE_ONLY_BUILDABLE_SERVICES
+    assert captured[1]["services"] == DEV_LANE_BUILD_SERVICES
     assert captured[1]["stage_workspace"] is False
 
 
@@ -383,90 +439,3 @@ async def test_agent_hands_the_commands_git_ref_to_rebuild_scope(
 
     assert fake_executor.rebuild_kwargs["git_ref"] == "origin/dev"
     assert fake_executor.rebuild_kwargs["lane"] == EnumRuntimeLane.DEV
-
-
-# ---------------------------------------------------------------------------
-# The trigger's default build source is derived from the lane
-# ---------------------------------------------------------------------------
-
-
-def test_trigger_default_build_source_is_workspace_on_dev() -> None:
-    assert (
-        trigger_mod._resolve_build_source(None, EnumRuntimeLane.DEV)
-        is BuildSource.WORKSPACE
-    )
-
-
-def test_trigger_default_build_source_is_release_off_the_dev_lane() -> None:
-    assert (
-        trigger_mod._resolve_build_source(None, EnumRuntimeLane.STABILITY_TEST)
-        is BuildSource.RELEASE
-    )
-    assert (
-        trigger_mod._resolve_build_source(None, EnumRuntimeLane.PROD)
-        is BuildSource.RELEASE
-    )
-
-
-def test_trigger_has_no_literal_build_source_default() -> None:
-    """Every lane has a named entry: the map is the default, not a fallback."""
-    assert set(trigger_mod.DEFAULT_BUILD_SOURCE_FOR_LANE) == set(EnumRuntimeLane)
-
-
-def test_trigger_refuses_release_on_the_dev_lane_naming_the_lane() -> None:
-    with pytest.raises(trigger_mod.TriggerRefusedError) as excinfo:
-        trigger_mod._resolve_build_source("release", EnumRuntimeLane.DEV)
-
-    message = str(excinfo.value)
-    assert "release" in message
-    assert "dev" in message
-    assert "origin/main" in message
-
-
-def test_trigger_honours_an_explicit_build_source_where_it_can_be_satisfied() -> None:
-    assert (
-        trigger_mod._resolve_build_source("workspace", EnumRuntimeLane.DEV)
-        is BuildSource.WORKSPACE
-    )
-    assert (
-        trigger_mod._resolve_build_source("workspace", EnumRuntimeLane.STABILITY_TEST)
-        is BuildSource.WORKSPACE
-    )
-    assert (
-        trigger_mod._resolve_build_source("release", EnumRuntimeLane.STABILITY_TEST)
-        is BuildSource.RELEASE
-    )
-
-
-def test_trigger_dev_command_defaults_to_a_workspace_payload(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """End to end through main(): no --build-source, dev lane, dry run."""
-    monkeypatch.setenv("DEPLOY_AGENT_TRACKING_REF", "dev")
-    monkeypatch.setenv("DEPLOY_AGENT_ALLOWED_LANES", "dev")
-    monkeypatch.setenv(trigger_mod.ENV_HMAC_SECRET, "unit-test-signing-key")
-
-    exit_code = trigger_mod.main(["--dry-run"])
-
-    assert exit_code == 0
-    out = capsys.readouterr().out
-    assert "build_source:   workspace" in out
-    assert '"build_source": "workspace"' in out
-    assert '"git_ref": "origin/dev"' in out
-
-
-def test_trigger_dev_release_request_refuses_before_signing(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setenv("DEPLOY_AGENT_TRACKING_REF", "dev")
-    monkeypatch.setenv("DEPLOY_AGENT_ALLOWED_LANES", "dev")
-    monkeypatch.setenv(trigger_mod.ENV_HMAC_SECRET, "unit-test-signing-key")
-
-    exit_code = trigger_mod.main(["--build-source", "release", "--dry-run"])
-
-    assert exit_code == 1
-    captured = capsys.readouterr()
-    assert "REFUSED" in captured.err
-    assert "dev" in captured.err
-    # Refused before signing: nothing about a command was printed.
-    assert "payload (sig masked)" not in captured.out

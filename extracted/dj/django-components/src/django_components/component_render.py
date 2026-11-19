@@ -3,7 +3,7 @@ from collections import deque
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypeAlias, cast
 from weakref import ReferenceType, WeakKeyDictionary, ref
 
@@ -143,6 +143,9 @@ class ComponentTreeContext:
     # (e.g. `generator.started = True`), because generator object does not allow setting
     # extra attributes.
     started_generators: StartedGenerators
+    # IDs of components in this tree that no root has released yet, so that when
+    # the tree is done we can release whatever a failed render left in the global caches.
+    render_ids: list[str] = field(default_factory=list)
 
 
 # Internal data that are made available within the component's template
@@ -225,7 +228,7 @@ def render_with_error_trace(
     deps_strategy: DependenciesStrategy | None = None,
     request: HttpRequest | None = None,
     outer_context: Context | None = None,
-    # TODO_v2 - Remove `registered_name` and `registry`
+    # TODO_V2 - Remove `registered_name` and `registry`
     registry: "ComponentRegistry | None" = None,
     registered_name: str | None = None,
     node: "ComponentNode | None" = None,
@@ -251,7 +254,7 @@ def render_with_error_trace(
                     deps_strategy=deps_strategy_with_default,
                     request=request,
                     outer_context=outer_context,
-                    # TODO_v2 - Remove `registered_name` and `registry`
+                    # TODO_V2 - Remove `registered_name` and `registry`
                     registry=registry,
                     registered_name=registered_name,
                     node=node,
@@ -272,7 +275,7 @@ def _render_impl(
     slots: Any | None = None,
     request: HttpRequest | None = None,
     outer_context: Context | None = None,
-    # TODO_v2 - Remove `registered_name` and `registry`
+    # TODO_V2 - Remove `registered_name` and `registry`
     registry: "ComponentRegistry | None" = None,
     registered_name: str | None = None,
     node: "ComponentNode | None" = None,
@@ -366,7 +369,7 @@ def _render_impl(
         request=request,
         deps_strategy=deps_strategy,
         outer_context=outer_context,
-        # TODO_v2 - Remove `registered_name` and `registry`
+        # TODO_V2 - Remove `registered_name` and `registry`
         registry=registry,
         registered_name=registered_name,
         node=node,
@@ -465,7 +468,7 @@ def _render_impl(
             component=component,
             component_cls=comp_cls,
             component_id=render_id,
-            # TODO_V1 - Remove `context_data`
+            # TODO_V2 - Remove `context_data`
             context_data=template_data,
             template_data=template_data,
             js_data=js_data,
@@ -500,7 +503,7 @@ def _render_impl(
     #       but instead can render one component at a time.
     #############################################################################
 
-    # TODO_v1 - Currently we have to pass `template_data` to `prepare_component_template()`,
+    # TODO_V2 - Currently we have to pass `template_data` to `prepare_component_template()`,
     #     so that `get_template_string()`, `get_template_name()`, and `get_template()`
     #     have access to the data from `get_template_data()`.
     #
@@ -534,12 +537,12 @@ def _render_impl(
                 COMPONENT_IS_NESTED_KEY: comp_is_nested,
                 # NOTE: Public API for variables accessible from within a component's template
                 # See https://github.com/django-components/django-components/issues/280#issuecomment-2081180940
-                # TODO_V1 - Replace this with Component instance, removing the need for ComponentVars
+                # TODO_V2 - Replace this with Component instance, removing the need for ComponentVars
                 "component_vars": ComponentVars(
                     args=component.args,
                     kwargs=component.kwargs,
                     slots=component.slots,
-                    # TODO_v1 - Remove this, superseded by `component_vars.slots`
+                    # TODO_V2 - Remove this, superseded by `component_vars.slots`
                     #
                     # For users, we expose boolean variables that they may check
                     # to see if given slot was filled, e.g.:
@@ -951,6 +954,10 @@ def component_post_render(
     # so we can render the component only once we know if there are any HTML attributes
     # to be applied to the resulting HTML.
     component_renderer_cache[render_id] = (renderer, component_name)
+    # `{% cache %}` runs this function as a root in the middle of a tree that is still rendering.
+    # So a root may release only what was added since it began, and not its parents.
+    own_render_ids_start = len(component_tree_context.render_ids)
+    component_tree_context.render_ids.append(render_id)
 
     # Case: Nested component
     # If component is nested, return a placeholder
@@ -1348,9 +1355,20 @@ def component_post_render(
         ),
     )
 
-    while len(process_queue):
-        curr_item = process_queue.popleft()
-        on_item(curr_item)
+    try:
+        while len(process_queue):
+            curr_item = process_queue.popleft()
+            on_item(curr_item)
+    finally:
+        # A component is removed from these caches when we reach it in the queue. An error can stop
+        # that from happening: it can end the loop early, make us skip the rest of a parent's parts,
+        # or discard the parent's HTML with the placeholder of a child that is not in the queue yet.
+        # These caches are global and hold the component instances, which hold their inputs,
+        # so whatever is left here would stay for the life of the process.
+        for own_render_id in component_tree_context.render_ids[own_render_ids_start:]:
+            component_renderer_cache.pop(own_render_id, None)
+            component_instance_cache.pop(own_render_id, None)
+        del component_tree_context.render_ids[own_render_ids_start:]
 
     # Lastly, join up all pieces of the component's HTML content
     output = "".join(content_parts)

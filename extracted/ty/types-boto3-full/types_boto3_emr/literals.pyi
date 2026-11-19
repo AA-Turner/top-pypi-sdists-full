@@ -283,6 +283,7 @@ UnitType = Literal[
 ]
 EMRServiceName = Literal["emr"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -77,7 +77,7 @@ pub(crate) const INT_CONVERTER: &str = "int";
 pub(crate) const PATH_CONVERTER: &str = "Path";
 
 /// Every `CliNamespace` attribute with a default, in declaration order.
-pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 191] = [
+pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 193] = [
     ("command", NamespaceDefault::None),
     ("project_dir", NamespaceDefault::None),
     ("dbt_project_dir", NamespaceDefault::None),
@@ -141,6 +141,7 @@ pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 191] = [
     ("as_target", NamespaceDefault::None),
     ("include_python", NamespaceDefault::Bool(true)),
     ("load_sources", NamespaceDefault::None),
+    ("plan_from", NamespaceDefault::None),
     ("reload", NamespaceDefault::Bool(false)),
     ("run_tests", NamespaceDefault::Bool(true)),
     ("run_audits", NamespaceDefault::Bool(true)),
@@ -156,6 +157,7 @@ pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 191] = [
         "allow_snapshot_schema_change",
         NamespaceDefault::Bool(false),
     ),
+    ("ignore_dynamic_grace", NamespaceDefault::Bool(false)),
     ("concurrency", NamespaceDefault::None),
     ("verbose", NamespaceDefault::Bool(false)),
     ("debug", NamespaceDefault::Bool(false)),

@@ -1794,6 +1794,7 @@ def _collect_grep_verify_candidates(
     definitions: dict,
     candidate_keys: frozenset | None = None,
     attribute_reads_resolved=None,
+    module_scoped_name=None,
 ) -> tuple[list[dict], dict]:
     candidates: list[dict] = []
     entries: dict = {}
@@ -1805,6 +1806,8 @@ def _collect_grep_verify_candidates(
         payload = defn.to_dict()
         if attribute_reads_resolved is not None and attribute_reads_resolved(defn):
             payload["attribute_reads_resolved"] = True
+        if module_scoped_name is not None and module_scoped_name(defn):
+            payload["module_scoped_name"] = True
         candidates.append(payload)
         entries[key] = (defn, payload)
     candidates.sort(key=_grep_verify_rescue_priority)
@@ -2531,6 +2534,24 @@ class Skylos:
             workspace_inventory=workspace_inventory,
         )
 
+    def _find_unused_ts_reexports(
+        self, files, exclude_folders, workspace_inventory=None, analysis_errors=()
+    ):
+        from skylos.visitors.languages.typescript.unused_reexports import (
+            find_unused_ts_reexports,
+        )
+
+        return find_unused_ts_reexports(
+            files,
+            getattr(self, "_ts_all_raw_imports", {}),
+            project_root=str(self._project_root),
+            resolver=getattr(self, "_ts_source_resolver", None),
+            workspace_inventory=workspace_inventory,
+            exclude_folders=exclude_folders,
+            browser_entry_points=getattr(self, "_browser_script_entry_files", ()),
+            analysis_errors=analysis_errors,
+        )
+
     def _propagate_transitive_dead(self, analysis_errors=()):
         dead_set = set()
         dead_classes = set()
@@ -2823,16 +2844,30 @@ class Skylos:
         self._python_reachability_report = report
         self._apply_python_reachability(report)
 
+    def _unnamed_receiver_methods(self, report):
+        unnamed = report.unnamed_receiver_methods()
+        if not unnamed:
+            return unnamed
+        shared = Counter(
+            defn.simple_name for defn in self.defs.values() if defn.type == "method"
+        )
+        return {
+            key
+            for key in unnamed
+            if key in self.defs and shared[self.defs[key].simple_name] == 1
+        }
+
     def _retain_reachability_uncertainty(self, report):
+        unnamed = self._unnamed_receiver_methods(report)
         for key in report.protected_keys:
             defn = self.defs.get(key)
-            if defn is not None:
+            if defn is not None and key not in unnamed:
                 # Possible dynamic dispatch is retention evidence, not proof
                 # that this callable has an actual reachable invocation.
                 defn.references = max(1, defn.references)
                 defn.heuristic_refs.pop("dynamic_pattern", None)
                 defn.heuristic_refs["unresolved_receiver"] = 1.0
-        for key in report.protected_callback_keys:
+        for key in report.protected_callback_keys - unnamed:
             defn = self.defs.get(key)
             if defn is not None and defn.references <= 0:
                 defn.references = 1
@@ -2840,6 +2875,10 @@ class Skylos:
 
     def _apply_python_reachability(self, report):
         self._retain_reachability_uncertainty(report)
+        from skylos.deadcode.closed_type_registries import apply_closed_registry_proof
+        apply_closed_registry_proof(
+            self.defs, getattr(report, "_closed_type_registry_unused", ())
+        )
         for key in report.proven_reachable_keys:
             defn = self.defs.get(key)
             if defn is not None and defn.references <= 0:
@@ -2885,6 +2924,10 @@ class Skylos:
         }
         report.refresh(self.defs, additional_roots=revived_roots)
         self._retain_reachability_uncertainty(report)
+        from skylos.deadcode.closed_type_registries import apply_closed_registry_proof
+        apply_closed_registry_proof(
+            self.defs, getattr(report, "_closed_type_registry_unused", ())
+        )
         self._mark_dynamic_lookup_candidates(report)
         # An external callback or a later grep rescue may establish a real
         # caller. Its callees must be restored in this same scan.
@@ -2933,6 +2976,7 @@ class Skylos:
             self.defs,
             getattr(self, "_dead_code_scope_keys", None),
             getattr(receiver_evidence, "rules_out", None),
+            getattr(receiver_evidence, "bare_reads_stay_local", None),
         )
         if not candidates:
             return 0
@@ -3143,6 +3187,9 @@ class Skylos:
         same_name_groups = SameNameGroups(
             self.defs, _reference_language_family, scan_root=scan_root
         )
+        from skylos.deadcode.typescript_definitions import SameFileDefinitions
+
+        ts_same_file_definitions = SameFileDefinitions(self.defs)
 
         def _resolve_import_target(import_def_key: str, import_def_obj) -> str | None:
             target_fqn = import_def_obj.name
@@ -3221,7 +3268,10 @@ class Skylos:
                 csharp_by_name[definition.name].append(definition)
                 csharp_by_simple[definition.simple_name].append(definition)
 
-        from skylos.deadcode.csharp_references import CSharpReferenceIndex
+        from skylos.deadcode.csharp_references import (
+            CSharpReferenceIndex,
+            _arity_matches as _csharp_arity_matches,
+        )
 
         csharp_references = CSharpReferenceIndex(
             csharp_by_name,
@@ -3257,13 +3307,7 @@ class Skylos:
             for definition in definitions:
                 if definition.type != "method":
                     continue
-                minimum = getattr(definition, "csharp_min_arity", None)
-                if minimum is None:
-                    if getattr(definition, "csharp_arity", None) == arity:
-                        matches.append(definition)
-                    continue
-                maximum = getattr(definition, "csharp_max_arity", None)
-                if minimum <= arity and (maximum is None or arity <= maximum):
+                if _csharp_arity_matches(definition, arity):
                     matches.append(definition)
             return matches
 
@@ -3390,7 +3434,11 @@ class Skylos:
 
             file_key = f"{ref_file}:{ref}"
             group_targets = None
-            if same_name_groups and not (
+            if ref_family == "typescript" and not (
+                file_key in self.defs and self.defs[file_key].type == "import"
+            ):
+                group_targets = ts_same_file_definitions.targets(ref_file, ref)
+            if group_targets is None and same_name_groups and not (
                 file_key in self.defs and self.defs[file_key].type == "import"
             ):
                 group_targets = same_name_groups.targets(ref, ref_file, ref_family)
@@ -3412,6 +3460,13 @@ class Skylos:
                 continue
 
             if ref in self.defs and _compatible_family(self.defs[ref], ref_family):
+                if ref_family == "jvm" and str(self.defs[ref].filename) != str(
+                    ref_file
+                ):
+                    for definition in non_import_by_file_and_simple.get(
+                        (str(ref_file), ref), ()
+                    ):
+                        definition.references += 1
                 self.defs[ref].references += 1
                 if ref in import_to_original:
                     original = import_to_original[ref]
@@ -3580,7 +3635,8 @@ class Skylos:
 
         from skylos.analysis.implicit_refs import pattern_tracker as global_tracker
 
-        if global_tracker._class_patterns:
+        global_tracker.apply_class_member_strings(self.defs)
+        if global_tracker._class_patterns or global_tracker.has_class_member_names():
             global_tracker.set_class_hierarchy(self._python_subclass_map())
 
         if (
@@ -3589,6 +3645,7 @@ class Skylos:
             or global_tracker.known_refs
             or global_tracker._compiled_patterns
             or global_tracker._class_patterns
+            or global_tracker.has_class_member_names()
             or getattr(global_tracker, "known_qualified_refs", None)
         ):
             for def_obj in self.defs.values():
@@ -4335,6 +4392,7 @@ class Skylos:
         generated_keep_paths=None,
         all_advice=True,
         changed_file_exclude_folders=None,
+        config_exclude_folders=None,
     ) -> str:
         if not isinstance(path, (str, list, tuple)):
             raise TypeError(
@@ -4678,7 +4736,11 @@ class Skylos:
                             configuration_coverage=result[
                                 "analysis_summary"
                             ].setdefault("configuration_coverage", {}),
-                            exclude_folders=exclude_folders,
+                            exclude_folders=(
+                                config_exclude_folders
+                                if config_exclude_folders is not None
+                                else exclude_folders
+                            ),
                         )
                         result["analysis_summary"]["analysis_error_count"] = len(
                             result["analysis_errors"]
@@ -4961,6 +5023,9 @@ class Skylos:
         global_pattern_tracker._traced_by_basename.clear()
         global_pattern_tracker.pattern_refs.clear()
         global_pattern_tracker.reset_dynamic_refs()
+        from skylos.rules.danger.danger_fs.path_flow import reset_containment_proofs
+
+        reset_containment_proofs()
 
         pyproject_entrypoint_qnames = set()
         pyproject_entrypoint_modules = set()
@@ -5309,9 +5374,11 @@ class Skylos:
                             f"{definition.filename}:{definition.name}:"
                             f"{definition.type}:{definition.line}"
                         )
-                    elif str(definition.filename).endswith(
-                        _TS_JS_SOURCE_EXTS + _CPP_SOURCE_EXTS
-                    ):
+                    elif str(definition.filename).endswith(_TS_JS_SOURCE_EXTS):
+                        from skylos.deadcode.typescript_definitions import definition_key
+
+                        key = definition_key(definition, self.defs)
+                    elif str(definition.filename).endswith(_CPP_SOURCE_EXTS):
                         key = f"{definition.filename}:{definition.name}"
                     elif (
                         _reference_language_family(definition.filename)
@@ -5774,7 +5841,11 @@ class Skylos:
                     analysis_errors=analysis_errors,
                     scan_paths=path if isinstance(path, (list, tuple)) else None,
                     configuration_coverage=configuration_coverage,
-                    exclude_folders=exclude_folders,
+                    exclude_folders=(
+                        config_exclude_folders
+                        if config_exclude_folders is not None
+                        else exclude_folders
+                    ),
                 )
                 if config_findings:
                     all_dangers.extend(config_findings)
@@ -5847,6 +5918,10 @@ class Skylos:
                         candidate_path = Path(candidate)
                         if not candidate_path.is_absolute():
                             candidate_path = injection_root / candidate_path
+                        if should_exclude_path(
+                            candidate_path, injection_root, exclude_folders
+                        ):
+                            return False
                         rel_hint = None
                         try:
                             rel_hint = candidate_path.relative_to(injection_root)
@@ -6012,7 +6087,9 @@ class Skylos:
             if enable_dependency_hallucinations:
                 try:
                     from skylos.rules.ai_defect.dependency_hallucination import (
+                        merge_repeated_dependency_findings,
                         scan_python_dependency_hallucinations,
+                        strip_dependency_scope,
                     )
 
                     py_files = [
@@ -6030,13 +6107,23 @@ class Skylos:
                                 "unverified_import_count": len(unverified),
                                 "unverified_imports": sorted(unverified)[:25],
                             }
+                        reported_dependencies = []
+                        suppressed_before = len(all_suppressed)
                         _extend_unsuppressed_ai_defect_findings(
                             dep_findings,
                             project_ignore=project_ignore,
                             per_file_ignore_lines=per_file_ignore_lines,
                             per_file_ignore_rules=per_file_ignore_rules,
-                            all_ai_defects=all_ai_defects,
+                            all_ai_defects=reported_dependencies,
                             all_suppressed=all_suppressed,
+                        )
+                        strip_dependency_scope(all_suppressed[suppressed_before:])
+                        # Merge after suppression so an ignored import site
+                        # never hides another site of the same package.
+                        all_ai_defects.extend(
+                            merge_repeated_dependency_findings(
+                                reported_dependencies, project_root
+                            )
                         )
                 except Exception:
                     if os.getenv("SKYLOS_DEBUG"):
@@ -6429,6 +6516,7 @@ class Skylos:
                         logger.error("AI defect diff scan failed", exc_info=True)
 
         unused_dependency_analysis = None
+        npm_dependency_analysis = None
         if enable_quality:
             if progress_callback:
                 progress_callback(0, 1, Path("PHASE: dependency quality scan"))
@@ -6491,6 +6579,39 @@ class Skylos:
                 )
                 if os.getenv("SKYLOS_DEBUG"):
                     logger.error(traceback.format_exc())
+
+            try:
+                from skylos.rules.quality.npm_dependencies import scan_npm_dependencies
+
+                npm_dependency_analysis = {}
+                npm_findings = scan_npm_dependencies(
+                    project_root,
+                    files,
+                    workspace_inventory=workspace_inventory,
+                    coverage=npm_dependency_analysis,
+                    complete_scope=changed_files is None and not _file_scoped_scan,
+                )
+                for finding in npm_findings:
+                    if finding["rule_id"] in project_ignore:
+                        continue
+                    filename = str(finding["file"])
+                    if _finding_is_inline_ignored(
+                        finding,
+                        per_file_ignore_lines.get(filename),
+                        per_file_ignore_rules.get(filename),
+                    ):
+                        all_suppressed.append(
+                            {**finding, "category": "quality", "reason": "inline ignore comment"}
+                        )
+                    else:
+                        all_quality.append(finding)
+            except Exception as error:
+                npm_dependency_analysis = {
+                    "status": "incomplete", "complete": False,
+                    "reasons": [{"kind": "npm_dependency_analysis_failed", "error_type": type(error).__name__}],
+                }
+                if os.getenv("SKYLOS_DEBUG"):
+                    logger.error("npm dependency usage scan failed", exc_info=True)
 
             try:
                 policy_findings = analyze_repo_policy(
@@ -6622,6 +6743,34 @@ class Skylos:
                     if os.getenv("SKYLOS_DEBUG"):
                         logger.error("JS API hallucination scan failed", exc_info=True)
 
+        component_import_coverage = {}
+        try:
+            from skylos.deadcode.component_imports import expand_component_imports
+
+            component_imports, component_import_coverage = expand_component_imports(
+                Path(root), files, ts_raw_imports,
+                resolver=monorepo_resolver, exclude_folders=exclude_folders,
+            )
+            for importer, entries in component_imports.items():
+                ts_raw_imports.setdefault(importer, []).extend(entries)
+        except Exception as error:
+            component_import_coverage = {
+                "scope": "component_import_graph", "status": "incomplete", "complete": False,
+                "issues": [{"reason": "component_import_scan_failed", "error_type": type(error).__name__}],
+            }
+            if os.getenv("SKYLOS_DEBUG"):
+                logger.error("Component import graph scan failed", exc_info=True)
+
+        if component_import_coverage.get("complete") is False:
+            for issue in component_import_coverage.get("issues", []):
+                analysis_errors.append({
+                    "kind": "component_import_graph_incomplete",
+                    "error_type": "ComponentImportError",
+                    "file": issue.get("file", str(project_root)),
+                    "line": issue.get("line", 1),
+                    "message": "Component import graph incomplete: " + issue.get("reason", "unknown"),
+                })
+
         jest_mappings, file_replacements = [], []
         try:
             jest_mappings, file_replacements = discover_ts_build_aliases(
@@ -6646,6 +6795,7 @@ class Skylos:
                     if str(f).endswith(_TS_JS_SOURCE_EXTS)
                 },
             )
+        self._ts_all_raw_imports = ts_raw_imports
         self._build_ts_import_graph(
             ts_raw_imports, graph_resolver, credit_references=False
         )
@@ -6836,10 +6986,14 @@ class Skylos:
             progress_callback(0, 1, Path("PHASE: exports"))
         self._mark_exports()
 
+        from skylos.deadcode.csharp_markup_refs import credit_csharp_markup_names
         from skylos.visitors.languages.csharp.reachability import (
             demote_application_public_symbols,
         )
 
+        credit_csharp_markup_names(
+            self.defs.values(), project_root, files, exclude_folders=exclude_folders
+        )
         demote_application_public_symbols(
             self.defs.values(),
             project_root,
@@ -6932,6 +7086,19 @@ class Skylos:
             exclude_folders,
             workspace_inventory=workspace_inventory,
         )
+        _extend_unsuppressed_dead_file_findings(
+            self._find_unused_ts_reexports(
+                files,
+                exclude_folders,
+                workspace_inventory=workspace_inventory,
+                analysis_errors=analysis_errors,
+            ),
+            project_ignore=project_ignore,
+            per_file_ignore_lines=per_file_ignore_lines,
+            per_file_ignore_rules=per_file_ignore_rules,
+            unused_files=unused_ts_exports,
+            all_suppressed=all_suppressed,
+        )
 
         if enable_quality:
             from skylos.analysis.typing_scope import scope_typing_findings
@@ -6976,12 +7143,82 @@ class Skylos:
             )
             from skylos.security.static_trace import attach_security_traces
 
-            attach_security_traces(all_dangers, project_root=project_root, files=files)
+            attach_security_traces(
+                all_dangers,
+                project_root=project_root,
+                files=files,
+                secrets=all_secrets,
+            )
         if enable_danger:
             from skylos.reporting.metadata_paths import relativize_receiver_paths
 
             relativize_receiver_paths(all_dangers, project_root)
             relativize_receiver_paths(all_suppressed, project_root)
+        self._enum_member_findings = []
+        enum_member_coverage = {
+            "status": "not_run", "complete": False,
+            "scope": "local_and_closed_private_enums",
+            "reasons": [{"kind": "rule_ignored"}],
+        }
+        if "SKY-U007" not in project_ignore:
+            from skylos.config import is_whitelisted
+            from skylos.visitors.languages.typescript.unused_enum_members import (
+                find_unused_ts_enum_members,
+            )
+
+            enum_member_coverage = {}
+            enum_findings = find_unused_ts_enum_members(
+                files, project_root=project_root, analysis_errors=analysis_errors,
+                resolver=monorepo_resolver, workspace_inventory=workspace_inventory,
+                coverage=enum_member_coverage,
+            )
+            enum_changed_paths = (
+                {
+                    _canonical_analysis_path(changed_file, project_root)
+                    for changed_file in requested_changed_files
+                }
+                if requested_changed_files is not None
+                else None
+            )
+            enum_member_coverage.update(
+                report_scope="changed_files" if enum_changed_paths is not None else "selected_sources",
+                outside_changed_files_count=0, suppressed_count=0,
+                below_threshold_count=0, reported_count=0,
+            )
+            for finding in enum_findings:
+                filename = str(finding["file"])
+                if (
+                    enum_changed_paths is not None
+                    and _canonical_analysis_path(filename, project_root) not in enum_changed_paths
+                ):
+                    enum_member_coverage["outside_changed_files_count"] += 1
+                    continue
+                whitelisted, whitelist_reason, lowered_confidence = is_whitelisted(
+                    finding.get("full_name") or finding["name"], filename, project_cfg
+                )
+                if whitelisted:
+                    all_suppressed.append(
+                        {**finding, "category": "unused_variables", "reason": whitelist_reason,
+                         "suppression_code": "SKY-U007"}
+                    )
+                    enum_member_coverage["suppressed_count"] += 1
+                    continue
+                if lowered_confidence:
+                    finding["confidence"] = min(finding.get("confidence", 0), lowered_confidence)
+                if finding.get("confidence", 0) < thr:
+                    enum_member_coverage["below_threshold_count"] += 1
+                    continue
+                if _finding_is_inline_ignored(
+                    finding, per_file_ignore_lines.get(filename),
+                    per_file_ignore_rules.get(filename),
+                ):
+                    all_suppressed.append(
+                        {**finding, "category": "unused_variables", "reason": "inline ignore comment"}
+                    )
+                    enum_member_coverage["suppressed_count"] += 1
+                else:
+                    self._enum_member_findings.append(finding)
+                    enum_member_coverage["reported_count"] += 1
         result = self._build_result(
             files,
             thr,
@@ -7016,7 +7253,11 @@ class Skylos:
             include_review_proofs=include_review_proofs,
             review_config=project_cfg,
         )
+        result["analysis_summary"]["enum_member_analysis"] = enum_member_coverage
         result["analysis_summary"].update(npm_import_usage_summary)
+        result["analysis_summary"]["component_import_graph"] = component_import_coverage
+        if npm_dependency_analysis is not None:
+            result["analysis_summary"]["npm_dependency_analysis"] = npm_dependency_analysis
         if enable_secrets:
             result["analysis_summary"]["secrets_files_scanned"] = len(
                 secret_checked_files
@@ -7227,6 +7468,7 @@ def analyze(
     generated_keep_paths=None,
     all_advice=True,
     changed_file_exclude_folders=None,
+    config_exclude_folders=None,
 ) -> str:
     return Skylos().analyze(
         path,
@@ -7255,6 +7497,7 @@ def analyze(
         generated_keep_paths=generated_keep_paths,
         all_advice=all_advice,
         changed_file_exclude_folders=changed_file_exclude_folders,
+        config_exclude_folders=config_exclude_folders,
     )
 
 

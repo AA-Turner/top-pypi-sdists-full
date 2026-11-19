@@ -45,6 +45,7 @@ ListVirtualMachinesPaginatorName = Literal["list_virtual_machines"]
 SyncMetadataStatusType = Literal["CREATED", "FAILED", "PARTIALLY_FAILED", "RUNNING", "SUCCEEDED"]
 BackupGatewayServiceName = Literal["backup-gateway"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

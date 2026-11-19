@@ -40,23 +40,22 @@ use crate::param_spec::ParamSpec;
 use crate::quantified::Quantified;
 use crate::sentinel::Sentinel;
 use crate::shaped_array::IntTuple;
-use crate::shaped_array::ShapedArrayType;
 use crate::special_form::SpecialForm;
 use crate::tuple::Tuple;
 use crate::type_alias::TypeAliasData;
 use crate::type_var::TypeVar;
 use crate::type_var_tuple::TypeVarTuple;
-use crate::typed_dict::TypedDict;
+use crate::typed_dict::AnonymousTypedDictInner;
 use crate::types::AnyStyle;
 use crate::types::BoundMethod;
 use crate::types::Forall;
 use crate::types::Forallable;
-use crate::types::NNModuleType;
 use crate::types::NeverStyle;
 use crate::types::Overload;
 use crate::types::SuperObj;
 use crate::types::Type;
 use crate::types::Union;
+use crate::types::UnpackKind;
 use crate::types::Var;
 
 /// Global factory for producing unique heap identifiers.
@@ -172,7 +171,8 @@ impl TypeHeap {
     }
 
     /// Create a `Type::Function` from a Function.
-    pub fn mk_function(&self, func: Function) -> Type {
+    pub fn mk_function(&self, mut func: Function) -> Type {
+        func.initialize_unresolved_imports(None);
         Type::Function(Box::new(func))
     }
 
@@ -194,7 +194,10 @@ impl TypeHeap {
     }
 
     /// Create a `Type::Forall` from a Forall.
-    pub fn mk_forall(&self, forall: Forall<Forallable>) -> Type {
+    pub fn mk_forall(&self, mut forall: Forall<Forallable>) -> Type {
+        if let Forallable::Function(func) = &mut forall.body {
+            func.initialize_unresolved_imports(Some(forall.tparams.as_ref()));
+        }
         Type::Forall(Box::new(forall))
     }
 
@@ -203,9 +206,11 @@ impl TypeHeap {
         Type::BoundMethod(Box::new(bound_method))
     }
 
-    /// Create a `Type::Unpack` wrapping an inner type.
-    pub fn mk_unpack(&self, inner: Type) -> Type {
-        Type::Unpack(Box::new(inner))
+    /// Create a `Type::Unpack` wrapping an inner type. Callers that know they are in a
+    /// `**kwargs` annotation pass `UnpackKind::Kwargs`; `Unpack[...]` written anywhere else
+    /// unpacks positionally.
+    pub fn mk_unpack(&self, inner: Type, kind: UnpackKind) -> Type {
+        Type::Unpack(Box::new(inner), kind)
     }
 
     /// Create a `Type::TypeGuard` wrapping an inner type.
@@ -362,13 +367,13 @@ impl TypeHeap {
         Type::Intersect(Box::new((members, fallback)))
     }
 
-    /// Create a `Type::TypedDict` from a TypedDict.
-    pub fn mk_typed_dict(&self, typed_dict: TypedDict) -> Type {
-        Type::TypedDict(typed_dict)
+    /// Create a `Type::AnonymousTypedDict` from a TypedDict inferred from a dict literal.
+    pub fn mk_anonymous_typed_dict(&self, typed_dict: AnonymousTypedDictInner) -> Type {
+        Type::AnonymousTypedDict(Box::new(typed_dict))
     }
 
-    /// Create a `Type::PartialTypedDict` from a TypedDict.
-    pub fn mk_partial_typed_dict(&self, typed_dict: TypedDict) -> Type {
+    /// Create a `Type::PartialTypedDict` from a declared TypedDict's class type.
+    pub fn mk_partial_typed_dict(&self, typed_dict: ClassType) -> Type {
         Type::PartialTypedDict(typed_dict)
     }
 
@@ -437,19 +442,9 @@ impl TypeHeap {
         Type::Int(symint)
     }
 
-    /// Create a `Type::ShapedArray` from a ShapedArrayType.
-    pub fn mk_shaped_array(&self, shaped_array: ShapedArrayType) -> Type {
-        Type::ShapedArray(Box::new(shaped_array))
-    }
-
     /// Create a `Type::IntTuple` from a IntTuple.
     pub fn mk_int_tuple(&self, int_tuple: IntTuple) -> Type {
         Type::IntTuple(Box::new(int_tuple))
-    }
-
-    /// Create a `Type::NNModule` from an NNModuleType.
-    pub fn mk_nn_module(&self, module: NNModuleType) -> Type {
-        Type::NNModule(Box::new(module))
     }
 }
 

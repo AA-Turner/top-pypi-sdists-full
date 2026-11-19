@@ -67,6 +67,7 @@ MemberPermissionsType = Literal["read-only", "read-write"]
 PermissionsType = Literal["owner", "read-only", "read-write"]
 Cloud9ServiceName = Literal["cloud9"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

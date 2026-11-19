@@ -153,7 +153,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "aiohttp": ((3, 7), (3, 10)),
     "aiohttp_session": ((2, 0), (2, 12)),
     # anthropic 0.4.0 is the first minor release with Stainless.
-    "anthropic": ((0, 4), (1, 15)),
+    "anthropic": ((0, 4), (2, 3)),
     "ariadne": ((0, 26), (1, 1)),
     "beaker": ((1, 0), (1, 13)),
     "botocore": ((1, 0), (1, 43)),  # boto3
@@ -173,8 +173,11 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "fastapi": ((0, 71), (0, 162)),
     "flask": ((1, 1), (3, 1)),
     "genshi": ((0, 7), (0, 7)),
-    "google-genai": ((1, 0), (2, 31)),
+    "google-genai": ((1, 0), (2, 34)),
     "graphene": ((3, 4), (3, 4)),
+    # gunicorn patches are used for fork safety. It's probably better to always try to
+    # apply patches (even to potentially unsupported versions)
+    "gunicorn": ((20,), (100,)),
     "httpx": ((0,), (0,)),
     "httpx2": ((2,), (2,)),
     "jinja2": ((2, 10), (3, 1)),  # min version required by our min version of flask
@@ -183,7 +186,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "markupsafe": ((1, 0), (3, 0)),
     "mod_wsgi": ((4, 1), (5, 0)),
     "mysql": ((8, 0), (9, 7)),  # mysql-connector-python
-    "openai": ((2, 0), (3, 35)),
+    "openai": ((2, 0), (3, 42)),
     "pymysql": ((1, 0), (1, 2)),
     "psycopg2": ((2, 0), (2, 9)),
     "pymongo": ((4, 0), (4, 8)),

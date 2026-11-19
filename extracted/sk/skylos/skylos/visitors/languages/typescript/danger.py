@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 import os
 import re
 from html.parser import HTMLParser
@@ -15,6 +16,7 @@ from skylos.constants import (
 )
 from skylos.rules.secrets import (
     _looks_like_ordered_character_set,
+    encodes_public_text,
     is_client_exposure_context,
     is_public_client_env_name,
     iter_sensitive_client_env_references,
@@ -23,7 +25,15 @@ from skylos.rules import secret_shapes
 from skylos.security.sensitive_data import first_sensitive_name
 from skylos.security.command_guard import findings_for_command, is_external_url
 from skylos.visitors.languages.statement_scan import iter_semicolon_assignments
+from skylos.visitors.languages.typescript.client_runtime import runs_only_on_client
 from skylos.visitors.languages.typescript.security_flow import build_security_flow
+from skylos.visitors.languages.typescript.archive_guard import (
+    ARCHIVE_SCOPE_NODE_TYPES,
+    ArchiveGuard,
+    archive_parent_segment_guards,
+    archive_path_validators,
+    archive_startswith_guards,
+)
 from skylos.visitors.languages.typescript.express_taint import (
     merge_express_taint_findings,
     safe_redirect_prefix,
@@ -1890,9 +1900,10 @@ def _dangerous_html_requires_finding(
     key = pairs[0].child_by_field_name("key")
     if key is None or _get_text(source_bytes, key).strip("'\"") != "__html":
         return True
-    return _html_assignment_rhs_requires_finding(
-        pairs[0].child_by_field_name("value"), source_bytes, bindings
-    )
+    value = pairs[0].child_by_field_name("value")
+    if _is_null_literal_expression(value):
+        return False
+    return _html_assignment_rhs_requires_finding(value, source_bytes, bindings)
 
 
 def _assignment_rhs_for_property_capture(prop_node):
@@ -1916,6 +1927,16 @@ def _html_property_capture_requires_finding(
     prop_node, source_bytes: bytes, bindings: _JsBindings
 ) -> bool:
     rhs_node = _assignment_rhs_for_property_capture(prop_node)
+    assignment = prop_node.parent.parent if prop_node.parent is not None else None
+    # DOM innerHTML/outerHTML setters turn literal null into an empty string.
+    # Keep this proof at single-value setters: document.write is variadic, and
+    # a null first argument says nothing about its later arguments.
+    if (
+        assignment is not None
+        and assignment.type == "assignment_expression"
+        and _is_null_literal_expression(rhs_node)
+    ):
+        return False
     return _html_assignment_rhs_requires_finding(rhs_node, source_bytes, bindings)
 
 
@@ -2456,6 +2477,50 @@ def _is_null_literal_expression(node) -> bool:
     return False
 
 
+def _is_global_undefined(node, source_bytes: bytes, bindings) -> bool:
+    current = node
+    while current is not None:
+        unwrapped = _unwrap_ts_expression(current)
+        if unwrapped is current:
+            break
+        current = unwrapped
+    if current is None or current.type not in {"undefined", "identifier"}:
+        return False
+    if _get_text(source_bytes, current) != "undefined":
+        return False
+    if bindings.dynamic_scope or not bindings.unbound("undefined"):
+        return False
+    return not any(
+        candidate.type == "undefined"
+        and candidate.parent is not None
+        and candidate.parent.type
+        in {
+            "formal_parameters",
+            "required_parameter",
+            "optional_parameter",
+            "variable_declarator",
+            "assignment_expression",
+            "array_pattern",
+            "object_pattern",
+            "pair_pattern",
+            "catch_clause",
+        }
+        and not _is_value_position(candidate)
+        for candidate in bindings.nodes
+    )
+
+
+def _is_value_position(node) -> bool:
+    parent = node.parent
+    if parent.type == "variable_declarator":
+        return parent.child_by_field_name("value") == node
+    if parent.type == "assignment_expression":
+        return parent.child_by_field_name("right") == node
+    if parent.type in {"required_parameter", "optional_parameter"}:
+        return parent.child_by_field_name("value") == node
+    return False
+
+
 def _has_dynamic_url_part(node) -> bool:
     unwrapped = _unwrap_ts_expression(node)
     if unwrapped is not node:
@@ -2585,6 +2650,50 @@ def _lexical_declarator(use_node, name: str, source_bytes: bytes):
     return None
 
 
+_AXIOS_REQUEST_METHODS = frozenset(
+    {
+        "request",
+        "get",
+        "delete",
+        "head",
+        "options",
+        "post",
+        "put",
+        "patch",
+        "postForm",
+        "putForm",
+        "patchForm",
+        "getUri",
+        "create",
+    }
+)
+
+
+def _axios_call_sends_request(args_node, source_bytes: bytes) -> bool:
+    call = args_node.parent
+    function = call.child_by_field_name("function") if call is not None else None
+    if function is None or function.type != "member_expression":
+        return True
+    member = function.child_by_field_name("property")
+    if member is None or member.type != "property_identifier":
+        return True
+    return _get_text(source_bytes, member) in _AXIOS_REQUEST_METHODS
+
+
+def _is_bundled_asset_url(identifier, source_bytes: bytes, bindings) -> bool:
+    entry = bindings.only_binding(_get_text(source_bytes, identifier))
+    if entry is None:
+        return False
+    kind, _value, source, imported = entry
+    return (
+        kind == "import"
+        and imported == "default"
+        and isinstance(source, str)
+        and source.endswith("?url")
+        and not is_external_url(source)
+    )
+
+
 def _static_url_binding(identifier, source_bytes: bytes, bindings):
     """The initializer of the variable ``identifier`` refers to, when that
     variable can only ever hold it: a ``const``, or a ``let``/``var`` that is
@@ -2647,6 +2756,8 @@ def _strict_static_prefix(node, source_bytes: bytes, bindings, depth: int):
     if node.type == "identifier":
         value = _static_url_binding(node, source_bytes, bindings)
         if value is None:
+            if _is_bundled_asset_url(node, source_bytes, bindings):
+                return "", False
             return "", True
         return _strict_static_prefix(value, source_bytes, bindings, depth + 1)
     if node.type == "template_string":
@@ -3356,13 +3467,13 @@ def scan_danger(
                     prefix = source_bytes[line_start : node.start_byte].decode(
                         "utf-8", "replace"
                     )
-                    if secret_shapes.is_character_table(
-                        text
-                    ) and not secret_shapes.names_a_credential(prefix):
+                    names_credential = secret_shapes.names_a_credential(prefix)
+                    if secret_shapes.is_character_table(text) and not names_credential:
                         entropy_finding["public_identifier_evidence"] = (
                             "each character appears once: an encoding alphabet"
                         )
-                    findings.append(entropy_finding)
+                    if names_credential or not encodes_public_text(text):
+                        findings.append(entropy_finding)
 
             # Hardcoded internal URL (SKY-D248)
             if (
@@ -3390,9 +3501,17 @@ def scan_danger(
 
     # --- fetch SSRF (SKY-D216) ---
     url_bindings = None
+    request_calls = {"fetch_args": [], "axios_args": []}
     if complex_captures.get("fetch_args") or complex_captures.get("axios_args"):
-        url_bindings = _JsBindings(root_node, source_bytes)
-    for node in complex_captures.get("fetch_args", []):
+        if not runs_only_on_client(root_node, source_bytes, str(file_path)):
+            url_bindings = _JsBindings(root_node, source_bytes)
+            request_calls["fetch_args"] = complex_captures.get("fetch_args", [])
+            request_calls["axios_args"] = [
+                node
+                for node in complex_captures.get("axios_args", [])
+                if _axios_call_sends_request(node, source_bytes)
+            ]
+    for node in request_calls["fetch_args"]:
         first_arg = _first_real_arg(node)
         if first_arg and _url_arg_is_ssrf_relevant(
             first_arg, source_bytes, str(file_path), url_bindings
@@ -3409,7 +3528,7 @@ def scan_danger(
             )
 
     # --- axios SSRF (SKY-D216) ---
-    for node in complex_captures.get("axios_args", []):
+    for node in request_calls["axios_args"]:
         first_arg = _first_real_arg(node)
         if first_arg and _url_arg_is_ssrf_relevant(
             first_arg, source_bytes, str(file_path), url_bindings
@@ -3830,11 +3949,61 @@ _ARCHIVE_LIBRARY_HINTS = (
     "adm-zip",
     'require("unzipper")',
     "require('unzipper')",
+    'from "unzipper"',
+    "from 'unzipper'",
+    'from "adm-zip"',
+    "from 'adm-zip'",
     'require("adm-zip")',
     "require('adm-zip')",
     'from "yauzl"',
     "from 'yauzl'",
 )
+
+# yauzl rejects absolute names, backslashes and `..` parts before it emits
+# an entry, unless the archive is opened with `decodeStrings: false`.
+_YAUZL_SOURCE = re.compile(r"""(?:\bfrom|\brequire\(|\bimport\()\s*['"]yauzl['"]""")
+_YAUZL_RAW_NAMES = re.compile(r"\bdecodeStrings\s*:\s*false\b")
+_ARCHIVE_UNVALIDATED_PROPERTY_PATTERN = re.compile(
+    r"\b(?:(?:entry|header|[A-Za-z_$][A-Za-z0-9_$]*Entry)\.(?:path|name))\b"
+)
+_BASENAME_CALL = re.compile(r"\b(?:path\.)?basename\((?:[^()]|\([^()]*\))*\)")
+def _path_import(name: str) -> re.Pattern:
+    return re.compile(
+        rf"""(?:import\s+(?:[\w$]+\s*,\s*)?\{{[^}}]*\b{name}\b[^}}]*\}}\s*from|\{{[^}}]*\b{name}\b[^}}]*\}}\s*=\s*require\()\s*['"](?:node:)?path['"]"""
+    )
+
+
+def _archive_entry_pattern(source_text: str) -> re.Pattern:
+    if _YAUZL_SOURCE.search(source_text) and not _YAUZL_RAW_NAMES.search(source_text):
+        return _ARCHIVE_UNVALIDATED_PROPERTY_PATTERN
+    return _ARCHIVE_ENTRY_PROPERTY_PATTERN
+
+
+def _archive_normalizing_call(source_text: str) -> re.Pattern:
+    """``normalize``, ``path.join``, ``path.resolve`` and the same functions
+    imported from ``path`` all return a path with its ``..`` parts already
+    collapsed, so a ``startsWith`` check on the result is meaningful."""
+    alternatives = [r"normalize\(", r"\bpath\.(?:resolve|join)\("]
+    for name in ("resolve", "join"):
+        if _path_import(name).search(source_text):
+            alternatives.append(rf"(?<![\w.$]){name}\(")
+    return re.compile("|".join(alternatives))
+
+
+_QUOTED_STRING = re.compile(r"'(?:\\.|[^'\\\n])*'" + r'|"(?:\\.|[^"\\\n])*"')
+_TEMPLATE_TEXT = re.compile(r"`((?:\\.|\$\{[^}]*\}|[^`\\])*)`", re.S)
+
+
+def _archive_code(text: str) -> str:
+    """The expression without string text: a name inside ``"report.json"`` is
+    not a value, while ``${name}`` in a template still is. ``basename``
+    drops every directory, so what it returns cannot climb either."""
+    text = _QUOTED_STRING.sub('""', text)
+    text = _TEMPLATE_TEXT.sub(
+        lambda m: " ".join(re.findall(r"\$\{([^}]*)\}", m.group(1))) or '""', text
+    )
+    return _BASENAME_CALL.sub("", text)
+
 
 _ARCHIVE_ENTRY_PROPERTY_PATTERN = re.compile(
     r"\b(?:(?:entry|header|[A-Za-z_$][A-Za-z0-9_$]*Entry)\.(?:path|fileName|name))\b"
@@ -3850,23 +4019,8 @@ _ARCHIVE_SINK_ARGS = {
     "writeFileSync(": (0,),
 }
 
-_ARCHIVE_GUARD_TOKENS = (
-    ".includes('..')",
-    '.includes("..")',
-    ".indexOf('..')",
-    '.indexOf("..")',
-)
+_ARCHIVE_SCOPE_NODE_TYPES = ARCHIVE_SCOPE_NODE_TYPES
 
-_ARCHIVE_SCOPE_NODE_TYPES = frozenset(
-    {
-        "function_declaration",
-        "function_expression",
-        "arrow_function",
-        "method_definition",
-    }
-)
-
-_ARCHIVE_CONTROL_FLOW_HINTS = ("return", "continue", "throw", "break")
 
 
 def _check_unverified_webhook_handler(
@@ -3910,13 +4064,29 @@ def _check_archive_extraction_path_traversal(
     source_text = source_bytes.decode("utf-8", errors="replace")
     if not any(hint in source_text for hint in _ARCHIVE_LIBRARY_HINTS):
         return
+    guards = archive_startswith_guards(root_node, source_bytes)
+    segment_guards = archive_parent_segment_guards(root_node, source_bytes)
+    entry_pattern = _archive_entry_pattern(source_text)
+    normalizing = _archive_normalizing_call(source_text)
+    validators = archive_path_validators(
+        root_node, source_bytes, guards, segment_guards
+    )
+    validator_call = _archive_call_pattern(validators.complete)
+    prefix_validator_call = _archive_call_pattern(validators.prefix_only)
 
-    for scope_lines, start_line in _iter_archive_scopes(root_node, source_text):
+    for scope_lines, start_line, scope_start in _iter_archive_scopes(
+        root_node, source_bytes
+    ):
         scope_text = "\n".join(scope_lines)
         if not scope_text.strip():
             continue
         tainted_names: set[str] = set()
         latest_assignment: dict[str, int] = {}
+        # The tainted names each tainted value was built from directly, so a
+        # check on `name` still counts when the write uses
+        # `out = join(root, name)`.
+        built_from: dict[str, set[str]] = {}
+        relative_of: set[str] = set()
         events: list[tuple[int, int, object]] = []
         events.extend(
             (line_offset, 0, (alias, expr))
@@ -3931,28 +4101,66 @@ def _check_archive_extraction_path_traversal(
         for line_offset, kind, payload in events:
             if kind == 0:
                 alias, expr = payload
-                if _ARCHIVE_ENTRY_PROPERTY_PATTERN.search(expr) or any(
-                    re.search(rf"\b{re.escape(name)}\b", expr) for name in tainted_names
-                ):
+                expr = _archive_code(expr)
+                sources = set(_IDENTIFIER.findall(expr)) & tainted_names
+                entry_reads = {
+                    match.group(0).split(".", 1)[0]
+                    for match in entry_pattern.finditer(expr)
+                }
+                if validator_call is not None and validator_call.match(expr):
+                    # `out = safeEntryPath(root, entry.path)`: checked in this file.
+                    tainted_names.discard(alias)
+                    built_from.pop(alias, None)
+                    relative_of.discard(alias)
+                elif entry_reads or sources:
                     tainted_names.add(alias)
+                    # `entry` itself stands in for a direct read, so a check on
+                    # `entry.path` covers `dest = join(root, entry.path)`.
+                    built_from[alias] = (sources | entry_reads) - {alias}
+                    if _CHECKABLE_VIEW_CALL.search(expr):
+                        relative_of.add(alias)
+                    else:
+                        relative_of.discard(alias)
                 else:
                     tainted_names.discard(alias)
+                    built_from.pop(alias, None)
+                    relative_of.discard(alias)
                 latest_assignment[alias] = line_offset
                 continue
 
+            payload = [_archive_code(arg) for arg in payload]
             used_names = _archive_sink_tainted_names(payload, tainted_names)
-            direct_entry = bool(_archive_sink_tainted_names(payload, set(), True))
+            direct_entry = bool(
+                _archive_sink_tainted_names(payload, set(), True, entry_pattern)
+            )
             if not used_names and not direct_entry:
                 continue
 
             guard_start = 0
+            chain = set(used_names)
             if used_names:
                 guard_start = max(latest_assignment.get(name, 0) for name in used_names)
+                chain = _archive_value_chain(used_names, built_from, relative_of)
+                guard_start = min(
+                    [guard_start]
+                    + [latest_assignment.get(name, 0) for name in chain - used_names]
+                )
             if _archive_lines_have_guard(
                 scope_lines[guard_start : line_offset + 1],
-                used_names,
+                chain & tainted_names,
+                chain,
                 direct_entry,
                 line_offset - guard_start,
+                _ArchiveGuardFacts(
+                    guards,
+                    segment_guards,
+                    entry_pattern,
+                    normalizing,
+                    validator_call,
+                    prefix_validator_call,
+                ),
+                start_line + guard_start,
+                scope_start,
             ):
                 continue
 
@@ -3977,95 +4185,142 @@ def _iter_nodes(root_node):
         stack.extend(reversed(node.children))
 
 
-def _iter_archive_scopes(root_node, source_text: str) -> list[tuple[list[str], int]]:
-    all_lines = source_text.splitlines()
+# A name read as a value: `x` and `...x`, not the property in `obj.x`.
+_IDENTIFIER = re.compile(r"(?<![\w$])(?:(?<=\.\.\.)|(?<!\.))[A-Za-z_$][\w$]*")
+# A value read through these still shows where the one it came from points:
+# `rel = path.relative(root, out)`, `parts = name.split("/")` and
+# `dir = realpath(dirname(out))`, so a check on it checks the write.
+_CHECKABLE_VIEW_CALL = re.compile(
+    r"\b(?:path\.)?(?:relative|dirname|realpath)\(|\.split\(|\brealpathSync\("
+)
+
+
+def _archive_call_pattern(names: frozenset[str]) -> re.Pattern | None:
+    if not names:
+        return None
+    return re.compile(
+        r"^\s*(?:return\s+)?(?:await\s+)?(?:"
+        + "|".join(re.escape(name) for name in sorted(names))
+        + r")\("
+    )
+
+
+def _archive_value_chain(
+    names: set[str], built_from: dict[str, set[str]], relative_of: set[str]
+) -> set[str]:
+    """The written names, every tainted name they were built from, and any
+    ``path.relative`` or ``split`` taken of them: a check on any of these
+    checks the write."""
+    chain = set(names)
+    pending = list(names)
+    while pending:
+        for parent in built_from.get(pending.pop(), ()):
+            if parent not in chain:
+                chain.add(parent)
+                pending.append(parent)
+    grew = True
+    while grew:
+        grew = False
+        for name in relative_of:
+            if name not in chain and built_from.get(name, set()) & chain:
+                chain.add(name)
+                grew = True
+    return chain
+
+
+def _iter_archive_scopes(
+    root_node, source_bytes: bytes
+) -> list[tuple[list[str], int, int]]:
     scopes = [root_node]
     scopes.extend(
         node
         for node in _iter_nodes(root_node)
         if node.type in _ARCHIVE_SCOPE_NODE_TYPES
     )
-    return [_scope_lines_without_nested_scopes(scope, all_lines) for scope in scopes]
+    return [
+        (*_scope_lines_without_nested_scopes(scope, source_bytes), scope.start_byte)
+        for scope in scopes
+    ]
 
 
-def _archive_guard_block_contains_sink(
-    lines: list[str], guard_idx: int, sink_idx: int
+@dataclass(frozen=True)
+class _ArchiveGuardFacts:
+    guards: dict[tuple[int, int], ArchiveGuard]
+    segment_guards: dict[tuple[int, int], frozenset[str]]
+    entry_pattern: re.Pattern
+    normalizing: re.Pattern
+    validator_call: re.Pattern | None
+    prefix_validator_call: re.Pattern | None
+
+
+def _archive_guard_subject_matches(
+    guard: ArchiveGuard, names: set[str], direct_entry: bool, entry_pattern: re.Pattern
 ) -> bool:
-    depth = 0
-    opened = False
-
-    for idx in range(guard_idx, sink_idx + 1):
-        line = lines[idx]
-        opens = line.count("{")
-        closes = line.count("}")
-        if opens:
-            opened = True
-        depth += opens
-        depth -= closes
-        if idx < sink_idx and opened and depth <= 0:
-            return False
-
-    return opened and depth > 0
-
-
-def _archive_guard_without_braces_contains_sink(
-    lines: list[str], guard_idx: int, sink_idx: int
-) -> bool:
-    line = lines[guard_idx]
-    if "{" in line:
-        return False
-    if sink_idx == guard_idx:
-        return True
-    for idx in range(guard_idx + 1, len(lines)):
-        if not lines[idx].strip():
+    for subject in guard.subjects:
+        if direct_entry and entry_pattern.search(subject):
             continue
-        return idx == sink_idx
-    return False
+        if not any(re.search(rf"\b{re.escape(name)}\b", subject) for name in names):
+            return False
+    return bool(guard.subjects)
 
 
 def _archive_lines_have_guard(
-    lines: list[str], names: set[str], direct_entry: bool, sink_idx: int
+    lines: list[str],
+    names: set[str],
+    segment_names_checked: set[str],
+    direct_entry: bool,
+    sink_idx: int,
+    facts: _ArchiveGuardFacts,
+    first_line: int,
+    scope_start: int,
 ) -> bool:
     has_normalize = False
+    sink_line = first_line + sink_idx
 
     for idx, line in enumerate(lines):
         if direct_entry:
-            mentioned = bool(_ARCHIVE_ENTRY_PROPERTY_PATTERN.search(line))
+            mentioned = bool(facts.entry_pattern.search(line))
         else:
             mentioned = any(
                 re.search(rf"\b{re.escape(name)}\b", line) for name in names
             )
-        if not mentioned:
-            continue
-
-        if "if" in line and any(token in line for token in _ARCHIVE_GUARD_TOKENS):
-            trailing = "\n".join(lines[idx : min(len(lines), idx + 4)])
-            if any(token in trailing for token in _ARCHIVE_CONTROL_FLOW_HINTS):
-                return True
-        if "normalize(" in line:
+        if mentioned and facts.normalizing.search(line):
             has_normalize = True
-        if (
-            has_normalize
-            and "if" in line
-            and "startsWith(" in line
-            and ("!" in line or "=== false" in line or "== false" in line)
-        ):
-            trailing = "\n".join(lines[idx : min(len(lines), idx + 4)])
-            if any(token in trailing for token in _ARCHIVE_CONTROL_FLOW_HINTS):
+        if mentioned and idx <= sink_idx:
+            # `assertSafePath(root, target)` on its own line; a helper that
+            # only compares prefixes needs the path normalized first.
+            if facts.validator_call is not None and facts.validator_call.match(line):
                 return True
+            if (
+                has_normalize
+                and facts.prefix_validator_call is not None
+                and facts.prefix_validator_call.match(line)
+            ):
+                return True
+
+        # Guards are keyed by scope, so an `if` inside a nested callback never
+        # stands in for one in this scope.
+        key = (first_line + idx, scope_start)
+        segment_names = facts.segment_guards.get(key)
+        if segment_names and (
+            segment_names_checked & segment_names
+            or (direct_entry and any(_is_archive_entry_name(n) for n in segment_names))
+        ):
+            return True
+        guard = facts.guards.get(key)
         if (
-            idx <= sink_idx
-            and has_normalize
-            and "if" in line
-            and "startsWith(" in line
-            and "!" not in line
-            and "=== false" not in line
-            and "== false" not in line
-            and (
-                _archive_guard_block_contains_sink(lines, idx, sink_idx)
-                or _archive_guard_without_braces_contains_sink(lines, idx, sink_idx)
+            guard is None
+            or not has_normalize
+            or not guard.separator_prefixes
+            or not _archive_guard_subject_matches(
+                guard, names, direct_entry, facts.entry_pattern
             )
         ):
+            continue
+        if guard.negated:
+            if guard.exits:
+                return True
+        elif guard.body_start_line <= sink_line <= guard.body_end_line:
             return True
 
     return False
@@ -4104,11 +4359,18 @@ def _extract_call_args(line: str, token: str) -> list[str]:
     return args
 
 
+def _is_archive_entry_name(name: str) -> bool:
+    return name in {"entry", "header"} or name.endswith("Entry")
+
+
 def _archive_sink_tainted_names(
-    args: list[str], names: set[str], direct_entry: bool = False
+    args: list[str],
+    names: set[str],
+    direct_entry: bool = False,
+    entry_pattern: re.Pattern = _ARCHIVE_ENTRY_PROPERTY_PATTERN,
 ) -> set[str]:
     for arg in args:
-        if direct_entry and _ARCHIVE_ENTRY_PROPERTY_PATTERN.search(arg):
+        if direct_entry and entry_pattern.search(arg):
             return {"__direct__"}
         matched = {name for name in names if re.search(rf"\b{re.escape(name)}\b", arg)}
         if matched:
@@ -4129,19 +4391,27 @@ def _nearest_archive_child_scopes(node) -> list:
 
 
 def _scope_lines_without_nested_scopes(
-    node, all_lines: list[str]
+    node, source_bytes: bytes
 ) -> tuple[list[str], int]:
-    start = node.start_point[0]
-    end = node.end_point[0]
-    scope_lines = list(all_lines[start : end + 1])
+    """The scope's lines with each nested function's own text blanked.
 
+    Only the nested function is blanked, not the lines it touches, so
+    `const parts = entry.path.split("/").filter((p) => p)` keeps its
+    assignment while the callback body stays out of this scope.
+    """
+    first = source_bytes.rfind(b"\n", 0, node.start_byte) + 1
+    last = source_bytes.find(b"\n", node.end_byte)
+    if last < 0:
+        last = len(source_bytes)
+    chunk = bytearray(source_bytes[first:last])
     for child in _nearest_archive_child_scopes(node):
-        child_start = max(child.start_point[0] - start, 0)
-        child_end = min(child.end_point[0] - start, len(scope_lines) - 1)
-        for idx in range(child_start, child_end + 1):
-            scope_lines[idx] = ""
-
-    return scope_lines, start
+        for index in range(
+            max(child.start_byte - first, 0), min(child.end_byte - first, len(chunk))
+        ):
+            if chunk[index] not in (0x0A, 0x0D):
+                chunk[index] = 0x20
+    lines = chunk.decode("utf-8", errors="replace").split("\n")
+    return [line.rstrip("\r") for line in lines], node.start_point[0]
 
 
 def _iter_archive_sink_calls(text: str) -> list[tuple[int, list[str]]]:
@@ -12449,6 +12719,8 @@ def _check_timing_comparison(
                 if not (
                     _is_null_literal_expression(left)
                     or _is_null_literal_expression(right)
+                    or _is_global_undefined(left, source_bytes, bindings)
+                    or _is_global_undefined(right, source_bytes, bindings)
                     or boolean_literal
                     or _compares_one_form_entry_twice(node, left, right, source_bytes, bindings)
                 ):

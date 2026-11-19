@@ -27,6 +27,7 @@ __all__ = ("RegionName", "ResourceServiceName", "SageMakerRuntimeServiceName", "
 
 SageMakerRuntimeServiceName = Literal["sagemaker-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

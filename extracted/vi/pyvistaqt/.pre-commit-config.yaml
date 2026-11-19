@@ -1,26 +1,25 @@
 repos:
   - repo: https://github.com/astral-sh/ty-pre-commit
-    rev: v0.0.55
+    rev: v0.0.105
     hooks:
       - id: ty
         # ty runs in an isolated environment, so the project's runtime deps
         # are declared here for import resolution. pyvistaqt itself and rwi.py
         # are configured via [tool.ty] in pyproject.toml.
         additional_dependencies:
-          - pyvista==0.48.4
+          - pyvista==0.49.2
           - numpy==2.5.0
           - qtpy==2.4.3
           - pyside6==6.11.1
-          - scooby==0.11.2
+          - scooby==0.12.1
           - ipython==8.39.0
           - trame-pyvista==0.1.1
         args: [--no-python-downloads, --no-project]
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: v2.4.3
     hooks:
       - id: codespell
-        args: ["docs examples examples_flask pyvista tests", "*.py *.rst *.md"]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -32,18 +31,18 @@ repos:
 
   # this validates our github workflow files
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.37.3
+    rev: 0.39.0
     hooks:
       - id: check-github-workflows
 
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.9.1
+    rev: v3.10.1
     hooks:
       - id: prettier
         types_or: [yaml, markdown, html, css, scss, javascript, json]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.20
+    rev: v0.17.5
     hooks:
       - id: ruff
         args: [--fix, --show-fixes]

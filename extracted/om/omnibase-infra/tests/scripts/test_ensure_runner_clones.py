@@ -30,10 +30,13 @@ source text mentions "omnibase_spi".
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
 import pytest
+
+from omnibase_core.validators.no_unguarded_git_subprocess import scrub_git_location_env
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "runtime_build" / "ensure_runner_clones.sh"
@@ -48,8 +51,8 @@ EXPECTED_REPOS = (
     "omnibase_infra",
     "omnibase_core",
     "omnibase_spi",
-    "omnibase_compat",
     "omnimarket",
+    "omniintelligence",
 )
 
 
@@ -60,6 +63,7 @@ def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
         check=True,
         capture_output=True,
         text=True,
+        env=scrub_git_location_env(os.environ),
     )
 
 

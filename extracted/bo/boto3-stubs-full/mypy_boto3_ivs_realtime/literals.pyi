@@ -113,6 +113,7 @@ VideoAspectRatioType = Literal["AUTO", "PORTRAIT", "SQUARE", "VIDEO"]
 VideoFillModeType = Literal["CONTAIN", "COVER", "FILL"]
 IvsrealtimeServiceName = Literal["ivs-realtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

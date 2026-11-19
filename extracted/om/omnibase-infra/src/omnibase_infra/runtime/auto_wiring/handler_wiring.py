@@ -39,7 +39,7 @@ from collections.abc import Awaitable, Callable, Collection, Iterator, Mapping, 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from functools import cache, lru_cache
+from functools import cache, lru_cache, partial
 from pathlib import Path
 from types import MappingProxyType
 from typing import (
@@ -89,12 +89,11 @@ from omnibase_core.services.service_handler_resolver import ServiceHandlerResolv
 from omnibase_core.services.service_local_handler_ownership_query import (
     ServiceLocalHandlerOwnershipQuery,
 )
+from omnibase_infra.contracts.contract_yaml import read_contract_yaml
 from omnibase_infra.errors import (
-    EnvelopeValidationError,
     ProjectionNotMaterializedError,
     ProjectionQueryRowBudgetError,
     QuarantinePublishUnconfirmedError,
-    TopicReplicationPolicyError,
 )
 from omnibase_infra.event_bus.enum_contract_attach_exclusion_reason import (
     EnumContractAttachExclusionReason,
@@ -120,17 +119,26 @@ from omnibase_infra.event_bus.model_topic_set_readiness import (
 from omnibase_infra.event_bus.topic_constants import (
     derive_event_type_alias_for_topic,
 )
+from omnibase_infra.handlers.boot_topic_provisioning import (
+    ensure_topics_exist,
+    provision_unattached_publish_topics,
+)
+from omnibase_infra.handlers.entry_method_offload import invoke_entry_method
 from omnibase_infra.handlers.handler_projection_derived_write import (
     HandlerProjectionDerivedWrite,
 )
 from omnibase_infra.handlers.handler_projection_write_cursor import (
     HandlerProjectionWriteCursor,
 )
+from omnibase_infra.handlers.projection_failure_classification import is_content_failure
+from omnibase_infra.models.dispatch.model_injected_request import ModelInjectedRequest
+from omnibase_infra.models.model_contract_hotload_lane_overlay import (
+    lane_defers_topics_to_first_request,
+)
+from omnibase_infra.models.operational_timeouts import TIMEOUTS
+from omnibase_infra.models.projection import ModelProjectionDerivedWriteRequest
 from omnibase_infra.nodes.node_bus_forwarder_effect.services.service_gateway_topic_transform import (
     resolve_tenant_from_wire_topic,
-)
-from omnibase_infra.protocols.protocol_consume_concurrency_declarer import (
-    ProtocolConsumeConcurrencyDeclarer,
 )
 from omnibase_infra.protocols.protocol_dispatch_result_applier import (
     ProtocolDispatchResultApplier,
@@ -142,7 +150,6 @@ from omnibase_infra.protocols.protocol_projection_write_connection import (
 from omnibase_infra.protocols.protocol_topic_provisioner import (
     ProtocolTopicProvisioner,
 )
-from omnibase_infra.runtime.auto_wiring.discovery import read_contract_yaml
 from omnibase_infra.runtime.auto_wiring.enum_quarantine_reason import (
     EnumQuarantineReason,
 )
@@ -156,8 +163,6 @@ from omnibase_infra.runtime.auto_wiring.models import (
     ModelDiscoveredContract,
     ModelHandlerRef,
     ModelHandlerRoutingEntry,
-)
-from omnibase_infra.runtime.auto_wiring.models.model_consume_concurrency import (
     load_consume_concurrency,
 )
 from omnibase_infra.runtime.auto_wiring.report import (
@@ -404,6 +409,9 @@ if TYPE_CHECKING:
     )
     from omnibase_infra.enums import EnumMessageCategory
     from omnibase_infra.handlers.handler_infisical import HandlerInfisical
+    from omnibase_infra.handlers.handler_kafka_topic_demand_source import (
+        HandlerKafkaTopicDemandSource,
+    )
     from omnibase_infra.models.dispatch.model_dispatch_result import (
         ModelDispatchResult,
     )
@@ -416,6 +424,7 @@ if TYPE_CHECKING:
     )
     from omnibase_spi.protocols.runtime import ProtocolDispatchEngine
 
+
 logger = logging.getLogger(__name__)
 
 # Matches DSNs, URLs, and connection strings that may contain credentials.
@@ -427,7 +436,7 @@ _STRICT_DISPATCHER_COVERAGE_ENV = "ONEX_STRICT_DISPATCHER_COVERAGE"
 # OMN-14507: staged rollout for the auto-wired consume boundary DLQ fix.
 # DEFAULT OFF (warn-first) -- see _boundary_dlq_enabled() below.
 _BOUNDARY_DLQ_ENV = "ONEX_BOUNDARY_DLQ_ENABLED"
-_BOUNDARY_DLQ_MAX_ATTEMPTS = 3
+_BOUNDARY_DLQ_MAX_ATTEMPTS = TIMEOUTS.boundary_dlq_max_attempts
 _BOUNDARY_DLQ_RETRY_BACKOFF_SECONDS: tuple[float, ...] = (0.1, 0.4)
 
 # OMN-14498 / OMN-15029: strong references to the detached DLQ-routing tasks
@@ -950,6 +959,11 @@ def _make_dispatch_callback(
 
         _effective_handle = _missing_handle
 
+    # Introspect once at wiring time, not per message.
+    _request_model = _resolve_def_b_input_model_type(_effective_handle)
+    _injected_request_model = ModelInjectedRequest.narrow(_request_model)
+    handler_takes_envelope = _handler_accepts_event_envelope(_effective_handle)
+
     async def _callback(
         envelope: ModelEventEnvelope[object],
     ) -> ModelDispatchResult | None:
@@ -1005,7 +1019,7 @@ def _make_dispatch_callback(
                     envelope, raw_payload, fallback_event_type="unknown"
                 )
             else:
-                target_model = _resolve_def_b_input_model_type(handle_method)
+                target_model = _request_model
                 if target_model is not None:
                     # OMN-16050: pass the registered input model so the unwrap
                     # STOPS at it. ``ModelEmitRequest`` declares ``payload`` plus
@@ -1018,12 +1032,7 @@ def _make_dispatch_callback(
                     elif isinstance(payload, Mapping):
                         dispatch_arg = target_model.model_validate(payload)
 
-            raw_result_obj = handle_method(dispatch_arg)
-            raw_result = (
-                await cast("Awaitable[object]", raw_result_obj)
-                if asyncio.iscoroutine(raw_result_obj)
-                else raw_result_obj
-            )
+            raw_result = await invoke_entry_method(handle_method, dispatch_arg)
             if raw_result is None or isinstance(raw_result, ModelDispatchResult):
                 return raw_result
             if isinstance(raw_result, str):
@@ -1052,9 +1061,6 @@ def _make_dispatch_callback(
         # keeps its pre-OMN-16050 structural behaviour.
         payload_target_model = _safe_import_event_model_class(event_model)
         payload = _extract_dispatch_payload(envelope, payload_target_model)
-        handler_takes_envelope = _handler_accepts_event_envelope(
-            cast("Callable[..., object]", handle_method)
-        )
         try:
             model_cls = _import_event_model_class(event_model)
             typed_payload: object = (
@@ -1077,9 +1083,9 @@ def _make_dispatch_callback(
                 fallback_envelope = _materialize_raw_event_envelope(
                     envelope, payload, event_model.name
                 )
-                fallback_result = handle_method(fallback_envelope)
-                if asyncio.iscoroutine(fallback_result):
-                    fallback_result = await cast("Awaitable[object]", fallback_result)
+                fallback_result = await invoke_entry_method(
+                    handle_method, fallback_envelope
+                )
                 return _normalize_handler_result(
                     fallback_result,
                     envelope,
@@ -1098,26 +1104,22 @@ def _make_dispatch_callback(
             raise
         if pre_dispatch_guard is not None:
             pre_dispatch_guard(typed_payload)
-        if handler_takes_envelope:
-            handler_envelope = _materialize_typed_event_envelope(
-                envelope,
+        # Metadata failures belong to the dispatch boundary: they are raised
+        # after the guard has had its say on the payload and outside the domain
+        # payload-validation fallback above.
+        handler_arg: object = typed_payload
+        if _injected_request_model is not None and not handler_takes_envelope:
+            # Engine materialization omits transport metadata; unwrap the
+            # original envelope retained for this dispatch.
+            handler_arg = _injected_request_model.from_dispatch(
+                current_dispatch_envelope() or envelope,
                 cast("BaseModel", typed_payload),
-                event_model.name,
             )
-            envelope_result = handle_method(handler_envelope)
-            if asyncio.iscoroutine(envelope_result):
-                envelope_result = await cast("Awaitable[object]", envelope_result)
-            return _normalize_handler_result(
-                envelope_result,
-                envelope,
-                event_model.name,
-                handler_node_kind,
-                published_event_names,
+        if handler_takes_envelope:
+            handler_arg = _materialize_typed_event_envelope(
+                envelope, cast("BaseModel", typed_payload), event_model.name
             )
-
-        typed_result = handle_method(typed_payload)
-        if asyncio.iscoroutine(typed_result):
-            typed_result = await cast("Awaitable[object]", typed_result)
+        typed_result = await invoke_entry_method(handle_method, handler_arg)
         return _normalize_handler_result(
             typed_result,
             envelope,
@@ -3833,14 +3835,15 @@ class ProjectionDatabaseOperations:
         column DEFAULT is consulted only on INSERT -- an existing row would
         otherwise wear its first writer's stamp forever.
         """
-        plan = build_upsert_plan(
+        plan_for = partial(
+            build_upsert_plan,
             table=target.table.name,
             conflict_key=conflict_key,
             row=row,
             insert_only_columns=insert_only_columns,
             sql_expression_columns=sql_expression_columns,
-            returning=returning,
         )
+        plan = plan_for(returning=returning)
         if derive is not None:
             internal_returning = HandlerProjectionDerivedWrite.returning_columns(
                 row=row,
@@ -3851,14 +3854,7 @@ class ProjectionDatabaseOperations:
                 expression_columns=sql_expression_columns,
                 returning=returning,
             )
-            plan = build_upsert_plan(
-                table=target.table.name,
-                conflict_key=conflict_key,
-                row=row,
-                insert_only_columns=insert_only_columns,
-                sql_expression_columns=sql_expression_columns,
-                returning=internal_returning,
-            )
+            plan = plan_for(returning=internal_returning)
         # The plan validated every identifier against its own rule; this
         # adapter's rule is narrower and is applied on top rather than
         # replaced, so relaxing one never silently relaxes the other.
@@ -3912,16 +3908,18 @@ class ProjectionDatabaseOperations:
                         insert_sql, adapted_row, returning=plan.returning
                     )
                     final_rows = HandlerProjectionDerivedWrite.handle(
-                        write_cursor,
-                        schema=target.physical_schema,
-                        table=target.table.name,
-                        stored_rows=stored_rows,
-                        conflict_columns=plan.conflict_keys,
-                        input_columns=input_columns,
-                        derived_columns=derived_columns,
-                        returning=returning,
-                        derive=derive,
-                        adapt=self._adapt_row,
+                        ModelProjectionDerivedWriteRequest(
+                            cursor=write_cursor,
+                            physical_schema=target.physical_schema,
+                            table=target.table.name,
+                            stored_rows=tuple(stored_rows),
+                            conflict_columns=tuple(plan.conflict_keys),
+                            input_columns=tuple(input_columns),
+                            derived_columns=tuple(derived_columns),
+                            returning=tuple(returning),
+                            derive=derive,
+                            adapt=self._adapt_row,
+                        )
                     )
             # The transaction has committed before any caller can publish.
             return final_rows
@@ -4443,9 +4441,7 @@ def _is_projection_content_failure(exc: BaseException) -> bool:
     as the event's own defect is treated as the runtime's — the direction that
     stalls loudly rather than the direction that discards a fact silently.
     """
-    from pydantic import ValidationError as PydanticValidationError
-
-    return isinstance(exc, PydanticValidationError | EnvelopeValidationError)
+    return is_content_failure(exc)
 
 
 async def _route_projection_error_to_dlq(
@@ -5478,7 +5474,7 @@ def _build_projection_terminal_payload(handler_result: object) -> dict[str, obje
     only by :func:`_extract_rows_upserted`, which decides *whether* to emit, never
     *what*. A consumer written against the projected record therefore could not
     be satisfied by any producer: the record was discarded here, one layer above
-    the node that produced it. Live on the ``.201`` dev lane, that surfaced as
+    the node that produced it. Live on the dev lane, that surfaced as
     ``6 validation errors for ModelConsumerFlowStallAlertRequest`` on every
     trigger message, with the alert evaluation topic pinned at offset 0.
 
@@ -7984,7 +7980,9 @@ def _make_event_bus_callback(
                 error=exc,
                 correlation_id=correlation_id,
                 failure_type="handler_exception",
-                consumer_group="auto-wiring",
+                # OMN-22822: the subscription's own group, so a replay of this
+                # record returns to the subscriber that raised.
+                consumer_group=consumer_group or "auto-wiring",
                 dlq_topic=resolved_dlq_topic,
                 **declared_dlq_options,
             )
@@ -8092,9 +8090,7 @@ def _make_event_bus_callback(
                 from pydantic import ValidationError as PydanticValidationError
 
                 try:
-                    envelope: ModelEventEnvelope[object] = ModelEventEnvelope[
-                        object
-                    ].model_validate(data)
+                    envelope = ModelEventEnvelope[object].model_validate(data)
                 except PydanticValidationError:
                     # Raw command payload (no envelope wrapper) — synthesize one.
                     from datetime import UTC, datetime
@@ -8102,7 +8098,9 @@ def _make_event_bus_callback(
                     raw_corr = (
                         data.get("correlation_id") if isinstance(data, dict) else None
                     )
-                    corr = _coerce_uuid_or_none(raw_corr) or uuid4()
+                    # OMN-21324: a body stating no id (a JSON array) keeps the
+                    # ingress header's id seeded above, never a minted one.
+                    corr = _coerce_uuid_or_none(raw_corr) or correlation_id
                     # OMN-18958: ADOPT the identity the wire states; do not
                     # mint a rival. `ModelEventEnvelope.envelope_id` defaults
                     # to uuid4, so omitting this argument silently produced a
@@ -9027,16 +9025,16 @@ def _materialize_known_handler_dependencies(
             event_bus=event_bus,
             handler_name=handler_name,
         )
-    if required_params.issubset(_TOPIC_MIGRATION_EXECUTOR_DEPS):
+    # An empty set is a subset too. Optional runtime ports must not construct
+    # migration services: the provisioner scans the installed contract tree.
+    if required_params and required_params <= _TOPIC_MIGRATION_EXECUTOR_DEPS:
         available.update(_build_topic_migration_executor_dependencies())
     if not (
         requires_event_publisher
         or requires_event_consumer
-        or required_params.intersection(
-            {"container", "ownership_query", "dispatch_port"}
-        )
+        or required_params & {"container", "ownership_query", "dispatch_port"}
         or ("dispatch_port" in constructor_params and requires_delegation_port)
-        or required_params.issubset(_TOPIC_MIGRATION_EXECUTOR_DEPS)
+        or (required_params and required_params <= _TOPIC_MIGRATION_EXECUTOR_DEPS)
     ):
         return materialized_explicit_dependencies
     if "dispatch_port" in constructor_params and requires_delegation_port:
@@ -9065,10 +9063,6 @@ def _materialize_known_handler_dependencies(
     if "dispatch_port" in constructor_params and "dispatch_port" in available:
         handler_dependencies.setdefault("dispatch_port", available["dispatch_port"])
     if "db_dsn" in constructor_params:
-        from omnibase_infra.runtime.overlay.contract_env_ref import (
-            expand_contract_env_refs,
-        )
-
         db_dsn = next(
             (
                 resolved.strip()
@@ -10299,8 +10293,20 @@ async def subscribe_wired_contract_topics(
     exclusions_out: list[ModelContractAttachExclusion] | None = None,
     core_runtime_topics: frozenset[str] = frozenset(),
     core_runtime_owners: Mapping[str, str] | None = None,
+    demand_source: HandlerKafkaTopicDemandSource | None = None,
+    demand_watch_stops_out: list[Callable[[], Awaitable[None]]] | None = None,
 ) -> dict[str, tuple[str, ...]]:
     """Subscribe Kafka topics for contracts that already wired successfully.
+
+    OMN-18087 — when *demand_source* is supplied, only contracts with a
+    subscribe topic in use (holding a retained record at boot, as the broker
+    reports it) are attached at boot. Every other eligible contract is reported
+    in *exclusions_out* as ``DEMAND_DEFERRED`` and attached, through the same
+    provision -> ready -> attach interleave, when the first record reaches one
+    of its topics; its groups then read from ``earliest`` so that record is
+    the first one consumed. The watch's stop callable is appended to
+    *demand_watch_stops_out* for shutdown. Without *demand_source* every
+    eligible contract attaches at boot, as before.
 
     This is the post-freeze companion to ``wire_from_manifest(...,
     subscribe_immediately=False)``. It preserves the kernel invariant that
@@ -10359,19 +10365,20 @@ async def subscribe_wired_contract_topics(
         detail: str = "",
     ) -> None:
         """Report a contract this function will never attempt (OMN-17372)."""
-        if exclusions_out is None:
-            return
-        exclusions_out.append(
-            ModelContractAttachExclusion(
-                contract_name=contract_name,
-                reason=reason,
-                detail=detail,
+        if exclusions_out is not None:
+            exclusions_out.append(
+                ModelContractAttachExclusion(
+                    contract_name=contract_name,
+                    reason=reason,
+                    detail=detail,
+                )
             )
-        )
 
+    knobs = readiness_config or ModelTopicReadinessConfig()
     for result in _prioritize_subscription_results(
         report,
         result_appliers_by_contract,
+        knobs.priority_contracts,
     ):
         if result.outcome is not EnumWiringOutcome.WIRED:
             # OMN-17372: this was the one filter of the six that logged
@@ -10438,10 +10445,7 @@ async def subscribe_wired_contract_topics(
                 "plugin-managed contract '%s' (OMN-10864)",
                 contract.name,
             )
-            _exclude(
-                contract.name,
-                EnumContractAttachExclusionReason.PLUGIN_MANAGED,
-            )
+            _exclude(contract.name, EnumContractAttachExclusionReason.PLUGIN_MANAGED)
             continue
         # OMN-17562. The same withholding as the immediate seam, applied here
         # too because this path re-derives eligibility from the wiring REPORT
@@ -10467,7 +10471,6 @@ async def subscribe_wired_contract_topics(
             continue
         eligible.append((result, contract))
 
-    knobs = readiness_config or ModelTopicReadinessConfig()
     # Bounded parallelism across contracts; each contract keeps its own
     # provision->ready->attach order (§3.9).
     semaphore = asyncio.Semaphore(knobs.max_concurrent_contract_attach)
@@ -10475,6 +10478,7 @@ async def subscribe_wired_contract_topics(
     async def _provision_ready_attach(
         result: ModelContractWiringResult,
         contract: ModelDiscoveredContract,
+        auto_offset_reset: str | None = None,
     ) -> ModelContractAttachResult:
         async with semaphore:
             return await _interleave_contract(
@@ -10491,10 +10495,34 @@ async def subscribe_wired_contract_topics(
                 readiness_config=knobs,
                 core_runtime_topics=core_runtime_topics,
                 core_runtime_owners=core_runtime_owners,
+                auto_offset_reset=auto_offset_reset,
             )
+
+    # OMN-21318: the lane's hot-load mode on_demand leaves a demand-deferred contract's
+    # topics to its first request; any other lane creates them at boot (OMN-23951).
+    scheduled = {c.name for _, c in eligible if lane_defers_topics_to_first_request()}
+    if demand_source is not None:
+        eligible = await _split_boot_set_by_demand(
+            eligible,
+            priority_contracts=knobs.priority_contracts,
+            demand_source=demand_source,
+            start=partial(_provision_ready_attach, auto_offset_reset="earliest"),
+            exclude=_exclude,
+            watch_stops_out=demand_watch_stops_out,
+        )
 
     attach_results = await asyncio.gather(
         *(_provision_ready_attach(result, contract) for result, contract in eligible)
+    )
+
+    # OMN-23951: the publish topics of every contract the interleave never reaches.
+    # A demand-deferred contract is scheduled, not unattached (OMN-23953): its
+    # topics are created when its first request starts it.
+    await provision_unattached_publish_topics(
+        manifest,
+        scheduled.union(r.contract_name for r in attach_results),
+        provisioner,
+        max_concurrent=knobs.max_concurrent_contract_attach,
     )
 
     if attach_results_out is not None:
@@ -10505,6 +10533,113 @@ async def subscribe_wired_contract_topics(
         if ar.status is EnumContractAttachStatus.ATTACHED:
             subscribed[ar.contract_name] = ar.topics_subscribed
     return subscribed
+
+
+async def _split_boot_set_by_demand(
+    eligible: list[tuple[ModelContractWiringResult, ModelDiscoveredContract]],
+    *,
+    demand_source: HandlerKafkaTopicDemandSource,
+    start: Callable[
+        [ModelContractWiringResult, ModelDiscoveredContract],
+        Awaitable[ModelContractAttachResult],
+    ],
+    exclude: Callable[[str, EnumContractAttachExclusionReason, str], None],
+    watch_stops_out: list[Callable[[], Awaitable[None]]] | None,
+    priority_contracts: Sequence[str] = (),
+) -> list[tuple[ModelContractWiringResult, ModelDiscoveredContract]]:
+    """Boot priority contracts and contracts whose topics hold retained records.
+
+    The rest are watched by one group-less reader, which costs
+    no group join, and each is attached by *start* when a record first reaches
+    one of its topics. Each start runs as its own task, so a slow join never
+    holds up the watch, and a start that does not attach is retried with the
+    unattached-contract reconciliation's bounded backoff.
+    """
+    # Clients can require a live first hop before publishing. Priority consumers
+    # therefore take the normal provision->ready->attach path without waiting
+    # for demand, and only nonpriority contracts need a first-record watch.
+    topics_of = {
+        contract.name: tuple(contract.event_bus.subscribe_topics)
+        if contract.event_bus is not None
+        else ()
+        for _, contract in eligible
+        if contract.name not in priority_contracts
+    }
+    all_topics = {topic for topics in topics_of.values() for topic in topics}
+    deferred_by_topic: dict[
+        str, list[tuple[ModelContractWiringResult, ModelDiscoveredContract]]
+    ] = {}
+    started: set[str] = set()
+    start_tasks: set[asyncio.Task[None]] = set()
+
+    async def start_until_attached(
+        topic: str,
+        result: ModelContractWiringResult,
+        contract: ModelDiscoveredContract,
+    ) -> None:
+        for attempt in range(1, TIMEOUTS.not_ready_retry_max_attempts + 1):
+            outcome = await start(result, contract)
+            if outcome.status is EnumContractAttachStatus.ATTACHED:
+                logger.info(
+                    "Demand start: contract '%s' attached on its first request "
+                    "(topic=%s, topics=%s, attempt=%d) (OMN-18087)",
+                    contract.name,
+                    topic,
+                    list(outcome.topics_subscribed),
+                    attempt,
+                )
+                return
+            logger.warning(
+                "Demand start: contract '%s' did not attach on its first request "
+                "(topic=%s, status=%s, detail=%s, attempt=%d of %d) (OMN-18087)",
+                contract.name,
+                topic,
+                outcome.status.value,
+                outcome.detail,
+                attempt,
+                TIMEOUTS.not_ready_retry_max_attempts,
+            )
+            await asyncio.sleep(DEFAULT_NOT_READY_RETRY_BACKOFF_SECONDS)
+
+    async def on_first_record(topic: str) -> None:
+        for result, contract in deferred_by_topic.get(topic, ()):
+            if contract.name in started:
+                continue
+            started.add(contract.name)
+            task = asyncio.create_task(
+                start_until_attached(topic, result, contract),
+                name=f"demand-start-{contract.name}",
+            )
+            start_tasks.add(task)
+            task.add_done_callback(start_tasks.discard)
+
+    in_use, stop = await demand_source.watch_idle_topics(all_topics, on_first_record)
+    if watch_stops_out is not None:
+        watch_stops_out.append(stop)
+    boot: list[tuple[ModelContractWiringResult, ModelDiscoveredContract]] = []
+    for result, contract in eligible:
+        topics = topics_of.get(contract.name, ())
+        if contract.name in priority_contracts or in_use.intersection(topics):
+            boot.append((result, contract))
+            continue
+        for topic in topics:
+            deferred_by_topic.setdefault(topic, []).append((result, contract))
+        exclude(
+            contract.name,
+            EnumContractAttachExclusionReason.DEMAND_DEFERRED,
+            f"idle_topics={list(topics)}",
+        )
+    logger.info(
+        "Boot subscription split: %d priority or in-use contract(s) attach at boot, %d "
+        "start on their first request; %d of %d topic(s) are in use (hold a "
+        "record, or cannot be read here); watched_topics=%s (OMN-18087)",
+        len(boot),
+        len(eligible) - len(boot),
+        len(in_use),
+        len(all_topics),
+        sorted(deferred_by_topic),
+    )
+    return boot
 
 
 async def _interleave_contract(
@@ -10520,6 +10655,7 @@ async def _interleave_contract(
     readiness_config: ModelTopicReadinessConfig,
     core_runtime_topics: frozenset[str] = frozenset(),
     core_runtime_owners: Mapping[str, str] | None = None,
+    auto_offset_reset: str | None = None,
 ) -> ModelContractAttachResult:
     """Provision -> confirm-ready -> attach for ONE contract (§3.2, OMN-13237).
 
@@ -10536,24 +10672,9 @@ async def _interleave_contract(
     readiness: ModelTopicSetReadiness | None = None
     if provisioner is not None and provision_topics:
         # (1) Provision the contract's topics (idempotent), in declared order.
-        for topic in provision_topics:
-            try:
-                await provisioner.ensure_topic_exists(topic_name=topic)
-            except TopicReplicationPolicyError:
-                # OMN-15395: a durability-policy violation is fail-closed and
-                # must escape this best-effort boundary. Attaching a consumer to
-                # a contract whose topics were silently skipped because one of
-                # them declares RF1 on MSK is the exact outcome the policy
-                # exists to prevent.
-                raise
-            except Exception:  # noqa: BLE001 — boundary: per-contract, never fatal
-                logger.warning(
-                    "Topic provisioning failed for contract '%s' topic '%s' "
-                    "(non-fatal, contract will be NOT-READY)",
-                    name,
-                    topic,
-                    exc_info=True,
-                )
+        # OMN-15395: a durability-policy violation is fail-closed and escapes;
+        # any other failure leaves the contract NOT-READY at the confirm below.
+        await ensure_topics_exist(provisioner, provision_topics, contract_name=name)
         # (2) Confirm broker metadata converged before attaching the consumer.
         try:
             readiness = await provisioner.confirm_topics_ready(
@@ -10617,6 +10738,7 @@ async def _interleave_contract(
             allowed_dispatcher_ids=dispatcher_scope,
             core_runtime_topics=core_runtime_topics,
             core_runtime_owners=core_runtime_owners,
+            auto_offset_reset=auto_offset_reset,
         )
     except Exception as exc:  # noqa: BLE001 — boundary: per-contract, never fatal
         logger.warning(
@@ -10645,7 +10767,6 @@ async def _interleave_contract(
 # Bounded background NOT_READY reconciliation (OMN-15215, OMN-13237 follow-up).
 DEFAULT_NOT_READY_RETRY_INITIAL_DELAY_SECONDS: float = 30.0
 DEFAULT_NOT_READY_RETRY_BACKOFF_SECONDS: float = 30.0
-DEFAULT_NOT_READY_RETRY_MAX_ATTEMPTS: int = 5
 
 
 async def reattach_not_ready_contracts(
@@ -10664,58 +10785,15 @@ async def reattach_not_ready_contracts(
 ) -> tuple[dict[str, tuple[str, ...]], tuple[ModelContractAttachResult, ...]]:
     """Re-attempt provision -> confirm-ready -> attach for UNATTACHED contracts.
 
-    OMN-15215 (CONFIRMED root cause): ``subscribe_wired_contract_topics`` makes
-    exactly ONE provision->confirm->attach attempt per contract via
-    ``_interleave_contract``. A contract whose topic metadata has not converged
-    within the bounded readiness poll (``ModelTopicReadinessConfig``, 30s/60
-    attempts by default) is recorded NOT_READY and its consumer attach is
-    skipped — PERMANENTLY, for the rest of the process lifetime, because
-    nothing ever calls ``_interleave_contract`` for it again. For a
-    wide-topic-count contract (e.g. ``node_ledger_projection_compute``'s 26
-    topics, OMN-15006/OMN-15168) a transient cold-broker topic-creation race on
-    a handful of just-provisioned topics starves the ENTIRE contract's
-    consumer: since ``_subscribe_contract_topics`` subscribes a contract's
-    topics as one all-or-nothing unit, zero of its 26 topics ever get a Kafka
-    consumer group — not even the ones unrelated to the race. Live evidence
-    (fresh stability-test boot, 2026-07-27): ``NOT-READY: topic metadata did
-    not converge (status=not_ready failures=[4 OCC governance topics])``
-    logged exactly once at boot, followed by a ZERO count of "Auto-wired
-    subscription ... node=node_ledger_projection_compute" log lines across the
-    container's entire observed lifetime (3 separate contract-discovery
-    passes, ~11 minutes) — the OMN-13237 "runtime stays live" framing implies
-    eventual recoverability that was never actually implemented.
+    A cold broker can leave contracts NOT_READY when topic metadata has not
+    converged; even after readiness succeeds, a transient group-join failure
+    can leave them FAILED. Both outcomes need another idempotent interleave
+    instead of remaining unattached until restart (OMN-15215, OMN-18110).
+    Admission uses ModelContractAttachResult.needs_reattach.
 
-    This is NOT the ``handler_routing_loader`` "Unknown routing_strategy
-    'topic_match'" fallback warning (that code path is a separate, informational
-    ``RuntimeContractConfigLoader`` boot-summary pass — its output is never
-    consumed by ``auto_wiring``'s wire/attach decision, confirmed by a real,
-    unmocked repro: the current ``discovery.py`` + ``handler_wiring.py`` path
-    already wires and attaches 26/26 topic_match entries for
-    ``node_ledger_projection_compute`` via the topic-folded dispatcher-ID
-    derivation from OMN-14580/OMN-13825). Fixing the loader's
-    ``VALID_ROUTING_STRATEGIES`` alone would NOT have unblocked OMN-15169 —
-    only closing this NOT_READY-has-no-retry gap does.
-
-    OMN-18110 widened the input from NOT_READY to every contract that did not
-    attach. ``_interleave_contract`` records a second non-attached outcome —
-    FAILED, meaning readiness PASSED and the consumer attach itself raised —
-    and nothing retried it, so one transient Kafka group-join timeout stranded
-    a contract for the rest of the process. Live on the ``.201`` dev lane,
-    boot 2026-09-10T00:03:45Z: four contracts (``node_omnigate_projection``
-    among them) each recorded ``status=failed detail=InfraTimeoutError`` over a
-    ``readiness.status=ready`` with an empty failure set, while the eleven
-    preceding boots of the same image attached all 215. The runtime then held
-    ``projection_attachment`` DEGRADED with no path back short of a restart.
-    Both outcomes are re-attemptable by this same idempotent interleave, and
-    the admission predicate is now the shared
-    ``ModelContractAttachResult.needs_reattach``.
-
-    Re-runs the SAME provision->confirm->attach interleave
-    (``_interleave_contract``) for each contract still unattached, returning
-    newly-attached topics and updated per-contract results. Callers invoke
-    this repeatedly (bounded, with backoff — see
-    ``run_not_ready_reconciliation_loop``) until every contract attaches or a
-    bounded retry budget is exhausted.
+    Return newly attached topics and updated per-contract results. The caller's
+    run_not_ready_reconciliation_loop supplies bounded backoff and reads its
+    default attempt limit from operational_timeouts.yaml.
     """
     pending_results = _validate_unattached_contract_identities(
         manifest,
@@ -10789,7 +10867,7 @@ async def run_not_ready_reconciliation_loop(
     core_runtime_owners: Mapping[str, str] | None = None,
     initial_delay_seconds: float = DEFAULT_NOT_READY_RETRY_INITIAL_DELAY_SECONDS,
     backoff_seconds: float = DEFAULT_NOT_READY_RETRY_BACKOFF_SECONDS,
-    max_attempts: int = DEFAULT_NOT_READY_RETRY_MAX_ATTEMPTS,
+    max_attempts: int = TIMEOUTS.not_ready_retry_max_attempts,
     on_attempt: Callable[
         [dict[str, tuple[str, ...]], tuple[ModelContractAttachResult, ...]], None
     ]
@@ -10917,25 +10995,23 @@ def _prioritize_subscription_results(
     report: ModelAutoWiringReport,
     result_appliers_by_contract: Mapping[str, ProtocolDispatchResultApplier]
     | None = None,
+    priority_contracts: Sequence[str] = (),
 ) -> tuple[ModelContractWiringResult, ...]:
-    """Return wired results with explicitly-applied contracts first.
+    """Return wired results in subscription order.
 
-    Contract-specific result appliers represent durable side effects such as
-    projection writes. Subscribing them before the generic backlog avoids
-    missing readiness-critical events during long Kafka group-join startup.
+    *priority_contracts* (runtime policy contract, OMN-18087) come first, in
+    order, then contracts with a result applier (durable side effects such as
+    projection writes, subscribed before the generic backlog so readiness-critical
+    events are not missed). The sort is stable within each rank.
     """
-    if not result_appliers_by_contract:
-        return tuple(report.results)
-
-    priority_contracts = frozenset(result_appliers_by_contract)
-    indexed_results = tuple(enumerate(report.results))
+    rank = {name: index for index, name in enumerate(priority_contracts)}
+    appliers = frozenset(result_appliers_by_contract or ())
     return tuple(
-        result
-        for _, result in sorted(
-            indexed_results,
-            key=lambda item: (
-                0 if item[1].contract_name in priority_contracts else 1,
-                item[0],
+        sorted(
+            report.results,
+            key=lambda r: (
+                rank.get(r.contract_name, len(rank)),
+                r.contract_name not in appliers,
             ),
         )
     )
@@ -11324,8 +11400,14 @@ async def _subscribe_contract_topics(
     allowed_dispatcher_ids: Collection[str] | None = None,
     core_runtime_topics: frozenset[str] = frozenset(),
     core_runtime_owners: Mapping[str, str] | None = None,
+    auto_offset_reset: str | None = None,
 ) -> list[str]:
     """Subscribe all declared event-bus topics for a wired contract.
+
+    OMN-18087: ``auto_offset_reset`` overrides the bus default for these
+    groups. A contract joined on its first request passes ``"earliest"``: the
+    request that started it is already on the topic, and a new group reading
+    from the default ``latest`` would never see it.
 
     OMN-14758 (S6): topics in ``core_runtime_topics`` are owned by the ONE core
     ``RuntimeDispatch`` loop, not the legacy push path. The legacy callback is NOT
@@ -11351,7 +11433,13 @@ async def _subscribe_contract_topics(
     )
 
     from omnibase_infra.enums import EnumConsumerGroupPurpose
+    from omnibase_infra.handlers.handler_contract_subscribe_preflight import (
+        HandlerContractSubscribePreflight,
+    )
     from omnibase_infra.models import ModelNodeIdentity
+    from omnibase_infra.models.event_bus.model_contract_subscribe_preflight_request import (
+        ModelContractSubscribePreflightRequest,
+    )
     from omnibase_infra.runtime.event_bus_subcontract_wiring import (
         load_published_events_map,
     )
@@ -11360,9 +11448,7 @@ async def _subscribe_contract_topics(
     )
     from omnibase_infra.utils import compute_consumer_group_id
 
-    typed_bus: ProtocolEventBusSubscriber = cast(
-        "ProtocolEventBusSubscriber", event_bus
-    )
+    typed_bus = cast("ProtocolEventBusSubscriber", event_bus)
     effective_result_applier = result_applier
     output_topic = _select_dispatch_result_output_topic(contract)
     # This is the authoritative output-capability source: the same typed
@@ -11427,33 +11513,17 @@ async def _subscribe_contract_topics(
         node_identity, EnumConsumerGroupPurpose.CONSUME
     )
 
-    # OMN-18852: a node may declare how many consumed records its handler may
-    # have in flight at once. Absent -- which is every node in the fleet today
-    # -- resolves to 1, and 1 leaves the consume loop on the inline serial
-    # ``await`` it has always taken, so an undeclared node is unchanged.
-    #
-    # Declared BEFORE ``subscribe``, because ``subscribe`` is what starts the
-    # consume loop and the loop reads the bound once, when it starts.
-    #
-    # A malformed declaration raises out of ``load_consume_concurrency`` and
-    # fails wiring for this contract rather than degrading to 1: an operator
-    # who believes a bound is in force and is silently running serial is the
-    # position this ticket started from.
-    consume_concurrency = load_consume_concurrency(contract.contract_path)
-    concurrency_declarer: ProtocolConsumeConcurrencyDeclarer | None = None
-    if not consume_concurrency.is_serial:
-        if not isinstance(event_bus, ProtocolConsumeConcurrencyDeclarer):
-            raise TypeError(
-                f"contract '{contract.name}' declares consume_concurrency."
-                f"max_in_flight_records={consume_concurrency.max_in_flight_records}, "
-                f"but the wired event bus ({type(event_bus).__name__}) cannot "
-                "bound in-flight records. Implement "
-                "ProtocolConsumeConcurrencyDeclarer.declare_consume_concurrency "
-                "on the bus and record the declared bound before subscribing. "
-                "A declared bound that silently does "
-                "nothing is the defect OMN-18852 exists to remove"
-            )
-        concurrency_declarer = event_bus
+    # OMN-18852 consume_concurrency and OMN-21753 consumer_group_handover: read
+    # both declarations and refuse a bus that cannot honour either, before any
+    # topic of this contract is subscribed. See the handler's module docstring.
+    preflight = HandlerContractSubscribePreflight.from_contract(
+        contract,
+        concurrency=load_consume_concurrency(contract.contract_path),
+        environ=os.environ,
+        event_bus=event_bus,
+        environment=environment,
+        consumer_group=consumer_group,
+    )
 
     # Build callbacks for all topics first (synchronous, no I/O).
     topic_callbacks: list[tuple[str, Callable[..., Awaitable[None]]]] = []
@@ -11555,30 +11625,31 @@ async def _subscribe_contract_topics(
         topic: str,
         cb: Callable[..., Awaitable[None]],
     ) -> str:
-        # OMN-18852: strictly before ``subscribe``, which starts the consume
-        # loop that reads this bound once at start. Scoped to the topics this
-        # contract actually subscribes to, so a topic skipped as core-runtime
-        # owned never carries a bound nothing reads.
-        if concurrency_declarer is not None:
-            concurrency_declarer.declare_consume_concurrency(
+        # Strictly before ``subscribe``, which starts the consume loop (reads
+        # the bound once) and joins the group (reads its offsets once).
+        await preflight.handle(ModelContractSubscribePreflightRequest(topic=topic))
+        if auto_offset_reset is None:
+            await typed_bus.subscribe(
                 topic=topic,
-                group_id=consumer_group,
-                max_in_flight_records=consume_concurrency.max_in_flight_records,
+                node_identity=node_identity,
+                on_message=cb,
             )
-            logger.info(
-                "Auto-wired consume concurrency: topic=%s consumer_group=%s "
-                "node=%s max_in_flight_records=%d -- this topic no longer "
-                "preserves global partition ordering (OMN-18852)",
-                topic,
-                consumer_group,
-                contract.name,
-                consume_concurrency.max_in_flight_records,
+        else:
+            from omnibase_infra.event_bus.event_bus_kafka import EventBusKafka
+            from omnibase_infra.event_bus.models import ModelEventMessage
+
+            if not isinstance(event_bus, EventBusKafka):
+                raise TypeError(
+                    f"contract '{contract.name}' needs auto_offset_reset="
+                    f"{auto_offset_reset!r} for a demand start, which only the "
+                    f"Kafka bus supports, not {type(event_bus).__name__} (OMN-18087)"
+                )
+            await event_bus.subscribe(
+                topic=topic,
+                node_identity=node_identity,
+                on_message=cast("Callable[[ModelEventMessage], Awaitable[None]]", cb),
+                auto_offset_reset=auto_offset_reset,
             )
-        await typed_bus.subscribe(
-            topic=topic,
-            node_identity=node_identity,
-            on_message=cb,
-        )
         logger.info(
             "Auto-wired subscription: topic=%s consumer_group=%s node=%s",
             topic,

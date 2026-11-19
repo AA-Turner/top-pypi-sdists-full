@@ -72,6 +72,7 @@ ListAccountActivitiesPaginatorName = Literal["list_account_activities"]
 MatchOptionType = Literal["CONTAINS", "ENDS_WITH", "EQUALS", "GREATER_THAN_OR_EQUAL", "STARTS_WITH"]
 FreeTierServiceName = Literal["freetier"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

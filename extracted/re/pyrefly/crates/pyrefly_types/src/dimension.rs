@@ -15,11 +15,17 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Display;
 
+use pyrefly_derive::TypeOrd;
+use pyrefly_util::display::DisplayWith;
+use pyrefly_util::display::DisplayWithCtx;
+
+use crate::env::TypeEnv;
 use crate::equality::TypeEq;
+use crate::known_class::KnownClass;
 use crate::literal::Lit;
 use crate::quantified::QuantifiedKind;
+use crate::quantified::TypeVarLike;
 use crate::type_level_dsl::TypeShapeDslDomain;
 use crate::type_var::Restriction;
 use crate::types::AnyStyle;
@@ -30,7 +36,7 @@ use crate::types::Type;
 /// Dimensions can be:
 /// - Concrete literals: 2 and 3 in `Tensor[2, 3]`
 /// - Symbolic expressions: N, N+1, N*M in `Tensor[N, N+1]`, `Tensor[N*M]`
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, TypeOrd)]
 pub enum Int {
     /// A concrete integer leaf: the `2` and `3` in `Tensor[2, 3]`, but also any
     /// integer appearing inside a larger expression (e.g. canonicalization
@@ -396,9 +402,9 @@ const UNARY_PREC: u8 = 3;
 const POW_PREC: u8 = 4;
 const ATOM_PREC: u8 = 5;
 
-impl Display for Int {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_prec(f, 0)
+impl<'e> DisplayWith<dyn TypeEnv + 'e> for Int {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, env: &(dyn TypeEnv + 'e)) -> fmt::Result {
+        self.fmt_prec(f, 0, env)
     }
 }
 
@@ -445,57 +451,59 @@ impl Int {
     /// Render with the minimum parentheses Python precedence requires: wrap
     /// this expression only when its level is below `min_prec`, and render
     /// each operand with the minimum its side of the operator requires.
-    fn fmt_prec(&self, f: &mut fmt::Formatter<'_>, min_prec: u8) -> fmt::Result {
-        // `Display` renders this same expression without outer parentheses.
+    fn fmt_prec(&self, f: &mut fmt::Formatter<'_>, min_prec: u8, env: &dyn TypeEnv) -> fmt::Result {
+        // Top-level rendering is this same expression without outer parentheses.
         if self.prec() < min_prec {
-            return write!(f, "({})", self);
+            return write!(f, "({})", self.display_with(env));
         }
         match self {
             Self::Literal(n) => write!(f, "{}", n),
             Self::Int => write!(f, "int"),
-            Self::Symbolic(ty) => write!(f, "{}", ty),
-            Self::Abs(value) => write!(f, "abs({})", value),
+            Self::Symbolic(ty) => write!(f, "{}", ty.display_with(env)),
+            Self::Abs(value) => write!(f, "abs({})", value.display_with(env)),
             Self::Add(left, right) => {
                 if let Int::Literal(n) = right.as_ref()
                     && *n < 0
                 {
                     // Render the magnitude directly so i64::MIN stays
                     // representable.
-                    left.fmt_prec(f, ADD_PREC)?;
+                    left.fmt_prec(f, ADD_PREC, env)?;
                     write!(f, " - {}", n.unsigned_abs())
                 } else if let Some(positive) = positive_counterpart(right)
                     && positive.prec() != UNARY_PREC
                 {
-                    left.fmt_prec(f, ADD_PREC)?;
+                    left.fmt_prec(f, ADD_PREC, env)?;
                     write!(f, " - ")?;
-                    positive.fmt_prec(f, MUL_PREC)
+                    positive.fmt_prec(f, MUL_PREC, env)
                 } else {
-                    Self::fmt_binary(f, left, "+", right, ADD_PREC, MUL_PREC)
+                    Self::fmt_binary(f, left, "+", right, ADD_PREC, MUL_PREC, env)
                 }
             }
-            Self::Sub(left, right) => Self::fmt_binary(f, left, "-", right, ADD_PREC, MUL_PREC),
+            Self::Sub(left, right) => {
+                Self::fmt_binary(f, left, "-", right, ADD_PREC, MUL_PREC, env)
+            }
             Self::Mul(left, right) => {
                 // Simplify display: (1 * x) -> x, (x * 1) -> x, (-1 * x) -> -x.
                 // Keep in sync with `prec`.
                 match (left.as_ref(), right.as_ref()) {
-                    (Int::Literal(1), _) => right.fmt_prec(f, min_prec),
-                    (_, Int::Literal(1)) => left.fmt_prec(f, min_prec),
+                    (Int::Literal(1), _) => right.fmt_prec(f, min_prec, env),
+                    (_, Int::Literal(1)) => left.fmt_prec(f, min_prec, env),
                     (Int::Literal(-1), operand) | (operand, Int::Literal(-1))
                         if operand.prec() != UNARY_PREC =>
                     {
                         write!(f, "-")?;
-                        operand.fmt_prec(f, UNARY_PREC)
+                        operand.fmt_prec(f, UNARY_PREC, env)
                     }
-                    _ => Self::fmt_binary(f, left, "*", right, MUL_PREC, UNARY_PREC),
+                    _ => Self::fmt_binary(f, left, "*", right, MUL_PREC, UNARY_PREC, env),
                 }
             }
             Self::FloorDiv(left, right) => {
                 // Simplify display: (x // 1) -> x.
                 // Keep in sync with `prec`.
                 if matches!(right.as_ref(), Int::Literal(1)) {
-                    left.fmt_prec(f, min_prec)
+                    left.fmt_prec(f, min_prec, env)
                 } else {
-                    Self::fmt_binary(f, left, "//", right, MUL_PREC, UNARY_PREC)
+                    Self::fmt_binary(f, left, "//", right, MUL_PREC, UNARY_PREC, env)
                 }
             }
             // The base requires an atom: anything lower (including another
@@ -503,7 +511,9 @@ impl Int {
             // with a leading `-`, since `-N ** 2` re-parses as `-(N ** 2)`)
             // parenthesizes. The exponent admits a unary minus, matching
             // CPython's `ast.unparse` (`2 ** -x` re-parses as `2 ** (-x)`).
-            Self::Pow(left, right) => Self::fmt_binary(f, left, "**", right, ATOM_PREC, UNARY_PREC),
+            Self::Pow(left, right) => {
+                Self::fmt_binary(f, left, "**", right, ATOM_PREC, UNARY_PREC, env)
+            }
         }
     }
 
@@ -516,10 +526,11 @@ impl Int {
         right: &Int,
         left_min: u8,
         right_min: u8,
+        env: &dyn TypeEnv,
     ) -> fmt::Result {
-        left.fmt_prec(f, left_min)?;
+        left.fmt_prec(f, left_min, env)?;
         write!(f, " {op} ")?;
-        right.fmt_prec(f, right_min)
+        right.fmt_prec(f, right_min, env)
     }
 }
 
@@ -600,7 +611,7 @@ fn int_is_gradual(dim: &Int) -> bool {
 /// `canonicalize` short-circuits gradual (`Any`) and nested `Size` leaves.
 fn symbolic_is_gradual(ty: &Type) -> bool {
     match ty {
-        Type::ClassType(cls) if cls.is_builtin("int") => true,
+        Type::ClassType(cls) if cls.is(KnownClass::Int) => true,
         _ => type_is_gradual_fast(ty),
     }
 }
@@ -637,7 +648,7 @@ fn canonicalize_symbolic(ty: Type) -> DimensionResult<Type> {
             Ok(n.map(|n| Type::Int(Int::Literal(n)))
                 .unwrap_or_else(|| Type::Int(Int::Symbolic(Box::new(Type::Literal(lit))))))
         }
-        Type::ClassType(cls) if cls.is_builtin("int") => Ok(gradual_size()),
+        Type::ClassType(cls) if cls.is(KnownClass::Int) => Ok(gradual_size()),
         other => Ok(Type::Int(Int::Symbolic(Box::new(other)))),
     }
 }
@@ -1497,7 +1508,7 @@ pub enum ShapeError {
 
     /// General shape computation error from a meta-shape function or broadcasting.
     /// The message is self-contained (no "Invalid dimension value N:" prefix).
-    ShapeComputation { message: String },
+    ShapeComputation { message: ShapeMessage },
 
     /// Structural mismatch between dimension types
     StructuralMismatch {
@@ -1520,15 +1531,70 @@ pub enum ShapeError {
 
     /// An indexing failure produced while evaluating the `index_shape` intrinsic.
     /// The solving layer reports this with the ordinary `BadIndex` diagnostic category.
-    BadIndex { message: String },
+    BadIndex { message: ShapeMessage },
 
     /// Operation not supported on variadic shapes.
     /// Triggers fixture fallback instead of a user-visible error.
     Unsupported { message: String },
 }
 
-impl Display for ShapeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+/// The text of a shape error. The dimensions and types in it are rendered by the code that reports
+/// the error, which has a `TypeEnv`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct ShapeMessage(Vec<ShapeMessagePart>);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum ShapeMessagePart {
+    Text(String),
+    Dim(Int),
+    Type(Type),
+    Error(Box<ShapeError>),
+}
+
+impl ShapeMessage {
+    pub fn text(mut self, text: impl Into<String>) -> Self {
+        self.0.push(ShapeMessagePart::Text(text.into()));
+        self
+    }
+
+    pub fn dim(mut self, dim: Int) -> Self {
+        self.0.push(ShapeMessagePart::Dim(dim));
+        self
+    }
+
+    pub fn ty(mut self, ty: Type) -> Self {
+        self.0.push(ShapeMessagePart::Type(ty));
+        self
+    }
+
+    pub fn error(mut self, error: ShapeError) -> Self {
+        self.0.push(ShapeMessagePart::Error(Box::new(error)));
+        self
+    }
+}
+
+impl From<String> for ShapeMessage {
+    fn from(text: String) -> Self {
+        Self::default().text(text)
+    }
+}
+
+impl<'e> DisplayWith<dyn TypeEnv + 'e> for ShapeMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, env: &(dyn TypeEnv + 'e)) -> fmt::Result {
+        for part in &self.0 {
+            match part {
+                ShapeMessagePart::Text(text) => f.write_str(text)?,
+                ShapeMessagePart::Dim(dim) => DisplayWith::fmt(dim, f, env)?,
+                ShapeMessagePart::Type(ty) => DisplayWith::fmt(ty, f, env)?,
+                ShapeMessagePart::Error(error) => DisplayWith::fmt(&**error, f, env)?,
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'e> DisplayWith<dyn TypeEnv + 'e> for ShapeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, env: &(dyn TypeEnv + 'e)) -> fmt::Result {
         match self {
             Self::RankMismatch { got, want } => {
                 write!(
@@ -1540,9 +1606,7 @@ impl Display for ShapeError {
             Self::InvalidDimension { value, reason } => {
                 write!(f, "Invalid dimension value {}: {}", value, reason)
             }
-            Self::ShapeComputation { message } => {
-                write!(f, "{}", message)
-            }
+            Self::ShapeComputation { message } => DisplayWith::fmt(message, f, env),
             Self::StructuralMismatch {
                 got: _,
                 got_canonical,
@@ -1568,7 +1632,7 @@ impl Display for ShapeError {
                     got, max
                 )
             }
-            Self::BadIndex { message } => f.write_str(message),
+            Self::BadIndex { message } => DisplayWith::fmt(message, f, env),
             Self::Unsupported { message } => {
                 write!(f, "Unsupported: {}", message)
             }
@@ -1662,8 +1726,10 @@ mod tests {
     use crate::literal::Literal;
     use crate::quantified::AnchorIndex;
     use crate::quantified::Quantified;
+    use crate::quantified::QuantifiedAnchor;
     use crate::quantified::QuantifiedIdentity;
     use crate::quantified::QuantifiedOrigin;
+    use crate::test_type_env::TestTypeEnv;
     use crate::type_var::PreInferenceVariance;
     use crate::type_var::TypeVar;
     use crate::types::AnyStyle;
@@ -1721,6 +1787,7 @@ mod tests {
 
     #[test]
     fn display_preserves_precedence_after_identity_elision() {
+        let env = TestTypeEnv::new();
         let add = || Int::Add(Box::new(Int::Literal(2)), Box::new(Int::Literal(3)));
         let expressions = [
             Int::Mul(Box::new(Int::Literal(1)), Box::new(add())),
@@ -1729,7 +1796,7 @@ mod tests {
         ];
 
         for expression in expressions {
-            assert_eq!(expression.to_string(), "2 + 3");
+            assert_eq!(expression.display_with(&env).to_string(), "2 + 3");
         }
     }
 
@@ -1737,7 +1804,7 @@ mod tests {
         Type::Quantified(Box::new(Quantified::new(
             QuantifiedIdentity::new(
                 ModuleName::from_str("__test__"),
-                AnchorIndex::first(TextRange::default()),
+                AnchorIndex::first(QuantifiedAnchor::None),
                 QuantifiedOrigin::Pep695,
             ),
             Name::new_static("N"),
@@ -1873,12 +1940,13 @@ mod tests {
         use crate::display::tests::fake_class;
         use crate::types::TArgs;
 
+        let env = TestTypeEnv::new();
         let int_class = Type::ClassType(ClassType::new(
-            fake_class("int", "builtins", 0),
+            fake_class(&env, "int", "builtins", 0),
             TArgs::default(),
         ));
         let str_class = Type::ClassType(ClassType::new(
-            fake_class("str", "builtins", 0),
+            fake_class(&env, "str", "builtins", 0),
             TArgs::default(),
         ));
 
@@ -2301,15 +2369,16 @@ mod tests {
         use crate::display::tests::fake_class;
         use crate::types::TArgs;
 
+        let env = TestTypeEnv::new();
         let uniques = UniqueFactory::new();
         let n = Type::Var(Var::new(&uniques));
         let m = Type::Var(Var::new(&uniques));
         let exotic_c = Type::ClassType(ClassType::new(
-            fake_class("C", "testmod", 0),
+            fake_class(&env, "C", "testmod", 0),
             TArgs::default(),
         ));
         let exotic_d = Type::ClassType(ClassType::new(
-            fake_class("D", "testmod", 1),
+            fake_class(&env, "D", "testmod", 1),
             TArgs::default(),
         ));
         let corpus = vec![
@@ -2376,12 +2445,14 @@ mod tests {
         use crate::display::tests::fake_class;
         use crate::types::TArgs;
 
+        let env = TestTypeEnv::new();
+
         let int_class = Type::ClassType(ClassType::new(
-            fake_class("int", "builtins", 0),
+            fake_class(&env, "int", "builtins", 0),
             TArgs::default(),
         ));
         let str_class = Type::ClassType(ClassType::new(
-            fake_class("str", "builtins", 0),
+            fake_class(&env, "str", "builtins", 0),
             TArgs::default(),
         ));
         // Distinct exotic leaves compare non-Equal, deterministically.

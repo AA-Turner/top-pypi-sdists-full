@@ -221,6 +221,7 @@ UpdateTypeType = Literal["DOMAIN_VALIDATION_METHOD"]
 ValidationMethodType = Literal["DNS", "EMAIL", "HTTP"]
 ACMServiceName = Literal["acm"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

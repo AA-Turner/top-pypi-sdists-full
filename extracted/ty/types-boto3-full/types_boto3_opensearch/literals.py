@@ -416,6 +416,7 @@ VpcEndpointStatusType = Literal[
 ZoneStatusType = Literal["Active", "NotAvailable", "StandBy"]
 OpenSearchServiceServiceName = Literal["opensearch"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

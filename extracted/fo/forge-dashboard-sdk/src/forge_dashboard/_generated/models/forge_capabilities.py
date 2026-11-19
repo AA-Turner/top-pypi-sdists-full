@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from typing import cast
 
 
 
@@ -45,9 +46,19 @@ class ForgeCapabilities:
             status_page_url (str): The forge's public status page, or an empty string when it has none.
             rate_limit_model (str): How the forge budgets requests. Open-ended; today `graphql_and_rest` (two separate
                 allowances) and `rest`.
+            rate_limit_docs_url (str): The forge's published rules for its request budget, or an empty string when it has
+                none. A client links to it from the rate limit explanation and shows no link when it is empty.
             issue_ref_syntax (str): The forms the forge's text uses to reference an issue. Open-ended; today
                 `hash_or_gh_prefix` (a hash sign or a `GH-` prefix before the number) and `hash` (the hash sign only).
             label (str): The forge's name as a person reads it, such as `GitHub`.
+            image_hosts (list[str]): The fixed public hosts an image embedded in the forge's text may come from, each
+                matched by its exact name, over https on the default port. Empty means the forge's own saved instance. See `GET
+                /api/v1/images`.
+            avatar_hosts (list[str]): Further fixed hosts that only avatars and repository logos load from. Empty when they
+                live on the forge's own instance.
+            signed_attachment_prefix (str): The address prefix of an attachment the forge serves only at a signed link found
+                in the item's rendered body, such as `https://github.com/user-attachments/`. Empty when the forge has no such
+                links. Passing `fullName` with the item then lets the server find the signed link.
      """
 
     auto_merge_held_by_app: bool
@@ -61,8 +72,12 @@ class ForgeCapabilities:
     reports_repo_permissions: bool
     status_page_url: str
     rate_limit_model: str
+    rate_limit_docs_url: str
     issue_ref_syntax: str
     label: str
+    image_hosts: list[str]
+    avatar_hosts: list[str]
+    signed_attachment_prefix: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -92,9 +107,21 @@ class ForgeCapabilities:
 
         rate_limit_model = self.rate_limit_model
 
+        rate_limit_docs_url = self.rate_limit_docs_url
+
         issue_ref_syntax = self.issue_ref_syntax
 
         label = self.label
+
+        image_hosts = self.image_hosts
+
+
+
+        avatar_hosts = self.avatar_hosts
+
+
+
+        signed_attachment_prefix = self.signed_attachment_prefix
 
 
         field_dict: dict[str, Any] = {}
@@ -111,8 +138,12 @@ class ForgeCapabilities:
             "reportsRepoPermissions": reports_repo_permissions,
             "statusPageUrl": status_page_url,
             "rateLimitModel": rate_limit_model,
+            "rateLimitDocsUrl": rate_limit_docs_url,
             "issueRefSyntax": issue_ref_syntax,
             "label": label,
+            "imageHosts": image_hosts,
+            "avatarHosts": avatar_hosts,
+            "signedAttachmentPrefix": signed_attachment_prefix,
         })
 
         return field_dict
@@ -144,9 +175,19 @@ class ForgeCapabilities:
 
         rate_limit_model = d.pop("rateLimitModel")
 
+        rate_limit_docs_url = d.pop("rateLimitDocsUrl")
+
         issue_ref_syntax = d.pop("issueRefSyntax")
 
         label = d.pop("label")
+
+        image_hosts = cast(list[str], d.pop("imageHosts"))
+
+
+        avatar_hosts = cast(list[str], d.pop("avatarHosts"))
+
+
+        signed_attachment_prefix = d.pop("signedAttachmentPrefix")
 
         forge_capabilities = cls(
             auto_merge_held_by_app=auto_merge_held_by_app,
@@ -160,8 +201,12 @@ class ForgeCapabilities:
             reports_repo_permissions=reports_repo_permissions,
             status_page_url=status_page_url,
             rate_limit_model=rate_limit_model,
+            rate_limit_docs_url=rate_limit_docs_url,
             issue_ref_syntax=issue_ref_syntax,
             label=label,
+            image_hosts=image_hosts,
+            avatar_hosts=avatar_hosts,
+            signed_attachment_prefix=signed_attachment_prefix,
         )
 
 

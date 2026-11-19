@@ -12,6 +12,7 @@ from skylos.reporting.architecture_result import attach_circular_and_architectur
 from skylos.reporting.dead_code_result import (
     dead_code_candidate_decisions,
     dead_code_evidence,
+    dead_code_search_facts,
     definition_context,
     whitelisted_definitions,
 )
@@ -101,17 +102,23 @@ def build_analysis_result(
         BELOW_THRESHOLD_SHOW_WITH,
         calibrate_dead_code_confidence,
         experimental_hidden_counts,
+        mark_direct_call_parameters,
     )
 
+    mark_direct_call_parameters(
+        analyzer.defs, getattr(analyzer, "_python_reachability_report", None)
+    )
     # Before the threshold and the evidence ledger read ``confidence``.
     calibrate_dead_code_confidence(
         analyzer.defs, getattr(analyzer, "_ts_demoted_exports", ())
     )
+    search = dead_code_search_facts(analyzer, path, files_searched=len(files or ()))
     ledger, evidence = dead_code_evidence(
         analyzer,
         path,
         pyproject_entrypoint_qnames,
         threshold=thr,
+        search=search,
     )
     unused, rescued, abstained = dead_code_candidate_decisions(
         analyzer,
@@ -119,6 +126,7 @@ def build_analysis_result(
         evidence,
         review_config=project_cfg,
         include_review_proofs=include_review_proofs,
+        search=search,
     )
     unused = _without_config_ignored_dead_code(unused, project_cfg)
     # Definitions in generated files (Django migrations) are already outside
@@ -160,7 +168,8 @@ def build_analysis_result(
     _attach_empty_files(result, empty_files)
     _enrich_danger(result, enable_danger)
     _bucket_unused_definitions(result, unused)
-    _attach_unused_ts_exports(result, unused_ts_exports)
+    result["unused_variables"].extend(getattr(analyzer, "_enum_member_findings", ()))
+    _attach_unused_ts_exports(result, unused_ts_exports, project_cfg)
     hidden_parameters = _hidden_parameter_count(analyzer, thr, evidence, project_cfg)
     if hidden_parameters:
         # Unused parameters are below the default threshold (callback and
@@ -575,7 +584,12 @@ def _bucket_unused_definitions(result, unused):
             result[bucket].append(item)
 
 
-def _attach_unused_ts_exports(result, unused_ts_exports):
+def _attach_unused_ts_exports(result, unused_ts_exports, project_cfg):
+    ignored = set((project_cfg or {}).get("ignore") or ())
+    if unused_ts_exports and ignored:
+        unused_ts_exports = [
+            item for item in unused_ts_exports if item.get("rule_id") not in ignored
+        ]
     if not unused_ts_exports:
         return
     result.setdefault("unused_exports", []).extend(unused_ts_exports)

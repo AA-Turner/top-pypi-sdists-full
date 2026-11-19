@@ -273,7 +273,7 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
     that batches, before a check has measured it: its batches answer within the `chunk_steps` its robots play between
     asking for an answer and needing it, at `hz`, as the policy declares them) - so they take ceil(robots / seats) workers, and while robots use it its
     `buffer_workers` spares run beside them, billed, and none outside those hours (the platform keeps spares only while
-    robots are connected, control/warm.py); never fewer than the warm floor, and `max_gpus` holds them to max_gpus //
+    robots are connected); never fewer than the warm floor, and `max_gpus` holds them to max_gpus //
     its cards - the robots past what that seats wait in line, up to QUEUE_WAIT_S, priced at the cap; after each use
     every worker that ran beside the warm floor runs its idle timeout. For one robot, what more robots take is said
     apart: every seats robots more add a worker at its price, up to what max_gpus allows.

@@ -34,6 +34,7 @@ AccountTypeType = Literal["management", "member"]
 NotificationSeverityLevelType = Literal["all", "high", "none"]
 SupportAppServiceName = Literal["support-app"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

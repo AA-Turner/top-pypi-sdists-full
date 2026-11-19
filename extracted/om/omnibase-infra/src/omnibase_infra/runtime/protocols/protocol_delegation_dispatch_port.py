@@ -6,8 +6,6 @@ Defines the structural interface that RuntimeDelegationDispatchPort conforms to,
 enabling handler_wiring to inject the dispatch port without a concrete dependency.
 """
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Protocol
 from uuid import UUID
@@ -16,11 +14,9 @@ from pydantic import BaseModel
 
 from omnibase_core.models.delegation.wire import ModelDelegationProvenance
 
-#: The execution budget a caller that passes neither argument resolves to
-#: (OMN-18924). The port and this protocol are pinned to one value by
-#: tests/unit/runtime/test_dispatch_port_budget_defaults_omn18924.py.
-DEFAULT_EXECUTION_TIMEOUT_SECONDS = 240
-DEFAULT_TERMINAL_DELIVERY_MARGIN_SECONDS = 60
+# OMN-18924: the budget arguments are optional, and OMN-21604: unset means the
+# task class's declared budget (the contract, or the site overlay that raises
+# it), resolved by the port from the task-class authority. No number lives here.
 
 
 class ProtocolDelegationDispatchPort(Protocol):
@@ -39,8 +35,8 @@ class ProtocolDelegationDispatchPort(Protocol):
         # and every dev-lane delegation terminalized `provider_error` on the
         # resulting TypeError. Exactly the shape the OMN-18321 comment below
         # records, one incident later.
-        execution_timeout_seconds: int = DEFAULT_EXECUTION_TIMEOUT_SECONDS,
-        terminal_delivery_margin_seconds: int = DEFAULT_TERMINAL_DELIVERY_MARGIN_SECONDS,
+        execution_timeout_seconds: int | None = None,
+        terminal_delivery_margin_seconds: int | None = None,
         quality_contract_mode: str,
         acceptance_criteria: tuple[str, ...],
         tenant_id: str | None = None,
@@ -102,6 +98,9 @@ class ProtocolDelegationDispatchPort(Protocol):
         # keeps working.
         trace_id: UUID | None = None,
         queue_wait_ms: int | None = None,
+        # OMN-23162: the consumer passes a synthetic probe's ladder only when
+        # the request carries one. Defaulted, per the note above.
+        probe_ladder: object | None = None,
     ) -> dict[str, object]: ...
 
 

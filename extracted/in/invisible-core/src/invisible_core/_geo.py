@@ -5,7 +5,7 @@ proxy* when one is set, otherwise a direct request that sees the host's own
 public IP - then map IP → IANA timezone with an offline mmdb
 (``daijro/geoip-all-in-one``, downloaded + cached by ``_geoip_db.py``).
 
-Precedence (see ``resolve_session_timezone``):
+Precedence (see ``prepare_session_geo``):
 
     explicit IANA   → unchanged   explicit always wins
     "" / "auto"     → egress      ALWAYS resolve. With a proxy, from the proxy
@@ -37,6 +37,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import requests
 
 from . import _udp_exit
+from ._geoip_db import ensure_geoip_mmdb
 from ._geoposition import DeclaredPosition, position_to_declare
 from ._locale import SessionLocale, _decide
 
@@ -72,8 +73,6 @@ _IPV6_ECHO_ENDPOINTS = (
     "https://ipv6.icanhazip.com",
 )
 _IPV6_PROBE_BUDGET = 6.0
-
-_SOCKS_SCHEMES = ("socks5://", "socks4://", "socks://")
 
 
 class _Attempt(NamedTuple):
@@ -846,8 +845,6 @@ def _egress_country(egress_ip: Optional[str], proxy: Optional[Dict[str, str]],
     launch - locale is cosmetic, unlike timezone which traps a foreign-proxy
     mismatch).
     """
-    from .download import ensure_geoip_mmdb
-
     try:
         # ⛔ WHAT THE CALLER ALREADY HAS IS REUSED: `prepare_session_geo` has
         # already paid this round trip and now carries the result even without a
@@ -989,8 +986,6 @@ def _geoip_database(ip: str, proxied: bool) -> Any:
     caller has already decided it with `_proxy_is_set`, and deciding it twice is
     the duplication that rule 16 names.
     """
-    from .download import ensure_geoip_mmdb
-
     try:
         return ensure_geoip_mmdb()
     except Exception as exc:  # noqa: BLE001
@@ -1009,8 +1004,7 @@ def prepare_session_geo(
 
     The egress IP is discovered once and reused for the timezone mapping (when
     ``timezone`` is ``""``/``"auto"``) and the
-    language. Timezone precedence is identical to
-    :func:`resolve_session_timezone`; the egress IP is best-effort
+    language. Timezone precedence is the table in the module docstring; the egress IP is best-effort
     (a discovery failure that the timezone path doesn't need won't
     break the launch - but if the timezone path *does* need it behind a proxy,
     that path still fails loudly).
@@ -1034,8 +1028,6 @@ def prepare_session_geo(
     a bad port raises ``ValueError`` naming the parameter, with or without a proxy. It is a parameter of the Python
     launch alone: it goes nowhere near the browser's environment, argv, prefs or pipe.
     """
-    from .download import ensure_geoip_mmdb
-
     stun_servers = _udp_exit.stun_servers(udp_stun_servers)
     tz = (timezone or "").strip()
     proxy_set = _proxy_is_set(proxy)
@@ -1066,7 +1058,7 @@ def prepare_session_geo(
     if egress_ip is not None:
         _udp_exit.remember(proxy, udp_exit, stun_servers)   # a context given this proxy later does not measure it again
 
-    # Timezone resolution - same precedence as resolve_session_timezone.
+    # Timezone resolution - the precedence of the module docstring.
     def _coordinate(ip: "Optional[str]") -> "Optional[DeclaredPosition]":
         """Coordinates are BEST-EFFORT, the zone is not, and the gap is meant.
 
@@ -1112,26 +1104,3 @@ def prepare_session_geo(
                       _decide(locale, egress_ip=ip, proxy=proxy, may_discover=False),
                       where.accuracy if where else None,
                       udp_exit)
-
-
-def resolve_session_timezone(
-    timezone: str, proxy: Optional[Dict[str, str]]
-) -> str:
-    """Map the user's ``timezone`` setting to a concrete IANA zone, or raise
-    GeoTimezoneError when "auto" cannot be resolved (never the host's zone).
-
-    Timezone-only path (no WebRTC side effects): an explicit IANA zone wins and
-    triggers NO network call; ``""``/``"auto"`` resolve from the egress IP. The
-    launch path uses :func:`prepare_session_geo` instead (which additionally
-    returns the egress IP for WebRTC); this standalone resolver is kept for
-    third-party integrations that only want the zone. See the module docstring
-    for the precedence table.
-    """
-    tz = (timezone or "").strip()
-    if tz and tz.lower() != "auto":
-        return tz  # explicit IANA wins - no egress lookup
-
-    proxy_set = _proxy_is_set(proxy)
-    # A failure raises, with a proxy or without one: see the module docstring.
-    ip = discover_egress_ip(proxy if proxy_set else None)
-    return ip_to_timezone(ip, _geoip_database(ip, proxy_set))

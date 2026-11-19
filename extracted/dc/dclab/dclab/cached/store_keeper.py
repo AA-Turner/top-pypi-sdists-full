@@ -1,3 +1,4 @@
+"""Background thread managing the in-memory and on-disk caches"""
 import logging
 import threading
 import traceback
@@ -17,11 +18,12 @@ class StoreKeeper(threading.Thread):
         behavior of all methods decorated with :class:`.umbrella_cache`.
 
         To access the global instance, use the
-        :func:`.StoreKeeper.get_instance` method.
+        ``StoreKeeper.get_instance()`` class method.
         """
-        super(StoreKeeper, self).__init__(daemon=True,
-                                          name="StoreKeeper",
-                                          *args, **kwargs)
+        super().__init__(*args,
+                         daemon=True,
+                         name="StoreKeeper",
+                         **kwargs)
         #: exit event is set when `close` is called
         self.event_exit = threading.Event()
         #: run event can be `clear`ed to temporarily prevent `perform_tasks`
@@ -115,7 +117,13 @@ class StoreKeeper(threading.Thread):
             disk_store.remove_old_files(max_bytes=self.disk_store_size_bytes)
         while not self.event_exit.wait(self.interval):
             if self.event_run.wait(0.5):
-                self.perform_tasks()
+                try:
+                    self.perform_tasks()
+                except BaseException:
+                    # Never let this thread die, otherwise no data
+                    # are written to the disk store anymore and the
+                    # memory store grows indefinitely.
+                    self.logger.error(traceback.format_exc())
 
     def set_interval(self, interval):
         """Set the interval in seconds at which ``perform_tasks`` is called"""

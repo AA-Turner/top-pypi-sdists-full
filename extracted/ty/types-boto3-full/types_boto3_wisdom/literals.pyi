@@ -124,6 +124,7 @@ SearchQuickResponsesPaginatorName = Literal["search_quick_responses"]
 SearchSessionsPaginatorName = Literal["search_sessions"]
 ConnectWisdomServiceServiceName = Literal["wisdom"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

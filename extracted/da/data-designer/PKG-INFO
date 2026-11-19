@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: data-designer
-Version: 1.0.0
+Version: 1.0.1
 Summary: General framework for synthetic data generation
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -15,8 +15,8 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Requires-Python: >=3.11
-Requires-Dist: data-designer-config==1.0.0
-Requires-Dist: data-designer-engine==1.0.0
+Requires-Dist: data-designer-config==1.0.1
+Requires-Dist: data-designer-engine==1.0.1
 Requires-Dist: huggingface-hub<2,>=1.0.1
 Requires-Dist: opentelemetry-api<1.46,>=1.45.2
 Requires-Dist: opentelemetry-exporter-prometheus<0.67,>=0.66b1
@@ -31,7 +31,7 @@ Requires-Dist: pyyaml<7,>=6.0.1
 Requires-Dist: rich<15,>=13.7.1
 Requires-Dist: typer<1,>=0.12.0
 Provides-Extra: slurm
-Requires-Dist: data-designer-slurm==1.0.0; extra == 'slurm'
+Requires-Dist: data-designer-slurm==1.0.1; extra == 'slurm'
 Description-Content-Type: text/markdown
 
 # 🎨 NeMo Data Designer

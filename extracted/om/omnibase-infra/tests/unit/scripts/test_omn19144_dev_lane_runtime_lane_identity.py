@@ -261,9 +261,8 @@ def test_exactly_one_dev_lane_service_resolves_to_a_health_lane() -> None:
     assert speakers == {LANE_SPEAKING_SERVICE: DEV_LANE_VALUE}, (
         "exactly one service may key health while the projection stores one row per lane"
     )
-    effects = declared["runtime-effects"]
-    assert resolve_runtime_lane(effects) is None
-    assert resolve_declared_runtime_lane(effects) == DEV_LANE_VALUE
+    assert resolve_runtime_lane(declared["runtime-effects"]) is None
+    assert resolve_declared_runtime_lane(declared["runtime-effects"]) == DEV_LANE_VALUE
 
 
 @pytest.mark.parametrize(

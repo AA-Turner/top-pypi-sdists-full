@@ -1,0 +1,213 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""onex-claude-code-hook: the adapter's own console entry point (OMN-18531, T0.3).
+
+Reads one hook JSON document from stdin, publishes through the receipt-mode client
+(no handler hosted here) and writes exactly the hook's output shape to stdout:
+never a ModelSkillResult. Its first stderr line is the resolved max mode.
+The client wait uses the process deadline left after startup and an exit reserve.
+
+Failure posture (P5c/P5d/P5f): no thread spins (every wait blocks on an Event with
+a timeout); the process exits when its parent goes away; it starts no child of its
+own, so there is no group to leak. Any failure prints nothing on stdout and exits
+non-zero, which the rendered binding maps through its fixed failure table.
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib
+import json
+import os
+import sys
+import threading
+import time
+from collections.abc import Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, TextIO, cast
+
+from omnimarket.models.claude_code_binding import (
+    EnumAdditiveStartScope,
+    EnumClientMaxMode,
+    ModelAdditiveClientBinding,
+)
+from omnimarket.nodes.node_claude_code_hook_adapter_effect.handlers.additive_start_scope import (
+    AdditiveStartScope,
+)
+from omnimarket.nodes.node_claude_code_hook_adapter_effect.handlers.handler_claude_code_hook_adapter import (
+    HandlerClaudeCodeHookAdapter,
+)
+from omnimarket.nodes.node_claude_code_hook_adapter_effect.handlers.handler_client_bindings_loader import (
+    CONTRACT_PATH,
+    load_client_section,
+)
+from omnimarket.nodes.node_claude_code_hook_adapter_effect.handlers.reply_principal import (
+    ReplyPrincipalResolver,
+)
+from omnimarket.nodes.node_claude_code_hook_adapter_effect.models import (
+    ModelClientSection,
+    ModelHookAdapterRequest,
+)
+from omnimarket.nodes.node_claude_code_hook_adapter_effect.protocols import (
+    ProtocolReceiptModeClient,
+)
+
+if TYPE_CHECKING:
+    from pydantic import JsonValue
+
+CLIENT_ENV = "ONEX_HOOK_RECEIPT_CLIENT"
+HOST_ENV = "ONEX_CLIENT_HOST"
+CONTRACT_ENV = "ONEX_CLAUDE_CODE_ADAPTER_CONTRACT"
+# OMN-21341: the omnibase_infra receipt-mode publish-and-await handler. Its first
+# spelling here (cli.receipt_mode_client:ReceiptModeClient) named a module that
+# omnibase_infra's canonical-location and lifecycle-class gates refuse to create.
+DEFAULT_CLIENT = (
+    "omnibase_infra.handlers.handler_receipt_mode_publish_await"
+    ":HandlerReceiptModePublishAwait"
+)
+PARENT_POLL_SECONDS = 1.0
+# The binding's deadline_ms is the whole process deadline; the rendered module
+# kills the process at it. Reserve for interpreter start before main, bus close
+# after the wait and the stdout write.
+EXIT_RESERVE_MS = 2000
+
+EXIT_BAD_ARGS = 2
+EXIT_BAD_INPUT = 3
+EXIT_NO_CLIENT = 4
+EXIT_FAILED = 5
+
+
+def resolve_max_mode(section: ModelClientSection, host: str) -> EnumClientMaxMode:
+    return section.host_max_modes.get(host, section.default_max_mode)
+
+
+def watch_parent(
+    stop: threading.Event,
+    *,
+    get_ppid: Callable[[], int] = os.getppid,
+    on_orphaned: Callable[[], None] = lambda: os._exit(EXIT_FAILED),
+    poll_seconds: float = PARENT_POLL_SECONDS,
+    parent_pid: int | None = None,
+) -> None:
+    """Block-poll the parent pid; exit when it changes (P5f). Waits on the event, never spins.
+
+    parent_pid is the pid read at process start: a parent that died before this thread's first
+    read would otherwise be taken for the original one.
+    """
+    started_with = get_ppid() if parent_pid is None else parent_pid
+    while not stop.wait(poll_seconds):
+        if get_ppid() != started_with:
+            on_orphaned()
+            return
+
+
+def _load_client() -> ProtocolReceiptModeClient:
+    module_name, _, attr = os.environ.get(CLIENT_ENV, DEFAULT_CLIENT).partition(":")
+    factory = cast(
+        "Callable[[], ProtocolReceiptModeClient]",
+        getattr(importlib.import_module(module_name), attr),
+    )
+    return factory()
+
+
+def main(
+    argv: list[str] | None = None,
+    *,
+    client: ProtocolReceiptModeClient | None = None,
+    stdin: TextIO | None = None,
+    stdout: TextIO | None = None,
+    stderr: TextIO | None = None,
+    section: ModelClientSection | None = None,
+    clock: Callable[[], float] = time.monotonic,
+    principal_resolver: Callable[[], str] | None = None,
+) -> int:
+    started = clock()
+    parent_pid = os.getppid()
+    out, err, inp = stdout or sys.stdout, stderr or sys.stderr, stdin or sys.stdin
+    parser = argparse.ArgumentParser(prog="onex-claude-code-hook")
+    parser.add_argument("--binding", required=True)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit:
+        return EXIT_BAD_ARGS
+    try:
+        loaded = (
+            section
+            if section is not None
+            else load_client_section(Path(os.environ.get(CONTRACT_ENV, CONTRACT_PATH)))
+        )
+        max_mode = resolve_max_mode(loaded, os.environ.get(HOST_ENV, ""))
+        err.write(f"onex-claude-code-hook max_mode={max_mode.value}\n")
+        err.flush()
+        binding = next((b for b in loaded.bindings if b.name == args.binding), None)
+        if binding is None:
+            err.write(f"unknown binding {args.binding!r}\n")
+            return EXIT_BAD_ARGS
+        hook_input: dict[str, JsonValue] = json.loads(inp.read())
+        if not isinstance(hook_input, dict):
+            raise ValueError("hook input is not a JSON object")
+    except (ValueError, OSError) as exc:
+        err.write(f"bad hook input: {exc}\n")
+        return EXIT_BAD_INPUT
+    if (
+        isinstance(binding, ModelAdditiveClientBinding)
+        and binding.start_scope is EnumAdditiveStartScope.WORKSPACE
+        and not AdditiveStartScope().contains(hook_input.get("cwd"))
+    ):
+        # Outside the start scope the hook exits at once: no client, no request, no record.
+        return 0
+    try:
+        receipt_client = client if client is not None else _load_client()
+    except (ImportError, AttributeError) as exc:
+        err.write(f"receipt-mode client unavailable: {exc}\n")
+        return EXIT_NO_CLIENT
+    stop = threading.Event()
+    if client is None:
+        threading.Thread(
+            target=watch_parent,
+            args=(stop,),
+            kwargs={"parent_pid": parent_pid},
+            daemon=True,
+        ).start()
+    try:
+        # An additive row's budget is the whole of its wait: the process answers (or prints
+        # nothing) within it, so the exit reserve is not taken from it.
+        reserve_ms = (
+            0 if isinstance(binding, ModelAdditiveClientBinding) else EXIT_RESERVE_MS
+        )
+        remaining_ms = (
+            binding.deadline_ms - round((clock() - started) * 1000) - reserve_ms
+        )
+        result = HandlerClaudeCodeHookAdapter(
+            receipt_client,
+            principal_resolver=principal_resolver
+            if principal_resolver is not None
+            else ReplyPrincipalResolver().resolve,
+        ).handle(
+            ModelHookAdapterRequest(
+                binding=binding.model_copy(
+                    update={"deadline_ms": max(1, remaining_ms)}
+                ),
+                hook_input=hook_input,
+            )
+        )
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        err.write(f"adapter failed: {type(exc).__name__}: {exc}\n")
+        return EXIT_FAILED
+    finally:
+        stop.set()
+    if result.hook_output is not None:
+        out.write(json.dumps(result.hook_output))
+        out.flush()
+        if isinstance(binding, ModelAdditiveClientBinding):
+            package = result.client_verdict
+            err.write(
+                f"onex-claude-code-hook additive profile={binding.profile} "
+                f"sha256={package.package_sha256} chars={len(package.text)} "
+                f"elapsed_ms={round((clock() - started) * 1000)}\n"
+            )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

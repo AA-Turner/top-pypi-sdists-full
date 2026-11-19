@@ -65,6 +65,7 @@ ListTagsPaginatorName = Literal["list_tags"]
 NetworkTypeType = Literal["DUALSTACK", "IPV4"]
 CloudHSMV2ServiceName = Literal["cloudhsmv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

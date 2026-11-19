@@ -197,6 +197,7 @@ SNOMEDCTTraitNameType = Literal[
 ]
 ComprehendMedicalServiceName = Literal["comprehendmedical"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

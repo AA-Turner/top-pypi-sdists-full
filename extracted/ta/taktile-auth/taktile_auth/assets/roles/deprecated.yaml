@@ -36,3 +36,10 @@ d_api_key/org_id:
     - r+w:flow_endpoint/org_id
     - r:connect_provider/org_id
     - r+w:connect_resource/org_id
+# Retired by PEP 370. They hold no permissions and are kept only so existing role rows still resolve.
+# Delete them once no row names them.
+staff_release_manager:
+    - staff_member
+    - staff_release_manager_org/*
+staff_release_manager_org/org_id: []
+staff_pii_viewer/org_id,ws_id: []

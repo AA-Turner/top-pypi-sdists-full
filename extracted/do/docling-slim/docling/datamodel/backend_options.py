@@ -562,6 +562,29 @@ class MsPowerpointBackendOptions(BaseBackendOptions):
         ),
     )
 
+    max_total_bytes: Annotated[
+        PositiveInt,
+        Field(
+            description=(
+                "Maximum cumulative decompressed size in bytes of all members of "
+                "the PPTX archive. The archive is checked before it is parsed."
+            )
+        ),
+    ] = 512 * 1024 * 1024
+    max_file_bytes: Annotated[
+        PositiveInt,
+        Field(
+            description=(
+                "Maximum decompressed size in bytes of any single member of the "
+                "PPTX archive."
+            )
+        ),
+    ] = 128 * 1024 * 1024
+    max_member_count: Annotated[
+        PositiveInt,
+        Field(description="Maximum number of members in the PPTX archive"),
+    ] = 10_000
+
 
 class MsWordBackendOptions(BaseBackendOptions):
     """Options specific to the MS Word backend."""
@@ -717,6 +740,17 @@ class EmailBackendOptions(BaseBackendOptions):
             "the converted document. Only the attachment names (and content "
             "types when available) are listed; the attachments' binary content "
             "is never embedded. Opt-in (default False)."
+        ),
+    )
+    parse_calendar_invitations: bool = Field(
+        True,
+        description=(
+            "Whether to convert the calendar parts of the email, such as meeting "
+            "invitations, cancellations and attached .ics files, into their "
+            "events with time, location, organizer and attendees. They are "
+            "added under a 'Calendar' heading after the body. An event that "
+            "the email carries twice, as an inline part and as an attachment, "
+            "is added once."
         ),
     )
 

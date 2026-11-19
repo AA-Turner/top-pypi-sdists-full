@@ -17,22 +17,22 @@ from debtcollector import removals
 removals.removed_module(
     __name__,
     replacement=None,
-    removal_version="2026.2",
+    removal_version="2027.2",
     message=(
         "The 'oslo_service.fixture' module is deprecated and will be removed"
-        " in version 2026.2."
-    )
+        " in version 2027.2."
+    ),
 )
 
 
 class SleepFixture(fixtures.Fixture):
-    """A fixture for mocking the ``wait()`` within :doc:`loopingcall` events.
+    """A fixture for mocking the sleep within :doc:`loopingcall` loops.
 
     This exists so test cases can exercise code that uses :doc:`loopingcall`
     without actually incurring wall clock time for sleeping.
 
-    The mock for the ``wait()`` is accessible via the fixture's ``mock_wait``
-    attribute.
+    The sleep mock is accessible via the fixture's ``mock_wait`` attribute.
+    It works with both the eventlet and threading backends.
 
     .. note:: It is not recommended to assert specific arguments (i.e. timeout
               values) to the mock, as this relies on the internals of
@@ -44,7 +44,10 @@ class SleepFixture(fixtures.Fixture):
     Example usage::
 
         from oslo.service import fixture
+
         ...
+
+
         class MyTest(...):
             def setUp(self):
                 ...
@@ -58,7 +61,11 @@ class SleepFixture(fixtures.Fixture):
                 self.assertEqual(5, self.sleepfx.mock_wait.call_count)
                 ...
     """
+
     def _setUp(self):
         # Provide access to the mock so that calls to it can be asserted
-        self.mock_wait = self.useFixture(fixtures.MockPatch(
-            'oslo_utils.eventletutils.EventletEvent.wait')).mock
+        self.mock_wait = self.useFixture(
+            fixtures.MockPatch(
+                'oslo_service.backend._common.loopingcall.LoopingCallBase._sleep'
+            )
+        ).mock

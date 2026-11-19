@@ -481,6 +481,7 @@ VerificationStateType = Literal["BENIGN_POSITIVE", "FALSE_POSITIVE", "TRUE_POSIT
 ViolationEventTypeType = Literal["alarm-cleared", "alarm-invalidated", "in-alarm"]
 IoTServiceName = Literal["iot"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

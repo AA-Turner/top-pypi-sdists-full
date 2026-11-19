@@ -31,6 +31,10 @@ class ModelParityMismatch(BaseModel):
         ..., description="row_id for row mismatches, entity_key for state."
     )
     detail: str = ""
+    row_type: str | None = Field(
+        default=None,
+        description="Row type (STATUS, HOLD, ...) of a row-level mismatch; None for a state mismatch or a row whose type cannot be read (OMN-21885).",
+    )
 
 
 class EnumParityLossClass(StrEnum):
@@ -76,6 +80,17 @@ class ModelParityExplain(BaseModel):
     journal_dead_letter: int = 0
     journal_pending: int = 0
     unexplained: int = 0
+    extra_unsequenced: int = Field(
+        default=0,
+        description="Extra rows (in the projection, not in the file) whose "
+        "ledger_seq is NULL: a dual-write emit from a ledger file that is not "
+        "the canonical one (OMN-21849).",
+    )
+    extra_sequenced: int = Field(
+        default=0,
+        description="Extra rows that carry a ledger_seq, so they are sequenced "
+        "(OMN-21849).",
+    )
     evidence: dict[str, str] = Field(
         default_factory=dict,
         description="Each evidence source read and its path, or why it could not be read.",
@@ -94,6 +109,10 @@ class ModelWorkLedgerParityReport(BaseModel):
         ..., description="Canonical rows in the file within the window."
     )
     projection_rows: int
+    file_rows_by_kind: dict[str, int] = Field(
+        default_factory=dict,
+        description="Canonical rows in the file within the window per row type (OMN-21885).",
+    )
     unemittable_rows: int = Field(
         ..., description="File rows with a legacy or tool-internal type, never emitted."
     )

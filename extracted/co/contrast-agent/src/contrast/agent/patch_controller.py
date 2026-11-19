@@ -10,6 +10,7 @@ from contrast.agent.policy import applicator, registry
 from contrast.agent.policy.rewriter import apply_rewrite_policy
 from contrast.extensions import c_ext
 from contrast.patches import (
+    exec_and_eval,
     pure_python_strlike_patches,
     register_assess_monkeypatches,
     register_common_monkeypatches,
@@ -148,9 +149,21 @@ def _enable_assess_patches():
     register_rewriter()
 
 
+def _register_exec_and_eval_patches(*, assess: bool):
+    # v2 policy's generic wrapper calls the functions it wraps from a frame of its own,
+    # but exec and eval depend on their caller's frame. Their own patches resolve it,
+    # and must be applied first so that they're underneath the wrapper.
+    if assess:
+        exec_and_eval.register_patches()
+    else:
+        exec_and_eval.register_policy_v2_patches()
+
+
 def enable_patches(
     *, assess: bool, protect: bool, observe: bool, shield: bool, preinstrument: bool
 ):
+    _register_exec_and_eval_patches(assess=assess or preinstrument)
+
     if protect or preinstrument:
         _enable_protect_patches()
     if assess or preinstrument:

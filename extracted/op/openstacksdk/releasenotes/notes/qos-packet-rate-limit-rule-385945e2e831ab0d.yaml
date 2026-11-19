@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added Neutron QoS packet rate limit rule object and introduced support for
-    CRUD operations.

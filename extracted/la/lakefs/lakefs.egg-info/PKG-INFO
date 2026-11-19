@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: lakefs
-Version: 0.16.0
+Version: 0.17.0
 Summary: lakeFS Python SDK Wrapper
 Author-email: Treeverse <services@treeverse.io>
-License-Expression: Apache-2.0
+License-Expression: BUSL-1.1
 Project-URL: Homepage, https://github.com/treeverse/lakeFS/tree/master/clients/python-wrapper
 Keywords: OpenAPI,OpenAPI-Generator,lakeFS API,Python Wrapper
 Classifier: Intended Audience :: Developers
@@ -17,6 +17,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: lakefs-sdk<2,>=1.50
 Requires-Dist: pyyaml~=6.0.1
+Requires-Dist: typing_extensions<5,>=4.8.0
 Provides-Extra: all
 Requires-Dist: boto3>=1.26.0; extra == "all"
 Provides-Extra: aws-iam
@@ -60,12 +61,17 @@ from lakefs.client import Client
 # If environment variables or .lakectl.yaml file exist 
 repo = lakefs.repository(repository_id="my-repo")
 
+# (The positional argument is simpler!)
+repo = lakefs.repository("my-repo")
+
 # Or explicitly initialize and provide a Client object 
 clt = Client(username="<lakefs_access_key_id>", password="<lakefs_secret_access_key>", host="<lakefs_endpoint>")
 repo = lakefs.Repository(repository_id="my-repo", client=clt)
 
 # From this point, proceed using the package according to documentation
 main_branch = repo.create(storage_namespace="<storage_namespace>").branch(branch_id="main")
+
+# Prefer to use "repo" rather than pass in the same repository_id each time.
 ...
 ```
 
@@ -142,4 +148,4 @@ See [testing documentation](https://github.com/treeverse/lakeFS/blob/master/clie
 services@treeverse.io
 
 [git-spec-rev]:  https://git-scm.com/docs/git-rev-parse#_specifying_revisions
-[lakefs-spec-ref]:  https://community.lakefs.io/understand/model.html#ref-expressions
+[lakefs-spec-ref]:  https://docs.lakefs.io/understand/model/#ref-expressions

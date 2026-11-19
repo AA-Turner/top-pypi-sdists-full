@@ -114,6 +114,7 @@ StreamStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 TargetTypeType = Literal["BUILT_IN", "NONE"]
 KinesisServiceName = Literal["kinesis"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

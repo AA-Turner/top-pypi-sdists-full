@@ -104,6 +104,7 @@ TextTypeType = Literal["HANDWRITING", "PRINTED"]
 ValueTypeType = Literal["DATE"]
 TextractServiceName = Literal["textract"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

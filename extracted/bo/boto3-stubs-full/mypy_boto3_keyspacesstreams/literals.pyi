@@ -48,6 +48,7 @@ StreamStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
 StreamViewTypeType = Literal["KEYS_ONLY", "NEW_AND_OLD_IMAGES", "NEW_IMAGE", "OLD_IMAGE"]
 KeyspacesStreamsServiceName = Literal["keyspacesstreams"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: together
-Version: 3.2.1
+Version: 3.3.0
 Summary: The official Python library for the together API
 Project-URL: Homepage, https://github.com/togethercomputer/together-py
 Project-URL: Repository, https://github.com/togethercomputer/together-py
@@ -50,7 +50,7 @@ Requires-Dist: pyarrow>=16.1.0; extra == 'pyarrow'
 Provides-Extra: realtime
 Requires-Dist: websockets<16,>=13; extra == 'realtime'
 Provides-Extra: tinker
-Requires-Dist: tinker==0.23.1; (python_version >= '3.11') and extra == 'tinker'
+Requires-Dist: tinker==0.39.0; (python_version >= '3.11') and extra == 'tinker'
 Description-Content-Type: text/markdown
 
 # Together Python API library

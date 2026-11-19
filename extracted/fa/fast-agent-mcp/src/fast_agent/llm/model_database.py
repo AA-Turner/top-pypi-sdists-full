@@ -441,6 +441,12 @@ class ModelDatabase:
         allowed_efforts=["low", "high", "max"],
         default=ReasoningEffortSetting(kind="effort", value="max"),
     )
+    HY4_FLASH_REASONING_EFFORT_SPEC = ReasoningEffortSpec(
+        kind="effort",
+        allowed_efforts=["none", "high"],
+        allow_toggle_disable=True,
+        default=ReasoningEffortSetting(kind="effort", value="high"),
+    )
 
     # Groq exposes reasoning as a binary toggle: `reasoning_effort="default"`
     # (thinking on) or `reasoning_effort="none"` (thinking off). Standard effort
@@ -1122,6 +1128,9 @@ class ModelDatabase:
     GEMINI_4_HYDROGEN = GEMINI_4_STANDARD.model_copy(
         update={"reasoning_effort_spec": GOOGLE_GEMINI_4_HYDROGEN_THINKING_LEVEL_SPEC}
     )
+    # Neon shares Hydrogen's limits and thinking levels (low..xhigh, default high).
+    # https://aistudio.google.com/docs/models/gemini-4-neon
+    GEMINI_4_NEON = GEMINI_4_HYDROGEN.model_copy()
 
     GEMINI_2_FLASH = ModelParameters(
         context_window=1_048_576,
@@ -1367,6 +1376,18 @@ class ModelDatabase:
         reasoning_effort_spec=GLM_53_REASONING_EFFORT_SPEC,
         stream_mode="manual",
         default_provider=Provider.ZAI,
+        fast=True,
+    )
+
+    HY4_FLASH_DEV = ModelParameters(
+        context_window=960000,
+        max_output_tokens=65536,
+        tokenizes=OPENAI_VISION,
+        json_mode="schema",
+        reasoning="reasoning_content",
+        reasoning_effort_spec=HY4_FLASH_REASONING_EFFORT_SPEC,
+        stream_mode="manual",
+        default_provider=Provider.TENCENT_EVAL,
         fast=True,
     )
 
@@ -1655,10 +1676,13 @@ class ModelDatabase:
         "glm-5.2": GLM_5_2.model_copy(update={"default_provider": Provider.ZAI}),
         "glm-5.3": GLM_5_3,
         "glm-5.3-flash": GLM_5_3_FLASH,
+        # Tencent Eval models
+        "hy4-flash-dev": HY4_FLASH_DEV,
         # Google Gemini Models (vanilla aliases and versioned)
         "gemini-4-argon": GEMINI_4_STANDARD,
         "gemini-4-hydrogen": _with_fast(GEMINI_4_HYDROGEN),
         "gemini-4-carbon": GEMINI_4_STANDARD,
+        "gemini-4-neon": GEMINI_4_NEON,
         "gemini-2.0-flash": _with_fast(GEMINI_2_FLASH),
         "gemini-2.5-pro": GEMINI_25_STANDARD,
         "gemini-2.5-flash": _with_fast(GEMINI_25_STANDARD),
@@ -2509,7 +2533,7 @@ def _copilot_route_overrides(spec: CopilotModelSpec) -> dict[str, object]:
         # Copilot /models, 2026-11-17: Gemini uses an OpenAI-compatible gateway,
         # not native Google's thinking, grounding, service tiers or media APIs.
         efforts: list[ReasoningEffortLevel] = ["low", "medium", "high"]
-        if spec.model_id == "gemini-4-hydrogen":
+        if spec.model_id in ("gemini-4-hydrogen", "gemini-4-neon"):
             efforts.append("xhigh")
         # Copilot's Gemini gateway pricing and prompt reliability degrade past 200k
         # input tokens (the catalog's default context tier), so auto-compact at 190k

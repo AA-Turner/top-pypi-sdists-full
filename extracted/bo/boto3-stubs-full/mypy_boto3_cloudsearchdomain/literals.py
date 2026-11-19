@@ -35,6 +35,7 @@ ContentTypeType = Literal["application/json", "application/xml"]
 QueryParserType = Literal["dismax", "lucene", "simple", "structured"]
 CloudSearchDomainServiceName = Literal["cloudsearchdomain"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

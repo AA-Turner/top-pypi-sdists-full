@@ -455,6 +455,8 @@ class DrainSettleMixin:
                 "no_such_run": errors.names_no_such_run(exc),
                 # ...and the server's refusal of the values the caller sent (a malformed name).
                 "invalid_request": errors.names_invalid_request(exc),
+                # ...and the server's trash notice: the caller trashed what the write was for.
+                "in_trash": errors.is_trash_refusal(exc),
             }
         )
         self.settled_upload = self.settled_upload or op.get("kind") == "upload"

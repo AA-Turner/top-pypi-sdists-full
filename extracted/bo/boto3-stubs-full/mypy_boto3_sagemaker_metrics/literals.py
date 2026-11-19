@@ -44,6 +44,7 @@ PutMetricsErrorCodeType = Literal[
 XAxisTypeType = Literal["IterationNumber", "Timestamp"]
 SageMakerMetricsServiceName = Literal["sagemaker-metrics"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

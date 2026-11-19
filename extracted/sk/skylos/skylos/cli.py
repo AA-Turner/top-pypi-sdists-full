@@ -22,6 +22,7 @@ from skylos.cli_core.main_parser import (
     parse_main_cli_args,
 )
 from skylos.constants import (
+    parse_config_exclude_folders,
     parse_exclude_folders,
     DEFAULT_EXCLUDE_FOLDERS,
     get_non_library_dir_kind,
@@ -1372,11 +1373,7 @@ def _detect_link_file(project_root: Path) -> Path | None:
 def _resolve_upload_destination(project_root: Path):
     from skylos.cloud.upload_destination import resolve_upload_destination
 
-    try:
-        return resolve_upload_destination(project_root)
-    except Exception:
-        logger.debug("Could not resolve the Cloud upload destination", exc_info=True)
-        return None
+    return resolve_upload_destination(project_root)
 
 
 def _print_upload_receipt(console: Console, destination, upload_resp) -> None:
@@ -1471,6 +1468,13 @@ def _print_main_upload_manifest(console: Console, args, result) -> None:
     )
 
 
+CI_NO_CREDENTIAL = (
+    "this CI job has no Skylos Cloud sign-in. On GitHub Actions, install the "
+    "Skylos GitHub App on this repository and keep `permissions: id-token: write` "
+    "(no secret needed). On other CI, add a SKYLOS_TOKEN secret."
+)
+
+
 def _render_upload_failure(console: Console, upload_resp: dict[str, object]) -> None:
     code = str(upload_resp.get("code") or "")
     err = str(upload_resp.get("error") or "").strip()
@@ -1483,9 +1487,11 @@ def _render_upload_failure(console: Console, upload_resp: dict[str, object]) -> 
         )
         return
 
-    if err and err != (
-        "No token found. Run 'skylos login', or set SKYLOS_TOKEN."
-    ):
+    if err == "No token found. Run 'skylos login', or set SKYLOS_TOKEN.":
+        if _is_ci():
+            console.print(f"[warn]Not uploaded:[/warn] {CI_NO_CREDENTIAL}", soft_wrap=True)
+        return
+    if err:
         # Server wording is plain text; never let it act as Rich markup.
         from rich.markup import escape as _escape_markup
 
@@ -3695,8 +3701,10 @@ def _run_pre_analysis_steps(args, project_root, console):
     custom_rules_data = None
     try:
         from skylos.cloud.sync import load_custom_rules
+        from skylos.commands.project_context import command_project_context
 
-        loaded_rules = load_custom_rules()
+        with command_project_context(project_root):
+            loaded_rules = load_custom_rules()
         custom_rules_data = loaded_rules.get("rules") or []
         custom_rules_coverage = {
             key: value for key, value in loaded_rules.items() if key != "rules"
@@ -5120,6 +5128,11 @@ def main() -> None:
                             "enable_quality": True,
                             "enable_ai_defects": True,
                             "exclude_folders": list(exclude_folders),
+                            "config_exclude_folders": sorted(
+                                parse_config_exclude_folders(
+                                    config_exclude_folders=project_config.get("exclude")
+                                )
+                            ),
                             "changed_files": analysis_targets,
                             "grep_verify": False,
                             "progress_callback": _update_precommit_progress,

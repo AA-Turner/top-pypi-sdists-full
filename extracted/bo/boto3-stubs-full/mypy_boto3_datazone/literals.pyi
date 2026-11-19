@@ -576,6 +576,7 @@ UserSearchTypeType = Literal["DATAZONE_IAM_USER", "DATAZONE_SSO_USER", "DATAZONE
 UserTypeType = Literal["IAM_ROLE", "IAM_ROLE_SESSION", "IAM_USER", "SSO_USER"]
 DataZoneServiceName = Literal["datazone"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -66,6 +66,7 @@ StatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED"]
 UpdateTypeType = Literal["MIGRATION_TASK_STATE_UPDATED"]
 MigrationHubServiceName = Literal["mgh"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

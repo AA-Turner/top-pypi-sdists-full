@@ -174,7 +174,14 @@ def test_an_application_of_the_catalogue_lists_the_ui_plugins_it_is_drawn_with()
     apps = load_apps()
     assert apps
     for identity, app in apps.items():
-        assert [c.model_dump(exclude_none=True) for c in app.ui] == ui_of(app), identity
+        # A header UI is the application's own addition (its agent's title bar), not its kind's;
+        # so is a page UI, which hands its agent a set of frontend tools (a deck, a sheet in the page).
+        drawn = [
+            c.model_dump(exclude_none=True)
+            for c in app.ui
+            if ui.UI_CATALOGUE[c.plugin].header is None and not ui.hands_frontend_tools(c.plugin)
+        ]
+        assert drawn == ui_of(app), identity
 
 
 @pytest.mark.parametrize("folder,what", [("mcp-servers", "MCP server"), ("skills", "Skill"), ("backend-tools", "Backend tool")])

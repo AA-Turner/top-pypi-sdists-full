@@ -397,6 +397,7 @@ def _built_in_gate_dependencies(dependencies):
         finding
         for finding in dependencies or ()
         if _rule_id(finding) not in REPORT_ONLY_DEPENDENCY_RULES
+        and not _unproven_package_warning(finding)
     ]
 
 
@@ -408,7 +409,17 @@ def _gate_dependencies(dependencies):
         finding
         for finding in dependencies or ()
         if _rule_id(finding) not in ADVICE_ONLY_DEPENDENCY_RULES
+        and not _unproven_package_warning(finding)
     ]
+
+
+def _unproven_package_warning(finding) -> bool:
+    """``SKY-SCA-NEW001`` asks for a check; it fails a gate only when the
+    supply-chain policy sets ``unproven_packages = "block"``."""
+    if _rule_id(finding) != "SKY-SCA-NEW001":
+        return False
+    metadata = finding.get("metadata") if isinstance(finding, dict) else None
+    return not (isinstance(metadata, dict) and metadata.get("action") == "block")
 
 
 def _new_rule_scope(results):
@@ -997,10 +1008,14 @@ def _cloud_gate_summary(results, config, policy):
 
 
 def _gate_findings(results, config=None):
-    from skylos.reporting.listing import explicit_rule_ids
+    from skylos.reporting.listing import explicit_rule_ids, is_nonblocking_review
 
     return {
-        "danger": results.get("danger", []) or [],
+        "danger": [
+            finding
+            for finding in results.get("danger", []) or []
+            if not is_nonblocking_review(finding)
+        ],
         "reliability": results.get("reliability", []) or [],
         "ai_defects": results.get("ai_defects", []) or [],
         "quality": _quality_findings_with_custom_rules(

@@ -24,6 +24,62 @@ shape = Shape()  # E: Cannot instantiate `Shape`
 );
 
 testcase!(
+    test_generic_abstract_class_instantiation_error,
+    r#"
+from abc import ABC, abstractmethod
+
+class Shape[T](ABC):
+    @abstractmethod
+    def area(self) -> T:
+        pass
+
+class ConcreteShape(Shape[int]):
+    def area(self) -> int:
+        return 0
+
+shape = Shape[int]()  # E: Cannot instantiate `Shape`
+ShapeCtor = Shape[int]
+shape_from_alias = ShapeCtor()  # E: Cannot instantiate `Shape`
+
+def construct(cls: type[Shape[int]]) -> Shape[int]:
+    return cls()
+
+classes: tuple[type[Shape[int]], ...] = (ConcreteShape,)
+concrete_shape = classes[0]()
+"#,
+);
+
+testcase!(
+    test_abstract_class_alias_specialization,
+    r#"
+from abc import ABC, abstractmethod
+from typing import TypeAlias
+
+class A(ABC):
+    @abstractmethod
+    def method(self) -> int: ...
+
+class G[T](ABC):
+    @abstractmethod
+    def method(self) -> T: ...
+
+AA: TypeAlias = A
+GA: TypeAlias = G
+AA()
+GA()
+
+Specialized: TypeAlias = G[int]
+Specialized()  # E: Cannot instantiate `G`
+Again: TypeAlias = Specialized
+Again()  # E: Cannot instantiate `G`
+
+def f() -> None:
+    Local = G[int]
+    Local()  # E: Cannot instantiate `G`
+"#,
+);
+
+testcase!(
     test_concrete_subclass_instantiation_ok,
     r#"
 from abc import ABC, abstractmethod
@@ -59,10 +115,32 @@ class DirectABCMeta(metaclass=ABCMeta):
 class IndirectABCMeta(DirectABCMeta):
     pass
 
+class DirectGenericABC[T](ABC):
+    pass
+
+class DirectGenericABCMeta[T](metaclass=ABCMeta):
+    pass
+
+class IndirectGenericABC(DirectGenericABC[int]):
+    pass
+
+class IndirectGenericABCMeta(DirectGenericABCMeta[int]):
+    pass
+
 direct_abc = DirectABC()  # E: Cannot instantiate `DirectABC`
 indirect_abc = IndirectABC()
 direct_abc_meta = DirectABCMeta()  # E: Cannot instantiate `DirectABCMeta`
 indirect_abc_meta = IndirectABCMeta()
+direct_generic_abc = DirectGenericABC[int]()  # E: Cannot instantiate `DirectGenericABC`
+direct_generic_abc_meta = DirectGenericABCMeta[int]()  # E: Cannot instantiate `DirectGenericABCMeta`
+indirect_generic_abc = IndirectGenericABC()
+indirect_generic_abc_meta = IndirectGenericABCMeta()
+
+Alias = DirectGenericABC[int]
+Alias()  # E: Cannot instantiate `DirectGenericABC`
+
+def construct(cls: type[DirectGenericABC[int]]) -> DirectGenericABC[int]:
+    return cls()
 "#,
 );
 
@@ -345,7 +423,7 @@ class Child2(P2):
 
 class Child3(P3):
     def method(self) -> str:
-        return super().method()  # E: Method `method` inherited from class `P3` has no implementation and cannot be accessed via `super()`
+        return super().method()  # pyrefly: ignore[abstract-method-call]
 "#,
 );
 
@@ -361,7 +439,7 @@ class Base(ABC):
 
 class Child(Base):
     def method(self) -> str:
-        super().method()  # E: Method `method` inherited from class `Base` has no implementation and cannot be accessed via `super()`
+        super().method()  # pyrefly: ignore[abstract-method-call]
         return "child"
 
 # Child is concrete, so this works
@@ -417,6 +495,164 @@ class Child(Base):
     @property
     def processor(self) -> bool:
         return super().processor
+"#,
+);
+
+testcase!(
+    test_super_abstract_raise_not_implemented,
+    r#"
+from abc import ABC, abstractmethod
+
+class Foo(ABC):
+    @abstractmethod
+    def fn(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def fn2(self) -> None: ...
+
+class Bar(Foo):
+    def fn(self) -> None:
+        super().fn()  # E: Method `fn` inherited from class `Foo` has no implementation and cannot be accessed via `super()`
+
+    def fn2(self) -> None:
+        super().fn2()  # E: Method `fn2` inherited from class `Foo` has no implementation and cannot be accessed via `super()`
+"#,
+);
+
+testcase!(
+    test_super_abstract_raise_not_implemented_forms,
+    r#"
+from abc import ABC, abstractmethod
+
+class Base(ABC):
+    @abstractmethod
+    def with_msg(self) -> None:
+        raise NotImplementedError("msg")
+
+    @abstractmethod
+    def with_call(self) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def with_doc(self) -> None:
+        """placeholder"""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def processor(self) -> bool:
+        raise NotImplementedError
+
+class Child(Base):
+    def with_msg(self) -> None:
+        super().with_msg()  # E: Method `with_msg` inherited from class `Base` has no implementation and cannot be accessed via `super()`
+
+    def with_call(self) -> None:
+        super().with_call()  # E: Method `with_call` inherited from class `Base` has no implementation and cannot be accessed via `super()`
+
+    def with_doc(self) -> None:
+        super().with_doc()  # E: Method `with_doc` inherited from class `Base` has no implementation and cannot be accessed via `super()`
+
+    @property
+    def processor(self) -> bool:
+        return super().processor  # E: Method `processor` inherited from class `Base` has no implementation and cannot be accessed via `super()`
+"#,
+);
+
+testcase!(
+    test_call_abstract_classmethod_raise_not_implemented,
+    r#"
+from abc import ABC, abstractmethod
+
+class Base(ABC):
+    @classmethod
+    @abstractmethod
+    def build(cls) -> "Base":
+        raise NotImplementedError()
+
+Base.build()  # E: Cannot call abstract method `Base.build`
+
+class Child(Base):
+    @classmethod
+    def build(cls) -> "Base":
+        return super().build()  # E: Method `build` inherited from class `Base` has no implementation and cannot be accessed via `super()`
+"#,
+);
+
+testcase!(
+    test_inherited_not_implemented_classmethod_matches_ellipsis,
+    r#"
+from abc import ABC, abstractmethod
+
+class Solver(ABC):
+    @classmethod
+    @abstractmethod
+    def command(cls) -> str:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def inits(cls) -> str: ...
+
+class Z3(Solver):
+    @classmethod
+    def command(cls) -> str:
+        return "z3"
+
+    @classmethod
+    def inits(cls) -> str:
+        return "z3-init"
+
+# Inherits both placeholders, so calling either one raises at runtime.
+class Portfolio(Solver):
+    pass
+
+solver_selector = {"z3": Z3, "portfolio": Portfolio}
+
+def start(solver: str) -> None:
+    # A `raise NotImplementedError` body is reported exactly like `...`.
+    solver_selector[solver].command()  # E: Cannot call abstract method `Solver.command`
+    solver_selector[solver].inits()  # E: Cannot call abstract method `Solver.inits`
+
+Portfolio.command()  # E: Cannot call abstract method `Solver.command`
+Portfolio.inits()  # E: Cannot call abstract method `Solver.inits`
+Z3.command()
+"#,
+);
+
+testcase!(
+    test_super_abstract_not_implemented_still_allowed,
+    r#"
+from abc import ABC, abstractmethod
+
+class Plain:
+    def method(self) -> int:
+        raise NotImplementedError
+
+class PlainChild(Plain):
+    def method(self) -> int:
+        return super().method()
+
+Plain().method()
+PlainChild().method()
+
+class Base(ABC):
+    @abstractmethod
+    def deferred(self, other: object) -> bool:
+        return NotImplemented
+
+    @abstractmethod
+    def method(self) -> int:
+        print(1)
+        raise NotImplementedError
+
+class Child(Base):
+    def deferred(self, other: object) -> bool:
+        return super().deferred(other)
+
+    def method(self) -> int:
+        return super().method()
 "#,
 );
 
@@ -651,11 +887,11 @@ from abc import ABC, abstractmethod
 
 class A1(ABC):
     @abstractmethod
-    def a(): ...
+    def a(): ...  # E: Instance method `a` must accept the instance as its first positional parameter
 
 class B1(ABC):
     @abstractmethod
-    def b(): ...
+    def b(): ...  # E: Instance method `b` must accept the instance as its first positional parameter
 
 class C(A1, B1): ...
 
@@ -688,6 +924,45 @@ class Foo:
     @abstractmethod
     def fn(self) -> int:  # E: `Foo.fn` is decorated with `@abstractmethod` but `Foo` is not an abstract class
         ...
+"#,
+);
+
+testcase!(
+    test_abstract_method_with_implementation,
+    TestEnv::new().enable_abstract_method_with_implementation_error(),
+    r#"
+from abc import ABC, abstractmethod
+
+class Foo(ABC):
+    @abstractmethod
+    def implemented(self) -> int:  # E: `Foo.implemented` is decorated with `@abstractmethod` but has an implementation
+        return 1
+
+    @abstractmethod
+    def placeholder(self) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def trivial(self) -> None:
+        pass
+
+    @abstractmethod
+    def elided(self) -> None: ...
+"#,
+);
+
+testcase!(
+    test_abstract_method_with_implementation_no_type_check,
+    TestEnv::new().enable_abstract_method_with_implementation_error(),
+    r#"
+from abc import ABC, abstractmethod
+from typing import no_type_check
+
+class Foo(ABC):
+    @no_type_check
+    @abstractmethod
+    def implemented(self) -> int:
+        return 1
 "#,
 );
 

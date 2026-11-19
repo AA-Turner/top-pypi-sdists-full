@@ -132,6 +132,27 @@ class TreeForms(NamedTuple):
     checked: dict[tuple[int, str], bs4.Tag]
 
 
+def uses_scope(selectors: ct.SelectorList) -> bool:
+    """Check if any part of a selector, nested ones included, matches the scope (`:scope` or `&`)."""
+
+    seen: set[int] = set()
+    stack = [selectors]
+    while stack:
+        selector_list = stack.pop()
+        if id(selector_list) in seen:
+            continue
+        seen.add(id(selector_list))
+        for selector in selector_list:
+            if isinstance(selector, ct.SelectorNull):
+                continue
+            if selector.flags & ct.SEL_SCOPE:
+                return True
+            stack.extend(selector.selectors)
+            stack.append(selector.relation)
+            stack.extend(nth.selectors for nth in selector.nth)
+    return False
+
+
 class _DocumentNav:
     """Navigate a Beautiful Soup document."""
 
@@ -644,7 +665,48 @@ class Inputs:
 
 
 class CSSMatch(_DocumentNav):
-    """Perform CSS matching."""
+    """
+    Perform CSS matching.
+
+    Performance contract: for a given selector, the time to match a document grows linearly with the size of
+    the document, whatever its shape: deeply nested, very wide, or with many top level elements. Before
+    changing how something is matched, check that it stays linear on such documents, and when a cache is needed
+    for that, follow the rules for caches in `__init__()`.
+
+    Within that, these are expected and are not bugs:
+
+    - Time proportional to the size of the selector times the size of the document. Every element may be
+      checked against every part of the selector, so a long selector costs more. This includes a long chain
+      of combinators, such as `p ~ p ~ ... ~ p` with `k` links, which takes time proportional to `k` squared
+      on a parent with at least `k` children, as each child walks up to `k` links: that is still at most the
+      size of the selector times the size of the document.
+    - Time proportional to the length of an attribute value or a text, as with any string search.
+    - Anything with `NOCACHE`, which turns off the caches that keep matching linear and is documented as
+      possibly slow, and the complex `:has()` forms that `NOSTRICT` allows, which are documented likewise.
+    - Matching the elements of a document one call at a time, such as calling `match()` for each element in
+      a loop. Each call starts with empty caches, so the contract holds for each call, not for the loop, and
+      the documentation says to use one `select()` or `filter()` instead. `filter()` with a list shares a
+      `CSSMatch` between the tags under the same top level element, except for a selector that uses `:scope`
+      or `&`, where each tag is the scope and is matched separately, as with `match()`.
+
+    A report of polynomial time needs a document that breaks the contract, with time measured at increasing
+    sizes, not only a slow example: a large document is slow in linear time too.
+
+    Memory follows the same contract. The caches that keep matching linear belong to one call of `select()`,
+    `match()`, `filter()` or `closest()`, or to one `iselect()` for as long as it is iterated, and are freed
+    with it, so nothing builds up across calls. Each entry records work that was done, so a cache grows no
+    faster than the time spent matching: at most in proportion to the size of the selector times the size of
+    the document. For example, `:has()`, the descendant combinator and `~` keep an entry for each element and
+    each of these relations in the selector, so a selector with many of them on a large document can use a lot
+    of memory, but it takes as long to match. Limiting the selectors that are accepted, such as with `ignore`
+    or `max_selectors`, limits both.
+
+    The caches are not bounded, and should not be. Evicting entries brings back the work that they avoid, so a
+    bounded cache, such as a least recently used one, makes matching quadratic again on the large documents the
+    caches are there for, unless the bound is at least the number of entries anyway. It also slows every cache
+    access, and `contains_text()` relies on its entries staying in the cache. A report of excessive memory needs
+    memory that grows faster than the time spent matching.
+    """
 
     def __init__(
         self,
@@ -657,23 +719,47 @@ class CSSMatch(_DocumentNav):
 
         self.assert_valid_input(scope)
         self.tag = scope
-        self.cached_meta_lang: list[tuple[str, str]] = []
-        self.cached_forms: dict[int, TreeForms] = {}
-        self.cached_options: dict[int, dict[int, bool]] = {}
         self.selectors = selectors
         self.namespaces: ct.Namespaces | dict[str, str] = {} if namespaces is None else namespaces
         self.flags = flags
+
+        # Caches for this call of `select()`, `iselect()`, `match()` or `filter()`.
+        #
+        # They assume the tree does not change during the call. Changing it during a lazy iteration such as
+        # `iselect()` is only supported with `NOCACHE`, which turns off every one of these caches, so results
+        # then reflect the tree as it is when each element is matched. Changing the tree with caching on can
+        # give stale results, and that is expected: there is no cheap way to detect a change, and clearing
+        # the caches for every element would make many selectors quadratic again.
+        #
+        # So a new cache must be declared here, only be read or written when `enable_cache` is true, and be
+        # cleared in `reset()`. Keys are the `id()` of elements, which stay valid as long as the tree does
+        # not change. The pattern cache in `css_parser` and `util.lower()` do not depend on the tree.
+        # The caches are not bounded: the class documentation explains why, and how much memory they can use.
+        #
+        # The one exception is `lang_match_cache`, which is used even with `NOCACHE`. It holds whether a
+        # language matches a `:lang()`, keyed by the `:lang()` of the compiled selector, which lives as long
+        # as this object, and by the language itself, not by an element. Nothing in it comes from the tree,
+        # so it cannot go stale, and without it a long language tag shared by many elements would make
+        # `:lang()` quadratic.
         self.enable_cache = not bool(self.flags & util.NOCACHE)
         self.nth_cache: dict[Hashable, NthState] = {}
-        self.sib_cache: dict[Hashable, int] = {}
-        self.anc_cache: dict[tuple[int, int], bool] = {}
-        self.desc_cache: dict[tuple[int, int], bool] = {}
+        # The caches of relations are keyed by the relation first, then the element, as a key of both in a tuple
+        # takes about twice the memory, and they can hold an entry for every element and relation of a selector.
+        self.sib_cache: dict[int, dict[int, int]] = {}
+        self.anc_cache: dict[int, dict[int, bool]] = {}
+        self.desc_cache: dict[int, dict[int, bool]] = {}
         self.dir_cache: dict[int, int] = {}
         self.lang_cache: dict[int, str] = {}
         self.edit_cache: dict[int, bool] = {}
         self.tree_cache: dict[int, bs4.Tag] = {}
         self.select_cache: dict[int, bs4.Tag | None] = {}
         self.index_cache: dict[int, dict[int, int]] = {}
+        self.form_cache: dict[int, TreeForms] = {}
+        self.option_cache: dict[int, dict[int, bool]] = {}
+        self.contains_cache: dict[tuple[int, int], tuple[bool, str, str, int]] = {}
+        self.contains_patterns: dict[int, tuple[re.Pattern[str] | None, int]] = {}
+        # Used even with `NOCACHE`, as it does not depend on the tree.
+        self.lang_match_cache: dict[tuple[int, str], bool] = {}
 
         # Find the root element for the whole tree
         doc = scope
@@ -714,6 +800,11 @@ class CSSMatch(_DocumentNav):
         self.tree_cache.clear()
         self.select_cache.clear()
         self.index_cache.clear()
+        self.form_cache.clear()
+        self.option_cache.clear()
+        self.contains_cache.clear()
+        self.contains_patterns.clear()
+        self.lang_match_cache.clear()
 
     def supports_namespaces(self) -> bool:
         """Check if namespaces are supported in the HTML type."""
@@ -1006,7 +1097,6 @@ class CSSMatch(_DocumentNav):
             return found
 
         pkey: int | None = None
-        key: tuple[int, int] | None = None
 
         # Get the parent and use the ID for the cache key. Siblings do not need a parent element:
         # they can be top level elements in the document or the top level contents of a `template`.
@@ -1022,16 +1112,18 @@ class CSSMatch(_DocumentNav):
         # Lastly, if this is our first time, setup the cache.
         reverse = relation[0].rel_type == REL_HAS_SIBLING
         start = len(parent) - 1 if reverse else 0
+        cache = self.sib_cache.get(id(relation))
+        if cache is None:
+            cache = self.sib_cache[id(relation)] = {}
         if pkey is not None:
-            key = (pkey, id(relation))
-            if key in self.sib_cache:
-                index = self.sib_cache[key]
+            if pkey in cache:
+                index = cache[pkey]
                 if index >= 0:
                     a, b = (index + 1, start + 1) if reverse else (start, index)
                     return not self.within(el, parent, a, b)
                 else:
                     return False
-            self.sib_cache[key] = start
+            cache[pkey] = start
 
         # Start at the furthest endpoint and walk back towards the element looking for siblings.
         # The current element counts as a sibling, but will not cause a match.
@@ -1053,8 +1145,8 @@ class CSSMatch(_DocumentNav):
                 break
 
         # Cache the index of the sibling or mark as there being no siblings.
-        if pkey and key:
-            self.sib_cache[key] = start if found else -1
+        if pkey:
+            cache[pkey] = start if found else -1
 
         # If we passed the current element and then found a sibling, it doesn't count as a match.
         if passed:
@@ -1072,18 +1164,21 @@ class CSSMatch(_DocumentNav):
         """
 
         found = False
-        visited: list[tuple[int, int]] = []
+        cache = self.anc_cache.get(id(relation))
+        if cache is None:
+            cache = self.anc_cache[id(relation)] = {}
+        visited: list[int] = []
         parent: bs4.Tag | None = el
         while not found and parent and (parent := self.get_parent(parent)):
-            key = (id(parent), id(relation))
-            if key in self.anc_cache:
-                found = self.anc_cache[key]
+            key = id(parent)
+            if key in cache:
+                found = cache[key]
                 break
             visited.append(key)
             found = yield parent, relation
 
         for key in visited:
-            self.anc_cache[key] = found
+            cache[key] = found
 
         return found
 
@@ -1110,10 +1205,13 @@ class CSSMatch(_DocumentNav):
                 # Siblings share the parent, so cache whether it matches to avoid evaluating it again for every child.
                 # This is inlined, instead of going through `match_ancestor`, as an extra generator is costly on
                 # documents where most parents have a single child and the cache rarely gets a hit.
-                key = (id(parent), id(relation))
-                cached = self.anc_cache.get(key)
+                cache = self.anc_cache.get(id(relation))
+                if cache is None:
+                    cache = self.anc_cache[id(relation)] = {}
+                key = id(parent)
+                cached = cache.get(key)
                 if cached is None:
-                    cached = self.anc_cache[key] = yield parent, relation
+                    cached = cache[key] = yield parent, relation
                 found = cached
             else:
                 found = yield parent, relation
@@ -1159,15 +1257,18 @@ class CSSMatch(_DocumentNav):
         """
 
         found = False
+        cache = self.desc_cache.get(id(relation))
+        if cache is None:
+            cache = self.desc_cache[id(relation)] = {}
         # Elements whose contents are being searched, outermost first, and elements searched without a match
-        searching: list[tuple[int, int]] = []
-        searched: list[tuple[int, int]] = []
+        searching: list[int] = []
+        searched: list[int] = []
         stack = [self.get_tag_children(el)]
         while stack and not found:
             for child in stack[-1]:
-                key = (id(child), id(relation))
-                if key in self.desc_cache:
-                    if self.desc_cache[key]:
+                key = id(child)
+                if key in cache:
+                    if cache[key]:
                         found = True
                         break
                     continue
@@ -1183,9 +1284,9 @@ class CSSMatch(_DocumentNav):
                     searched.append(searching.pop())
 
         for key in searching:
-            self.desc_cache[key] = True
+            cache[key] = True
         for key in searched:
-            self.desc_cache[key] = False
+            cache[key] = False
 
         return found
 
@@ -1368,8 +1469,10 @@ class CSSMatch(_DocumentNav):
             if not index:
                 return False
             if n.a != 0:
-                v = (index - n.b) / n.a
-                if not (v.is_integer() and v >= 0):
+                # `index` matches if `index = a * k + b` for an integer `k >= 0`. Integer arithmetic is used as `a`
+                # and `b` can be of any size, and a float division would overflow or lose precision.
+                diff = index - n.b
+                if diff % n.a or diff // n.a < 0:
                     return False
             elif index != n.b:
                 return False
@@ -1398,6 +1501,96 @@ class CSSMatch(_DocumentNav):
                 match = False
         return match
 
+    def contains_text(self, el: bs4.Tag, contain_list: ct.SelectorContains) -> bool:
+        """
+        Check if the text of an element, as `get_text()` gets it, contains any of the values of `contain_list`.
+
+        Getting the text of every element to search it takes time quadratic in the depth of the document, as an
+        element's text includes that of all its descendants. Instead, each element is summarized once for the
+        list, from the summaries of its children, and cached: whether its text contains any of the values, its
+        length, and its first and last `n - 1` characters, where `n` is the length of the longest value. An
+        occurrence of a value that crosses the boundary between two children has at most `n - 1` characters on
+        each side of it, so searching the end of what comes before the boundary joined to the start of what comes
+        after it finds every one of them.
+
+        All the values are searched for at once, with a pattern of all of them, so the summary of an element and
+        the work to make it don't grow with the number of values, only the searches themselves do, as with the
+        text of a value.
+
+        The first element checked is summarized along with all of its descendants, and the elements below it
+        that are checked later are found in the cache. Only an element's parent uses its first and last
+        characters, so once the parent is summarized, they are dropped from the element's summary. Otherwise,
+        the cache would hold up to `2 * (n - 1)` characters for every element, which adds up for a long value
+        on a large document. A parent is never summarized again, and checking the element itself only needs
+        whether its text contains a value.
+        """
+
+        list_key = id(contain_list)
+        compiled = self.contains_patterns.get(list_key)
+        if compiled is None:
+            values = set(contain_list.text)
+            if '' in values:
+                # Every text contains an empty value.
+                compiled = (None, 0)
+            else:
+                ordered = sorted(values, key=len, reverse=True)
+                compiled = (re.compile('|'.join(re.escape(v) for v in ordered)), len(ordered[0]) - 1)
+            self.contains_patterns[list_key] = compiled
+        pattern, edge = compiled
+        if pattern is None:
+            return True
+        search = pattern.search
+
+        cache = self.contains_cache
+        stack = [(el, False)]
+        while stack:
+            node, children_done = stack.pop()
+            key = (id(node), list_key)
+            if key in cache:
+                continue
+            # Like `get_text()`, the contents of a `template` are not included.
+            contents = node.contents if self.has_contents(node, False) else []
+            if not children_done:
+                stack.append((node, True))
+                stack.extend(
+                    (child, False) for child in contents
+                    if isinstance(child, bs4.Tag) and (id(child), list_key) not in cache
+                )
+                continue
+
+            found = False
+            head = tail = ''
+            length = 0
+            for child in contents:
+                if isinstance(child, bs4.Tag):
+                    c_found, c_head, c_tail, c_length = cache[(id(child), list_key)]
+                elif self.is_content_string(child):
+                    string = str(child)
+                    c_found = not found and search(string) is not None
+                    c_head = string[:edge]
+                    c_tail = string[-edge:] if edge else ''
+                    c_length = len(string)
+                else:
+                    continue
+                if not found:
+                    found = c_found or (edge > 0 and search(tail + c_head) is not None)
+                if length < edge:
+                    head = (head + c_head)[:edge]
+                if edge:
+                    # A child shorter than `edge` is entirely in its head.
+                    tail = (tail + (c_tail if c_length >= edge else c_head))[-edge:]
+                length += c_length
+            cache[key] = (found, head, tail, length)
+
+            # The ends of the children are no longer needed.
+            for child in contents:
+                if isinstance(child, bs4.Tag):
+                    child_key = (id(child), list_key)
+                    c_found, _, _, c_length = cache[child_key]
+                    cache[child_key] = (c_found, '', '', c_length)
+
+        return cache[(id(el), list_key)][0]
+
     def match_contains(self, el: bs4.Tag, contains: tuple[ct.SelectorContains, ...]) -> bool:
         """Match element if it contains text."""
 
@@ -1406,22 +1599,22 @@ class CSSMatch(_DocumentNav):
         own_content: Sequence[str] | None = None
         for contain_list in contains:
             found = False
-            for text in contain_list.text:
-                if contain_list.own:
-                    if own_content is None:
-                        own_content = self.get_own_text(el)
-                    for c in own_content:
-                        if text in c:
+            if not contain_list.own and self.enable_cache:
+                found = self.contains_text(el, contain_list)
+            else:
+                for text in contain_list.text:
+                    if contain_list.own:
+                        if own_content is None:
+                            own_content = self.get_own_text(el)
+                        if any(text in c for c in own_content):
                             found = True
                             break
-                    if found:
-                        break
-                else:
-                    if content is None:
-                        content = self.get_text(el)
-                    if text in content:
-                        found = True
-                        break
+                    else:
+                        if content is None:
+                            content = self.get_text(el)
+                        if text in content:
+                            found = True
+                            break
             if not found:
                 match = False
         return match
@@ -1482,9 +1675,10 @@ class CSSMatch(_DocumentNav):
         """
 
         key = id(tree)
-        forms = self.cached_forms.get(key)
-        if forms is not None:
-            return forms
+        if self.enable_cache:
+            cached = self.form_cache.get(key)
+            if cached is not None:
+                return cached
 
         ids: dict[str, bs4.Tag] = {}
         controls: list[tuple[bs4.Tag, bs4.Tag | None]] = []
@@ -1538,7 +1732,8 @@ class CSSMatch(_DocumentNav):
             ):
                 forms.checked[(id(form), radio_name)] = el
 
-        self.cached_forms[key] = forms
+        if self.enable_cache:
+            self.form_cache[key] = forms
         return forms
 
     def match_default(self, el: bs4.Tag) -> bool:
@@ -1592,9 +1787,10 @@ class CSSMatch(_DocumentNav):
         """
 
         key = id(select)
-        selectedness = self.cached_options.get(key)
-        if selectedness is not None:
-            return selectedness
+        if self.enable_cache:
+            cached = self.option_cache.get(key)
+            if cached is not None:
+                return cached
 
         options: list[tuple[bs4.Tag, bool]] = []
         stack: list[tuple[bs4.Tag, bool | None]] = [
@@ -1628,7 +1824,8 @@ class CSSMatch(_DocumentNav):
 
         selected = {id(el) for el in marked}
         selectedness = {id(el): id(el) in selected for el, _ in options}
-        self.cached_options[key] = selectedness
+        if self.enable_cache:
+            self.option_cache[key] = selectedness
         return selectedness
 
     def match_checked_option(self, el: bs4.Tag) -> bool:
@@ -1665,8 +1862,17 @@ class CSSMatch(_DocumentNav):
             for key in visited:
                 self.lang_cache[key] = found_lang
 
+        # The result only depends on the language, which elements usually inherit, so match each distinct
+        # language once per `:lang()`. Checking a long language tag for every element would take time
+        # quadratic in the size of the document. This does not depend on the tree, so unlike the other
+        # caches it is also used with `NOCACHE`.
+        match_key = (id(langs), found_lang)
+        if match_key in self.lang_match_cache:
+            return self.lang_match_cache[match_key]
+
         # A language tag that is not well-formed matches nothing, not even `:lang('')` or `:lang('*')`.
         if found_lang and RE_LANG_TAG.fullmatch(found_lang) is None:
+            self.lang_match_cache[match_key] = False
             return False
 
         match = False
@@ -1678,6 +1884,7 @@ class CSSMatch(_DocumentNav):
             if not match:
                 break
 
+        self.lang_match_cache[match_key] = match
         return match
 
     def resolve_lang(self, el: bs4.Tag, visited: list[int]) -> str:
@@ -1724,13 +1931,9 @@ class CSSMatch(_DocumentNav):
                 parent = last
                 break
 
-        # Use cached meta language.
-        if found_lang is None and self.cached_meta_lang:
-            for cache in self.cached_meta_lang:
-                if root is not None and cast(str, root) is cache[0]:
-                    return cache[1]
-
         # If we couldn't find a language, and the document is HTML, look to meta to determine language.
+        # This needs no cache of its own: the root is one of the elements visited, so `match_lang()` caches
+        # the result for it in `lang_cache`, and later walks stop there before getting here again.
         if found_lang is None and (not self.is_xml or (has_html_namespace and root and root.name == 'html')):
             # Find head
             found = False
@@ -1757,12 +1960,9 @@ class CSSMatch(_DocumentNav):
                                 content = v
                             if c_lang and content:
                                 found_lang = content
-                                self.cached_meta_lang.append((cast(str, root), cast(str, found_lang)))
                                 break
                     if found_lang is not None:
                         break
-                if found_lang is None:
-                    self.cached_meta_lang.append((cast(str, root), ''))
 
         # Without any language information, the language is unknown, which is an empty language tag.
         return '' if found_lang is None else cast(str, found_lang)
@@ -2233,19 +2433,56 @@ class SoupSieve(ct.Immutable):
         """
         Filter.
 
-        `CSSMatch` can cache certain searches for tags of the same document,
-        so if we are given a tag, all tags are from the same document,
-        and we can take advantage of the optimization.
+        Given a tag, its children are filtered with one `CSSMatch`, so its caches are shared by all of them.
 
-        Any other kind of iterable could have tags from different documents or detached tags,
-        so for those, we use a new `CSSMatch` for each item in the iterable.
+        Any other iterable can hold tags from different documents, or detached tags. A `CSSMatch` takes what
+        it knows about a document from the top level element above the tag it is created with, so the tags
+        are grouped by that element, and each group shares a `CSSMatch` and its caches. Matching each tag
+        with a new `CSSMatch` would search the same parts of a document again for every tag, which is
+        quadratic for a selector like `:has()` or `:-soup-contains()` on the elements of a nested document.
+
+        The one thing a `CSSMatch` knows about the tag it is created with is that it is the scope, which
+        `:scope` and `&` match, and caches can depend on it. So a selector that uses them still matches
+        each tag with a new `CSSMatch`, with the tag as the scope, as `match()` does.
         """
 
         if isinstance(iterable, bs4.Tag):
             return CSSMatch(self.selectors, iterable, self.namespaces, self.flags).filter()
-        else:
-            # There is no guarantee that elements are from the same document, evaluate them separately.
+
+        if uses_scope(self.selectors):
             return [node for node in iterable if not CSSMatch.is_navigable_string(node) and self.match(node)]
+
+        matchers: dict[int, CSSMatch] = {}
+        tops: dict[int, bs4.Tag] = {}
+        matched = []
+        for node in iterable:
+            if CSSMatch.is_navigable_string(node):
+                continue
+            CSSMatch.assert_valid_input(node)
+            if CSSMatch.is_doc(node):
+                continue
+
+            # Find the top level element above the tag, as `CSSMatch` does, sharing the walk with the tags
+            # it passes through so that a nested document is walked once.
+            visited = []
+            top = node
+            while id(top) not in tops:
+                visited.append(id(top))
+                parent = top.parent
+                if parent is None or CSSMatch.is_doc(parent):
+                    break
+                top = parent
+            else:
+                top = tops[id(top)]
+            for key in visited:
+                tops[key] = top
+
+            matcher = matchers.get(id(top))
+            if matcher is None:
+                matcher = matchers[id(top)] = CSSMatch(self.selectors, node, self.namespaces, self.flags)
+            if matcher.match(node):
+                matched.append(node)
+        return matched
 
     def select_one(self, tag: bs4.Tag) -> bs4.Tag | None:
         """Select a single tag."""

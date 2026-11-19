@@ -23,6 +23,7 @@ class SalesLineItemPricing(google.protobuf.message.Message):
     LINE_ITEM_UID_FIELD_NUMBER: builtins.int
     RESERVED_PRICE_CENTS_FIELD_NUMBER: builtins.int
     PAYG_RATE_FIELD_NUMBER: builtins.int
+    RESERVED_RATE_FIELD_NUMBER: builtins.int
     line_item_uid: builtins.str
     reserved_price_cents: builtins.int
     """The price of the reservation for this line item over one billing term.
@@ -34,19 +35,29 @@ class SalesLineItemPricing(google.protobuf.message.Message):
         this field is absent, the package PAYG rate applies.
         """
 
+    @property
+    def reserved_rate(self) -> sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate:
+        """The rate at which this line item draws down its shared pool's reserved
+        budget. It replaces the package reserved rate, and only applies to line
+        items in a shared pool. If this field is absent, the package rate applies.
+        """
+
     def __init__(
         self,
         *,
         line_item_uid: builtins.str = ...,
         reserved_price_cents: builtins.int | None = ...,
         payg_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
+        reserved_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_payg_rate", b"_payg_rate", "_reserved_price_cents", b"_reserved_price_cents", "payg_rate", b"payg_rate", "reserved_price_cents", b"reserved_price_cents"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_payg_rate", b"_payg_rate", "_reserved_price_cents", b"_reserved_price_cents", "line_item_uid", b"line_item_uid", "payg_rate", b"payg_rate", "reserved_price_cents", b"reserved_price_cents"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_payg_rate", b"_payg_rate", "_reserved_price_cents", b"_reserved_price_cents", "_reserved_rate", b"_reserved_rate", "payg_rate", b"payg_rate", "reserved_price_cents", b"reserved_price_cents", "reserved_rate", b"reserved_rate"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_payg_rate", b"_payg_rate", "_reserved_price_cents", b"_reserved_price_cents", "_reserved_rate", b"_reserved_rate", "line_item_uid", b"line_item_uid", "payg_rate", b"payg_rate", "reserved_price_cents", b"reserved_price_cents", "reserved_rate", b"reserved_rate"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_payg_rate", b"_payg_rate"]) -> typing.Literal["payg_rate"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_reserved_price_cents", b"_reserved_price_cents"]) -> typing.Literal["reserved_price_cents"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_reserved_rate", b"_reserved_rate"]) -> typing.Literal["reserved_rate"] | None: ...
 
 global___SalesLineItemPricing = SalesLineItemPricing
 
@@ -73,6 +84,30 @@ class SalesLineItemSoftCap(google.protobuf.message.Message):
 global___SalesLineItemSoftCap = SalesLineItemSoftCap
 
 @typing.final
+class SalesFeaturePricing(google.protobuf.message.Message):
+    """This message contains priced features in a sales contract that are NOT tied to line items."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TITLE_FIELD_NUMBER: builtins.int
+    PRICE_CENTS_FIELD_NUMBER: builtins.int
+    title: builtins.str
+    """What the feature is, e.g. "Premium Customer Success Service"."""
+    price_cents: builtins.int
+    """The price of this feature over one billing term. Zero means it is
+    included at no charge.
+    """
+    def __init__(
+        self,
+        *,
+        title: builtins.str = ...,
+        price_cents: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["price_cents", b"price_cents", "title", b"title"]) -> None: ...
+
+global___SalesFeaturePricing = SalesFeaturePricing
+
+@typing.final
 class SalesConfig(google.protobuf.message.Message):
     """The contract settings that only Sentry staff set, through sales and
     provisioning. It is the counterpart to the customer-configurable UserConfig,
@@ -83,18 +118,22 @@ class SalesConfig(google.protobuf.message.Message):
 
     PRICING_FIELD_NUMBER: builtins.int
     SOFT_CAPS_FIELD_NUMBER: builtins.int
+    FEATURE_PRICING_FIELD_NUMBER: builtins.int
     @property
     def pricing(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SalesLineItemPricing]: ...
     @property
     def soft_caps(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SalesLineItemSoftCap]:
         """A line item without an entry has no soft cap."""
 
+    @property
+    def feature_pricing(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SalesFeaturePricing]: ...
     def __init__(
         self,
         *,
         pricing: collections.abc.Iterable[global___SalesLineItemPricing] | None = ...,
         soft_caps: collections.abc.Iterable[global___SalesLineItemSoftCap] | None = ...,
+        feature_pricing: collections.abc.Iterable[global___SalesFeaturePricing] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["pricing", b"pricing", "soft_caps", b"soft_caps"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["feature_pricing", b"feature_pricing", "pricing", b"pricing", "soft_caps", b"soft_caps"]) -> None: ...
 
 global___SalesConfig = SalesConfig

@@ -2546,6 +2546,10 @@ paths:
         one for each comment's reactions (up to 50), so the reaction calls run
         at most eight at a time and stop at the first rate limit.
 
+        `references` lists the items that refer to the issue. GitHub adds
+        them to the same query; Forgejo reads the issue's timeline once more, one
+        request per page of 50 events and an empty one to end on.
+
         Every text is Markdown exactly as the forge stores it (`format` is
         always `markdown`). The server neither converts nor sanitises it, so a
         client must render it with raw HTML disabled. Each text is cut at
@@ -5812,7 +5816,15 @@ components:
     IssueDetails:
       type: object
       required:
-        [kind, state, description, comments, commentCount, commentsTruncated]
+        [
+          kind,
+          state,
+          description,
+          comments,
+          commentCount,
+          commentsTruncated,
+          references,
+        ]
       description: What the issue dialog shows.
       properties:
         kind:
@@ -5848,6 +5860,81 @@ components:
         commentsTruncated:
           type: boolean
           description: True when `commentCount` is more than the comments returned.
+        references:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/ItemReference"
+          description: |
+            The items that refer to this one, as the forge's own timeline
+            records them, newest first, at most the first 50. They are read
+            from the forge, so a closed or merged item shows them as well as an
+            open one: the board's own pills list open pull requests only. An
+            empty array means nothing refers to it. Only the entries whose
+            `direction` is `incoming` are returned for now; `outgoing` is part
+            of the contract so a later release can add what this item refers
+            to without another change.
+
+    ItemReference:
+      type: object
+      required:
+        [
+          forge,
+          repo,
+          number,
+          title,
+          url,
+          pageUrl,
+          kind,
+          state,
+          direction,
+          relation,
+        ]
+      description: One issue or pull request that is related to the item whose details were asked for.
+      properties:
+        forge:
+          $ref: "#/components/schemas/Forge"
+        repo:
+          type: string
+          description: The related item's repository as `owner/name`, which is not always the asked-for item's own.
+        number:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          description: The related item's title, as the forge has it now.
+        url:
+          type: string
+          description: The related item's address on the forge.
+        pageUrl:
+          type: string
+          description: |
+            The address on this dashboard that opens the related item's pop-up:
+            `/pull-requests.html?pr=` or `/issues.html?issue=`, then
+            `forge/owner/name/number`. A relative address.
+        kind:
+          type: string
+          enum: [issue, pullRequest]
+          description: What the related number is. A forge shares one number space between the two.
+        state:
+          type: string
+          enum: [open, closed, merged]
+          description: Where the related item stands. Only a pull request is `merged`; `closed` means closed without merging.
+        direction:
+          type: string
+          enum: [incoming, outgoing]
+          description: |
+            `incoming` when the related item refers to the asked-for one,
+            `outgoing` when the asked-for one refers to it.
+        relation:
+          type: string
+          enum: [closes, refs, mentions]
+          description: |
+            What the referring item does to the referred-to one. `closes`
+            closes it when merged (a closing keyword). `refs` references it
+            without closing it (`Refs`, `Related to`, `See`). `mentions` only
+            names it. The forge's timeline does not tell the last two apart,
+            so a read from it says `mentions` for both.
 
     IssuePullRequest:
       type: object
@@ -6184,8 +6271,12 @@ components:
         - reportsRepoPermissions
         - statusPageUrl
         - rateLimitModel
+        - rateLimitDocsUrl
         - issueRefSyntax
         - label
+        - imageHosts
+        - avatarHosts
+        - signedAttachmentPrefix
       properties:
         autoMergeHeldByApp:
           type: boolean
@@ -6244,6 +6335,12 @@ components:
           description: >-
             How the forge budgets requests. Open-ended; today
             `graphql_and_rest` (two separate allowances) and `rest`.
+        rateLimitDocsUrl:
+          type: string
+          description: >-
+            The forge's published rules for its request budget, or an empty
+            string when it has none. A client links to it from the rate limit
+            explanation and shows no link when it is empty.
         issueRefSyntax:
           type: string
           description: >-
@@ -6252,6 +6349,30 @@ components:
         label:
           type: string
           description: The forge's name as a person reads it, such as `GitHub`.
+        imageHosts:
+          type: array
+          items:
+            type: string
+          description: >-
+            The fixed public hosts an image embedded in the forge's text may
+            come from, each matched by its exact name, over https on the default
+            port. Empty means the forge's own saved instance. See
+            `GET /api/v1/images`.
+        avatarHosts:
+          type: array
+          items:
+            type: string
+          description: >-
+            Further fixed hosts that only avatars and repository logos load
+            from. Empty when they live on the forge's own instance.
+        signedAttachmentPrefix:
+          type: string
+          description: >-
+            The address prefix of an attachment the forge serves only at a
+            signed link found in the item's rendered body, such as
+            `https://github.com/user-attachments/`. Empty when the forge has no
+            such links. Passing `fullName` with the item then lets the server
+            find the signed link.
 
     ProviderStatus:
       type: object
@@ -6425,6 +6546,7 @@ components:
           mentionsIssues,
           unresolvedThreads,
           awaitingWorkflowApproval,
+          checksIncomplete,
           reviewRequestedFromMe,
           empty,
           allowedActions,
@@ -6628,6 +6750,18 @@ components:
             `ci` is pending (other runs are going) or failing for another
             reason too. Always present; false on Forgejo, which has no
             such state.
+        checksIncomplete:
+          type: boolean
+          description: |
+            True while the forge has not yet listed every check of the head
+            commit, so `checks` counts some of them and the rest will arrive:
+            a client shouldn't present the counts as final. A fact only; the
+            client decides how to say it. Always present, and false when the
+            list is complete or the forge can't tell. On Forgejo it is true
+            when a run that is still running has jobs the counts leave out,
+            or has no job yet. On GitHub it is always false: the rollup
+            reports its checks by state and says nothing about checks still
+            to be created.
         reviewComments:
           type: integer
           minimum: 0

@@ -4,6 +4,9 @@
 The inference layer of sequence-ai: components for serving a robot policy fast on one GPU, each usable on its own in
 your code.
 
+    serve          a policy server in one call: your model as a function (or a batch function), served to robots
+                   elsewhere, with the batcher below and the network's server side on by default (sequence_ai.serve)
+    openpi         an openpi policy's infer() for a list of observations, in one call to its model: for serve's batch
     cuda_graphs    a torch module your model calls many times per run, replayed from CUDA graphs captured from its
                    own eager kernels, and kept only when its output is the same, byte for byte
     batcher        the calls waiting for a model, batched into one call to it

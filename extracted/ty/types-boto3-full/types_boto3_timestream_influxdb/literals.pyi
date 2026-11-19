@@ -129,6 +129,7 @@ StatusType = Literal[
 TracingTypeType = Literal["disabled", "jaeger", "log"]
 TimestreamInfluxDBServiceName = Literal["timestream-influxdb"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

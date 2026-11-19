@@ -30,6 +30,7 @@ logger = get_logger(__name__)
 ICECHUNK_REQUIRED_ENV_VARS = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
 
 
+# Server copy: server/arraylake_api/services/icechunk_storage.py
 class CredentialType(Enum):
     ANONYMOUS = "anonymous"
     PROVIDED = "provided"
@@ -54,6 +55,7 @@ def _get_credential_type(
         return CredentialType.ANONYMOUS
 
 
+# Server copy: server/arraylake_api/services/icechunk_storage.py:get_icechunk_storage_obj
 def _get_icechunk_storage_obj(
     bucket_config: BucketResponse,
     prefix: str | None,

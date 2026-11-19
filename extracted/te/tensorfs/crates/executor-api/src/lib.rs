@@ -129,6 +129,10 @@ pub struct Start {
     /// for the desktop to draw.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_pace: Option<DisplayPace>,
+    /// A dev machine (`dev = true` in its config.toml): the Runtime audits its CUDA graphs'
+    /// replays against their calls as written.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub dev: bool,
 }
 
 /// How a call shares a GPU with the display it drives (`machine.display_pace`): it pauses
@@ -204,7 +208,8 @@ pub struct Release {
     pub constructions: Vec<String>,
 }
 
-/// The queued preparation to discard, by its request id.
+/// A request to stop, by its id: a queued preparation is discarded, a running invoke stops at its next
+/// cancellation point and replies.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.executor", frozen, eq, get_all, skip_from_py_object))]
 pub struct Cancel {
@@ -287,6 +292,10 @@ pub struct Map {
     pub entrypoint: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload: Option<Json>,
+    /// Its on-demand models (by parameter) built first, as a call's first read of each would build it, then warmed with the
+    /// rest: those a predicted request needs (cl-1123). An executor before this builds none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub build: Vec<String>,
 }
 
 /// What a warmed construction's models hold: `gpu` is warm and fills free room now, `ram`
@@ -437,6 +446,8 @@ pub enum Kind {
     Log,
     /// A `progress` event carrying a preview (`author.preview`): its `preview`.
     Preview,
+    /// A `progress` event carrying words a text output made (`vlm`, xs-209): its `text`.
+    Text,
     #[default]
     #[serde(other)]
     Unknown,
@@ -473,6 +484,16 @@ pub struct PreviewFrame {
     pub frames: u32,
     #[serde(with = "base64_bytes")]
     pub data: Vec<u8>,
+}
+
+/// Words a call's text output made since its last (`Context._text`): appended to what came before.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct TextFrame {
+    /// The result's field, and the item of it: 0 for a single output, from 1 a list's.
+    pub output: String,
+    pub index: u32,
+    pub delta: String,
 }
 
 /// The result document the invoke wrote to its spool (`RESULT_DOCUMENT`): its digest and length.
@@ -651,6 +672,9 @@ pub struct Frame {
     /// A `preview` progress frame's picture.
     #[serde(deserialize_with = "lenient")]
     pub preview: Option<PreviewFrame>,
+    /// A `text` progress frame's words.
+    #[serde(deserialize_with = "lenient")]
+    pub text: Option<TextFrame>,
     /// A retained observation (`kind` log): `name` is its message, `value` its level and `fields`
     /// its scalars.
     pub value: Value,

@@ -139,6 +139,22 @@ class SkillSpec(BaseModel):
         default_factory=list,
         description="Environment variable IDs required by this skill",
     )
+    optional_env_vars: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Environment variable IDs the skill reads when they are set: given "
+            "to the runtime and its sandbox when the account has them, never "
+            "required"
+        ),
+    )
+    any_of_env_vars: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Its activation rule (agentspecs 0.0.218): one at least of these, "
+            "each among optional_env_vars, must be set, or the skill is not "
+            "activated and the agent starts without it"
+        ),
+    )
     dependencies: List[str] = Field(
         default_factory=list, description="Python package dependencies"
     )
@@ -397,8 +413,20 @@ class UISpec(BaseModel):
         default_factory=list,
         description=(
             "Where in the chat it may go, its default first: header, toolbar, footer, "
-            "banner, panel or message (agentspecs 0.0.197)"
+            "banner, the side panels left and right, or message (agentspecs 0.0.197)"
         ),
+    )
+    header: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "What it puts in the chat's title bar — its buttons, drop-downs and "
+            "indicators (`items`) — and the frontend tool that sets them (`tool`, "
+            "`when`), as its agentspecs UI spec declares them"
+        ),
+    )
+    supersedes: List[str] = Field(
+        default_factory=list,
+        description="The UI plugins it stands in for: a chat that has it leaves them out",
     )
     catalog: str = Field(
         default="", description="The catalog its components are written in"

@@ -8,13 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-#: The models a developer chooses from, in the order onboarding lists them.
-#: ``anthropic`` joined by operator ruling 2026-10-11T15:05:50Z (OMN-20990).
-#: ``glm`` (OMN-20157): z.ai's general API, the catalogue's customer GLM plan.
-#: ``local`` (OMN-21162): a model server on an OpenAI-compatible URL, no key.
-ModelProvider = Literal[
-    "gemini", "openrouter", "openai", "anthropic", "glm", "ollama", "local"
-]
+# OMN-23413: shared with the setup node, so neither node reaches into the other.
+from omnimarket.models.model_provider_name import ModelProvider as ModelProvider
 
 
 class ModelModelSetupRequest(BaseModel):
@@ -33,7 +28,19 @@ class ModelModelSetupRequest(BaseModel):
 
     OMN-21162: ``add_local`` declares the keyless server at ``url`` serving the
     one model in ``models`` as a backend in the local routes overlay;
-    ``remove_local`` takes it out again. Other overlay entries are kept."""
+    ``remove_local`` takes it out again. Other overlay entries are kept.
+
+    OMN-21346: ``set_first`` makes the model in ``models`` (or, with none named,
+    ``provider``'s own first model) the one every delegation tries first: it
+    moves to the front of the provider's list and is recorded as the choice.
+    ``clear_first`` drops the choice, so runs keep their usual order.
+
+    OMN-21267: ``set_only`` records the rule ``only`` (``local`` or ``free``):
+    every delegation on this machine skips a model outside it. ``clear_only``
+    removes the rule, so routing is what it was.
+
+    OMN-23167: ``ladder`` lists every routable model in the order delegation
+    tries it, with its cost class."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -47,10 +54,17 @@ class ModelModelSetupRequest(BaseModel):
         "default_model",
         "add_local",
         "remove_local",
+        "set_first",
+        "clear_first",
+        "set_only",
+        "clear_only",
+        "ladder",
     ]
     provider: ModelProvider | None = None
     models: tuple[str, ...] = ()
     url: str | None = None
+    #: OMN-21267: the rule ``set_only`` records.
+    only: Literal["local", "free"] | None = None
 
 
 __all__ = ["ModelModelSetupRequest", "ModelProvider"]

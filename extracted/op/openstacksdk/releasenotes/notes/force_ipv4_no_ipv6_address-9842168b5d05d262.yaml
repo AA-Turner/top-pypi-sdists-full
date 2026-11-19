@@ -1,6 +1,0 @@
----
-upgrade:
-  - |
-    Cloud with the `force_ipv4` flag will no longer return a
-    `public_v6` value, even if one is provided by the cloud.  This is
-    to avoid having entries for unconfigured interfaces.

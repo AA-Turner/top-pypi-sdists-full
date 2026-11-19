@@ -1,5 +1,19 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "atexit",
+    "decimal",
+    "contrast_vendor.filelock._error",
+    "contrast_vendor.filelock._util",
+    "inspect",
+    "math",
+    "numbers",
+    "secrets",
+    "types",
+    "warnings",
+]
+
+import atexit
 import contextlib
 import inspect
 import logging
@@ -9,20 +23,22 @@ import secrets
 import stat
 import sys
 import time
+import types
 import warnings
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Hashable
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
 from decimal import Decimal
-from itertools import count, pairwise, starmap
+from functools import cache, partial
+from itertools import count, starmap
 from numbers import Real
 from threading import TIMEOUT_MAX, Condition, RLock, Thread, current_thread, get_ident, local
 from typing import TYPE_CHECKING, Final, Generic, Literal, NoReturn, TypedDict, TypeVar, cast
-from weakref import WeakKeyDictionary, WeakValueDictionary
+from weakref import WeakKeyDictionary, WeakValueDictionary, ref
 
-from ._error import SoftFileLockLifetimeWarning, Timeout
-from ._util import break_lock_file
+from contrast_vendor.filelock._error import SoftFileLockLifetimeWarning, Timeout
+from contrast_vendor.filelock._util import ensure_directory_exists
 
 #: No explicit file permission mode was passed. Lock files then open with 0o666 so umask and default ACLs pick
 #: the final permissions, and fchmod is skipped to preserve POSIX default ACL inheritance.
@@ -43,14 +59,15 @@ _CLOSE_ERROR_POLICIES: Final[frozenset[str]] = frozenset({"default", "raise", "s
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
+    from threading import Lock
     from types import FrameType, TracebackType
     from typing import Protocol
 
     from _typeshed import Unused
 
-    from ._lease import _LeaseClaim
-    from ._read_write import ReadWriteLock
-    from ._soft_rw import SoftReadWriteLock
+    from contrast_vendor.filelock._lease import _LeaseClaim
+    from contrast_vendor.filelock._read_write import ReadWriteLock
+    from contrast_vendor.filelock._soft_rw import SoftReadWriteLock
 
     class _ForkResettable(Protocol):
         def _reset_after_fork_in_child(self) -> None: ...
@@ -72,10 +89,7 @@ if TYPE_CHECKING:
             after_in_child: Callable[[], None] | None = None,
         ) -> None: ...
 
-    if sys.version_info >= (3, 11):  # pragma: no cover (py311+)
-        from typing import Self
-    else:  # pragma: no cover (<py311)
-        from typing_extensions import Self
+    from typing import Self
 
 _LOGGER: Final[logging.Logger] = logging.getLogger("filelock")
 _REGISTER_AT_FORK: Final[_RegisterAtFork | None] = cast("_RegisterAtFork | None", getattr(os, "register_at_fork", None))
@@ -104,23 +118,8 @@ class LockOptions(TypedDict, total=False):
     on_acquired: Callable[[int], None] | None
 
 
-def _exception_group_cls() -> type[BaseException] | None:
-    # filelock has no runtime dependencies, so the 3.10 exceptiongroup backport is optional: without it grouped errors
-    # chain instead, and only context_error_policy="group" is refused.
-    if sys.version_info >= (3, 11):  # pragma: no cover (py311+)
-        return BaseExceptionGroup  # ruff:ignore[undefined-name]  # builtin on 3.11+
-    try:  # pragma: <3.11 cover
-        # Alias the import so BaseExceptionGroup above stays the builtin rather than an unbound local of this function.
-        from exceptiongroup import (  # ruff:ignore[import-outside-top-level]  # optional backport
-            BaseExceptionGroup as _Backport,
-        )
-    except ImportError:  # pragma: <3.11 cover
-        return None
-    return _Backport  # pragma: <3.11 cover
-
-
 def _is_exception_group(error: BaseException) -> bool:
-    return (group_cls := _exception_group_cls()) is not None and isinstance(error, group_cls)
+    return isinstance(error, BaseExceptionGroup)
 
 
 def _raise_grouped_errors(
@@ -131,13 +130,8 @@ def _raise_grouped_errors(
     marker: tuple[str, _MarkerValue] | None = None,
 ) -> NoReturn:
     errors = (first_error, second_error, *additional_errors)
-    if (group_cls := _exception_group_cls()) is None:  # pragma: <3.11 cover
-        # Chain them the way nested handlers would: the last error propagates with the earlier ones as its context.
-        for earlier, later in pairwise(errors):
-            _append_exception_context(later, earlier)
-        _raise_chained_errors(errors[-1])
     _detach_grouped_contexts(errors)
-    group: Final = group_cls(message, errors)
+    group: Final = BaseExceptionGroup(message, errors)
     if marker is not None:
         setattr(group, marker[0], marker[1])
     raise group from None
@@ -379,6 +373,7 @@ class FileLockMeta(ABCMeta):
         **kwargs: _ExtraValue,
     ) -> _T:
         _ensure_current_process()
+        _resolve_lazy_imports_before_shutdown()
         lifetime = _resolve_lifetime(lifetime, cls, stacklevel=cls._constructor_lifetime_warning_stacklevel)
         poll_interval = _resolve_poll_interval(poll_interval)
         # Validate before building the instance: a raise inside __init__ would leave a half-constructed object whose
@@ -424,7 +419,12 @@ class FileLockMeta(ABCMeta):
         # deadlock-registry key acquire() uses.
         singleton_key = _canonical(lock_file)
         with cls._instances_lock:
-            if (instance := cls._instances.get(singleton_key)) is None:
+            # A cached lock resolves its relative path at each acquisition and pins it for the hold. After a chdir, or
+            # once a parent symlink points elsewhere, an unheld lock may name another file than this key; a held one
+            # names the file it pinned.
+            if (instance := cls._instances.get(singleton_key)) is None or _canonical(
+                instance._lock_path  # ruff:ignore[private-member-access]  # the metaclass owns the instance it returns
+            ) != singleton_key:
                 if singleton_key in cls._instances_under_construction:  # pragma: needs fork
                     msg = f"Singleton lock construction is already active for {lock_file!s}"
                     raise RuntimeError(msg)
@@ -439,6 +439,7 @@ class FileLockMeta(ABCMeta):
                     msg = "Lock construction cannot continue after fork; construct a new lock in the child"
                     raise RuntimeError(msg)
                 cls._instances[singleton_key] = instance
+                instance._singleton_key = singleton_key  # ruff:ignore[private-member-access]  # the cache entry the finalizer looks up
                 return instance
 
         non_matching_params = {
@@ -566,10 +567,6 @@ def _check_mode(mode: int, cls_name: str) -> None:
 def _resolve_context_error_policy(policy: str) -> ContextErrorPolicy:
     if policy not in _CONTEXT_ERROR_POLICIES:
         msg = f"context_error_policy must be 'chain' or 'group', got {policy!r}"
-        raise ValueError(msg)
-    # Fail fast at construction rather than only when a dual failure happens to occur.
-    if policy == "group" and _exception_group_cls() is None:  # pragma: <3.11 cover
-        msg = "context_error_policy='group' requires Python 3.11+ or the 'exceptiongroup' backport installed"
         raise ValueError(msg)
     return cast("ContextErrorPolicy", policy)
 
@@ -708,6 +705,9 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
     #: poll cadence; a multi-file backend sets it so contending processes desynchronize instead of livelocking.
     _poll_backoff_cap: float = 0.0
 
+    #: The singleton cache key of this instance, or ``None`` outside the cache.
+    _singleton_key: str | None = None
+
     def __init_subclass__(cls, **kwargs: _SubclassValue) -> None:
         """Give each lock subclass its own singleton registry and lock."""
         super().__init_subclass__(**kwargs)
@@ -748,7 +748,10 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
             negative value or ``inf``. A timeout of 0 means that there is exactly one attempt to acquire the file lock.
         :param mode: file permissions for the lockfile. When not specified, the OS controls permissions via umask and
             default ACLs, preserving POSIX default ACL inheritance in shared directories. Construction raises
-            :class:`ValueError` unless it grants the owner read and write, which the lock needs for its own files.
+            :class:`ValueError` unless it grants the owner read and write, which the lock needs for its own files. On
+            Windows a native lock creates its file with an owner-only ACL when the mode has no group and other bits; any
+            other mode, and a soft lock, leave the file the ACL its directory hands down. A Unix lock file that already
+            exists keeps its permissions.
         :param thread_local: Whether this object's internal context should be thread local or not. If this is set to
             ``False`` then the lock will be reentrant across threads. When ``True`` (the default), **all fields of the
             lock's internal context are per-thread**, including the configuration values ``poll_interval``, ``timeout``,
@@ -800,6 +803,8 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
 
         """
         self._creator_pid = os.getpid()
+        #: Holder id in the deadlock registry; a stand-in that finishes the finalizer has another id(self).
+        self._holder_id = id(self)
         self._transition_lock = RLock()
         self._is_thread_local = thread_local
         self._is_singleton = is_singleton
@@ -919,6 +924,12 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
     def lock_file(self) -> str:
         """Path to the lock file."""
         return self._context.lock_file
+
+    @property
+    def _lock_path(self) -> str:
+        # The OS resolves a relative lock_file against the working directory at each call. A chdir during an
+        # acquisition or a hold would otherwise make the backend wait on, lock or remove a different file.
+        return self._context.claim_root or self._context.lock_file
 
     @property
     def timeout(self) -> float:
@@ -1099,6 +1110,15 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         """Force-release so a dropped reference never leaks a held lock, including every thread's hold."""
         if vars(self).get("_creator_pid") != os.getpid():
             return  # pragma: forked child
+        # CPython runs __del__ before it clears weak references. Until then the singleton cache still hands this lock
+        # out, and a thread that takes a hold through it would lose that hold to a release here. The cycle collector
+        # clears the references first, and at exit no other thread runs.
+        if (key := self._singleton_key) is not None and not sys.is_finalizing() and self._instances.get(key) is self:
+            self._release_once_unreachable()
+        else:
+            self._release_abandoned_holds()
+
+    def _release_abandoned_holds(self) -> None:
         # A finalizer must not raise. A release error during garbage collection would otherwise surface as an
         # unraisable-exception warning, attributed to whichever code triggered collection. The dropped lock still gets
         # best-effort cleanup; an explicit release() reports the same error to a caller who can act on it.
@@ -1107,6 +1127,12 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         # Nothing references the lock any more, so no thread can still be inside it through this instance.
         with contextlib.suppress(Exception):
             self._release_thread_holds(exited_only=False)
+
+    def _release_once_unreachable(self) -> None:
+        # The callback runs once the lock is gone, so it reads the state through a holder. The state alone keeps the
+        # holder alive: a reference from the callback would keep the state, and through it the lock, alive.
+        self._finalizer_state = _FinalizerState(vars(self))
+        _UNREACHABLE_LOCKS.add(ref(self, partial(_finalize_unreachable, ref(self._finalizer_state), type(self))))
 
     def acquire(
         self,
@@ -1133,6 +1159,7 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         :returns: a context object that will unlock the file when the context is exited
 
         :raises Timeout: if fails to acquire lock within the timeout period
+        :raises TypeError: if *blocking* is not a :class:`bool`
         :raises ValueError: if a blocking call gets a ``nan`` timeout, or *poll_interval* exceeds
             :data:`threading.TIMEOUT_MAX`
 
@@ -1162,6 +1189,9 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         if blocking is None:
             blocking = self._context.blocking
 
+        # A truthy non-bool such as the string "false" would otherwise turn a single attempt into a blocking wait.
+        _check_blocking(blocking)
+
         if poll_intervall is not None:
             msg = "use poll_interval instead of poll_intervall"
             warnings.warn(msg, DeprecationWarning, stacklevel=2)
@@ -1186,11 +1216,17 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
             if not self.is_locked and _on_this_stack(self._context.acquiring):
                 msg = f"Deadlock: lock '{self.lock_file}' is acquired again while this thread's acquire of it waits"
                 raise RuntimeError(msg)
-            # Bump the counter up front; _undo_acquire rolls it back if acquisition fails.
+            # An interrupted release commits only the hold it started with and ignores a release above it on the
+            # stack. A hold taken here would nest into one the OS dropped, or stay held for good.
+            if _on_this_stack(self._context.releasing):
+                msg = f"lock '{self.lock_file}' is acquired again while this thread's release of it runs"
+                raise RuntimeError(msg)
+            canonical = _canonical(self.lock_file)
             self._context.lock_counter += 1
 
-            canonical = _canonical(self.lock_file)
             self._raise_if_would_deadlock(canonical, timeout=timeout, blocking=blocking)
+            if not self.is_locked:
+                self._pin_lock_path(canonical)
 
             try:
                 self._poll_until_acquired(
@@ -1248,7 +1284,23 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
             stays with that thread. Dropping the last reference to the lock releases every thread's hold.
 
         """
-        self._release_current(force=force)
+        counter_before: int | None = None
+        try:
+            counter_before = self._context.lock_counter
+            self._release_current(force=force)
+        except BaseException as release_error:
+            # A handler that raised after release() began and before the backend changed anything leaves the counter as
+            # it was; only then does a second attempt release the hold the caller gave up. A failed system call keeps it
+            # for an explicit retry, and a changed counter means a nested level or the backend's own retry already ran.
+            if (
+                counter_before is not None
+                and counter_before == self._context.lock_counter
+                and self._context.lock_file_fd is not None
+                and not _is_system_call_failure(release_error)
+            ):
+                with contextlib.suppress(Exception):
+                    self._release_current(force=force)
+            raise
         if force:
             self._release_thread_holds(exited_only=True)
 
@@ -1320,10 +1372,11 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
 
     def _mark_descriptor_owned(self, fd: int, identity: tuple[int, int] | None = None) -> None:
         state: Final = self._hold_state()
-        state.pending_lock_file_fd = None
-        state.pending_lock_file_fd_identity = None
+        # Held first, pending cleared second: an interrupt between the two then leaves the descriptor recorded.
         state.lock_file_fd = fd
         state.lock_file_fd_identity = identity
+        state.pending_lock_file_fd = None
+        state.pending_lock_file_fd_identity = None
         if isinstance(self._context, ThreadLocalFileContext):
             self._thread_pending.pop(id(state), None)
             self._thread_holds[id(state)] = state, current_thread()
@@ -1363,6 +1416,7 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         self._context.acquiring = None
         self._context.lock_file_key = None
         self._context.lock_file_registry = None
+        self._context.lease_claim = None
 
     def _descriptors_for_fork(self) -> tuple[tuple[int, tuple[int, int] | None], ...]:  # pragma: needs fork
         descriptors: list[tuple[int, tuple[int, int] | None]] = []
@@ -1380,7 +1434,7 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         block on a lock this flow already owns. A finite timeout or ``blocking=False`` keeps the normal Timeout path.
         """
         would_block = self._context.lock_counter == 1 and not self.is_locked and timeout < 0 and blocking
-        if would_block and _registry.held.get(self._registry_key(canonical)) not in {None, id(self)}:
+        if would_block and _registry.held.get(self._registry_key(canonical)) not in {None, self._holder_id}:
             self._context.lock_counter -= 1
             msg = (
                 f"Deadlock: lock '{self.lock_file}' is already held by a different {self._deadlock_holder_desc}. "
@@ -1416,6 +1470,10 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         attempt = 0
         self._context.acquiring = inspect.currentframe()
         try:
+            # Created once, so a directory that disappears while the acquisition waits fails it rather than building a
+            # second lock file beside the holder's, and not on re-entry, which joins a hold whose parent may be renamed.
+            if not self.is_locked:
+                ensure_directory_exists(self._lock_path)
             while True:
                 self._raise_if_inherited()
                 if not self.is_locked:
@@ -1544,6 +1602,13 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         with _fork_transition(self):
             try:
                 self._release()
+            except BaseException as release_error:
+                # A backend unlocks first and clears the descriptor second. A signal handler that raises in between
+                # leaves a hold the OS dropped. A failed system call alone shows the lock is still held, so it keeps it.
+                if self._context.lock_file_fd is not None and not _is_system_call_failure(release_error):
+                    with contextlib.suppress(Exception):
+                        self._release()
+                raise
             finally:
                 self._unregister_released_descriptor()
 
@@ -1571,6 +1636,12 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         self._context.lock_counter = max(0, self._context.lock_counter - 1)
         if self._context.lock_counter == 0:
             self._drop_registry_entry()
+            self._context.claim_root = None
+
+    def _pin_lock_path(self, canonical: str) -> None:
+        # A path without a final component names no file. Its canonical form is a directory, and pinning that would
+        # change the error the backend raises.
+        self._context.claim_root = None if canonical.endswith(os.sep) else canonical
 
     def _commit_acquire(self, canonical: str) -> None:
         """Record this instance as the holder once the first acquire succeeds, so peers can detect the deadlock."""
@@ -1583,14 +1654,14 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
             # A shared instance may be released from another thread, which must clear the entry in the acquirer's
             # registry: the releaser's own thread-local registry never held it.
             self._context.lock_file_registry = _registry.held
-            _registry.held[key] = id(self)
+            _registry.held[key] = self._holder_id
 
     def _drop_registry_entry(self) -> None:
         """Forget the key owned by this hold without resolving a mutable path again."""
         # Ordered so a run an interrupt cuts short repeats safely: the entry goes only while it is still ours, and the
         # key outlives the registry it indexes, so a later commit sees no registry and records the hold afresh.
         key, registry = self._context.lock_file_key, self._context.lock_file_registry
-        if registry is not None and registry.get(key) == id(self):
+        if registry is not None and registry.get(key) == self._holder_id:
             del registry[key]
         self._context.lock_file_registry = None
         self._context.lock_file_key = None
@@ -1599,20 +1670,10 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         """Record the lock as fully released: reset the recursion counter and drop the deadlock-registry entry."""
         self._context.lock_counter = 0
         self._drop_registry_entry()
+        self._context.claim_root = None
 
     def _try_break_expired_lock(self) -> None:
-        """Remove the lock file if its modification time exceeds the configured :attr:`lifetime`."""
-        if (lifetime := self._context.lifetime) is None:
-            return
-        with contextlib.suppress(OSError):
-            # lstat, not stat: an attacker with write access to the lock directory can replace a held
-            # lock file with a symlink pointing at an old file, making stat() report the target's stale
-            # mtime so a waiter breaks a live lock and two processes hold it at once. lstat reads the
-            # symlink's own mtime, matching the O_NOFOLLOW reads elsewhere.
-            st = os.lstat(self.lock_file)
-            if time.time() - st.st_mtime < lifetime:
-                return
-            break_lock_file(self.lock_file, st.st_mtime, st.st_ino)
+        """Remove the lock file once it is older than :attr:`lifetime`; only an existence lock accepts one."""
 
     def _check_give_up(
         self,
@@ -1649,11 +1710,30 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
 
 
 def _resolve_read_write_timeout(timeout: float, *, blocking: bool) -> float:
-    """Validate a read-write lock's acquire ``timeout``: ``-1`` or a non-negative number, ``inf`` meaning ``-1``."""
+    # 0 would still get SQLite's full busy timeout, and a truthy "false" would turn one attempt into a blocking wait.
+    _check_blocking(blocking)
     if (timeout := _resolve_timeout(timeout, blocking=blocking)) < 0 and timeout != -1 and blocking:
         msg = f"timeout must be a non-negative number or -1, not {timeout!r}"
         raise ValueError(msg)
     return timeout
+
+
+def _acquire_thread_lock(
+    lock: Lock, *, blocking: bool, timeout: float, poll_interval: float, cancel_check: Callable[[], bool] | None
+) -> bool:
+    """Take a read-write lock's in-process lock; with *cancel_check*, ask it every *poll_interval* while waiting."""
+    if not blocking:
+        return lock.acquire(blocking=False)
+    if cancel_check is None:
+        # Lock.acquire raises OverflowError past TIMEOUT_MAX, which is 49.7 days on Windows.
+        return lock.acquire() if timeout == -1 else lock.acquire(timeout=min(timeout, TIMEOUT_MAX))
+    deadline = None if timeout == -1 else time.perf_counter() + timeout
+    while not lock.acquire(
+        timeout=poll_interval if deadline is None else min(poll_interval, max(deadline - time.perf_counter(), 0))
+    ):
+        if cancel_check() or (deadline is not None and time.perf_counter() >= deadline):
+            return False
+    return True
 
 
 def _resolve_timeout(timeout: float, *, blocking: bool) -> float:
@@ -1663,6 +1743,37 @@ def _resolve_timeout(timeout: float, *, blocking: bool) -> float:
         raise ValueError(msg)
     # The fail-fast deadlock check only sees a negative timeout as unlimited, so spell inf that way.
     return -1 if timeout == math.inf else timeout
+
+
+@dataclass(slots=True, weakref_slot=True)
+class _FinalizerState:
+    """A finalized lock's state, held for the release that runs once the lock is unreachable."""
+
+    state: dict[str, object] | None
+
+
+#: Weak references whose callback finishes a singleton's finalizer once the cache no longer finds it.
+_UNREACHABLE_LOCKS: Final[set[ref[BaseFileLock]]] = set()
+
+
+def _finalize_unreachable(holder: ref[_FinalizerState], cls: type[BaseFileLock], reference: ref[BaseFileLock]) -> None:
+    _UNREACHABLE_LOCKS.discard(reference)
+    if (finalizer_state := holder()) is None or (state := finalizer_state.state) is None:
+        return  # pragma: no cover  # only a collector freeing a resurrected lock as part of a cycle drops the holder
+    # The lock's dictionary points back at the holder; that cycle ends here.
+    finalizer_state.state = None
+    # The release methods only read and write this state, so a fresh instance takes it over. Dropping that instance
+    # runs __del__ again, and the cache no longer finds the lock.
+    stand_in = object.__new__(cls)
+    stand_in.__dict__ = state
+    del stand_in
+
+
+def _is_system_call_failure(error: BaseException) -> bool:
+    # A failed system call sets errno. A bare TimeoutError raised by a signal handler is an OSError without one.
+    if _is_exception_group(error):
+        return all(map(_is_system_call_failure, cast("_ExceptionGroupProtocol", error).exceptions))
+    return isinstance(error, OSError) and error.errno is not None
 
 
 def _on_this_stack(frame: FrameType | None) -> bool:
@@ -1748,8 +1859,8 @@ class FileLockContext:
     #: The frame of an acquire still polling for this hold, so one a signal handler starts on this thread fails fast.
     acquiring: FrameType | None = None
 
-    #: Canonical lock path resolved when an acquisition starts. A waiter polling a relative path must keep publishing
-    #: into the directory it started in, even when another thread changes the working directory mid-wait.
+    #: Canonical lock path, resolved when an acquisition starts and kept until its hold ends. A waiter on a relative
+    #: path stays in the directory it started in, and the release finds the file there, after a chdir in between.
     claim_root: str | None = None
 
     #: The lease claim of this hold, kept with it so a cross-thread release stops the right heartbeat.
@@ -1845,6 +1956,25 @@ _FORK_AUDIT_EVENTS: Final[frozenset[str]] = frozenset({"os.fork", "os.forkpty"})
 _SETTRACE_SURVIVES_AUDIT_HOOKS: Final[bool] = sys.implementation.name != "cpython" or sys.version_info >= (3, 12)
 
 
+@cache
+def _resolve_lazy_imports_before_shutdown() -> None:
+    if hasattr(types, "LazyImportType"):  # pragma: >=3.15 cover
+        atexit.register(_resolve_lazy_imports)
+
+
+def _resolve_lazy_imports() -> None:  # pragma: >=3.15 cover
+    # Interpreter shutdown clears sys.modules and sys.meta_path before it finalizes a lock still alive at exit, so a
+    # lazy import (PEP 810) that the release path in __del__ reaches first can no longer load. Load them while it can.
+    for name, module in list(sys.modules.items()):
+        ### Contrast Modification Start ###
+        # The package lives under contrast_vendor, so sys.modules names are prefixed.
+        if name == "contrast_vendor.filelock" or name.startswith("contrast_vendor.filelock."):
+        ### Contrast Modification End ###
+            for attribute, value in list(vars(module).items()):
+                if type(value) is types.LazyImportType:
+                    getattr(module, attribute)
+
+
 def _register_fork_hooks() -> None:
     if _REGISTER_AT_FORK is None:
         return  # pragma: lacks fork
@@ -1931,44 +2061,55 @@ def _unregister_owned_descriptor(token: int) -> None:  # pragma: needs fork
 def _pin_fork_objects() -> None:  # pragma: needs fork
     _ensure_current_process()
     thread_id = get_ident()
-    with _FORK_STATE.gate:
-        _FORK_STATE.fork_owner_depths[thread_id] = _FORK_STATE.fork_owner_depths.get(thread_id, 0) + 1
-        _FORK_STATE.admission_closed = True
-        while _FORK_STATE.active_transitions > len(_FORK_STATE.transitions.get(thread_id, ())):
-            _FORK_STATE.gate.wait()
-        transition_owners = tuple(_FORK_STATE.transitions.get(thread_id, {}).values())
-    _verify_unverified_descriptors()
-    owners = {id(owner): owner for owner in transition_owners if owner is not None}
-    provisional_descriptor_tokens = tuple(
-        starmap(
-            _snapshot_descriptor_for_fork,
-            (descriptor for owner in owners.values() for descriptor in owner._descriptors_for_fork()),  # ruff:ignore[private-member-access]  # snapshots each owner's own fork descriptors
+    provisional_descriptor_tokens: list[int] = []
+    # A signal handler that raises during the wait does not stop the fork. The after hooks pop one snapshot per
+    # admission closed here, so the finally records the snapshot on failure too.
+    try:
+        with _FORK_STATE.gate:
+            _FORK_STATE.fork_owner_depths[thread_id] = _FORK_STATE.fork_owner_depths.get(thread_id, 0) + 1
+            _FORK_STATE.admission_closed = True
+            while _FORK_STATE.active_transitions > len(_FORK_STATE.transitions.get(thread_id, ())):
+                _FORK_STATE.gate.wait()
+            transition_owners = tuple(_FORK_STATE.transitions.get(thread_id, {}).values())
+        _verify_unverified_descriptors()
+        owners = {id(owner): owner for owner in transition_owners if owner is not None}
+        provisional_descriptor_tokens.extend(
+            starmap(
+                _snapshot_descriptor_for_fork,
+                (descriptor for owner in owners.values() for descriptor in owner._descriptors_for_fork()),  # ruff:ignore[private-member-access]  # snapshots each owner's own fork descriptors
+            )
         )
-    )
-    with _FORK_STATE.registry_lock:
-        _FORK_STATE.provisional_descriptor_tokens.setdefault(thread_id, []).append(provisional_descriptor_tokens)
-        _FORK_STATE.pinned_objects.setdefault(thread_id, []).append(tuple(_FORK_OBJECTS.values()))
-        _FORK_STATE.pinned_classes.setdefault(thread_id, []).append(tuple(_FORK_CLASSES.values()))
+    finally:
+        with _FORK_STATE.registry_lock:
+            _FORK_STATE.provisional_descriptor_tokens.setdefault(thread_id, []).append(
+                tuple(provisional_descriptor_tokens)
+            )
+            _FORK_STATE.pinned_objects.setdefault(thread_id, []).append(tuple(_FORK_OBJECTS.values()))
+            _FORK_STATE.pinned_classes.setdefault(thread_id, []).append(tuple(_FORK_CLASSES.values()))
 
 
 def _resume_parent_after_fork() -> None:  # pragma: needs fork
     thread_id = get_ident()
-    with _FORK_STATE.registry_lock:
-        for token in _FORK_STATE.provisional_descriptor_tokens[thread_id].pop():
-            _OWNED_DESCRIPTORS.pop(token, None)
-        _FORK_STATE.pinned_objects[thread_id].pop()
-        _FORK_STATE.pinned_classes[thread_id].pop()
-        if not _FORK_STATE.provisional_descriptor_tokens[thread_id]:  # pragma: needs fork
-            del _FORK_STATE.provisional_descriptor_tokens[thread_id]
-            del _FORK_STATE.pinned_objects[thread_id]
-            del _FORK_STATE.pinned_classes[thread_id]
-    with _FORK_STATE.gate:
-        if _FORK_STATE.fork_owner_depths[thread_id] == 1:
-            del _FORK_STATE.fork_owner_depths[thread_id]
-        else:  # pragma: no cover - earlier at-fork callbacks may deadlock first
-            _FORK_STATE.fork_owner_depths[thread_id] -= 1
-        _FORK_STATE.admission_closed = bool(_FORK_STATE.fork_owner_depths)
-        _FORK_STATE.gate.notify_all()
+    try:
+        with _FORK_STATE.registry_lock:
+            for token in _FORK_STATE.provisional_descriptor_tokens[thread_id].pop():
+                _OWNED_DESCRIPTORS.pop(token, None)
+            _FORK_STATE.pinned_objects[thread_id].pop()
+            _FORK_STATE.pinned_classes[thread_id].pop()
+            if not _FORK_STATE.provisional_descriptor_tokens[thread_id]:  # pragma: needs fork
+                del _FORK_STATE.provisional_descriptor_tokens[thread_id]
+                del _FORK_STATE.pinned_objects[thread_id]
+                del _FORK_STATE.pinned_classes[thread_id]
+    finally:
+        # No other code reopens admission. A failure above would leave the other threads waiting for good.
+        with _FORK_STATE.gate:
+            # A handler that raised before the depth was stored left no entry to decrement.
+            if (depth := _FORK_STATE.fork_owner_depths.get(thread_id, 1)) <= 1:
+                _FORK_STATE.fork_owner_depths.pop(thread_id, None)
+            else:  # pragma: no cover - earlier at-fork callbacks may deadlock first
+                _FORK_STATE.fork_owner_depths[thread_id] = depth - 1
+            _FORK_STATE.admission_closed = bool(_FORK_STATE.fork_owner_depths)
+            _FORK_STATE.gate.notify_all()
 
 
 def _ensure_current_process() -> None:
@@ -2111,8 +2252,10 @@ __all__ = [
     "FileLockMeta",
     "LockOptions",
     "ThreadLocalFileContext",
+    "_acquire_thread_lock",
     "_append_exception_context",
     "_canonical",
+    "_check_blocking",
     "_check_timeout_max",
     "_delegate_to_current",
     "_ensure_current_process",

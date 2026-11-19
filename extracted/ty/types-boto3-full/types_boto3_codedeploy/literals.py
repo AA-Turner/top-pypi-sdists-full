@@ -202,6 +202,7 @@ TriggerEventTypeType = Literal[
 ]
 CodeDeployServiceName = Literal["codedeploy"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

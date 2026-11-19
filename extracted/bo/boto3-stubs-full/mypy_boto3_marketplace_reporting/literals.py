@@ -27,6 +27,7 @@ __all__ = ("MarketplaceReportingServiceServiceName", "ResourceServiceName", "Ser
 
 MarketplaceReportingServiceServiceName = Literal["marketplace-reporting"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

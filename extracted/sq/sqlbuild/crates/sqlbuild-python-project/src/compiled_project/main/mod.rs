@@ -1,5 +1,6 @@
 pub mod config_values;
 pub mod declarations;
+pub mod declared_jobs;
 pub mod entry_schema_fact;
 pub mod family_fact;
 pub mod graph_with_jobs;
@@ -7,6 +8,7 @@ pub mod install;
 pub mod job_names;
 pub mod materialization;
 pub mod model_facts;
+pub mod named_jobs;
 pub mod needed_jobs;
 pub mod plain_value;
 pub mod python_column_fact;

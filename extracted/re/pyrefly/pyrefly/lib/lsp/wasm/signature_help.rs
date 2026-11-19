@@ -6,6 +6,7 @@
  */
 
 use std::collections::HashMap;
+use std::iter::once;
 
 use itertools::Itertools;
 use lsp_types::ActiveParameter;
@@ -17,6 +18,7 @@ use lsp_types::ParameterInformationLabel;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
 use pyrefly_build::handle::Handle;
+use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::docstring::parse_parameter_documentation;
 use pyrefly_python::module::Module;
@@ -27,16 +29,17 @@ use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::name::Name;
+use ruff_python_ast::token::TokenKind;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use vec1::Vec1;
 
 use crate::state::lsp::FindPreference;
-use crate::state::lsp::visit_keyword_arguments_until_match;
 use crate::state::state::Transaction;
 use crate::types::callable::Param;
 use crate::types::callable::Params;
+use crate::types::env::TypeEnv;
 use crate::types::types::Type;
 
 /// Information about a call site at the cursor position, returned by
@@ -57,8 +60,10 @@ pub(crate) struct CallInfo {
 }
 
 pub(crate) fn is_constructor_call(callee_type: Type) -> bool {
-    matches!(callee_type, Type::ClassDef(_))
-        || matches!(callee_type, Type::Type(t) if matches!(*t, Type::ClassType(_)))
+    matches!(
+        callee_type,
+        Type::ClassDef(_) | Type::SpecializedClassDef(_)
+    ) || matches!(callee_type, Type::Type(t) if matches!(*t, Type::ClassType(_)))
 }
 
 // Normally the constructor for a class returns `None`, but for hover/signature we change it to show the class for clarity
@@ -92,10 +97,10 @@ pub(crate) enum ActiveArgument {
 }
 
 impl Transaction<'_> {
-    fn visit_finding_signature_range(
-        x: &Expr,
+    fn visit_finding_signature_range<'a>(
+        x: &'a Expr,
         find: TextSize,
-        res: &mut Option<(TextRange, TextRange, ActiveArgument, Vec<TextRange>)>,
+        res: &mut Option<(&'a ExprCall, ActiveArgument, Vec<TextRange>)>,
     ) {
         if let Expr::Call(call) = x
             && call.arguments.range.contains_inclusive(find)
@@ -116,8 +121,7 @@ impl Transaction<'_> {
                     .map(|arg| arg.range())
                     .collect();
                 *res = Some((
-                    call.func.range(),
-                    call.arguments.range,
+                    call,
                     ActiveArgument::Next(call.arguments.len()),
                     provided_arg_ranges,
                 ));
@@ -127,10 +131,10 @@ impl Transaction<'_> {
         }
     }
 
-    fn visit_positional_signature_args(
-        call: &ExprCall,
+    fn visit_positional_signature_args<'a>(
+        call: &'a ExprCall,
         find: TextSize,
-        res: &mut Option<(TextRange, TextRange, ActiveArgument, Vec<TextRange>)>,
+        res: &mut Option<(&'a ExprCall, ActiveArgument, Vec<TextRange>)>,
     ) -> bool {
         for (i, arg) in call.arguments.args.as_ref().iter().enumerate() {
             if arg.range().contains_inclusive(find) {
@@ -148,25 +152,20 @@ impl Transaction<'_> {
                     .take(i)
                     .map(|a| a.range())
                     .collect();
-                *res = Some((
-                    call.func.range(),
-                    call.arguments.range,
-                    ActiveArgument::Positional(i),
-                    provided_arg_ranges,
-                ));
+                *res = Some((call, ActiveArgument::Positional(i), provided_arg_ranges));
                 return true;
             }
         }
         false
     }
 
-    fn visit_keyword_signature_args(
-        call: &ExprCall,
+    fn visit_keyword_signature_args<'a>(
+        call: &'a ExprCall,
         find: TextSize,
-        res: &mut Option<(TextRange, TextRange, ActiveArgument, Vec<TextRange>)>,
+        res: &mut Option<(&'a ExprCall, ActiveArgument, Vec<TextRange>)>,
     ) -> bool {
         let kwarg_start_idx = call.arguments.args.len();
-        visit_keyword_arguments_until_match(call, |j, kw| {
+        call.arguments.keywords.iter().enumerate().any(|(j, kw)| {
             if kw.range.contains_inclusive(find) {
                 Self::visit_finding_signature_range(&kw.value, find, res);
                 if res.is_some() {
@@ -184,35 +183,12 @@ impl Transaction<'_> {
                     .filter(|arg| arg.range().end() <= find)
                     .map(|arg| arg.range())
                     .collect();
-                *res = Some((
-                    call.func.range(),
-                    call.arguments.range,
-                    active_argument,
-                    provided_arg_ranges,
-                ));
+                *res = Some((call, active_argument, provided_arg_ranges));
                 true
             } else {
                 false
             }
         })
-    }
-
-    fn count_argument_separators_before(
-        &self,
-        handle: &Handle,
-        arguments_range: TextRange,
-        position: TextSize,
-    ) -> Option<usize> {
-        let module = self.get_module_info(handle)?;
-        let contents = module.contents();
-        let len = contents.len();
-        let start = arguments_range.start().to_usize().min(len);
-        let end = arguments_range.end().to_usize().min(len);
-        let pos = position.to_usize().clamp(start, end);
-        contents
-            .get(start..pos)
-            .map(|slice| slice.bytes().filter(|&b| b == b',').count())
-            .or(Some(0))
     }
 
     /// Finds the callable(s) (multiple if overloads exist) at position in document.
@@ -222,18 +198,40 @@ impl Transaction<'_> {
         handle: &Handle,
         position: TextSize,
     ) -> Option<CallInfo> {
-        let mod_module = self.get_ast(handle)?;
+        let parsed_module = self.get_parsed_module(handle)?;
+        let mod_module = parsed_module.module();
         let mut res = None;
-        mod_module.visit(&mut |x| Self::visit_finding_signature_range(x, position, &mut res));
-        let (callee_range, call_args_range, mut active_argument, provided_arg_ranges) = res?;
-        // When the cursor is in the argument list but not inside any argument yet,
-        // estimate the would-be positional index by counting commas up to the cursor.
-        // This keeps signature help useful even before the user starts typing the next arg.
-        if let ActiveArgument::Next(index) = &mut active_argument
-            && let Some(next_index) =
-                self.count_argument_separators_before(handle, call_args_range, position)
-        {
-            *index = next_index;
+        Ast::visit_covering_exprs(&mod_module, position, &mut |x| {
+            Self::visit_finding_signature_range(x, position, &mut res)
+        });
+        let (call, mut active_argument, provided_arg_ranges) = res?;
+        let callee_range = call.func.range();
+        let call_args_range = call.arguments.range;
+        if let ActiveArgument::Next(index) = &mut active_argument {
+            let tokens = parsed_module.tokens()?;
+            // Skip argument expressions so commas in lambda parameters are not separators.
+            // The empty final range includes the gap after the last argument.
+            let argument_ranges = call
+                .arguments
+                .iter_source_order()
+                .map(|arg| arg.range())
+                .chain(once(TextRange::empty(call_args_range.end())));
+            let mut gap_start = call_args_range.start();
+            *index = 0;
+            for range in argument_ranges {
+                if gap_start >= position {
+                    break;
+                }
+                // Gap endpoints are AST boundaries, so they cannot split lexer tokens.
+                // The cursor can be inside a token; use it only as an iterator cutoff.
+                *index += tokens
+                    .in_range(TextRange::new(gap_start, range.start()))
+                    .iter()
+                    .take_while(|token| token.start() < position)
+                    .filter(|token| token.kind() == TokenKind::Comma)
+                    .count();
+                gap_start = range.end();
+            }
         }
         let answers = self.get_answers(handle)?;
         if let Some((overloads, chosen_overload_index)) =
@@ -345,31 +343,42 @@ impl Transaction<'_> {
             .unwrap_or_default()
             .into_iter()
             .find_map(|item| {
-                item.docstring_range
+                item.doc_ranges
+                    .docstring()
                     .map(|range| (range, item.module.clone()))
             })
     }
 
-    fn parameter_documentation_for_callee(
+    /// Parameter documentation for the callee at `callee_range`, read from its docstring and
+    /// from `Doc` metadata in its parameter annotations. `Doc` text takes precedence.
+    pub(crate) fn parameter_documentation_for_callee(
         &self,
         handle: &Handle,
         callee_range: TextRange,
     ) -> Option<HashMap<String, String>> {
         let position = callee_range.end();
+        let source_preference = FindPreference {
+            prefer_pyi: false,
+            include_interpreter_stdlib: true,
+            ..Default::default()
+        };
 
-        let (range, module) = self
-            .find_range_and_module(
-                handle,
-                position,
-                FindPreference {
-                    prefer_pyi: false,
-                    include_interpreter_stdlib: true,
-                    ..Default::default()
-                },
-            )
-            .or_else(|| self.find_range_and_module(handle, position, FindPreference::default()))?;
+        let mut docs = self
+            .find_range_and_module(handle, position, source_preference)
+            .or_else(|| self.find_range_and_module(handle, position, FindPreference::default()))
+            .map(|(range, module)| parse_parameter_documentation(module.code_at(range)))
+            .unwrap_or_default();
 
-        let docs = parse_parameter_documentation(module.code_at(range));
+        if let Some(item) = [source_preference, FindPreference::default()]
+            .into_iter()
+            .find_map(|preference| {
+                let items = self.find_definition(handle, position, preference).ok()?;
+                items.into_vec().into_iter().next()
+            })
+        {
+            docs.extend(item.doc_ranges.parameter_docs(&item.module));
+        }
+
         if docs.is_empty() { None } else { Some(docs) }
     }
 
@@ -429,6 +438,7 @@ impl Transaction<'_> {
     }
 
     fn create_signature_information(
+        env: &dyn TypeEnv,
         type_: Type,
         active_argument: &ActiveArgument,
         parameter_docs: Option<&HashMap<String, String>>,
@@ -444,13 +454,13 @@ impl Transaction<'_> {
             type_
         };
 
-        let label = display_type.as_lsp_string(LspDisplayMode::SignatureHelp);
+        let label = display_type.as_lsp_string(env, LspDisplayMode::SignatureHelp);
         let (parameters, active_parameter) = if let Some(params) =
             Self::normalize_singleton_function_type_into_params(display_type)
         {
             // Create a type display context for consistent parameter formatting
             let param_types: Vec<&Type> = params.iter().map(|p| p.as_type()).collect();
-            let mut type_ctx = TypeDisplayContext::new(&param_types);
+            let mut type_ctx = TypeDisplayContext::new(env, &param_types);
             type_ctx.set_lsp_display_mode(LspDisplayMode::SignatureHelp);
 
             let active_parameter =
@@ -503,6 +513,7 @@ impl Transaction<'_> {
              }| {
                 let parameter_docs = self.parameter_documentation_for_callee(handle, callee_range);
                 let function_docstring = self.function_docstring_for_callee(handle, callee_range);
+                let type_env = self.type_env(handle);
 
                 let is_constructor_call = self
                     .get_answers(handle)
@@ -513,6 +524,7 @@ impl Transaction<'_> {
                     .into_iter()
                     .map(|t| {
                         Self::create_signature_information(
+                            &type_env,
                             t,
                             &active_argument,
                             parameter_docs.as_ref(),

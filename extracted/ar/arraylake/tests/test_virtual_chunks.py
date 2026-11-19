@@ -1089,6 +1089,45 @@ async def test_filtered_subscription_implementation(two_isolated_orgs, default_b
             assert vccs[vcc_url_prefix].name == "__al_source"
 
 
+def minio_storage(bucket_name: str, prefix: str) -> icechunk.Storage:
+    """Storage for a repo in the local MinIO, using the bucket's own keys rather than anything Arraylake vends."""
+    return icechunk.s3_storage(
+        bucket=bucket_name,
+        prefix=prefix,
+        region="us-east-1",
+        endpoint_url="http://localhost:9000",
+        allow_http=True,
+        access_key_id="minio123",
+        secret_access_key="minio123",
+        force_path_style=True,
+    )
+
+
+async def create_repo_on_anonymous_bucket(
+    async_client: AsyncClient, token: str, org: str, name: str, bucket, spec_version: int | None = None
+):
+    """Register a repo on an anonymous bucket config and create its icechunk repo in storage.
+
+    `client.create_repo` refuses an anonymous bucket config, so the repo is registered through
+    the API and then created directly in MinIO, which accepts the writes.
+
+    Returns (repo object, icechunk repo).
+    """
+    http_client = ArraylakeHttpClient("http://localhost:8000", token=token)
+    resp = await http_client._request(
+        "POST",
+        f"/orgs/{org}/repos",
+        content=json.dumps({"name": name, "bucket_nickname": bucket.nickname}),
+    )
+    assert resp.is_success, f"Failed to create repo {org}/{name}: {resp.status_code} {resp.content}"
+
+    repo_obj = await async_client.get_repo_object(f"{org}/{name}")
+    create_kwargs = {"storage": minio_storage(bucket.name, repo_obj.prefix)}
+    if spec_version is not None:
+        create_kwargs["spec_version"] = spec_version
+    return repo_obj, icechunk.Repository.create(**create_kwargs)
+
+
 @asynccontextmanager
 async def provider_with_virtual_chunks(two_isolated_orgs, default_bucket, token, public, pricing_model="paid"):
     """Set up a provider org with a repo containing virtual chunks, and a subscriber org.
@@ -1127,35 +1166,10 @@ async def provider_with_virtual_chunks(two_isolated_orgs, default_bucket, token,
         bucket_requests_org1=(provider_repo_bucket, virtual_chunk_bucket),
         bucket_requests_org2=(subscriber_bucket,),
     ) as ((org_a, _), (org_b, _)):
-        parent_repo_name = f"{org_a}/parent-repo"
-
-        # Create provider repo via server API (anonymous bucket can't use client.create_repo)
-        http_client = ArraylakeHttpClient("http://localhost:8000", token=token)
-        resp = await http_client._request(
-            "POST",
-            f"/orgs/{org_a}/repos",
-            content=json.dumps({"name": "parent-repo", "bucket_nickname": provider_repo_bucket.nickname}),
+        # Paid listings require IC2 repos
+        parent_repo_obj, provider_ic_repo = await create_repo_on_anonymous_bucket(
+            async_client, token, org_a, "parent-repo", provider_repo_bucket, spec_version=2 if pricing_model == "paid" else None
         )
-        assert resp.is_success, f"Failed to create provider repo: {resp.status_code} {resp.content}"
-
-        parent_repo_obj = await async_client.get_repo_object(parent_repo_name)
-
-        # Create the icechunk repo manually (anonymous bucket config, but MinIO allows writes)
-        # Use spec_version=2 for paid listings (which require IC2 repos)
-        ic_storage = icechunk.s3_storage(
-            bucket=provider_repo_bucket.name,
-            prefix=parent_repo_obj.prefix,
-            region="us-east-1",
-            endpoint_url="http://localhost:9000",
-            allow_http=True,
-            access_key_id="minio123",
-            secret_access_key="minio123",
-            force_path_style=True,
-        )
-        create_kwargs = {"storage": ic_storage}
-        if pricing_model == "paid":
-            create_kwargs["spec_version"] = 2
-        provider_ic_repo = icechunk.Repository.create(**create_kwargs)
 
         # Set VCC for virtual chunks on the provider repo
         config = provider_ic_repo.config
@@ -1295,6 +1309,103 @@ class TestSubscriptionToRepoContainingVirtualChunks:
                     assert vccs[chunks_vcc_url_prefix].name == "__al_source"
 
 
+@asynccontextmanager
+async def filtered_subscriber_of_one_of_two_listings(two_isolated_orgs, default_bucket, token):
+    """Set up a provider org with two paid listings, and a subscriber org holding a filtered subscription to only one.
+
+    Creates:
+    - Org A (provider): a subscribed-to listing over a repo with no virtual chunks, and a second listing
+      (from `provider_with_virtual_chunks`) over a repo whose virtual chunks live in a separate bucket
+      behind a public VCAP.
+    - Org B (subscriber): a filtered subscription to the first listing only, in its own bucket.
+
+    Yields (client, sub_repo_name, sub_repo_storage, subscribed_native_chunks_url_prefix,
+           unsubscribed_virtual_chunks_url_prefix, unsubscribed_native_chunks_url_prefix).
+    """
+    async with provider_with_virtual_chunks(two_isolated_orgs, default_bucket, token, public=True) as (
+        client,
+        async_client,
+        org_a,
+        org_b,
+        unsubscribed_repo_obj,
+        provider_repo_bucket,
+        subscriber_bucket,
+        unsubscribed_virtual_chunks_url_prefix,
+        _unsubscribed_listing,
+    ):
+        subscribed_repo_obj, _ = await create_repo_on_anonymous_bucket(
+            async_client, token, org_a, "subscribed-repo", provider_repo_bucket, spec_version=2
+        )
+        subscribed_listing = await create_exchange_listing(token, org_a, subscribed_repo_obj.id, pricing_model="paid")
+
+        sub_repo_name = f"{org_b}/sub-repo"
+        await async_client.subscribe_to_listing(
+            sub_repo_name,
+            subscribed_listing["id"],
+            subscription_type=SubscriptionType.FILTERED,
+            target_filter=DatasetFilter(nodes=NodeFilter(include_paths=["/data"])),
+            bucket_config_nickname=subscriber_bucket.nickname,
+        )
+        sub_repo_obj = await async_client.get_repo_object(sub_repo_name)
+
+        def native_chunks_url_prefix(repo_obj) -> str:
+            repo_prefix = repo_obj.prefix.strip("/")
+            return f"s3://{provider_repo_bucket.name}/{repo_prefix}/chunks/"
+
+        yield (
+            client,
+            sub_repo_name,
+            minio_storage(subscriber_bucket.name, sub_repo_obj.prefix),
+            native_chunks_url_prefix(subscribed_repo_obj),
+            unsubscribed_virtual_chunks_url_prefix,
+            native_chunks_url_prefix(unsubscribed_repo_obj),
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not IS_IC2, reason="Paid marketplace listings require icechunk 2.x")
+class TestFilteredSubscriberCannotReachOtherListings:
+    """A filtered subscription must not open up provider data outside the subscribed listing.
+
+    The subscriber repo lives in the subscriber's own bucket, so the subscriber can write any
+    virtual chunk container into its config without going through Arraylake. Each test does
+    that for a location belonging to a listing the subscriber has no subscription to, and
+    expects the repo to open with only the subscribed listing's chunks authorized.
+    """
+
+    @staticmethod
+    def add_container_in_subscriber_storage(sub_repo_storage: icechunk.Storage, url_prefix: str) -> None:
+        sub_ic_repo = icechunk.Repository.open(storage=sub_repo_storage)
+        config = sub_ic_repo.config
+        config.set_virtual_chunk_container(icechunk.VirtualChunkContainer(url_prefix=url_prefix, store=vcc_store()))
+        sub_ic_repo.reopen(config=config).save_config()
+
+    async def test_virtual_chunks_of_another_listing(self, two_isolated_orgs, default_bucket, token):
+        async with filtered_subscriber_of_one_of_two_listings(two_isolated_orgs, default_bucket, token) as (
+            client,
+            sub_repo_name,
+            sub_repo_storage,
+            subscribed_native_chunks_url_prefix,
+            unsubscribed_virtual_chunks_url_prefix,
+            _,
+        ):
+            self.add_container_in_subscriber_storage(sub_repo_storage, unsubscribed_virtual_chunks_url_prefix)
+            TestAuthorization.assert_prefixes_authorized(client.get_repo(sub_repo_name), {subscribed_native_chunks_url_prefix})
+
+    async def test_native_chunks_of_another_listing(self, two_isolated_orgs, default_bucket, token):
+        """Every listed repo's chunks prefix sits behind an automatic public VCAP, so it is as exposed as an explicit one."""
+        async with filtered_subscriber_of_one_of_two_listings(two_isolated_orgs, default_bucket, token) as (
+            client,
+            sub_repo_name,
+            sub_repo_storage,
+            subscribed_native_chunks_url_prefix,
+            _,
+            unsubscribed_native_chunks_url_prefix,
+        ):
+            self.add_container_in_subscriber_storage(sub_repo_storage, unsubscribed_native_chunks_url_prefix)
+            TestAuthorization.assert_prefixes_authorized(client.get_repo(sub_repo_name), {subscribed_native_chunks_url_prefix})
+
+
 REFRESH_PREFIX = "s3://bucket/prefix/"
 REFRESH_EXPIRY = datetime(2099, 1, 1, tzinfo=UTC)
 
@@ -1322,6 +1433,8 @@ def _delegated_gs_vcc():
 def _patched_metastore(client, vcc_credentials):
     mstore = MagicMock()
     mstore.open_repo = AsyncMock(return_value=SimpleNamespace(virtual_chunk_credentials=vcc_credentials, repo_credentials=None))
+    # A server without ``?container=`` answers with the repo bucket's credentials and no refresh url.
+    mstore.get_bucket_credentials_from_repo = AsyncMock(return_value=_delegated_s3_vcc().credentials)
     return patch.object(client, "_metastore_for_org", return_value=mstore), mstore
 
 

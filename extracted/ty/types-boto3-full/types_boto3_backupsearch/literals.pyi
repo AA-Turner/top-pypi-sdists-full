@@ -63,6 +63,7 @@ TimeConditionOperatorType = Literal[
 ]
 BackupSearchServiceName = Literal["backupsearch"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

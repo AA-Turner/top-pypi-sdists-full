@@ -75,8 +75,8 @@ class Client:
     """
 
     base_url: str
-    cookies: Dict[str, str] = attr.ib(factory=dict, kw_only=True)
-    headers: Dict[str, str] = attr.ib(factory=dict, kw_only=True)
+    cookies: Dict[str, str] = attr.ib(factory=dict, kw_only=True, repr=False)
+    headers: Dict[str, str] = attr.ib(factory=dict, kw_only=True, repr=False)
     timeout: float = attr.ib(5.0, kw_only=True)
     verify_ssl: Union[str, bool, ssl.SSLContext] = attr.ib(True, kw_only=True)
     raise_on_unexpected_status: bool = attr.ib(False, kw_only=True)
@@ -157,7 +157,7 @@ def is_valid_jwt(token: str) -> bool:
 class AuthenticatedClient(Client):
     """A Client which has been authenticated for use on secured endpoints"""
 
-    fixed_token: Optional[str] = None
+    fixed_token: Optional[str] = attr.ib(default=None, repr=False)
     prefix: str = "Bearer"
     auth_header_name: str = "Authorization"
 

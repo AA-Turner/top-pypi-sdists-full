@@ -81,7 +81,7 @@ class ComputeHttpClient(ArraylakeHttpClient):
     async def create_compute_service(self, protocol: str, is_public: bool, **kwargs) -> dict[str, Any]:
         """Creates a new Arraylake compute service."""
         service_config = ServiceConfig(
-            service_type=protocol,  # type: ignore
+            service_type=protocol,
             org=self._config.org,
             is_public=is_public,
             **kwargs,

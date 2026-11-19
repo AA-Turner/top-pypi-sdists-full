@@ -187,6 +187,7 @@ def test_runtime_policy_env_has_expected_lane_values() -> None:
     assert env["GOOGLE_CLOUD_LOCATION"] == "us-central1"
     assert env["DEV_RUNTIME_MAIN_PORT"] == "8085"
     assert env["STABILITY_TEST_RUNTIME_MAIN_PORT"] == "18085"
+    assert env["STABILITY_TEST_RUNTIME_MAIN_FOLDED_PROFILES"] == "effects"
     assert env["STABILITY_TEST_TOPIC_PROVISIONER_MAX_PARTITIONS"] == "1"
     assert env["JUDGE_RUNTIME_MAIN_PORT"] == "48085"
     assert env["JUDGE_RUNTIME_EFFECTS_PORT"] == "48086"
@@ -514,6 +515,22 @@ def test_trajectory_rendered_file_adds_only_dharma_mappings(tmp_path: Path) -> N
             "logical_name": "dharma.org_id",
             "source": {"source_type": "env", "source_path": "DHARMA_ORG_ID"},
         },
+        "llm.typesafe.api_key": {
+            "logical_name": "llm.typesafe.api_key",
+            "source": {"source_type": "env", "source_path": "LLM_TYPESAFE_API_KEY"},
+        },
+        "LINEAR_API_KEY": {
+            "logical_name": "LINEAR_API_KEY",
+            "source": {"source_type": "env", "source_path": "LINEAR_API_KEY"},
+        },
+        # OMN-23903: the tenant read nodes' analytics DSN.
+        "omnidash.analytics.db_url": {
+            "logical_name": "omnidash.analytics.db_url",
+            "source": {
+                "source_type": "env",
+                "source_path": "OMNIDASH_ANALYTICS_DB_URL",
+            },
+        },
     }
     before = {row["logical_name"]: row for row in baseline["mappings"]}
     after = {row["logical_name"]: row for row in observed["mappings"]}
@@ -551,6 +568,8 @@ def test_trajectory_backend_does_not_leak_to_other_compose_lanes() -> None:
                 "ONEX_BOUNDARY_DLQ_ENABLED:"
             )
     # Borrowed dev profiles must override all four kernel environments.
-    for name in ("dev-200", "dev-202", "dev-105"):
-        text = (ROOT / f"docker/docker-compose.{name}.yml").read_text()
+    borrowers = sorted((ROOT / "docker").glob("docker-compose.dev-[0-9]*.yml"))
+    assert borrowers, "positive control: the dev overlays were found"
+    for path in borrowers:
+        text = path.read_text()
         assert text.count('ONEX_TRAJECTORY_EVALUATION_BACKEND: "off"') == 4

@@ -41,6 +41,7 @@ StorageClassType = Literal["TEMPORAL"]
 UploadAvailabilityType = Literal["STANDARD", "STREAMING"]
 MediaStoreDataServiceName = Literal["mediastore-data"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

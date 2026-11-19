@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: git-remote-codecommit
-Version: 1.17
+Version: 1.18
 Summary: Git remote prefix to simplify pushing to and pulling from CodeCommit.
 Home-page: https://github.com/awslabs/git-remote-codecommit
 Author: Amazon Web Services
@@ -11,6 +11,15 @@ Classifier: Topic :: Utilities
 Classifier: License :: OSI Approved :: Apache Software License
 License-File: LICENSE
 License-File: NOTICE
+Requires-Dist: botocore>=1.17.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 git-remote-codecommit
 =====================

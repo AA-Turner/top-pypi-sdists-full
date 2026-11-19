@@ -122,6 +122,92 @@ Signature Help Result: active=0
 }
 
 #[test]
+fn nested_commas_do_not_affect_active_parameter_test() {
+    let code = r#"
+def foo(a: str, b: int, c: bool) -> None: ...
+def max(x: str, y: str) -> str: ...
+
+foo(max("a", "b"), )
+#                  ^
+foo(("a", "b"), )
+#              ^
+foo("a,b", )
+#         ^
+"#;
+    let files = [("main", code)];
+    let (handles, state) = mk_multi_file_state(&files, Require::Exports, false);
+    let handle = handles.get("main").unwrap();
+
+    for position in extract_cursors_for_test(code) {
+        let signature = state
+            .transaction()
+            .get_signature_help_at(handle, position)
+            .expect("signature help available");
+        assert_eq!(signature.active_parameter, Some(ActiveParameter::Int(1)));
+        assert_eq!(
+            signature.signatures[0].active_parameter,
+            Some(ActiveParameter::Int(1))
+        );
+    }
+}
+
+#[test]
+fn argument_separator_gaps_test() {
+    for line_ending in ["\n", "\r\n", "\r"] {
+        for (name, call, expected) in [
+            ("lambda parameters", "foo(lambda x, y: x, |)", 1),
+            ("keyword lambda parameters", "foo(a=lambda x, y: x, |)", 1),
+            ("same-quote f-string", r#"foo(f"{")"}", |)"#, 1),
+            ("unterminated string", "foo(\"unfinished\n    , |)", 1),
+            (
+                "escaped newline in string",
+                "foo(\"continued\\\n    , value\", |)",
+                1,
+            ),
+            (
+                "escaped newline in unterminated string",
+                "foo(\"unfinished\\\n    , |)",
+                0,
+            ),
+            (
+                "comment before separator",
+                "foo(\"a\" # comment, )\n    , |)",
+                1,
+            ),
+            ("cursor inside comment", "foo(\"a\", # co|mment, )\n)", 1),
+            (
+                "keyword before starred argument",
+                "foo(a=\"a,b\", *(\"x\", \"y\"), |)",
+                2,
+            ),
+        ] {
+            let code = format!(
+                "def foo(a: object, b: object = None, c: object = None) -> None: ...\n{call}\n"
+            )
+            .replace('\n', line_ending);
+            let position = TextSize::try_from(code.find('|').expect("cursor marker present"))
+                .expect("test source fits in TextSize");
+            let code = code.replace('|', "");
+            let (handles, state) = mk_multi_file_state(&[("main", &code)], Require::Exports, false);
+            let signature = state
+                .transaction()
+                .get_signature_help_at(handles.get("main").unwrap(), position)
+                .unwrap_or_else(|| panic!("signature help available for {name}, {line_ending:?}"));
+            assert_eq!(
+                signature.active_parameter,
+                Some(ActiveParameter::Int(expected)),
+                "{name}, line ending {line_ending:?}"
+            );
+            assert_eq!(
+                signature.signatures[0].active_parameter,
+                Some(ActiveParameter::Int(expected)),
+                "{name}, line ending {line_ending:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn positional_arguments_test() {
     let code = r#"
 def f(x: int, y: int, z: int) -> None: ...
@@ -275,6 +361,37 @@ g(
         report.contains("parameters=[name: str, times: int = 1]"),
         "Expected signature help parameters, got: {report}"
     );
+}
+
+#[test]
+fn signature_help_separates_overloaded_callable_instance_signatures() {
+    let code = r#"
+from typing import Any, overload
+
+class Ufunc:
+    @overload
+    def __call__(self, x: int) -> int: ...
+    @overload
+    def __call__(self, x: str, y: str) -> str: ...
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+power = Ufunc()
+power()
+#     ^
+"#;
+    let files = [("main", code)];
+    let (handles, state) = mk_multi_file_state(&files, Require::Exports, false);
+    let signature = state
+        .transaction()
+        .get_signature_help_at(
+            handles.get("main").unwrap(),
+            extract_cursors_for_test(code)[0],
+        )
+        .expect("signature help available");
+
+    assert_eq!(signature.signatures.len(), 2);
+    assert!(signature.signatures[0].label.contains("x: int"));
+    assert!(signature.signatures[1].label.contains("x: str, y: str"));
 }
 
 #[test]
@@ -1167,6 +1284,167 @@ Signature Help Result: active=0
 - (x: int) -> int, parameters=[x: int], active parameter = 0
 - (x: str) -> str, parameters=[x: str], active parameter = 0
 - (x: bool) -> bool, parameters=[x: bool], active parameter = 0
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+/// Reports each parameter of the active signature with its documentation.
+fn get_parameter_documentation_report(
+    state: &State,
+    handle: &Handle,
+    position: TextSize,
+) -> String {
+    let Some(SignatureHelp {
+        signatures,
+        active_signature,
+        ..
+    }) = state.transaction().get_signature_help_at(handle, position)
+    else {
+        return "Signature Help: None".to_owned();
+    };
+    let active_signature = active_signature.expect("signature help sets the active signature");
+    let signature = &signatures[active_signature as usize];
+    signature
+        .parameters
+        .iter()
+        .flatten()
+        .map(|param| {
+            let ParameterInformationLabel::String(label) = &param.label else {
+                unreachable!("signature help uses string labels")
+            };
+            let doc = match &param.documentation {
+                Some(Documentation::MarkupContent(content)) => content.value.as_str(),
+                Some(Documentation::String(s)) => s.as_str(),
+                None => "<none>",
+            };
+            format!("- {label}: {doc}")
+        })
+        .join("\n")
+}
+
+const ANNOTATED_DOC: &str = r#"
+class Doc:
+    def __init__(self, documentation: str, /) -> None: ...
+"#;
+
+#[test]
+fn annotated_doc_parameter_documentation_test() {
+    let code = r#"
+from typing import Annotated
+from annotated_doc import Doc
+import annotated_doc
+
+def greet(
+    name: Annotated[str, Doc("Who to greet")],
+    times: Annotated[int, annotated_doc.Doc(
+        """
+        How many times
+        to greet.
+        """
+    )],
+    loud: bool,
+) -> None:
+    """
+    Args:
+        name: docstring text for name
+        loud: shout
+    """
+
+greet()
+#     ^
+
+class App:
+    def get(self, path: Annotated[str, Doc("The URL path")]) -> None: ...
+
+class Item:
+    def __init__(self, price: Annotated[float, Doc("The price")]) -> None: ...
+
+App().get()
+#         ^
+Item()
+#    ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("annotated_doc", ANNOTATED_DOC), ("main", code)],
+        get_parameter_documentation_report,
+    );
+    assert_eq!(
+        r#"
+# annotated_doc.py
+
+# main.py
+22 | greet()
+           ^
+- name: str: Who to greet
+- times: int: How many times
+to greet.
+- loud: bool: shout
+
+31 | App().get()
+               ^
+- path: str: The URL path
+
+33 | Item()
+          ^
+- price: float: The price
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn annotated_doc_parameter_documentation_from_other_module_test() {
+    let lib = r#"
+from typing import Annotated
+from annotated_doc import Doc
+
+def greet(name: Annotated[str, Doc("Who to greet")]) -> None: ...
+
+class App:
+    def get(self, path: Annotated[str, Doc("The URL path")]) -> None: ...
+
+class Item:
+    def __init__(self, price: Annotated[float, Doc("The price")]) -> None: ...
+"#;
+    let code = r#"
+from lib import App, Item, greet
+
+greet()
+#     ^
+App().get()
+#         ^
+Item()
+#    ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[
+            ("annotated_doc", ANNOTATED_DOC),
+            ("lib", lib),
+            ("main", code),
+        ],
+        get_parameter_documentation_report,
+    );
+    assert_eq!(
+        r#"
+# annotated_doc.py
+
+# lib.py
+
+# main.py
+4 | greet()
+          ^
+- name: str: Who to greet
+
+6 | App().get()
+              ^
+- path: str: The URL path
+
+8 | Item()
+         ^
+- price: float: The price
 "#
         .trim(),
         report.trim(),

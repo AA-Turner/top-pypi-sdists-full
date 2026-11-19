@@ -717,6 +717,7 @@ namespace sogen
         BOOL handle_NtUserPeekMessage(const syscall_context& c, emulator_object<msg> message, hwnd hwnd, UINT msg_filter_min,
                                       UINT msg_filter_max, UINT remove_message);
         BOOL handle_NtUserWaitMessage(const syscall_context& c);
+        BOOL handle_NtUserReplyMessage(const syscall_context& c, uint64_t result);
         BOOL completion_NtUserGetMessage(const syscall_context& c, emulator_object<msg> message, hwnd hwnd, UINT msg_filter_min,
                                          UINT msg_filter_max);
         BOOL completion_NtUserPeekMessage(const syscall_context& c, emulator_object<msg> message, hwnd hwnd, UINT msg_filter_min,
@@ -746,6 +747,7 @@ namespace sogen
                                             DWORD thread_id, UINT hwnd_max, emulator_pointer hwnd_list, emulator_object<UINT> hwnd_needed);
         BOOL handle_NtUserEnumDisplayMonitors(const syscall_context& c, hdc hdc_in, uint64_t clip_rect_ptr, uint64_t callback,
                                               uint64_t param);
+        NTSTATUS handle_NtGdiGetCurrentDpiInfo(const syscall_context& c, handle monitor, emulator_object<EMU_DPI_INFORMATION> info);
         BOOL handle_NtUserGetDpiForMonitor(const syscall_context& c, handle monitor, uint32_t dpi_type, emulator_object<uint32_t> dpi_x,
                                            emulator_object<uint32_t> dpi_y);
         BOOL completion_NtUserEnumDisplayMonitors(const syscall_context& c, hdc hdc_in, uint64_t clip_rect_ptr, uint64_t callback,
@@ -764,7 +766,7 @@ namespace sogen
                                                     int x, int y, int width, int height, UINT flags, uint32_t band, BOOL use_band);
         BOOL handle_NtUserEndDeferWindowPosEx(const syscall_context& c, uint64_t batch_handle, BOOL async);
         BOOL completion_NtUserEndDeferWindowPosEx(const syscall_context& c, uint64_t batch_handle, BOOL async);
-        NTSTATUS handle_NtUserSetForegroundWindow();
+        BOOL handle_NtUserSetForegroundWindow(const syscall_context& c, hwnd hwnd);
         hwnd handle_NtUserGetForegroundWindow(const syscall_context& c);
         hwnd handle_NtUserSetFocus(const syscall_context& c, hwnd hwnd);
         hwnd completion_NtUserSetFocus(const syscall_context& c, hwnd hwnd);
@@ -1028,6 +1030,7 @@ namespace sogen
         uint64_t handle_NtGdiSelectBrushLocal(const syscall_context& c, hdc dc, uint32_t brush, emulator_pointer old_brush_ptr);
         uint64_t handle_NtGdiSelectPenLocal(const syscall_context& c, hdc dc, uint32_t pen, emulator_pointer old_pen_ptr);
         hdc handle_NtGdiOpenDCW(const syscall_context& c);
+        NTSTATUS handle_NtGdiDdDDIEnumAdapters(const syscall_context& c, emulator_object<EMU_D3DKMT_ENUMADAPTERS> enum_adapters);
         NTSTATUS handle_NtGdiDdDDIEnumAdapters2(const syscall_context& c, emulator_object<EMU_D3DKMT_ENUMADAPTERS2> enum_adapters);
         NTSTATUS handle_NtDxgkEnumAdapters3(const syscall_context& c, emulator_object<EMU_D3DKMT_ENUMADAPTERS3> enum_adapters);
         NTSTATUS handle_NtDxgkGetProperties(const syscall_context& c, emulator_object<EMU_D3DKMT_GET_PROPERTIES> get_properties);
@@ -2156,6 +2159,7 @@ namespace sogen
         add_handler(NtUserScrollWindowEx);
         add_handler(NtUserPeekMessage);
         add_handler(NtUserWaitMessage);
+        add_handler(NtUserReplyMessage);
         add_handler(NtUserInvalidateRect);
         add_handler(NtUserValidateRect);
         add_handler(NtUserGetUpdateRect);
@@ -2176,6 +2180,7 @@ namespace sogen
         add_handler(NtUserBuildHwndList);
         add_handler(NtUserEnumDisplayMonitors);
         add_handler(NtUserGetDpiForMonitor);
+        add_handler(NtGdiGetCurrentDpiInfo);
         add_handler(NtUserInheritWindowMonitor);
         add_handler(NtUserSetProp);
         add_handler(NtUserSetProp2);
@@ -2258,6 +2263,7 @@ namespace sogen
         add_handler(NtUserQueryDisplayConfig);
         add_handler(NtUserGetWindowContextHelpId);
         add_handler(NtUserSetWindowContextHelpId);
+        add_handler(NtGdiDdDDIEnumAdapters);
         add_handler(NtGdiDdDDIEnumAdapters2);
         add_handler(NtDxgkEnumAdapters3);
         add_handler(NtDxgkGetProperties);
@@ -2438,8 +2444,8 @@ namespace sogen
         add_stateless_callback(NtUserGetControlBrush);
         add_stateless_callback(NtUserGetControlColor);
         add_stateless_callback(NtUserFillWindow);
-        add_callback(NtUserGetMessage, get_message_hook_state);
-        add_callback(NtUserPeekMessage, get_message_hook_state);
+        add_callback(NtUserGetMessage, message_retrieval_state);
+        add_callback(NtUserPeekMessage, message_retrieval_state);
         add_stateless_callback(NtUserEnumDisplayMonitors);
         add_stateless_callback(NtUserWaitMessage);
         add_stateless_callback(NtUserMsgWaitForMultipleObjectsEx);

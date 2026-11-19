@@ -68,6 +68,7 @@ StatusType = Literal[
 ]
 DocDBElasticServiceName = Literal["docdb-elastic"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

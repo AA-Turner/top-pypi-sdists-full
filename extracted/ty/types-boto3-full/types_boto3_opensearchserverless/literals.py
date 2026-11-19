@@ -106,6 +106,7 @@ StandbyReplicasType = Literal["DISABLED", "ENABLED"]
 VpcEndpointStatusType = Literal["ACTIVE", "DELETING", "FAILED", "PENDING"]
 OpenSearchServiceServerlessServiceName = Literal["opensearchserverless"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -550,6 +551,7 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal["list_ingestion_jobs", "list_ingestion_streams"]
 RegionName = Literal[
+    "af-south-1",
     "ap-east-1",
     "ap-northeast-1",
     "ap-northeast-2",

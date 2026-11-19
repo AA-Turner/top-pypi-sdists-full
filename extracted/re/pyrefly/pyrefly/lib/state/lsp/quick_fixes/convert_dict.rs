@@ -25,7 +25,6 @@ use super::extract_shared::build_from_import_edit;
 use super::extract_shared::build_from_import_line;
 use super::extract_shared::code_at_range;
 use super::extract_shared::find_enclosing_statement_range;
-use super::extract_shared::import_insertion_point;
 use super::extract_shared::is_exact_expression;
 use super::extract_shared::line_indent_and_start;
 use super::extract_shared::selection_anchor;
@@ -33,8 +32,9 @@ use super::extract_shared::split_selection;
 use super::extract_shared::type_to_annotation;
 use super::extract_shared::unique_name;
 use super::types::LocalRefactorCodeAction;
+use crate::state::ide::prepare_import_insertion;
 use crate::state::lsp::Transaction;
-use crate::types::stdlib::Stdlib;
+use crate::types::env::TypeEnv;
 
 const BODY_INDENT: &str = "    ";
 const DEFAULT_MODEL_NAME: &str = "Model";
@@ -63,8 +63,8 @@ pub(crate) fn convert_dict_code_actions(
             None => line_indent_and_start(source, dict_range.start())?,
         };
     let insert_range = TextRange::at(insert_position, TextSize::new(0));
-    let stdlib = transaction.get_stdlib(handle);
-    let fields = collect_dict_fields(transaction, handle, &stdlib, dict_expr)?;
+    let type_env = transaction.type_env(handle);
+    let fields = collect_dict_fields(transaction, handle, &type_env, dict_expr)?;
     let requires_any = fields.iter().any(|field| field.annotation == "Any");
     let base_name = suggest_base_name(ast.as_ref(), dict_range);
     let class_name = unique_name(&to_pascal_case(&base_name), |candidate| {
@@ -135,7 +135,7 @@ fn find_dict_expression<'a>(
 fn collect_dict_fields(
     transaction: &Transaction<'_>,
     handle: &Handle,
-    stdlib: &Stdlib,
+    env: &dyn TypeEnv,
     dict_expr: &ExprDict,
 ) -> Option<Vec<DictField>> {
     let mut fields: Vec<DictField> = Vec::new();
@@ -146,7 +146,7 @@ fn collect_dict_fields(
         if !is_valid_identifier(&key) {
             return None;
         }
-        let annotation = infer_field_annotation(transaction, handle, stdlib, item.value.range());
+        let annotation = infer_field_annotation(transaction, handle, env, item.value.range());
         if let Some(index) = field_positions.get(&key).copied() {
             fields[index].annotation = annotation;
             continue;
@@ -172,11 +172,11 @@ fn string_literal_key(expr: &Expr) -> Option<String> {
 fn infer_field_annotation(
     transaction: &Transaction<'_>,
     handle: &Handle,
-    stdlib: &Stdlib,
+    env: &dyn TypeEnv,
     range: TextRange,
 ) -> String {
     match transaction.get_type_trace(handle, range) {
-        Some(ty) => type_to_annotation(ty, stdlib).unwrap_or_else(|| "Any".to_owned()),
+        Some(ty) => type_to_annotation(env, ty).unwrap_or_else(|| "Any".to_owned()),
         None => "Any".to_owned(),
     }
 }
@@ -300,7 +300,6 @@ fn build_dataclass_action(
     indent: &str,
 ) -> Option<LocalRefactorCodeAction> {
     let mut edits = Vec::new();
-    let position = import_insertion_point(ast);
     let mut import_text = String::new();
     if requires_any && let Some(line) = build_from_import_line(ast, "typing", &["Any"]) {
         import_text.push_str(&line);
@@ -309,6 +308,7 @@ fn build_dataclass_action(
         import_text.push_str(&line);
     }
     if !import_text.is_empty() {
+        let (position, import_text) = prepare_import_insertion(ast, import_text);
         edits.push((
             module_info.dupe(),
             TextRange::at(position, TextSize::new(0)),
@@ -334,7 +334,6 @@ fn build_pydantic_action(
     indent: &str,
 ) -> Option<LocalRefactorCodeAction> {
     let mut edits = Vec::new();
-    let position = import_insertion_point(ast);
     let mut import_text = String::new();
     if requires_any && let Some(line) = build_from_import_line(ast, "typing", &["Any"]) {
         import_text.push_str(&line);
@@ -343,6 +342,7 @@ fn build_pydantic_action(
         import_text.push_str(&line);
     }
     if !import_text.is_empty() {
+        let (position, import_text) = prepare_import_insertion(ast, import_text);
         edits.push((
             module_info.dupe(),
             TextRange::at(position, TextSize::new(0)),

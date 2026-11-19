@@ -23,24 +23,12 @@ import time
 from typing import Any, Iterable, List, Optional, Tuple
 
 from .. import environment
-
-try:  # the path generator is optional; the floor it declares is not
-    from . import _motion as _motion_mod
-except Exception:  # noqa: BLE001 - an unimportable generator is not fatal here
-    _motion_mod = None  # type: ignore[assignment]
+from ._motion import SAMPLE_FLOOR_MS
 
 #: Two pointer events closer together than this describe a device nobody sells.
 #: Firefox coalesces mouse moves to the refresh rate, so a page on a real 60 Hz
-#: display cannot see two of them 2 ms apart.
-#:
-#: The fallback is only reached when _motion failed to import, in which case the
-#: session is already falling back to the browser's own expansion; keeping a
-#: floor here rather than None means a timeline still refuses to emit a rate no
-#: device produces.
-MIN_EVENT_INTERVAL_MS = (
-    float(getattr(_motion_mod, "SAMPLE_FLOOR_MS", 8.0))
-    if _motion_mod is not None else 8.0
-)
+#: display cannot see two of them 2 ms apart. The floor is the path generator's.
+MIN_EVENT_INTERVAL_MS = float(SAMPLE_FLOOR_MS)
 
 #: Windows quantises a waited-on timer to the system tick, which is 15.6 ms by
 #: default: a 12 ms sleep comes back at 16.7 ms (measured, p50), and there is no

@@ -36,6 +36,7 @@ JobExecutionStatusType = Literal[
 ]
 IoTJobsDataPlaneServiceName = Literal["iot-jobs-data"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

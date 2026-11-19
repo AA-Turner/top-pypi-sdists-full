@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "ActionValueType",
+    "AnalyticsModeType",
     "AssociatedResourceTypeType",
     "BlockchainChainType",
     "BodyParsingFallbackBehaviorType",
@@ -78,6 +79,7 @@ __all__ = (
 ActionValueType = Literal[
     "ALLOW", "BLOCK", "CAPTCHA", "CHALLENGE", "COUNT", "EXCLUDED_AS_COUNT", "MONETIZE"
 ]
+AnalyticsModeType = Literal["CROSS_REGION", "DISABLED"]
 AssociatedResourceTypeType = Literal[
     "AGENTCORE_GATEWAY",
     "API_GATEWAY",
@@ -439,6 +441,7 @@ TimeSeriesStatisticTypeType = Literal["DATE_HISTOGRAM", "PAYMENT_TRAFFIC"]
 UsageOfActionType = Literal["DISABLED", "ENABLED"]
 WAFV2ServiceName = Literal["wafv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

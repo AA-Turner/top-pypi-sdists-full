@@ -69,6 +69,7 @@ MetricTypeType = Literal["AggregatedRelativeTotalTime"]
 OrderByType = Literal["TimestampAscending", "TimestampDescending"]
 CodeGuruProfilerServiceName = Literal["codeguruprofiler"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

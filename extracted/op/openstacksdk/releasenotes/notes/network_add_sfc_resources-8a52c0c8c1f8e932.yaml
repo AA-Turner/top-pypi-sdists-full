@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Add SFC resources: FlowClassifier, PortChain, PortPair, PortPairGroup
-    and ServiceGraph resources and introduce support for CRUD operations
-    for these.

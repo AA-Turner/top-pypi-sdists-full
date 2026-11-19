@@ -44,6 +44,7 @@ PrimaryEmailUpdateStatusType = Literal["ACCEPTED", "COMPLETED", "FAILED", "PENDI
 RegionOptStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLED_BY_DEFAULT", "ENABLING"]
 AccountServiceName = Literal["account"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

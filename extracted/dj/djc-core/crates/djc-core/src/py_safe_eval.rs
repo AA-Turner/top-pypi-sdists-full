@@ -17,14 +17,16 @@ use djc_safe_eval::safe_eval as safe_eval_rust;
 ///     str: The transformed Python expression as a string.
 ///
 /// Raises:
-///     SyntaxError: If the input is not valid Python syntax or contains forbidden constructs.
+///     SyntaxError: If the input is not valid Python syntax, contains forbidden constructs,
+///         or nests too deeply (more than about 97 chained operators, or more than 20
+///         nested calls and brackets in the code it writes, such as 21 nested lists).
 ///
 /// Example:
 ///     >>> safe_eval("my_var + 1")
-///     'variable("my_var") + 1'
+///     "_sx_variable(_sx_context, _sx_source, (0, 6), 'my_var') + 1"
 ///
 ///     >>> safe_eval("lambda x: x + my_var")
-///     'lambda x: x + variable("my_var")'
+///     "lambda x: x + _sx_variable(_sx_context, _sx_source, (14, 20), 'my_var')"
 #[pyfunction]
 #[pyo3(signature = (source))]
 pub fn safe_eval(source: &str) -> PyResult<String> {

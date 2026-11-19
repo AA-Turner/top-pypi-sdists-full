@@ -9,7 +9,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import replace
 from functools import partial, reduce
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from pydantic import Field, StrictStr, ValidationError
@@ -22,6 +21,7 @@ from datamodel_code_generator._document_reader import (
     held_schema,
     schema_format_media_type,
     string_keys,
+    trait_layers,
 )
 from datamodel_code_generator._json_pointer import escape_token
 from datamodel_code_generator._json_schema import definition_ref
@@ -34,6 +34,7 @@ from datamodel_code_generator._url_redaction import redact_path
 from datamodel_code_generator.deprecations import warn_deprecated
 from datamodel_code_generator.parser import _schema_documents, _schema_refs
 from datamodel_code_generator.parser._schema_reading import _get_model_by_decoded_path, ref_fragment_tokens
+from datamodel_code_generator.parser._schema_refs import _ref_path_parts
 from datamodel_code_generator.parser.jsonschema import (
     JsonSchemaParser,
     _named_path,
@@ -42,11 +43,11 @@ from datamodel_code_generator.parser.jsonschema import (
 )
 from datamodel_code_generator.parser.openapi import OpenAPIParser, _DiscriminatorScan
 from datamodel_code_generator.python_literal import stable_repr
-from datamodel_code_generator.reference import is_url
 from datamodel_code_generator.util import BaseModel, create_module_getattr
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
+    from pathlib import Path
     from urllib.parse import ParseResult
 
     from datamodel_code_generator._source import YamlValue
@@ -354,7 +355,7 @@ class AsyncAPIParser(OpenAPIParser):
         self.raw_obj = context.raw_obj
         try:
             with (
-                self.model_resolver.current_base_path_context(context.base_path),
+                _schema_documents.base_path_context(self, context.base_path),
                 self.model_resolver.base_url_context(context.base_url),
                 self.model_resolver.current_root_context(context.root_parts),
             ):
@@ -467,7 +468,7 @@ class AsyncAPIParser(OpenAPIParser):
                 converted_schema = convert_avro_schema_data(raw_schema, placeholder_title=self._placeholder_titles)
                 if self._placeholder_titles:
                     converted_schema.setdefault("title", name)
-                home = self.model_resolver.join_path(tuple(self._converted_schema_root_parts(path))).partition("#")[0]
+                home = _schema_documents.document_key(self, self._converted_schema_root_parts(path))
                 converted_schema = _schema_documents.mount_converted_schema(self, converted_schema, location, home=home)
                 context = replace(
                     self._current_asyncapi_context(),
@@ -583,12 +584,11 @@ class AsyncAPIParser(OpenAPIParser):
         resolved_ref = self._ref_path(ref)
         file_part, _, fragment = resolved_ref.partition("#")
         if file_part:
-            remote = is_url(file_part)
             context = AsyncAPIContext(
                 self._get_ref_body(file_part),
-                [file_part] if remote else file_part.split("/"),
-                None if remote else Path(file_part).parent,
-                file_part if remote else None,
+                _ref_path_parts(file_part),
+                directory := _schema_refs.schema_document_directory(self, file_part),
+                file_part if directory is None else None,
             )
         else:
             context = self._current_asyncapi_context()
@@ -625,7 +625,7 @@ class AsyncAPIParser(OpenAPIParser):
         )
         headers_name = _make_model_name(name, "Headers")
         trait_headers_name = None if "headers" in message else headers_name
-        if self.config.merge_message_trait_headers and len(headers := self._message_headers(message, path)) > 1:
+        if self.config.merge_message_trait_headers and len(headers := self._message_headers(message)) > 1:
             trait_headers_name = None
             if (merged := reduce(partial(_merge_patch, deref=self._dereferenced), headers)) is not None:
                 schemas.extend(self._merged_headers_schemas(headers_name, merged, message, path))
@@ -637,19 +637,16 @@ class AsyncAPIParser(OpenAPIParser):
         schemas.extend(_member_schemas(message, "bindings", self._iter_binding_schemas, name, path, seen_paths))
         return schemas
 
-    def _message_headers(self, message: dict[str, Any], path: list[str]) -> list[YamlValue]:
+    def _message_headers(self, message: dict[str, Any]) -> list[YamlValue]:
         """Return the headers of each trait of a message that defines them, in order, then the message's own.
 
-        Under ``--merge-message-trait-headers`` they are merged in this order, as the traits of AsyncAPI 2 and 3 are
-        (a JSON Merge Patch each, the message's own fields winning); a trait that is a reference is its target.
+        Under ``--merge-message-trait-headers`` they are merged in this order (``trait_layers``), a JSON Merge Patch
+        each; a trait that is a reference is its target. The message's own headers win under AsyncAPI 2 as well (row
+        ``legacy-own-headers-win-v2``), where AsyncAPI 2 lets each trait's win over the message's.
         """
-        headers: list[YamlValue] = []
-        for trait, _ in _iter_trait_items(message.get("traits"), [*path, "traits"]):
-            if isinstance(resolved := self._dereferenced(trait, siblings=True), dict) and "headers" in resolved:
-                headers.append(resolved["headers"])
-        if "headers" in message:
-            headers.append(message["headers"])
-        return headers
+        traits = (self._dereferenced(trait, siblings=True) for trait, _ in _iter_trait_items(message.get("traits"), []))
+        layers = trait_layers(message, (trait for trait in traits if isinstance(trait, dict)), own_wins=True)
+        return [layer["headers"] for layer in layers if "headers" in layer]
 
     def _merged_headers_schemas(
         self, name: str, merged: YamlValue, message: dict[str, Any], path: list[str]

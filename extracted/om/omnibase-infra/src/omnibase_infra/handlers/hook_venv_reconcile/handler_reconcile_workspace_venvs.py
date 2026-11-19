@@ -1,0 +1,357 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Reconcile a hook venv without discarding installer-selected Git revisions.
+
+The existing host reconciler calls this effect through the node bootstrap runtime:
+dispatch itself depends on a reconciled environment. The same typed handler is
+bound by node_reconcile_workspace_venvs for local bootstrap (OMN-19998).
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import subprocess
+import tomllib
+from email.parser import Parser
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+from omnibase_core.validators.no_unguarded_git_subprocess import scrub_git_location_env
+from omnibase_infra.enums import EnumHandlerType, EnumHandlerTypeCategory
+from omnibase_infra.models.model_hook_venv_extras import ModelHookVenvExtras
+from omnibase_infra.models.model_hook_venv_reconcile_policy import (
+    ModelHookVenvReconcilePolicy,
+)
+from omnibase_infra.models.model_hook_venv_reconcile_request import (
+    ModelHookVenvReconcileRequest,
+)
+from omnibase_infra.models.model_hook_venv_reconcile_result import (
+    ModelHookVenvReconcileResult,
+)
+from omnibase_infra.protocols.protocol_hook_venv_reconcile_host import (
+    HOOK_VENV_HOST_SERVICE,
+    ProtocolHookVenvReconcileHost,
+)
+from omnibase_infra.protocols.protocol_hook_venv_reconcile_host import (
+    HookVenvRevision as _Revision,
+)
+
+_CHANGE = re.compile(r"^\s*([-+~])\s+([A-Za-z0-9][A-Za-z0-9._-]*)(?:==|\s+@)")
+_GIT_SOURCE = re.compile(r"git\+([^\s)]+)@([0-9a-fA-F]{40})(?:\)|$)")
+_REQUIREMENT_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
+
+
+def _normalize(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _metadata_name(metadata: str) -> str:
+    name = Parser().parsestr(metadata, headersonly=True).get("Name") or ""
+    if not name:
+        raise ValueError("unreadable package metadata name")
+    return name
+
+
+def _requirement_name(requirement: str) -> str:
+    match = _REQUIREMENT_NAME.match(requirement)
+    return _normalize(match.group(1)) if match else ""
+
+
+def _approved(
+    root: Path,
+    expected: dict[str, _Revision],
+    plan: str,
+    host: ProtocolHookVenvReconcileHost,
+) -> dict[str, _Revision]:
+    changed: set[str] = set()
+    replacements: dict[str, _Revision] = {}
+    for line in plan.splitlines():
+        match = _CHANGE.match(line)
+        if match is None:
+            continue
+        sign, name = match.group(1), _normalize(match.group(2))
+        changed.add(name)
+        source = _GIT_SOURCE.search(line)
+        if sign == "+" and source:
+            replacements[name] = (source.group(1), source.group(2))
+    if not changed and not re.search(
+        r"Would make no changes|Audited [0-9]+ package", plan
+    ):
+        raise ValueError("unreadable branch install sync plan")
+    approved = dict(expected)
+    for name in sorted(changed.intersection(expected)):
+        after = replacements.get(name)
+        if after is None or not host.carries(root, expected[name], after):
+            raise ValueError("conflicting branch install would be replaced: " + name)
+        approved[name] = after
+    return approved
+
+
+class HandlerReconcileWorkspaceVenvs:
+    """Own the existing hook-venv sync operation and its revision readback."""
+
+    def __init__(self, container: ModelONEXContainer) -> None:
+        """Resolve the node's host effect port from the container."""
+        self._host: ProtocolHookVenvReconcileHost = container.get_service(
+            HOOK_VENV_HOST_SERVICE
+        )
+
+    @property
+    def handler_type(self) -> EnumHandlerType:
+        """Classify the host package-tool adapter."""
+        return EnumHandlerType.INFRA_HANDLER
+
+    @property
+    def handler_category(self) -> EnumHandlerTypeCategory:
+        """Filesystem and package operations are effects."""
+        return EnumHandlerTypeCategory.EFFECT
+
+    def handle(
+        self, request: ModelHookVenvReconcileRequest
+    ) -> ModelHookVenvReconcileResult:
+        """Plan before writing and verify the selected revisions after writing."""
+        project = request.project
+        try:
+            extras = self._host.extras(project)
+            if request.mode == "check":
+                code, check_output = self._host.uv(request, "--check", extras.kept)
+                if extras.stray:
+                    check_output += (
+                        "\nextras not kept (not listed in uv.lock): "
+                        + ", ".join(extras.stray)
+                    )
+                return ModelHookVenvReconcileResult(
+                    status="already_in_sync" if code == 0 else "outdated",
+                    detail=(
+                        f"hook venv: already in sync ({project}/.venv)"
+                        if code == 0
+                        else f"hook venv: outdated against uv.lock ({project}/.venv)"
+                    ),
+                    output=check_output,
+                )
+            expected = self._host.installed(project)
+            if expected:
+                plan_code, plan_output = self._host.uv(
+                    request, "--dry-run", extras.kept
+                )
+                if plan_code:
+                    return ModelHookVenvReconcileResult(
+                        status="refused",
+                        detail="branch install sync plan failed",
+                        output=plan_output,
+                    )
+                expected = _approved(
+                    request.workspace_root,
+                    expected,
+                    plan_output,
+                    self._host,
+                )
+            already = self._host.uv(request, "--check", extras.kept)[0] == 0
+            output = ""
+            if not already:
+                sync_code, output = self._host.uv(request, None, extras.kept)
+                if sync_code:
+                    return ModelHookVenvReconcileResult(
+                        status="refused",
+                        detail=f"hook venv lock sync did not complete for {project}",
+                        output=output,
+                    )
+            actual = self._host.installed(project)
+            for name, revision in expected.items():
+                if actual.get(name) != revision:
+                    return ModelHookVenvReconcileResult(
+                        status="refused",
+                        detail="branch install revision changed after sync: " + name,
+                        output=output,
+                    )
+            detail = (
+                f"hook venv: {'already in sync' if already else 'reconciled'}"
+                f" ({project}/.venv)"
+            )
+            if extras.stray:
+                stray_line = "extras not kept (not listed in uv.lock): " + ", ".join(
+                    extras.stray
+                )
+                output = f"{output}\n{stray_line}" if output else stray_line
+            return ModelHookVenvReconcileResult(
+                status="already_in_sync" if already else "reconciled",
+                detail=detail,
+                output=output,
+            )
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            StopIteration,
+        ) as exc:
+            return ModelHookVenvReconcileResult(
+                status="refused",
+                detail="hook venv branch intent: " + str(exc),
+            )
+
+
+class HandlerHookVenvReconcileHost:
+    """Keep raw filesystem and process I/O inside the declared EFFECT node."""
+
+    def __init__(self, container: ModelONEXContainer) -> None:
+        self._policy = container.get_service(ModelHookVenvReconcilePolicy)
+
+    def installed(self, project: Path) -> dict[str, _Revision]:
+        """Read the installer's PEP 610 records without importing the target venv."""
+        result: dict[str, _Revision] = {}
+        for path in (project / ".venv").glob(
+            "lib/python*/site-packages/*.dist-info/direct_url.json"
+        ):
+            data = json.loads(path.read_text())
+            vcs = data.get("vcs_info", {})
+            if vcs.get("vcs") != "git":
+                continue
+            metadata = (path.parent / "METADATA").read_text()
+            name = _normalize(_metadata_name(metadata))
+            commit, url = vcs.get("commit_id", ""), data.get("url", "")
+            if (
+                not isinstance(commit, str)
+                or not re.fullmatch(r"[0-9a-fA-F]{40}", commit)
+                or not isinstance(url, str)
+                or not url
+                or name in result
+            ):
+                raise ValueError("unreadable or ambiguous Git revision for " + name)
+            result[name] = (url, commit)
+        return result
+
+    def carries(self, root: Path, before: _Revision, after: _Revision) -> bool:
+        """Allow ordinary forward updates; refuse unknown or discarded commits."""
+        if before == after:
+            return True
+        source = urlsplit(before[0])
+        clone = (
+            Path(unquote(source.path))
+            if source.scheme == "file"
+            else root / Path(source.path).name.removesuffix(".git")
+        )
+        if before[0] != after[0] or not clone.is_dir():
+            return False
+        try:
+            probe = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(clone),
+                    "merge-base",
+                    "--is-ancestor",
+                    before[1],
+                    after[1],
+                ],
+                env=scrub_git_location_env(),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=self._policy.git_timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError("branch install ancestry read timed out") from exc
+        if probe.returncode not in (0, 1):
+            raise ValueError("branch install ancestry is unreadable")
+        return probe.returncode == 0
+
+    def uv(
+        self,
+        request: ModelHookVenvReconcileRequest,
+        flag: str | None = None,
+        extras: tuple[str, ...] = (),
+    ) -> tuple[int, str]:
+        """Run uv against exactly the requested project as the host owner."""
+        env = scrub_git_location_env()
+        env.pop("PYTHONPATH", None)
+        env.pop("UV_PROJECT_ENVIRONMENT", None)
+        args = [
+            str(request.uv_bin),
+            "sync",
+        ]
+        # uv before 0.7 refuses --frozen together with --dry-run (CI pins 0.6.14).
+        if flag != "--dry-run":
+            args.append("--frozen")
+        args += ["--project", str(request.project)]
+        for extra in extras:
+            args += ["--extra", extra]
+        if flag:
+            args.append(flag)
+        try:
+            result = subprocess.run(
+                args,
+                cwd=request.project,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=self._policy.sync_timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError("hook venv package operation timed out") from exc
+        return result.returncode, result.stdout + result.stderr
+
+    def extras(self, project: Path) -> ModelHookVenvExtras:
+        """Declare extras whose requirements are installed, then keep only those the lock lists."""
+        source = project / "pyproject.toml"
+        if not source.is_file():
+            return ModelHookVenvExtras()
+        optional = (
+            tomllib.loads(source.read_text())
+            .get("project", {})
+            .get("optional-dependencies")
+        )
+        if not isinstance(optional, dict):
+            return ModelHookVenvExtras()
+        installed: set[str] = set()
+        for path in (project / ".venv").glob(
+            "lib/python*/site-packages/*.dist-info/METADATA"
+        ):
+            installed.add(_normalize(_metadata_name(path.read_text())))
+        fully_installed = tuple(
+            name
+            for name, requirements in sorted(optional.items())
+            if isinstance(requirements, list)
+            and requirements
+            and all(
+                _requirement_name(requirement) in installed
+                for requirement in requirements
+            )
+        )
+        lock = {_normalize(name) for name in self._lock_extras(project)}
+        return ModelHookVenvExtras(
+            kept=tuple(name for name in fully_installed if _normalize(name) in lock),
+            stray=tuple(
+                name for name in fully_installed if _normalize(name) not in lock
+            ),
+        )
+
+    def _lock_extras(self, project: Path) -> tuple[str, ...]:
+        """Read the lock's extras for the project's own package entry."""
+        lock = project / "uv.lock"
+        if not lock.is_file():
+            return ()
+        source = project / "pyproject.toml"
+        if not source.is_file():
+            return ()
+        name = tomllib.loads(source.read_text()).get("project", {}).get("name")
+        if not isinstance(name, str):
+            return ()
+        package = next(
+            (
+                entry
+                for entry in tomllib.loads(lock.read_text()).get("package", [])
+                if isinstance(entry, dict)
+                and _normalize(str(entry.get("name", ""))) == _normalize(name)
+            ),
+            None,
+        )
+        if package is None:
+            return ()
+        provides = package.get("metadata", {}).get("provides-extras")
+        if not isinstance(provides, list):
+            return ()
+        return tuple(str(extra) for extra in provides)

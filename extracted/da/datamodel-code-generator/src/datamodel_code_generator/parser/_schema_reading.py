@@ -53,7 +53,7 @@ class _RefSiblingsMerger(Protocol):
 
 def _with_ref_siblings(parser: _RefSiblingsMerger, schema: JsonSchemaObject) -> JsonSchemaObject:
     """Return ``schema`` merged with the keywords beside its `$ref` where they are parts of it, else itself."""
-    return parser._merge_ref_with_schema(schema) if _merges_ref_siblings(schema) else schema  # noqa: SLF001
+    return parser._merge_ref_with_schema(schema) if _merges_ref_siblings(schema) else schema
 
 
 def _schema_dump(schema: JsonSchemaObject | bool) -> dict[str, Any] | bool:  # ruff: ignore[boolean-type-hint-positional-argument]
@@ -162,11 +162,11 @@ def _intersect_parts(  # noqa: PLR0913
         row,
         ref_siblings_are_parts=ref_siblings_are_parts,
         legacy_rows=legacy_rows,
-        removes_enum_outside_type="legacy-enum-outside-type-kept" not in parser._legacy_intersection,  # noqa: SLF001
+        removes_enum_outside_type="legacy-enum-outside-type-kept" not in parser._legacy_intersection,
         own_last=own_last,
     )
     if where is not None:
-        parser._warn_intersection(where, intersection, *parts)  # noqa: SLF001
+        parser._warn_intersection(where, intersection, *parts)
     return intersection
 
 
@@ -354,16 +354,6 @@ def ref_fragment_tokens(document: Any, fragment: str, reading: PointerReading) -
         case _:
             tokens = [token for token in fragment.split("/") if token]
     return list(map(unescape_json_pointer_segment, tokens))
-
-
-def _fragment_value(document: Any, fragment: str, *, or_missing: bool = False, reading: PointerReading) -> Any:
-    """Return the value a reference fragment names in a loaded document, as ``reading`` splits it; ``""`` names it."""
-    if not fragment:
-        return document
-    tokens = ref_fragment_tokens(document, fragment, reading)
-    return _get_model_by_decoded_path(
-        document, tokens, or_missing=or_missing, refuse_scalar=reading == "legacy-cycle-through-scalar"
-    )
 
 
 def split_json_pointer(

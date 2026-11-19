@@ -532,6 +532,37 @@ x += ["foo"]  # E: Augmented assignment result `list[int | str]` is not assignab
 );
 
 testcase!(
+    test_aug_assign_list_context,
+    r#"
+from typing import Literal, assert_type
+
+Kind = Literal["a", "b"]
+xs: list[tuple[Kind, int]] = []
+xs.extend([("a", 1)])
+xs += [("a", 1)]
+xs += [("b", i) for i in range(3)]
+assert_type(xs, list[tuple[Kind, int]])
+
+nested: list[list[Kind]] = []
+nested += [["a"]]
+assert_type(nested, list[list[Kind]])
+
+class C:
+    xs: list[tuple[Kind, int]] = []
+
+c = C()
+c.xs += [("a", 1)]
+assert_type(c.xs, list[tuple[Kind, int]])
+
+lists: list[list[tuple[Kind, int]]] = [[]]
+lists[0] += [("a", 1)]
+assert_type(lists[0], list[tuple[Kind, int]])
+
+xs += [("c", 1)]  # E: Augmented assignment result
+"#,
+);
+
+testcase!(
     test_aug_assign_unannotated,
     r#"
 from typing import assert_type
@@ -950,7 +981,7 @@ assert_type(y, str)
     "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2928
+// https://github.com/pyrefly-org/pyrefly/issues/2928
 testcase!(
     test_unpack_string_too_many,
     r#"
@@ -958,7 +989,7 @@ a, b = "abc"  # E: Cannot unpack Literal['abc'] (of size 3) into 2 values
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2927
+// https://github.com/pyrefly-org/pyrefly/issues/2927
 testcase!(
     test_unpack_string_too_few,
     r#"
@@ -970,6 +1001,7 @@ testcase!(
     test_unpack_string_exact,
     r#"
 a, b, c = "abc"
+x, y = "12"
 "#,
 );
 
@@ -978,6 +1010,10 @@ testcase!(
     r#"
 a, *b = "abc"
 x, y, *z = "w"  # E: Cannot unpack Literal['w'] (of size 1) into 2+ values
+x, *y = "123"
+x, *y = "12"
+x, *y = "1"
+x, *y = ""  # E: Cannot unpack Literal[''] (of size 0) into 1+ values
 "#,
 );
 
@@ -1000,6 +1036,162 @@ testcase!(
     r#"
 items = [1, 2, 3, 4]
 bad = items[::0]  # E: Slice step cannot be zero
+"#,
+);
+
+testcase!(
+    test_for_loop_unpack_string,
+    r#"
+for k, v in {"x": 1}:  # E: Cannot unpack
+    pass
+
+xs: list[str] = []
+for a, b in xs:
+    pass
+"#,
+);
+
+testcase!(
+    test_for_loop_unpack_display_lengths,
+    r#"
+from typing import Literal, LiteralString, assert_type
+
+for a, b in {"xy": 1}:
+    pass
+for a, b in {"": 1}:  # E: Cannot unpack
+    pass
+for a, b in {"xyz": 1}:  # E: Cannot unpack
+    pass
+for a, b in {"xy": 1, "z": 2}:  # E: Cannot unpack
+    pass
+for a, b in {**{"xy": 1}}:
+    pass
+for a, b in {**{"x": 1}}:  # E: Cannot unpack
+    pass
+for a, b in ["xy", "ab"]:
+    pass
+for a, b in ["x"]:  # E: Cannot unpack
+    pass
+for a, b in {"xy", "ab"}:
+    pass
+for a, b in {"xyz"}:  # E: Cannot unpack
+    pass
+for a, b in [*["x"]]:  # E: Cannot unpack
+    pass
+for a, b in {b"xy": 1}:
+    pass
+for a, b in [b"x"]:  # E: Cannot unpack
+    pass
+for a, *rest in ["123", "12", "1"]:
+    pass
+for a, *rest in [""]:  # E: Cannot unpack
+    pass
+for *chars, in ["", "1", "12", "123"]:
+    pass
+for a, b in [(1, 2)]:
+    assert_type(a, int)
+    assert_type(b, int)
+
+valid = [(a, b) for a, b in {"xy": 1}]
+invalid = [(a, b) for a, b in {"x": 1}]  # E: Cannot unpack
+invalid_values = [(a, b) for a, b in ["x"]]  # E: Cannot unpack
+
+def unknown(s: str, literal: LiteralString, xs: list[str]) -> None:
+    a, b = s
+    a, *rest = literal
+    for a, b in [s]:
+        pass
+    for a, b in xs:
+        pass
+
+def known(xs: list[Literal["x", "xy"]]) -> None:
+    for a, b in xs:  # E: Cannot unpack
+        pass
+"#,
+);
+
+testcase!(
+    test_for_loop_unpack_unknown_element_length,
+    r#"
+from typing import assert_type
+
+# Literal promotion and union simplification erase the short element's length.
+# Retaining it could improve precision, but whether unpacking should do so is
+# undecided; strings remain ordinary iterables with potentially unknown lengths.
+def f(s: str) -> None:
+    for a, b in ["x", s]:
+        assert_type(a, str)
+        assert_type(b, str)
+    pairs = [(a, b) for a, b in ["x", s]]
+    assert_type(pairs, list[tuple[str, str]])
+"#,
+);
+
+testcase!(
+    test_for_loop_unpack_display_observation,
+    r#"
+from typing import assert_type
+
+for a, b in [["x", "y"]]:
+    assert_type(a, str)
+    assert_type(b, str)
+for a, b in [*[*["x"]]]:  # E: Cannot unpack
+    pass
+for a, b in [*1]:  # E: iterable
+    pass
+for a, b in {"x": 1, **1}:  # E: Cannot unpack  # E: Expected a mapping
+    pass
+"#,
+);
+
+testcase!(
+    test_for_loop_unpack_tuple_annotation,
+    r#"
+from __future__ import annotations
+
+x: list[tuple[str, str]] = []
+for a, b in x:
+    pass
+"#,
+);
+
+testcase!(
+    test_unpack_string_star_only,
+    r#"
+from typing import LiteralString, assert_type
+
+def f(s: str, literal: LiteralString) -> None:
+    *chars, = s
+    assert_type(chars, list[str])
+    *literal_chars, = literal
+    assert_type(literal_chars, list[LiteralString])
+
+*empty, = ""
+*nonempty, = "123"
+"#,
+);
+
+testcase!(
+    test_unpack_string_union,
+    r#"
+from typing import Literal, LiteralString
+
+def f(xs: list[str | tuple[int, int]], literals: list[LiteralString | tuple[int, int]]) -> None:
+    for a, b in xs:
+        pass
+    for a, *rest in xs:
+        pass
+    for *chars, in xs:
+        pass
+    for a, b in literals:
+        pass
+    for *literal_chars, in literals:
+        pass
+
+def g(s: Literal["12", "34"], short: Literal["", "1"], b: Literal[b"12", b"34"]) -> None:
+    a, c = s
+    a, *rest = short  # E: Cannot unpack
+    x, y = b
 "#,
 );
 

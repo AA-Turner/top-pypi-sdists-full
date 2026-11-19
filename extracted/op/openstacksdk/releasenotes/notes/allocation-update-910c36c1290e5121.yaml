@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Allows updating ``name`` and ``extra`` fields of a baremetal allocation.

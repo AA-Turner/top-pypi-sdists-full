@@ -72,11 +72,13 @@ impl Variable {
         Ok(core.vars[self.id].value)
     }
 
-    fn set_value(&self, v: f64) -> PyResult<()> {
+    /// ``None`` clears the value (e.g. to leave a variable out of a MIP start).
+    #[pyo3(signature = (v))]
+    fn set_value(&self, v: Option<f64>) -> PyResult<()> {
         let core_rc = upgrade_model(&self.model)?;
         let mut core = lock_model(&core_rc);
         if let Some(var) = core.vars.get_mut(self.id) {
-            var.value = Some(v);
+            var.value = v;
         }
         Ok(())
     }
@@ -86,6 +88,7 @@ impl Variable {
         let mut core = lock_model(&core_rc);
         if let Some(var) = core.vars.get_mut(self.id) {
             var.lb = lb;
+            core.changes.var_bounds(self.id);
         }
         Ok(())
     }
@@ -95,6 +98,7 @@ impl Variable {
         let mut core = lock_model(&core_rc);
         if let Some(var) = core.vars.get_mut(self.id) {
             var.ub = ub;
+            core.changes.var_bounds(self.id);
         }
         Ok(())
     }
@@ -104,6 +108,7 @@ impl Variable {
         let mut core = lock_model(&core_rc);
         if let Some(var) = core.vars.get_mut(self.id) {
             var.category = category;
+            core.changes.var_category(self.id);
         }
         Ok(())
     }

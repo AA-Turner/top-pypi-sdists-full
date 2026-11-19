@@ -42,6 +42,7 @@ FailureHandlingPolicyType = Literal["DO_NOTHING", "ROLLBACK_ON_FAILURE"]
 ModelStateType = Literal["DEPLOY", "UNDEPLOY"]
 SagemakerEdgeManagerServiceName = Literal["sagemaker-edge"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

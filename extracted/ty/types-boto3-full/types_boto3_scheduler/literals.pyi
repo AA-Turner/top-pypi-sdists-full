@@ -53,6 +53,7 @@ ScheduleGroupStateType = Literal["ACTIVE", "DELETING"]
 ScheduleStateType = Literal["DISABLED", "ENABLED"]
 EventBridgeSchedulerServiceName = Literal["scheduler"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

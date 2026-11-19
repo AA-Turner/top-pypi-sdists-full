@@ -32,6 +32,7 @@ __all__ = (
 
 KinesisVideoWebRTCStorageServiceName = Literal["kinesis-video-webrtc-storage"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

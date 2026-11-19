@@ -8,10 +8,10 @@ import numpy as np
 import numpy.typing as npt
 
 
-def get_bright_perc(mask: npt.NDArray[bool] | list[npt.NDArray[bool]],
+def get_bright_perc(mask: npt.NDArray[np.bool_] | list[npt.NDArray[np.bool_]],
                     image: npt.NDArray | list[npt.NDArray],
                     image_bg: npt.NDArray | list[npt.NDArray],
-                    bg_off: float | npt.NDArray = None
+                    bg_off: float | npt.NDArray | None = None
                     ) -> (tuple[float, float] |
                           tuple[npt.NDArray, npt.NDArray]):
     """Compute 10th and 90th percentile of the bg-corrected event brightness
@@ -35,10 +35,10 @@ def get_bright_perc(mask: npt.NDArray[bool] | list[npt.NDArray[bool]],
 
     Returns
     -------
-    bright_perc_10: float or ndarray of size N
-        10th percentile of brightness
-    bright_perc_90: float or ndarray of size N
-        90th percentile of brightness
+    bright_perc_10: float or ndarray of size K
+        10th percentile of brightness for each of the K events
+    bright_perc_90: float or ndarray of size K
+        90th percentile of brightness for each of the K events
     """
     if isinstance(mask, np.ndarray) and len(mask.shape) == 2:
         # We have a single image
@@ -58,10 +58,11 @@ def get_bright_perc(mask: npt.NDArray[bool] | list[npt.NDArray[bool]],
         # cast to integer before subtraction
         imgi = np.array(image[ii], dtype=int) - image_bg[ii]
         mski = mask[ii]
-        # Assign results
-        p10[ii], p90[ii] = np.percentile(imgi[mski], q=[10, 90])
+        if np.any(mski):
+            # Assign results (empty masks remain nan)
+            p10[ii], p90[ii] = np.percentile(imgi[mski], q=[10, 90])
 
-    if bg_off:
+    if bg_off is not None:
         p10 -= bg_off
         p90 -= bg_off
 

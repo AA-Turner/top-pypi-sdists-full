@@ -1,5 +1,7 @@
 import json
 import pathlib
+import threading
+import time
 
 import h5py
 import numpy as np
@@ -81,10 +83,10 @@ def test_basin_cyclic_dependency_found():
     # Open the dataset
     with dclab.new_dataset(paths_list[0]) as ds:
         assert np.allclose(ds["deform"][0], 0.02494624), "sanity check"
-        with pytest.warns(feat_basin.CyclicBasinDependencyFoundWarning,
-                          match="Encountered cyclic basin dependency"):
-            with pytest.raises(KeyError):
-                _ = ds["userdef1"]
+        with (pytest.warns(feat_basin.CyclicBasinDependencyFoundWarning,
+                           match="Encountered cyclic basin dependency"),
+              pytest.raises(KeyError)):
+            _ = ds["userdef1"]
 
 
 @pytest.mark.filterwarnings(
@@ -163,6 +165,43 @@ def test_basin_cyclic_dependency_found_2():
         with pytest.warns(feat_basin.CyclicBasinDependencyFoundWarning,
                           match="Encountered cyclic basin dependency"):
             _ = ds["userdef1"]
+
+
+def test_basin_dataset_loaded_once_threads(monkeypatch):
+    """Concurrent access to `Basin.ds` must only load the dataset once"""
+    path = retrieve_data("fmt-hdf5_image-mask-blood_2021.zip")
+    bn = rtdc_dataset.fmt_hdf5.HDF5Basin(path)
+    assert bn.is_available()
+
+    loaded = []
+    load_dataset = rtdc_dataset.fmt_hdf5.HDF5Basin._load_dataset
+
+    def load_dataset_slow(self, location, **kwargs):
+        # make sure all threads try to load the dataset at the same time
+        time.sleep(0.1)
+        ds = load_dataset(self, location, **kwargs)
+        loaded.append(ds)
+        return ds
+
+    monkeypatch.setattr(rtdc_dataset.fmt_hdf5.HDF5Basin, "_load_dataset",
+                        load_dataset_slow)
+
+    barrier = threading.Barrier(4)
+
+    def worker():
+        barrier.wait()
+        assert bn.ds["deform"][0]
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+
+    assert len(loaded) == 1
+    bn.close()
+    # no open file handles left
+    assert not loaded[0].h5file.id.valid
 
 
 @pytest.mark.filterwarnings(
@@ -353,7 +392,7 @@ def test_basin_not_allowed_to_have_local_basin_in_remote_basin():
 
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
-@pytest.mark.parametrize("path_sep", [r"/", r"\\"])
+@pytest.mark.parametrize("path_sep", [r"/", "\\", r"\\"])
 def test_basin_relative_paths(path_sep):
     """Relative paths should work for both `\\` and ¸`/`."""
     h5path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
@@ -387,7 +426,7 @@ def test_basin_relative_paths(path_sep):
 
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
-@pytest.mark.parametrize("path_sep", [r"/", r"\\"])
+@pytest.mark.parametrize("path_sep", [r"/", "\\", r"\\"])
 def test_basin_relative_paths_same_dir(path_sep):
     """Search relative basins in referring dataset directory as well"""
     h5path: pathlib.Path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
@@ -417,6 +456,39 @@ def test_basin_relative_paths_same_dir(path_sep):
     # Move the basin next to the referring file. Since version 0.71.10, dclab
     # will look in the same directory for the basin.
     h5path.rename(h5path_small.parent / h5path.name)
+
+    with dclab.new_dataset(h5path_small) as ds:
+        assert "image" not in ds.features_innate
+        assert "image" in ds
+
+
+@pytest.mark.filterwarnings(
+    "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
+def test_basin_relative_paths_corrupt_file():
+    """A corrupt file at the relative basin location must not break things"""
+    h5path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
+    h5path_small = h5path.parent / "subdirectory" / "relative.rtdc"
+    h5path_small.parent.mkdir()
+    # This file has the same name as the first basin path
+    (h5path_small.parent / "corrupt.rtdc").write_bytes(b"no HDF5 file")
+
+    # Dataset creation
+    with h5py.File(h5path) as src, RTDCWriter(h5path_small) as hw:
+        # first, copy all the scalar features to the new file
+        rtdc_dataset.rtdc_copy(src_h5file=src,
+                               dst_h5file=hw.h5file,
+                               features="scalar")
+        # Next, store the basin information in the new dataset
+        bdat = {
+            "type": "file",
+            "format": "hdf5",
+            "features": ["image"],
+            "paths": [str(h5path.parent / "nonexistent" / "corrupt.rtdc"),
+                      str(h5path)]
+        }
+        blines = json.dumps(bdat, indent=2).split("\n")
+        basins = hw.h5file.require_group("basins")
+        hw.write_text(basins, "corrupt_relative_basin", blines)
 
     with dclab.new_dataset(h5path_small) as ds:
         assert "image" not in ds.features_innate
@@ -644,10 +716,10 @@ def test_basin_run_identifier_verify():
     with dclab.new_dataset(h5path) as ds:
         assert ds.get_measurement_identifier() == "Uiiiid!"
 
-    with dclab.new_dataset(export_same) as ds2:
-        with pytest.warns(UserWarning, match="identifier mismatch"):
-            with pytest.raises(KeyError, match="does not exist"):
-                ds2["area_um"][0]
+    with (dclab.new_dataset(export_same) as ds2,
+          pytest.warns(UserWarning, match="identifier mismatch"),
+          pytest.raises(KeyError, match="does not exist")):
+        ds2["area_um"][0]
 
 
 def test_basin_sorting_basic():
@@ -666,11 +738,12 @@ def test_basin_sorting_basic():
 
 @pytest.mark.parametrize("btype,bformat,sortval", [
     ["internal", "h5dataset", "aaa"],
-    ["file", "hdf5", "bba"],
-    ["remote", "http", "cca"],
-    ["remote", "s3", "cda"],
-    ["remote", "dcor", "cea"],
-    ["peter", "hdf5", "zba"],
+    ["internal", "h5datasetchop", "aba"],
+    ["file", "hdf5", "bca"],
+    ["remote", "http", "cda"],
+    ["remote", "s3", "cea"],
+    ["remote", "dcor", "cfa"],
+    ["peter", "hdf5", "zca"],
     ["remote", "hans", "cza"],
     ["hans", "peter", "zza"],
 ]
@@ -707,11 +780,11 @@ def test_basin_unsupported_basin_format():
 
     h5path.unlink()
 
-    with pytest.warns(UserWarning,
-                      match="Ignored basin of format 'peter'"):
-        with new_dataset(h5path_small) as ds:
-            assert "image" not in ds
-            assert not ds.features_basin
+    with (pytest.warns(UserWarning,
+                       match="Ignored basin of format 'peter'"),
+          new_dataset(h5path_small) as ds):
+        assert "image" not in ds
+        assert not ds.features_basin
 
 
 def test_basin_unsupported_basin_type():
@@ -739,8 +812,8 @@ def test_basin_unsupported_basin_type():
 
     h5path.unlink()
 
-    with pytest.warns(UserWarning,
-                      match="Encountered unsupported basin type 'peter'"):
-        with new_dataset(h5path_small) as ds:
-            assert "image" not in ds
-            assert not ds.features_basin
+    with (pytest.warns(UserWarning,
+                       match="Encountered unsupported basin type 'peter'"),
+          new_dataset(h5path_small) as ds):
+        assert "image" not in ds
+        assert not ds.features_basin

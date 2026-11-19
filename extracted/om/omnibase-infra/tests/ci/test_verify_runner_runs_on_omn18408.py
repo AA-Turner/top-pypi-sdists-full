@@ -217,19 +217,24 @@ def test_moved_job_runs_on_the_verify_label(
 
 
 def test_the_reusable_verify_job_moves_with_omnimarkets_own_route() -> None:
-    """Task B8 (OMN-19510): when omnimarket itself calls the reusable
-    workflow, ``verify-sibling-converged`` reads the SAME
-    ``verify_runs_on`` output as every other caller, but that output now
-    resolves to dev-202's own host-scoped runner rather than the dev-201
-    literal every other caller still gets."""
+    """Omnimarket's verify runner follows the routed instance's availability."""
+    from scripts.ci.deploy_lane_verify_route import load_table
+
+    table = load_table()
+    routed = next(
+        row["instance"]
+        for row in table["routes"]
+        if row["requester_repository"] == "omnimarket"
+    )
+    available = table["instances"][routed].get("available", True)
+    expected = routed if available else table["default_instance"]
     assert ("runtime-rebuild-trigger-reusable.yml", "verify-sibling-converged") in (
         ROUTED_JOBS
     )
-    assert _routed_labels("gha/omnimarket/pr-1") == [
-        "self-hosted",
-        "omnibase-verify",
-        "host-202",
-    ]
+    assert (
+        _routed_labels("gha/omnimarket/pr-1")
+        == (table["instances"][expected]["verify"]["runner_labels"])
+    )
 
 
 @pytest.mark.parametrize(("workflow", "job_key"), STAYED_JOBS)
@@ -295,30 +300,3 @@ def test_every_moved_job_is_host_scoped_not_merely_class_scoped() -> None:
             f"{workflow}:{job_key} is scoped to the verify CLASS but not to a "
             "HOST; it can be placed on a verify runner that cannot see the lane"
         )
-
-
-def test_the_lab_overlay_receipt_job_reads_the_overlay_not_a_host() -> None:
-    """OMN-19894: the per-merge onex-lab receipt job left the .201 verify runner.
-
-    It reads one lane-specific thing, the deploy agent's HTTP record, so it runs
-    on the overlay's pool and reads the agent at the ``deploy_agent_url`` the
-    overlay declares for the lane whose agent applies the onex-lab overlay.
-    Neither its runner nor the agent address is a literal in the job.
-    """
-    job = _jobs("runtime-rebuild-trigger.yml")["verify-lab-overlay-converged"]
-    assert job["runs-on"] == POOL_RUNS_ON
-    lane = next(step for step in job["steps"] if step.get("id") == "lane")
-    assert lane["uses"] == "./.github/actions/resolve-lab-lane"
-    assert lane["with"] == {
-        "lanes-json": "${{ vars.LAB_LANES_JSON }}",
-        "require": "deploy_agent_url",
-        "match": "compose_project=omnibase-infra",
-    }
-    steps = [step.get("id") for step in job["steps"]]
-    assert steps.index("lane") < steps.index("record")
-    record = next(step for step in job["steps"] if step.get("id") == "record")
-    assert record["env"]["LAB_AGENT_URL"] == "${{ env.LANE_DEPLOY_AGENT_URL }}"
-    assert record["if"] == "always()", "no lane answering must still emit a FAIL"
-    rendered = yaml.safe_dump(job)
-    assert HOST_LABEL not in rendered
-    assert "host.docker.internal" not in rendered

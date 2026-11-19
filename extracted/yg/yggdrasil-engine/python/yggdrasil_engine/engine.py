@@ -1,0 +1,443 @@
+import json
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Callable, Optional
+
+from yggdrasil_engine.custom_strategy import CustomStrategyHandler
+from yggdrasil_engine.yggdrasil_native import (  # type: ignore
+    NativeEngine,
+    core_version,
+    known_strategies,
+    spec_version,
+)
+
+_logger = logging.getLogger(__name__)
+
+_NativeVariant = tuple[str, Optional[dict[str, str]], bool, bool]
+_NativeVariantQuery = Callable[
+    [str, dict[str, Any], Optional[dict[str, bool]]],
+    tuple[Optional[_NativeVariant], bool],
+]
+
+
+@dataclass(init=False)
+class FeatureToggle:
+    """`FeatureToggle` is the result of querying if a feature is enabled."""
+
+    name: str
+    """The name of the toggle that was queried."""
+
+    is_enabled: bool = False
+    """Whether the feature is enabled for the given context.
+
+    Defaults to `False` when the engine did not know the toggle and no fallback
+    resolved a value, or when the evaluation failed.
+    """
+
+    is_found: bool = False
+    """Whether the engine knew about the toggle at all.
+
+    `False` means the toggle was missing from the engine's state or evaluation
+    errored. That is distinct from a known toggle that evaluated to disabled,
+    which is `is_found=True, is_enabled=False`.
+    """
+
+    requires_impression_event_emission: bool = False
+    """Whether the engine expects its caller to emit an impression event.
+
+    These bindings are not concerned with the publishing itself. However,
+    the engine is the source of whether a toggle has the publication of
+    impression events enabled.
+
+    `False` means that the SDK should not emit impression events. It is also
+    `False` when the evaluation failed."""
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        is_enabled: bool = False,
+        is_found: bool = False,
+        requires_impression_event_emission: bool = False,
+    ):
+        self.name = name
+        self.is_enabled = is_enabled
+        self.is_found = is_found
+        self.requires_impression_event_emission = requires_impression_event_emission
+
+    def __bool__(self):
+        raise TypeError(
+            f"FeatureToggle for {self.name!r} has no truth value. "
+            "Read .is_enabled to check whether the feature is enabled, "
+            "or .is_found to check whether the engine knew the toggle."
+        )
+
+
+@dataclass
+class Variant:
+    name: str
+    payload: Optional[dict[str, str]] = field(default_factory=dict)
+    enabled: bool = False
+    feature_enabled: bool = False
+
+    @staticmethod
+    def from_dict(data: dict) -> "Variant":
+        return Variant(
+            name=data.get("name", ""),
+            payload=data.get("payload"),
+            enabled=data.get("enabled", False),
+            feature_enabled=data.get("featureEnabled", False),
+        )
+
+
+def disabled_variant() -> Variant:
+    """The variant the engine falls back to when no variant could be resolved.
+
+    `payload` is `None` rather than an empty dict so that it drops out of
+    serialization, matching what the engine itself hands back."""
+    return Variant(name="disabled", payload=None, enabled=False, feature_enabled=False)
+
+
+@dataclass(frozen=True)
+class FeatureVariant:
+    """`FeatureVariant` is the result of querying which variant a feature resolves to."""
+
+    name: str
+    """The name of the toggle that was queried."""
+
+    variant: Variant
+    """The variant the toggle resolved to for the given context.
+
+    `get_variant` and `check_variant` hand back the disabled variant when the
+    engine did not know the toggle, or when the evaluation failed. Note that a known toggle can
+    resolve to a variant that looks exactly like it, so read `is_found` to tell
+    the two apart.
+    """
+
+    is_found: bool
+    """Whether the engine knew about the toggle at all.
+
+    `False` means the toggle was missing from the engine's state or evaluation
+    errored. That is distinct from a known toggle that resolved to the disabled
+    variant, which is `is_found=True`.
+    """
+
+    requires_impression_event_emission: bool
+    """Whether the engine expects its caller to emit an impression event.
+
+    These bindings are not concerned with the publishing itself. However,
+    the engine is the source of whether a toggle has the publication of
+    impression events enabled.
+
+    `False` means that the SDK should not emit impression events. It is also
+    `False` when the evaluation failed."""
+
+
+@dataclass
+class FeatureDefinition:
+    name: str
+    project: str
+    type: Optional[str]
+    enabled: bool
+    """Whether the toggle is switched on in the environment, before any strategy
+    is evaluated."""
+
+
+class UnleashEngine:
+    """The engine on top of the compiled PyO3 module, with the methods the SDK
+    uses.
+    """
+
+    @staticmethod
+    def get_core_version() -> str:
+        """The version of the Yggdrasil core this engine runs, read from the
+        compiled module, so it always matches the binary in use."""
+        return core_version()
+
+    @staticmethod
+    def get_spec_version() -> str:
+        """The Unleash client specification version the Yggdrasil core supports."""
+        return spec_version()
+
+    @staticmethod
+    def get_known_strategies() -> list[str]:
+        """The names of the built-in strategies the Yggdrasil core evaluates.
+        Any other strategy name is treated as a custom strategy."""
+        return known_strategies()
+
+    def __init__(self):
+        self._native = NativeEngine()
+        self.custom_strategy_handler = CustomStrategyHandler()
+
+    def take_state(self, state_json: str) -> Optional[str]:
+        warnings = self._native.take_state(state_json)
+        if self.custom_strategy_handler.strategy_implementations:
+            self._update_custom_strategies(json.loads(state_json))
+        return warnings
+
+    def register_custom_strategies(self, custom_strategies: dict[str, Any]):
+        self.custom_strategy_handler.register_custom_strategies(custom_strategies)
+        # a state can arrive before registration, for example from a bootstrap or the cache
+        self._update_custom_strategies()
+
+    def _update_custom_strategies(self, message: Optional[dict] = None) -> None:
+        if message is None or "features" not in message:
+            message = json.loads(self._native.get_state())
+        self.custom_strategy_handler.update_strategies(message)
+
+    def is_enabled(
+        self,
+        toggle_name: str,
+        context: dict[str, Any],
+        *,
+        fallback_function: Optional[Callable[[str, dict[str, Any]], Any]] = None,
+    ) -> FeatureToggle:
+        """Ask whether a feature is enabled, and record the query.
+
+        This records the evaluation against the engine's metrics, so the toggle
+        shows up in the next `get_metrics()` payload.
+
+        `fallback_function` is consulted only when the engine does not know the
+        toggle; its answer sets `is_enabled` but leaves `is_found` at `False`.
+
+        Never raises, and answers all or nothing: whatever fails, the caller
+        gets the disabled toggle rather than a half built answer.
+        """
+        try:
+            custom_strategy_results = (
+                self.custom_strategy_handler.evaluate_custom_strategies(
+                    toggle_name, context
+                )
+            )
+            enabled, impression = self._native.is_enabled(
+                toggle_name, context or {}, custom_strategy_results
+            )
+            is_found = enabled is not None
+            if not is_found:
+                if fallback_function is not None:
+                    enabled = bool(fallback_function(toggle_name, context))
+                ## The native engine only records toggles it knows, so record
+                ## this one with the answer settled on
+                self._native.count_toggle(toggle_name, bool(enabled))
+            return FeatureToggle(
+                name=toggle_name,
+                is_enabled=bool(enabled),
+                is_found=is_found,
+                requires_impression_event_emission=impression,
+            )
+        except Exception:
+            result = FeatureToggle(name=toggle_name)
+            _logger.warning(
+                "Failed to evaluate toggle %s, returning %s",
+                toggle_name,
+                result,
+                exc_info=True,
+            )
+            return result
+
+    def get_variant(self, toggle_name: str, context: dict[str, Any]) -> FeatureVariant:
+        """Ask which variant a feature resolves to, and record the query.
+
+        This records both the toggle and the resolved variant against the
+        engine's metrics, so they show up in the next `get_metrics()` payload.
+        Use `check_variant` to ask the same question without recording it; both
+        report impression events the same way.
+
+        Never raises, and answers all or nothing: whatever fails, the caller
+        gets the disabled variant rather than a half built answer.
+        """
+        return self._query_variant(self._native.get_variant, toggle_name, context)
+
+    def check_variant(
+        self, toggle_name: str, context: dict[str, Any]
+    ) -> FeatureVariant:
+        """Ask which variant a feature resolves to, without recording the query.
+
+        The answer matches `get_variant`, but neither the toggle nor the
+        variant is counted towards the engine's metrics, so neither shows up in
+        the next `get_metrics()` payload. Reach for `get_variant` when the
+        query is a real feature check that should be reported back to Unleash.
+
+        Impression events are not part of that difference:
+        `requires_impression_event_emission` carries the same answer it would
+        under `get_variant`.
+
+        Never raises, and answers all or nothing: whatever fails, the caller
+        gets the disabled variant rather than a half built answer.
+        """
+        return self._query_variant(self._native.check_variant, toggle_name, context)
+
+    def check_all_variants(self, context: dict[str, Any]) -> list[FeatureVariant]:
+        """Ask which variant every known feature resolves to, without recording the queries.
+
+        The bulk form of `check_variant`, for a caller that needs every feature for one
+        context: the context is read once and every toggle is resolved in one native
+        call, with the same answers `check_variant` gives one by one, in no particular
+        order.
+
+        Never raises. A custom strategy that fails only affects its own toggle, which
+        gets the disabled variant as `check_variant` would give it; anything else that
+        fails gives an empty list rather than a half built answer.
+        """
+        try:
+            custom_strategy_results, failed = self._all_custom_strategy_results(context)
+            results = [
+                FeatureVariant(
+                    name=toggle_name,
+                    variant=Variant(
+                        name=name,
+                        payload=payload,
+                        enabled=enabled,
+                        feature_enabled=feature_enabled,
+                    ),
+                    is_found=True,
+                    requires_impression_event_emission=impression,
+                )
+                for toggle_name, (
+                    name,
+                    payload,
+                    enabled,
+                    feature_enabled,
+                ), impression in self._native.check_all_variants(
+                    context or {}, custom_strategy_results
+                )
+                if toggle_name not in failed
+            ]
+            return results + [
+                FeatureVariant(
+                    name=toggle_name,
+                    variant=disabled_variant(),
+                    is_found=False,
+                    requires_impression_event_emission=False,
+                )
+                for toggle_name in failed
+            ]
+        except Exception:
+            _logger.warning("Failed to evaluate all variants", exc_info=True)
+            return []
+
+    def _all_custom_strategy_results(
+        self, context: dict[str, Any]
+    ) -> tuple[dict[str, dict[str, bool]], set[str]]:
+        """Each toggle's custom strategy results, and the toggles whose strategies failed.
+
+        A result that isn't a bool counts as a failure, as it does in `check_variant`,
+        where the engine refuses it.
+        """
+        results: dict[str, dict[str, bool]] = {}
+        failed: set[str] = set()
+        for toggle_name in self.custom_strategy_handler.strategy_definitions:
+            try:
+                toggle_results = (
+                    self.custom_strategy_handler.evaluate_custom_strategies(
+                        toggle_name, context
+                    )
+                )
+                if not all(isinstance(r, bool) for r in toggle_results.values()):
+                    raise TypeError("custom strategies must return a bool")
+                results[toggle_name] = toggle_results
+            except Exception:
+                failed.add(toggle_name)
+                _logger.warning(
+                    "Failed to evaluate custom strategies for toggle %s",
+                    toggle_name,
+                    exc_info=True,
+                )
+        return results, failed
+
+    def _query_variant(
+        self,
+        native_query: _NativeVariantQuery,
+        toggle_name: str,
+        context: dict[str, Any],
+    ) -> FeatureVariant:
+        try:
+            custom_strategy_results = (
+                self.custom_strategy_handler.evaluate_custom_strategies(
+                    toggle_name, context
+                )
+            )
+            variant, impression = native_query(
+                toggle_name, context or {}, custom_strategy_results
+            )
+            if variant is None:
+                return FeatureVariant(
+                    name=toggle_name,
+                    variant=disabled_variant(),
+                    is_found=False,
+                    requires_impression_event_emission=impression,
+                )
+            name, payload, enabled, feature_enabled = variant
+            return FeatureVariant(
+                name=toggle_name,
+                variant=Variant(
+                    name=name,
+                    payload=payload,
+                    enabled=enabled,
+                    feature_enabled=feature_enabled,
+                ),
+                is_found=True,
+                requires_impression_event_emission=impression,
+            )
+        except Exception:
+            result = FeatureVariant(
+                name=toggle_name,
+                variant=disabled_variant(),
+                is_found=False,
+                requires_impression_event_emission=False,
+            )
+            _logger.warning(
+                "Failed to evaluate variant for toggle %s, returning %s",
+                toggle_name,
+                result,
+                exc_info=True,
+            )
+            return result
+
+    def count_toggle(self, toggle_name: str, enabled: bool) -> None:
+        self._native.count_toggle(toggle_name, enabled)
+
+    def get_metrics(self) -> Optional[dict[str, Any]]:
+        metrics = self._native.get_metrics()
+        return None if metrics is None else json.loads(metrics)
+
+    def get_state(self) -> str:
+        return self._native.get_state()
+
+    def list_known_toggles(self) -> list[FeatureDefinition]:
+        return [
+            FeatureDefinition(name=name, project=project, type=type_, enabled=enabled)
+            for name, project, type_, enabled in self._native.list_known_toggles()
+        ]
+
+    def define_counter(self, name: str, help_text: str) -> None:
+        self._native.define_counter(name, help_text)
+
+    def inc_counter(
+        self, name: str, value: int = 1, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.inc_counter(name, value, labels)
+
+    def define_gauge(self, name: str, help_text: str) -> None:
+        self._native.define_gauge(name, help_text)
+
+    def set_gauge(
+        self, name: str, value: float, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.set_gauge(name, value, labels)
+
+    def define_histogram(
+        self, name: str, help_text: str, buckets: Optional[list[float]] = None
+    ) -> None:
+        self._native.define_histogram(name, help_text, buckets)
+
+    def observe_histogram(
+        self, name: str, value: float, labels: Optional[dict[str, str]] = None
+    ) -> None:
+        self._native.observe_histogram(name, value, labels)
+
+    def collect_impact_metrics(self) -> list[dict[str, Any]]:
+        return json.loads(self._native.collect_impact_metrics())
+
+    def restore_impact_metrics(self, metrics: list[dict[str, Any]]) -> None:
+        self._native.restore_impact_metrics(json.dumps(metrics))

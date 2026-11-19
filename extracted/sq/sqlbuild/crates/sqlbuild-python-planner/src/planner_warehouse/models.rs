@@ -383,6 +383,8 @@ pub enum AdapterRead<'py> {
     FreshnessQuery(Bound<'py, PyAny>),
     /// Why a destination cannot rename columns, `None` when it can.
     ColumnRenameUnavailable(Bound<'py, PyAny>),
+    /// One dynamic model's `[database, schema, name]` listed target lag and refresh warehouse.
+    DynamicRefresh([Bound<'py, PyAny>; 3]),
 }
 
 /// A read of what the warehouse state tables recorded.
@@ -425,6 +427,22 @@ pub struct EligibleCursorQuery {
     pub(crate) target: String,
     pub(crate) cursor_column: String,
     pub(crate) sql: String,
+}
+
+/// One `UNION ALL` statement answering several cursor reads, one row per read led by `_read`.
+#[derive(Debug)]
+pub struct CursorBatch {
+    /// The reads it answers in `_read` order: each read's index and whether its row has a minimum.
+    pub(crate) reads: Vec<(usize, bool)>,
+    pub(crate) sql: String,
+}
+
+/// A plan's cursor reads: one statement per read, and batches answering the reads together.
+#[derive(Debug)]
+pub struct CursorStatements {
+    pub(crate) singles: Vec<String>,
+    /// Empty when the reads run one statement each.
+    pub(crate) batches: Vec<CursorBatch>,
 }
 
 /// The warehouse reads one plan runs through.
@@ -645,7 +663,7 @@ impl WarehouseReads for SyncedReads {
     fn cursor_bounds<'py>(
         &self,
         _py: Python<'py>,
-        _statements: &dyn Fn() -> PyResult<Vec<String>>,
+        _statements: &dyn Fn() -> PyResult<CursorStatements>,
         _progress: &dyn CursorProgress<'py>,
     ) -> PyResult<Read<Vec<Bound<'py, PyAny>>>> {
         Ok(Read::Unknown(CURSOR_INPUTS.into()))
@@ -737,6 +755,9 @@ impl WarehouseReads for SyncedReads {
             }
             AdapterRead::ColumnRenameUnavailable(_) => {
                 return Ok(unknown(self, "column rename support"));
+            }
+            AdapterRead::DynamicRefresh(_) => {
+                return Ok(unknown(self, "dynamic model listings"));
             }
         };
         let unavailable =

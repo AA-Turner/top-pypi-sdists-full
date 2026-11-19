@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Basic networking list calls in the cloud layer been fixed to return
-    an empty list if neutron is not running.

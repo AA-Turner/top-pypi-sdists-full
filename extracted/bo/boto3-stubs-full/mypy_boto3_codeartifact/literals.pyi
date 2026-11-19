@@ -92,6 +92,7 @@ PackageVersionStatusType = Literal[
 ]
 CodeArtifactServiceName = Literal["codeartifact"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

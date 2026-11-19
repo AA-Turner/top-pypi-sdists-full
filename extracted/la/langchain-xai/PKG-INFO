@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-xai
-Version: 1.4.0
+Version: 1.4.1
 Summary: An integration package connecting xAI and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/xai
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_xai/
@@ -23,8 +23,8 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.11.0
 Requires-Dist: aiohttp>=3.9.1
-Requires-Dist: langchain-core<2.0.0,>=1.8.0
-Requires-Dist: langchain-openai<2.0.0,>=1.8.0
+Requires-Dist: langchain-core<2.0.0,>=1.8.2
+Requires-Dist: langchain-openai<2.0.0,>=1.8.2
 Requires-Dist: requests>=2.0.0
 Description-Content-Type: text/markdown
 

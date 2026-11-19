@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "ha-mcp-dev"
-version = "9.3.0.dev3621"
+version = "9.3.0.dev3638"
 description = "Configure and automate Home Assistant with Claude, ChatGPT, and other AI assistants."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
@@ -265,6 +265,8 @@ markers = [
     "haos_embedded_only: HAOS embedded mode only (HAOS_TEST_MODE=embedded) - the server shares Home Assistant's process and event loop; #2357",
     "not_on_embedded: skip on the embedded backend (E2E_BACKEND=embedded) - provably redundant with the lane's own in-process ha_mcp_server session backend; #1527",
     "not_on_haos_embedded: skip on the haos_embedded backend (HAOS_TEST_MODE=embedded) - provably redundant with the lane's own session backend, which enables the entry once and drives the in-process server for the whole suite; #1527",
+    "component_topology: exercises different component and fallback behavior; run in both states of combined lanes without an embedded server entry",
+    "installs_component_surface: enables a shared component entry; run after the absent phase in combined lanes and last in whole-run no-tools sessions",
     "requires_tools_entry: needs the File & YAML Tools config entry - skipped on E2E_NO_TOOLS_ENTRY=1 lanes (#2292)",
     "no_tools_only: runs only on E2E_NO_TOOLS_ENTRY=1 lanes (#2292)",
     "requires_component_surface: needs an active ha_mcp_tools config entry - skipped on the no-tools lanes without an active server entry (plain container, HAOS inaddon, where it is absent or disabled); #2584",
@@ -344,7 +346,6 @@ dev = [
     "docker>=7.1.0",
     "mcp>=1.26.0,<2",
     "mypy>=1.17.0",
-    "openai>=1.0.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.1.0",
     "pytest-timeout>=2.3.0",
@@ -364,7 +365,9 @@ dev = [
     "aiousbwatcher==1.1.2",
     "av==19.0.0",
     "gazetteer-matcher==1.1.0",
+    "ha-ffmpeg==3.2.2",
     "ha-silabs-firmware-client==0.4.0",
+    "hass-nabucasa==2.8.1",
     "hassil==3.12.1",
     "home-assistant-frontend==20261028.6",
     "home-assistant-intents==2026.10.27",
@@ -374,9 +377,13 @@ dev = [
     "knx-telegram-store[postgres,sqlite]==0.15.2",
     "matter-ble-proxy==0.7.1",
     "matter-python-client==1.5.5",
+    "mutagen==1.48.1",
     "numpy==2.3.2",
+    "openai==3.26.0",
     "pygbl==1.2.0",
+    "pymicro-vad==1.0.1",
     "pyroute2==0.9.6",
+    "pyspeex-noise==1.0.2",
     "python-otbr-api==3.1.0",
     "PyTurboJPEG==1.8.3",
     "serialx==1.15.1",

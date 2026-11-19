@@ -97,6 +97,7 @@ TranscribeVocabularyFilterMethodType = Literal["mask", "remove", "tag"]
 VideoResolutionType = Literal["FHD", "HD", "None"]
 ChimeSDKMeetingsServiceName = Literal["chime-sdk-meetings"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

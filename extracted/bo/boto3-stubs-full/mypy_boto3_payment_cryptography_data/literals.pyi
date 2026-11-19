@@ -95,6 +95,7 @@ SymmetricKeyAlgorithmType = Literal[
 WrappedKeyMaterialFormatType = Literal["KEY_CRYPTOGRAM", "TR31_KEY_BLOCK", "TR34_KEY_BLOCK"]
 PaymentCryptographyDataPlaneServiceName = Literal["payment-cryptography-data"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

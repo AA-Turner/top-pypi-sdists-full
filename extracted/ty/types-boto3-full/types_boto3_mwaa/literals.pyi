@@ -90,6 +90,7 @@ WebserverAccessModeType = Literal["PRIVATE_ONLY", "PUBLIC_AND_PRIVATE", "PUBLIC_
 WorkerReplacementStrategyType = Literal["FORCED", "GRACEFUL"]
 MWAAServiceName = Literal["mwaa"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

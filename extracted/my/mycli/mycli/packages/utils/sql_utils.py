@@ -362,7 +362,7 @@ def query_has_where_clause(query: str) -> bool:
 def query_is_single_table_update(query: str) -> bool:
     """Check if a query is a simple single-table UPDATE."""
     cleaned_query_for_parsing_only = sqlparse.format(query, strip_comments=True)
-    cleaned_query_for_parsing_only = re.sub(r'\s+', ' ', cleaned_query_for_parsing_only)
+    cleaned_query_for_parsing_only = re.sub(r'\s+', ' ', cleaned_query_for_parsing_only).strip()
     if not cleaned_query_for_parsing_only:
         return False
     parsed = sqlparse.parse(cleaned_query_for_parsing_only)
@@ -430,6 +430,9 @@ def need_completion_refresh(queries: str) -> bool:
     for query in sqlparse.split(queries):
         try:
             first_token = query.split()[0]
+            if first_token.startswith(("/*", "--", "#")):
+                # skip leading comments, such as "/* note */ create table ..."
+                first_token = sqlparse.format(query, strip_comments=True).split()[0]
             if first_token.lower() in (
                 "alter",
                 "create",
@@ -458,6 +461,9 @@ def need_completion_reset(queries: str) -> bool:
     for query in sqlparse.split(queries):
         try:
             tokens = query.split()
+            if tokens[0].startswith(("/*", "--", "#")):
+                # skip leading comments, such as "/* note */ use db"
+                tokens = sqlparse.format(query, strip_comments=True).split()
             first_token = tokens[0]
             if first_token.lower() in ("use", "/use", "\\u", "/u"):
                 return True

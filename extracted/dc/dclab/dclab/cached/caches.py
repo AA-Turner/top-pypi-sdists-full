@@ -1,12 +1,15 @@
+"""Hybrid in-memory and on-disk caching of function return values"""
 from __future__ import annotations
 
 import atexit
+import copy
 import functools
 import hashlib
 import logging
 import numbers
 import time
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 import traceback
 
 import numpy as np
@@ -43,7 +46,7 @@ class umbrella_cache:
             A general topic (alphanumeric characters and dashes allowed)
             under which the cached values are stored.
         bypass_memory_store: bool
-            Set this to true to disable storing cached values in memory.
+            Set this to True to disable storing cached values in memory.
             If no disk store (see :class:`.StoreKeeper`) is defined,
             then data are never cached.
         custom_handlers:
@@ -55,7 +58,7 @@ class umbrella_cache:
             processed by :func:`update_hash`.
         evaluation_time_threshold:
             If the time the method takes for computation is shorter than
-            the the threshold value, then it will not be cached.
+            this threshold value (in seconds), then it will not be cached.
 
         Notes
         -----
@@ -97,30 +100,46 @@ class umbrella_cache:
                                          custom_handlers=self.custom_handlers)
             key = f"{self.topic}/{ref[:3]}/{ref[3:6]}/{ref[6:]}"
 
-            if self.use_memory_store and key in self._memory_store:
-                return self._memory_store[key]
-            elif key in self._disk_store:
+            if self.use_memory_store:
+                try:
+                    # Do not check with `key in self._memory_store` first,
+                    # because the StoreKeeper thread might remove the key
+                    # in the meantime.
+                    # Return a copy, so callers cannot modify the
+                    # cached value in-place.
+                    return copy.deepcopy(self._memory_store[key])
+                except KeyError:
+                    pass
+
+            if key in self._disk_store:
                 try:
                     value = self._disk_store[key]
                 except BaseException:
                     # Maybe the data got deleted. Only the `else` clause
                     # returns, so the value is computed and returned as if
                     # it wasn't there.
-                    # Remove key from the disk store index.
-                    self._disk_store.index.remove(key)
                     self.logger.warning(f"Could not fetch {key} from disk "
                                         f"store: {traceback.format_exc()}")
-                    pass
+                    # Remove the broken entry from the disk store (also
+                    # from its index), so that the value can be stored
+                    # again.
+                    try:
+                        self._disk_store.remove(key)
+                    except BaseException:
+                        self._disk_store.index.discard(key)
+                        self.logger.warning(
+                            f"Could not remove {key} from disk store: "
+                            f"{traceback.format_exc()}")
                 else:
                     if self.use_memory_store:
-                        self._memory_store[key] = value
+                        self._memory_store[key] = copy.deepcopy(value)
                     return value
 
             value = func(*args, **kwargs)
             if time.perf_counter() - t0 < self.evaluation_time_threshold:
                 pass  # no caching
             elif self.use_memory_store:
-                self._memory_store[key] = value
+                self._memory_store[key] = copy.deepcopy(value)
             elif self._disk_store:
                 # Only write to DiskStore directly, if the memory store
                 # is disabled. Normally, the StoreKeeper does this in the
@@ -160,24 +179,33 @@ def update_hash(the_hash,
                 ) -> None:
     """Update a hashing object with a Python object
 
-    The argument can be a numpy array, a string, or a list/tuple
-    of objects that are convertable to strings.
+    The argument can be a number, a string, None, bytes, a numpy
+    array, a list/tuple or dict of such objects, an object handled by
+    `custom_handlers`, or an object with a `for_json` method.
+
+    Every object is hashed with a prefix that contains its type and
+    size, so that different arguments never result in the same input
+    to the hashing object (e.g. `(1, 23)` and `(12, 3)`).
     """
     if isinstance(arg, numbers.Number):
-        the_hash.update(f"{arg}".encode('utf-8'))
+        _update_hash_tagged(the_hash, "number", f"{arg}".encode())
     elif isinstance(arg, str):
-        the_hash.update(arg.encode('utf-8'))
+        _update_hash_tagged(the_hash, "str", arg.encode("utf-8"))
     elif arg is None:
-        the_hash.update(b"none")
+        _update_hash_tagged(the_hash, "none", b"")
     elif isinstance(arg, bytes):
-        the_hash.update(arg)
+        _update_hash_tagged(the_hash, "bytes", arg)
     elif isinstance(arg, np.ndarray):
-        the_hash.update(arg.tobytes())
+        _update_hash_tagged(the_hash,
+                            f"ndarray[{arg.dtype.str}{arg.shape}]",
+                            arg.tobytes())
     elif isinstance(arg, (list, tuple)):
+        _update_hash_tagged(the_hash, "sequence", f"{len(arg)}".encode())
         for a in arg:
             update_hash(the_hash, a,
                         custom_handlers=custom_handlers)
     elif isinstance(arg, dict):
+        _update_hash_tagged(the_hash, "dict", f"{len(arg)}".encode())
         update_hash(the_hash, sorted(arg.items()),
                     custom_handlers=custom_handlers)
     else:
@@ -203,7 +231,7 @@ def update_hash(the_hash,
                     return  # no further checks necessary
 
         # Final option are classes that define `__getstate__`
-        if hasattr(arg, 'for_json'):
+        if hasattr(arg, "for_json"):
             try:
                 update_hash(the_hash, arg.for_json())
             except BaseException:
@@ -212,3 +240,9 @@ def update_hash(the_hash,
                 return  # no further checks necessary
 
         raise ValueError(f"No rule to hash object of type {type(arg)}")
+
+
+def _update_hash_tagged(the_hash, tag: str, data: bytes) -> None:
+    """Update a hashing object with `data` prefixed by `tag` and size"""
+    the_hash.update(f"{tag}:{len(data)}:".encode())
+    the_hash.update(data)

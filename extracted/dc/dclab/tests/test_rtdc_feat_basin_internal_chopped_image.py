@@ -113,9 +113,9 @@ def make_chopped_image_dataset():
 
         # debugging help
         for ii in "0", "1":
-            bim[ii].attrs['CLASS'] = np.bytes_('IMAGE')
-            bim[ii].attrs['IMAGE_VERSION'] = np.bytes_('1.2')
-            bim[ii].attrs['IMAGE_SUBCLASS'] = np.bytes_('IMAGE_GRAYSCALE')
+            bim[ii].attrs["CLASS"] = np.bytes_("IMAGE")
+            bim[ii].attrs["IMAGE_VERSION"] = np.bytes_("1.2")
+            bim[ii].attrs["IMAGE_SUBCLASS"] = np.bytes_("IMAGE_GRAYSCALE")
 
     return h5path, h5path_chopped
 
@@ -258,6 +258,25 @@ def test_chopped_basin_feature_proxy_array_indexing_range():
         assert imdat.shape == (6, 80, 320)
 
         for ii, idx in enumerate(indices):
+            assert np.all(dsc["image"][idx] == imdat[ii])
+
+
+def test_chopped_basin_feature_proxy_array_indexing_boolean():
+    _, path_chopped = make_chopped_image_dataset()
+
+    with new_dataset(path_chopped) as dsc:
+        image = dsc["image"]
+        assert isinstance(
+            image,
+            internal_chopped_image_basin.InternalImageChoppedFeatureProxy)
+        dsc.filter.manual[:] = False
+        dsc.filter.manual[[1, 5, 10]] = True
+        dsc.apply_filter()
+        # This should never be done in production
+        imdat = image[dsc.filter.all]
+        assert imdat.shape == (3, 80, 320)
+
+        for ii, idx in enumerate([1, 5, 10]):
             assert np.all(dsc["image"][idx] == imdat[ii])
 
 

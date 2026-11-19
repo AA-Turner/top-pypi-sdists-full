@@ -9,7 +9,7 @@ use crate::test::util::TestEnv;
 use crate::test::util::shape_extensions_env;
 use crate::testcase;
 
-fn shaped_env() -> TestEnv {
+pub(super) fn shaped_env() -> TestEnv {
     let mut env = shape_extensions_env();
     env.add_with_path(
         "arrays",
@@ -24,6 +24,87 @@ class ndarray[Shape: IntTuple = IntTuple, DType = Any]: ...
     );
     env
 }
+
+testcase!(
+    test_shaped_gradual_annotation_recovery_boundary,
+    shaped_env(),
+    r#"
+from typing import Any, assert_type
+from missing_backend import Shape  # E: Cannot find module `missing_backend`
+from shape_extensions import Shaped, shape_vars
+
+type Alias = Any
+
+@shape_vars("N")
+def recover(
+    missing: Shaped[tuple[int, ...], "Shape"],
+    explicit: Shaped[tuple[int, ...], "Any"],
+    scalar_missing: Shaped[int, "Shape"],
+    scalar_alias: Shaped[int, "Alias"],
+    invalid: Shaped[int, "'bad'"],  # E: String literals are not valid tensor dimensions
+) -> None:
+    assert_type(missing, Any)
+    assert_type(explicit, Any)
+    assert_type(scalar_missing, Any)
+    assert_type(scalar_alias, Any)
+    assert_type(invalid, int)
+"#,
+);
+
+testcase!(
+    test_shaped_wrong_dsl_result_preserves_scalar_base,
+    shaped_env(),
+    r#"
+import shape_extensions.dsl as dsl
+from typing import assert_type
+from shape_extensions import IntTuple, Shaped, shape_vars, type_shape_dsl_function
+
+@type_shape_dsl_function
+def vector(shape: IntTuple) -> IntTuple:
+    return dsl.IntTuple((2,))
+
+@shape_vars("N")
+def wrong() -> Shaped[int, "vector(IntTuple[2])"]: ...  # E: Expected a type-level shape DSL call with an `Int` result
+
+assert_type(wrong(), int)
+"#,
+);
+
+testcase!(
+    test_shaped_class_shorthand_preserves_dsl_return_context,
+    shaped_env(),
+    r#"
+from typing import assert_type
+from arrays import ndarray
+from shape_extensions import Shaped, broadcast, shape_vars
+
+@shape_vars("*Left, *Right")
+def combine(
+    left: Shaped[ndarray, "Left"],
+    right: Shaped[ndarray, "Right"],
+) -> Shaped[ndarray, "broadcast(Left, Right)"]: ...
+
+def check(left: ndarray[[3, 1]], right: ndarray[[1, 4]]) -> None:
+    assert_type(combine(left, right), ndarray[[3, 4]])
+"#,
+);
+
+testcase!(
+    test_shaped_comment_declarations_share_native_shape_vars,
+    shaped_env(),
+    r#"
+# enable-shape-type-comments
+from typing import assert_type
+from arrays import ndarray
+from shape_extensions import Shaped
+
+# shapes: N
+def successor(x: Shaped[ndarray, "[N]"]) -> Shaped[ndarray, "[N + 1]"]: ...
+
+def check(x: ndarray[[3]]) -> None:
+    assert_type(successor(x), ndarray[[4]])
+"#,
+);
 
 testcase!(
     test_shaped_carrier_and_shorthand,
@@ -92,7 +173,7 @@ def f(
     unparsable: ndarray[Shaped[tuple[int, int], "[M, N"], dtype[float]],  # E: Could not parse `Shaped` shape string
     extra: ndarray[Shaped[tuple[int, int], "[M, N]", "extra"], dtype[float]],  # E: `Shaped` takes a type and a shape string
     text: ndarray[Shaped[tuple[int], "str"], dtype[float]],  # E: A `Shaped` shape must be a list of dimensions, a variadic shape, or a shape function call, got `str`
-    undefined: ndarray[Shaped[tuple[int], "Q"], dtype[float]],  # E: Could not find name `Q`
+    undefined: ndarray[Shaped[tuple[int], "Q"], dtype[float]],  # E: Could not find name `Q`  # E: does not agree with its shape
     # An appended shape is an ordinary type argument, checked as one.
     appended_text: Shaped[ndarray, "str"],  # E: `str` is not assignable to upper bound `IntTuple` of type variable `Shape`
     appended_dim: Shaped[ndarray, "M"],  # E: `M` is an `IntVar` and cannot be used as an ordinary type
@@ -867,5 +948,35 @@ def check[S: IntTuple](shaped: ndarray[S], bare: ndarray) -> ndarray[S]:
 def check_concrete(shaped: ndarray[[2, 3]], bare: ndarray) -> ndarray[[2, 3]]:
     take_bare(shaped)
     return bare
+"#,
+);
+
+testcase!(
+    test_inttuple_bound_return,
+    shaped_env(),
+    r#"
+from shape_extensions import IntTuple
+
+def bounded[S: IntTuple](x: S) -> IntTuple:
+    return x
+
+def unbounded[T](x: T) -> IntTuple:
+    return x  # E: Returned type `T` is not assignable to declared return type `IntTuple`
+"#,
+);
+
+// A shape string is never evaluated, so it may refer to a field declared later in a class body.
+testcase!(
+    test_shaped_string_class_body_forward_reference,
+    shaped_env(),
+    r#"
+from typing import Any, TypeAlias
+from arrays import ndarray
+from shape_extensions import Shaped, shape_vars
+
+@shape_vars("M")
+class C:
+    x: Shaped[ndarray, "[M, L]"]
+    L: TypeAlias = Any
 "#,
 );

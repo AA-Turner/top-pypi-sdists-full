@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -17,8 +17,13 @@ from sphinx_needs.diagrams_common import (
     create_legend,
     get_debug_container,
     get_filter_para,
+    linked_needs,
     no_plantuml,
     set_plantuml_paths,
+)
+from sphinx_needs.directives.needflow._plantuml import (
+    get_entity_name,
+    make_entity_names,
 )
 from sphinx_needs.directives.utils import (
     no_needs_found_paragraph,
@@ -26,7 +31,8 @@ from sphinx_needs.directives.utils import (
 )
 from sphinx_needs.filter_common import (
     FilterBase,
-    filter_single_need,
+    _need_by_need,
+    _report_filter_text,
     resolve_max_items,
 )
 from sphinx_needs.logging import get_logger, log_warning
@@ -117,6 +123,10 @@ def process_needsequence(
     needs_config = NeedsSphinxConfig(env.config)
     include_needs = needs_config.include_needs
     link_type_names = [name.upper() for name in needs_schema.iter_link_field_names()]
+    #: each link type's configured name, by the upper-cased name the check compares
+    configured_link_types = {
+        name.upper(): name for name in needs_schema.iter_link_field_names()
+    }
     needs_types = needs_config.types
 
     # NEEDSEQUENCE
@@ -145,6 +155,15 @@ def process_needsequence(
                     "needsequence",
                     location=node,
                 )
+        # the check above accepts a link type in any case, so the walk reads each
+        # name it accepted by its configured spelling (``LINKS`` walks ``links``);
+        # any other name is read as written (``links_back`` walks the back links)
+        walked_link_types = [
+            link
+            if link in configured_link_types.values()
+            else configured_link_types.get(link.upper(), link)
+            for link in current_needsequence["link_types"]
+        ]
 
         content = []
         try:
@@ -182,13 +201,26 @@ def process_needsequence(
         puml_node["uml"] += "\n' Nodes definition \n\n"
 
         # Add  start participants
-        p_string = ""
-        c_string = ""
+        declarations: list[tuple[str, str]] = []
+        arrows: list[tuple[str, str, str]] = []
         # the cap counts messages (arrows), and is shared by all start needs,
         # since it applies to the diagram as a whole
         counter = _MessageCounter(
             resolve_max_items(current_needsequence.get("max_items"), needs_config)
         )
+        receives = None
+        if filter_string := current_needsequence["filter"]:
+            # read need by need below: what its text shows is reported here as well, so
+            # that a filter no receiver is tested on is reported too
+            _report_filter_text(filter_string, needs_config, node)
+            # one test for every start need, so that a failing filter is reported once
+            receives = _need_by_need(
+                filter_string,
+                needs_config,
+                location=node,
+                needs=all_needs_dict.values(),
+                origin_docname=current_needsequence["docname"],
+            )
         for need_id in start_needs_id:
             try:
                 need = all_needs_dict[need_id.strip()]
@@ -202,19 +234,49 @@ def process_needsequence(
                 )
 
             # Add children of participants
-            _msg_receiver_needs, p_string_new, c_string_new = get_message_needs(
+            _msg_receiver_needs, declarations_new, arrows_new = get_message_needs(
                 app,
                 need,
-                current_needsequence["link_types"],
+                walked_link_types,
                 all_needs_dict,
-                filter=current_needsequence["filter"],
+                receives=receives,
                 counter=counter,
-                origin_docname=current_needsequence["docname"],
             )
-            p_string += p_string_new
-            c_string += c_string_new
+            declarations += declarations_new
+            arrows += arrows_new
 
-        p_string += counter.declarations_to_restore()
+        declarations += counter.declarations_to_restore()
+
+        # a need id is not a PlantUML name (an id may hold ``::``, say), so every
+        # participant is named as needflow's PlantUML engine names a need, over the
+        # participants of this diagram alone: ids that fold alike stay distinct, and a
+        # diagram whose ids fold to themselves is written as they are
+        entity_names = make_entity_names(
+            [need_id for need_id, _ in declarations]
+            + [end for sender_id, rec_id, _ in arrows for end in (sender_id, rec_id)]
+        )
+        # PlantUML shows a participant that is not declared by its name, so when a
+        # receiver that sends no message (which the walk does not declare) has a name
+        # that is not its id, every such receiver is declared, with its id as its title,
+        # in the order the arrows first name them: the columns stay in that order
+        declared = {need_id for need_id, _ in declarations}
+        undeclared = [
+            end
+            for end in dict.fromkeys(
+                e for s_id, r_id, _ in arrows for e in (s_id, r_id)
+            )
+            if end not in declared
+        ]
+        if any(entity_names[end] != end for end in undeclared):
+            declarations.extend((end, end) for end in undeclared)
+        p_string = "".join(
+            f'participant "{title}" as {get_entity_name(entity_names, need_id)}\n'
+            for need_id, title in declarations
+        )
+        c_string = "".join(
+            f"{get_entity_name(entity_names, sender_id)} -> {get_entity_name(entity_names, rec_id)}: {label}\n"
+            for sender_id, rec_id, label in arrows
+        )
 
         puml_node["uml"] += p_string
 
@@ -307,7 +369,7 @@ class _MessageCounter:
     drawn_ids: set[str] = field(default_factory=set)
     """The ids of the participants that a drawn message refers to."""
     suppressed: list[tuple[str, str]] = field(default_factory=list)
-    """Participant declarations the cap suppressed, in walk order, as (id, line)."""
+    """Participant declarations the cap suppressed, in walk order, as (id, title)."""
 
     @property
     def has_room(self) -> bool:
@@ -329,7 +391,7 @@ class _MessageCounter:
         self.drawn_ids.update((sender_id, receiver_id))
         return True
 
-    def declarations_to_restore(self) -> str:
+    def declarations_to_restore(self) -> list[tuple[str, str]]:
         """The suppressed declarations of participants that a drawn message refers to.
 
         The cap is exhausted *by* the last message that is drawn, so the participant on
@@ -343,9 +405,9 @@ class _MessageCounter:
         nothing is suppressed when there is no limit, and a suppressed declaration is
         restored only if a message that was drawn refers to it.
 
-        :return: the declarations to append, in walk order.
+        :return: the declarations to append, in walk order, as (id, title).
         """
-        return "".join(line for id_, line in self.suppressed if id_ in self.drawn_ids)
+        return [decl for decl in self.suppressed if decl[0] in self.drawn_ids]
 
 
 def get_message_needs(
@@ -354,25 +416,34 @@ def get_message_needs(
     link_types: list[str],
     all_needs_dict: NeedsView,
     tracked_receivers: list[str] | None = None,
-    filter: str | None = None,
     *,
+    receives: Callable[[NeedItem], bool | None] | None = None,
     counter: _MessageCounter,
-    origin_docname: str | None = None,
-) -> tuple[dict[str, dict[str, Any]], str, str]:
-    """Walk the messages sent by ``sender``, drawing each receiver that passes ``filter``.
+) -> tuple[
+    dict[str, dict[str, Any]], list[tuple[str, str]], list[tuple[str, str, str]]
+]:
+    """Walk the messages sent by ``sender``, drawing each receiver that passes the
+    needsequence's ``:filter:``.
 
-    :param origin_docname: The document the needsequence is written in, so that a
-        ``filter`` may test the receiver against it with ``c.this_doc()``.
+    A link to a need part is a message to, or from, the need owning the part, and a
+    link to no need is skipped (:func:`~sphinx_needs.diagrams_common.linked_needs`).
+
+    :param receives: The ``:filter:``, tested on one receiver
+        (:func:`~sphinx_needs.filter_common._need_by_need`), or ``None`` for none; a
+        filter failing on a receiver does not draw it.
+    :return: the messages, then the participants to declare, as (need id, title),
+        then the messages to draw, as (sender id, receiver id, label), in walk order.
+        The caller names the participants, once it knows every one of them.
     """
-    msg_needs: list[dict[str, Any]] = []
+    msg_needs: list[NeedItem] = []
     if tracked_receivers is None:
         tracked_receivers = []
     for link_type in link_types:
-        msg_needs += [all_needs_dict[x] for x in sender[link_type]]  # ty: ignore[unsupported-operator]
+        msg_needs += linked_needs(sender, link_type, all_needs_dict)
 
     messages: dict[str, dict[str, Any]] = {}
-    p_string = ""
-    c_string = ""
+    declarations: list[tuple[str, str]] = []
+    arrows: list[tuple[str, str, str]] = []
     for msg_need in msg_needs:
         messages[msg_need["id"]] = {
             "id": msg_need["id"],
@@ -380,61 +451,50 @@ def get_message_needs(
             "receivers": {},
         }
         if sender["id"] not in tracked_receivers:
-            declaration = 'participant "{}" as {}\n'.format(
-                sender["title"], sender["id"]
-            )
+            declaration = (sender["id"], sender["title"])
             if counter.has_room:
-                p_string += declaration
+                declarations.append(declaration)
             else:
                 # a participant is only declared whilst the cap has room, so that
                 # truncation can never add a participant that sends no message; it is
                 # held here in case a message that was drawn turns out to refer to it
-                counter.suppressed.append((sender["id"], declaration))
+                counter.suppressed.append(declaration)
             # the sender is tracked even when it was not declared, so that the shape
             # of the walk, and hence the message total, does not depend on the cap
             tracked_receivers.append(sender["id"])
         for link_type in link_types:
-            receiver_ids = msg_need[link_type]
-            for rec_id in receiver_ids:
-                if filter and not filter_single_need(
-                    all_needs_dict[rec_id],
-                    NeedsSphinxConfig(app.config),
-                    filter,
-                    needs=all_needs_dict.values(),
-                    origin_docname=origin_docname,
-                ):
+            for receiver in linked_needs(msg_need, link_type, all_needs_dict):
+                if receives is not None and not receives(receiver):
                     continue
 
+                rec_id = receiver["id"]
                 rec_data = {
                     "id": rec_id,
-                    "title": all_needs_dict[rec_id]["title"],
+                    "title": receiver["title"],
                     "messages": [],
                 }
 
                 if counter.add_message(sender["id"], rec_id):
-                    c_string += "{} -> {}: {}\n".format(
-                        sender["id"], rec_data["id"], msg_need["title"]
-                    )
+                    arrows.append((sender["id"], rec_data["id"], msg_need["title"]))
 
                 if rec_id not in tracked_receivers:
-                    rec_messages, p_string_new, c_string_new = get_message_needs(
+                    rec_messages, declarations_new, arrows_new = get_message_needs(
                         app,
-                        all_needs_dict[rec_id],
+                        receiver,
                         link_types,
                         all_needs_dict,
                         tracked_receivers,
-                        filter=filter,
+                        receives=receives,
                         counter=counter,
-                        origin_docname=origin_docname,
                     )
-                    p_string += p_string_new
-                    c_string += c_string_new
+                    declarations += declarations_new
+                    arrows += arrows_new
 
                     rec_data["messages"] = rec_messages
 
                 messages[msg_need["id"]]["receivers"][rec_id] = rec_data
 
-    return messages, p_string, c_string
+    return messages, declarations, arrows
 
 
 class NeedSequenceException(BaseException):

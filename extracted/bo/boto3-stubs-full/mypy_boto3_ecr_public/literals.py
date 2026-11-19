@@ -57,6 +57,7 @@ LayerFailureCodeType = Literal["InvalidLayerDigest", "MissingLayerDigest"]
 RegistryAliasStatusType = Literal["ACTIVE", "PENDING", "REJECTED"]
 ECRPublicServiceName = Literal["ecr-public"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

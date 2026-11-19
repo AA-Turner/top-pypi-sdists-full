@@ -49,8 +49,10 @@ class ScheduledAggregateBackfill:
             specified environment.
         include_partial_bucket: If ``True``, each run also writes the current, still-open bucket,
             recomputed from the bucket's start, so windows include recent data before the bucket
-            closes. By default only closed buckets are written. Unsupported with either
-            ``OFFLINE`` or ``ONLINE_SUMMARIES``, even when combined with ``ONLINE``.
+            closes. By default only closed buckets are written. With ``OFFLINE`` or
+            ``ONLINE_SUMMARIES``, tiles and summaries still stop at the last closed bucket;
+            the remaining partial bucket is written only to the online store, even without
+            the ``ONLINE`` target. This combination requires platform version 3.43.105 or later.
         online_refresh_schedule: Requires ``ONLINE_SUMMARIES``. A cron expression or duration for a
             second, cheaper job named ``"<name> (companion)"`` that keeps the summaries' leading
             edge fresh between summary runs. Each companion run writes only ordinary online
@@ -131,14 +133,6 @@ class ScheduledAggregateBackfill:
         if num_shards is not None and num_shards <= 1:
             self.errors.append(
                 f"Scheduled aggregate backfill '{name}' was instantiated with num_shards={num_shards}, but num_shards must be > 1 when set; omit it to run each run as a single job"
-            )
-
-        if include_partial_bucket and (
-            AggregateBackfillTarget.OFFLINE in resolved_targets
-            or AggregateBackfillTarget.ONLINE_SUMMARIES in resolved_targets
-        ):
-            self.errors.append(
-                f"Scheduled aggregate backfill '{name}' sets include_partial_bucket=True, which is not supported with AggregateBackfillTarget.OFFLINE or AggregateBackfillTarget.ONLINE_SUMMARIES"
             )
 
         if online_refresh_schedule is not None and AggregateBackfillTarget.ONLINE_SUMMARIES not in resolved_targets:

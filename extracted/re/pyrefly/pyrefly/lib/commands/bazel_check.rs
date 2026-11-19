@@ -47,6 +47,7 @@ use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::Error;
 use crate::error::legacy::LegacyError;
+use crate::state::errors::Errors;
 use crate::state::require::Require;
 use crate::state::state::State;
 
@@ -837,7 +838,7 @@ fn compute_bazel_errors(
     config.source_db = Some(ArcId::new(Box::new(source_db)));
     config.interpreters.skip_interpreter_query = true;
     config.disable_search_path_heuristics = true;
-    config.preset = parsed_config.preset;
+    config.root.preset = parsed_config.preset;
     if let Some(errors) = &parsed_config.errors {
         config.root.errors = Some(errors.clone());
     }
@@ -848,9 +849,16 @@ fn compute_bazel_errors(
     let mut transaction = state.new_transaction(Require::Errors, None);
     transaction.run(&modules_to_check, Require::Errors, None);
 
-    Ok(transaction
-        .get_errors(&modules_to_check)
-        .collect_display_errors_with_unused_ignores())
+    // Unlike the shared display helper, this keeps hints so `--min-severity hint` can show them.
+    let errors = transaction.get_errors(&modules_to_check);
+    // Collate in parallel on the state's thread pool, which the check has finished with.
+    let collected = transaction.install(|| errors.collect_errors());
+    let unused = errors.collect_unused_ignore_errors_for_display(&collected);
+    let mut ordinary = collected.ordinary;
+    ordinary.extend(collected.hints);
+    ordinary.extend(unused.ordinary);
+    ordinary.extend(unused.hints);
+    Ok(Errors::merge_display_errors(ordinary, collected.directives))
 }
 
 fn bazel_diagnostics_from_errors<'a>(target: &'a str, errors: &[Error]) -> BazelDiagnostics<'a> {

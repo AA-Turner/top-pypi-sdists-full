@@ -168,6 +168,26 @@ def valid(x: int) -> Container[Any]:
  "#,
 );
 
+// https://github.com/pyrefly-org/pyrefly/issues/5269
+testcase!(
+    test_bound_with_nested_optional_argument,
+    r#"
+from typing import Any
+
+class Pair[T: int]:
+    def __init__(self, delta: T | None) -> None: ...
+
+def optional[T: int](x: T | None) -> T | None:
+    return x
+
+def f[T: int](d: T | None) -> Pair[T]:
+    return Pair(optional(d))
+
+def g(d: int | None) -> Pair[Any]:
+    return Pair(optional(d))
+ "#,
+);
+
 // A bound of `Any` or `object` accepts everything, so keeping such a parameter free buys no
 // checking and only discards the solution the expected type supplies.
 testcase!(
@@ -669,7 +689,7 @@ class Foo[T: (A, B)]:
 testcase!(
     test_union_bounded_typevar_with_property_get,
     r#"
-# https://github.com/facebook/pyrefly/issues/869
+# https://github.com/pyrefly-org/pyrefly/issues/869
 from collections import defaultdict
 from typing import assert_type
 
@@ -752,6 +772,233 @@ class B:
 
 def foo[T: (A, B)](x: T) -> T:
     return x.method()
+    "#,
+);
+
+testcase!(
+    test_bounded_typevar_subscript_return_self,
+    r#"
+from typing import Protocol, Self, assert_type
+
+class SupportsSlice(Protocol):
+    def __getitem__(self, index: slice) -> Self: ...
+
+class Concrete:
+    def __getitem__(self, index: slice) -> Self:
+        return self
+
+def protocol_bound[S: SupportsSlice](seq: S) -> None:
+    assert_type(seq[0:1], S)
+
+def class_bound[S: Concrete](seq: S) -> None:
+    assert_type(seq[0:1], S)
+
+def tuple_bound[S: tuple[int, str]](seq: S) -> None:
+    assert_type(seq[0], int)
+    "#,
+);
+
+testcase!(
+    test_restricted_typevar_subscript_return_self,
+    r#"
+from typing import NamedTuple, Self, assert_type
+
+class A:
+    def __getitem__(self, index: slice) -> Self:
+        return self
+
+class B:
+    def __getitem__(self, index: slice) -> Self:
+        return self
+
+class NT(NamedTuple):
+    x: int
+    y: str
+
+def union_bound[S: A | B](seq: S) -> None:
+    assert_type(seq[0:1], S)
+
+def constrained[S: (A, B)](seq: S) -> None:
+    assert_type(seq[0:1], S)
+
+def named_tuple_bound[S: NT](seq: S) -> None:
+    assert_type(seq[0], int)
+
+def list_bound[S: list[int]](seq: S) -> None:
+    assert_type(seq[0:1], list[int])
+
+def not_subscriptable[S: int](x: S) -> None:
+    x[0]  # E: Cannot index into `S`
+    "#,
+);
+
+testcase!(
+    test_constrained_typevar_method_arguments,
+    r#"
+# https://github.com/pyrefly-org/pyrefly/issues/3621
+from typing import TypeVar, assert_type
+
+class DataFrame:
+    def join(self, other: DataFrame) -> DataFrame: ...
+
+class LazyFrame:
+    def join(self, other: LazyFrame) -> LazyFrame: ...
+
+Frame = TypeVar("Frame", DataFrame, LazyFrame)
+
+def join_legacy(df1: Frame, df2: Frame) -> Frame:
+    return df1.join(df2)
+
+def join_modern[T: (DataFrame, LazyFrame)](df1: T, df2: T) -> T:
+    assert_type(df1.join(df2), T)
+    assert_type(df1.join(other=df2), T)
+    join = df1.join
+    return join(df2)
+
+assert_type(join_legacy(DataFrame(), DataFrame()), DataFrame)
+assert_type(join_modern(LazyFrame(), LazyFrame()), LazyFrame)
+    "#,
+);
+
+testcase!(
+    test_constrained_typevar_method_arguments_union,
+    r#"
+class A:
+    def merge(self, other: A | None) -> None: ...
+
+class B:
+    def merge(self, other: A | B | None) -> None: ...
+
+def merge[T: (A, B)](x: T, y: T) -> None:
+    x.merge(y)
+    x.merge(A())
+    x.merge(None)
+    "#,
+);
+
+testcase!(
+    test_constrained_typevar_method_arguments_invalid,
+    r#"
+class A:
+    def merge(self, other: A) -> None: ...
+
+class B:
+    def merge(self, other: B) -> None: ...
+
+def independent[T: (A, B), U: (A, B)](x: T, y: U) -> None:
+    x.merge(y)  # E: Argument `U` is not assignable # E: Argument `U` is not assignable
+
+def concrete[T: (A, B)](x: T, y: A, z: B, union: A | B) -> None:
+    x.merge(y)  # E: Argument `A` is not assignable
+    x.merge(z)  # E: Argument `B` is not assignable
+    x.merge(union)  # E: Argument `A | B` is not assignable # E: Argument `A | B` is not assignable
+
+def bounded[T: A | B](x: T, y: T) -> None:
+    x.merge(y)  # E: Argument `T` is not assignable # E: Argument `T` is not assignable
+    "#,
+);
+
+testcase!(
+    test_constrained_typevar_method_arguments_overload,
+    r#"
+from typing import assert_type, overload
+
+class A:
+    @overload
+    def merge(self, other: A) -> A: ...
+    @overload
+    def merge(self, other: None) -> None: ...
+    def merge(self, other: A | None) -> A | None: ...
+
+class B:
+    @overload
+    def merge(self, other: B) -> B: ...
+    @overload
+    def merge(self, other: None) -> None: ...
+    def merge(self, other: B | None) -> B | None: ...
+
+def merge[T: (A, B)](x: T, y: T) -> None:
+    assert_type(x.merge(y), T)
+    assert_type(x.merge(None), None)
+    "#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5452
+// `f1` uses final classes, so its constraints are provably disjoint, and checks that a generic
+// method called with an argument of type `T` returns `T`. `h` shows the parameter types printed
+// when an argument is rejected.
+testcase!(
+    test_constrained_typevar_argument_shares_receiver_constraint,
+    r#"
+from typing import AnyStr, assert_type, final
+
+def f(a: AnyStr, b: AnyStr) -> bool:
+    a += b
+    return a.startswith(b)
+
+def g(a: AnyStr, b: AnyStr) -> None:
+    if isinstance(a, bytes):
+        a.startswith(b)
+
+@final
+class A:
+    def pick[S](self, x: S) -> S: ...
+
+@final
+class B:
+    def pick[S](self, x: S) -> S: ...
+
+def f1[T: (A, B)](a: T, b: T) -> None:
+    assert_type(a.pick(b), T)
+
+def h(a: AnyStr) -> None:
+    a.startswith(1)  # E: Argument `Literal[1]` is not assignable to parameter `prefix` with type `Buffer | tuple[Buffer, ...] | AnyStr` # E: Argument `Literal[1]` is not assignable to parameter `prefix` with type `str | tuple[str, ...] | AnyStr`
+    "#,
+);
+
+// `a` and `b` are values of the same constraint, but narrowing `a` to a subclass doesn't narrow
+// `b`: `subclass(MyStr(), "")` is legal, so `b` can be a plain `str`. The parameters have type
+// `Tag` because a parameter of the receiver's own class hits the bug in
+// `test_constrained_typevar_argument_of_receiver_class`.
+testcase!(
+    test_constrained_typevar_argument_rejected_when_receiver_does_not_determine_constraint,
+    r#"
+from typing import AnyStr
+
+class Tag:
+    def tag(self, other: Tag) -> None: ...
+
+class MyStr(str, Tag): ...
+
+class MyBytes(bytes, Tag): ...
+
+def subclass(a: AnyStr, b: AnyStr) -> None:
+    if isinstance(a, (MyStr, MyBytes)):
+        a.tag(b)  # E: Argument `AnyStr` is not assignable to parameter `other` with type `Tag`
+
+class P: ...
+
+class Q(P, Tag): ...
+
+def overlapping[T: (P, Q)](a: T, b: T) -> None:
+    if isinstance(a, Q):
+        a.tag(b)  # E: Argument `T` is not assignable to parameter `other` with type `Tag`
+    "#,
+);
+
+// `f(MyStr(), "")` is legal, so `b` can be a plain `str` where `m` expects a `MyStr`.
+testcase!(
+    bug = "`a.m(b)` should error because `b` can be a plain `str`",
+    test_constrained_typevar_argument_of_receiver_class,
+    r#"
+from typing import AnyStr
+
+class MyStr(str):
+    def m(self, other: MyStr) -> None: ...
+
+def f(a: AnyStr, b: AnyStr) -> None:
+    if isinstance(a, MyStr):
+        a.m(b)
     "#,
 );
 
@@ -1466,7 +1713,7 @@ f(0, "wrong")  # E: `Literal['wrong']` is not assignable to parameter `y` with t
 );
 
 testcase!(
-    bug = "TODO(https://github.com/facebook/pyrefly/issues/105): error message should also flag `Literal['oops']`",
+    bug = "TODO(https://github.com/pyrefly-org/pyrefly/issues/105): error message should also flag `Literal['oops']`",
     test_multiple_bad_specialization,
     r#"
 def f[T: int](x: T, y: T): ...
@@ -1845,4 +2092,50 @@ class Nested[T: list[str]]:
 def bad() -> None:
     x: Nested[list[Any]] = Nested([1])  # Should be an error
  "#,
+);
+
+// A bound keeps the type arguments of a class whose own type parameters are restricted, as long
+// as that class does not name the class being defined.
+testcase!(
+    test_bound_keeps_targs_of_restricted_class,
+    r#"
+class Base: ...
+class Sub(Base): ...
+class Bar[U: Base]:
+    value: U
+class Foo[T: Bar[Base]]: ...
+Foo[Bar[Sub]]()  # E: `Bar[Sub]` is not assignable to upper bound `Bar[Base]` of type variable `T`
+Foo[Bar[Base]]()
+"#,
+);
+
+// When the bounds of two classes name each other, the class type that closes the cycle loses its
+// type arguments: `T`'s bound is `Bar`, not `Bar[Base]`.
+testcase!(
+    bug = "A bound in a cycle loses the type arguments that close the cycle",
+    test_bound_cycle_loses_targs,
+    r#"
+from typing import Any
+class Base: ...
+class Sub(Base): ...
+class Foo[T: "Bar[Base]"]: ...
+class Bar[U: "Foo[Any] | Base"]:
+    value: U
+Foo[Bar[Sub]]()  # Should be an error: `Bar[Sub]` is not assignable to `Bar[Base]`
+Foo[int]()  # E: `int` is not assignable to upper bound `Bar` of type variable `T`
+"#,
+);
+
+testcase!(
+    test_recursive_defaults_converge,
+    r#"
+from typing import assert_type
+class Foo[T = "Foo"]: ...
+class Bar[A = "Baz"]: ...
+class Baz[B = "Bar"]: ...
+class Qux[S, D = "Qux[int]"]: ...
+x: Foo = Foo()
+y: Bar = Bar()
+z: Qux[str] = Qux()
+"#,
 );

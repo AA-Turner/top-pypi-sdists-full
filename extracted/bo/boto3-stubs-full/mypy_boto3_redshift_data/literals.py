@@ -60,6 +60,7 @@ StatementStatusStringType = Literal[
 StatusStringType = Literal["ABORTED", "ALL", "FAILED", "FINISHED", "PICKED", "STARTED", "SUBMITTED"]
 RedshiftDataAPIServiceServiceName = Literal["redshift-data"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

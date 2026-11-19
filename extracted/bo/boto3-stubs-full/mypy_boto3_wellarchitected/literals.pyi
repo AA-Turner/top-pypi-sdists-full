@@ -203,6 +203,7 @@ WorkloadImprovementStatusType = Literal[
 WorkloadIssueManagementStatusType = Literal["DISABLED", "ENABLED", "INHERIT"]
 WellArchitectedServiceName = Literal["wellarchitected"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

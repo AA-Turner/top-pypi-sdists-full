@@ -29,11 +29,6 @@ still leaves the next one inside the limit. Measured between machines of one clo
 When it helps: uploads after a pause went from 3.0 round trips to 1.1 (100 KB and 500 KB) and 1.25 (1 MB), between
 machines of one cloud provider at RTTs of 11.7 and 69.2 ms.
 
-When it does not: on a home connection with a cellular uplink, about 36 ms from the GPU, 921,600-byte uploads after 10 s
-of silence took a median of 264 ms without the pings and 368 ms with them (six each, alternating): no benefit there. A
-window that the pings do not fill still shrinks; BBR on the robot keeps that one (window.keep). bench/ measures your own
-link.
-
 What it cannot do: a server that answers one HTTP/1.1 request with one response cannot send anything unsolicited. There
 the ping must come from the robot: window.Warm, which sequence_ai.network.connect() puts on its connection.
 

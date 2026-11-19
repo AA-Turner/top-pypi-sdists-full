@@ -3,19 +3,21 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from typing import Any, Literal
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from uuid import UUID
 
+import httpx
 from pydantic import TypeAdapter
 
 from arraylake.api_utils import ArraylakeHttpClient, handle_response
+from arraylake.exceptions import ArraylakeClientError, AuthException
+from arraylake.log_util import get_logger
 from arraylake.metastore.abc import Metastore
 from arraylake.types import (
+    KNOWN_CREDENTIAL_PROVIDERS,
     ApiClientResponse,
-    AzureCredentials,
     BucketModifyRequest,
     BucketResponse,
-    GSCredentials,
     IcebergNamespaceResponse,
     IcebergNamespaceSort,
     IcebergTableSort,
@@ -41,7 +43,7 @@ from arraylake.types import (
     RepoOperationStatusResponse,
     RepoSubscribeBody,
     RepoVisibility,
-    S3Credentials,
+    TempCredentials,
     TokenAuthenticateBody,
     VirtualChunkAccessPolicyResponse,
 )
@@ -54,6 +56,44 @@ LIST_BUCKETS_ADAPTER = TypeAdapter(list[BucketResponse])
 LIST_REPOS_FOR_BUCKET_ADAPTER = TypeAdapter(list[Repo])
 LIST_VCAPS_PAGINATED_ADAPTER = TypeAdapter(PaginatedResponse[VirtualChunkAccessPolicyResponse])
 LIST_ICEBERG_NAMESPACES_ADAPTER = TypeAdapter(list[IcebergNamespaceResponse])
+TEMP_CREDENTIALS_ADAPTER: TypeAdapter[TempCredentials] = TypeAdapter(TempCredentials)
+
+logger = get_logger(__name__)
+
+
+class UnsupportedCredentialProviderError(ValueError):
+    """The server vended credentials for a storage provider this version of arraylake does not know."""
+
+
+def _unknown_provider(raw: object) -> str | None:
+    provider = raw.get("provider") if isinstance(raw, dict) else None
+    return provider if isinstance(provider, str) and provider not in KNOWN_CREDENTIAL_PROVIDERS else None
+
+
+def _require_known_provider(raw: object, what: str) -> None:
+    if provider := _unknown_provider(raw):
+        raise UnsupportedCredentialProviderError(
+            f"The server returned {what} credentials for storage provider {provider!r}, which this version of arraylake "
+            "does not support. Upgrade arraylake to use it."
+        )
+
+
+def _parse_credentials(raw: object, what: str) -> TempCredentials:
+    _require_known_provider(raw, what)
+    return TEMP_CREDENTIALS_ADAPTER.validate_python(raw)
+
+
+def _drop_unknown_vcc_providers(vccs: dict[str, Any]) -> dict[str, Any]:
+    """Skip virtual chunk containers whose provider is unknown, so the rest of the repo still opens."""
+    kept = {}
+    for prefix, vcc in vccs.items():
+        if provider := _unknown_provider(vcc.get("credentials") if isinstance(vcc, dict) else None):
+            logger.warning(
+                f"Skipping virtual chunk container {prefix!r}: its storage provider {provider!r} needs a newer version of arraylake."
+            )
+            continue
+        kept[prefix] = vcc
+    return kept
 
 
 @dataclass
@@ -63,6 +103,7 @@ class HttpMetastoreConfig:
     api_service_url: str
     org: str
     token: str | None = field(default=None, repr=False)  # machine token. id/access/refresh tokens are managed by CustomOauth
+    anonymous: bool = False
 
 
 class HttpMetastore(ArraylakeHttpClient, Metastore):
@@ -81,7 +122,7 @@ class HttpMetastore(ArraylakeHttpClient, Metastore):
     _config: HttpMetastoreConfig
 
     def __init__(self, config: HttpMetastoreConfig):
-        super().__init__(config.api_service_url, token=config.token)
+        super().__init__(config.api_service_url, token=config.token, anonymous=config.anonymous)
 
         self._config = config
         self.api_url = config.api_service_url
@@ -98,9 +139,20 @@ class HttpMetastore(ArraylakeHttpClient, Metastore):
         handle_response(response)
         return LIST_ORGS_ADAPTER.validate_json(response.content)
 
+    def _handle_repo_read(self, response: httpx.Response, name: str) -> None:
+        """An anonymous read of a private or missing repo gets the same 404, so point the caller at logging in."""
+        try:
+            handle_response(response)
+        except ArraylakeClientError as exc:
+            if self._config.anonymous and exc.status_code in (401, 404):
+                raise AuthException(
+                    f"Repo {self._config.org}/{name} not found or not public. Run arraylake auth login to open private repos."
+                ) from exc
+            raise
+
     async def get_database(self, name: str) -> Repo:
         response = await self._request("GET", f"/repos/{self._config.org}/{name}")
-        handle_response(response)
+        self._handle_repo_read(response, name)
         return Repo.model_validate_json(response.content)
 
     async def open_repo(self, name: str) -> OpenRepoResponse:
@@ -113,8 +165,11 @@ class HttpMetastore(ArraylakeHttpClient, Metastore):
             OpenRepoResponse with storage config, credentials, VCC credentials, and author.
         """
         response = await self._request("GET", f"/repos/{self._config.org}/{name}/open")
-        handle_response(response)
-        return OpenRepoResponse.model_validate_json(response.content)
+        self._handle_repo_read(response, name)
+        raw = response.json()
+        _require_known_provider(raw.get("repo_credentials"), f"repo {self._config.org}/{name}")
+        raw["virtual_chunk_credentials"] = _drop_unknown_vcc_providers(raw.get("virtual_chunk_credentials", {}))
+        return OpenRepoResponse.model_validate(raw)
 
     async def list_databases(
         self,
@@ -479,52 +534,29 @@ class HttpMetastore(ArraylakeHttpClient, Metastore):
         response = await self._request("POST", f"/orgs/{self._config.org}/buckets/{bucket_id}/default")
         handle_response(response)
 
-    async def get_s3_bucket_credentials_from_repo(self, name: str) -> S3Credentials:
-        """Gets the S3 credentials for a repo."""
-        response = await self._request("GET", f"/repos/{self._config.org}/{name}/bucket-credentials")
+    async def get_bucket_credentials_from_repo(self, name: str, container: str | None = None) -> TempCredentials:
+        """Gets credentials for a repo's bucket, or for one of its virtual chunk containers when ``container`` is set."""
+        params = {"container": container} if container is not None else None
+        response = await self._request("GET", f"/repos/{self._config.org}/{name}/bucket-credentials", params=params)
         handle_response(response)
-        return S3Credentials.model_validate_json(response.content)
+        what = f"virtual chunk container {container}" if container is not None else f"repo {self._config.org}/{name}"
+        return _parse_credentials(response.json(), what)
 
-    async def get_gs_bucket_credentials_from_repo(self, name: str) -> GSCredentials:
-        """Gets the GCS credentials for a repo."""
-        response = await self._request("GET", f"/repos/{self._config.org}/{name}/bucket-credentials")
-        handle_response(response)
-        return GSCredentials.model_validate_json(response.content)
-
-    async def get_azure_container_credentials_from_repo(self, name: str) -> AzureCredentials:
-        """Gets the Azure credentials for a repo."""
-        response = await self._request("GET", f"/repos/{self._config.org}/{name}/bucket-credentials")
-        handle_response(response)
-        return AzureCredentials.model_validate_json(response.content)
-
-    async def get_s3_bucket_credentials_from_bucket(self, bucket_id: UUID, access: Literal["read", "write"] = "read") -> S3Credentials:
-        """Gets the S3 credentials for a bucket.
-
-        Defaults to read-only credentials; pass ``access="write"`` for read+write.
-        """
+    async def get_bucket_credentials_from_bucket(self, bucket_id: UUID, access: Literal["read", "write"] = "read") -> TempCredentials:
+        """Gets credentials for a bucket. Defaults to read-only; pass ``access="write"`` for read+write."""
         response = await self._request("GET", f"/orgs/{self._config.org}/buckets/{bucket_id}/credentials", params={"access": access})
         handle_response(response)
-        return S3Credentials.model_validate_json(response.content)
+        return _parse_credentials(response.json(), f"bucket {bucket_id}")
 
-    async def get_gs_bucket_credentials_from_bucket(self, bucket_id: UUID, access: Literal["read", "write"] = "read") -> GSCredentials:
-        """Gets the GCS credentials for a bucket.
-
-        Defaults to read-only credentials; pass ``access="write"`` for read+write.
-        """
-        response = await self._request("GET", f"/orgs/{self._config.org}/buckets/{bucket_id}/credentials", params={"access": access})
+    async def get_credentials_from_refresh_url(self, url: str) -> TempCredentials:
+        """Follows a ``refresh.url`` that the server returned with earlier credentials."""
+        # The client sends its bearer token with every request, so only follow urls on the configured API.
+        api, target = urlsplit(self.api_url), urlsplit(url)
+        if (target.scheme, target.netloc) != (api.scheme, api.netloc):
+            raise ValueError(f"refusing to send credentials to {target.netloc}: refresh url is not on {api.netloc}")
+        response = await self._request("GET", url)
         handle_response(response)
-        return GSCredentials.model_validate_json(response.content)
-
-    async def get_azure_container_credentials_from_bucket(
-        self, bucket_id: UUID, access: Literal["read", "write"] = "read"
-    ) -> AzureCredentials:
-        """Gets the Azure credentials for a bucket.
-
-        Defaults to read-only credentials; pass ``access="write"`` for read+write.
-        """
-        response = await self._request("GET", f"/orgs/{self._config.org}/buckets/{bucket_id}/credentials", params={"access": access})
-        handle_response(response)
-        return AzureCredentials.model_validate_json(response.content)
+        return _parse_credentials(response.json(), "refreshed")
 
     async def get_api_client_from_token(self, token: str) -> ApiClientResponse:
         token_body = TokenAuthenticateBody(token=token)

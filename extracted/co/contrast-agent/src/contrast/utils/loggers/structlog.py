@@ -17,7 +17,7 @@ import sys
 from contextlib import suppress
 from dataclasses import dataclass
 from socket import gethostname
-from typing import TextIO, cast
+from typing import TYPE_CHECKING, TextIO, cast
 
 from contrast.agent import request_state
 from contrast.utils.loggers import (
@@ -29,7 +29,9 @@ from contrast.utils.loggers import (
 )
 from contrast.utils.namespace import Namespace
 from contrast_vendor import structlog
-from contrast_vendor.filelock import FileLock, Timeout
+
+if TYPE_CHECKING:
+    from contrast_vendor.filelock import FileLock
 
 
 class module(Namespace):
@@ -65,8 +67,27 @@ class RotatingFile:
         # configured log file. Do NOT prepend '.' to the full path, because if the
         # filename is absolute it would turn into a relative path like "./var/...".
         log_path = pathlib.Path(self._filename)
-        lock_path = log_path.with_name(f".{log_path.name}.lock")
-        self._lock = FileLock(str(lock_path))
+        self._lock_path = str(log_path.with_name(f".{log_path.name}.lock"))
+        self._lock_pid = os.getpid()
+        # filelock must be imported lazily. This module is imported before the
+        # runner/early instrumentation rewrites pathlib, and filelock does
+        # `from pathlib import Path`. If it's imported before the rewrite, it
+        # holds a reference to the original Path class, which breaks once
+        # pathlib.Path is replaced by the rewritten one (Path.__new__ no longer
+        # recognizes cls as Path and fails with a missing `_flavour`).
+        from contrast_vendor.filelock import FileLock
+
+        self._lock = FileLock(self._lock_path)
+
+    def _get_lock(self) -> FileLock:
+        # FileLock refuses to be used in any process other than the one that created
+        # it, so a forked child needs its own instance.
+        if (pid := os.getpid()) != self._lock_pid:
+            from contrast_vendor.filelock import FileLock
+
+            self._lock = FileLock(self._lock_path)
+            self._lock_pid = pid
+        return self._lock
 
     def write(self, message: str) -> int:
         """Write a message to the log file, performing rotation if needed."""
@@ -110,8 +131,10 @@ class RotatingFile:
         if not self._should_rollover(msg_size):
             return
 
+        from contrast_vendor.filelock import Timeout
+
         while True:
-            with suppress(Timeout), self._lock.acquire(timeout=1):
+            with suppress(Timeout), self._get_lock().acquire(timeout=1):
                 self._reopen()
                 if self._should_rollover(msg_size):
                     self._do_rollover()

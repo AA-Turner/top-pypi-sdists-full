@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Added magnum cluster CRUD support to cloud abstraction layer.

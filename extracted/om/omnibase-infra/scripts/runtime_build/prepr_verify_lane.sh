@@ -25,6 +25,16 @@
 #   * a second concurrent build (the pool-wide build lock)
 #   * a rendered configuration that does not match the slot policy
 #
+# WHAT IT STAGES (OMN-21928)
+#   The target is the worktree's own commit. Every sibling is staged at the newest
+#   dev-merge tag of its repository, read from the object store, so no clone is
+#   checked out and a sibling's working tree is never read. The staging record
+#   binds the target to the branch and commit under test and each sibling to its
+#   tag. The image's first-party audit (checker_first_party_sources.run_audit)
+#   runs in the build context that first_party_sources.yaml declares for a
+#   pre-PR slot: there a branch-staged TARGET passes, and a sibling still needs
+#   a dev-merge tag.
+#
 # IT ACCEPTS NO LANE ARGUMENT AT ALL. There is no --lane, no --compose-project,
 # no --force and no --skip. The compose project is DERIVED from the slot
 # number, so there is no argument through which a caller could aim this script
@@ -91,6 +101,8 @@ EXIT_PROVENANCE_MISMATCH=12
 source "${SCRIPT_DIR}/sibling_clone_manifest.sh"
 SIBLING_REPOS=("${SIBLING_VENDORED_REPOS[@]}")
 
+FPS_MODULE_REL="src/omnibase_infra/validation/checker_first_party_sources.py"
+
 log()  { printf '[prepr-verify-lane] %s\n' "$*" >&2; }
 fail() { local code="$1"; shift; printf '[prepr-verify-lane] REFUSED/FAILED: %s\n' "$*" >&2; exit "${code}"; }
 
@@ -102,6 +114,13 @@ python_bin() {
     else
         return 1
     fi
+}
+
+# first_party_sources <module> <statements> [args]: run the statements with the
+# checker loaded by path as `m` (stdlib and PyYAML only) and args as sys.argv[2:].
+first_party_sources() {
+    local code="import importlib.util as u, sys; from pathlib import Path; s = u.spec_from_file_location('c', sys.argv[1]); m = u.module_from_spec(s); sys.modules['c'] = m; s.loader.exec_module(m); $2"
+    "${PY}" -c "${code}" "$1" "${@:3}"
 }
 
 usage() {
@@ -118,10 +137,6 @@ required:
                       refused exactly as a stability-test build is.
 
 options:
-  --with-gateway      start the slot's onex-api and mint its tenant. The image
-                      is pinned to its local digest and its topic-namespace
-                      transform is verified before tenant bootstrap. Enabled
-                      by default; this flag remains accepted for old callers.
   --descriptor-out <path>
                       where to write the slot descriptor JSON. Default:
                       .onex_state/prepr/slot-<n>/descriptor.json under the repo.
@@ -132,6 +147,7 @@ options:
   --boot-timeout <s>  seconds to allow the slot to become ready. Default 2400.
   --lock-timeout <s>  seconds to wait for the slot and pool-build locks.
                       Default 5400, which must exceed one full build.
+  --composed-omnimarket <path>  layer this omnimarket worktree's HEAD over the slot's runtime image (OMN-22863)
   --plan-only         do every check and refusal, print what WOULD be built,
                       and open no connection, build nothing and start nothing.
   -h, --help          this text.
@@ -145,13 +161,13 @@ SLOT=""
 ORIGINAL_ARGS=("$@")
 WORKTREE=""
 REASON="${ONEX_DEPLOY_REASON:-}"
-WITH_GATEWAY=1
 DESCRIPTOR_OUT=""
 STAGING_ROOT=""
 BUILD_TIMEOUT=3600
 BOOT_TIMEOUT=2400
 LOCK_TIMEOUT=5400
 PLAN_ONLY=0
+COMPOSED_OMNIMARKET=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -163,7 +179,7 @@ while [[ $# -gt 0 ]]; do
         --build-timeout)   shift || usage; [[ $# -gt 0 ]] || usage; BUILD_TIMEOUT="$1" ;;
         --boot-timeout)    shift || usage; [[ $# -gt 0 ]] || usage; BOOT_TIMEOUT="$1" ;;
         --lock-timeout)    shift || usage; [[ $# -gt 0 ]] || usage; LOCK_TIMEOUT="$1" ;;
-        --with-gateway)    WITH_GATEWAY=1 ;;
+        --composed-omnimarket) shift || usage; [[ $# -gt 0 ]] || usage; COMPOSED_OMNIMARKET="$1" ;;
         --plan-only)       PLAN_ONLY=1 ;;
         -h|--help)         usage ;;
         *) printf '[prepr-verify-lane] unknown option: %s\n' "$1" >&2; usage ;;
@@ -241,8 +257,7 @@ ONEX_DEPLOY_REASON="${REASON}" \
 # image is a false pass waiting to happen -- refuse rather than label it.
 # -----------------------------------------------------------------------------
 [[ -d "${WORKTREE}" ]] || fail "${EXIT_USAGE}" "worktree '${WORKTREE}' does not exist."
-git -C "${WORKTREE}" rev-parse --git-dir >/dev/null 2>&1 \
-    || fail "${EXIT_USAGE}" "'${WORKTREE}' is not a git worktree."
+git -C "${WORKTREE}" rev-parse --git-dir >/dev/null 2>&1 || fail "${EXIT_USAGE}" "'${WORKTREE}' is not a git worktree."
 
 TARGET_DIRT="$(git -C "${WORKTREE}" status --porcelain)"
 if [[ -n "${TARGET_DIRT}" ]]; then
@@ -264,15 +279,13 @@ log "target ${TARGET_REPO} @ ${TARGET_COMMIT} (${TARGET_BRANCH}), clean."
 # normal shape here and building the target's branch against canonical siblings
 # would test a combination that exists nowhere.
 OMNI_HOME_RESOLVED="${OMNI_HOME:-}"
-[[ -n "${OMNI_HOME_RESOLVED}" ]] || fail "${EXIT_USAGE}" \
-    "OMNI_HOME must be set; the sibling repositories are resolved from it."
+[[ -n "${OMNI_HOME_RESOLVED}" ]] || fail "${EXIT_USAGE}" "OMNI_HOME must be set; the sibling repositories are resolved from it."
 TICKET_DIR="$(dirname "${WORKTREE}")"
 
 declare -A SIBLING_SRC=()
 declare -A SIBLING_COMMIT=()
+declare -A SIBLING_TAG=()
 declare -A SIBLING_ORIGIN=()
-declare -A SIBLING_BRANCH=()
-declare -A SIBLING_DIRTY=()
 for repo in "${SIBLING_REPOS[@]}"; do
     if [[ -d "${TICKET_DIR}/${repo}/.git" || -f "${TICKET_DIR}/${repo}/.git" ]]; then
         SIBLING_SRC["${repo}"]="${TICKET_DIR}/${repo}"
@@ -283,53 +296,46 @@ for repo in "${SIBLING_REPOS[@]}"; do
     else
         fail "${EXIT_USAGE}" "sibling repository '${repo}' found neither at ${TICKET_DIR}/${repo} nor at ${OMNI_HOME_RESOLVED}/${repo}."
     fi
-    src="${SIBLING_SRC[${repo}]}"
-    SIBLING_COMMIT["${repo}"]="$(git -C "${src}" rev-parse HEAD)"
-    SIBLING_BRANCH["${repo}"]="$(git -C "${src}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
-    if [[ -n "$(git -C "${src}" status --porcelain)" ]]; then
-        SIBLING_DIRTY["${repo}"]="true"
-    else
-        SIBLING_DIRTY["${repo}"]="false"
-    fi
-    # A dirty SIBLING is recorded, not refused. The receipt's clean-tree
-    # assertion is about the TARGET, whose commit the gate keys on; a sibling
-    # is vendored content and its dirt is a provenance fact the descriptor must
-    # carry rather than a reason to block a branch that did not cause it.
-    # A dirty sibling is REFUSED, not recorded. It used to be recorded, on the
-    # reasoning that the gate keys on the target's commit and a sibling is
-    # vendored content. That reasoning is wrong under the pinned-sha staging
-    # rule: the image would contain content belonging to no commit in that
-    # repository, so the sibling commit written on the receipt would name a
-    # tree the build did not use. Recording the discrepancy does not make the
-    # artifact reproducible; refusing it does.
-    if [[ "${SIBLING_DIRTY[${repo}]}" == "true" ]]; then
-        fail "${EXIT_REFUSED_DIRTY_WORKTREE}" \
-            "sibling ${repo} at ${src} is DIRTY and will not be vendored.
-  The slot records ${repo}@${SIBLING_COMMIT[${repo}]} on its receipt, and an
-  image built from uncommitted content in that tree does not correspond to
-  that commit. Commit or discard the change in ${src}.
-  Uncommitted paths:
-$(git -C "${src}" status --porcelain | sed 's/^/    /')"
-    fi
-    log "sibling ${repo} <- ${src} @ ${SIBLING_COMMIT[${repo}]} (${SIBLING_ORIGIN[${repo}]})"
+done
+
+# Every sibling is staged at its newest dev-merge tag, never at its source's HEAD:
+# the first-party audit refuses a sibling from a branch in every build context
+# (OMN-21928). The tag is read from the object store, so the source is neither
+# checked out nor written to, and its working tree (dirty or not) never reaches
+# the image. One line per sibling: repo, tag, commit.
+SIBLING_ARGS=()
+for repo in "${SIBLING_REPOS[@]}"; do SIBLING_ARGS+=("${repo}=${SIBLING_SRC[${repo}]}"); done
+SIBLING_PINS="$(first_party_sources "${REPO_ROOT}/${FPS_MODULE_REL}" \
+    'c = m.load_contract(); [print(r, *m.newest_dev_merge_tag_of(Path(p), c)) for r, p in (a.split("=", 1) for a in sys.argv[2:])]' \
+    "${SIBLING_ARGS[@]}")" \
+    || fail "${EXIT_PROVENANCE_MISMATCH}" "a sibling has no dev-merge tag to stage; a clone without dev-* tags cannot feed a slot build."
+# Each line is checked field by field: a stray line on the checker's stdout, a
+# repository the manifest does not list, or a commit that is not a literal sha
+# refuses the run, naming the line, instead of staging a pin nothing verified.
+while read -r repo tag commit extra; do
+    [[ -n "${tag}" && -z "${extra}" && "${commit}" =~ ^[0-9a-f]{40}$ && " ${SIBLING_REPOS[*]} " == *" ${repo} "* ]] \
+        || fail "${EXIT_PROVENANCE_MISMATCH}" "the sibling pin line '${repo} ${tag} ${commit} ${extra}' is not '<listed repo> <tag> <40-hex commit>'; the pins read were: ${SIBLING_PINS}"
+    SIBLING_TAG["${repo}"]="${tag}"
+    SIBLING_COMMIT["${repo}"]="${commit}"
+    log "sibling ${repo} <- ${SIBLING_SRC[${repo}]} @ ${commit} tag ${tag} (${SIBLING_ORIGIN[${repo}]})"
+done <<< "${SIBLING_PINS}"
+for repo in "${SIBLING_REPOS[@]}"; do
+    [[ -n "${SIBLING_COMMIT[${repo}]:-}" ]] \
+        || fail "${EXIT_PROVENANCE_MISMATCH}" "sibling ${repo} received no dev-merge tag; the pins read were: ${SIBLING_PINS}"
 done
 
 if [[ "${PLAN_ONLY}" == "1" ]]; then
     log "--plan-only: every refusal passed. Nothing was built, started or connected to."
-    "${PY}" - "$@" <<PYPLAN
+    # Every value reaches the script through argv, so a branch name carrying a
+    # quote or a backslash cannot alter the Python source.
+    "${PY}" - "${SIBLING_PINS}" "${SLOT}" "${COMPOSE_PROJECT}" "${TARGET_REPO}" "${TARGET_COMMIT}" \
+        "${TARGET_BRANCH}" "${STAGING_ROOT}" "${TOPIC_NAMESPACE}" "${DB_SLOT}" <<'PYPLAN'
 import json, sys
-print(json.dumps({
-    "plan_only": True,
-    "slot": ${SLOT},
-    "compose_project": "${COMPOSE_PROJECT}",
-    "target_repo": "${TARGET_REPO}",
-    "target_commit": "${TARGET_COMMIT}",
-    "target_branch": "${TARGET_BRANCH}",
-    "staging_root": "${STAGING_ROOT}",
-    "topic_namespace": "${TOPIC_NAMESPACE}",
-    "db_slot": "${DB_SLOT}",
-    "with_gateway": bool(${WITH_GATEWAY}),
-}, indent=2))
+pins, *v = sys.argv[1:]
+keys = ("slot", "compose_project", "target_repo", "target_commit", "target_branch", "staging_root", "topic_namespace", "db_slot")
+plan = dict(zip(keys, v))
+print(json.dumps({"plan_only": True, **plan, "slot": int(v[0]), "with_gateway": False,
+    "siblings": {r: {"tag": t, "commit": c} for r, t, c in map(str.split, pins.splitlines())}}, indent=2))
 PYPLAN
     exit 0
 fi
@@ -413,8 +419,7 @@ fi
 # isolated snapshot exists to remove.
 # -----------------------------------------------------------------------------
 log "staging a slot-private snapshot into ${STAGING_ROOT} ..."
-[[ ! -f "${TENANT_STATE_DIR}/credential.env" ]] \
-    || fail "${EXIT_PROVENANCE_MISMATCH}" "the prior slot tenant must be offboarded by teardown before rebuilding."
+[[ ! -f "${TENANT_STATE_DIR}/credential.env" ]] || fail "${EXIT_PROVENANCE_MISMATCH}" "the prior slot tenant must be offboarded by teardown before rebuilding."
 rm -rf "${STAGING_ROOT}"
 mkdir -p "${STAGING_ROOT}" "${SLOT_ENV_DIR}" "${TENANT_STATE_DIR}"
 chmod 700 "${SLOT_ENV_DIR}"
@@ -440,7 +445,7 @@ chmod 1733 "${TENANT_STATE_DIR}"
 # archive carries no repository metadata, so nothing in the snapshot can
 # answer a git query about the clone it came from.
 stage_commit_tree() {
-    local src="$1" commit="$2" dest="$3" label="$4"
+    local src="$1" commit="$2" dest="$3" label="$4" ref="${5:-HEAD}"
 
     # A BRANCH NAME IS NOT A PIN, and this refuses one outright.
     #
@@ -466,7 +471,7 @@ stage_commit_tree() {
     fi
 
     local head
-    head="$(git -C "${src}" rev-parse HEAD)"
+    head="$(git -C "${src}" rev-parse "${ref}^{commit}")"
     # Readback: the pin this run recorded must still be what the source names.
     # A source that moved between resolution and staging would otherwise be
     # staged under the OLD commit's name.
@@ -476,7 +481,8 @@ stage_commit_tree() {
   ${commit} and the source now reports ${head}. Refusing rather than staging
   a tree under a commit that no longer names it."
     fi
-    if [[ -n "$(git -C "${src}" status --porcelain)" ]]; then
+    # Only a working tree can be dirty; a tag (a sibling's ref) is read from the object store.
+    if [[ "${ref}" == "HEAD" && -n "$(git -C "${src}" status --porcelain)" ]]; then
         fail "${EXIT_REFUSED_DIRTY_WORKTREE}" \
             "${label} at ${src} became dirty during staging; refusing."
     fi
@@ -490,7 +496,8 @@ stage_commit_tree "${WORKTREE}" "${TARGET_COMMIT}" "${STAGING_ROOT}/repo" "the t
 mkdir -p "${STAGING_ROOT}/repo/workspace/sibling-repos"
 for repo in "${SIBLING_REPOS[@]}"; do
     stage_commit_tree "${SIBLING_SRC[${repo}]}" "${SIBLING_COMMIT[${repo}]}" \
-        "${STAGING_ROOT}/repo/workspace/sibling-repos/${repo}" "sibling ${repo}"
+        "${STAGING_ROOT}/repo/workspace/sibling-repos/${repo}" "sibling ${repo}" \
+        "refs/tags/${SIBLING_TAG[${repo}]}"
 done
 
 # Content digests of the snapshot itself. The commit above is read from the
@@ -528,18 +535,24 @@ for repo in "${SIBLING_REPOS[@]}"; do
         > "${STAGING_ROOT}/repo/workspace/sibling-repos/${repo}/.build-sha"
 done
 
-{
-    printf '{\n  "siblings": {\n'
-    _sep=""
-    for repo in "${SIBLING_REPOS[@]}"; do
-        printf '%s    "%s": {"vcs_ref": "%s", "vcs_dirty": %s, "vcs_branch": "%s"}' \
-            "${_sep}" "${repo}" "${SIBLING_COMMIT[${repo}]}" \
-            "${SIBLING_DIRTY[${repo}]}" "${SIBLING_BRANCH[${repo}]}"
-        _sep=",
-"
-    done
-    printf '\n  }\n}\n'
-} > "${STAGING_ROOT}/repo/workspace/sibling-vcs-provenance.json"
+# The record binds the target to the branch and commit under test and each
+# sibling to the dev-merge tag it is staged at (OMN-21928).
+first_party_sources "${REPO_ROOT}/${FPS_MODULE_REL}" \
+    'm.write_slot_staging_record(Path(sys.argv[2]), target_commit=sys.argv[3], target_branch=sys.argv[4], siblings={r: (t, c) for r, t, c in map(str.split, sys.argv[5].splitlines())})' \
+    "${STAGING_ROOT}/repo/workspace/sibling-vcs-provenance.json" "${TARGET_COMMIT}" "${TARGET_BRANCH}" "${SIBLING_PINS}"
+# The build context of the image's first-party audit is the one the TARGET's own
+# policy data declares for a pre-PR slot, read from the snapshot because the audit
+# in the image reads the same file. A target commit that predates the declaration
+# is refused here rather than as an opaque image-build failure.
+SLOT_AUDIT_CONTEXT="$(first_party_sources "${STAGING_ROOT}/repo/${FPS_MODULE_REL}" 'print(m.load_contract().pre_pr_slot_context)')" \
+    || fail "${EXIT_PROVENANCE_MISMATCH}" "the target commit declares no pre-PR slot build context in first_party_sources.yaml; rebase the branch onto a dev that carries it (OMN-21928)."
+log "first-party audit build context for this slot: ${SLOT_AUDIT_CONTEXT}"
+
+# OMN-21279: Dockerfile.runtime COPYs workspace/routing_tiers.yaml (the image
+# installs no omnimarket). The committed file is an empty-ladder placeholder; the
+# slot gets the ladder from the omnimarket snapshot staged above, as
+# stage_workspace.sh does for the declared lanes.
+cp "${STAGING_ROOT}/repo/workspace/sibling-repos/omnimarket/src/omnimarket/configs/routing_tiers.yaml" "${STAGING_ROOT}/repo/workspace/routing_tiers.yaml"
 
 TARGET_SNAPSHOT_DIGEST="$(snapshot_digest "${STAGING_ROOT}/repo")"
 declare -A SIBLING_SNAPSHOT_DIGEST=()
@@ -708,17 +721,6 @@ export EXPECTED_BUILD_SOURCE=workspace
 export OMNI_HOME="${OMNI_HOME_RESOLVED}"
 export GIT_SHA="${TARGET_COMMIT}"
 
-if [[ "${WITH_GATEWAY}" == "1" ]]; then
-    # These sentinels belong to this compose project only. They never rotate
-    # a provider credential or change the dev gateway's admin gate.
-    "${PY}" - "${COMPOSE_ENV}" <<'PYSENTINELS'
-import pathlib, secrets, sys
-with pathlib.Path(sys.argv[1]).open("a", encoding="utf-8") as stream:
-    for name in ("TENANT_BOOTSTRAP_ADMIN_SECRET", "TENANT_OFFBOARD_ADMIN_SECRET"):
-        stream.write(f"{name}={secrets.token_hex(32)}\n")
-PYSENTINELS
-fi
-
 # The slot's own credentials, exported for the same precedence reason. Read
 # from the 0600 file rather than passed on any command line.
 set -a
@@ -726,34 +728,13 @@ set -a
 source "${COMPOSE_ENV}"
 set +a
 
-if [[ "${WITH_GATEWAY}" == "1" ]]; then
-    # Resolve the operator's tag once. All subsequent compose calls use the
-    # same immutable local image even if a shared tag moves during the build.
-    ONEX_API_IMAGE="$(docker image inspect --format '{{.Id}}' "${ONEX_API_IMAGE:?ONEX_API_IMAGE must be set}")" \
-        || fail "${EXIT_PROVENANCE_MISMATCH}" "the gateway image is not present locally."
-    [[ "${ONEX_API_IMAGE}" =~ ^sha256:[0-9a-f]{64}$ ]] \
-        || fail "${EXIT_PROVENANCE_MISMATCH}" "the gateway image did not resolve to an immutable digest."
-    export ONEX_API_IMAGE
-    docker run --rm --network none -i -e KAFKA_TOPIC_NAMESPACE \
-        --entrypoint python3 "${ONEX_API_IMAGE}" - <<'PYIMAGE' \
-        || fail "${EXIT_PROVENANCE_MISMATCH}" "the pinned gateway image lacks the slot's namespace transform."
-import os
-from topic_namespace import apply_topic_namespace, strip_topic_namespace
-topic = "onex.cmd.omnimarket.delegation-requested.v1"
-physical = apply_topic_namespace(topic)
-assert physical == os.environ["KAFKA_TOPIC_NAMESPACE"] + "." + topic
-assert strip_topic_namespace(physical) == topic
-PYIMAGE
-fi
-
 # OMN-20932: the slot mounts its compose project's Bifrost overlay from
 # ${ONEX_LANE_OVERLAY_DIR}, resolved by the same helper every lane deploy uses
 # (ONEX_LANE_OVERLAY_DIR, else config/lab/lane-overlays under
 # ONEX_WORKSPACE_CONFIG_ROOT); a slot with none is refused before any build.
 # shellcheck source=./compose_files.sh
 source "${SCRIPT_DIR}/compose_files.sh"
-resolve_lane_overlay_dir "${COMPOSE_PROJECT}" || fail "${EXIT_USAGE}" \
-    "no lane overlay for the slot's compose project (see the error above)."
+resolve_lane_overlay_dir "${COMPOSE_PROJECT}" || fail "${EXIT_USAGE}" "no lane overlay for the slot's compose project (see the error above)."
 
 SNAPSHOT_DOCKER="${STAGING_ROOT}/repo/docker"
 COMPOSE_FILES=(
@@ -770,9 +751,8 @@ SLOT_SERVICES=(
     projection-registration-writer projection-savings-writer
     projection-tenant-credentials-writer projection-live-events-writer
 )
-# Every slot service that is BUILT from Dockerfile.runtime, which is all of
-# them but onex-api (image-referenced, see --with-gateway). Each one carries
-# its own `build:` in the layered files and so its own image tag
+# Every slot service is BUILT from Dockerfile.runtime. Each one carries its
+# own `build:` in the layered files and so its own image tag
 # (<project>-<service>:latest), so building only omninode-runtime left the
 # other ten with no image and `up` then tried to build them itself, with none
 # of the workspace build args: the first slot boot (2026-09-24) died there on
@@ -780,10 +760,6 @@ SLOT_SERVICES=(
 # context and one arg set, so after the first the rest are cache hits.
 SLOT_BUILD_SERVICES=("${SLOT_SERVICES[@]}")
 PROFILES=(--profile prepr)
-if [[ "${WITH_GATEWAY}" == "1" ]]; then
-    PROFILES+=(--profile prepr-gateway)
-    SLOT_SERVICES+=(onex-api)
-fi
 
 # -----------------------------------------------------------------------------
 # 8. BUILD, under the pool-wide build lock.
@@ -820,8 +796,7 @@ match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M)
 print(match.group(1) if match else "")
 PYVER
 )"
-[[ -n "${RUNTIME_VERSION}" && "${RUNTIME_VERSION}" != "0.1.0" ]] || fail "${EXIT_BUILD_FAILED}" \
-    "could not read a real RUNTIME_VERSION from the snapshot's pyproject.toml
+[[ -n "${RUNTIME_VERSION}" && "${RUNTIME_VERSION}" != "0.1.0" ]] || fail "${EXIT_BUILD_FAILED}" "could not read a real RUNTIME_VERSION from the snapshot's pyproject.toml
   (got '${RUNTIME_VERSION}'). A workspace build refuses the placeholder, and
   stamping one would put a false version on every proof packet the image
   produces."
@@ -834,18 +809,17 @@ BUILD_ARGS=(
     --build-arg "RUNTIME_VERSION=${RUNTIME_VERSION}"
     --build-arg "COMPOSE_PROJECT=${COMPOSE_PROJECT}"
     --build-arg "BUILD_SOURCE=workspace"
+    --build-arg "FIRST_PARTY_BUILD_CONTEXT=${SLOT_AUDIT_CONTEXT}"
     --build-arg "EXPECTED_BUILD_SOURCE=workspace"
     --build-arg "PROMOTION_CLASS=stability-candidate"
     --build-arg "NON_MAIN_LINEAGE=true"
     --build-arg "OMNI_HOME=${OMNI_HOME_RESOLVED}"
-    --build-arg "OMNIBASE_COMPAT_REF=${SIBLING_COMMIT[omnibase_compat]}"
-    --build-arg "OMNIMARKET_REF=${SIBLING_COMMIT[omnimarket]}"
-    # Empty deliberately: the node inventory is a property of the image and
-    # cannot be known before the image exists, and an empty value skips the
-    # Dockerfile's verify guard. The two-pass stamping the declared lanes do
-    # (OMN-18708) is not reproduced here -- a slot's image is destroyed with
-    # the slot and is never promoted, so nothing downstream reads the stamp.
-    --build-arg "NODE_INVENTORY="
+    # No node inventory is passed deliberately: it is a property of the image
+    # and cannot be known before the image exists, and a build with no
+    # inventory context skips the Dockerfile's verify guard. The two-pass
+    # stamping the declared lanes do (OMN-18708) is not reproduced here -- a
+    # slot's image is destroyed with the slot and is never promoted, so nothing
+    # downstream reads the stamp.
 )
 
 log "building the runtime image from the snapshot, version ${RUNTIME_VERSION} (timeout ${BUILD_TIMEOUT}s) ..."
@@ -853,6 +827,17 @@ if ! timeout "${BUILD_TIMEOUT}" env -C "${STAGING_ROOT}/repo" \
         docker compose -p "${COMPOSE_PROJECT}" "${COMPOSE_FILES[@]}" "${PROFILES[@]}" \
         build --progress=plain "${BUILD_ARGS[@]}" "${SLOT_BUILD_SERVICES[@]}"; then
     fail "${EXIT_BUILD_FAILED}" "the workspace build failed or timed out."
+fi
+# OMN-22863: the runtime image installs no omnimarket (OMN-21279), so a slot built from
+# the infra target alone names no container that runs it and an omnimarket proof can never
+# read its identity. With --composed-omnimarket, omnimarket's Dockerfile.runtime is built
+# over the slot's runtime image from a git archive of the worktree's HEAD (a working tree
+# cannot reach the build, as with the siblings above) and tagged as the image of every slot
+# service, so the `up --no-build` below starts every service on it. The project label lets
+# the teardown's image listing find and remove it with the slot.
+if [[ -n "${COMPOSED_OMNIMARKET}" ]]; then
+    git -C "${COMPOSED_OMNIMARKET}" archive --format=tar HEAD | docker build -f Dockerfile.runtime --build-arg "INFRA_RUNTIME_IMAGE=${COMPOSE_PROJECT}-omninode-runtime:latest" --build-arg "OMNIMARKET_VCS_REF=$(git -C "${COMPOSED_OMNIMARKET}" rev-parse HEAD)" --label "com.docker.compose.project=${COMPOSE_PROJECT}" -t "${COMPOSE_PROJECT}-omnimarket-runtime:latest" - || fail "${EXIT_BUILD_FAILED}" "the composed omnimarket image did not build."
+    for svc in "${SLOT_BUILD_SERVICES[@]}"; do docker image inspect "${COMPOSE_PROJECT}-${svc}:latest" >/dev/null || fail "${EXIT_BUILD_FAILED}" "slot service ${svc} has no built image for the composed one to replace."; docker tag "${COMPOSE_PROJECT}-omnimarket-runtime:latest" "${COMPOSE_PROJECT}-${svc}:latest" || fail "${EXIT_BUILD_FAILED}" "could not tag the composed image for ${svc}."; done
 fi
 pool_build_lock_release
 
@@ -887,7 +872,6 @@ pool_build_lock_release
 log "rendering and verifying the slot configuration (piped, never written) ..."
 
 VERIFY_ARGS=(--rendered - --slot "${SLOT}")
-[[ "${WITH_GATEWAY}" == "1" ]] && VERIFY_ARGS+=(--expect-gateway)
 if ! compose "${PROFILES[@]}" config --format json 2>/dev/null \
         | "${PY}" "${SCRIPT_DIR}/prepr_verify_rendered_slot.py" "${VERIFY_ARGS[@]}"; then
     fail "${EXIT_PROVENANCE_MISMATCH}" \
@@ -921,14 +905,6 @@ if ! compose --profile prepr-migrate run --rm --no-deps intelligence-migration; 
   test this is a FINDING. Record it as the slot's verdict."
 fi
 
-if [[ "${WITH_GATEWAY}" == "1" ]]; then
-    log "applying the gateway's existing cloud migration corpus to the slot database ..."
-    compose --profile prepr-migrate run --rm --no-deps cloud-migration-files \
-        || fail "${EXIT_PROVISION_FAILED}" "the slot cloud migration corpus could not be staged."
-    compose --profile prepr-migrate run --rm --no-deps cloud-migration \
-        || fail "${EXIT_PROVISION_FAILED}" "the slot cloud migration failed."
-fi
-
 log "starting the slot's services ..."
 # --no-build: every image was built in step 8 with the workspace args. A
 # service `up` finds unbuilt is a defect in that list, and building it here
@@ -949,25 +925,7 @@ while [[ $(date +%s) -lt ${deadline} ]]; do
     fi
     sleep 15
 done
-[[ "${ready}" == "1" ]] || fail "${EXIT_BOOT_FAILED}" \
-    "the slot runtime did not become ready on port ${MAIN_PORT} within ${BOOT_TIMEOUT}s."
-
-if [[ "${WITH_GATEWAY}" == "1" ]]; then
-    # Probe the gateway's own transform, using the same environment it serves
-    # requests with. An old image must fail before bootstrap emits any event.
-    docker exec -i "onex-api-prepr-${SLOT}" python3 - <<'PYNAMESPACE' \
-        || fail "${EXIT_PROVENANCE_MISMATCH}" "the gateway image does not implement this slot's topic namespace."
-import os
-from topic_namespace import apply_topic_namespace, strip_topic_namespace
-topic = "onex.cmd.omnimarket.delegation-requested.v1"
-physical = apply_topic_namespace(topic)
-assert physical == os.environ["KAFKA_TOPIC_NAMESPACE"] + "." + topic
-assert strip_topic_namespace(physical) == topic
-PYNAMESPACE
-    COMPOSE_PROJECT="${COMPOSE_PROJECT}" LAB_TENANT_SLUG="onex-${DB_SLOT}" \
-        bash "${REPO_ROOT}/scripts/smoke/smoke_delegation.sh" --target compose --tenant-lifecycle mint \
-        || fail "${EXIT_BOOT_FAILED}" "the slot gateway did not mint its tenant."
-fi
+[[ "${ready}" == "1" ]] || fail "${EXIT_BOOT_FAILED}" "the slot runtime did not become ready on port ${MAIN_PORT} within ${BOOT_TIMEOUT}s."
 
 RUNNING_IMAGE_DIGEST="$(docker inspect --format '{{index .Image}}' \
     "omninode-prepr-${SLOT}-runtime" 2>/dev/null || echo "")"
@@ -1003,8 +961,7 @@ mkdir -p "$(dirname "${DESCRIPTOR_OUT}")"
         "${TOPIC_NAMESPACE}" "${DB_SLOT}" "${KAFKA_ENV_TOKEN}" "${VALKEY_INDEX}"
     printf '  "ports": {"runtime_main": %s, "runtime_effects": %s, "gateway": %s, "projection_api": %s},\n' \
         "${MAIN_PORT}" "${EFFECTS_PORT}" "${GATEWAY_PORT}" "${PROJECTION_API_PORT}"
-    printf '  "gateway_started": %s,\n' "$([[ "${WITH_GATEWAY}" == "1" ]] && echo true || echo false)"
-    printf '  "gateway_image_digest": "%s",\n' "${ONEX_API_IMAGE}"
+    printf '  "gateway_started": false,\n'
     printf '  "staging_root": "%s",\n' "${STAGING_ROOT}"
     printf '  "reason": %s\n' "$("${PY}" -c 'import json,sys;print(json.dumps(sys.argv[1]))' "${REASON}")"
     printf '}\n'

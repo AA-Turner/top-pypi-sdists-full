@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Objects are now searchable both with a JMESPath expression or a dict of
-    object attributes via the
-    ``openstack.connection.Connection.search_object`` function.

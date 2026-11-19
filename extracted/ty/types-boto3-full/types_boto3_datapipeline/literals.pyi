@@ -41,6 +41,7 @@ QueryObjectsPaginatorName = Literal["query_objects"]
 TaskStatusType = Literal["FAILED", "FALSE", "FINISHED"]
 DataPipelineServiceName = Literal["datapipeline"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

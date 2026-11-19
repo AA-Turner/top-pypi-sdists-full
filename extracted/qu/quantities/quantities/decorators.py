@@ -1,10 +1,4 @@
-import inspect
-import os
-import re
-import string
-import sys
-import warnings
-from functools import partial, wraps
+from functools import wraps
 
 
 def memoize(f, cache={}):
@@ -42,11 +36,11 @@ class with_doc:
         header = self.header
 
         if original_doc and new_doc:
-            new_method.__doc__ = """
-    {}
-    {}
-    {}
-        """.format(original_doc, header, new_doc)
+            new_method.__doc__ = f"""
+    {original_doc}
+    {header}
+    {new_doc}
+        """
 
         elif original_doc:
             new_method.__doc__ = original_doc

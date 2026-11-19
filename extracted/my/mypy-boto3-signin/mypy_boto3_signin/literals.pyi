@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_signin.literals import ListResourcePermissionStatementsPaginatorName
+    from mypy_boto3_signin.literals import ClientTypeType
 
-    data: ListResourcePermissionStatementsPaginatorName = "list_resource_permission_statements"
+    data: ClientTypeType = "CLI"
     ```
 """
 
@@ -22,16 +22,23 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "ClientTypeType",
     "ListResourcePermissionStatementsPaginatorName",
+    "ListSessionsPaginatorName",
     "PaginatorName",
     "ResourceServiceName",
     "ServiceName",
+    "SessionStatusType",
     "SignInServiceServiceName",
 )
 
+ClientTypeType = Literal["CLI", "MCP"]
 ListResourcePermissionStatementsPaginatorName = Literal["list_resource_permission_statements"]
+ListSessionsPaginatorName = Literal["list_sessions"]
+SessionStatusType = Literal["ACTIVE", "REVOKED"]
 SignInServiceServiceName = Literal["signin"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -140,6 +147,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -324,6 +332,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -391,6 +400,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -471,4 +481,4 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_resource_permission_statements"]
+PaginatorName = Literal["list_resource_permission_statements", "list_sessions"]

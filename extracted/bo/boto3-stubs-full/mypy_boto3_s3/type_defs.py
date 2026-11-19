@@ -90,6 +90,7 @@ from .literals import (
     TransitionDefaultMinimumObjectSizeType,
     TransitionStorageClassType,
     TypeType,
+    UseSourceMultiRegionKeyStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -522,6 +523,10 @@ __all__ = (
     "ReplicationRuleAndOperatorTypeDef",
     "ReplicationRuleFilterOutputTypeDef",
     "ReplicationRuleFilterTypeDef",
+    "ReplicationRuleNotOperatorOutputTypeDef",
+    "ReplicationRuleNotOperatorTypeDef",
+    "ReplicationRuleOrOperatorOutputTypeDef",
+    "ReplicationRuleOrOperatorTypeDef",
     "ReplicationRuleOutputTypeDef",
     "ReplicationRuleTypeDef",
     "ReplicationTimeTypeDef",
@@ -593,6 +598,7 @@ __all__ = (
     "UploadPartOutputTypeDef",
     "UploadPartRequestMultipartUploadPartUploadTypeDef",
     "UploadPartRequestTypeDef",
+    "UseSourceMultiRegionKeyTypeDef",
     "VersioningConfigurationTypeDef",
     "WaiterConfigTypeDef",
     "WebsiteConfigurationTypeDef",
@@ -1043,8 +1049,8 @@ class DestinationResultTypeDef(TypedDict):
     TableNamespace: NotRequired[str]
 
 
-class EncryptionConfigurationTypeDef(TypedDict):
-    ReplicaKmsKeyID: NotRequired[str]
+class UseSourceMultiRegionKeyTypeDef(TypedDict):
+    Status: UseSourceMultiRegionKeyStatusType
 
 
 class EncryptionTypeDef(TypedDict):
@@ -2464,13 +2470,13 @@ class MetricsAndOperatorTypeDef(TypedDict):
     AccessPointArn: NotRequired[str]
 
 
-class ReplicationRuleAndOperatorOutputTypeDef(TypedDict):
-    Prefix: NotRequired[str]
+class ReplicationRuleOrOperatorOutputTypeDef(TypedDict):
+    Prefixes: NotRequired[list[str]]
     Tags: NotRequired[list[TagTypeDef]]
 
 
-class ReplicationRuleAndOperatorTypeDef(TypedDict):
-    Prefix: NotRequired[str]
+class ReplicationRuleOrOperatorTypeDef(TypedDict):
+    Prefixes: NotRequired[Sequence[str]]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -3030,6 +3036,11 @@ class DeleteObjectsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class EncryptionConfigurationTypeDef(TypedDict):
+    ReplicaKmsKeyID: NotRequired[str]
+    UseSourceMultiRegionKey: NotRequired[UseSourceMultiRegionKeyTypeDef]
+
+
 class S3KeyFilterOutputTypeDef(TypedDict):
     FilterRules: NotRequired[list[FilterRuleTypeDef]]
 
@@ -3513,16 +3524,16 @@ class MetricsFilterTypeDef(TypedDict):
     And: NotRequired[MetricsAndOperatorTypeDef]
 
 
-class ReplicationRuleFilterOutputTypeDef(TypedDict):
+class ReplicationRuleNotOperatorOutputTypeDef(TypedDict):
     Prefix: NotRequired[str]
     Tag: NotRequired[TagTypeDef]
-    And: NotRequired[ReplicationRuleAndOperatorOutputTypeDef]
+    Or: NotRequired[ReplicationRuleOrOperatorOutputTypeDef]
 
 
-class ReplicationRuleFilterTypeDef(TypedDict):
+class ReplicationRuleNotOperatorTypeDef(TypedDict):
     Prefix: NotRequired[str]
     Tag: NotRequired[TagTypeDef]
-    And: NotRequired[ReplicationRuleAndOperatorTypeDef]
+    Or: NotRequired[ReplicationRuleOrOperatorTypeDef]
 
 
 class PutBucketTaggingRequestBucketTaggingPutTypeDef(TypedDict):
@@ -4197,6 +4208,18 @@ class MetricsConfigurationTypeDef(TypedDict):
     Filter: NotRequired[MetricsFilterTypeDef]
 
 
+class ReplicationRuleAndOperatorOutputTypeDef(TypedDict):
+    Prefix: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+    Not: NotRequired[ReplicationRuleNotOperatorOutputTypeDef]
+
+
+class ReplicationRuleAndOperatorTypeDef(TypedDict):
+    Prefix: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    Not: NotRequired[ReplicationRuleNotOperatorTypeDef]
+
+
 class StorageClassAnalysisTypeDef(TypedDict):
     DataExport: NotRequired[StorageClassAnalysisDataExportTypeDef]
 
@@ -4341,30 +4364,6 @@ class GetBucketMetadataTableConfigurationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ReplicationRuleOutputTypeDef(TypedDict):
-    Status: ReplicationRuleStatusType
-    Destination: DestinationTypeDef
-    ID: NotRequired[str]
-    Priority: NotRequired[int]
-    Prefix: NotRequired[str]
-    Filter: NotRequired[ReplicationRuleFilterOutputTypeDef]
-    SourceSelectionCriteria: NotRequired[SourceSelectionCriteriaTypeDef]
-    ExistingObjectReplication: NotRequired[ExistingObjectReplicationTypeDef]
-    DeleteMarkerReplication: NotRequired[DeleteMarkerReplicationTypeDef]
-
-
-class ReplicationRuleTypeDef(TypedDict):
-    Status: ReplicationRuleStatusType
-    Destination: DestinationTypeDef
-    ID: NotRequired[str]
-    Priority: NotRequired[int]
-    Prefix: NotRequired[str]
-    Filter: NotRequired[ReplicationRuleFilterTypeDef]
-    SourceSelectionCriteria: NotRequired[SourceSelectionCriteriaTypeDef]
-    ExistingObjectReplication: NotRequired[ExistingObjectReplicationTypeDef]
-    DeleteMarkerReplication: NotRequired[DeleteMarkerReplicationTypeDef]
-
-
 class PutBucketOwnershipControlsRequestTypeDef(TypedDict):
     Bucket: str
     OwnershipControls: OwnershipControlsUnionTypeDef
@@ -4470,6 +4469,20 @@ MetricsConfigurationUnionTypeDef = Union[
 ]
 
 
+class ReplicationRuleFilterOutputTypeDef(TypedDict):
+    Prefix: NotRequired[str]
+    Tag: NotRequired[TagTypeDef]
+    And: NotRequired[ReplicationRuleAndOperatorOutputTypeDef]
+    Not: NotRequired[ReplicationRuleNotOperatorOutputTypeDef]
+
+
+class ReplicationRuleFilterTypeDef(TypedDict):
+    Prefix: NotRequired[str]
+    Tag: NotRequired[TagTypeDef]
+    And: NotRequired[ReplicationRuleAndOperatorTypeDef]
+    Not: NotRequired[ReplicationRuleNotOperatorTypeDef]
+
+
 class AnalyticsConfigurationOutputTypeDef(TypedDict):
     Id: str
     StorageClassAnalysis: StorageClassAnalysisTypeDef
@@ -4547,16 +4560,6 @@ class GetBucketMetadataConfigurationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ReplicationConfigurationOutputTypeDef(TypedDict):
-    Role: str
-    Rules: list[ReplicationRuleOutputTypeDef]
-
-
-class ReplicationConfigurationTypeDef(TypedDict):
-    Role: str
-    Rules: Sequence[ReplicationRuleTypeDef]
-
-
 LoggingEnabledUnionTypeDef = Union[LoggingEnabledTypeDef, LoggingEnabledOutputTypeDef]
 
 
@@ -4596,6 +4599,30 @@ class PutBucketMetricsConfigurationRequestTypeDef(TypedDict):
     Id: str
     MetricsConfiguration: MetricsConfigurationUnionTypeDef
     ExpectedBucketOwner: NotRequired[str]
+
+
+class ReplicationRuleOutputTypeDef(TypedDict):
+    Status: ReplicationRuleStatusType
+    Destination: DestinationTypeDef
+    ID: NotRequired[str]
+    Priority: NotRequired[int]
+    Prefix: NotRequired[str]
+    Filter: NotRequired[ReplicationRuleFilterOutputTypeDef]
+    SourceSelectionCriteria: NotRequired[SourceSelectionCriteriaTypeDef]
+    ExistingObjectReplication: NotRequired[ExistingObjectReplicationTypeDef]
+    DeleteMarkerReplication: NotRequired[DeleteMarkerReplicationTypeDef]
+
+
+class ReplicationRuleTypeDef(TypedDict):
+    Status: ReplicationRuleStatusType
+    Destination: DestinationTypeDef
+    ID: NotRequired[str]
+    Priority: NotRequired[int]
+    Prefix: NotRequired[str]
+    Filter: NotRequired[ReplicationRuleFilterTypeDef]
+    SourceSelectionCriteria: NotRequired[SourceSelectionCriteriaTypeDef]
+    ExistingObjectReplication: NotRequired[ExistingObjectReplicationTypeDef]
+    DeleteMarkerReplication: NotRequired[DeleteMarkerReplicationTypeDef]
 
 
 class GetBucketAnalyticsConfigurationOutputTypeDef(TypedDict):
@@ -4681,16 +4708,6 @@ InventoryConfigurationUnionTypeDef = Union[
 ]
 
 
-class GetBucketReplicationOutputTypeDef(TypedDict):
-    ReplicationConfiguration: ReplicationConfigurationOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-ReplicationConfigurationUnionTypeDef = Union[
-    ReplicationConfigurationTypeDef, ReplicationConfigurationOutputTypeDef
-]
-
-
 class BucketLoggingStatusTypeDef(TypedDict):
     LoggingEnabled: NotRequired[LoggingEnabledUnionTypeDef]
 
@@ -4709,6 +4726,16 @@ class PutBucketLifecycleRequestTypeDef(TypedDict):
 
 
 LifecycleRuleUnionTypeDef = Union[LifecycleRuleTypeDef, LifecycleRuleOutputTypeDef]
+
+
+class ReplicationConfigurationOutputTypeDef(TypedDict):
+    Role: str
+    Rules: list[ReplicationRuleOutputTypeDef]
+
+
+class ReplicationConfigurationTypeDef(TypedDict):
+    Role: str
+    Rules: Sequence[ReplicationRuleTypeDef]
 
 
 class PutBucketAnalyticsConfigurationRequestTypeDef(TypedDict):
@@ -4732,14 +4759,6 @@ class PutBucketInventoryConfigurationRequestTypeDef(TypedDict):
     ExpectedBucketOwner: NotRequired[str]
 
 
-class PutBucketReplicationRequestTypeDef(TypedDict):
-    Bucket: str
-    ReplicationConfiguration: ReplicationConfigurationUnionTypeDef
-    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
-    Token: NotRequired[str]
-    ExpectedBucketOwner: NotRequired[str]
-
-
 class PutBucketLoggingRequestBucketLoggingPutTypeDef(TypedDict):
     BucketLoggingStatus: BucketLoggingStatusTypeDef
     ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
@@ -4755,6 +4774,16 @@ class PutBucketLoggingRequestTypeDef(TypedDict):
 
 class BucketLifecycleConfigurationTypeDef(TypedDict):
     Rules: Sequence[LifecycleRuleUnionTypeDef]
+
+
+class GetBucketReplicationOutputTypeDef(TypedDict):
+    ReplicationConfiguration: ReplicationConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ReplicationConfigurationUnionTypeDef = Union[
+    ReplicationConfigurationTypeDef, ReplicationConfigurationOutputTypeDef
+]
 
 
 class NotificationConfigurationTypeDef(TypedDict):
@@ -4777,6 +4806,14 @@ class PutBucketLifecycleConfigurationRequestTypeDef(TypedDict):
     LifecycleConfiguration: NotRequired[BucketLifecycleConfigurationTypeDef]
     ExpectedBucketOwner: NotRequired[str]
     TransitionDefaultMinimumObjectSize: NotRequired[TransitionDefaultMinimumObjectSizeType]
+
+
+class PutBucketReplicationRequestTypeDef(TypedDict):
+    Bucket: str
+    ReplicationConfiguration: ReplicationConfigurationUnionTypeDef
+    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
+    Token: NotRequired[str]
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class PutBucketNotificationConfigurationRequestBucketNotificationPutTypeDef(TypedDict):

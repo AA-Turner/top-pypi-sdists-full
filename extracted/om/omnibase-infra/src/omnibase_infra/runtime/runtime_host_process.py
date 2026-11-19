@@ -49,9 +49,8 @@ import importlib
 import json
 import logging
 import os
-import random
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -81,6 +80,9 @@ from omnibase_infra.enums.generated.enum_omnibase_infra_topic import (
 )
 from omnibase_infra.errors import (
     EnvelopeValidationError,
+    InfraConnectionError,
+    InfraTimeoutError,
+    InfraUnavailableError,
     ModelInfraErrorContext,
     ProtocolConfigurationError,
     RuntimeHostError,
@@ -102,6 +104,10 @@ from omnibase_infra.gateway import (
 )
 from omnibase_infra.models import ModelNodeIdentity
 from omnibase_infra.models.dispatch.model_dispatch_result import ModelDispatchResult
+from omnibase_infra.models.model_contract_hotload_config import (
+    ModelContractHotloadConfig,
+)
+from omnibase_infra.models.runtime import ModelRuntimeNodeSelection
 from omnibase_infra.models.runtime.model_resolved_dependencies import (
     ModelResolvedDependencies,
 )
@@ -191,9 +197,15 @@ if TYPE_CHECKING:
     from omnibase_core.models.envelope.model_message_envelope import (
         ModelMessageEnvelope,
     )
+    from omnibase_core.models.events.contract_registration.model_node_announcement import (
+        ModelNodeAnnouncement,
+    )
     from omnibase_infra.event_bus.models import ModelEventMessage
     from omnibase_infra.event_bus.service_topic_manager import TopicProvisioner
     from omnibase_infra.handlers.handler_infisical import HandlerInfisical
+    from omnibase_infra.handlers.handler_runtime_introspection_startup import (
+        HandlerRuntimeIntrospectionStartup,
+    )
     from omnibase_infra.idempotency import ModelIdempotencyGuardConfig
     from omnibase_infra.idempotency.protocol_idempotency_store import (
         ProtocolIdempotencyStore,
@@ -282,17 +294,24 @@ def _current_runtime_profile_name() -> str:
     unregistered value can no longer reach a booted runtime, because
     ``load_runtime_profile`` refuses it during kernel boot.
     """
-    raw_profile = os.getenv("RUNTIME_PROFILE")
-    if raw_profile is None:
-        return "default"
-    profile = raw_profile.strip()
-    return profile.lower() if profile else "default"
+    profile = (os.getenv("RUNTIME_PROFILE") or "").strip().lower()
+    return profile or "default"
 
 
-def _runtime_profile_is_enabled(enabled_profiles: tuple[str, ...]) -> bool:
-    current_profile = _current_runtime_profile_name()
-    normalized_profiles = {profile.strip().lower() for profile in enabled_profiles}
-    return "*" in normalized_profiles or current_profile in normalized_profiles
+def _runtime_owned_service_enabled(enabled: bool, profiles: tuple[str, ...]) -> bool:
+    # OMN-22311: the local ingress and the Pattern B broker belong to the main
+    # runtime. A process bound to named contracts by ONEX_RUNTIME_NODE_SELECTION
+    # carries those contracts and nothing else (OMN-17427 AC63), so it starts
+    # neither. The broker's group carries no selection and the selected carrier
+    # shares main's KAFKA_INSTANCE_ID (OMN-19513), so the claude hook-events
+    # writer became a second member of main's broker group on a one-partition
+    # topic: on the dev lane it held the partition, main held none, and
+    # main's consumer_sync read CRITICAL. OMN-18087 AC11 scoped the kernel's own
+    # groups by the selection and did not reach this one.
+    if not enabled or ModelRuntimeNodeSelection.from_env().is_active:
+        return False
+    normalized = {profile.strip().lower() for profile in profiles}
+    return "*" in normalized or _current_runtime_profile_name() in normalized
 
 
 def _normalize_prefetch_policy(value: str) -> PrefetchPolicy:
@@ -846,7 +865,10 @@ class RuntimeHostProcess:
         dispatch_engine: MessageDispatchEngine | None = None,
         runtime_node_graph_config: ModelRuntimeNodeGraphConfig | None = None,
         prefetch_policy: PrefetchPolicy = "disabled",
+        config_prefetch_status: str = "pending",
         deployment_topology: ModelDeploymentTopology | None = None,
+        node_announcements: tuple[ModelNodeAnnouncement, ...] = (),
+        heartbeat_required: bool = False,
     ) -> None:
         """Initialize the runtime host process.
 
@@ -1026,6 +1048,12 @@ class RuntimeHostProcess:
                     - jitter_max_ms: Max jitter before publishing (default: 5000)
                     - throttle_min_interval_s: Min time between introspections (default: 10)
 
+            heartbeat_required: When True the heartbeat is mandatory (OMN-24559):
+                start() refuses without an introspection service, with introspection
+                disabled, or when the first heartbeat cannot be published, and /ready
+                carries a ``heartbeat`` row that is false while heartbeats fail.
+                Default False leaves embedded and test constructions unchanged.
+
             dispatch_engine: Optional MessageDispatchEngine for category-based routing.
                 Type: MessageDispatchEngine | None
 
@@ -1039,6 +1067,10 @@ class RuntimeHostProcess:
                     The dispatch engine must be frozen (freeze() called) before
                     RuntimeHostProcess.start() is invoked. The kernel handles this
                     by freezing after all plugins have registered their dispatchers.
+
+            config_prefetch_status: Outcome of kernel prefetch, when configuration
+                was resolved before auto-wiring. Startup retains it instead
+                of reading secrets again after membership was decided.
 
             deployment_topology: Authoritative checked-in application database
                 topology. Required for dynamic or filesystem-discovered contracts
@@ -1071,7 +1103,7 @@ class RuntimeHostProcess:
 
         # Config prefetch status (OMN-3902): tracks Infisical prefetch outcome.
         # Vocabulary: pending | skipped | ok | degraded_no_requirements | degraded_error
-        self._config_prefetch_status: str = "pending"
+        self._config_prefetch_status: str = config_prefetch_status
         # Prefetch policy from runtime profile (OMN-10587).
         # Vocabulary: disabled | best_effort | required
         self._prefetch_policy: PrefetchPolicy = _normalize_prefetch_policy(
@@ -1473,6 +1505,7 @@ class RuntimeHostProcess:
         self._introspection_service: ProtocolNodeIntrospection | None = (
             introspection_service
         )
+        self._node_announcements = node_announcements
 
         # Introspection configuration for jitter, throttle, and heartbeat timing (OMN-1930)
         # Import at runtime to avoid circular import
@@ -1481,6 +1514,15 @@ class RuntimeHostProcess:
         )
 
         self._introspection_config: _Config = introspection_config or _Config()
+        self._heartbeat_required = heartbeat_required
+        if heartbeat_required:
+            self.register_readiness_probe(
+                "heartbeat",
+                lambda: self._startup_handler().heartbeat_readiness(
+                    service=self._introspection_service,
+                    config=self._introspection_config,
+                ),
+            )
 
         # Tracks last introspection time for throttling (OMN-1930)
         # Uses time.monotonic() for reliable elapsed time measurement
@@ -1939,6 +1981,12 @@ class RuntimeHostProcess:
 
         assert_venv_purity()
 
+        # Step 0c: Resolve the contract hot-load gate once (OMN-20079). A switch that
+        # is on in an environment the declared allowlist does not name (or in an
+        # unset environment), or a malformed block, fails the boot here, before
+        # architecture validation, the event bus or any wiring.
+        self._resolve_contract_hotload_gate()
+
         # Step 1: Validate architecture compliance FIRST (OMN-1138)
         # This runs before event bus starts or handlers are wired to ensure
         # clean failure without partial state if validation fails
@@ -1974,10 +2022,9 @@ class RuntimeHostProcess:
         # through HandlerInfisical. Prefetched values are applied to the
         # process environment so downstream steps can read them.
         #
-        # NOTE: This MUST run after Step 4 (_populate_handlers_from_registry)
-        # because it searches self._handlers for a HandlerInfisical instance.
-        # Handlers are not available until the registry has been populated.
-        await self._prefetch_config_from_infisical()
+        # The kernel may have already prefetched before auto-wiring's secret
+        # gate. Reuse that outcome instead of changing secrets after wiring.
+        await self.prefetch_config()
 
         # Step 4.1: FAIL-FAST validation - runtime MUST have at least one handler
         # A runtime with no handlers cannot process any events and is misconfigured.
@@ -2082,7 +2129,7 @@ class RuntimeHostProcess:
         # Subscribes to onex.evt.platform.node-registration.v1 AFTER the dispatch
         # engine is frozen. Routes incoming events to on_contract_registered()
         # then live materializes the handler into the frozen engine.
-        # No-op when KafkaContractSource is not configured.
+        # No-op unless contract_hotload.enabled is true (OMN-20079).
         await self._start_dynamic_contract_listener()
 
         # Step 4.5: Initialize idempotency store if configured (OMN-945)
@@ -2143,9 +2190,15 @@ class RuntimeHostProcess:
         # Announces node presence to the platform after handlers are wired.
         # Jitter prevents thundering herd when many nodes restart together.
         # This runs AFTER _is_running=True so the node is fully operational.
-        await self._publish_introspection_with_jitter(
-            correlation_id=startup_correlation_id
-        )
+        # OMN-24559: a refusal rolls the running flag back; the handler stops the
+        # heartbeat task it started.
+        try:
+            await self._publish_introspection_with_jitter(
+                correlation_id=startup_correlation_id
+            )
+        except Exception:
+            self._is_running = False
+            raise
 
         logger.info(
             "RuntimeHostProcess started successfully",
@@ -2607,14 +2660,12 @@ class RuntimeHostProcess:
         )
 
     def _is_local_ingress_effectively_enabled(self) -> bool:
-        return self._local_ingress_config.enabled and _runtime_profile_is_enabled(
-            self._local_ingress_config.enabled_profiles
-        )
+        config = self._local_ingress_config
+        return _runtime_owned_service_enabled(config.enabled, config.enabled_profiles)
 
     def _is_pattern_b_broker_effectively_enabled(self) -> bool:
-        return self._pattern_b_broker_config.enabled and _runtime_profile_is_enabled(
-            self._pattern_b_broker_config.enabled_profiles
-        )
+        config = self._pattern_b_broker_config
+        return _runtime_owned_service_enabled(config.enabled, config.enabled_profiles)
 
     async def dispatch_local_ingress_request(
         self,
@@ -3940,65 +3991,14 @@ class RuntimeHostProcess:
         node_name: str,
         correlation_id: UUID,
     ) -> None:
-        """Publish a CAPABILITY_CHANGE introspection event for a live-materialized handler.
-
-        Idempotency: skips if ``node_name`` has already been announced during
-        this runtime boot (prevents introspection spam from Kafka replays).
-
-        Bypasses jitter/throttle: capability changes announce immediately since
-        consumers reacting to CAPABILITY_CHANGE may send traffic right away.
-
-        This is a no-op if:
-        - ``_introspection_service`` is None
-        - introspection is disabled by config
-        - ``node_name`` was already announced
-
-        Args:
-            node_name: Handler node name that was materialized.
-            correlation_id: Correlation ID for distributed tracing.
-
-        .. versionadded:: 0.9.0
-            Added as part of OMN-1989 live contract materialization.
-        """
-        if self._introspection_service is None:
-            return
-
-        if not self._introspection_config.enabled:
-            return
-
-        if node_name in self._announced_capabilities:
-            logger.debug(
-                "CAPABILITY_CHANGE already announced, skipping",
-                extra={
-                    "node_name": node_name,
-                    "correlation_id": str(correlation_id),
-                },
-            )
-            return
-
-        try:
-            await self._introspection_service.publish_introspection(
-                reason=EnumIntrospectionReason.CAPABILITY_CHANGE,
-                correlation_id=correlation_id,
-            )
-            self._announced_capabilities.add(node_name)
-
-            logger.info(
-                "CAPABILITY_CHANGE introspection published",
-                extra={
-                    "node_name": node_name,
-                    "correlation_id": str(correlation_id),
-                },
-            )
-        except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
-            logger.warning(
-                "Failed to publish CAPABILITY_CHANGE introspection",
-                extra={
-                    "node_name": node_name,
-                    "error": str(e),
-                    "correlation_id": str(correlation_id),
-                },
-            )
+        """Publish a CAPABILITY_CHANGE introspection event (handler owns the rules)."""
+        await self._startup_handler().publish_capability_change(
+            service=self._introspection_service,
+            config=self._introspection_config,
+            announced=self._announced_capabilities,
+            node_name=node_name,
+            correlation_id=correlation_id,
+        )
 
     async def _materialize_dependencies(self) -> None:
         """Materialize infrastructure resources from contract dependencies.
@@ -4031,379 +4031,31 @@ class RuntimeHostProcess:
                 },
             )
 
-    async def _prefetch_config_from_infisical(self) -> None:
-        """Prefetch configuration values from Infisical (OMN-2287, OMN-10587).
+    async def prefetch_config(self) -> None:
+        """Prefetch once, before the kernel gates contracts or standalone startup.
 
-        Gated by the runtime profile's ``prefetch_policy``:
-            * ``"disabled"``    -- skipped entirely regardless of INFISICAL_ADDR.
-            * ``"best_effort"`` -- runs; missing/errored keys are logged as
-                                   structured warnings and boot continues.
-            * ``"required"``    -- runs; raises ``ProtocolConfigurationError``
-                                   if any key is missing or errors.
-
-        The policy is set in ``ModelRuntimeProfile`` and loaded by the kernel
-        from the ``RUNTIME_PROFILE`` environment variable before constructing
-        ``RuntimeHostProcess``.  Defaults to ``"disabled"`` (no change for
-        local-dev / unset profile).
-
-        Steps:
-            1. Check ``prefetch_policy``; skip if ``"disabled"``
-            2. Check ``INFISICAL_ADDR`` env var (opt-in gate)
-            3. Extract config requirements from discovered contracts
-            4. Build transport specs via ``TransportConfigMap``
-            5. Prefetch values through ``HandlerInfisical``
-            6. Apply resolved values to process environment
-            7. If ``"required"`` and any missing/errors: raise
+        Before handler population the prefetch step constructs its own Infisical
+        handler. Startup reuses the outcome, including best-effort failures.
         """
-        if self._prefetch_policy == "disabled":
-            logger.debug(
-                "Config prefetch disabled by runtime profile (prefetch_policy=disabled)"
-            )
-            self._config_prefetch_status = "skipped"
-            return
+        if self._config_prefetch_status == "pending":
+            await self._prefetch_config_from_infisical()
 
-        infisical_addr = os.environ.get("INFISICAL_ADDR", "")
-        if not infisical_addr:
-            logger.debug("INFISICAL_ADDR not set, skipping config prefetch")
-            self._config_prefetch_status = "skipped"
-            return
-
-        # OMN-3893: Decouple prefetch contract scan from handler contract paths.
-        # Previously this used self._contract_paths which points at handler
-        # contracts (e.g. /app/contracts) — those have no transport_type and
-        # the extractor finds nothing.  Now we always scan the installed
-        # omnibase_infra package tree for node contracts, with an env var
-        # escape hatch for custom deployments.
-        env_override = os.environ.get("ONEX_NODE_CONTRACTS_DIR", "")
-        if env_override:
-            effective_contract_paths: list[Path] = [Path(env_override)]
-            logger.debug(
-                "Using ONEX_NODE_CONTRACTS_DIR override for prefetch: %s",
-                env_override,
-            )
-        else:
-            import omnibase_infra as _pkg
-
-            package_root = Path(_pkg.__file__).parent
-            logger.debug(
-                "Auto-discovering node contracts under package root: %s",
-                package_root,
-            )
-            effective_contract_paths = [package_root]
-
-        try:
-            from omnibase_infra.runtime.config_discovery.config_prefetcher import (
-                ConfigPrefetcher,
-            )
-            from omnibase_infra.runtime.config_discovery.contract_config_extractor import (
-                ContractConfigExtractor,
-            )
-
-            # Step 1: Extract config requirements from contracts
-            extractor = ContractConfigExtractor()
-            requirements = extractor.extract_from_paths(effective_contract_paths)
-            extraction_had_errors = bool(requirements.errors)
-
-            if extraction_had_errors:
-                for err in requirements.errors:
-                    logger.warning(
-                        "Config extraction error: %s",
-                        sanitize_error_string(err),
-                    )
-
-            if not requirements.requirements:
-                logger.warning(
-                    "No config requirements found in node contracts — prefetch "
-                    "will be a no-op.  Scanned paths: %s.  This usually means "
-                    "node contract YAML files are missing transport_type or "
-                    "config_requirements sections.",
-                    [str(p) for p in effective_contract_paths],
-                )
-                self._config_prefetch_status = (
-                    "degraded_error"
-                    if extraction_had_errors
-                    else "degraded_no_requirements"
-                )
-                return
-
-            # Step 2: Get or create a ProtocolSecretResolver
-            # First, try to find an already-initialized HandlerInfisical in the
-            # handler registry. If not found (typical case -- HandlerInfisical
-            # is not contract-declared), construct a HandlerInfisical directly
-            # from env vars so the prefetch is not a no-op.
-            from omnibase_infra.runtime.config_discovery.models import (
-                ProtocolSecretResolver,
-            )
-
-            handler: ProtocolSecretResolver | None = None
-            for h in self._handlers.values():
-                if isinstance(h, ProtocolSecretResolver):
-                    handler = h
-                    logger.debug(
-                        "Found ProtocolSecretResolver in handler registry: %s",
-                        type(h).__name__,
-                    )
-                    break
-
-            # Track any inline handler created below so we can shut it down
-            # after prefetch, regardless of success or failure.
-            # HandlerInfisical is not contract-declared in the typical case,
-            # so we construct one directly from env vars when not found in the
-            # handler registry. HandlerInfisical is the correct public API --
-            # AdapterInfisical lives in _internal/ and must not be imported here.
-            from omnibase_infra.handlers.handler_infisical import HandlerInfisical
-
-            _inline_handler: HandlerInfisical | None = None
-
-            # Load credentials unconditionally so they are always defined for
-            # the type checker. These are only meaningful when handler is None
-            # (i.e. when we construct an inline HandlerInfisical below), but
-            # initialising them here avoids potential UnboundLocalError if the
-            # control flow ever changes, and keeps mypy/pyright happy.
-            client_id = os.environ.get("INFISICAL_CLIENT_ID", "")
-            client_secret = os.environ.get("INFISICAL_CLIENT_SECRET", "")
-            project_id = os.environ.get("INFISICAL_PROJECT_ID", "")
-            env_slug = os.environ.get("INFISICAL_ENVIRONMENT", "prod")
-
-            if handler is None:
-                # Build a HandlerInfisical from env vars.  This avoids
-                # depending on the handler registry which may not contain
-                # HandlerInfisical if it is not contract-declared.
-                if not client_id or not client_secret or not project_id:
-                    logger.info(
-                        "Infisical credentials not fully configured "
-                        "(INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, "
-                        "INFISICAL_PROJECT_ID required), skipping config prefetch"
-                    )
-                    self._config_prefetch_status = "skipped"
-                    return
-
-                from omnibase_core.container import ModelONEXContainer as _Container
-
-                # Use the existing container if available, otherwise create a
-                # minimal one solely for HandlerInfisical initialization.
-                _handler_container = (
-                    self._container if self._container is not None else _Container()
-                )
-                _inline_handler = HandlerInfisical(_handler_container)
-
-            try:
-                if _inline_handler is not None:
-                    await _inline_handler.initialize(
-                        {
-                            "host": infisical_addr,
-                            "client_id": client_id,
-                            "client_secret": client_secret,
-                            "project_id": project_id,
-                            "environment_slug": env_slug,
-                        }
-                    )
-                    handler = _inline_handler
-                    logger.info("Built HandlerInfisical for config prefetch")
-
-                # Step 3: Prefetch through the handler
-                # At this point handler is guaranteed non-None: if the original
-                # handler was None and credentials were missing we returned early
-                # above; if credentials were present _inline_handler was built and
-                # assigned to handler inside the if-block above.
-                assert handler is not None
-
-                service_slug = self._node_identity.service
-                infisical_required = os.environ.get(
-                    "INFISICAL_REQUIRED", ""
-                ).lower() in (
-                    "true",
-                    "1",
-                    "yes",
-                )
-
-                prefetcher = ConfigPrefetcher(
-                    handler=handler,
-                    service_slug=service_slug,
-                    infisical_required=infisical_required,
-                )
-                result = prefetcher.prefetch(requirements)
-
-                # Step 4: Apply to environment
-                applied = prefetcher.apply_to_environment(result)
-
-                self._config_prefetch_status = (
-                    "degraded_error" if extraction_had_errors or result.errors else "ok"
-                )
-                logger.info(
-                    "Config prefetch complete",
-                    extra={
-                        "resolved": result.success_count,
-                        "missing": len(result.missing),
-                        "errors": len(result.errors),
-                        "applied_to_env": applied,
-                        "prefetch_policy": self._prefetch_policy,
-                    },
-                )
-
-                if result.errors:
-                    for key, err in result.errors.items():
-                        logger.warning(
-                            "Config prefetch error for %s: %s",
-                            key,
-                            sanitize_error_string(err),
-                        )
-
-                # Step 5: Enforce policy after reporting
-                if self._prefetch_policy == "required":
-                    problem_keys: list[str] = list(result.missing) + list(
-                        result.errors.keys()
-                    )
-                    if problem_keys:
-                        context = ModelInfraErrorContext.with_correlation(
-                            transport_type=EnumInfraTransportType.RUNTIME,
-                            operation="prefetch_config_from_infisical",
-                        )
-                        raise ProtocolConfigurationError(
-                            f"Config prefetch policy='required' — missing keys: "
-                            f"{', '.join(sorted(problem_keys))}",
-                            context=context,
-                        )
-
-                # Step 5.5: Validate declared-required secrets (OMN-14951).
-                # Distinct gate from Step 1-5 above: those validate the
-                # ContractConfigExtractor's contract-scanned config_requirements;
-                # this validates the SecretResolver's authoritative
-                # required_secrets set (ModelSecretResolverConfig), rendered to
-                # ONEX_SECRET_RESOLVER_CONFIG_PATH by
-                # render_secret_resolver_config.py at deploy time. No-op when a
-                # lane has not opted in (no rendered config, or an empty
-                # required_secrets list), so lanes that have not adopted the
-                # declared-required-key contract are unaffected.
-                self._validate_required_secrets_via_resolver(handler)
-            finally:
-                # Always shut down the inline handler to release SDK resources.
-                # Handlers found in the handler registry manage their own lifecycle
-                # and must NOT be shut down here.
-                if _inline_handler is not None:
-                    await _inline_handler.shutdown()
-
-        except ProtocolConfigurationError:
-            # Required-policy failures are fatal — re-raise so the kernel
-            # can surface the named missing keys to the operator.
-            raise
-        except Exception as exc:  # noqa: BLE001 — boundary: catch-all for resilience
-            context = ModelInfraErrorContext.with_correlation(
-                transport_type=EnumInfraTransportType.RUNTIME,
-                operation="prefetch_config_from_infisical",
-            )
-            # Prefetch failures are non-fatal.
-            # Sanitize the error to avoid leaking secrets (e.g. connection
-            # strings embedded in exception messages).  Do NOT use
-            # exc_info=True here because the full traceback may contain
-            # locals with secret values.
-            self._config_prefetch_status = "degraded_error"
-            logger.warning(
-                "Config prefetch failed (non-fatal)",
-                extra={
-                    "error": sanitize_error_message(exc),
-                    "correlation_id": str(context.correlation_id),
-                },
-            )
+    async def _prefetch_config_from_infisical(self) -> None:
+        """Resolve standalone config through the kernel's prefetch function."""
+        self._config_prefetch_status = await prefetch_runtime_config(
+            container=self._container,
+            service_slug=self._node_identity.service,
+            prefetch_policy=self._prefetch_policy,
+            handlers=self._handlers,
+        )
 
     def _validate_required_secrets_via_resolver(
         self, infisical_handler: ProtocolSecretResolver
     ) -> None:
-        """Validate the SecretResolver's declared-required key set (OMN-14951).
-
-        Extends the existing ``SecretResolver`` / ``ModelSecretResolverConfig``
-        machinery rather than adding a parallel gate: loads the rendered
-        secret-resolver config from ``ONEX_SECRET_RESOLVER_CONFIG_PATH`` (the
-        artifact ``render_secret_resolver_config.py`` already produces at
-        deploy time from a lane's ``ONEX_SECRET_RESOLVER_CONFIG_JSON``
-        overlay) and, when it declares ``required_secrets``, calls
-        ``SecretResolver.validate_required_secrets()`` to fail loudly naming
-        every missing/unreachable key at once.
-
-        No-op (returns without raising) when:
-            * ``ONEX_SECRET_RESOLVER_CONFIG_PATH`` is unset or empty, or
-            * the file does not exist (lane has not rendered a config), or
-            * the config renders but declares no ``required_secrets`` (lane
-              has not opted into the gate).
-
-        A malformed rendered config is logged as a non-fatal warning rather
-        than raised: the config is validated on write by
-        ``render_secret_resolver_config.py`` (which already enforces
-        ``ModelSecretResolverConfig``'s ``required_secrets``-must-map-to-
-        Infisical invariant at render/deploy time), so an unreadable file here
-        indicates deploy-time tampering/corruption rather than a routing
-        defect this gate is responsible for catching.
-
-        Policy semantics mirror Step 5 above (``self._prefetch_policy``):
-        ``"required"`` promotes a gate failure to a fatal
-        ``ProtocolConfigurationError`` naming every offending key;
-        ``"best_effort"``/``"disabled"`` log a structured warning and let boot
-        continue.
-
-        Args:
-            infisical_handler: The already-constructed ``HandlerInfisical``
-                used for Step 1-5's ``ConfigPrefetcher`` prefetch above. Reused
-                here rather than opening a second Infisical connection.
-        """
-        config_path_raw = resolve_secret_resolver_config_path()
-        if not config_path_raw:
-            return
-        config_path = Path(config_path_raw)
-        if not config_path.exists():
-            return
-
-        try:
-            raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-            if not isinstance(raw, dict):
-                raise ValueError(
-                    "rendered secret resolver config must have a mapping root"
-                )
-            secret_resolver_config = ModelSecretResolverConfig.model_validate(raw)
-        except Exception as exc:  # noqa: BLE001 — boundary: config load/parse
-            logger.warning(
-                "Failed to load rendered secret resolver config at %s for "
-                "required_secrets validation (non-fatal): %s",
-                config_path_raw,
-                sanitize_error_message(exc),
-            )
-            return
-
-        if not secret_resolver_config.required_secrets:
-            return
-
-        # SecretResolver's constructor is typed against the concrete
-        # HandlerInfisical (it also drives the async execute()-based path
-        # elsewhere in that class), while this call site only has the
-        # narrower ProtocolSecretResolver interface used elsewhere in this
-        # module (matches ConfigPrefetcher's own handler typing above). The
-        # object passed here is always a real HandlerInfisical at runtime --
-        # this method is only ever called with the handler built/found a few
-        # lines above in _prefetch_config_from_infisical. Only the sync
-        # get_secret_sync() path (validate_required_secrets ->
-        # get_secret -> _resolve_secret) is exercised here, which
-        # ProtocolSecretResolver already covers structurally.
-        resolver = SecretResolver(
-            config=secret_resolver_config,
-            infisical_handler=cast("HandlerInfisical", infisical_handler),
+        """Validate standalone runtime secrets with the shared prefetch policy."""
+        _validate_prefetched_required_secrets(
+            infisical_handler, prefetch_policy=self._prefetch_policy
         )
-        try:
-            resolver.validate_required_secrets()
-        except SecretResolutionError as exc:
-            if self._prefetch_policy == "required":
-                context = ModelInfraErrorContext.with_correlation(
-                    transport_type=EnumInfraTransportType.RUNTIME,
-                    operation="validate_required_secrets",
-                )
-                raise ProtocolConfigurationError(
-                    f"Required-secrets presence gate failed (OMN-14951): {exc}",
-                    context=context,
-                ) from exc
-            logger.warning(
-                "Required-secrets presence gate failed but prefetch_policy=%r "
-                "tolerates it (non-fatal, OMN-14951): %s",
-                self._prefetch_policy,
-                sanitize_error_message(exc),
-            )
 
     async def _resolve_handler_dependencies(
         self,
@@ -6180,6 +5832,17 @@ class RuntimeHostProcess:
         self._container = ModelONEXContainer()
         return self._container
 
+    def _resolve_contract_hotload_gate(self) -> ModelContractHotloadConfig:
+        """Read ``contract_hotload`` once; start() step 0c decides, later steps follow."""
+        gate = getattr(self, "_contract_hotload_gate", None)
+        gate = gate or ModelContractHotloadConfig.from_runtime_config(
+            getattr(self, "_config", None),
+            os.getenv("ONEX_ENVIRONMENT", ""),
+            self._get_environment_from_config(),
+        )
+        self._contract_hotload_gate = gate
+        return gate
+
     def _get_environment_from_config(self) -> str:
         """Extract environment setting from config with consistent fallback.
 
@@ -6486,6 +6149,13 @@ class RuntimeHostProcess:
             )
             return
 
+        # Guard: contract hot loading is off unless the runtime config opts in
+        # (OMN-20079). contract-registered.v1 would otherwise cache and
+        # materialize any parseable contract it carries.
+        if not self._resolve_contract_hotload_gate().enabled:
+            logger.info("Baseline hot-load subscriptions off: not enabled")
+            return
+
         # Guard: only wire if KafkaContractSource is active
         if self._kafka_contract_source is None:
             logger.debug(
@@ -6693,14 +6363,18 @@ class RuntimeHostProcess:
         events through on_contract_registered() then live handler materialization.
 
         No-op when:
+        - ``contract_hotload.enabled`` is not true (the default; OMN-20079)
         - _event_bus is None
 
-        The runtime trusts events on this topic as pre-validated by omnimarket.
-        No local policy enforcement — only cache + materialize.
+        Once enabled, events on this topic are trusted as pre-validated.
 
         .. versionadded:: 0.9.4
             Added as part of OMN-11247 post-freeze dynamic contract registration.
         """
+        if not self._resolve_contract_hotload_gate().enabled:
+            logger.info("Dynamic contract listener off: contract_hotload not enabled")
+            return
+
         if self._event_bus is None:
             logger.debug("Skipping dynamic contract listener: no event bus available")
             return
@@ -6730,12 +6404,50 @@ class RuntimeHostProcess:
             version=self._node_identity.version,
         )
 
-        self._dynamic_contract_unsubscribe = await self._event_bus.subscribe(
-            topic=SUFFIX_NODE_REGISTRATION,
-            node_identity=listener_identity,
-            on_message=self._on_dynamic_contract_event,
-            purpose=EnumConsumerGroupPurpose.CONSUME,
+        from omnibase_infra.models.model_event_bus_recovery_config import (
+            ModelEventBusRecoveryConfig,
         )
+
+        recovery = ModelEventBusRecoveryConfig.from_runtime_config(self._config)
+        delay = recovery.initial_backoff_seconds
+        while True:
+            try:
+                attempt_deadline = asyncio.timeout(recovery.attempt_timeout_seconds)
+                async with attempt_deadline:
+                    self._dynamic_contract_unsubscribe = (
+                        await self._event_bus.subscribe(
+                            topic=SUFFIX_NODE_REGISTRATION,
+                            node_identity=listener_identity,
+                            on_message=self._on_dynamic_contract_event,
+                            purpose=EnumConsumerGroupPurpose.CONSUME,
+                        )
+                    )
+                break
+            except (
+                InfraConnectionError,
+                InfraTimeoutError,
+                InfraUnavailableError,
+                TimeoutError,
+            ) as exc:
+                if isinstance(exc, TimeoutError) and not attempt_deadline.expired():
+                    # A TimeoutError from inside subscribe that is not this
+                    # attempt's own deadline is not a transient join failure.
+                    raise
+                # A late registration join used to unwind start(), closing all
+                # already-live delegation consumers after a lengthy cold boot.
+                # Keep startup/readiness pending and retry this listener only.
+                # Cancellation still propagates immediately on runtime shutdown.
+                logger.warning(
+                    "Dynamic contract listener unavailable; keeping existing "
+                    "consumers and retrying in %ss: %s",
+                    delay,
+                    sanitize_error_message(exc),
+                )
+                await asyncio.sleep(delay)
+                delay = min(
+                    delay * recovery.backoff_multiplier,
+                    recovery.max_backoff_seconds,
+                )
 
         logger.info(
             "Dynamic contract registration listener started",
@@ -6980,115 +6692,49 @@ class RuntimeHostProcess:
             self._idempotency_store = None
             self._idempotency_config = None
 
+    def _startup_handler(self) -> HandlerRuntimeIntrospectionStartup:
+        """The startup introspection handler (imported lazily: it imports models)."""
+        from omnibase_infra.handlers.handler_runtime_introspection_startup import (
+            HandlerRuntimeIntrospectionStartup,
+        )
+
+        return HandlerRuntimeIntrospectionStartup()
+
     async def _publish_introspection_with_jitter(
         self,
         correlation_id: UUID,
     ) -> None:
-        """Publish introspection event with jitter for stampede prevention (OMN-1930).
+        """Publish startup introspection and start the heartbeat (OMN-1930, OMN-24496).
 
-        This method announces node presence to the platform after handlers are
-        wired. It implements two key protections:
-
-        1. **Jitter**: Random delay before publishing to prevent thundering herd
-           when many nodes restart simultaneously (e.g., cluster restart or
-           rolling deployment).
-
-        2. **Throttling**: Skips introspection if the last one was too recent,
-           preventing stampede during rapid restart cycles.
-
-        After publishing the initial introspection event, this method also starts
-        the heartbeat background task for periodic liveness announcements.
+        Delegates to ``HandlerRuntimeIntrospectionStartup``, which applies the
+        jitter and throttle protections and starts the heartbeat task after a
+        successful publish; a heartbeat that cannot start refuses the startup
+        with ``RuntimeHeartbeatRequiredError``. A no-op when introspection is
+        not configured, disabled, or throttled.
 
         Args:
             correlation_id: Correlation ID for distributed tracing.
-
-        Note:
-            This method is a no-op if:
-            - introspection_service is None (not injected)
-            - introspection_config.enabled is False
-            - Throttle check fails (last introspection too recent)
-
-        Example:
-            Called automatically by start() after handlers are wired::
-
-                await self._publish_introspection_with_jitter(
-                    correlation_id=startup_correlation_id
-                )
         """
-        # Guard: Skip if introspection not configured
-        if self._introspection_service is None:
-            logger.debug("Introspection service not configured, skipping")
-            return
+        from omnibase_infra.handlers.handler_registration_from_announcement.handler import (
+            HandlerRegistrationFromAnnouncement,
+        )
+        from omnibase_infra.models.model_runtime_introspection_startup_request import (
+            ModelRuntimeIntrospectionStartupRequest,
+        )
 
-        if not self._introspection_config.enabled:
-            logger.debug("Introspection disabled by config, skipping")
-            return
-
-        # Throttle check: Skip if last introspection was too recent
-        if self._last_introspection_time is not None:
-            elapsed = time.monotonic() - self._last_introspection_time
-            if elapsed < self._introspection_config.throttle_min_interval_s:
-                logger.debug(
-                    "Introspection throttled",
-                    extra={
-                        "elapsed_seconds": elapsed,
-                        "throttle_min_interval_s": (
-                            self._introspection_config.throttle_min_interval_s
-                        ),
-                    },
-                )
-                return
-
-        # Apply jitter: Random delay to prevent thundering herd
-        jitter_ms = random.randint(0, self._introspection_config.jitter_max_ms)
-        if jitter_ms > 0:
-            logger.debug(
-                "Applying introspection jitter",
-                extra={"jitter_ms": jitter_ms},
-            )
-            await asyncio.sleep(jitter_ms / 1000.0)
-
-        # Publish introspection event
-        try:
-            await self._introspection_service.publish_introspection(
-                reason=EnumIntrospectionReason.STARTUP,
+        result = await self._startup_handler().handle(
+            ModelRuntimeIntrospectionStartupRequest(
                 correlation_id=correlation_id,
-            )
-
-            # Record time for throttle tracking immediately after publish
-            self._last_introspection_time = time.monotonic()
-
-            logger.info(
-                "Startup introspection published",
-                extra={
-                    "correlation_id": str(correlation_id),
-                    "jitter_ms": jitter_ms,
-                },
-            )
-
-        except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
-            # Log warning but don't fail startup - introspection is optional
-            logger.warning(
-                "Failed to publish startup introspection",
-                extra={
-                    "error": str(e),
-                    "correlation_id": str(correlation_id),
-                },
-            )
-            return
-
-        # Start heartbeat task for periodic liveness announcements
-        # Separate try block: heartbeat failure shouldn't affect throttle tracking
-        try:
-            await self._introspection_service.start_heartbeat_task()
-        except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
-            logger.warning(
-                "Failed to start heartbeat task",
-                extra={
-                    "error": str(e),
-                    "correlation_id": str(correlation_id),
-                },
-            )
+                announcements=self._node_announcements,
+                last_introspection_time=self._last_introspection_time,
+                heartbeat_required=self._heartbeat_required,
+            ),
+            service=self._introspection_service,
+            config=self._introspection_config,
+            event_bus=self._event_bus,
+            build_events=HandlerRegistrationFromAnnouncement.build_events,
+        )
+        self._last_introspection_time = result.last_introspection_time
 
     # =========================================================================
     # Gateway Methods (OMN-1899)
@@ -7761,7 +7407,388 @@ class RuntimeHostProcess:
             self._idempotency_store = None
 
 
+async def prefetch_runtime_config(
+    *,
+    container: ModelONEXContainer | None,
+    service_slug: str,
+    prefetch_policy: PrefetchPolicy,
+    handlers: Mapping[str, ProtocolContainerAware] | None = None,
+) -> str:
+    """Prefetch configuration values from Infisical (OMN-2287, OMN-10587).
+
+    Gated by the runtime profile's ``prefetch_policy``:
+        * ``"disabled"``    -- skipped entirely regardless of INFISICAL_ADDR.
+        * ``"best_effort"`` -- runs; missing/errored keys are logged as
+                               structured warnings and boot continues.
+        * ``"required"``    -- runs; raises ``ProtocolConfigurationError``
+                               if any key is missing or errors.
+
+    The policy is set in ``ModelRuntimeProfile`` and loaded by the kernel
+    from the ``RUNTIME_PROFILE`` environment variable before constructing
+    ``RuntimeHostProcess``.  Defaults to ``"disabled"`` (no change for
+    local-dev / unset profile).
+
+    Steps:
+        1. Check ``prefetch_policy``; skip if ``"disabled"``
+        2. Check ``INFISICAL_ADDR`` env var (opt-in gate)
+        3. Extract config requirements from discovered contracts
+        4. Build transport specs via ``TransportConfigMap``
+        5. Prefetch values through ``HandlerInfisical``
+        6. Apply resolved values to process environment
+        7. If ``"required"`` and any missing/errors: raise
+    """
+    status = "pending"
+    if prefetch_policy == "disabled":
+        logger.debug(
+            "Config prefetch disabled by runtime profile (prefetch_policy=disabled)"
+        )
+        status = "skipped"
+        return status
+
+    infisical_addr = os.environ.get("INFISICAL_ADDR", "")
+    if not infisical_addr:
+        logger.debug("INFISICAL_ADDR not set, skipping config prefetch")
+        status = "skipped"
+        return status
+
+    # OMN-3893: Decouple prefetch contract scan from handler contract paths.
+    # Previously this used self._contract_paths which points at handler
+    # contracts (e.g. /app/contracts) — those have no transport_type and
+    # the extractor finds nothing.  Now we always scan the installed
+    # omnibase_infra package tree for node contracts, with an env var
+    # escape hatch for custom deployments.
+    env_override = os.environ.get("ONEX_NODE_CONTRACTS_DIR", "")
+    if env_override:
+        effective_contract_paths: list[Path] = [Path(env_override)]
+        logger.debug(
+            "Using ONEX_NODE_CONTRACTS_DIR override for prefetch: %s",
+            env_override,
+        )
+    else:
+        import omnibase_infra as _pkg
+
+        package_root = Path(_pkg.__file__).parent
+        logger.debug(
+            "Auto-discovering node contracts under package root: %s",
+            package_root,
+        )
+        effective_contract_paths = [package_root]
+
+    try:
+        from omnibase_infra.runtime.config_discovery.config_prefetcher import (
+            ConfigPrefetcher,
+        )
+        from omnibase_infra.runtime.config_discovery.contract_config_extractor import (
+            ContractConfigExtractor,
+        )
+
+        # Step 1: Extract config requirements from contracts
+        extractor = ContractConfigExtractor()
+        requirements = extractor.extract_from_paths(effective_contract_paths)
+        extraction_had_errors = bool(requirements.errors)
+
+        if extraction_had_errors:
+            for err in requirements.errors:
+                logger.warning(
+                    "Config extraction error: %s",
+                    sanitize_error_string(err),
+                )
+
+        if not requirements.requirements:
+            logger.warning(
+                "No config requirements found in node contracts — prefetch "
+                "will be a no-op.  Scanned paths: %s.  This usually means "
+                "node contract YAML files are missing transport_type or "
+                "config_requirements sections.",
+                [str(p) for p in effective_contract_paths],
+            )
+            status = (
+                "degraded_error"
+                if extraction_had_errors
+                else "degraded_no_requirements"
+            )
+            return status
+
+        # Step 2: Get or create a ProtocolSecretResolver
+        # First, try to find an already-initialized HandlerInfisical in the
+        # handler registry. If not found (typical case -- HandlerInfisical
+        # is not contract-declared), construct a HandlerInfisical directly
+        # from env vars so the prefetch is not a no-op.
+        from omnibase_infra.runtime.config_discovery.models import (
+            ProtocolSecretResolver,
+        )
+
+        handler: ProtocolSecretResolver | None = None
+        for h in (handlers or {}).values():
+            if isinstance(h, ProtocolSecretResolver):
+                handler = h
+                logger.debug(
+                    "Found ProtocolSecretResolver in handler registry: %s",
+                    type(h).__name__,
+                )
+                break
+
+        # Track any inline handler created below so we can shut it down
+        # after prefetch, regardless of success or failure.
+        # HandlerInfisical is not contract-declared in the typical case,
+        # so we construct one directly from env vars when not found in the
+        # handler registry. HandlerInfisical is the correct public API --
+        # AdapterInfisical lives in _internal/ and must not be imported here.
+        from omnibase_infra.handlers.handler_infisical import HandlerInfisical
+
+        _inline_handler: HandlerInfisical | None = None
+
+        # Load credentials unconditionally so they are always defined for
+        # the type checker. These are only meaningful when handler is None
+        # (i.e. when we construct an inline HandlerInfisical below), but
+        # initialising them here avoids potential UnboundLocalError if the
+        # control flow ever changes, and keeps mypy/pyright happy.
+        client_id = os.environ.get("INFISICAL_CLIENT_ID", "")
+        client_secret = os.environ.get("INFISICAL_CLIENT_SECRET", "")
+        project_id = os.environ.get("INFISICAL_PROJECT_ID", "")
+        env_slug = os.environ.get("INFISICAL_ENVIRONMENT", "prod")
+
+        if handler is None:
+            # Build a HandlerInfisical from env vars.  This avoids
+            # depending on the handler registry which may not contain
+            # HandlerInfisical if it is not contract-declared.
+            if not client_id or not client_secret or not project_id:
+                logger.info(
+                    "Infisical credentials not fully configured "
+                    "(INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, "
+                    "INFISICAL_PROJECT_ID required), skipping config prefetch"
+                )
+                status = "skipped"
+                return status
+
+            from omnibase_core.container import ModelONEXContainer as _Container
+
+            # Use the existing container if available, otherwise create a
+            # minimal one solely for HandlerInfisical initialization.
+            _handler_container = container if container is not None else _Container()
+            _inline_handler = HandlerInfisical(_handler_container)
+
+        try:
+            if _inline_handler is not None:
+                await _inline_handler.initialize(
+                    {
+                        "host": infisical_addr,
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "project_id": project_id,
+                        "environment_slug": env_slug,
+                    }
+                )
+                handler = _inline_handler
+                logger.info("Built HandlerInfisical for config prefetch")
+
+            # Step 3: Prefetch through the handler
+            # At this point handler is guaranteed non-None: if the original
+            # handler was None and credentials were missing we returned early
+            # above; if credentials were present _inline_handler was built and
+            # assigned to handler inside the if-block above.
+            assert handler is not None
+
+            infisical_required_raw = os.environ.get("INFISICAL_REQUIRED", "")
+            infisical_required = infisical_required_raw.lower() in (
+                "true",
+                "1",
+                "yes",
+            )
+
+            prefetcher = ConfigPrefetcher(
+                handler=handler,
+                service_slug=service_slug,
+                infisical_required=infisical_required,
+            )
+            result = prefetcher.prefetch(requirements)
+
+            # Step 4: Apply to environment
+            applied = prefetcher.apply_to_environment(result)
+
+            status = (
+                "degraded_error" if extraction_had_errors or result.errors else "ok"
+            )
+            logger.info(
+                "Config prefetch complete",
+                extra={
+                    "resolved": result.success_count,
+                    "missing": len(result.missing),
+                    "errors": len(result.errors),
+                    "applied_to_env": applied,
+                    "prefetch_policy": prefetch_policy,
+                },
+            )
+
+            if result.errors:
+                for key, err in result.errors.items():
+                    logger.warning(
+                        "Config prefetch error for %s: %s",
+                        key,
+                        sanitize_error_string(err),
+                    )
+
+            # Step 5: Enforce policy after reporting
+            if prefetch_policy == "required":
+                problem_keys: list[str] = list(result.missing) + list(
+                    result.errors.keys()
+                )
+                if problem_keys:
+                    context = ModelInfraErrorContext.with_correlation(
+                        transport_type=EnumInfraTransportType.RUNTIME,
+                        operation="prefetch_config_from_infisical",
+                    )
+                    raise ProtocolConfigurationError(
+                        f"Config prefetch policy='required' — missing keys: "
+                        f"{', '.join(sorted(problem_keys))}",
+                        context=context,
+                    )
+
+            # Step 5.5: Validate declared-required secrets (OMN-14951).
+            # Distinct gate from Step 1-5 above: those validate the
+            # ContractConfigExtractor's contract-scanned config_requirements;
+            # this validates the SecretResolver's authoritative
+            # required_secrets set (ModelSecretResolverConfig), rendered to
+            # ONEX_SECRET_RESOLVER_CONFIG_PATH by
+            # render_secret_resolver_config.py at deploy time. No-op when a
+            # lane has not opted in (no rendered config, or an empty
+            # required_secrets list), so lanes that have not adopted the
+            # declared-required-key contract are unaffected.
+            _validate_prefetched_required_secrets(
+                handler, prefetch_policy=prefetch_policy
+            )
+        finally:
+            # Always shut down the inline handler to release SDK resources.
+            # Handlers found in the handler registry manage their own lifecycle
+            # and must NOT be shut down here.
+            if _inline_handler is not None:
+                await _inline_handler.shutdown()
+
+    except ProtocolConfigurationError:
+        # Required-policy failures are fatal — re-raise so the kernel
+        # can surface the named missing keys to the operator.
+        raise
+    except Exception as exc:  # noqa: BLE001 — boundary: catch-all for resilience
+        context = ModelInfraErrorContext.with_correlation(
+            transport_type=EnumInfraTransportType.RUNTIME,
+            operation="prefetch_config_from_infisical",
+        )
+        # Prefetch failures are non-fatal.
+        # Sanitize the error to avoid leaking secrets (e.g. connection
+        # strings embedded in exception messages).  Do NOT use
+        # exc_info=True here because the full traceback may contain
+        # locals with secret values.
+        status = "degraded_error"
+        logger.warning(
+            "Config prefetch failed (non-fatal)",
+            extra={
+                "error": sanitize_error_message(exc),
+                "correlation_id": str(context.correlation_id),
+            },
+        )
+    return status
+
+
+def _validate_prefetched_required_secrets(
+    infisical_handler: ProtocolSecretResolver, *, prefetch_policy: PrefetchPolicy
+) -> None:
+    """Validate the SecretResolver's declared-required key set (OMN-14951).
+
+    Extends the existing ``SecretResolver`` / ``ModelSecretResolverConfig``
+    machinery rather than adding a parallel gate: loads the rendered
+    secret-resolver config from ``ONEX_SECRET_RESOLVER_CONFIG_PATH`` (the
+    artifact ``render_secret_resolver_config.py`` already produces at
+    deploy time from a lane's ``ONEX_SECRET_RESOLVER_CONFIG_JSON``
+    overlay) and, when it declares ``required_secrets``, calls
+    ``SecretResolver.validate_required_secrets()`` to fail loudly naming
+    every missing/unreachable key at once.
+
+    No-op (returns without raising) when:
+        * ``ONEX_SECRET_RESOLVER_CONFIG_PATH`` is unset or empty, or
+        * the file does not exist (lane has not rendered a config), or
+        * the config renders but declares no ``required_secrets`` (lane
+          has not opted into the gate).
+
+    A malformed rendered config is logged as a non-fatal warning rather
+    than raised: the config is validated on write by
+    ``render_secret_resolver_config.py`` (which already enforces
+    ``ModelSecretResolverConfig``'s ``required_secrets``-must-map-to-
+    Infisical invariant at render/deploy time), so an unreadable file here
+    indicates deploy-time tampering/corruption rather than a routing
+    defect this gate is responsible for catching.
+
+    Policy semantics mirror Step 5 above (``prefetch_policy``):
+    ``"required"`` promotes a gate failure to a fatal
+    ``ProtocolConfigurationError`` naming every offending key;
+    ``"best_effort"``/``"disabled"`` log a structured warning and let boot
+    continue.
+
+    Args:
+        infisical_handler: The already-constructed ``HandlerInfisical``
+            used for Step 1-5's ``ConfigPrefetcher`` prefetch above. Reused
+            here rather than opening a second Infisical connection.
+    """
+    config_path_raw = resolve_secret_resolver_config_path()
+    if not config_path_raw:
+        return
+    config_path = Path(config_path_raw)
+    if not config_path.exists():
+        return
+
+    try:
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError("rendered secret resolver config must have a mapping root")
+        secret_resolver_config = ModelSecretResolverConfig.model_validate(raw)
+    except Exception as exc:  # noqa: BLE001 — boundary: config load/parse
+        logger.warning(
+            "Failed to load rendered secret resolver config at %s for "
+            "required_secrets validation (non-fatal): %s",
+            config_path_raw,
+            sanitize_error_message(exc),
+        )
+        return
+
+    if not secret_resolver_config.required_secrets:
+        return
+
+    # SecretResolver's constructor is typed against the concrete
+    # HandlerInfisical (it also drives the async execute()-based path
+    # elsewhere in that class), while this call site only has the
+    # narrower ProtocolSecretResolver interface used elsewhere in this
+    # module (matches ConfigPrefetcher's own handler typing above). The
+    # object passed here is always a real HandlerInfisical at runtime --
+    # this method is only ever called with the handler built/found a few
+    # lines above in _prefetch_config_from_infisical. Only the sync
+    # get_secret_sync() path (validate_required_secrets ->
+    # get_secret -> _resolve_secret) is exercised here, which
+    # ProtocolSecretResolver already covers structurally.
+    resolver = SecretResolver(
+        config=secret_resolver_config,
+        infisical_handler=cast("HandlerInfisical", infisical_handler),
+    )
+    try:
+        resolver.validate_required_secrets()
+    except SecretResolutionError as exc:
+        if prefetch_policy == "required":
+            context = ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.RUNTIME,
+                operation="validate_required_secrets",
+            )
+            raise ProtocolConfigurationError(
+                f"Required-secrets presence gate failed (OMN-14951): {exc}",
+                context=context,
+            ) from exc
+        logger.warning(
+            "Required-secrets presence gate failed but prefetch_policy=%r "
+            "tolerates it (non-fatal, OMN-14951): %s",
+            prefetch_policy,
+            sanitize_error_message(exc),
+        )
+
+
 __all__: list[str] = [
     "RuntimeHostProcess",
+    "prefetch_runtime_config",
     "wire_handlers",
 ]

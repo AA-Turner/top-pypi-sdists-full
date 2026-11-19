@@ -77,6 +77,7 @@ ViewTypeType = Literal["KEYS_ONLY", "NEW_AND_OLD_IMAGES", "NEW_IMAGE", "OLD_IMAG
 WarmThroughputStatusType = Literal["AVAILABLE", "UPDATING"]
 KeyspacesServiceName = Literal["keyspaces"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -48,7 +48,7 @@ use crate::lsp::non_wasm::server::ProcessEvent;
 use crate::lsp::non_wasm::server::ServerCapabilitiesWithTypeHierarchy;
 use crate::lsp::non_wasm::server::TspInterface;
 use crate::lsp::non_wasm::server::capabilities;
-use crate::lsp::non_wasm::transaction_manager::TransactionManager;
+use crate::state::transaction_manager::TransactionManager;
 use crate::tsp::type_facts::TYPE_FACTS_METHOD;
 use crate::tsp::type_facts::TypeFactsParams;
 use crate::tsp::validation::internal_error;
@@ -367,16 +367,21 @@ impl<T: TspInterface> TspServer<T> {
     ) -> anyhow::Result<ProcessEvent> {
         // For TSP requests, handle them specially
         let tsp_request = match event.event() {
-            LspEvent::LspRequest(request) => Some(request),
-            LspEvent::TspExtraRequest { request, .. } => Some(request),
+            LspEvent::LspRequest(request) | LspEvent::TspExtraRequest { request, .. } => {
+                Some((request, parse_tsp_request(request)))
+            }
             _ => None,
         };
-        let result = if let Some(request) = tsp_request {
+        let result = if let Some((request, parsed)) = tsp_request
+            && (parsed.is_some()
+                || request.method == TYPE_FACTS_METHOD
+                || matches!(event.event(), LspEvent::TspExtraRequest { .. }))
+        {
             if request.method == TYPE_FACTS_METHOD {
                 self.handle_type_facts(ide_transaction_manager, telemetry_event, request, reply);
                 return Ok(ProcessEvent::Continue);
             }
-            match parse_tsp_request(request) {
+            match parsed {
                 Some(TSPRequests::ConnectionRequest { params, .. }) => {
                     self.handle_connection_request(request.id.clone(), params, reply);
                 }

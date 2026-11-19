@@ -103,6 +103,7 @@ SpecialtyType = Literal["PRIMARY_CARE"]
 SubscriptionStatusType = Literal["ACTIVE", "DELETED", "INACTIVE"]
 ConnectHealthServiceName = Literal["connecthealth"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

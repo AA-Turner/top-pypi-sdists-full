@@ -39,8 +39,7 @@ class VoiceCloningConfigureConnectionDataParams(typing_extensions.TypedDict):
 
     ref_text: typing_extensions.NotRequired[str]
     """
-    Optional transcript of `ref_audio` (max 500 characters). Improves fidelity.
-    Omit to let the API transcribe the clip. Ignored when `voice_id` is used.
+    Deprecated. No longer needed, since the API transcribes `ref_audio` automatically.
     """
 
     pace: typing_extensions.NotRequired[float]

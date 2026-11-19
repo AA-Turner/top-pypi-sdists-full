@@ -54,8 +54,10 @@ DEFAULT_GB_PER_CORE = 2
 @dataclass
 class BenchmarkRegistration:
     """Everything an eval needs to run a benchmark, introspected from the decorated class: the wire `spec`, and the
-    parameters its constructor declares with a default beside what init= hands it (`params`, each with its type and
-    default, settable per eval as --param benchmark.NAME=VALUE). Everything else is read off the spec:
+    parameters its constructor declares with a default beside what init= hands it, and the one init= hands the
+    evaluated policy's arm, "{policy.robot}" (`params`, each with its type and default, settable per eval as --param
+    benchmark.NAME=VALUE), and `left`: those its constructor types that no eval can set, as written (`scale: float |
+    str | None`), which `seq deploy` says. Everything else is read off the spec:
 
     - `bindings`: RESET / STEP → the method's name;
     - `constructor`: how its class is built after the machine's snapshot (init=), None for `cls()`;
@@ -67,6 +69,7 @@ class BenchmarkRegistration:
 
     spec: BenchmarkSpec
     params: dict[str, InferParam]
+    left: tuple[str, ...] = ()
 
     @property
     def name(self) -> str:
@@ -165,7 +168,8 @@ def _register(cls: type, kwargs: dict[str, Any], bindings: dict[SeqFlags, str]) 
 
     worlds = _validate_bindings(cls, bindings)
     constructor = named.constructor(cls, kwargs, benchmark=True, worlds=worlds, error=BenchmarkDefinitionError)
-    params = _init_params(cls, constructor)
+    left: list[str] = []
+    params = _init_params(cls, constructor, left)
 
     gpu = _resolve_gpu(kwargs.get("gpu"))
     driver = _resolve_driver(kwargs.get("driver"), gpu)
@@ -215,7 +219,7 @@ def _register(cls: type, kwargs: dict[str, Any], bindings: dict[SeqFlags, str]) 
     except Exception as exc:
         raise BenchmarkDefinitionError(f"invalid @seq.benchmark declaration: {_first_error(exc)}") from None
 
-    setattr(cls, _BENCH_ATTR, BenchmarkRegistration(spec=spec, params=params))
+    setattr(cls, _BENCH_ATTR, BenchmarkRegistration(spec=spec, params=params, left=tuple(left)))
 
     image = kwargs.get("image")
     setattr(cls, "__seq_image_locals__",
@@ -237,6 +241,45 @@ def benchmark_registration(cls: type) -> BenchmarkRegistration:
     return reg
 
 
+def _meant_settings(cls: type, left: tuple[str, ...]) -> list[tuple[str, str]]:
+    """(the parameter as written, as it would be typed) for each of `left` - the constructor's typed parameters no eval
+    can set - that its author plainly meant an eval to set (seq.params.meant_settable): `scale: float | str | None`,
+    `steps: int = 'auto'`. A `dict` or a class of the author's own is none of them: it keeps its default, warned of."""
+    import typing
+
+    from seq.params import meant_settable
+
+    init = cls.__init__
+    try:
+        hints = typing.get_type_hints(init, include_extras=True)
+    except Exception:
+        hints = {}
+    params = inspect.signature(init).parameters
+    found = []
+    for written in left:
+        name = written.split(":", 1)[0].strip()
+        p = params.get(name)
+        if p is None:
+            continue
+        fix = meant_settable(hints.get(name, p.annotation), p.default)
+        if fix:
+            found.append((written, f"{name}: {fix}"))
+    return found
+
+
+def _unsettable_said(cls: type, found: list[tuple[str, str]]) -> str:
+    """The refusal of a benchmark whose constructor types settings no eval can set: each as written, as it would be
+    typed, and the other way out."""
+    one = len(found) == 1
+    it = "it" if one else "them"
+    name = found[0][1].split(":", 1)[0] if one else "NAME"
+    return (f"{cls.__name__} is not registered: its __init__ types {'; '.join(w for w, _ in found)}, which no eval can "
+            f"set (an eval sets a parameter typed int, float, bool, str or list[float], or one of those | None, whose "
+            f"default is of that type). Type {it} as {'; '.join(f for _, f in found)}, and --param "
+            f"benchmark.{name}=VALUE sets {it} (a str takes the value as its text), or leave {it} untyped to keep {it} "
+            "out of evals")
+
+
 def benchmark_request(cls: type, *, name: str | None = None,
                       snapshots: list | None = None) -> BenchmarkRegisterRequest:
     """The `POST /v1/benchmarks` body for a `@seq.benchmark` class: its declaration - tasks, seeds, time limit, worlds -
@@ -247,6 +290,12 @@ def benchmark_request(cls: type, *, name: str | None = None,
     from seq.project_deps import image_for
 
     reg = benchmark_registration(cls)
+
+
+
+    unsettable = _meant_settings(cls, reg.left)
+    if unsettable:
+        raise BenchmarkDefinitionError(_unsettable_said(cls, unsettable))
     importable(cls)
     spec = reg.spec
     snap = pack(spec.handler_ref, local_files=getattr(cls, "__seq_image_locals__", ((), ()))[0],
@@ -277,7 +326,11 @@ def benchmark_request(cls: type, *, name: str | None = None,
 
         params=dict(reg.params) or None,
 
-        **({"driver": spec.driver} if spec.driver is not None else {}))
+        **({"driver": spec.driver} if spec.driver is not None else {}),
+
+
+
+        **({"constructor": spec.constructor} if spec.constructor is not None else {}))
 
 
 
@@ -372,25 +425,45 @@ def _takes(cls: type, method: str, n: int, mark: str, what: str, example: str) -
                                        f"in that order - {example}")
 
 
-def _init_params(cls: type, constructor: Any) -> dict[str, InferParam]:
+def _init_params(cls: type, constructor: Any, left: list[str] | None = None) -> dict[str, InferParam]:
     """The parameters its constructor declares with a default beside what init= hands it - `def __init__(self, worlds,
     *, noise_std: float = 0.02)` with init={"worlds": "{num_worlds}"} - which an eval may set (`--param
     benchmark.noise_std=0`), every benchmark machine's constructor handed them. Its class's constructor as it is
-    written: one of a type no --param sets keeps its default, set by nothing (keyword_params' loose). {} for a class
-    without a constructor of its own.
+    written: one of a type no --param sets keeps its default, set by nothing (keyword_params' loose), and is added to
+    `left` as written when its author typed it. {} for a class
+    without a constructor of its own. A keyword init= hands the evaluated policy's arm, "{policy.robot}" alone, is one an
+    eval may set too (EVAL_SETS): the policy gives the arm it was made for, and an eval may run another (`--param
+    benchmark.robot=UR5e`, or several with `--sweep benchmark.robot=Panda,UR5e`).
+
 """
     from seq.params import keyword_params
 
     init = getattr(cls, "__init__", object.__init__)
     if init is object.__init__ or not inspect.isfunction(init):
         return {}
-    given = set(constructor.kwargs) if constructor is not None else set()
+    given = {name for name, value in (constructor.kwargs if constructor is not None else {}).items()
+             if not _an_evals_to_set(value)}
     if constructor is not None and constructor.args:
         positional = [p.name for p in list(inspect.signature(init).parameters.values())[1:]
                       if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
         given |= set(positional[:len(constructor.args)])
     return keyword_params(init, f"{cls.__name__}.__init__", BenchmarkDefinitionError, kind="benchmark parameter",
-                          skip=frozenset(given), loose=True)
+                          skip=frozenset(given), loose=True, left=left)
+
+
+
+
+
+EVAL_SETS = ("robot",)
+
+
+def _an_evals_to_set(value: Any) -> bool:
+    """Whether a value init= hands is "{policy.<field>}" alone of a field in EVAL_SETS - filled with the evaluated
+    policy's where the benchmark is built (sequence_base.construct), so an eval may set another in its place."""
+    from sequence_base.construct import FORMS
+
+    alone = FORMS.fullmatch(value) if isinstance(value, str) else None
+    return alone is not None and alone.group("field") in EVAL_SETS
 
 
 def _resolve_tasks(given: Any) -> dict[str, str]:

@@ -27,7 +27,7 @@ class UnitRegistry:
             self.__context = {}
 
         def __getitem__(self, string):
-            # This approach to avoiding arbitrary evaluation of code is based on https://stackoverflow.com/a/11952618 
+            # This approach to avoiding arbitrary evaluation of code is based on https://stackoverflow.com/a/11952618
             # by https://stackoverflow.com/users/567292/ecatmur
             stripped_string = string.strip()  # discard leading or trailing spaces before parsing
             tree = ast.parse(stripped_string, mode="eval")
@@ -40,12 +40,12 @@ class UnitRegistry:
                         self.__context,
                     )
                 except NameError:
-                    raise LookupError('Unable to parse units: "%s"' % string)
+                    raise LookupError(f'Unable to parse units: "{string}"')
                 else:
                     return item
             else:
                 # could return self['UnitQuantity'](string)
-                raise LookupError('Unable to parse units: "%s"' % string)
+                raise LookupError(f'Unable to parse units: "{string}"')
 
         def __setitem__(self, string, val):
             assert isinstance(string, str)
@@ -55,8 +55,7 @@ class UnitRegistry:
                 if val == self.__context[string]:
                     return
                 raise KeyError(
-                    '%s has already been registered for %s'
-                    % (string, self.__context[string])
+                    f'{string} has already been registered for {self.__context[string]}'
                 )
             self.__context[string] = val
 
@@ -76,9 +75,12 @@ class UnitRegistry:
             r"\g<1>*\g<2>", label.replace('^', '**').replace('·', '*'))
 
         # make sure we can parse the label ....
-        if label == '': label = 'dimensionless'
-        if "%" in label: label = label.replace("%", "percent")
-        if label.lower() == "in": label = "inch"
+        if label == '':
+            label = 'dimensionless'
+        if "%" in label:
+            label = label.replace("%", "percent")
+        if label.lower() == "in":
+            label = "inch"
 
         return self.__registry[label]
 

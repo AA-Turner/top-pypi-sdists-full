@@ -102,6 +102,7 @@ ServiceTypeType = Literal["ASSIGNMENT", "ID_MAPPING"]
 StatementEffectType = Literal["Allow", "Deny"]
 EntityResolutionServiceName = Literal["entityresolution"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

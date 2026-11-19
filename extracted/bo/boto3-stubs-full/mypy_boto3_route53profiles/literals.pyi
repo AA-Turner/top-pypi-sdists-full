@@ -41,6 +41,7 @@ ProfileStatusType = Literal["COMPLETE", "CREATING", "DELETED", "DELETING", "FAIL
 ShareStatusType = Literal["NOT_SHARED", "SHARED_BY_ME", "SHARED_WITH_ME"]
 Route53ProfilesServiceName = Literal["route53profiles"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -18,6 +18,26 @@ def contract_publish_topics(contract_path: Path) -> tuple[str, ...]:
     return _contract_topics(contract_path, "publish_topics")
 
 
+def contract_topic(contract_path: Path, section: str, suffix: str) -> str:
+    """Return the one topic in ``event_bus.<section>`` that ends with ``suffix``.
+
+    ``section`` is ``subscribe_topics`` or ``publish_topics``. A handler resolves
+    each topic it names through this, so the topic string lives only in the node
+    contract. Raises ``ValueError`` unless exactly one declared topic matches.
+    """
+    if section not in ("subscribe_topics", "publish_topics"):
+        raise ValueError(f"unsupported event_bus section {section!r}")
+    matches = [
+        t for t in _contract_topics(contract_path, section) if t.endswith(suffix)
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"{contract_path} must declare exactly one event_bus.{section} topic "
+            f"ending {suffix!r}, found {len(matches)}"
+        )
+    return matches[0]
+
+
 def contract_secret_ref(contract_path: Path, secret_name: str) -> str:
     """Return the declared secret ref-name for *secret_name* from the contract.
 
@@ -81,6 +101,49 @@ def contract_section(contract_path: Path, *keys: str) -> object:
     return node
 
 
+_NODES = Path(__file__).resolve().parent
+
+# Codex adapter topic key -> (owning node, event_bus section, topic suffix).
+_CODEX_TOPICS: dict[str, tuple[str, str, str]] = {
+    "pattern_b_dispatch_command": (
+        "node_pattern_b_broker",
+        "publish_topics",
+        ".pattern-b-dispatch.v1",
+    ),
+    "pattern_b_dispatch_completed": (
+        "node_pattern_b_broker",
+        "subscribe_topics",
+        ".pattern-b-dispatch-completed.v1",
+    ),
+    "delegate_skill_command": (
+        "node_delegate_skill_orchestrator",
+        "subscribe_topics",
+        ".delegate-skill.v1",
+    ),
+    "delegate_skill_completed": (
+        "node_delegate_skill_orchestrator",
+        "publish_topics",
+        ".delegate-skill-completed.v1",
+    ),
+    "delegate_skill_failed": (
+        "node_delegate_skill_orchestrator",
+        "publish_topics",
+        ".delegate-skill-failed.v1",
+    ),
+}
+
+
+def codex_topic(key: str) -> str:
+    """Return the Codex adapter topic ``key`` from its owning node's contract.
+
+    The Pattern B dispatch pair comes from ``node_pattern_b_broker`` and the
+    delegate-skill command and terminals from ``node_delegate_skill_orchestrator``,
+    so no topic string lives in ``adapters/codex/topics.py``.
+    """
+    node, section, suffix = _CODEX_TOPICS[key]
+    return contract_topic(_NODES / node / "contract.yaml", section, suffix)
+
+
 def _contract_topics(contract_path: Path, key: str) -> tuple[str, ...]:
     raw = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
@@ -97,8 +160,10 @@ def _contract_topics(contract_path: Path, key: str) -> tuple[str, ...]:
 
 
 __all__ = [
+    "codex_topic",
     "contract_publish_topics",
     "contract_secret_ref",
     "contract_section",
     "contract_subscribe_topics",
+    "contract_topic",
 ]

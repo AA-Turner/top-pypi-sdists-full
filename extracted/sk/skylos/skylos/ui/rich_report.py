@@ -77,7 +77,7 @@ _FINDING_TITLES = (
     ("unused_classes", "Unused Classes"),
     ("unused_files", "Unused Files"),
     ("unused_fixtures", "Unused Fixtures"),
-    ("unused_exports", "Unused Exports"),
+    ("unused_exports", "Unnecessary Exports"),
 )
 
 
@@ -338,9 +338,11 @@ def _finding_table_cells(item, category, root_path=None, *, verbose=True):
     details.extend(security_evidence_details(item))
     details.extend(path_check_details(item))
     if category in {"dependency_vulnerabilities", "publisher_change_findings"}:
-        details.append(
-            f"Package: {metadata.get('package_name', '?')}@{metadata.get('package_version', '?')}"
-        )
+        package_line = f"Package: {metadata.get('package_name', '?')}"
+        if metadata.get("package_version", "?"):
+            # A dependency declared without a version has none to show.
+            package_line += f"@{metadata.get('package_version', '?')}"
+        details.append(package_line)
     if category == "dependency_vulnerabilities":
         vuln = metadata.get("display_id") or metadata.get("vuln_id")
         if vuln:

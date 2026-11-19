@@ -37,6 +37,7 @@ ListAccountRolesPaginatorName = Literal["list_account_roles"]
 ListAccountsPaginatorName = Literal["list_accounts"]
 SSOServiceName = Literal["sso"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

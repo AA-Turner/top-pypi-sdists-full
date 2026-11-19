@@ -106,6 +106,8 @@ def deployment_request(
             action_chunk_replan_at=spec.action_chunk_replan_at,
 
             max_wait_for_batch=spec.max_wait_for_batch,
+
+            robot=spec.robot,
             episodes=spec.episodes,
 
 

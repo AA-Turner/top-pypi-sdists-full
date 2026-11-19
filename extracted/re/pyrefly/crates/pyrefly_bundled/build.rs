@@ -6,6 +6,7 @@
  */
 
 use std::env;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -49,8 +50,34 @@ fn get_output_path() -> Result<PathBuf, std::env::VarError> {
     }
 }
 
+/// Appends every file under `dir` to `tar`, as `archive_dir/<relative path>`, in sorted path
+/// order: paths compare component by component, as `Path` does, so `foo/bar.pyi` comes before
+/// `foo.pyi`. The order is part of the output: it decides which of two equally good names
+/// Pyrefly suggests for a misspelled import, so it must not depend on the order in which the
+/// file system lists directories.
+fn append_files_sorted<W: Write>(
+    tar: &mut tar::Builder<W>,
+    dir: &Path,
+    archive_dir: &Path,
+) -> Result<(), std::io::Error> {
+    let mut entries = std::fs::read_dir(dir)?.collect::<Result<Vec<_>, _>>()?;
+    entries.sort_by_key(|entry| entry.file_name());
+    for entry in entries {
+        let path = entry.path();
+        let archive_path = archive_dir.join(entry.file_name());
+        if std::fs::metadata(&path)?.is_dir() {
+            append_files_sorted(tar, &path, &archive_path)?;
+        } else {
+            tar.append_path_with_name(&path, &archive_path)?;
+        }
+    }
+    Ok(())
+}
+
 /// Creates a compressed tar archive from the given input path and writes it to the output path.
-/// Also computes and writes a SHA256 digest of the archive.
+/// Also computes and writes a SHA256 digest of the archive, and an index listing the path of
+/// every file in the archive, one per line and in archive order, so that a runtime lookup can
+/// tell which files exist without decompressing the archive.
 ///
 /// `input_path` of `None` writes a valid but empty archive.
 fn create_archive(
@@ -58,8 +85,10 @@ fn create_archive(
     archive_root: &str,
     output_path: &Path,
     digest_name: &str,
+    index_name: &str,
 ) -> Result<(), std::io::Error> {
     let digest_path = output_path.with_file_name(digest_name);
+    let index_path = output_path.with_file_name(index_name);
 
     // Create the tar.zst archive
     let mut archive_bytes = Vec::new();
@@ -73,7 +102,7 @@ fn create_archive(
                 format!("Input path does not exist: {}", input_path.display()),
             ));
         }
-        tar.append_dir_all(archive_root, input_path)?;
+        append_files_sorted(&mut tar, input_path, Path::new(archive_root))?;
     }
 
     let encoder = tar.into_inner()?;
@@ -81,8 +110,28 @@ fn create_archive(
 
     let hash = sha2::Sha256::digest(&archive_bytes);
 
+    let mut index = String::new();
+    for entry in
+        tar::Archive::new(zstd::stream::read::Decoder::new(archive_bytes.as_slice())?).entries()?
+    {
+        let entry = entry?;
+        if entry.header().entry_type().is_dir() {
+            continue;
+        }
+        let path = entry.path()?;
+        let path = path.to_str().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Archive path is not UTF-8: {}", path.display()),
+            )
+        })?;
+        index.push_str(path);
+        index.push('\n');
+    }
+
     std::fs::write(output_path, &archive_bytes)?;
     std::fs::write(&digest_path, hash)?;
+    std::fs::write(&index_path, index)?;
 
     Ok(())
 }
@@ -107,6 +156,7 @@ fn main() -> Result<(), std::io::Error> {
         "stdlib",
         &output_dir.join("stdlib.tar.zst"),
         "stdlib.sha256",
+        "stdlib.index",
     )?;
 
     // Copied out of the archive rather than read back from it: recovering one member of a
@@ -121,6 +171,7 @@ fn main() -> Result<(), std::io::Error> {
         "stubs",
         &output_dir.join("typeshed_stubs.tar.zst"),
         "typeshed_stubs.sha256",
+        "typeshed_stubs.index",
     )?;
 
     // Create third-party stubs archive (non-typeshed stubs)
@@ -130,6 +181,7 @@ fn main() -> Result<(), std::io::Error> {
         "",
         &stubs_output,
         "stubs.sha256",
+        "stubs.index",
     )?;
 
     Ok(())

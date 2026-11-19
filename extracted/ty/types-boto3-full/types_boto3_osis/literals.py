@@ -62,6 +62,7 @@ VpcEndpointManagementType = Literal["CUSTOMER", "SERVICE"]
 VpcEndpointServiceNameType = Literal["OPENSEARCH_SERVERLESS"]
 OpenSearchIngestionServiceName = Literal["osis"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

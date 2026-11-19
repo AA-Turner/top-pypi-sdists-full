@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Synthetic values. A deployment's real overlay lives in the overlays repository.
+probe:
+  health_url: http://runtime.example.invalid/health
+  health_ok_path: [details, healthy]
+  ready_url: http://runtime.example.invalid/ready
+  provenance_url: http://agent.example.invalid/dev-tag-heartbeat
+  sha_path: [heartbeat, example_repo, running_ref]
+  timeout_seconds: 30
+detail_max_chars: 4096

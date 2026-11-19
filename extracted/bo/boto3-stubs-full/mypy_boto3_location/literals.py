@@ -112,6 +112,7 @@ ValidateAddressAdditionalFeatureType = Literal["CountrySpecificAttributes", "Pos
 VehicleWeightUnitType = Literal["Kilograms", "Pounds"]
 LocationServiceServiceName = Literal["location"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

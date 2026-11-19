@@ -25,8 +25,8 @@ except ModuleNotFoundError:
 
 import os.path
 
-from typing import Any, List, Dict, Tuple, Union, Optional, Set, TextIO, Type, TypeVar, \
-    TYPE_CHECKING
+from typing import Any, List, Dict, NamedTuple, Tuple, Union, Optional, Set, TextIO, \
+    Type, TypeVar, TYPE_CHECKING
 from pathlib import Path
 
 from siliconcompiler.schema import BaseSchema, NamedSchema, DocsSchema, LazyLoad
@@ -458,6 +458,27 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
     if status is None:
         return 1
     return os.waitstatus_to_exitcode(status)
+
+
+class PythonEnvironment(NamedTuple):
+    """
+    What a node's own Python needs, as :meth:`Task._get_python_environment`
+    reports it.
+
+    Attributes:
+        sources: Python files the tool's Python loads -- a testbench -- whose
+            imports are read to find what it needs.
+        requirements: distributions, or PEP 508 requirements, it loads by name
+            rather than by import: a plugin.
+        framework: distributions SiliconCompiler's own process needs for this
+            task -- cocotb, for a cocotb task. A remote run pins them in the
+            job's ``requested_versions`` so the image holds them, and leaves them out of
+            the job's Python packages, so the tool and SiliconCompiler load one
+            copy.
+    """
+    sources: Tuple[str, ...] = ()
+    requirements: Tuple[str, ...] = ()
+    framework: Tuple[str, ...] = ()
 
 
 class Task(NamedSchema, PathSchema, DocsSchema):
@@ -898,6 +919,32 @@ class Task(NamedSchema, PathSchema, DocsSchema):
 
         return version
 
+    def _normalize_specifiers(self, spec_set: str, logger: logging.Logger) -> str:
+        """
+        One declared requirement, such as ``>=1.2,<2``, with each version put
+        through `normalize_version`. A part that is not ``<operator><version>``
+        is read as ``==part``. Shared by `check_exe_version` and the remote
+        client, so both ends read a requirement alike; ``logger`` is explicit
+        because a task has none outside a run.
+        """
+        specs_list = []
+        for spec in (s.strip() for s in spec_set.split(",") if s.strip()):
+            match = re.match(Task.__parse_version_check, spec)
+            if match is None:
+                logger.warning(f'Invalid version specifier {spec}. '
+                               f'Defaulting to =={spec}.')
+                specs_list.append(('==', spec))
+            else:
+                specs_list.append((match.group('operator'), match.group('version')))
+
+        try:
+            return ','.join(f'{op}{self.normalize_version(ver)}' for op, ver in specs_list)
+        except Exception:
+            logger.error(f'Unable to normalize versions for '
+                         f'{self.tool()}/{self.task()}: '
+                         f'{",".join([f"{op}{ver}" for op, ver in specs_list])}')
+            raise
+
     def check_exe_version(self, reported_version: str) -> bool:
         """
         Checks if the reported version of a tool satisfies the requirements
@@ -922,20 +969,6 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         from packaging.specifiers import SpecifierSet, InvalidSpecifier
 
         for spec_set in spec_sets:
-            split_specs = [s.strip() for s in spec_set.split(",") if s.strip()]
-            specs_list = []
-            for spec in split_specs:
-                match = re.match(Task.__parse_version_check, spec)
-                if match is None:
-                    self.logger.warning(f'Invalid version specifier {spec}. '
-                                        f'Defaulting to =={spec}.')
-                    operator = '=='
-                    spec_version = spec
-                else:
-                    operator = match.group('operator')
-                    spec_version = match.group('version')
-                specs_list.append((operator, spec_version))
-
             try:
                 normalized_version = self.normalize_version(reported_version)
             except Exception:
@@ -950,15 +983,7 @@ class Task(NamedSchema, PathSchema, DocsSchema):
                                   f'{self.tool()}/{self.task()} does not match standard.')
                 return False
 
-            try:
-                normalized_spec_list = [
-                    f'{op}{self.normalize_version(ver)}' for op, ver in specs_list]
-                normalized_specs = ','.join(normalized_spec_list)
-            except Exception:
-                self.logger.error(f'Unable to normalize versions for '
-                                  f'{self.tool()}/{self.task()}: '
-                                  f'{",".join([f"{op}{ver}" for op, ver in specs_list])}')
-                raise
+            normalized_specs = self._normalize_specifiers(spec_set, self.logger)
 
             try:
                 spec_set = SpecifierSet(normalized_specs)
@@ -1023,7 +1048,68 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             if value is not None:
                 envvars[env] = value
 
+        # A remote run's Python packages, ahead of everything else on the
+        # tool's path, where this node's task runs the user's Python: what the
+        # server installed for the job -- on the host, or in the layer of the
+        # image the node runs in. The user's own modules are collected files,
+        # found where the task finds its tests.
+        # Never on this process's: SiliconCompiler does not import from them.
+        carried = self.__remote_python()
+        if carried:
+            existing = envvars.get("PYTHONPATH", os.getenv("PYTHONPATH", ""))
+            envvars["PYTHONPATH"] = os.pathsep.join(
+                carried + [part for part in existing.split(os.pathsep) if part])
+
         return envvars
+
+    def __remote_python(self) -> List[str]:
+        from siliconcompiler.remote.environment import IMAGE_SITE, site_path
+        from siliconcompiler.utils.paths import jobdir
+
+        # Read off the class, as a remote run decides which nodes get the
+        # job's packages, so nothing is resolved here.
+        if type(self)._get_python_environment is Task._get_python_environment:
+            return []
+        # Only where the server installed the job's packages is either
+        # there: a job without any, and every other node's image, has none.
+        paths = [os.path.join(jobdir(self.project), site_path()), IMAGE_SITE]
+        return [path for path in paths if os.path.isdir(path)]
+
+    @staticmethod
+    def _framework_distributions() -> Tuple[str, ...]:
+        """
+        Python distributions SiliconCompiler's own process on the node needs
+        for this task -- cocotb, for a cocotb task, whose simulator and whose
+        SiliconCompiler must load one installation.
+
+        Declared on the class, so a remote run names each in its
+        ``requested_versions.python``, at the range SiliconCompiler declares for it,
+        without running setup on the submitting machine: the node's image then
+        holds it, and the job's Python packages leave it out.
+
+        Returns:
+            tuple of str: distribution names; none by default.
+        """
+        return ()
+
+    def _get_python_environment(self) -> Optional["PythonEnvironment"]:
+        """
+        What this node's tool runs of the user's Python, for a remote run to
+        carry.
+
+        A remote run lists, once per job, the distributions the sources of
+        every such node import and those it loads by name, at the versions
+        installed on the submitting machine; builds a wheel of each installed
+        editable, from a local path or from git; and sends the user's own
+        modules beside the tests. Called on the submitting machine, after
+        :meth:`setup`. The server reads only whether a task class overrides
+        this, to know which nodes run the user's Python.
+
+        Returns:
+            :class:`PythonEnvironment`, or None where the tool runs none of the
+            user's Python -- the default.
+        """
+        return None
 
     def get_runtime_arguments(self) -> List[str]:
         """
@@ -3317,38 +3403,38 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         schema.insert(
             'input',
             Parameter(
-                '[file]',
+                '[path]',
                 scope=Scope.JOB,
                 pernode=PerNode.REQUIRED,
                 shorthelp="Task: input files",
-                switch="-tool_task_input 'tool task <file>'",
+                switch="-tool_task_input 'tool task <path>'",
                 example=[
                     "cli: -tool_task_input 'openroad place \"place 0 oh_add.def\"'",
                     "api: task.set('tool', 'openroad', 'task', 'place', 'input', 'oh_add.def', "
                     "step='place', index='0')"],
                 help=trim("""
-                List of data files to be copied from previous flowgraph steps 'output'
-                directory. The list of steps to copy files from is defined by the
+                List of data files and directories to be copied from previous flowgraph
+                steps 'output' directory. The list of steps to copy from is defined by the
                 list defined by the dictionary key :keypath:`flowgraph,<flow>,<step>,<index>,input`.
-                All files must be available for flow to continue. If a file
-                is missing, the program exists on an error.""")))
+                All entries must be available for flow to continue. If one
+                is missing, the program exits on an error.""")))
 
         schema.insert(
             'output',
             Parameter(
-                '[file]',
+                '[path]',
                 scope=Scope.JOB,
                 pernode=PerNode.REQUIRED,
                 shorthelp="Task: output files",
-                switch="-tool_task_output 'tool task <file>'",
+                switch="-tool_task_output 'tool task <path>'",
                 example=[
                     "cli: -tool_task_output 'openroad place \"place 0 oh_add.def\"'",
                     "api: task.set('tool', 'openroad', 'task', 'place', 'output', 'oh_add.def', "
                     "step='place', index='0')"],
                 help=trim("""
-                List of data files written to the 'output' directory of the
-                tool/task/step/index used in the keypath. All files must be available
-                for flow to continue. If a file is missing, the program exists on an error.""")))
+                List of data files and directories written to the 'output' directory of
+                the tool/task/step/index used in the keypath. All entries must be available
+                for flow to continue. If one is missing, the program exits on an error.""")))
 
     @staticmethod
     def __schema_task_stdio(schema):
@@ -3602,7 +3688,7 @@ class OpenTask(Task):
     def __init__(self):
         """Initialize an OpenTask, adding the parameters shared by open tasks."""
         super().__init__()
-        self.add_parameter("showfilepath", "file", "path to the file to open")
+        self.add_parameter("showfilepath", "path", "path to the file to open")
         self.add_parameter("showfiletype", "str", "extension of the file to open")
         self.add_parameter("shownode", "(str,str,str)",
                            "source node (jobname, step, index) the file came from; "

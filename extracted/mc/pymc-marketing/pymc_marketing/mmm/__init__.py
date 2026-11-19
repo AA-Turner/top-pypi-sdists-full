@@ -19,6 +19,7 @@ from pymc_marketing.mmm.additive_effect import (
     DataVarMuEffect,
     IncrementalitySpec,
     MediaMuEffect,
+    MediatorSpec,
 )
 from pymc_marketing.mmm.budget_model import BudgetModelEffect, lift_test_design
 from pymc_marketing.mmm.budget_optimizer import (
@@ -50,6 +51,7 @@ from pymc_marketing.mmm.components.saturation import (
     TanhSaturation,
     TanhSaturationBaselined,
 )
+from pymc_marketing.mmm.estimand_label import EstimandLabel
 from pymc_marketing.mmm.fourier import MonthlyFourier, WeeklyFourier, YearlyFourier
 from pymc_marketing.mmm.hsgp import (
     HSGP,
@@ -84,7 +86,11 @@ from pymc_marketing.mmm.preprocessing import (
     preprocessing_method_X,
     preprocessing_method_y,
 )
-from pymc_marketing.mmm.price_response import PowerPriceResponse, PriceResponse
+from pymc_marketing.mmm.price_response import (
+    PowerPriceResponse,
+    PriceResponse,
+    TieredPriceResponse,
+)
 from pymc_marketing.mmm.scaling import (
     DataDerivedScaling,
     FixedScaling,
@@ -98,6 +104,7 @@ from pymc_marketing.mmm.time_slice_cross_validation import (
 )
 from pymc_marketing.mmm.types import MMMBuilder
 from pymc_marketing.mmm.validating import validation_method_X, validation_method_y
+from pymc_marketing.mmm.var_baseline import VARBaselineEffect
 
 __all__ = [
     "HSGP",
@@ -113,6 +120,7 @@ __all__ = [
     "DataDerivedScaling",
     "DataVarMuEffect",
     "DelayedAdstock",
+    "EstimandLabel",
     "FancyLinearRegression",
     "FixedScaling",
     "GeometricAdstock",
@@ -131,6 +139,7 @@ __all__ = [
     "MediaConfigList",
     "MediaMuEffect",
     "MediaTransformation",
+    "MediatorSpec",
     "MichaelisMentenSaturation",
     "MonthlyFourier",
     "NoAdstock",
@@ -148,8 +157,10 @@ __all__ = [
     "SoftPlusHSGP",
     "TanhSaturation",
     "TanhSaturationBaselined",
+    "TieredPriceResponse",
     "TimeSliceCrossValidationResult",
     "TimeSliceCrossValidator",
+    "VARBaselineEffect",
     "VariableScaling",
     "WeeklyFourier",
     "WeibullCDFAdstock",

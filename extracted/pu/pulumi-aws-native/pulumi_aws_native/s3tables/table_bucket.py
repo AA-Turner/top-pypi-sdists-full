@@ -25,6 +25,7 @@ __all__ = ['TableBucketArgs', 'TableBucket']
 class TableBucketArgs:
     def __init__(__self__, *,
                  encryption_configuration: pulumi.Input[Optional['TableBucketEncryptionConfigurationArgs']] = None,
+                 logging_configuration: pulumi.Input[Optional['TableBucketLoggingConfigurationArgs']] = None,
                  metrics_configuration: pulumi.Input[Optional['TableBucketMetricsConfigurationArgs']] = None,
                  replication_configuration: pulumi.Input[Optional['TableBucketReplicationConfigurationArgs']] = None,
                  storage_class_configuration: pulumi.Input[Optional['TableBucketStorageClassConfigurationArgs']] = None,
@@ -42,6 +43,8 @@ class TableBucketArgs:
         """
         if encryption_configuration is not None:
             pulumi.set(__self__, "encryption_configuration", encryption_configuration)
+        if logging_configuration is not None:
+            pulumi.set(__self__, "logging_configuration", logging_configuration)
         if metrics_configuration is not None:
             pulumi.set(__self__, "metrics_configuration", metrics_configuration)
         if replication_configuration is not None:
@@ -66,6 +69,15 @@ class TableBucketArgs:
     @encryption_configuration.setter
     def encryption_configuration(self, value: pulumi.Input[Optional['TableBucketEncryptionConfigurationArgs']]):
         pulumi.set(self, "encryption_configuration", value)
+
+    @_builtins.property
+    @pulumi.getter(name="loggingConfiguration")
+    def logging_configuration(self) -> pulumi.Input[Optional['TableBucketLoggingConfigurationArgs']]:
+        return pulumi.get(self, "logging_configuration")
+
+    @logging_configuration.setter
+    def logging_configuration(self, value: pulumi.Input[Optional['TableBucketLoggingConfigurationArgs']]):
+        pulumi.set(self, "logging_configuration", value)
 
     @_builtins.property
     @pulumi.getter(name="metricsConfiguration")
@@ -140,24 +152,25 @@ class TableBucket(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 encryption_configuration: pulumi.Input[Optional[Union['TableBucketEncryptionConfigurationArgs', 'TableBucketEncryptionConfigurationArgsDict']]] = None,
-                 metrics_configuration: pulumi.Input[Optional[Union['TableBucketMetricsConfigurationArgs', 'TableBucketMetricsConfigurationArgsDict']]] = None,
-                 replication_configuration: pulumi.Input[Optional[Union['TableBucketReplicationConfigurationArgs', 'TableBucketReplicationConfigurationArgsDict']]] = None,
-                 storage_class_configuration: pulumi.Input[Optional[Union['TableBucketStorageClassConfigurationArgs', 'TableBucketStorageClassConfigurationArgsDict']]] = None,
+                 encryption_configuration: pulumi.Input[Optional[Union['TableBucketEncryptionConfigurationArgs', 'TableBucketEncryptionConfigurationArgsDict', 'outputs.TableBucketEncryptionConfiguration']]] = None,
+                 logging_configuration: pulumi.Input[Optional[Union['TableBucketLoggingConfigurationArgs', 'TableBucketLoggingConfigurationArgsDict', 'outputs.TableBucketLoggingConfiguration']]] = None,
+                 metrics_configuration: pulumi.Input[Optional[Union['TableBucketMetricsConfigurationArgs', 'TableBucketMetricsConfigurationArgsDict', 'outputs.TableBucketMetricsConfiguration']]] = None,
+                 replication_configuration: pulumi.Input[Optional[Union['TableBucketReplicationConfigurationArgs', 'TableBucketReplicationConfigurationArgsDict', 'outputs.TableBucketReplicationConfiguration']]] = None,
+                 storage_class_configuration: pulumi.Input[Optional[Union['TableBucketStorageClassConfigurationArgs', 'TableBucketStorageClassConfigurationArgsDict', 'outputs.TableBucketStorageClassConfiguration']]] = None,
                  table_bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
-                 unreferenced_file_removal: pulumi.Input[Optional[Union['TableBucketUnreferencedFileRemovalArgs', 'TableBucketUnreferencedFileRemovalArgsDict']]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
+                 unreferenced_file_removal: pulumi.Input[Optional[Union['TableBucketUnreferencedFileRemovalArgs', 'TableBucketUnreferencedFileRemovalArgsDict', 'outputs.TableBucketUnreferencedFileRemoval']]] = None,
                  __props__=None):
         """
         Creates an Amazon S3 Tables table bucket in the same AWS Region where you create the AWS CloudFormation stack.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['TableBucketEncryptionConfigurationArgs', 'TableBucketEncryptionConfigurationArgsDict']] encryption_configuration: Configuration specifying how data should be encrypted. This structure defines the encryption algorithm and optional KMS key to be used for server-side encryption.
-        :param pulumi.Input[Union['TableBucketStorageClassConfigurationArgs', 'TableBucketStorageClassConfigurationArgsDict']] storage_class_configuration: The configuration details for the storage class of tables or table buckets. This allows you to optimize storage costs by selecting the appropriate storage class based on your access patterns and performance requirements.
+        :param pulumi.Input[Union['TableBucketEncryptionConfigurationArgs', 'TableBucketEncryptionConfigurationArgsDict', 'outputs.TableBucketEncryptionConfiguration']] encryption_configuration: Configuration specifying how data should be encrypted. This structure defines the encryption algorithm and optional KMS key to be used for server-side encryption.
+        :param pulumi.Input[Union['TableBucketStorageClassConfigurationArgs', 'TableBucketStorageClassConfigurationArgsDict', 'outputs.TableBucketStorageClassConfiguration']] storage_class_configuration: The configuration details for the storage class of tables or table buckets. This allows you to optimize storage costs by selecting the appropriate storage class based on your access patterns and performance requirements.
         :param pulumi.Input[_builtins.str] table_bucket_name: The name for the table bucket.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]] tags: User tags (key-value pairs) to associate with the table bucket.
-        :param pulumi.Input[Union['TableBucketUnreferencedFileRemovalArgs', 'TableBucketUnreferencedFileRemovalArgsDict']] unreferenced_file_removal: The unreferenced file removal settings for your table bucket. Unreferenced file removal identifies and deletes all objects that are not referenced by any table snapshots. For more information, see the [*Amazon S3 User Guide*](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-table-buckets-maintenance.html) .
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: User tags (key-value pairs) to associate with the table bucket.
+        :param pulumi.Input[Union['TableBucketUnreferencedFileRemovalArgs', 'TableBucketUnreferencedFileRemovalArgsDict', 'outputs.TableBucketUnreferencedFileRemoval']] unreferenced_file_removal: The unreferenced file removal settings for your table bucket. Unreferenced file removal identifies and deletes all objects that are not referenced by any table snapshots. For more information, see the [*Amazon S3 User Guide*](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-table-buckets-maintenance.html) .
         """
         ...
     @overload
@@ -183,13 +196,14 @@ class TableBucket(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 encryption_configuration: pulumi.Input[Optional[Union['TableBucketEncryptionConfigurationArgs', 'TableBucketEncryptionConfigurationArgsDict']]] = None,
-                 metrics_configuration: pulumi.Input[Optional[Union['TableBucketMetricsConfigurationArgs', 'TableBucketMetricsConfigurationArgsDict']]] = None,
-                 replication_configuration: pulumi.Input[Optional[Union['TableBucketReplicationConfigurationArgs', 'TableBucketReplicationConfigurationArgsDict']]] = None,
-                 storage_class_configuration: pulumi.Input[Optional[Union['TableBucketStorageClassConfigurationArgs', 'TableBucketStorageClassConfigurationArgsDict']]] = None,
+                 encryption_configuration: pulumi.Input[Optional[Union['TableBucketEncryptionConfigurationArgs', 'TableBucketEncryptionConfigurationArgsDict', 'outputs.TableBucketEncryptionConfiguration']]] = None,
+                 logging_configuration: pulumi.Input[Optional[Union['TableBucketLoggingConfigurationArgs', 'TableBucketLoggingConfigurationArgsDict', 'outputs.TableBucketLoggingConfiguration']]] = None,
+                 metrics_configuration: pulumi.Input[Optional[Union['TableBucketMetricsConfigurationArgs', 'TableBucketMetricsConfigurationArgsDict', 'outputs.TableBucketMetricsConfiguration']]] = None,
+                 replication_configuration: pulumi.Input[Optional[Union['TableBucketReplicationConfigurationArgs', 'TableBucketReplicationConfigurationArgsDict', 'outputs.TableBucketReplicationConfiguration']]] = None,
+                 storage_class_configuration: pulumi.Input[Optional[Union['TableBucketStorageClassConfigurationArgs', 'TableBucketStorageClassConfigurationArgsDict', 'outputs.TableBucketStorageClassConfiguration']]] = None,
                  table_bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
-                 unreferenced_file_removal: pulumi.Input[Optional[Union['TableBucketUnreferencedFileRemovalArgs', 'TableBucketUnreferencedFileRemovalArgsDict']]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
+                 unreferenced_file_removal: pulumi.Input[Optional[Union['TableBucketUnreferencedFileRemovalArgs', 'TableBucketUnreferencedFileRemovalArgsDict', 'outputs.TableBucketUnreferencedFileRemoval']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -200,6 +214,7 @@ class TableBucket(pulumi.CustomResource):
             __props__ = TableBucketArgs.__new__(TableBucketArgs)
 
             __props__.__dict__["encryption_configuration"] = encryption_configuration
+            __props__.__dict__["logging_configuration"] = logging_configuration
             __props__.__dict__["metrics_configuration"] = metrics_configuration
             __props__.__dict__["replication_configuration"] = replication_configuration
             __props__.__dict__["storage_class_configuration"] = storage_class_configuration
@@ -232,6 +247,7 @@ class TableBucket(pulumi.CustomResource):
         __props__ = TableBucketArgs.__new__(TableBucketArgs)
 
         __props__.__dict__["encryption_configuration"] = None
+        __props__.__dict__["logging_configuration"] = None
         __props__.__dict__["metrics_configuration"] = None
         __props__.__dict__["replication_configuration"] = None
         __props__.__dict__["storage_class_configuration"] = None
@@ -241,6 +257,12 @@ class TableBucket(pulumi.CustomResource):
         __props__.__dict__["unreferenced_file_removal"] = None
         return TableBucket(resource_name, opts=opts, __props__=__props__)
 
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:s3tables:TableBucket', id, __props__, opts or pulumi.ResourceOptions())
+
     @_builtins.property
     @pulumi.getter(name="encryptionConfiguration")
     def encryption_configuration(self) -> pulumi.Output[Optional['outputs.TableBucketEncryptionConfiguration']]:
@@ -248,6 +270,11 @@ class TableBucket(pulumi.CustomResource):
         Configuration specifying how data should be encrypted. This structure defines the encryption algorithm and optional KMS key to be used for server-side encryption.
         """
         return pulumi.get(self, "encryption_configuration")
+
+    @_builtins.property
+    @pulumi.getter(name="loggingConfiguration")
+    def logging_configuration(self) -> pulumi.Output[Optional['outputs.TableBucketLoggingConfiguration']]:
+        return pulumi.get(self, "logging_configuration")
 
     @_builtins.property
     @pulumi.getter(name="metricsConfiguration")

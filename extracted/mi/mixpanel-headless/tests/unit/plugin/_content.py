@@ -912,17 +912,8 @@ FORBIDDEN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "spec or plan path",
         re.compile(r"\bspecs/0\d{2}-|\bcontext/[\w-]+(?:/[\w.-]+)*\.md"),
     ),
-    ("mentions Cowork", re.compile(r"cowork", re.IGNORECASE)),
-    (
-        "mentions the bridge",
-        re.compile(r"(?<![A-Za-z])bridges?(?![A-Za-z])", re.IGNORECASE),
-    ),
 )
 """Plan bookkeeping and removed names that must not appear in shipped text.
-
-The plugin does not mention Cowork or the Cowork credential bridge. "bridge"
-is matched as a word that may touch ``_`` or ``-``, so identifiers such as
-``bridge_status`` and ``export-bridge`` are caught, but "Bridgeport" is not.
 
 Bare decision codes (``D1``, ``D7``) are only flagged in parentheses or after
 "per" / "see" / "decision", because ``D1`` and ``D7`` are also the standard
@@ -978,8 +969,60 @@ def parse_version_floor(text: str) -> tuple[int, ...] | None:
     match = _FLOOR.search(text)
     if match is None:
         return None
-    parts = tuple(int(p) for p in match.group("version").split("."))
+    return _version_tuple(match.group("version"))
+
+
+def _version_tuple(text: str) -> tuple[int, ...]:
+    """Turn a dotted version string into an integer tuple of three parts.
+
+    Args:
+        text: A version such as ``"0.4"`` or ``"0.4.0"``.
+
+    Returns:
+        The integer parts, padded with zeros to three parts.
+    """
+    parts = tuple(int(p) for p in text.split("."))
     return parts + (0,) * (3 - len(parts))
+
+
+_MIN_VERSION = re.compile(
+    r"(?P<later>\d+\.\d+\.\d+) or (?:later|newer)"
+    r"|older than (?P<older>\d+\.\d+\.\d+)"
+    r"|the (?P<floor>\d+\.\d+\.\d+) floor"
+    r"|mixpanel-headless\s*>=\s*(?P<pin>\d+\.\d+\.\d+)"
+)
+"""A phrase that states the minimum library version.
+
+Release facts such as "first shipped in 0.3.0" do not match, because they
+describe history, not the version that the plugin needs."""
+
+
+def version_floor_violations(
+    path: Path, text: str, floor: tuple[int, ...]
+) -> list[str]:
+    """Flag minimum-version phrases that name a version other than the floor.
+
+    Args:
+        path: The file the text came from.
+        text: The text to scan.
+        floor: The ``mixpanel-headless>=`` floor that ``setup.sh`` pins.
+
+    Returns:
+        One ``"<path>:<line>: <reason>: <line text>"`` string per phrase
+        whose version differs from ``floor``.
+    """
+    where = rel(path)
+    expected = ".".join(map(str, floor))
+    found: list[str] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        for match in _MIN_VERSION.finditer(line):
+            version = next(v for v in match.groups() if v is not None)
+            if _version_tuple(version) != floor:
+                found.append(
+                    f"{where}:{number}: minimum version {version} is not the "
+                    f"setup floor {expected}: {line.strip()[:120]}"
+                )
+    return found
 
 
 # =============================================================================

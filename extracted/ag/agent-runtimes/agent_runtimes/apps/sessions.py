@@ -114,7 +114,9 @@ from agent_runtimes.apps.callers import Caller
 from agent_runtimes.apps.components import AnswerShows, answer_actions
 from agent_runtimes.apps.composer import mode_choice, profile_choice, run_effect
 from agent_runtimes.apps.forms import field_title, form_fields
+from agent_runtimes.apps.header import header_instructions
 from agent_runtimes.apps.host_user import HostUser, reads_user, signed_host_context
+from agent_runtimes.apps.page_tools import PageCalls
 from agent_runtimes.apps.pages import LOOP_PAGE, page_values
 from agent_runtimes.apps.record import (
     AppRecorder,
@@ -768,6 +770,8 @@ class LiveSession:
     """The steps running, by id, with what they streamed so far."""
     _said: Optional[Dict[str, str]] = field(default=None, init=False, repr=False)
     """What its code said in a turn recorded as a run of its own, by message id."""
+    _page_calls: PageCalls = field(default_factory=PageCalls, init=False, repr=False)
+    """What its last run asked of the page, and what failed in the turn (`page_tools`)."""
 
     # --- what the session is -----------------------------------------------------
 
@@ -1211,13 +1215,16 @@ class LiveSession:
         wraps_run: bool,
         head: str = "",
         counts: bool = True,
+        takes_turn: bool = True,
     ) -> AsyncIterator[str]:
         """Run ``work`` as the session's turn, and stream it.
 
         ``wraps_run``: the turn is framed by ``RUN_STARTED`` and ``RUN_FINISHED``
         here — the code's turns; an agent's run frames its own. ``counts``: it
         is one of a visitor's turns — opening with nothing to
-        say is not.
+        say is not. ``takes_turn``: false for a run that only carries what the
+        page's tools answered, part of the turn under way (`page_tools`): the
+        session's minutes are checked, and no turn is taken.
         """
         from ag_ui.core import RunErrorEvent, RunFinishedEvent, RunStartedEvent
 
@@ -1232,7 +1239,7 @@ class LiveSession:
         if visitor and counts:
             from agent_runtimes.apps.visitors import admit_turn
 
-            refusal = admit_turn(self.opened_by.uid, self.started_at)
+            refusal = admit_turn(self.opened_by.uid, self.started_at, take=takes_turn)
             if refusal:
                 raise SessionRefused(429, refusal)
         queue = self._open_stream(run_id)
@@ -2509,11 +2516,13 @@ class LiveSession:
         }
         await self.forward(body, bearer=bearer)
 
-    async def _agent_turn(self, asked: str, body: Dict[str, Any], bearer: str) -> None:
+    async def _agent_turn(
+        self, asked: str, body: Dict[str, Any], bearer: str, *, told: str = ""
+    ) -> None:
         """A turn of an agent run as such: the run is its agent's, as the
         chat sent it, and the session keeps the turn — what was asked and
         what it answered — since its agent was made with no record of an
-        application.
+        application. ``told`` is what the chat's title bar says for this run.
         """
         forwarded = body.get("forwardedProps")
         if isinstance(forwarded, Mapping):
@@ -2537,7 +2546,7 @@ class LiveSession:
         }
         completed = False
         try:
-            await self.forward(run, bearer=bearer)
+            await self.forward(run, bearer=bearer, instructions=told)
             completed = True
         finally:
             answered = "\n\n".join(
@@ -2673,6 +2682,9 @@ class LiveSession:
             self._emit(text)
             events, buffer = _sse_events(buffer + text)
             for event in events:
+                # A call of a tool of the page: its answer, sent back, is
+                # this turn's.
+                self._page_calls.heard(event)
                 if event.get("type") == "TEXT_MESSAGE_START":
                     answers.setdefault(str(event.get("messageId")), [])
                 elif event.get("type") == "TEXT_MESSAGE_CONTENT":
@@ -2718,14 +2730,25 @@ class LiveSession:
 
         ``forwardedProps.loop`` says what the page did besides the message: the
         settings it holds (``settings``), the option of each mode the person is
-        in (``modes``), the files given (``files``), and a press
-        checked on the ui socket (``press``, RU-W) — never an
+        in (``modes``), the option each drop-down of the chat's title bar is on
+        (``header``, told to the agent for this run:
+        :mod:`agent_runtimes.apps.header`), the files given (``files``), and a
+        press checked on the ui socket (``press``, RU-W) — never an
         action of its own.
 
         The modes' instructions are told to the agent for this run, and the
         model one of them names is run on: through the code's ``session.agent``
         for an application written in Python, else on the run itself.
         """
+        # A model the run names is one its agent offers, or nothing runs:
+        # refused before the turn starts, so the refusal is the answer's
+        # status (`offered.run_model_refusal`); the agent's AG-UI app checks
+        # it again.
+        from agent_runtimes.models.offered import run_model_refusal
+
+        not_offered = run_model_refusal(self.agent_id, body.get("model"))
+        if not_offered:
+            raise SessionRefused(400, not_offered)
         run_id = str(body.get("runId") or "")
         messages = [
             dict(m) for m in body.get("messages") or [] if isinstance(m, Mapping)
@@ -2762,6 +2785,11 @@ class LiveSession:
             raise SessionRefused(422, str(wrong)) from None
         if self.session is not None:
             self.session._update_modes(self.modes)
+        # What the chat's title bar says: its drop-downs, in the UI specs' words.
+        try:
+            header_told = header_instructions(loop.get("header"))
+        except ValueError as wrong:
+            raise SessionRefused(422, str(wrong)) from None
         files = given_files(
             loop.get("files"), scope=self.uid, owner=owner_of(self.opened_by)
         )
@@ -2808,6 +2836,26 @@ class LiveSession:
             raise SessionRefused(
                 422, "A file was given with no message to run it with."
             )
+        # A run that only carries what the page's tools answered, for the
+        # calls the last run made of it, is the turn under way: a visitor
+        # takes no turn for it. The same tool failing twice in a turn, or a
+        # sixth such run for one message, ends it in a sentence, for
+        # everybody (`page_tools`).
+        self._may_go_on()
+        answered = self._page_calls.begin(messages, body.get("tools"))
+        stopped = (
+            self._page_calls.failed_twice(answered)
+            or self._page_calls.too_many_rounds(answered)
+            if answered
+            else ""
+        )
+        if stopped:
+            return self._start_turn(
+                lambda: self._say_stopped(messages, stopped),
+                run_id=run_id,
+                wraps_run=True,
+                takes_turn=False,
+            )
         # A spec: the chat's conversation is the session's, the files given
         # are put where its agent reads them, and the run is its agent's.
         forwarded = body.get("forwardedProps")
@@ -2819,7 +2867,7 @@ class LiveSession:
         async def work() -> None:
             """The turn."""
             if self.kind == "agent":
-                await self._agent_turn(text, body, bearer)
+                await self._agent_turn(text, body, bearer, told=header_told)
                 return
             words, parts = await asyncio.to_thread(self._files_for_agent, files)
             content: Any = f"{text}\n\n{words}" if words else text
@@ -2846,9 +2894,34 @@ class LiveSession:
                 "forwardedProps": forwarded or None,
                 **({"model": effect.model} if effect.model else {}),
             }
-            await self.forward(run, bearer=bearer, instructions=effect.instructions)
+            await self.forward(
+                run,
+                bearer=bearer,
+                instructions="\n\n".join(
+                    part for part in (effect.instructions, header_told) if part
+                ),
+            )
 
-        return self._start_turn(work, run_id=run_id, wraps_run=False)
+        return self._start_turn(
+            work, run_id=run_id, wraps_run=False, takes_turn=answered is None
+        )
+
+    async def _say_stopped(self, messages: List[Dict[str, Any]], sentence: str) -> None:
+        """End the turn in a sentence, the agent not run again."""
+        from ag_ui.core import (
+            TextMessageContentEvent,
+            TextMessageEndEvent,
+            TextMessageStartEvent,
+        )
+
+        message_id = _new_id()
+        self.emit(TextMessageStartEvent(message_id=message_id, role="assistant"))
+        self.emit(TextMessageContentEvent(message_id=message_id, delta=sentence))
+        self.emit(TextMessageEndEvent(message_id=message_id))
+        self.messages = [
+            *messages,
+            {"id": message_id, "role": "assistant", "content": sentence},
+        ]
 
 
 def _snapshot(messages: List[Dict[str, Any]]) -> List[Any]:

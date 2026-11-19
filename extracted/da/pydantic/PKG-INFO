@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic
-Version: 2.14.3
+Version: 2.14.4
 Summary: Data validation using Python type hints
 Project-URL: Homepage, https://github.com/pydantic/pydantic
 Project-URL: Documentation, https://pydantic.dev/docs/validation/latest/get-started/
@@ -33,7 +33,7 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: annotated-types>=0.6.0
-Requires-Dist: pydantic-core==2.50.4
+Requires-Dist: pydantic-core==2.50.5
 Requires-Dist: typing-extensions>=4.16.0
 Requires-Dist: typing-inspection>=0.4.4
 Provides-Extra: email
@@ -118,6 +118,42 @@ See our [security policy](https://github.com/pydantic/pydantic/security/policy).
 <!-- markdownlint-disable no-bare-urls -->
 <!-- markdownlint-disable descriptive-link-text -->
 <!-- markdownlint-disable-next-line first-line-heading -->
+
+## v2.14.4 (2026-11-19)
+
+[GitHub release](https://github.com/pydantic/pydantic/releases/tag/v2.14.4)
+
+### What's Changed
+
+#### Packaging
+
+* Bump jiter to v0.19.0 by [@Viicos](https://github.com/Viicos) in [#14247](https://github.com/pydantic/pydantic/pull/14247).
+  This addresses memory issues introduced by the previous jiter release.
+
+#### Changes
+
+* Don't mark subclasses of `@deprecated` classes as deprecated in JSON Schema by [@Viicos](https://github.com/Viicos) in [#14325](https://github.com/pydantic/pydantic/pull/14325)
+
+#### Performance
+
+* Cache UTC `TzInfo` instance by [@Viicos](https://github.com/Viicos) in [#14256](https://github.com/pydantic/pydantic/pull/14256)
+* Skip schema deduplication for alternatives with a single schema by [@fredheir](https://github.com/fredheir) in [#14274](https://github.com/pydantic/pydantic/pull/14274)
+
+#### Fixes
+
+* Exclude `InitVar` fields from the serialization JSON schema by [@Alvi-Rahman](https://github.com/Alvi-Rahman) in [#14223](https://github.com/pydantic/pydantic/pull/14223)
+* Fix more issues about GC tracking in `pydantic-core` by [@Viicos](https://github.com/Viicos) in [#14253](https://github.com/pydantic/pydantic/pull/14253)
+* Fix validation constraints leaking into the `Decimal` JSON Schema by [@aidxhxr](https://github.com/aidxhxr) in [#14254](https://github.com/pydantic/pydantic/pull/14254)
+* Fix model signature when a field alias is the name used for extra kwargs by [@aidxhxr](https://github.com/aidxhxr) in [#14255](https://github.com/pydantic/pydantic/pull/14255)
+* Fix display of `Callable` parameters in type representations by [@aidxhxr](https://github.com/aidxhxr) in [#14261](https://github.com/pydantic/pydantic/pull/14261)
+* Respect validation-time `strict=True` for `complex` by [@Viicos](https://github.com/Viicos) in [#14293](https://github.com/pydantic/pydantic/pull/14293)
+* Fill missing type alias arguments from type parameter defaults by [@Viicos](https://github.com/Viicos) in [#14324](https://github.com/pydantic/pydantic/pull/14324)
+
+### New Contributors
+
+* [@Alvi-Rahman](https://github.com/Alvi-Rahman) made their first contribution in [#14223](https://github.com/pydantic/pydantic/pull/14223)
+* [@aidxhxr](https://github.com/aidxhxr) made their first contribution in [#14254](https://github.com/pydantic/pydantic/pull/14254)
+* [@fredheir](https://github.com/fredheir) made their first contribution in [#14274](https://github.com/pydantic/pydantic/pull/14274)
 
 ## v2.14.3 (2026-11-04)
 

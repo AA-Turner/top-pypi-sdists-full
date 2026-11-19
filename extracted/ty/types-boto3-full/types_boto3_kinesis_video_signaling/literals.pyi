@@ -32,6 +32,7 @@ __all__ = (
 ServiceType = Literal["TURN"]
 KinesisVideoSignalingChannelsServiceName = Literal["kinesis-video-signaling"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fixes ``openstack.baremetal.configdrive.build`` to actually handle the
-    ``network_data`` argument.

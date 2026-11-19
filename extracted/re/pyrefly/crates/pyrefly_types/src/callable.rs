@@ -8,12 +8,14 @@
 use std::borrow::Cow;
 use std::cmp::Ord;
 use std::fmt;
-use std::fmt::Display;
 use std::hash::Hash;
 
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
+use pyrefly_util::display::DisplayWith;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::display::Fmt;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::VecExt;
@@ -24,21 +26,42 @@ use ruff_python_ast::name::Name;
 use starlark_map::small_set::SmallSet;
 
 use crate::display::TypeDisplayContext;
+use crate::env::TypeEnv;
 use crate::equality::TypeEq;
 use crate::equality::TypeEqCtx;
+use crate::function::UnresolvedImports;
+use crate::quantified::Quantified;
 use crate::type_output::DisplayOutput;
 use crate::type_output::TypeOutput;
 use crate::types::AnyStyle;
+use crate::types::TParams;
 use crate::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct Callable {
     pub params: Params,
     pub ret: Type,
 }
 
 impl Callable {
+    /// Classify declared import recovery before substituting receiver or argument types.
+    pub fn classify_unresolved_imports(&self, tparams: Option<&TParams>) -> UnresolvedImports {
+        let mut inputs = false;
+        let mut check_type = |ty: &Type| inputs = inputs || ty.contains_missing_import();
+        self.params.visit(&mut check_type);
+        if let Some(tparams) = tparams {
+            tparams.visit(&mut check_type);
+        }
+        if inputs {
+            UnresolvedImports::Inputs
+        } else if self.ret.contains_missing_import() {
+            UnresolvedImports::ReturnOnly
+        } else {
+            UnresolvedImports::Resolved
+        }
+    }
+
     /// Returns true if this callable has the `*args: Any, **kwargs: Any -> Any`
     /// signature (plus an optional unannotated self/cls at index 0).
     /// Used as a heuristic in decorator type resolution for union-typed
@@ -81,10 +104,10 @@ impl Callable {
     }
 }
 
-impl Display for Callable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<'e> DisplayWith<dyn TypeEnv + 'e> for Callable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, env: &(dyn TypeEnv + 'e)) -> fmt::Result {
         let ty = Type::Callable(Box::new(self.clone()));
-        let ctx = TypeDisplayContext::new(&[&ty]);
+        let ctx = TypeDisplayContext::new(env, &[&ty]);
         let mut output = DisplayOutput::new(&ctx, f);
         self.fmt_with_type(&mut output, &|t, o| ctx.fmt_helper_generic(t, false, o))
     }
@@ -135,7 +158,7 @@ pub enum ParamOverlay {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct ParamList(Vec<Param>);
 
 impl ParamList {
@@ -304,7 +327,7 @@ fn write_indent<O: TypeOutput>(output: &mut O, indent: usize) -> fmt::Result {
 /// Represents a prefix parameter in `Concatenate`.
 /// Prefix params can be either positional-only or positional (named).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum PrefixParam {
     PosOnly(Option<Name>, Type, Required),
     Pos(Name, Type, Required),
@@ -346,7 +369,7 @@ impl PrefixParam {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum Params {
     List(ParamList),
     /// The remaining parameter list of a `functools.partial(...)`: behaves like `List` for
@@ -422,7 +445,7 @@ impl Params {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum Param {
     PosOnly(Option<Name>, Type, Required),
     Pos(Name, Type, Required),
@@ -433,7 +456,7 @@ pub enum Param {
 
 /// The default value of an optional parameter, containing its type and an optional
 /// display string for values whose types don't preserve the literal value (e.g. floats).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, TypeOrd)]
 pub struct DefaultValue {
     pub ty: Type,
     /// Display string for defaults that can't be recovered from the type alone,
@@ -483,7 +506,7 @@ impl DefaultValue {
 
 /// Requiredness for a function parameter.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum Required {
     Required,
     /// The parameter is optional, with the default value info if available.
@@ -667,6 +690,24 @@ impl Callable {
         }
     }
 
+    /// Replaces each of `tparams` with its broadest gradual form, ignoring any default. This
+    /// writes the signature for a context that cannot declare the type parameters.
+    pub fn with_gradual_tparams<'a>(
+        &self,
+        tparams: impl IntoIterator<Item = &'a Quantified>,
+    ) -> Self {
+        let tparams = tparams.into_iter().collect::<Vec<_>>();
+        let mut callable = self.clone();
+        callable.visit_mut(&mut |ty: &mut Type| {
+            ty.subst_mut_fn(&mut |param| {
+                tparams
+                    .contains(&param)
+                    .then(|| Quantified::as_gradual_type_helper(param.kind(), None))
+            })
+        });
+        callable
+    }
+
     /// Return a new Callable with the first parameter removed (the `self` param for bound methods).
     pub fn strip_first_param(&self) -> Option<Self> {
         self.split_first_param(&mut Owner::new())
@@ -799,7 +840,7 @@ impl Callable {
 }
 
 impl Param {
-    pub(crate) fn fmt_default(&self, default: &Option<DefaultValue>) -> String {
+    pub(crate) fn fmt_default(&self, default: &Option<DefaultValue>, env: &dyn TypeEnv) -> String {
         match default {
             Some(DefaultValue {
                 display: Some(text),
@@ -808,7 +849,7 @@ impl Param {
             Some(DefaultValue {
                 ty: Type::Literal(lit),
                 ..
-            }) => format!("{}", lit.value),
+            }) => lit.value.display_with(env).to_string(),
             Some(DefaultValue { ty: Type::None, .. }) => "None".to_owned(),
             _ => "...".to_owned(),
         }
@@ -825,7 +866,7 @@ impl Param {
                 output.write_str("_: ")?;
                 write_type(ty, output)?;
                 output.write_str(" = ")?;
-                output.write_str(&self.fmt_default(default))
+                output.write_str(&self.fmt_default(default, output.env()))
             }
             Param::PosOnly(Some(name), ty, Required::Required)
             | Param::Pos(name, ty, Required::Required)
@@ -841,7 +882,7 @@ impl Param {
                 output.write_str(": ")?;
                 write_type(ty, output)?;
                 output.write_str(" = ")?;
-                output.write_str(&self.fmt_default(default))
+                output.write_str(&self.fmt_default(default, output.env()))
             }
             Param::Varargs(Some(name), ty) => {
                 output.write_str("*")?;
@@ -922,9 +963,9 @@ impl Param {
     }
 }
 
-impl Display for Param {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let ctx = TypeDisplayContext::new(&[self.as_type()]);
+impl<'e> DisplayWith<dyn TypeEnv + 'e> for Param {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, env: &(dyn TypeEnv + 'e)) -> fmt::Result {
+        let ctx = TypeDisplayContext::new(env, &[self.as_type()]);
         let mut output = DisplayOutput::new(&ctx, f);
         self.fmt_with_type(&mut output, &|t, o| ctx.fmt_helper_generic(t, false, o))
     }
@@ -946,7 +987,6 @@ mod tests {
     use pyrefly_util::visit::Visit;
     use pyrefly_util::visit::VisitMut;
     use ruff_python_ast::name::Name;
-    use ruff_text_size::TextRange;
 
     use crate::callable::Callable;
     use crate::callable::DefaultValue;
@@ -957,6 +997,7 @@ mod tests {
     use crate::callable::Required;
     use crate::quantified::AnchorIndex;
     use crate::quantified::Quantified;
+    use crate::quantified::QuantifiedAnchor;
     use crate::quantified::QuantifiedIdentity;
     use crate::quantified::QuantifiedKind;
     use crate::quantified::QuantifiedOrigin;
@@ -1131,7 +1172,7 @@ mod tests {
         let q = Quantified::new(
             QuantifiedIdentity::new(
                 ModuleName::from_str("__test__"),
-                AnchorIndex::first(TextRange::default()),
+                AnchorIndex::first(QuantifiedAnchor::None),
                 QuantifiedOrigin::Pep695,
             ),
             Name::new("T"),
@@ -1154,7 +1195,7 @@ mod tests {
         let q = Quantified::new(
             QuantifiedIdentity::new(
                 ModuleName::from_str("__test__"),
-                AnchorIndex::new(TextRange::default(), 1),
+                AnchorIndex::new(QuantifiedAnchor::None, 1),
                 QuantifiedOrigin::Pep695,
             ),
             Name::new("T"),

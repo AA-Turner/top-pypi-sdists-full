@@ -116,6 +116,7 @@ SchemaVersionType = Literal["v1.0"]
 TextPartTypeType = Literal["LOCALIZED_TEXT", "PLAIN_TEXT", "PORTABLE_TEXT", "URL"]
 UserNotificationsServiceName = Literal["notifications"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

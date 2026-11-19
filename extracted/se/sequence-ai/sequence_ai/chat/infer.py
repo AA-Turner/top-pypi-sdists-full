@@ -6,8 +6,11 @@ In one sentence:
 ChatStream that yields the text as it is generated), building the exact wire body the gateway's
 `extra="forbid"` schema accepts and resolving the model against the shared catalogue.
 
+With `server=`, the same turn goes to a language-model server of your choosing instead (servers.py):
+`server="openrouter"` with your own OpenRouter key, or a server of your own with the OpenAI chat completions API.
+
 Upstream trigger  - a caller, once per request (unlike act, there is no loop here)
-Downstream effect - POST /v1/chat, or a local InvalidRequest naming the mismatch
+Downstream effect - POST /v1/chat (or `<server>/chat/completions`), or a local InvalidRequest naming the mismatch
 
 WHY this is a function and not a Policy: act keeps a connection open and a buffer full because a
 robot consumes actions continuously. Chat is request/response — a message in, a message out. A
@@ -57,6 +60,7 @@ def chat(
     api_key: str | None = None,
     base_url: str | None = None,
     timeout_s: float | None = None,
+    server: str | None = None,
 ) -> ChatResult | ChatStream:
     """
     One `/v1/chat` turn: messages in, one message out.
@@ -95,13 +99,33 @@ def chat(
       their usual names and meanings; which ones a model takes is its `supported_parameters` in
       `models()`. Left as None they are not sent.
 
-    Every result carries `cost_usd`, what the call was charged. No cold-start wait: chat is answered
-    by an external provider. A refused call is not billed: a request the provider rejects (a value
+    Every result carries `cost_usd`, what the call was charged. Chat answers with no cold start. A
+    refused call is not billed: a request the provider rejects (a value
     out of range, an image it cannot read, a prompt longer than the model's context) raises
     InvalidRequest with the provider's own words; Unavailable means the provider returned an error
     (502 — retry once, then report) or is rate limited or unreachable (503 — `retry_after_s` when
     known). Neither is retried for you. Every call opens its own connection.
+
+    `server` — the turn goes to a language-model server you choose instead of General Sequences:
+    `server="openrouter"` with your own OpenRouter key (`api_key`, else $OPENROUTER_API_KEY), or the
+    address of a server of your own with the OpenAI chat completions API
+    (`server="http://localhost:8000/v1"`), `api_key` sent to it only as given. `model` is that
+    server's own name for the model (`"qwen/qwen3-8b"`), and `cost_usd` what the server reports the
+    turn cost, else 0. Your General Sequences key is never sent there. With `cache`, a named server's
+    system prompt is marked for the models that need a mark, as on General Sequences; `base_url` is
+    General Sequences' own. Without `server`, the turn goes to General Sequences with
+    $SEQUENCES_API_KEY.
     """
+    if server is not None:
+        return _at_server(server, model, messages, api_key=api_key, timeout_s=timeout_s, stream=stream, cache=cache,
+                            max_tokens=max_tokens, temperature=temperature, tools=tools, tool_choice=tool_choice,
+                            response_format=response_format, reasoning=reasoning,
+                            include_reasoning=include_reasoning, reasoning_effort=reasoning_effort,
+                            max_completion_tokens=max_completion_tokens, seed=seed, stop=stop, top_p=top_p,
+                            top_k=top_k, min_p=min_p, top_a=top_a, frequency_penalty=frequency_penalty,
+                            presence_penalty=presence_penalty, repetition_penalty=repetition_penalty,
+                            logit_bias=logit_bias, logprobs=logprobs, top_logprobs=top_logprobs,
+                            parallel_tool_calls=parallel_tool_calls, verbosity=verbosity)
     m = _resolve(model, api_key, base_url, "chat")
     if m.endpoint != "chat":
         raise InvalidRequest(
@@ -156,3 +180,24 @@ def chat(
     finally:
         t.close()
     return result_from_wire(r, m.id)
+
+
+def _at_server(server: str, model: Any, messages: list[dict[str, Any]], *, api_key: str | None,
+               timeout_s: float | None, stream: bool, cache: bool, max_tokens: int,
+               **params: Any) -> ChatResult | ChatStream:
+    """chat(server=...): the turn at a server of your choosing (chat/servers.py), the request under the API's own
+    names - `model` as that server names it, each other parameter only when it was given."""
+    from . import servers
+
+    if not messages:
+        raise InvalidRequest("chat() needs at least one message")
+    if not isinstance(model, str) or not model:
+        raise InvalidRequest(f"chat(server={server!r}) takes the model as that server names it, a str")
+    address, key = servers.target(server, api_key)
+    if cache and servers.is_named(server):
+        messages = servers.with_cache_breakpoint(messages, model)
+    body: dict[str, Any] = {"model": model, "messages": messages, "max_tokens": max_tokens}
+    body.update({name: value for name, value in params.items() if value is not None})
+    if stream:
+        return servers.stream(address, body, key, timeout_s)
+    return servers.post(address, body, key, timeout_s)

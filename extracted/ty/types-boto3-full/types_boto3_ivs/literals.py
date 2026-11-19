@@ -77,6 +77,7 @@ ThumbnailConfigurationStorageType = Literal["LATEST", "SEQUENTIAL"]
 TranscodePresetType = Literal["CONSTRAINED_BANDWIDTH_DELIVERY", "HIGHER_BANDWIDTH_DELIVERY"]
 IVSServiceName = Literal["ivs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

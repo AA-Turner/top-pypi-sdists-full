@@ -283,6 +283,7 @@ VersionControlType = Literal["AZURE_DEVOPS_GIT", "GITHUB", "GITHUB_ENTERPRISE"]
 VersionControlTypeType = Literal["AZURE_DEVOPS_GIT", "GITHUB", "GITHUB_ENTERPRISE"]
 MigrationHubStrategyRecommendationsServiceName = Literal["migrationhubstrategy"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

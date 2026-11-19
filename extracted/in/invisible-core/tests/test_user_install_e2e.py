@@ -357,7 +357,7 @@ def test_the_published_version_has_a_github_release():
 
     problems = []
     # The LEDGER is the fourth record, and it costs no API call: it is a file in
-    # this repository. `version_gate check` compares it to the index too, but
+    # this repository. `python -m invisible_core.release check` compares it to the index too, but
     # only on a release - so a version published outside the gate stays invisible
     # until the NEXT release is refused by it, which is how the gap from
     # 2026-08-02 was found. Here it surfaces on every run of this job.

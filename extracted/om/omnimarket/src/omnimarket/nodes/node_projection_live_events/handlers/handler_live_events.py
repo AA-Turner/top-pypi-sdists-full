@@ -62,8 +62,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import yaml
-
+from omnimarket.handlers.delivery_cache import load_contract
+from omnimarket.models.model_projection_request import ModelProjectionRequest
 from omnimarket.nodes.node_projection_live_events.handlers.handler_projection_live_events import (
     ModelLiveEvent,
 )
@@ -111,22 +111,26 @@ class HandlerLiveEventsProjectionRunner(BaseProjectionRunner):
     def __init__(self, contract_path: Path | None = None) -> None:
         super().__init__()
         _path = contract_path or Path(__file__).parent.parent / "contract.yaml"
-        with open(_path) as f:
-            self._contract: dict[str, Any] = yaml.safe_load(f)
+        self._contract: dict[str, Any] = load_contract(_path)
 
         _tables = self._contract.get("db_io", {}).get("db_tables", [])
-        _by_role = {t["role"]: t["name"] for t in _tables}
+        _by_role = {t["role"]: t for t in _tables}
 
-        for role, name in _by_role.items():
-            if name not in KNOWN_PROJECTION_TABLES:
+        for role, table in _by_role.items():
+            if table["name"] not in KNOWN_PROJECTION_TABLES:
                 raise ValueError(
-                    f"Unknown table role {role!r} maps to {name!r} which is not in KNOWN_PROJECTION_TABLES"
+                    f"Unknown table role {role!r} maps to {table['name']!r} which is not in KNOWN_PROJECTION_TABLES"
                 )
 
         if "live_events" not in _by_role:
             raise ValueError("Contract missing required table role 'live_events'")
 
-        self._table_live_events: str = _by_role["live_events"]
+        # OMN-22652: name the schema the contract declares. A bare name resolves
+        # through the login's search_path to public.live_events, where the
+        # runtime login holds no grant (it holds INSERT on
+        # omninode_internal.live_events), so every write of the folded writer
+        # was refused from 2026-11-03T14:41Z.
+        self._table_live_events = "{schema}.{name}".format_map(_by_role["live_events"])
 
         # OMN-17427: the contract has declared ``event_bus.dlq_topics`` since
         # OMN-13992, but this runner never handed it to the base class, whose
@@ -170,21 +174,16 @@ class HandlerLiveEventsProjectionRunner(BaseProjectionRunner):
     def subscribe_topics(self) -> list[str]:
         return list(self._contract.get("event_bus", {}).get("subscribe_topics", []))
 
-    def handle(self, input_data: dict[str, Any]) -> dict[str, Any]:
+    def project_request(self, request: ModelProjectionRequest) -> dict[str, Any]:
         """RuntimeLocal handler protocol shim.
 
         Delegates to project_event via asyncio.run() -- identical shape to
         RegistrationProjectionRunner.handle().
         """
         topics = self.subscribe_topics
-        topic = str(input_data.pop("_topic", topics[0] if topics else ""))
-        meta = MessageMeta(
-            partition=int(input_data.pop("_partition", 0)),
-            offset=int(input_data.pop("_offset", 0)),
-            fallback_id=str(input_data.pop("_fallback_id", "")),
-            topic=topic,
-        )
-        ok = asyncio.run(self.project_event(topic, input_data, meta))
+        topic = request.topic_or(topics[0] if topics else "")
+        meta = request.message_meta(topic)
+        ok = asyncio.run(self.project_event(topic, request.payload, meta))
         return {"projected": ok}
 
     @property

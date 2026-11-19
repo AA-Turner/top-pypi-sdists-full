@@ -30,9 +30,11 @@ namespace sherpa_onnx {
  *
  * Speech is 10 ms frames at least 10 dB above the noise floor, the quietest
  * frame of the last 2 seconds. Digital silence (below -90 dBFS) is left out
- * of the floor. At the switch, the stream first runs over the last 250 ms of
- * audio, whose output is dropped, so it does not start from an empty LSTM
- * state, and the isolated audio fades in over 10 ms.
+ * of the floor. At the switch, the stream first runs over the audio so far
+ * (up to 30 seconds), whose output is dropped, and the isolated audio fades
+ * in over 10 ms. A stream started mid-speech from an empty LSTM state can
+ * take the caller for background and keep them muted for the rest of the
+ * call; one that has heard the call from its start does not.
  */
 class OnlineSpeechDenoiserVoxLockImpl : public OnlineSpeechDenoiserImpl {
  public:
@@ -130,17 +132,7 @@ class OnlineSpeechDenoiserVoxLockImpl : public OnlineSpeechDenoiserImpl {
   }
 
   void Reset() override {
-    resampler_.reset();
-    input_sample_rate_ = -1;
-    total_input_samples_ = 0;
-    total_output_samples_ = 0;
-
-    voiced_.clear();
-    energy_.clear();
-    rest_.clear();
-    recent_.clear();
-    after_.clear();
-    num_to_skip_ = 0;
+    ClearState();
 
     if (voice_sample_.empty()) {
       stream_.reset();
@@ -160,7 +152,38 @@ class OnlineSpeechDenoiserVoxLockImpl : public OnlineSpeechDenoiserImpl {
     return model_.GetMetaData().hop_length;
   }
 
+  bool SetVoiceSample(const float *samples, int32_t n,
+                      int32_t sample_rate) override {
+    const auto &meta = model_.GetMetaData();
+    auto prepared = PrepareVoxLockVoiceSampleFromPcm(
+        samples, n, sample_rate, meta.sample_rate, meta.voice_sample_seconds);
+    if (prepared.empty()) {
+      return false;
+    }
+    auto stream = std::make_unique<SpeechDenoiserVoxLockStream>(
+        &model_, prepared.data(), prepared.size());
+    voice_sample_ = std::move(prepared);
+    ClearState();
+    stream_ = std::move(stream);
+    num_faded_ = fade_length_;
+    return true;
+  }
+
  private:
+  void ClearState() {
+    resampler_.reset();
+    input_sample_rate_ = -1;
+    total_input_samples_ = 0;
+    total_output_samples_ = 0;
+
+    voiced_.clear();
+    energy_.clear();
+    rest_.clear();
+    recent_.clear();
+    after_.clear();
+    num_to_skip_ = 0;
+  }
+
   void Init(const OnlineSpeechDenoiserConfig &config) {
     const auto &meta = model_.GetMetaData();
     const auto &filename = config.model.voxlock.voice_sample;
@@ -188,7 +211,7 @@ class OnlineSpeechDenoiserVoxLockImpl : public OnlineSpeechDenoiserImpl {
     const auto &meta = model_.GetMetaData();
 
     frame_length_ = meta.sample_rate / 100;
-    warm_up_length_ = meta.sample_rate / 4;
+    warm_up_length_ = 30 * meta.sample_rate;
     fade_length_ = frame_length_;
     num_frames_needed_ = meta.voice_sample_seconds * 100;
 
@@ -213,7 +236,8 @@ class OnlineSpeechDenoiserVoxLockImpl : public OnlineSpeechDenoiserImpl {
 
   void FindVoiceSample(const float *samples, int32_t n) {
     recent_.insert(recent_.end(), samples, samples + n);
-    if (static_cast<int32_t>(recent_.size()) > warm_up_length_) {
+    // Trim only when twice as long, so the buffer is not moved on every call
+    if (static_cast<int32_t>(recent_.size()) > 2 * warm_up_length_) {
       recent_.erase(recent_.begin(), recent_.end() - warm_up_length_);
     }
 
@@ -258,8 +282,13 @@ class OnlineSpeechDenoiserVoxLockImpl : public OnlineSpeechDenoiserImpl {
     voiced_.clear();
     energy_.clear();
 
+    if (static_cast<int32_t>(recent_.size()) > warm_up_length_) {
+      recent_.erase(recent_.begin(), recent_.end() - warm_up_length_);
+    }
+
     num_to_skip_ = recent_.size();
     auto warm_up = stream_->Push(recent_.data(), recent_.size());
+    recent_.clear();
     num_to_skip_ -= std::min<int32_t>(num_to_skip_, warm_up.size());
   }
 

@@ -8,7 +8,7 @@ from urllib.parse import quote, urlencode
 
 from typing_extensions import NotRequired
 
-from bitfab.approval import Justification
+from bitfab.assertion_status import Justification
 from bitfab.experiment_id import resolve_experiment_id
 from bitfab.http import HttpClient
 from bitfab.traces import (
@@ -173,9 +173,11 @@ class AssertionVerdict(TypedDict):
     """One assertion's verdict on a trace.
 
     ``verdictStatus`` says whether it was judged, skipped, or not judged yet, and ``source`` who judged it.
+    ``confirmed`` says whether a person confirmed the verdict.
     ``counted`` is True on the one verdict per assertion that counts toward the trace's verdict: a person's
     counts over a coding agent's, and a coding agent's over Bitfab's judge's, which then reads ``counted`` False.
     ``labelStatus``, ``label``, and ``labelSource`` are deprecated: read ``verdictStatus``, ``verdict``, and ``source``.
+    ``approved`` is deprecated: read ``confirmed``, which carries the same value.
     """
 
     assertionId: str
@@ -186,6 +188,7 @@ class AssertionVerdict(TypedDict):
     evidence: VerdictEvidence | None
     confidence: VerdictConfidence | None
     source: VerdictSource
+    confirmed: bool
     approved: bool
     counted: NotRequired[bool]
     labelStatus: NotRequired[LabelStatus]
@@ -196,7 +199,9 @@ class AssertionVerdict(TypedDict):
 class TraceVerdicts(TypedDict):
     """A trace's effective verdict plus one row per scored assertion.
 
+    ``confirmed`` says whether a person confirmed the verdict.
     ``labelStatus`` and ``label`` are deprecated: read ``verdictStatus`` and ``verdict``.
+    ``approved`` is deprecated: read ``confirmed``, which carries the same value.
     """
 
     traceId: str
@@ -204,6 +209,7 @@ class TraceVerdicts(TypedDict):
     verdictStatus: VerdictStatus
     annotation: str | None
     evidence: VerdictEvidence | None
+    confirmed: bool
     approved: bool
     passed: int
     failed: int
@@ -465,7 +471,7 @@ class VerdictsClient:
             return []
         query = urlencode({"traceIds": ",".join(trace_ids)})
         result = self._http_client.get(f"{VERDICTS_PATH}?{query}")
-        return result["verdicts"]
+        return [_with_confirmed(row) for row in result["verdicts"]]
 
     def generate_evidence(
         self, trace_id: str, assertion_id: str
@@ -488,6 +494,27 @@ class VerdictsClient:
             "verdicts.generate_label_evidence is deprecated; use verdicts.generate_evidence instead.",
         )
         return self.generate_evidence(trace_id, assertion_id)
+
+
+def _with_confirmed(verdicts: Mapping[str, Any]) -> Any:
+    row = _with_confirmed_flag(verdicts)
+    if isinstance(row.get("assertions"), list):
+        row["assertions"] = [
+            _with_confirmed_flag(assertion)
+            if isinstance(assertion, Mapping)
+            else assertion
+            for assertion in row["assertions"]
+        ]
+    return row
+
+
+def _with_confirmed_flag(row: Mapping[str, Any]) -> dict[str, Any]:
+    filled = dict(row)
+    if "confirmed" not in filled and "approved" in filled:
+        filled["confirmed"] = filled["approved"]
+    if "confirmed" in filled:
+        filled["approved"] = filled["confirmed"]
+    return filled
 
 
 def with_legacy_label(outcome: Mapping[str, Any]) -> Any:

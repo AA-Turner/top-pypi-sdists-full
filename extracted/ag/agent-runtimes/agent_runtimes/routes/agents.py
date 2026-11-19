@@ -12,6 +12,7 @@ Provides REST API endpoints for:
 """
 
 import asyncio
+import dataclasses
 import importlib.metadata
 import logging
 import os
@@ -19,7 +20,7 @@ import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Literal, cast
+from typing import Any, Callable, Literal, Optional, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, model_validator
@@ -75,8 +76,8 @@ from ..services import (
     wire_skills_into_codemode,
 )
 from ..specs.agents import AGENTSPECS
-from ..specs.agents import get_agent_spec as _get_agent_spec
 from ..specs.agents import list_agentspecs as list_library_agents
+from ..specs.library import get_library_agent_spec
 
 try:
     from ..specs.events import EVENT_KIND_AGENT_ASSIGNED
@@ -192,6 +193,43 @@ def _kernel_names(declared: DeclaredSecrets) -> frozenset[str]:
     return declared.kernel if kernel_holds_owner_secrets() else frozenset()
 
 
+def left_out_of(declared: DeclaredSecrets) -> Any:
+    """
+    What an agent built from these declarations starts without, on this runtime, now.
+
+    The one place that decides it (a ``LeftOut``): its ``as_names()`` is what a
+    page reads, by variable name and never by value.
+    """
+    return _left_out(declared)
+
+
+def _left_out(
+    declared: DeclaredSecrets,
+    owners: Optional[dict[str, dict[str, str]]] = None,
+    fenced: frozenset[str] = frozenset(),
+) -> Any:
+    """What an agent starts without here: what is not set up in this runtime's
+    environment, and a skill whose optional secrets its sandbox may not hold.
+
+    ``fenced`` names the servers whose secrets are the demo account's own
+    alone on the visitors' runtime (`battle_books.owners_secrets_of`): theirs
+    count only when ``owners`` holds them, never from the environment.
+    """
+    from agent_runtimes.apps.principal import kernel_holds_owner_secrets
+
+    from_owners = {name for values in (owners or {}).values() for name in values}
+    fenced_names = {
+        name for server in fenced for name in declared.servers.get(server, ())
+    }
+
+    def available(name: str) -> bool:
+        if name in fenced_names:
+            return name in from_owners
+        return bool((os.environ.get(name) or "").strip())
+
+    return declared.left_out(available, sandbox_holds=kernel_holds_owner_secrets())
+
+
 def _kernel_refused(
     declared: DeclaredSecrets, available: Callable[[str], bool], who: str
 ) -> list[str]:
@@ -201,21 +239,6 @@ def _kernel_refused(
     if kernel_holds_owner_secrets():
         return []
     return declared.kernel_refused(available, who)
-
-
-def get_library_agent_spec(agent_id: str) -> Any:
-    """An agent of the library by id — or a Cog's, which is an agent equipped with Frames.
-
-    A Cog carries its whole agent spec, its Frames' context in its system
-    prompt; an application may name a Cog where it names an agent.
-    """
-    spec = _get_agent_spec(agent_id)
-    if spec is not None:
-        return spec
-    from ..specs.cogs import get_cog
-
-    cog = get_cog(agent_id)
-    return cog.spec if cog is not None else None
 
 
 def _without_approval_capabilities(capabilities: list[Any]) -> list[Any]:
@@ -1520,7 +1543,10 @@ async def _as_deployed(
         The request it is made from, and what ai-agents answered.
     """
     from agent_runtimes.apps.callers import bearer_of
-    from agent_runtimes.apps.deployments import DeployRefused, deployment_runtime_payload
+    from agent_runtimes.apps.deployments import (
+        DeployRefused,
+        deployment_runtime_payload,
+    )
     from agent_runtimes.apps.loading import AppNotRunnable
     from agent_runtimes.apps.principal import (
         DeploymentCodeUnread,
@@ -2065,11 +2091,32 @@ async def create_agent(
                 Literal["local", "datalayer"], override_provider
             )
 
+        # On the visitors' runtime, an application's optional read connections
+        # in its owner's account to a server outside the gateway take their
+        # secrets from the demo account's own alone, for that account's
+        # deployment (`battle_books`): the Traveller's google-maps.
+        from agent_runtimes.apps.battle_books import (
+            owners_secret_servers,
+            owners_secrets_of,
+        )
+        from agent_runtimes.apps.visitors import visitors_runtime
+
+        app_connections = (request.app_spec or {}).get("connections") or []
+        owners_fenced = (
+            owners_secret_servers(app_connections)
+            if visitors_runtime()
+            else frozenset()
+        )
+        owners_env = (
+            await owners_secrets_of(
+                app_connections, request.app_instance, declared_by_it.servers
+            )
+            if owners_fenced
+            else {}
+        )
         # What it declares optional and is not set up for is left out, and
         # it is told which (agentspecs 0.0.188, the user, 14 November 2026).
-        left_out = declared_by_it.left_out(
-            lambda name: bool((os.environ.get(name) or "").strip())
-        )
+        left_out = _left_out(declared_by_it, owners_env, owners_fenced)
         if left_out:
             request.skills = [
                 skill
@@ -2082,7 +2129,17 @@ async def create_agent(
                 for tool in request.backend_tools
                 if _ref_id_of(tool) not in left_out.tools
             ]
-            request.system_prompt = f"{request.system_prompt}\n\n{left_out.sentence()}"
+            # A fenced server left out is not said: a visitor hears nothing of it.
+            said = dataclasses.replace(
+                left_out,
+                servers={
+                    key: names
+                    for key, names in left_out.servers.items()
+                    if key not in owners_fenced
+                },
+            )
+            if said:
+                request.system_prompt = f"{request.system_prompt}\n\n{said.sentence()}"
             logger.info(
                 "Agent %s starts without %s (not set up)",
                 agent_id,
@@ -2313,9 +2370,17 @@ async def create_agent(
                             logger.info(
                                 f"Starting Catalog MCP server '{server_id}' for agent {agent_id}"
                             )
+                            # The demo account's own secrets, for a server fenced to them.
+                            owners_secrets = owners_env.get(server_id)
                             instance = await lifecycle_manager.start_server(
-                                server_id, catalog_server
+                                server_id, catalog_server, extra_env=owners_secrets
                             )
+                            if instance and owners_secrets:
+                                from agent_runtimes.apps.battle_books import (
+                                    note_started_with_owners_secrets,
+                                )
+
+                                note_started_with_owners_secrets(server_id)
                             if instance:
                                 started = True
                                 logger.info(f"Started Catalog MCP server '{server_id}'")
@@ -2425,6 +2490,9 @@ async def create_agent(
         # When a sandbox variant is explicitly requested, eagerly ensure a sandbox
         # is configured and started for that variant even if no MCP servers are
         # selected. This guarantees that sandbox status/WS reflects availability.
+        # Every start runs off the event loop: a Jupyter server takes seconds
+        # to start, and on the loop the runtime answered nothing meanwhile,
+        # its readiness probe included.
         if request.sandbox_variant:
             try:
                 from ..services.code_sandbox_manager import get_code_sandbox_manager
@@ -2445,8 +2513,9 @@ async def create_agent(
                     )
                 elif effective_variant == "jupyter-server":
                     # Prefer per-agent sandbox creation when available.
-                    if hasattr(sandbox_manager, "create_agent_sandbox"):
-                        sandbox_manager.create_agent_sandbox(
+                    if hasattr(sandbox_manager, "ensure_agent_sandbox"):
+                        await asyncio.to_thread(
+                            sandbox_manager.ensure_agent_sandbox,
                             agent_id=agent_id,
                             variant="jupyter-server",
                         )
@@ -2459,7 +2528,7 @@ async def create_agent(
                         # used in tests that only expose configure/get_sandbox.
                         # jupyter_sandbox URL is already applied above when provided;
                         # without URL, manager may start local jupyter (standalone).
-                        sandbox_manager.get_sandbox()
+                        await asyncio.to_thread(sandbox_manager.get_sandbox)
                         logger.info("Eager-started jupyter sandbox")
                 else:
                     # Every other variant, eval included, is one the
@@ -2471,7 +2540,7 @@ async def create_agent(
                     sandbox_manager.configure(
                         variant=cast(SandboxVariant, effective_variant)
                     )
-                    sandbox_manager.get_sandbox()
+                    await asyncio.to_thread(sandbox_manager.get_sandbox)
                     logger.info("Eager-started %s sandbox", effective_variant)
             except HTTPException:
                 raise
@@ -2542,36 +2611,31 @@ async def create_agent(
 
                     sandbox_manager = get_code_sandbox_manager()
 
-                    # Reuse sandbox already created by the eager-start block.
-                    if hasattr(sandbox_manager, "get_agent_sandbox"):
-                        shared_sandbox = sandbox_manager.get_agent_sandbox(agent_id)
-
-                    if shared_sandbox is None:
-                        if hasattr(sandbox_manager, "create_agent_sandbox"):
-                            shared_sandbox = sandbox_manager.create_agent_sandbox(
-                                agent_id=agent_id,
-                                variant="jupyter-server",
-                            )
-                            logger.info(
-                                f"Created per-agent Jupyter sandbox for '{agent_id}'"
-                            )
-                        else:
-                            # Backward-compatible fallback for simple managers used
-                            # in tests that expose only get_sandbox().
-                            shared_sandbox = sandbox_manager.get_sandbox()
-                            logger.info(
-                                f"Using shared Jupyter sandbox for '{agent_id}'"
-                            )
-                    else:
-                        logger.info(
-                            f"Reusing existing Jupyter sandbox for '{agent_id}'"
+                    # Reuse sandbox already created by the eager-start block,
+                    # or start it, off the event loop. Started here rather than
+                    # on the first code run: the codemode toolset initialized
+                    # below already runs code in it.
+                    if hasattr(sandbox_manager, "ensure_agent_sandbox"):
+                        shared_sandbox = await asyncio.to_thread(
+                            sandbox_manager.ensure_agent_sandbox,
+                            agent_id=agent_id,
+                            variant="jupyter-server",
                         )
+                        logger.info(f"Per-agent Jupyter sandbox ready for '{agent_id}'")
+                    else:
+                        # Backward-compatible fallback for simple managers used
+                        # in tests that expose only get_sandbox().
+                        shared_sandbox = await asyncio.to_thread(
+                            sandbox_manager.get_sandbox
+                        )
+                        logger.info(f"Using shared Jupyter sandbox for '{agent_id}'")
                     # The toolset holds a proxy to the agent's sandbox, not the
                     # sandbox itself: switched to another variant or restarted,
-                    # the agent keeps executing in whatever it has now.
+                    # the agent keeps executing in whatever it has now, and one
+                    # lost is made again of the variant the agent asked for.
                     if hasattr(sandbox_manager, "get_agent_managed_sandbox"):
                         shared_sandbox = sandbox_manager.get_agent_managed_sandbox(
-                            agent_id
+                            agent_id, variant="jupyter-server"
                         )
                 except ImportError as e:
                     raise HTTPException(
@@ -3043,6 +3107,14 @@ async def create_agent(
             from agent_runtimes.apps.acting import remember_servers_in_users_name
 
             remember_servers_in_users_name(
+                agent_id, running_app.connections if running_app is not None else None
+            )
+            # Which it connects to read only in its owner's account: a visitor's
+            # run of a demo of the account that keeps the demo books reaches
+            # them with that account's key (`battle_books`).
+            from agent_runtimes.apps.battle_books import remember_owners_servers
+
+            remember_owners_servers(
                 agent_id, running_app.connections if running_app is not None else None
             )
             # The companies it works with as a personal agent, each the
@@ -4418,7 +4490,10 @@ async def ensure_agent_sandbox(
                 )
                 existing = None
         if existing is None:
-            manager.create_agent_sandbox(agent_id=agent_id, variant=wanted)
+            # Off the event loop: a Jupyter server takes seconds to start.
+            await asyncio.to_thread(
+                manager.create_agent_sandbox, agent_id=agent_id, variant=wanted
+            )
             logger.info(
                 "Started the %s sandbox for agent '%s' on request", wanted, agent_id
             )
@@ -6189,9 +6264,7 @@ async def configure_from_spec_endpoint(
     new_spec_dict.pop("jupyter_sandbox", None)
     # What it starts without is part of what it is: a secret set up since
     # the last configure recreates the agent with what it brings.
-    left_out_now = declared.left_out(
-        lambda name: bool((os.environ.get(name) or "").strip())
-    )
+    left_out_now = _left_out(declared)
     new_spec_dict["left_out"] = (
         sorted(left_out_now.servers)
         + sorted(left_out_now.skills)

@@ -227,6 +227,7 @@ ViewerProtocolPolicyType = Literal["allow-all", "https-only", "redirect-to-https
 VpcIpAddressTypeType = Literal["dualstack", "ipv4"]
 CloudFrontServiceName = Literal["cloudfront"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

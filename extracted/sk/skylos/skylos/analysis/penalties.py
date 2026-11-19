@@ -646,7 +646,7 @@ def _check_non_library_path(def_obj, analyzer, cfg):
 def _proven_go_test_helper(def_obj, analyzer, cfg):
     if (
         not getattr(def_obj, "go_proven_unused_test_helper", False)
-        or def_obj.type != "function"
+        or def_obj.type not in {"function", "method"}
         or def_obj.is_exported
         or not str(def_obj.filename).endswith("_test.go")
     ):
@@ -1680,7 +1680,7 @@ def _check_data_model_fields(def_obj, analyzer, framework):
             ):
                 return _suppress(def_obj)
             cls_node = getattr(framework, "class_defs", {}).get(cls_simple)
-            if cls_node is not None:
+            if isinstance(cls_node, ast.ClassDef):
                 for base in cls_node.bases:
                     if isinstance(base, ast.Name) and base.id.lower().endswith(
                         ("schema", "model")

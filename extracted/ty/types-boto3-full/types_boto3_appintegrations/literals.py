@@ -55,6 +55,7 @@ ListEventIntegrationAssociationsPaginatorName = Literal["list_event_integration_
 ListEventIntegrationsPaginatorName = Literal["list_event_integrations"]
 AppIntegrationsServiceServiceName = Literal["appintegrations"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

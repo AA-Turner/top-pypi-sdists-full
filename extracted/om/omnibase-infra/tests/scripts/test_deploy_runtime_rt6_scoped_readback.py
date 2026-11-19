@@ -211,6 +211,7 @@ def _run_readback(
             _extract_array("DEV_LANE_CLOUD_DB_SERVICES"),
             "DEV_LANE_CLOUD_MIGRATIONS_READY=true",
             _extract_function("exclude_cloud_database_services"),
+            _extract_function("resolve_lane_folded_services"),
             _extract_function("resolve_lane_runtime_services"),
             # OMN-18656: readback_deployed_ref() now partitions by the repo
             # that BUILT each image before asserting its ref, so its new
@@ -307,11 +308,6 @@ def test_unscoped_run_verifies_full_default_service_set(tmp_path: Path) -> None:
         "projection-savings-writer",
         "projection-tenant-credentials-writer",
         "projection-live-events-writer",
-        # OMN-16025: the seventh dev-lane-only service. RT-6 resolves
-        # DEV_LANE_ONLY_RUNTIME_SERVICES and refuses to certify a deploy whose
-        # in-scope service has no running container, so a new member must appear
-        # here or the readback fixture no longer describes the real lane.
-        "infra-routing-decisions-consumer",
         # OMN-17530: the eighth. onex-api is the surface a lab proof is taken
         # THROUGH, so a stale one makes the proof itself stale -- it is in the
         # recreate scope for that reason and therefore in the readback's scope
@@ -328,6 +324,10 @@ def test_unscoped_run_verifies_full_default_service_set(tmp_path: Path) -> None:
         # rather than in RUNTIME_SERVICES: a prod `up -d --no-deps` naming it
         # would start it on a lane that never opted in.
         "tenant-projection-writer",
+        # OMN-21481: the tenth. The cost estimator page is recreated by every
+        # dev-lane deploy so it comes back after one, which puts it in the
+        # readback's scope too.
+        "cost-estimator-web",
     ]
     ps_map = {
         "runtime-effects": "omninode-runtime-effects",
@@ -343,9 +343,9 @@ def test_unscoped_run_verifies_full_default_service_set(tmp_path: Path) -> None:
         "projection-savings-writer": "projection-savings-writer",
         "projection-tenant-credentials-writer": "projection-tenant-credentials-writer",
         "projection-live-events-writer": "projection-live-events-writer",
-        "infra-routing-decisions-consumer": "omninode-infra-routing-decisions-consumer",
         "onex-api": "onex-api",
         "tenant-projection-writer": "omnimarket-tenant-projection-writer",
+        "cost-estimator-web": "omninode-cost-estimator-web",
     }
     revision_map = dict.fromkeys(ps_map.values(), GIT_SHA)
     # omninode-runtime is resolved via resolve_lane_runtime_container_name, not
@@ -383,7 +383,7 @@ def test_stability_lane_readback_covers_its_own_writer_services(
     the readback would silently skip the six containers whose whole purpose is
     to prove the lane writes rows.
     """
-    lane_agnostic = ["omninode-runtime", "runtime-effects", "runtime-worker"]
+    lane_agnostic = ["omninode-runtime", "runtime-worker"]
     writers = [
         "projection-tenant-registry-writer",
         "projection-delegation-writer",
@@ -400,7 +400,6 @@ def test_stability_lane_readback_covers_its_own_writer_services(
     ]
     ps_map = {
         "omninode-runtime": "omninode-stability-test-runtime",
-        "runtime-effects": "omninode-stability-test-runtime-effects",
         "runtime-worker": "omninode-stability-test-runtime-worker",
         **{name: f"omnimarket-stability-test-{name}" for name in writers},
     }

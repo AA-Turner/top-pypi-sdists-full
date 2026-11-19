@@ -43,16 +43,27 @@ them is an error): ``journal-pending`` when the hook-emit journal still holds it
 source is reported with its path, or as ``absent:`` when it is not there, so a
 missing source is never read as an empty one. The exit code is unchanged.
 
+OMN-21849 splits the ``extra`` rows in ``explain`` into ``extra_unsequenced`` (projection ``ledger_seq`` NULL: a dual-write
+emit from a ledger file that is not the canonical one) and ``extra_sequenced``.
+
 ``--utc-day YYYY-MM-DD`` (OMN-20536) sets the window to that whole UTC day, and
 ``--receipt`` (which needs it, and implies ``--explain``) prints the daily parity
 receipt instead of the report: one STATUS ledger row, ``lane=work-ledger-parity``,
-carrying ``file_rows``, ``projection_rows``, ``missing``, ``extra``,
+carrying ``file_rows``, ``projection_rows``, ``missing``, ``extra``, ``extra_unsequenced``,
 ``state_mismatches``, ``text_mismatches``, ``unexplained``, ``backfilled`` and
 ``exact`` for that day.
 ``backfilled`` is 1 when any of the day's projected rows carries the source
 ``onex-ledger-emit-backfill`` or ``ledger-emit``; ``exact=yes`` needs every count at
 zero, ``backfilled=0`` and at least one row. The receipt's exit code is 0 for an
 exact day and 1 otherwise, so a caller appends the row on 0 or 1 and on nothing else.
+
+OMN-21885 (plan task L1) adds two cells to the receipt. ``exact_kinds=`` names each of the 11
+row kinds ``KIND:yes`` or ``KIND:no``: yes when the day held a row of the kind and none of it is
+missing, extra or text-mismatched. ``verb_diff=`` is a count per read verb (``query``, ``holds``,
+``inbox``, ``catchup``, ``open-rulings``, ``open-claims``) of the answer lines the file and the
+database do not share, from running each verb on both sources through ``--verb-command`` (the
+ledger readers); without it the cell is ``not-run``, and a verb whose read failed is ``err``,
+never zero. Neither cell changes ``exact`` or the exit code.
 """
 
 from __future__ import annotations
@@ -91,6 +102,24 @@ from omnimarket.nodes.node_projection_work_ledger.models.model_work_ledger_parit
     ModelParityMismatch,
     ModelWorkLedgerParityReport,
 )
+from omnimarket.nodes.node_projection_work_ledger.parity_receipt import (
+    BACKFILL_SOURCE as BACKFILL_SOURCE,
+)
+from omnimarket.nodes.node_projection_work_ledger.parity_receipt import (
+    receipt_exact as receipt_exact,
+)
+from omnimarket.nodes.node_projection_work_ledger.parity_receipt import (
+    receipt_row as receipt_row,
+)
+from omnimarket.nodes.node_projection_work_ledger.parity_unsequenced import (
+    load_projection_sources_json,
+    load_sources_db,
+    read_unsequenced,
+    split_extra_rows,
+)
+from omnimarket.nodes.node_projection_work_ledger.parity_verbs import (
+    day_verb_diff,
+)
 from omnimarket.nodes.node_work_ledger_emit_effect.handlers.row_parser import (
     LedgerRowRefusalError,
     parse_ledger_row,
@@ -101,20 +130,11 @@ JOURNAL_DIR_NAME = "hook_emit_journal"
 QUARANTINE_DIR_NAME = "quarantine"
 LOSS_LOG_NAME = "hook_emit_journal_losses.jsonl"
 _LEDGER_EVENT_PREFIX = "work.ledger."
-BACKFILL_SOURCE = "onex-ledger-emit-backfill"
-BACKFILL_SOURCES = frozenset({"onex-ledger-emit-backfill", "ledger-emit"})
-RECEIPT_LANE = "work-ledger-parity"
-RECEIPT_ACTOR = "script:work-ledger-parity"
-
 _TYPE_CELL = re.compile(r"^\S+ \| (?P<type>[^|]*?)\s*(?:\||$)")
 
 _SELECT_ROWS = """
     SELECT row_id, row_ts FROM omninode_internal.work_ledger_rows
     WHERE row_ts >= $1 AND row_ts <= $2
-"""
-_SELECT_SOURCES = """
-    SELECT source, count(*) AS n FROM omninode_internal.work_ledger_rows
-    WHERE row_ts >= $1 AND row_ts <= $2 GROUP BY source
 """
 _SELECT_STATE = """
     SELECT entity_key, kind, opened_at, closed_at, opened_row_id, closed_row_id
@@ -137,6 +157,12 @@ def _read_ledger_files(ledger: Path, archive_dir: Path | None) -> list[str]:
     for path in paths:
         rows.extend(split_ledger_rows(path.read_text(encoding="utf-8")))
     return rows
+
+
+def _projected_type(raw: str | None) -> str | None:
+    """The row type named by a projected row's text, or None when there is no text."""
+    match = _TYPE_CELL.match(raw) if raw else None
+    return match.group("type") if match else None
 
 
 def _iso(value: object) -> str | None:
@@ -226,6 +252,8 @@ def compare(
         state_horizon = file_horizon(file_rows, until)
     in_window: dict[str, str] = {}
     file_text_rows: dict[str, str] = {}
+    row_types: dict[str, str] = {}
+    rows_by_kind: Counter[str] = Counter()
     file_links: list[ModelWorkLedgerLink] = []
     state_row_ids: set[str] = set()
     expected: dict[str, dict[str, object]] = {}
@@ -246,6 +274,8 @@ def compare(
         if row_in_window:
             in_window[result.row.row_id] = raw
             file_text_rows[result.row.row_id] = result.row.raw_row
+            row_types[result.row.row_id] = result.row.row_type
+            rows_by_kind[result.row.row_type] += 1
             touched.update(op.entity_key for op in result.ops)
         if row_in_state:
             state_row_ids.add(result.row.row_id)
@@ -259,6 +289,7 @@ def compare(
                 kind=EnumParityMismatchKind.ROW_MISSING_IN_PROJECTION,
                 key=row_id,
                 detail=in_window[row_id][:160],
+                row_type=row_types[row_id],
             )
         )
     for row_id in sorted(projection_rows.keys() - in_window.keys()):
@@ -267,6 +298,7 @@ def compare(
                 kind=EnumParityMismatchKind.ROW_MISSING_IN_FILE,
                 key=row_id,
                 detail=f"row_ts={projection_rows[row_id]}",
+                row_type=_projected_type(projection_raw_rows.get(row_id)),
             )
         )
 
@@ -277,6 +309,7 @@ def compare(
                 ModelParityMismatch(
                     kind=EnumParityMismatchKind.ROW_TEXT_MISSING_IN_PROJECTION,
                     key=row_id,
+                    row_type=row_types[row_id],
                 )
             )
             continue
@@ -300,6 +333,7 @@ def compare(
                 kind=EnumParityMismatchKind.ROW_TEXT_DIFFERS,
                 key=row_id,
                 detail=f"first difference at offset {offset}; file_len={len(file_text)} projection_len={len(projection_text)}",
+                row_type=row_types[row_id],
             )
         )
         try:
@@ -321,6 +355,7 @@ def compare(
                 kind=EnumParityMismatchKind.ROW_AUTHORITY_DIFFERS,
                 key=row_id,
                 detail=detail,
+                row_type=row_types[row_id],
             )
         )
 
@@ -419,6 +454,7 @@ def compare(
         window_since=since,
         window_until=until,
         file_rows=len(in_window),
+        file_rows_by_kind=dict(rows_by_kind),
         projection_rows=len(projection_rows),
         unemittable_rows=sum(unemittable.values()),
         unemittable_types=dict(unemittable),
@@ -640,84 +676,6 @@ def load_projection_raw_rows_json(
     }
 
 
-def load_projection_sources_json(
-    path: Path, since: datetime, until: datetime
-) -> dict[str, int]:
-    """Projected rows in the window per ``source`` (absent counts as ``unknown``)."""
-    data = json.loads(path.read_text(encoding="utf-8"))
-    counts: Counter[str] = Counter()
-    for r in data.get("rows", []):
-        if since <= parse_stamp(str(r["row_ts"])[:20]) <= until:
-            counts[str(r.get("source") or "unknown")] += 1
-    return dict(counts)
-
-
-async def _load_projection_sources_db(
-    dsn: str, since: datetime, until: datetime
-) -> dict[str, int]:
-    import asyncpg  # lazy: only the live read needs a database driver
-
-    conn = await asyncpg.connect(dsn)
-    try:
-        return {
-            str(r["source"]): int(r["n"])
-            for r in await conn.fetch(_SELECT_SOURCES, since, until)
-        }
-    finally:
-        await conn.close()
-
-
-def backfilled_rows(report: ModelWorkLedgerParityReport) -> int:
-    """Count projected rows emitted through either backfill path."""
-    return sum(
-        count
-        for source, count in report.projection_sources.items()
-        if source in BACKFILL_SOURCES
-    )
-
-
-def receipt_exact(report: ModelWorkLedgerParityReport) -> bool:
-    """Phase 1's bar: exact parity and no backfilled row in the window."""
-    return report.exact and backfilled_rows(report) == 0
-
-
-def receipt_row(report: ModelWorkLedgerParityReport, day: str, now: datetime) -> str:
-    """The daily parity receipt for ``day``: one STATUS ledger row. Pure."""
-    kinds = Counter(m.kind for m in report.mismatches)
-    missing = kinds[EnumParityMismatchKind.ROW_MISSING_IN_PROJECTION]
-    extra = kinds[EnumParityMismatchKind.ROW_MISSING_IN_FILE]
-    state = sum(
-        kinds[k]
-        for k in (
-            EnumParityMismatchKind.STATE_MISSING_IN_PROJECTION,
-            EnumParityMismatchKind.STATE_OPENED_AT_DIFFERS,
-            EnumParityMismatchKind.STATE_CLOSED_AT_DIFFERS,
-            EnumParityMismatchKind.STATE_RELATIONS_DIFFER,
-        )
-    )
-    text = sum(
-        kinds[k]
-        for k in (
-            EnumParityMismatchKind.ROW_TEXT_DIFFERS,
-            EnumParityMismatchKind.ROW_TEXT_MISSING_IN_PROJECTION,
-            EnumParityMismatchKind.ROW_AUTHORITY_DIFFERS,
-        )
-    )
-    unexplained = report.explain.unexplained if report.explain is not None else missing
-    backfilled = 1 if backfilled_rows(report) > 0 else 0
-    exact = "yes" if receipt_exact(report) else "no"
-    cells = [
-        f"{now:%Y-%m-%dT%H:%M:%SZ}", "STATUS", f"lane={RECEIPT_LANE}",
-        f"actor={RECEIPT_ACTOR}", "model=none", f"day={day}",
-        f"file_rows={report.file_rows}", f"projection_rows={report.projection_rows}",
-        f"missing={missing}", f"extra={extra}", f"state_mismatches={state}",
-        f"text_mismatches={text}",
-        f"unexplained={unexplained}", f"backfilled={backfilled}", f"exact={exact}",
-        f"Work-ledger parity receipt for UTC day {day}",
-    ]  # fmt: skip
-    return " | ".join(cells)
-
-
 async def _load_projection_db(
     dsn: str, since: datetime, until: datetime, horizon: datetime
 ) -> tuple[dict[str, str], dict[str, dict[str, Any]], dict[str, str], dict[str, str]]:
@@ -801,6 +759,12 @@ def main(argv: list[str] | None = None) -> int:
         help="the emitting host's state directory for --explain "
         "(default: $ONEX_STATE_DIR, else $OMNI_HOME/.onex_state)",
     )
+    parser.add_argument(
+        "--verb-command",
+        help="the ledger readers' command (e.g. 'uv run --project <readers-project> "
+        "onex-ledger'); with --receipt, runs each read verb on --source file and --source db "
+        "and fills verb_diff (OMN-21885). Without it the receipt says verb_diff=not-run.",
+    )
     args = parser.parse_args(argv)
 
     if args.receipt and args.utc_day is None:
@@ -834,11 +798,20 @@ def main(argv: list[str] | None = None) -> int:
                 proj_rows, proj_state, later_rows, raw_rows = asyncio.run(
                     _load_projection_db(dsn, since, until, horizon)
                 )
-                sources = asyncio.run(_load_projection_sources_db(dsn, since, until))
+                sources = asyncio.run(load_sources_db(dsn, since, until))
             except Exception as exc:
                 # Driver errors are not all OSError subclasses. Keep this boundary
                 # around database I/O only: exit 1 is reserved for a parity result,
                 # and a failed read must never produce a report or receipt.
+                sys.stderr.write(f"work_ledger_parity: error: database read: {exc!r}\n")
+                return 2
+        unsequenced: frozenset[str] = frozenset()
+        if args.explain or args.receipt:
+            try:
+                unsequenced = read_unsequenced(
+                    args.projection_json, args.dsn_env, since, until
+                )
+            except Exception as exc:  # same boundary as the database read above
                 sys.stderr.write(f"work_ledger_parity: error: database read: {exc!r}\n")
                 return 2
         report = compare(
@@ -862,15 +835,25 @@ def main(argv: list[str] | None = None) -> int:
                 journal_dir=_env_path("ONEX_HOOK_EMIT_JOURNAL_DIR"),
                 loss_log_path=_env_path("ONEX_HOOK_EMIT_LOSS_LOG"),
             )
-            report = report.model_copy(
-                update={"explain": explain_missing(missing, evidence)}
+            explain = split_extra_rows(
+                report, unsequenced, explain_missing(missing, evidence)
             )
+            report = report.model_copy(update={"explain": explain})
     except (OSError, KeyError, ValueError) as exc:
         sys.stderr.write(f"work_ledger_parity: error: {exc!r}\n")
         return 2
 
     if args.receipt:
-        sys.stdout.write(receipt_row(report, args.utc_day, datetime.now(UTC)) + "\n")
+        try:
+            verb_diff = day_verb_diff(
+                args.verb_command, args.utc_day, file_rows, ledger
+            )
+        except ValueError as exc:
+            sys.stderr.write(f"work_ledger_parity: error: {exc}\n")
+            return 2
+        sys.stdout.write(
+            receipt_row(report, args.utc_day, datetime.now(UTC), verb_diff) + "\n"
+        )
         return 0 if receipt_exact(report) else 1
     if args.format == "json":
         sys.stdout.write(report.model_dump_json(indent=2) + "\n")
@@ -889,7 +872,8 @@ def main(argv: list[str] | None = None) -> int:
             e = report.explain
             sys.stdout.write(
                 f"explain failure-log={e.failure_log} journal-dead-letter={e.journal_dead_letter} "
-                f"journal-pending={e.journal_pending} unexplained={e.unexplained}\n"
+                f"journal-pending={e.journal_pending} unexplained={e.unexplained} "
+                f"extra-unsequenced={e.extra_unsequenced} extra-sequenced={e.extra_sequenced}\n"
             )
     return 0 if report.exact else 1
 

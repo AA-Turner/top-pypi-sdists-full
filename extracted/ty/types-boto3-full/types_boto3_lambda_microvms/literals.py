@@ -79,6 +79,7 @@ MicrovmStateType = Literal[
 ]
 LambdaMicroVMsServiceName = Literal["lambda-microvms"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

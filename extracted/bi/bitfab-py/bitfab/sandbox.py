@@ -96,6 +96,9 @@ class Sandbox:
             service's data, such as ``"gmail"``. While the client has it off,
             the replay trace shows how many calls the sandbox answered but
             not its state. ``None`` (default) always shows the state.
+        mode: The mode the sandbox runs in, such as ``"recorded"`` or
+            ``"read-real-write-fake"``, shown on the replay trace. ``None``
+            (default) shows none.
     """
 
     name: str
@@ -103,6 +106,7 @@ class Sandbox:
     handle: Callable[[Any, MockOverrideCtx], Any]
     start: Callable[[SandboxStartCtx], Any] | None = None
     integration: str | None = None
+    mode: str | None = None
 
 
 def _ensure_json(name: str, state: Any) -> None:
@@ -128,7 +132,16 @@ class SandboxSession:
     started: float = field(default_factory=time.monotonic)
     _states: dict[str, Any] = field(default_factory=dict)
     _reports: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _failures: list[BaseException] = field(default_factory=list)
     _lock: threading.RLock = field(default_factory=threading.RLock)
+
+    def fail(self, error: BaseException) -> None:
+        with self._lock:
+            self._failures.append(error)
+
+    def failure(self) -> BaseException | None:
+        with self._lock:
+            return self._failures[0] if self._failures else None
 
     def elapsed_ms(self) -> int:
         return int((time.monotonic() - self.started) * 1000)
@@ -183,6 +196,8 @@ class SandboxSession:
             "traceStartedAt": start_ctx.trace_started_at,
             "calls": 0,
         }
+        if sandbox.mode is not None:
+            report["mode"] = sandbox.mode
         if sandbox.integration in getattr(self.client, "_disabled_integrations", ()):
             report["stateWithheldBecauseOff"] = sandbox.integration
         else:
@@ -263,6 +278,12 @@ def sandbox_state(name: str) -> Any:
     if session is None or sandbox is None:
         return None
     return session.state_of(sandbox, _attach_to_replay_root)
+
+
+def fail_replay_item(error: BaseException) -> None:
+    session = current_session()
+    if session is not None:
+        session.fail(error)
 
 
 def sandbox_elapsed_ms() -> int:

@@ -133,6 +133,16 @@ def test_discovered_derivation_feeds_the_developer_principal_issuer(
     policy = yaml.safe_load(policy_path.read_text())
     assert "grants" not in policy
     (tmp_path / policy["grants_from"]).write_text(result.model_dump_json())
+    scoped_bindings = yaml.safe_load(
+        (root / "deploy/lab/h105-scm-pr-create-bindings.yaml").read_text()
+    )
+    scoped_result = handler_class().handle(input_class.model_validate(scoped_bindings))
+    scoped_source = policy["principal_grants_from"][scoped_result.principal]
+    (tmp_path / scoped_source).write_text(scoped_result.model_dump_json())
+    machine_source = policy["machine_grants_from"]
+    (tmp_path / machine_source).write_bytes(
+        (root / "deploy/lab" / machine_source).read_bytes()
+    )
     local_policy = tmp_path / policy_path.name
     local_policy.write_text(policy_path.read_text())
 
@@ -151,6 +161,35 @@ def test_discovered_derivation_feeds_the_developer_principal_issuer(
     assert rows == expected
     # OMN-17427: 73 before the hook edge, plus WRITE and DESCRIBE on its 29 topics.
     # OMN-19983: plus the laptop lane mirror's 4 rows.
-    assert len(rows) == 135
+    # OMN-21099: plus the compaction replies' 8 rows and the request topic's 2.
+    # OMN-21339: plus the work-ledger query path's 6 rows.
+    # OMN-22103: plus READ and DESCRIBE on the three per-principal reply topics.
+    # OMN-23395: plus READ, WRITE and DESCRIBE on the two landing decision topics
+    # and READ and DESCRIBE on the two chain group prefixes.
+    # OMN-23410: plus WRITE and DESCRIBE on the ticket node's request, READ and DESCRIBE on its two terminals.
+    # OMN-23402: plus READ, WRITE and DESCRIBE on the two floor snapshot topics
+    # and READ and DESCRIBE on the projection read group prefix.
+    # OMN-23459: plus READ, WRITE and DESCRIBE on the landing decision failure terminal.
+    # OMN-23471: plus WRITE and DESCRIBE on the floor task ticket command topic, READ and
+    # DESCRIBE on its completed terminal, and READ and DESCRIBE on the run-node group prefix.
+    # OMN-23458: plus READ, WRITE and DESCRIBE on the landing snapshot record topic, WRITE and
+    # DESCRIBE on its failure topic, and READ and DESCRIBE on the two snapshot group prefixes.
+    # OMN-23418: plus READ on the work-ledger query command topic.
+    # OMN-23458: plus WRITE and DESCRIBE on the tick orchestrator's compared and compare-failed topics.
+    assert len(rows) == 212
     assert any(row.resource == "group" and row.pattern == "prefixed" for row in rows)
     assert {row.operation for row in rows if row.name == "*"} == {"describe"}
+    scoped_expected = {
+        lab_principal_issuer.AclRow(
+            resource=g.resource_type.lower(),
+            name=g.resource.replace("{principal}", scoped_result.principal),
+            pattern=g.pattern.lower(),
+            operation=g.operation.lower(),
+        )
+        for g in (*result.grants, *scoped_result.grants)
+    }
+    assert (
+        lab_principal_issuer.expected_acl_rows(declaration, scoped_result.principal)
+        == scoped_expected
+    )
+    assert len(scoped_expected) == len(rows) + 6

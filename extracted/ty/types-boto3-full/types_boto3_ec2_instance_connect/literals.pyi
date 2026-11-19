@@ -25,6 +25,7 @@ __all__ = ("EC2InstanceConnectServiceName", "ResourceServiceName", "ServiceName"
 
 EC2InstanceConnectServiceName = Literal["ec2-instance-connect"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

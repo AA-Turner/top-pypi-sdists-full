@@ -230,6 +230,13 @@ def _dispatch(args: argparse.Namespace) -> int:
                          no_source=getattr(args, "no_source", False))
     if cmd == "deploy":
         return _cmd_deploy(args)
+    if cmd == "serve":
+        from seq import serve_local
+
+        return serve_local.serve(args.folder, args.name, host=args.host, port=args.port, weights=args.weights,
+                                 token=args.token, base_url=args.base_url)
+    if cmd == "weights":
+        return _cmd_weights(args)
     if cmd == "eval":
         return _cmd_eval(args)
     if cmd == "policy":
@@ -544,7 +551,7 @@ def _cmd_robot(args: argparse.Namespace) -> int:
 
 
 def _cmd_gpu(args: argparse.Namespace) -> int:
-    """`seq gpu add | places | list | history | logs | allow | ssh | save | saved | remove`: GPU machines you run yourself
+    """`seq gpu add | places | list | history | logs | allow | follow-token | follow | ssh | save | saved | remove`: GPU machines you run yourself
     (seq/gpu_cli.py). `ssh` hands off to the system ssh and returns its exit code; the rest read or write gateway routes."""
     from seq import gpu_cli
 
@@ -561,6 +568,10 @@ def _cmd_gpu(args: argparse.Namespace) -> int:
         return _cmd_platform(args, gpu_cli.gpu_history, args.limit, args.cursor)
     if sub == "allow":
         return _cmd_platform(args, gpu_cli.gpu_allow, args.id, args.ranges)
+    if sub == "follow-token":
+        return _cmd_platform(args, gpu_cli.gpu_follow_token, args.id, args.robot, revoke=args.revoke)
+    if sub == "follow":
+        return _cmd_platform(args, gpu_cli.gpu_follow, token=args.token, address=args.address, line=args.line)
     if sub == "ssh":
         return gpu_cli.gpu_ssh(args.id, args.command, do_print=args.ssh_print, base_url=args.base_url)
     if sub == "save":
@@ -847,6 +858,12 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
         step = per_step(cls)
         if step:
             print(f"warning: {step}", file=sys.stderr)
+
+    from seq.deploy_cli import not_params_warning
+
+    unset = not_params_warning(kind, cls)
+    if unset:
+        print(f"warning: {unset}", file=sys.stderr)
     if args.dry_run:
         if args.json:
             if kind == "policy":
@@ -1007,6 +1024,16 @@ def _print_templates(base_url: str | None) -> None:
 
     print("\n".join(template_fetch.lines_by_kind(template_fetch.list_remote(base_url))))
     print("\nseq init <template>[@stable|@beta|@vN] [directory]")
+
+
+def _cmd_weights(args: argparse.Namespace) -> int:
+    """`seq weights get <template>[@vN] [--dir DIR]`: one version of a template's weights here; prints the folder."""
+    from seq import template_fetch, weights_get
+
+    name, ref = template_fetch.split_ref(args.template)
+    folder = weights_get.fetch(name, ref, dest=args.dir, base_url=args.base_url)
+    print(folder)
+    return 0
 
 
 def _cmd_init(template: str | None, dest: str | None, list_only: bool, base_url: str | None, *,

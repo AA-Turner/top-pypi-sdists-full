@@ -12,6 +12,8 @@ from omnimarket.events.worktree_reconcile import (
     ModelWorktreeFacts,
     ModelWorktreeReconcileCommand,
 )
+from omnimarket.handlers.rules_unit_roots import UnitRoots
+from omnimarket.models.model_skipped_unit import ModelSkippedUnit
 
 
 class ProtocolWorktreeFactsProbe(Protocol):
@@ -21,12 +23,25 @@ class ProtocolWorktreeFactsProbe(Protocol):
     def revalidate(
         self, facts: ModelWorktreeFacts, now: datetime
     ) -> ModelWorktreeFacts: ...
+    def skipped_units(self) -> tuple[ModelSkippedUnit, ...]:
+        """The installed units the last discovery skipped, each with its reason."""
+        ...
+
+
+class ProtocolUnitRootReader(Protocol):
+    """The paths installed units run from, read fresh on every call; raises when unreadable."""
+
+    def read(self) -> UnitRoots: ...
 
 
 class ProtocolWorktreeDecider(Protocol):
     def decide(
         self, argv: list[str], facts: tuple[ModelWorktreeFacts, ...]
     ) -> tuple[ModelWorktreeDecisionRecord, ...]: ...
+
+
+class ProtocolMergedPrReader(Protocol):
+    def merged_heads(self, argv: list[str], slug: str) -> frozenset[str]: ...
 
 
 class ProtocolWorktreePinner(Protocol):

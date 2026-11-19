@@ -37,8 +37,19 @@ class GateContext:
     subject: str
     history: str | None
     details_url: str
+    upload_trust: str | None = None
 
     def status(self, passed: bool) -> str:
+        from skylos.cloud.upload_status import TRUSTED_UPLOADS
+
+        if self.upload_trust not in TRUSTED_UPLOADS:
+            condition = "pass" if passed else "fail"
+            verification = (
+                "report only"
+                if self.upload_trust == "unverified"
+                else "upload verification not reported"
+            )
+            return f"{self.subject} (not blocking): {condition} · {verification}"
         word = "FAILED"
         if passed:
             word = "PASSED"
@@ -150,12 +161,14 @@ def history_text(passed: bool, previous: dict | None) -> str | None:
     if previous["commit"]:
         text = f"{text}, {previous['commit'][:7]}"
     if previous.get("trusted") is False:
-        text = f"{text}, unverified upload"
+        text = f"{text}, report only"
     return text
 
 
 def gate_context(result: dict, base_url: str) -> GateContext | None:
-    if not isinstance(result, dict) or "previous_gate" not in result:
+    from skylos.cloud.upload_status import upload_trust
+
+    if not isinstance(result, dict):
         return None
     destination = result.get("destination")
     if not isinstance(destination, dict):
@@ -164,24 +177,36 @@ def gate_context(result: dict, base_url: str) -> GateContext | None:
     if url is None:
         return None
     branch = _clean_ref(destination.get("branch"))
+    trust = upload_trust(result)
     if branch is None:
-        return GateContext(subject="Quality gate", history=None, details_url=url)
+        return GateContext(
+            subject="Quality gate", history=None, details_url=url, upload_trust=trust
+        )
     subject = f"Quality gate on {branch}"
     pr_number = clean_pr_number(destination.get("pr_number"))
     if pr_number is not None:
         subject = f"{subject} (PR #{pr_number})"
     if result.get("quality_gate_reported") is False:
-        return GateContext(subject=subject, history=None, details_url=url)
+        return GateContext(
+            subject=subject, history=None, details_url=url, upload_trust=trust
+        )
     passed = bool(result.get("quality_gate_passed"))
-    previous = clean_previous_gate(result["previous_gate"])
+    previous = clean_previous_gate(result.get("previous_gate"))
     return GateContext(
         subject=subject,
-        history=history_text(passed, previous),
+        history=history_text(passed, previous) if "previous_gate" in result else None,
         details_url=url,
+        upload_trust=trust,
     )
 
 
 def formatted_gate_line(result: dict, base_url: str) -> str | None:
+    from skylos.cloud.upload_status import (
+        TRUSTED_UPLOADS,
+        upload_trust,
+        verification_heading,
+    )
+
     context = gate_context(result, base_url)
     if context is None:
         return None
@@ -190,6 +215,9 @@ def formatted_gate_line(result: dict, base_url: str) -> str | None:
     passed = result.get("quality_gate_passed")
     if not isinstance(passed, bool):
         return None
+    if upload_trust(result) not in TRUSTED_UPLOADS:
+        condition = "pass" if passed else "fail"
+        return f"{verification_heading(result)} · gate (not blocking): {condition} — Results: {context.details_url}"
     return f"{context.status(passed)} — View details: {context.details_url}"
 
 

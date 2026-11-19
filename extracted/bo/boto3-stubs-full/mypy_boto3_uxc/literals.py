@@ -38,6 +38,7 @@ AccountColorType = Literal[
 ListServicesPaginatorName = Literal["list_services"]
 UserExperienceCustomizationServiceName = Literal["uxc"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

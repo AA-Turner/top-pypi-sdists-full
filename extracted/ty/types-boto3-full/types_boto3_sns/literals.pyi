@@ -69,6 +69,7 @@ RouteTypeType = Literal["Premium", "Promotional", "Transactional"]
 SMSSandboxPhoneNumberVerificationStatusType = Literal["Pending", "Verified"]
 SNSServiceName = Literal["sns"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

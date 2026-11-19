@@ -48,7 +48,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use serde::Serialize;
 
-use crate::error::error::Error as TypeError;
+use crate::error::error::ReportedError;
 use crate::module::bundled::BundledStub;
 use crate::module::third_party::get_bundled_third_party;
 use crate::module::typeshed::typeshed;
@@ -88,6 +88,7 @@ use crate::report::pysa::step_logger::StepLogger;
 use crate::report::pysa::type_of_expression::export_type_of_expressions;
 use crate::report::pysa::types::PysaType;
 use crate::state::state::Transaction;
+use crate::types::env::TypeEnv;
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 pub enum PysaFormat {
@@ -196,10 +197,10 @@ impl std::fmt::Debug for PysaSolutions {
 impl PysaSolutions {
     /// Build per-module intermediate information required by Pysa for its report step.
     /// This only depends on non-cross-module information, currently represented as `ModuleAnswersContext`.
-    pub fn build(context: &ModuleAnswersContext) -> Arc<Self> {
+    pub fn build(context: &ModuleAnswersContext, env: &dyn TypeEnv) -> Arc<Self> {
         let module_index = PysaModuleIndex::build(context);
         let global_variables = collect_global_variables_for_module(context);
-        let function_base_definitions = export_all_functions(context);
+        let function_base_definitions = export_all_functions(context, env);
         let is_test_module = is_test_module::is_test_module(context);
 
         Arc::new(Self {
@@ -424,9 +425,9 @@ fn build_module_mapping(
     let mut project_modules = HashMap::new();
     for handle in handles {
         let module_id = module_ids.get_from_handle(handle);
-        let failed_to_load = transaction
-            .get_load(handle)
-            .is_some_and(|load| load.module_info.contents().is_empty() && !load.errors.is_empty());
+        let failed_to_load = transaction.get_load(handle).is_some_and(|load| {
+            load.module_info.contents().is_empty() && !load.load_errors.is_empty()
+        });
 
         // Path where we will store the information on the module.
         let info_filename = match handle.path().details() {
@@ -561,7 +562,7 @@ pub struct PysaTypeErrorsFile {
 
 fn write_errors_file(
     results_directory: &Path,
-    errors: &[TypeError],
+    errors: &[impl ReportedError],
     format: PysaFormat,
 ) -> anyhow::Result<()> {
     let step = StepLogger::start("Exporting type errors", "Exported type errors");
@@ -570,6 +571,7 @@ fn write_errors_file(
         format_version: 1,
         errors: errors
             .iter()
+            .map(|error| error.error())
             .map(|error| PysaTypeError {
                 module_name: error.module().name(),
                 module_path: error.module().path().details().clone(),
@@ -605,7 +607,7 @@ pub fn write_project_file(
     pysa_reporter: &PysaReporter,
     transaction: &Transaction,
     project_handles: &[Handle],
-    errors: &[TypeError],
+    errors: &[impl ReportedError],
 ) -> anyhow::Result<()> {
     let results_directory = &pysa_reporter.pysa_directory;
 
@@ -646,25 +648,23 @@ pub fn write_project_file(
     let object_class_refs = builtin_modules
         .iter()
         .map(|handle| {
-            let stdlib = transaction.get_stdlib(handle);
-            let class = stdlib.object().class_object();
-            ClassRef {
-                module_id: pysa_reporter.module_ids.get_from_handle(handle),
-                class_id: ClassId::from_class(class),
-                class: class.clone(),
-            }
+            let env = transaction.type_env(handle);
+            ClassRef::new(
+                pysa_reporter.module_ids.get_from_handle(handle),
+                env.stdlib().object().class_object(),
+                &env,
+            )
         })
         .collect::<Vec<_>>();
     let dict_class_refs = builtin_modules
         .iter()
         .map(|handle| {
-            let stdlib = transaction.get_stdlib(handle);
-            let class = stdlib.dict_object();
-            ClassRef {
-                module_id: pysa_reporter.module_ids.get_from_handle(handle),
-                class_id: ClassId::from_class(class),
-                class: class.clone(),
-            }
+            let env = transaction.type_env(handle);
+            ClassRef::new(
+                pysa_reporter.module_ids.get_from_handle(handle),
+                env.stdlib().dict_object(),
+                &env,
+            )
         })
         .collect::<Vec<_>>();
     let typing_module_ids = typing_modules
@@ -674,13 +674,12 @@ pub fn write_project_file(
     let typing_mapping_class_refs = typing_modules
         .iter()
         .map(|handle| {
-            let stdlib = transaction.get_stdlib(handle);
-            let class = stdlib.mapping_object();
-            ClassRef {
-                module_id: pysa_reporter.module_ids.get_from_handle(handle),
-                class_id: ClassId::from_class(class),
-                class: class.clone(),
-            }
+            let env = transaction.type_env(handle);
+            ClassRef::new(
+                pysa_reporter.module_ids.get_from_handle(handle),
+                env.stdlib().mapping_object(),
+                &env,
+            )
         })
         .collect::<Vec<_>>();
 

@@ -45,7 +45,7 @@ PyAPI_FUNC(int) _PyArg_ParseTuple_SizeT(PyObject *args, const char *format, ...)
 #ifndef min
 #	define min(a,b) ((a)<(b)?(a):(b))
 #endif
-#define VERSION "0.9.1"
+#define VERSION "0.9.2"
 #define MODULE "_rl_accel"
 
 #define STRNAME "str"
@@ -267,7 +267,7 @@ PyObject *_a85_decode(PyObject *module, PyObject *args)
 	inData = tmp;
 	length = (unsigned int)(q - inData);
 	buf = inData+length-2;
-	if(buf[0]!='~' || buf[1]!='>'){
+	if(buf<inData || buf[0]!='~' || buf[1]!='>'){
 		free(inData);
 		EXC_EXIT(PyExc_ValueError, "Invalid terminator for Ascii Base 85 Stream");
 		}
@@ -758,7 +758,8 @@ static PyObject *instanceStringWidthT1(PyObject *module, PyObject *args, PyObjec
 	PyObject *encObj = NULL;
 	const char *encStr;
 	Py_ssize_t n, m;
-	int	i, j, s, _i1;
+	int	i, j, _i1;
+	double s=0, _iv;
 	static char *argnames[]={"self","text","size","encoding",0};
 	if(!PyArg_ParseTupleAndKeywords(args, kwds, "OOO|O", argnames, &self, &text, &size, &encoding)) return 0;
 	Py_INCREF(text);
@@ -800,7 +801,7 @@ static PyObject *instanceStringWidthT1(PyObject *module, PyObject *args, PyObjec
 
 	n = RLPyList_Size(L);
 
-	for(s=i=0;i<n;++i){
+	for(i=0;i<n;++i){
 		_o1 = PyList_GetItem(L,i); if(!_o1) EXC_EXIT(PyExc_IndexError,"L[%d] failed",i);
 		Py_INCREF(_o1);
 
@@ -823,13 +824,18 @@ static PyObject *instanceStringWidthT1(PyObject *module, PyObject *args, PyObjec
 		m = PyBytes_Size(t);
 		b = (unsigned char*)RLPyBytes_AsString(t);
 
-		for(j=0;j<m;++j){
+		for(_i1=j=0;j<m;++j){
 			_i1 = (long)(b[j]);
 			_o2 = PyList_GetItem(f,_i1); if(!_o2) {EXC_EXIT(PyExc_IndexError,"widths index %d out of range",_i1);}
-			_i1 = PyLong_AsLong(_o2);
+			_iv = PyLong_AsDouble(_o2);
+			if(PyErr_Occurred()){
+				_i1 = 1;
+				PyErr_Clear();
+				_iv = PyFloat_AsDouble(_o2);
+			}
 			_o2 = NULL;	/*we borrowed this*/
 			if(PyErr_Occurred()) EXC_EXIT(PyExc_RuntimeError,"longint conversion failed");
-			s += _i1;
+			s += _iv;
 			}
 		}
 

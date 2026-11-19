@@ -240,6 +240,17 @@ inputs:
     description: >
       OMN-19437. Span of the command within trace_id, stamped by the producer
       and copied onto the terminal the same way.
+  probe_ladder:
+    type: object
+    required: false
+    description: >
+      OMN-23162. A synthetic probe's per-run ladder, in one of two modes. In
+      rungs mode it names the rungs the run walks instead of the routing
+      contract's; in faults mode the production ladder is resolved as usual and
+      it only names transport faults keyed by model id. The local dispatch port
+      refuses it, before any provider call, unless the provenance is synthetic
+      with source_surface doctor_escalation_check or readiness_probe. Omit for
+      an ordinary delegation.
   metadata:
     type: object
     required: false
@@ -259,6 +270,12 @@ inputs:
     description: >
       Optional explicit backend pin (e.g. 'local-coder-mlx'). None resolves
       the backend via the normal cheapest-first tier_order selection.
+  model:
+    type: str
+    required: false
+    description: >
+      Optional per-call model name the customer's own provider key runs for
+      this one call (OMN-20844). Omit to run the stored model.
   no_escalation:
     type: bool
     required: false
@@ -341,6 +358,9 @@ runtime_dispatch:
     failure: onex.evt.omnimarket.delegate-skill-failed.v1
   # One event per step of a run, numbered by this node from one counter per run.
   run_step_event: onex.evt.omnimarket.delegation-run-step.v1
+  # The port path's gate decision, in the shape the bus orchestrator's gate
+  # result uses; published only on runs this node's in-process port serves.
+  quality_gate_result_event: onex.evt.omnibase-infra.quality-gate-result.v1
   default_timeout_ms: 300000
   max_timeout_ms: 900000
 
@@ -447,6 +467,40 @@ handler_execution_budget:
 consume_concurrency:
   max_in_flight_records: 8
 
+# OMN-21325: the largest prompt, in UTF-8 bytes, a delegate-skill request may
+# carry. A larger request is refused before any model call with a failed
+# terminal (terminal_failure_cause refused_before_dispatch, error_message
+# prompt_exceeds_size_bound). The handler enforces it, so the in-process port
+# and the deployed consumer refuse the same request. 262144 is 256 KiB; the
+# eval case P8 was 300027 bytes (62291 input tokens) and ran to completion.
+prompt_size_bound:
+  max_prompt_bytes: 262144
+
+# OMN-22212: a request that asks for secrets or asks to move data out, refused
+# by the rung and vetoed by the gate's refusal-phrase rule, ends there with
+# terminal_failure_reason secret_request_refused. It is never re-drafted or sent
+# to another rung, so the request never leaves the rung that refused it. Markers
+# match the prompt case-insensitively as substrings; an ordinary refusal still
+# climbs.
+secret_request_refusal:
+  refusal_verdict_prefix: "REFUSAL"
+  terminal_failure_reason: secret_request_refused
+  request_markers:
+    - "api key"
+    - "api_key"
+    - "apikey"
+    - "secret key"
+    - "private key"
+    - "access key"
+    - "ssh key"
+    - "password"
+    - "credential"
+    - "bearer token"
+    - "access token"
+    - "auth token"
+    - "deploy token"
+    - "exfiltrat"
+
 config_dependencies:
   - key: INFERENCE_PROTOCOL_CONFIG_PATH
     required: false
@@ -492,6 +546,9 @@ event_bus:
     # after the admission commit and before any dispatch; appended so the
     # entries above keep their positions. Carries no prompt text.
     - onex.evt.omnimarket.delegate-skill-admission-decided.v1
+    # The in-process port's gate decision per attempt; appended so the entries
+    # above keep their positions.
+    - onex.evt.omnibase-infra.quality-gate-result.v1
 
 terminal_event: onex.evt.omnimarket.delegate-skill-completed.v1
 
@@ -508,6 +565,9 @@ published_events:
   - event_type: DelegateSkillAdmissionDecided
     topic: onex.evt.omnimarket.delegate-skill-admission-decided.v1
     description: Admission decision for one client call, with the effective mode, before any dispatch.
+  - event_type: omnibase-infra.quality-gate-result
+    topic: onex.evt.omnibase-infra.quality-gate-result.v1
+    description: The checks one in-process gate decision evaluated, skipped and failed, and the rule that decided.
 
 # OMN-21098: the admission decision is consumed by the Claude Code adapter's
 # receipt-mode client, which awaits it by correlation id; no omnimarket contract
@@ -611,3 +671,44 @@ metadata:
     - "OMN-10889"
     - "OMN-10903"
     - "OMN-10604"
+
+# The receipt-window readback belongs to the delegation node, alongside the
+# requested-timeout policy it measures. It never dispatches. It reads the lab
+# projection that node_projection_delegation_budget_readings folds from the
+# delegate-skill terminals the deployed lane publishes, so it runs from any lab
+# host and needs no access to the machine whose CLI invoked the run (OMN-17427).
+# The host, port and credentials are not here: the overlay or the secret store
+# sets dsn_env on the host that runs the readback.
+budget_readback:
+  handler:
+    name: HandlerBudgetReadback
+    module: omnimarket.nodes.node_delegate_skill_orchestrator.handlers.handler_budget_readback
+  source:
+    relation: omninode_internal.delegation_budget_readings
+    dsn_env: OMNINODE_INTERNAL_DB_URL
+    binding_ref: omninode_runtime_service
+    populated_by: omnimarket.nodes.node_projection_delegation_budget_readings
+  local_state_root: "--state-root (explicit, local runs only), else shared runtime resolver (ONEX_STATE_DIR, then ONEX_STATE_ROOT), else ~/.onex_state"
+  window_hours: 24
+  grace_source: configs/task_class_contracts.v1.yaml
+  exit_codes:
+    pass: 0
+    over_budget_plus_grace: 1
+    nothing_measured: 2
+    unrunnable: 3
+
+# OMN-20172: the ladder a rubric failure climbs on the in-process path: one
+# configuration swap on the same model and backend, then shrink (split, run the
+# units on the same model and backend, recombine, check the whole), then the next
+# responder in the class chain. The handler settles one failed whole attempt and
+# calls the policy node, the split node and the recombine node; the model calls
+# are ports the dispatch injects. The caps are read from the class contract's
+# escalation_policy (max_config_swaps, max_split_depth, unit_attempts_per_unit,
+# shrink_unit_prompt); a class that declares none neither swaps nor shrinks.
+shrink_retry:
+  handler:
+    name: HandlerShrinkRetry
+    module: omnimarket.nodes.node_delegate_skill_orchestrator.handlers.handler_shrink_retry
+  policy_node: node_delegation_shrink_retry_compute
+  caps_source: configs/task_class_contracts.v1.yaml
+  formal_model: formal/delegation_shrink_retry

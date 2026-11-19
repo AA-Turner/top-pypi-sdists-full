@@ -276,6 +276,7 @@ UserStackAssociationErrorCodeType = Literal[
 VisibilityTypeType = Literal["PRIVATE", "PUBLIC", "SHARED"]
 AppStreamServiceName = Literal["appstream"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

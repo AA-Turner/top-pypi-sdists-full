@@ -89,6 +89,7 @@ TransitionToIARulesType = Literal[
 TransitionToPrimaryStorageClassRulesType = Literal["AFTER_1_ACCESS"]
 EFSServiceName = Literal["efs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -54,6 +54,7 @@ InstanceOnboardingJobStatusCodeType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDE
 ListCampaignsPaginatorName = Literal["list_campaigns"]
 ConnectCampaignServiceServiceName = Literal["connectcampaigns"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

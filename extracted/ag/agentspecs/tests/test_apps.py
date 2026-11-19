@@ -926,6 +926,7 @@ EXAMPLES = {
     "demo-accountant": AppKind.CHAT,
     "demo-aws-steward": AppKind.CHAT,
     "demo-jupyter-data-analyst": AppKind.CHAT,
+    "demo-analyst": AppKind.CHAT,
 }
 
 #: Each of the SDK's seven recorded PAP journeys (agent-runtimes' trace examples) and the example it became.
@@ -2657,3 +2658,95 @@ def test_a_lent_repository_is_a_public_url_at_one_commit() -> None:
         document["permissions"]["computer"]["repository"] = repository
         with pytest.raises(agentspecs.apps.AppError, match=said):
             parse_app(document)
+
+
+#: What each home page demo connects to (the user, 19 November 2026: "the demo agents should
+#: try to start mcp server as much as possible"): a server that needs no key, or the gateway's
+#: toolset the demo account's own key reaches on the visitors' runtime, read only and in its
+#: owner's account. Left out, a server that needs a person's own account or a key the demo
+#: account does not hold: the Marketer's Discord (a bot in a server of the person's) and LinkedIn
+#: (the person's session); the Traveller's Booking.com (a partner's keys); the Steward and the
+#: Jupyter Data Analyst name no server, nor does the Analyst, whose tools all run in the page. The Traveller's Google Maps is optional: started only
+#: with the billed GOOGLE_MAPS_API_KEY among the demo account's secrets (the user, 19 November 2026).
+DEMO_CONNECTIONS = {
+    "demo-shopper": ["shopify:0.0.1"],
+    "demo-accountant": ["odoo-accounting:0.0.1"],
+    "demo-terra": ["earthdata:0.0.1"],
+    "demo-traveller": ["kiwi:0.0.1", "overture:0.0.1", "google-maps:0.0.1"],
+    "demo-marketer": [],
+    "demo-aws-steward": [],
+    "demo-jupyter-data-analyst": [],
+    "demo-analyst": [],
+}
+
+
+def test_the_demos_connect_to_every_server_they_can_and_only_read() -> None:
+    for identity, servers in DEMO_CONNECTIONS.items():
+        found = APP_CATALOGUE[identity]
+        assert [c.server for c in found.connections] == servers, identity
+        for connection in found.connections:
+            # A visitor only reads, in the demo account (`as: owner`), never in a person's name.
+            assert connection.access is Access.READ, identity
+            assert connection.acts_as is ActsAs.OWNER, identity
+        # Every tool a demo reaches reads; none that acts is reached at all.
+        for ref, behaviour in tool_behaviours(found).items():
+            if is_read_only(classes_of(ref)):
+                assert behaviour is Behaviour.DO_IT, (identity, ref)
+            else:
+                assert behaviour is Behaviour.LEAVE_TO_ME, (identity, ref)
+        assert app_problems(found) == [], identity
+        assert app_setup(found) == [], identity
+    # The Traveller's Kiwi.com: its search alone, never the feedback form that sends to Kiwi.
+    kiwi, overture, maps = APP_CATALOGUE["demo-traveller"].connections
+    assert kiwi.only == ["search-flight"] and not kiwi.optional
+    # Its Overture places: every tool, all reads, never optional (no key).
+    assert not overture.only and not overture.optional
+    # The Shopper still buys its test orders at the Demo Shop alone.
+    [shop] = APP_CATALOGUE["demo-shopper"].pap.connections
+    assert shop.company == "demo-shop.agent.datalayer.ai"
+
+
+def test_the_traveller_demo_starts_google_maps_only_with_its_key() -> None:
+    # The user, 19 November 2026: the demo may use Google Maps with the billed key among the demo
+    # account's own secrets; without it, Kiwi.com alone, and nothing said about Maps.
+    found = APP_CATALOGUE["demo-traveller"]
+    assert found.version == "0.0.7"
+    maps = next(c for c in found.connections if c.server == "google-maps:0.0.1")
+    # Optional, so the runtime leaves it off when the account holds no such secret, as the agent does.
+    assert maps.optional
+    assert maps.access is Access.READ and maps.acts_as is ActsAs.OWNER
+    server = agentspecs.apps._catalogue("mcp-servers")["google-maps"]
+    assert [ref.split(":")[0] for ref in server["envvars"]] == ["GOOGLE_MAPS_API_KEY"]
+    agent = agentspecs.apps._agent_of(found)
+    assert "google-maps:0.0.1" in agent["optional"]["mcp_servers"]
+    # Maps is something it may have, never promised: no Maps tool is named as one it uses,
+    # and it says nothing of Maps when its tools are not there.
+    instructions = found.instructions
+    assert "search_places" in instructions and "if you have" in instructions.lower()
+    assert "connected to no hotel, map" not in instructions
+
+
+def test_the_demos_that_read_live_services_say_so_and_invent_nothing() -> None:
+    accountant = APP_CATALOGUE["demo-accountant"].instructions
+    assert "odoo_accounting_" in accountant and "Harbor & Pine" not in accountant
+    assert "Never create, post, reconcile or delete" in accountant
+    assert "search_catalog" in APP_CATALOGUE["demo-shopper"].instructions
+    assert "search_earth_datagranules" in APP_CATALOGUE["demo-terra"].instructions
+    assert "search-flight" in APP_CATALOGUE["demo-traveller"].instructions
+    assert "overture_search_places" in APP_CATALOGUE["demo-traveller"].instructions
+
+
+def test_the_traveller_demo_finds_real_places_with_overture_in_any_city() -> None:
+    # The user, 19 November 2026: real restaurants and sights in any city from Overture,
+    # attributed, on a map; flights from Kiwi.com; the stays stay an example.
+    found = APP_CATALOGUE["demo-traveller"]
+    instructions = found.instructions
+    assert "in any city" in instructions
+    assert "attribution" in instructions and "Overture Maps" in instructions
+    assert "show_trip_map" in instructions
+    # The example's restaurants are gone: places come from Overture, stays from the example.
+    assert "Taberna da Rua" not in instructions and "Casa do Largo" in instructions
+    assert "places are in the example for Lisbon only" not in instructions
+    # The map comes with the overture server and show_trip_map, not the application's own ui.
+    server = agentspecs.apps._catalogue("mcp-servers")["overture"]
+    assert [ui["plugin"] for ui in server["ui"]] == ["trip-map"]

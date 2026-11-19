@@ -150,6 +150,7 @@ ToolbarTypeType = Literal["Docked", "Floating"]
 VisualModeType = Literal["Dark", "Light"]
 WorkSpacesWebServiceName = Literal["workspaces-web"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

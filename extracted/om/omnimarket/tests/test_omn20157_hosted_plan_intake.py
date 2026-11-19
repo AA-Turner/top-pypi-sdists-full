@@ -16,6 +16,12 @@ import pytest
 from omnibase_infra.event_bus.event_bus_kafka import EventBusKafka
 from pydantic import ValidationError
 
+from omnimarket.handlers.routing.byok_plan_detection import ModelByokPlanDetection
+from omnimarket.handlers.routing.byok_provider_backends import (
+    BYOK_MODEL_UNRESOLVED,
+    ByokPlanNotPermittedError,
+    resolve_byok_backend_by_id,
+)
 from omnimarket.nodes.node_projection_tenant_credentials.handlers.handler_tenant_credentials_projection import (
     HandlerTenantCredentialsProjectionRunner,
 )
@@ -26,12 +32,6 @@ from omnimarket.projection.credential_publisher import (
     register_inference_credential,
 )
 from omnimarket.projection.runner import MessageMeta
-from omnimarket.routing.byok_plan_detection import ModelByokPlanDetection
-from omnimarket.routing.byok_provider_backends import (
-    BYOK_MODEL_UNRESOLVED,
-    ByokPlanNotPermittedError,
-    resolve_byok_backend_by_id,
-)
 
 # OMN-21059: every shipped row has the customer choose the model; this file
 # exercises the catalogue-pick path, which a row reaches with that flag off.
@@ -42,7 +42,14 @@ _KEY = "zai-hosted-key-do-not-leak-0123456789"  # onex-allow-test-fixture OMN-20
 
 
 def _request(**overrides: object) -> ModelInferenceCredentialCreateRequest:
-    fields: dict[str, object] = {"name": "k", "provider": "glm", "key_value": _KEY}
+    # OMN-21217: a hosted key is registered with the model the customer chose;
+    # one with none is refused BYOK_MODEL_NOT_CHOSEN before the plan is decided.
+    fields: dict[str, object] = {
+        "name": "k",
+        "provider": "glm",
+        "key_value": _KEY,
+        "models": ["glm-4.6"],
+    }
     fields.update(overrides)
     return ModelInferenceCredentialCreateRequest(**fields)
 
@@ -107,7 +114,7 @@ class TestRegisterDecidesThePlanFirst:
         assert resp.plan == "general_api"
         payload = bus.publish_envelope.await_args.args[0].payload
         assert isinstance(payload, ModelCredentialRegisteredEvent)
-        assert payload.metadata == {"plan": "general_api"}
+        assert payload.metadata == {"plan": "general_api", "model": "glm-4.6"}
 
     async def test_an_omitted_plan_is_detected_and_recorded(self) -> None:
         detector = _detector("general_api")
@@ -125,7 +132,7 @@ class TestRegisterDecidesThePlanFirst:
         detector.assert_awaited_once()
         assert resp.plan == "general_api"
         payload = bus.publish_envelope.await_args.args[0].payload
-        assert payload.metadata == {"plan": "general_api"}
+        assert payload.metadata == {"plan": "general_api", "model": "glm-4.6"}
 
     async def test_a_coding_plan_only_key_is_refused_with_the_typed_code(
         self,
@@ -228,7 +235,9 @@ class TestRegisterDecidesThePlanFirst:
 
         detector.assert_not_awaited()
         assert resp.plan is None
-        assert bus.publish_envelope.await_args.args[0].payload.metadata == {}
+        assert bus.publish_envelope.await_args.args[0].payload.metadata == {
+            "model": "glm-4.6"
+        }
 
 
 @pytest.fixture

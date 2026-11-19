@@ -60,6 +60,7 @@ PolicyTypeType = Literal[
 StatementEffectType = Literal["ALLOW", "DENY"]
 IAMToolboxPreviewServiceName = Literal["iam-toolbox"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

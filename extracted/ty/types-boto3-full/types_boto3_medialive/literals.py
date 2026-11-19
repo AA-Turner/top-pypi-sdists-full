@@ -1159,6 +1159,7 @@ WavCodingModeType = Literal[
 WebvttDestinationStyleControlType = Literal["MANUAL", "NO_STYLE_DATA", "PASSTHROUGH"]
 MediaLiveServiceName = Literal["medialive"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

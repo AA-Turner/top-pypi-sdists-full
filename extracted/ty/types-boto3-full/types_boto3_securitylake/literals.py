@@ -62,6 +62,7 @@ SourceCollectionStatusType = Literal["COLLECTING", "MISCONFIGURED", "NOT_COLLECT
 SubscriberStatusType = Literal["ACTIVE", "DEACTIVATED", "PENDING", "READY"]
 SecurityLakeServiceName = Literal["securitylake"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

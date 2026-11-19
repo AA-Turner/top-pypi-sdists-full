@@ -653,41 +653,33 @@ class TestSkylos:
         assert 0 < probe_keys.index_probes <= logarithmic_bound
 
     def test_mark_refs_direct_reference(self, skylos):
-        mock_def = Mock()
-        mock_def.type = "function"
-        mock_def.simple_name = "function"
-        mock_def.name = "module.function"
-        mock_def.references = 0
+        definition = Definition("module.function", "function", Path("module.py"), 1)
 
-        skylos.defs = {"module.function": mock_def}
+        skylos.defs = {"module.function": definition}
         skylos.refs = [("module.function", None)]
 
         skylos._mark_refs()
 
-        assert mock_def.references == 1
+        assert definition.references == 1
 
     def test_mark_refs_import_reference(self, skylos):
-        mock_import = Mock()
-        mock_import.type = "import"
-        mock_import.simple_name = "imported_func"
-        mock_import.name = "other_module.imported_func"
-        mock_import.references = 0
-
-        mock_original = Mock()
-        mock_original.type = "function"
-        mock_original.simple_name = "imported_func"
-        mock_original.references = 0
+        imported = Definition(
+            "other_module.imported_func", "import", Path("module.py"), 1
+        )
+        original = Definition(
+            "other_module.imported_func", "function", Path("other_module.py"), 1
+        )
 
         skylos.defs = {
-            "module.imported_func": mock_import,
-            "other_module.imported_func": mock_original,
+            "module.imported_func": imported,
+            "other_module.imported_func": original,
         }
         skylos.refs = [("module.imported_func", None)]
 
         skylos._mark_refs()
 
-        assert mock_import.references == 1
-        assert mock_original.references == 2
+        assert imported.references == 1
+        assert original.references == 2
 
     def test_mark_refs_qualified_prefix_includes_descendant_definitions(
         self, skylos, mock_definition
@@ -4086,13 +4078,23 @@ class Dead:
         assert "Dead.a" not in unreachable
         assert "Dead.b" not in unreachable
 
-    def test_analyze_js_package_route_attachment_export_is_live(self, tmp_path):
+    @pytest.mark.parametrize(
+        "package_api", [True, False], ids=["package-api", "ordinary-module"]
+    )
+    def test_analyze_js_package_route_attachment_export_is_live(
+        self, tmp_path, package_api
+    ):
         src_dir = tmp_path / "src"
         src_dir.mkdir()
+        entry = "src/app.js" if package_api else "src/bootstrap.js"
         (tmp_path / "package.json").write_text(
-            '{"name":"app","type":"module","main":"src/app.js"}',
+            json.dumps({"name": "app", "type": "module", "main": entry}),
             encoding="utf-8",
         )
+        if not package_api:
+            (src_dir / "bootstrap.js").write_text(
+                "import './app.js';\n", encoding="utf-8"
+            )
         (src_dir / "app.js").write_text(
             """
 const routes = new Map();
@@ -4116,6 +4118,10 @@ export function attachRoutes(server) {
 export function orphanHandler(req, res) {
   res.end("orphan");
 }
+
+function unexposedHandler() {
+  return "unreferenced";
+}
 """,
             encoding="utf-8",
         )
@@ -4127,18 +4133,29 @@ export function orphanHandler(req, res) {
         unused_files = {Path(item["file"]).name for item in result["unused_files"]}
 
         assert "attachRoutes" not in unreachable
-        assert "orphanHandler" in unreachable
+        # A manifest entry's export is a package interface. A side-effect
+        # import loads the ordinary module without reading its named exports.
+        assert ("orphanHandler" in unreachable) is not package_api
+        assert "unexposedHandler" in unreachable
         assert "app.js" not in unused_files
 
+    @pytest.mark.parametrize(
+        "package_api", [True, False], ids=["package-api", "ordinary-module"]
+    )
     def test_analyze_js_route_attachment_uses_route_shape_not_name_tokens(
-        self, tmp_path
+        self, tmp_path, package_api
     ):
         src_dir = tmp_path / "src"
         src_dir.mkdir()
+        entry = "src/app.js" if package_api else "src/bootstrap.js"
         (tmp_path / "package.json").write_text(
-            '{"name":"app","type":"module","main":"src/app.js"}',
+            json.dumps({"name": "app", "type": "module", "main": entry}),
             encoding="utf-8",
         )
+        if not package_api:
+            (src_dir / "bootstrap.js").write_text(
+                "import './app.js';\n", encoding="utf-8"
+            )
         (src_dir / "app.js").write_text(
             """
 export function healthHandler(req, res) {
@@ -4161,6 +4178,10 @@ export function applyConfig(config) {
 function defaultHandler() {
   return "light";
 }
+
+function unexposedHandler() {
+  return "unreferenced";
+}
 """,
             encoding="utf-8",
         )
@@ -4172,7 +4193,8 @@ function defaultHandler() {
 
         assert "configure" not in unreachable
         assert "attachRoutes" not in unreachable
-        assert "applyConfig" in unreachable
+        assert ("applyConfig" in unreachable) is not package_api
+        assert "unexposedHandler" in unreachable
 
     def test_analyze_java_public_static_helper_not_auto_exported(self, tmp_path):
         (tmp_path / "App.java").write_text(

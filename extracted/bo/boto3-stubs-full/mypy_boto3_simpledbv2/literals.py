@@ -42,6 +42,7 @@ ListExportsPaginatorName = Literal["list_exports"]
 S3SseAlgorithmType = Literal["AES256", "KMS"]
 SimpleDBv2ServiceName = Literal["simpledbv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

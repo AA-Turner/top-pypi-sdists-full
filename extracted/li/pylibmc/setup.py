@@ -158,17 +158,18 @@ setup(
     cmdclass={'build_ext': build_ext},
     package_dir={'': 'src'},
     packages=['pylibmc'],
-    python_requires='>=3.8',
+    # SASL mechanism plugins, copied in by .github/scripts/bundle-sasl-plugins.sh
+    # for the Linux wheels only. The glob matches nothing otherwise.
+    package_data={'pylibmc': ['sasl2/*.so']},
+    python_requires='>=3.11',
     classifiers=[
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15',
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',

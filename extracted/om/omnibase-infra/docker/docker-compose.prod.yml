@@ -28,6 +28,10 @@ services:
       - "com.omninode.service=postgres"
       - "com.omninode.layer=infrastructure"
   redpanda:
+    # OMN-17427: this lane declares its own broker image. The dev lane moved
+    # to v24.3.18, and a broker upgrade is one-way on its data volume, so a
+    # dev pin move must never reach this broker by inheritance.
+    image: redpandadata/redpanda:v24.2.7
     container_name: omnibase-infra-prod-redpanda
     command: !override
       - redpanda
@@ -279,9 +283,6 @@ services:
     container_name: omninode-prod-skill-lifecycle-consumer
     profiles: !override ["prod-disabled"]
   context-audit-consumer:
-    profiles: !override ["prod-disabled"]
-  intelligence-api:
-    container_name: omnibase-prod-intelligence-api
     profiles: !override ["prod-disabled"]
   omninode-contract-resolver:
     container_name: omninode-prod-contract-resolver

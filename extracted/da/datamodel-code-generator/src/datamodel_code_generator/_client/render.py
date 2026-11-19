@@ -71,15 +71,15 @@ from datamodel_code_generator._runtime.client.retry import IdempotencyPlan
 from datamodel_code_generator._runtime.model_codecs.media import NO_CONTENT, media_kind, media_range
 from datamodel_code_generator._runtime.model_codecs.parameters import PATH_SAFE, percent_encoded
 from datamodel_code_generator._runtime.protocols.caches import CACHED_STATUSES
-from datamodel_code_generator._runtime.protocols.options import _KIND_OPTIONS  # pyright: ignore[reportPrivateUsage]
-from datamodel_code_generator._runtime.protocols.pagination import _DEFAULTS as _PAGE_LIMITS  # pyright: ignore[reportPrivateUsage]
-from datamodel_code_generator._runtime.protocols.polling import _DEFAULTS as _POLL_LIMITS  # pyright: ignore[reportPrivateUsage]
-from datamodel_code_generator._runtime.protocols.uploads import _DEFAULTS as _UPLOAD_LIMITS  # pyright: ignore[reportPrivateUsage]
+from datamodel_code_generator._runtime.protocols.options import _KIND_OPTIONS
+from datamodel_code_generator._runtime.protocols.pagination import _DEFAULTS as _PAGE_LIMITS
+from datamodel_code_generator._runtime.protocols.polling import _DEFAULTS as _POLL_LIMITS
+from datamodel_code_generator._runtime.protocols.uploads import _DEFAULTS as _UPLOAD_LIMITS
 from datamodel_code_generator._target_contract import UnionType
 from datamodel_code_generator._target_contract import label as _label
 from datamodel_code_generator._target_module import TargetModule
 from datamodel_code_generator._target_naming import PATH_PLACEHOLDER, NameScope
-from datamodel_code_generator._target_operations import coded_use, described
+from datamodel_code_generator._target_operations import CLIENT, coded_use, operation_docstring
 from datamodel_code_generator._target_render import (
     Keyword,
     Parameter,
@@ -923,19 +923,6 @@ def _handle(spec: PollingSpec, prefix: str, python_version: PythonVersion) -> st
 def _route(operation: OperationSpec) -> str:
     """Return the method and path that a helper's docstrings cite, escaped for their literals."""
     return escape_docstring(_label(operation.contract)) or ""
-
-
-def _docstring(spec: OperationSpec, *, schema: bool) -> str:
-    """Return the text of an operation's docstring: its configured description, or its route.
-
-    With `schema`, as `--use-schema-description` sets it, the operation's summary and description, as the models
-    document their schemas, come before the route.
-    """
-    if spec.description:
-        return spec.description
-    if schema and (text := described(spec.contract)):
-        return text
-    return f"Call {_label(spec.contract)}."
 
 
 def _sent_path(path: str) -> str:
@@ -1869,7 +1856,9 @@ class _Resources(_Typing):
     def docstring(self, spec: OperationSpec) -> str:
         """Return the docstring of an operation's methods, formatted once for every view of either client."""
         if (found := self.docstrings.get(spec.index)) is None:
-            text = _docstring(spec, schema=self.use_schema_description)
+            text = operation_docstring(
+                spec.contract, schema=self.use_schema_description, verb=CLIENT.verb, description=spec.description
+            )
             found = self.docstrings[spec.index] = format_docstring(
                 text, 8, use_single_line_docstring=self.use_single_line_docstring
             )

@@ -497,7 +497,13 @@ def _merge_http_options(base: HttpOptions | None, override: HttpOptions) -> Http
 # affected models are tracked by an explicit allowlist. Add future GA models here
 # as they ship.
 _FIXED_SAMPLING_AND_NO_PREFILL_MODELS = frozenset(
-    {"gemini-3.5-flash-lite", "gemini-3.6-flash"}
+    {
+        "gemini-3.5-flash-lite",
+        "gemini-3.6-flash",
+        "gemini-4-carbon",
+        "gemini-4-hydrogen",
+        "gemini-4-neon",
+    }
 )
 _CUSTOM_SAMPLING_PARAMETERS = ("temperature", "top_k", "top_p")
 
@@ -3256,9 +3262,11 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
     for more details on supported JSON Schema features.
     """
 
-    reasoning_effort: Literal["minimal", "low", "medium", "high"] | None = Field(
-        default=None,
-        alias="thinking_level",
+    reasoning_effort: Literal["minimal", "low", "medium", "high", "xhigh"] | None = (
+        Field(
+            default=None,
+            alias="thinking_level",
+        )
     )
     """Indicates the thinking level.
 
@@ -3267,6 +3275,9 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
         * `'low'`: Minimizes latency and cost.
         * `'medium'`: Balances latency/cost with reasoning depth.
         * `'high'`: Maximizes reasoning depth.
+        * `'xhigh'`: Extra-high reasoning depth. Sent as-is only to models whose
+            profile lists `'xhigh'` in `reasoning_effort_levels`; other models fall
+            back to `'high'`.
 
     Check the model profile's `reasoning_effort_levels` and
     `reasoning_effort_default` fields for model-specific support. If those fields are
@@ -3345,9 +3356,16 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
         return "chat-google-generative-ai"
 
     @property
-    def thinking_level(self) -> Literal["minimal", "low", "medium", "high"] | None:
+    def thinking_level(
+        self,
+    ) -> Literal["minimal", "low", "medium", "high", "xhigh"] | None:
         """Alias for `reasoning_effort` (Gemini's native name for this setting)."""
         return self.reasoning_effort
+
+    @property
+    def _supports_xhigh_thinking_level(self) -> bool:
+        levels = (self.profile or {}).get("reasoning_effort_levels") or []
+        return "xhigh" in levels
 
     @property
     def _supports_code_execution(self) -> bool:
@@ -3357,7 +3375,17 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
         """
         # TODO: Refactor to use `capabilities` property when supported upstream
         # (or done via augmentation)
-        return "gemini-2" in self.model or "gemini-3" in self.model
+        model = _normalize_gemini_model_name(self.model)
+        return model.startswith(
+            (
+                "gemini-2-",
+                "gemini-2.",
+                "gemini-3-",
+                "gemini-3.",
+                "gemini-4-",
+                "gemini-4.",
+            )
+        )
 
     @classmethod
     def is_lc_serializable(cls) -> bool:
@@ -3595,7 +3623,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
         if code_execution is not None:
             if not self._supports_code_execution:
                 msg = (
-                    "Code execution is only supported on Gemini 2.0, and 2.5 models. "
+                    "Code execution is only supported on Gemini 2, 3, and 4 models. "
                     f"Current model: {self.model}"
                 )
                 raise ValueError(msg)
@@ -3715,6 +3743,20 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
         thinking_level = kwargs.get(
             "thinking_level", kwargs.get("reasoning_effort", self.reasoning_effort)
         )
+        if (
+            isinstance(thinking_level, str)
+            and thinking_level.lower() == "xhigh"
+            and not self._supports_xhigh_thinking_level
+        ):
+            # Models without `xhigh` reject it, so fall back to the closest level.
+            warnings.warn(
+                f"Model '{self.model}' does not list 'xhigh' in its profile's "
+                "reasoning_effort_levels; using 'high' instead. Set a profile with "
+                "'xhigh' in reasoning_effort_levels to send it as-is.",
+                UserWarning,
+                stacklevel=2,
+            )
+            thinking_level = "high"
         thinking_budget = kwargs.get("thinking_budget", self.thinking_budget)
         include_thoughts = kwargs.get("include_thoughts", self.include_thoughts)
 

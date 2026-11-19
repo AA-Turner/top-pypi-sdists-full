@@ -8081,7 +8081,7 @@ fn a_record_below_a_union_of_records_is_the_rules_answer() {
 /// level asks a goal per field, so the work grows with the corners: six
 /// fields against their sixty-four decide, seven against their hundred and
 /// twenty-eight spend the budget, which is where six tuple components decide
-/// and seven decline (`docs/15-decidability.md`). A decline is sound, so the
+/// and seven decline (`docs/explanation/decidability.md`). A decline is sound, so the
 /// number is what this holds.
 #[test]
 fn a_record_split_stops_where_the_decision_budget_does() {
@@ -13695,6 +13695,185 @@ mod leaves {
         assert_eq!(budget.left(), DECISION_BUDGET);
         let elsewhere = wide.clone();
         assert_eq!(narrow.a_goal_declined(&elsewhere, &mut cx), Relation::Holds);
+    }
+
+    /// Two meets and two complements the rules leave open, each holding a value only
+    /// the sets read: a pattern's words, met with kinds or with another pattern's
+    /// complement, and the complement of a pattern or of a list of one.
+    fn read_by_the_sets_alone() -> [Schema; 4] {
+        let kinds = Schema::meet([
+            Schema::union([pattern("a"), Schema::Int]),
+            Schema::union([Schema::Str, Schema::Float]),
+            Schema::Bool.complement(),
+        ]);
+        let patterns = Schema::meet([pattern("a+"), pattern("a?").complement()]);
+        let list = Schema::list(SeqShape::homogeneous(pattern("a")));
+        [
+            kinds,
+            patterns,
+            pattern("a").complement(),
+            list.complement(),
+        ]
+    }
+
+    /// A meet and a complement the rules leave open hold a value by the sets in the
+    /// last asking, as a refinement does, and in no other asking.
+    #[test]
+    fn a_meet_and_a_complement_are_read_by_the_sets_for_a_value() {
+        for leaf in read_by_the_sets_alone() {
+            let budget = Budget::new(DECISION_BUDGET);
+            let mut cx = Cx::new(&Pure, &[], &budget);
+            assert_eq!(leaf.verdict_rec(&mut cx), Verdict::Unknown, "{leaf:?}");
+            cx.reads_leaves = true;
+            assert_eq!(leaf.verdict_rec(&mut cx), Verdict::Inhabited, "{leaf:?}");
+        }
+    }
+
+    // THEORY: a-sequence-splits-across-a-union, records-maps-and-structs
+    /// A product holds a value where each component does [FCB08, Lem. 6.5], and a
+    /// record where each required field does [Cas23, (11)], read a component at a
+    /// time where the set of the whole is refused: a string of at most 584 code
+    /// points is a table past the state bound, so beside it only the components are
+    /// read, and beside one of at most 583 the whole product is.
+    #[test]
+    fn a_product_beside_a_component_past_the_bounds_holds_a_value_by_its_components() {
+        let empty = Schema::record(Vec::new(), Openness::Closed);
+        for leaf in read_by_the_sets_alone() {
+            for most in [583, 584, 5120] {
+                let words = Schema::refine(Schema::Str, vec![Constraint::MaxLen(most)]);
+                let pair = Schema::tuple(SeqShape::fixed([words.clone(), leaf.clone()]));
+                let field = |name: &str, schema: &Schema| Field {
+                    name: name.into(),
+                    schema: schema.clone(),
+                    required: true,
+                };
+                let record = Schema::record(
+                    vec![field("a", &words), field("b", &leaf)],
+                    Openness::Closed,
+                );
+                for (subject, other) in [
+                    (&pair, &Schema::Nothing),
+                    (&record, &Schema::Nothing),
+                    (&record, &empty),
+                ] {
+                    assert_eq!(
+                        subject.subtype_relation_under(other, &Pure, &[]),
+                        Relation::Fails,
+                        "{subject:?} below {other:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    // THEORY: a-sequence-splits-across-a-union, records-maps-and-structs
+    /// A product is empty where a component is [FCB08, Lem. 6.5], and a record where
+    /// a required field is [Cas23, (11)], read a component at a time where the set of
+    /// the whole is refused: two patterns sharing no word meet in a set only the sets
+    /// empty, and beside a string of at most 584 code points, a table past the state
+    /// bound, the product is read empty by its components, by `is_empty` and by the
+    /// relation alike, below `nothing` and below every other set.
+    #[test]
+    fn a_product_beside_a_component_past_the_bounds_is_empty_by_its_components() {
+        let none = Schema::meet([pattern("a+"), pattern("b+")]);
+        let budget = Budget::new(DECISION_BUDGET);
+        let mut cx = Cx::new(&Pure, &[], &budget);
+        assert_eq!(
+            none.verdict_rec(&mut cx),
+            Verdict::Unknown,
+            "the rules leave it open"
+        );
+        assert!(none.is_empty_with(&Pure, &[]), "and the sets empty it");
+        let empty = Schema::record(Vec::new(), Openness::Closed);
+        let pairs = Schema::tuple(SeqShape::fixed([Schema::Int, Schema::Int]));
+        for most in [583, 584, 5120] {
+            let words = Schema::refine(Schema::Str, vec![Constraint::MaxLen(most)]);
+            let pair = Schema::tuple(SeqShape::fixed([words.clone(), none.clone()]));
+            let field = |name: &str, schema: &Schema| Field {
+                name: name.into(),
+                schema: schema.clone(),
+                required: true,
+            };
+            let record = Schema::record(
+                vec![field("a", &words), field("b", &none)],
+                Openness::Closed,
+            );
+            let attribute = |name: &str, schema: &Schema| Attribute {
+                name: name.into(),
+                schema: schema.clone(),
+            };
+            let attributes =
+                Schema::attr_record(vec![attribute("a", &words), attribute("b", &none)]);
+            for subject in [&pair, &record, &attributes] {
+                assert!(subject.is_empty_with(&Pure, &[]), "{subject:?}");
+                for other in [&Schema::Nothing, &empty, &pairs] {
+                    assert_eq!(
+                        subject.subtype_relation_under(other, &Pure, &[]),
+                        Relation::Holds,
+                        "{subject:?} below {other:?}"
+                    );
+                }
+            }
+        }
+        let optional = Schema::record(
+            vec![Field {
+                name: "b".into(),
+                schema: none,
+                required: false,
+            }],
+            Openness::Closed,
+        );
+        assert!(
+            !optional.is_empty_with(&Pure, &[]),
+            "an absent key is a value"
+        );
+    }
+
+    /// A value the sets read is held for the query and charged each time it is asked,
+    /// so the memo changes no allowance, and what is held is what is read back.
+    #[test]
+    fn a_value_the_sets_read_is_held_for_the_query() {
+        let leaf = pattern("a").complement();
+        let budget = Budget::new(DECISION_BUDGET);
+        let cx = Cx::new(&Pure, &[], &budget);
+        assert_eq!(leaf.a_value_the_sets_read(&cx), Verdict::Inhabited);
+        let spent = DECISION_BUDGET - budget.left();
+        let key = (cx.query(), leaf.clone());
+        assert_eq!(
+            VALUES.with_borrow(|held| held.get(&key).copied()),
+            Some(true)
+        );
+        assert_eq!(leaf.a_value_the_sets_read(&cx), Verdict::Inhabited);
+        assert_eq!(DECISION_BUDGET - budget.left(), 2 * spent);
+        VALUES.with_borrow_mut(|held| held.insert(key, false));
+        assert_eq!(leaf.a_value_the_sets_read(&cx), Verdict::Unknown);
+        let another = Cx::new(&Pure, &[], &budget);
+        assert_eq!(leaf.a_value_the_sets_read(&another), Verdict::Inhabited);
+        let second = pattern("b").complement();
+        assert_eq!(second.a_value_the_sets_read(&another), Verdict::Inhabited);
+        let held = |schema: &Schema| {
+            VALUES.with_borrow(|held| held.contains_key(&(another.query(), schema.clone())))
+        };
+        assert!(held(&leaf) && held(&second), "the memo keeps both answers");
+    }
+
+    /// The values held are emptied at the bound the other readings are, so the
+    /// finished queries' answers do not pile up on a thread.
+    #[test]
+    fn the_values_held_are_bounded() {
+        VALUES.with_borrow_mut(|held| {
+            held.clear();
+            for query in 0..READINGS_HELD {
+                held.insert((u64::MAX - query as u64, Schema::Int), false);
+            }
+        });
+        let budget = Budget::new(DECISION_BUDGET);
+        let cx = Cx::new(&Pure, &[], &budget);
+        assert_eq!(
+            pattern("a").complement().a_value_the_sets_read(&cx),
+            Verdict::Inhabited
+        );
+        assert_eq!(VALUES.with_borrow(std::collections::HashMap::len), 1);
     }
 
     /// A second asking starts past the whole pair's reading, which spends no step

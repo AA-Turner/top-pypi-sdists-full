@@ -4,16 +4,23 @@
 scripts/publish_test_failure_baseline.py (OMN-13027).
 
 Tests validate baseline parsing, expiry logic, new-cluster detection, and
-the ratchet gate exit codes — all without subprocess or network calls.
+the ratchet gate exit codes — without network calls. The cluster-ticket
+node (OMN-19998) is exercised only through a stub script written to
+tmp_path, never through the real node.
 """
 
 from __future__ import annotations
 
 import datetime
 import importlib.util
+import json
+import math
+import shlex
+import sys
 import textwrap
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -27,17 +34,22 @@ pytestmark = pytest.mark.unit
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 
 
-def _load(name: str) -> object:
+def _load(name: str) -> Any:
     path = _SCRIPTS / f"{name}.py"
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None, f"cannot load {path}"
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    spec.loader.exec_module(mod)
     return mod
 
 
 ratchet = _load("check_test_failure_ratchet")
 publisher = _load("publish_test_failure_baseline")
+
+
+def run_publisher(argv: list[str]) -> int:
+    """The publisher's main(); ``publisher`` is loaded by path, so its attributes are untyped."""
+    return int(publisher.main(argv))
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +90,87 @@ def _past_expiry() -> str:
     return (
         datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
     ).isoformat()
+
+
+# ---------------------------------------------------------------------------
+# Cluster-ticket node stub (OMN-19998)
+#
+# The publisher consults the node on every failing cluster; the stub answers
+# the way the real node does — one ticket per cluster signature: `created`
+# the first time it sees a cluster, `commented` afterwards, always with the
+# same ticket. Each call appends its --input JSON to calls.jsonl and its
+# answer to answers.jsonl so tests can assert on both sides.
+# ---------------------------------------------------------------------------
+
+_STUB_TICKET = "OMN-90001"
+
+_NODE_STUB = textwrap.dedent(
+    """
+    import json
+    import sys
+    from pathlib import Path
+
+    here = Path(__file__).resolve().parent
+    argv = sys.argv
+    payload = json.loads(argv[argv.index("--input") + 1])
+    cluster = payload["cluster"]
+
+    calls = here / "calls.jsonl"
+    seen = False
+    if calls.exists():
+        for line in calls.read_text().splitlines():
+            if line.strip() and json.loads(line).get("cluster") == cluster:
+                seen = True
+                break
+    with calls.open("a") as fh:
+        fh.write(json.dumps(payload) + "\\n")
+
+    state = "commented" if seen else "created"
+    with (here / "answers.jsonl").open("a") as fh:
+        fh.write(json.dumps({"state": state, "ticket": "OMN-90001"}) + "\\n")
+    print(
+        json.dumps(
+            {
+                "correlation_id": "stub",
+                "requested_by_lane": payload["requested_by_lane"],
+                "repo": payload["repo"],
+                "cluster": cluster,
+                "outcome": "completed",
+                "result": {
+                    "state": state,
+                    "ticket": "OMN-90001",
+                    "via": None,
+                    "previous_ticket": None,
+                    "cause": None,
+                },
+            }
+        )
+    )
+    """
+).strip()
+
+
+def _write_node_stub(tmp_path: Path) -> Path:
+    """Write the stub cluster-ticket node; logs land beside it in tmp_path."""
+    stub = tmp_path / "cluster_ticket_node_stub.py"
+    stub.write_text(_NODE_STUB)
+    return stub
+
+
+def _report_argv(stub: Path) -> list[str]:
+    """CLI args wiring the stub in as the report command, lane lane-x."""
+    return [
+        "--report-command",
+        f"{sys.executable} {shlex.quote(str(stub))}",
+        "--report-lane",
+        "lane-x",
+    ]
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -387,21 +480,74 @@ class TestBaselinePublisher:
             data = yaml.safe_load(fh)
         assert data["clusters"] == {}
 
-    def test_main_adds_new_cluster_without_ticket_when_no_api_key(
+    def test_two_runs_with_a_still_failing_cluster_report_it_both_times_and_make_one_ticket(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """FAILING CONTROL for the old behavior.
+
+        The node owns the ticket decision and searches by the cluster's
+        stable signature, so the publisher consults it on EVERY failing
+        cluster of the run — including a run that already finds the cluster
+        in the baseline file. Two main() runs over the same JUnit therefore
+        call the stub twice; the stub answers created then commented with
+        the same ticket, and the baseline carries that ticket after both
+        runs. The old script filed nothing at all on the second run.
+        """
+        monkeypatch.chdir(tmp_path)
+        stub = _write_node_stub(tmp_path)
+        junit = tmp_path / "dev-baseline-junit.xml"
+        _write_junit(junit, [("tests.unit.test_foo", "test_bar")])
+        (tmp_path / "config" / "validation").mkdir(parents=True)
+
+        argv = [
+            "--skip-run",
+            "--repo",
+            "OmniNode-ai/omnibase_infra",
+            *_report_argv(stub),
+        ]
+        rc = run_publisher(argv)
+        assert rc == 0
+        rc = run_publisher(argv)
+        assert rc == 0
+
+        calls = _read_jsonl(stub.parent / "calls.jsonl")
+        assert len(calls) == 2, (
+            "the node must be consulted once per run, even on the run that "
+            "already finds the cluster in the baseline file"
+        )
+        assert all(call["cluster"] == "tests.unit" for call in calls)
+        answers = _read_jsonl(stub.parent / "answers.jsonl")
+        assert answers == [
+            {"state": "created", "ticket": _STUB_TICKET},
+            {"state": "commented", "ticket": _STUB_TICKET},
+        ]
+
+        baseline_path = (
+            tmp_path / "config" / "validation" / "test-failure-baseline.yaml"
+        )
+        with baseline_path.open() as fh:
+            data = yaml.safe_load(fh)
+        assert data["clusters"]["tests.unit"]["ticket"] == _STUB_TICKET
+
+    def test_report_command_exiting_nonzero_leaves_rc_zero_and_empty_ticket(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unavailable node must not fail the run: rc 0, baseline written,
+        the new cluster entered with an empty ticket."""
         monkeypatch.chdir(tmp_path)
         junit = tmp_path / "dev-baseline-junit.xml"
         _write_junit(junit, [("tests.unit.test_foo", "test_bar")])
         (tmp_path / "config" / "validation").mkdir(parents=True)
 
-        rc = publisher.main(  # type: ignore[attr-defined]
+        rc = run_publisher(
             [
                 "--skip-run",
                 "--repo",
                 "OmniNode-ai/omnibase_infra",
-                "--linear-api-key",
-                "",
+                "--report-command",
+                f"{sys.executable} -c 'import sys; sys.exit(1)'",
+                "--report-lane",
+                "lane-x",
             ]
         )
         assert rc == 0
@@ -411,8 +557,94 @@ class TestBaselinePublisher:
         with baseline_path.open() as fh:
             data = yaml.safe_load(fh)
         assert "tests.unit" in data["clusters"]
-        # No ticket filed (no API key) — ticket field is empty string
         assert data["clusters"]["tests.unit"]["ticket"] == ""
+
+    def test_dry_run_reports_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """--dry-run consults no node and writes no baseline, even with the
+        report command and lane fully configured."""
+        monkeypatch.chdir(tmp_path)
+        stub = _write_node_stub(tmp_path)
+        junit = tmp_path / "dev-baseline-junit.xml"
+        _write_junit(junit, [("tests.unit.test_foo", "test_bar")])
+        (tmp_path / "config" / "validation").mkdir(parents=True)
+
+        rc = run_publisher(
+            [
+                "--skip-run",
+                "--dry-run",
+                "--repo",
+                "OmniNode-ai/omnibase_infra",
+                *_report_argv(stub),
+            ]
+        )
+        assert rc == 0
+        assert _read_jsonl(stub.parent / "calls.jsonl") == []
+        baseline_path = (
+            tmp_path / "config" / "validation" / "test-failure-baseline.yaml"
+        )
+        assert not baseline_path.exists()
+
+    def test_no_report_command_reports_nothing_and_passes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No --report-command (and no env default): nothing is called, the
+        run still succeeds, and the cluster lands with an empty ticket."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("BASELINE_REPORT_COMMAND", raising=False)
+        monkeypatch.delenv("BASELINE_REPORT_LANE", raising=False)
+        junit = tmp_path / "dev-baseline-junit.xml"
+        _write_junit(junit, [("tests.unit.test_foo", "test_bar")])
+        (tmp_path / "config" / "validation").mkdir(parents=True)
+
+        rc = run_publisher(["--skip-run", "--repo", "OmniNode-ai/omnibase_infra"])
+        assert rc == 0
+        baseline_path = (
+            tmp_path / "config" / "validation" / "test-failure-baseline.yaml"
+        )
+        with baseline_path.open() as fh:
+            data = yaml.safe_load(fh)
+        assert data["clusters"]["tests.unit"]["ticket"] == ""
+
+    def test_report_input_carries_repo_cluster_examples_and_run_url(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The node's --input JSON must carry the short repo name, the
+        cluster, the full failing count, examples capped at EXAMPLE_COUNT,
+        and the run reference built from the repo and GITHUB_RUN_ID."""
+        monkeypatch.chdir(tmp_path)
+        stub = _write_node_stub(tmp_path)
+        junit = tmp_path / "dev-baseline-junit.xml"
+        _write_junit(
+            junit,
+            [(f"tests.unit.test_mod{i}", f"test_fail_{i}") for i in range(7)],
+        )
+        (tmp_path / "config" / "validation").mkdir(parents=True)
+        monkeypatch.setenv("GITHUB_RUN_ID", "424242")
+
+        rc = run_publisher(
+            [
+                "--skip-run",
+                "--repo",
+                "OmniNode-ai/omnibase_infra",
+                *_report_argv(stub),
+            ]
+        )
+        assert rc == 0
+
+        calls = _read_jsonl(stub.parent / "calls.jsonl")
+        assert len(calls) == 1
+        payload = calls[0]
+        assert payload["repo"] == "omnibase_infra"  # short name from owner/name
+        assert payload["cluster"] == "tests.unit"
+        assert payload["failing_count"] == 7
+        assert payload["examples"] == [
+            f"tests.unit.test_mod{i}::test_fail_{i}" for i in range(5)
+        ]
+        assert payload["requested_by_lane"] == "lane-x"
+        assert payload["observed_at"]
+        assert payload["run_url"] == "OmniNode-ai/omnibase_infra Actions run 424242"
 
     def test_main_removes_resolved_clusters(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -449,3 +681,180 @@ class TestBaselinePublisher:
         with baseline_path.open() as fh:
             data = yaml.safe_load(fh)
         assert "tests.unit" not in data["clusters"]
+
+
+# ---------------------------------------------------------------------------
+# The publisher workflow itself (OMN-22128)
+#
+# The ratchet gate's own refusal text tells a blocked PR to "run
+# dev-baseline-publisher on dev to add them to the baseline". That remedy was
+# inoperable for 4.5 months: all 138 scheduled runs from 2026-06-18 to
+# 2026-11-02 ended non-success, in two eras with two causes, and
+# config/validation/test-failure-baseline.yaml on dev still carried only its
+# own creation commit. Both causes are asserted here so neither can come back
+# silently, since a `cancelled` conclusion is not a failure and alarms nothing.
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_PUBLISHER_WORKFLOW = (
+    _REPO_ROOT / ".github" / "workflows" / "dev-baseline-publisher.yml"
+)
+_BASELINE_FILE = _REPO_ROOT / "config" / "validation" / "test-failure-baseline.yaml"
+
+#: Test time for the publisher's own marker selection, summed across the 15
+#: parallel splits of run 41446149536 on clean dev (head f30b9f461). This is an
+#: ESTIMATE of the scale of the serial run, not a measurement of it: the sum
+#: carries each split's own setup fifteen times over, while the serial job pays
+#: setup once and then adds database startup, the commit and the push on top.
+#: It is the only figure available without a serial run, so the assertion below
+#: demands a multiple of it rather than treating it as the true cost.
+_MEASURED_SPLIT_SUM_MINUTES = 86
+
+#: How much more than the split-sum estimate the job's ceiling must allow.
+#: A ceiling AT the estimate is what produced the `cancelled` era, so a test
+#: that admitted it would pass on a workflow that still dies mid-pytest.
+_REQUIRED_HEADROOM_FACTOR = 1.5
+
+#: The smallest timeout-minutes this repository accepts for the publisher.
+_MINIMUM_PUBLISHER_TIMEOUT_MINUTES = math.ceil(
+    _MEASURED_SPLIT_SUM_MINUTES * _REQUIRED_HEADROOM_FACTOR
+)
+
+
+def _publisher_job() -> dict[str, object]:
+    with _PUBLISHER_WORKFLOW.open() as fh:
+        workflow = yaml.safe_load(fh)
+    job = workflow["jobs"]["publish-baseline"]
+    assert isinstance(job, dict)
+    return job
+
+
+class TestPublisherWorkflow:
+    """The publisher must be able to finish, and to land what it finished."""
+
+    def test_publisher_timeout_clears_the_measured_suite_floor(self) -> None:
+        """Era two (2026-09-07..2026-11-02, 70 runs): cancelled mid-pytest.
+
+        Run 41380955296 ran 03:03:29Z-03:33:47Z and its post-job cleanup
+        terminated orphan uv, python3, pytest and psql processes, so the job
+        died inside the test run and never reached the push at all.
+
+        The ceiling must exceed the split-sum estimate by a margin, not merely
+        reach it: the estimate is not the serial cost, and the job still has
+        dependency install, database startup, the commit and the push to pay
+        after the last test. A test that admitted the estimate exactly would
+        pass a workflow that goes on dying mid-pytest.
+        """
+        timeout = _publisher_job()["timeout-minutes"]
+        assert isinstance(timeout, int), (
+            f"publish-baseline must declare an integer timeout-minutes; got {timeout!r}"
+        )
+        assert timeout >= _MINIMUM_PUBLISHER_TIMEOUT_MINUTES, (
+            f"publish-baseline allows {timeout} minutes. The suite it runs "
+            f"serially estimates at {_MEASURED_SPLIT_SUM_MINUTES} minutes from "
+            "the summed splits of run 41446149536 on clean dev, and this job "
+            "also pays install, database startup, the commit and the push, so "
+            f"the ceiling must be at least {_REQUIRED_HEADROOM_FACTOR}x that "
+            f"estimate, {_MINIMUM_PUBLISHER_TIMEOUT_MINUTES} minutes. A tighter "
+            "ceiling kills the job mid-pytest and reports `cancelled`, which is "
+            "not a failure conclusion and so alarms nothing."
+        )
+
+    def test_publisher_push_rebases_and_retries_onto_current_dev(self) -> None:
+        """Era one (2026-06-18..2026-09-06, 68 runs): push rejected.
+
+        Run 34008081727 finished the suite at 29m09s, wrote and committed the
+        baseline as 8cca07378 (1 file changed, 19 insertions, 25 deletions),
+        then died on "! [rejected] dev -> dev (fetch first)". A job that spends
+        an hour on tests always races a dev merge, so a single bare push loses
+        the baseline it just computed.
+
+        The assertions below are on the step's EXECUTABLE text with comments
+        stripped, and each one names a way the loop could be wrong rather than
+        a phrase it happens to contain: no `git rebase` (which can stop on a
+        conflict and strand the repository mid-rebase while the loop burns its
+        attempts), a checked fetch, a re-apply onto dev's current head, a push
+        to dev inside the loop, and a provenance trailer naming the head the
+        suite ran against, so a published baseline can never silently claim to
+        have been computed from the commit it happens to sit on.
+        """
+        steps = _publisher_job()["steps"]
+        assert isinstance(steps, list)
+        push_steps = [
+            step
+            for step in steps
+            if isinstance(step, dict) and "git push" in str(step.get("run", ""))
+        ]
+        assert push_steps, "no step in publish-baseline pushes the baseline"
+
+        for step in push_steps:
+            name = step.get("name")
+            code = "\n".join(
+                line
+                for line in str(step["run"]).splitlines()
+                if not line.strip().startswith("#")
+            )
+            assert "git rebase" not in code, (
+                f"step {name!r} rebases to land the baseline. An unchecked "
+                "rebase can stop on a conflict and leave the repository "
+                "mid-rebase while the loop burns its remaining attempts, and "
+                "a rebased commit hides that its content was computed against "
+                "an older tree. Re-apply the computed file onto dev's current "
+                "head instead."
+            )
+            assert "git fetch origin dev" in code, (
+                f"step {name!r} does not fetch dev before re-attempting, so it "
+                "re-applies onto a stale origin/dev"
+            )
+            assert "if ! git fetch origin dev" in code, (
+                f"step {name!r} does not check whether the fetch succeeded, so "
+                "a transport failure silently re-applies onto a stale ref"
+            )
+            assert "git reset --hard origin/dev" in code, (
+                f"step {name!r} does not reset onto dev's current head, so the "
+                "re-apply is not conflict-free"
+            )
+            assert "for attempt in" in code, (
+                f"step {name!r} has no retry loop around the push, so a second "
+                "concurrent merge still loses the baseline"
+            )
+            assert "git push origin HEAD:dev" in code, (
+                f"step {name!r} loops without pushing the baseline to dev"
+            )
+            assert "Onex-Computed-From" in code, (
+                f"step {name!r} publishes the baseline without recording the "
+                "dev head the suite was computed from, so its staleness is "
+                "unreadable after the fact"
+            )
+
+    def test_committed_baseline_loads_through_the_publishers_own_loader(
+        self,
+    ) -> None:
+        """A standing guard, deliberately NOT bound to an acceptance criterion.
+
+        It passes at the merge base too, because the committed baseline is
+        already loadable there, so it proves nothing this change introduces and
+        contracts/OMN-22128.yaml binds no AC to it. It is kept because the
+        publisher writes this file and the PR gate reads it: a baseline the
+        publisher's own loader could not read would strand every open PR with
+        no way to baseline a dev-side failure, and nothing else asserts that.
+
+        `publisher` is the module-level importlib load of
+        scripts/publish_test_failure_baseline.py near the top of this file, the
+        same object the rest of the module's publisher tests use.
+        """
+        assert _BASELINE_FILE.exists(), f"{_BASELINE_FILE} is missing"
+        # Reached through an Any-typed alias rather than publisher.<attr>, so
+        # this needs no type-ignore comment: the canonical-file-shape ratchet
+        # refuses any growth in a file's suppression-comment count.
+        loader: Any = publisher
+        baseline = loader.load_baseline(_BASELINE_FILE)
+        assert isinstance(baseline, dict)
+        for field in ("generated_at", "generated_by", "repo", "ttl_days"):
+            assert field in baseline, (
+                f"committed baseline has no {field!r}; the publisher writes "
+                "all four and the gate's summary step reads them"
+            )
+        assert isinstance(baseline.get("clusters", {}), dict), (
+            "clusters must be a mapping of cluster key to entry"
+        )

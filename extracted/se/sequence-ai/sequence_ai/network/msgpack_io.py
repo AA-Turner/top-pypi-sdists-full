@@ -44,7 +44,8 @@ class MsgpackError(ValueError):
 # ── packing ───────────────────────────────────────────────────────────────────────────────────────────────────────
 def pack(obj: Any) -> bytes:
     """`obj` as msgpack: None, bools, ints (-2**63 to 2**64 - 1), floats, str, bytes, lists and tuples, dicts (keys str,
-    bytes or int), and numpy arrays and scalars (as msgpack-numpy writes them) inside any of those."""
+    bytes or int), and numpy arrays and scalars (as msgpack-numpy writes them) inside any of those; a PIL image is sent
+    as its numpy array."""
     out: list[bytes] = []
     _pack(obj, out, 0)
     return b"".join(out)
@@ -90,11 +91,27 @@ def _pack(obj: Any, out: list, depth: int) -> None:
             _pack(key, out, depth + 1)
             _pack(value, out, depth + 1)
     else:
-        arr = _numpy_map(obj)
+        arr = _numpy_map(_pil_as_array(obj))
         if arr is None:
             raise MsgpackError(f"{type(obj).__name__} cannot be sent as msgpack (JSON values, bytes and numpy arrays "
                                "can)")
         _pack(arr, out, depth)
+
+
+def _pil_as_array(obj: Any) -> Any:
+    """A PIL image as the numpy array its pixels are (np.asarray: HxWx3 uint8 for an RGB one), so a frame fitted with
+    frames.resize_image is sent as the picture it is; anything else as it is. A PIL.Image still being imported -
+    frames.warm() loads Pillow on a thread of its own while a robot's first act packs - has no Image class yet, and
+    nothing made from one: every value packed then is packed as it would be without Pillow."""
+    cls = getattr(sys.modules.get("PIL.Image"), "Image", None)
+    if not isinstance(cls, type) or not isinstance(obj, cls):
+        return obj
+    try:
+        import numpy as np
+    except ImportError as missing:  # pragma: no cover - depends on the install
+        raise MsgpackError("a PIL image is sent as its numpy array, and numpy is not installed: pip install numpy") \
+            from missing
+    return np.asarray(obj)
 
 
 def _pack_int(n: int, out: list) -> None:

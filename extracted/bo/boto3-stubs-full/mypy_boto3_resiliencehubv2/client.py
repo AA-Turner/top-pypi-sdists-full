@@ -50,6 +50,7 @@ from .paginator import (
     ListTestRunsPaginator,
     ListTestSourcesPaginator,
     ListTestsPaginator,
+    ListTestTemplatesPaginator,
     ListUserJourneysPaginator,
 )
 from .type_defs import (
@@ -162,6 +163,7 @@ from .type_defs import (
     ListTestSourcesResponseTypeDef,
     ListTestsRequestTypeDef,
     ListTestsResponseTypeDef,
+    ListTestTemplatesRequestTypeDef,
     ListTestTemplatesResponseTypeDef,
     ListUserJourneysRequestTypeDef,
     ListUserJourneysResponseTypeDef,
@@ -789,7 +791,9 @@ class ResilienceHubV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/client/#list_test_sources)
         """
 
-    def list_test_templates(self) -> ListTestTemplatesResponseTypeDef:
+    def list_test_templates(
+        self, **kwargs: Unpack[ListTestTemplatesRequestTypeDef]
+    ) -> ListTestTemplatesResponseTypeDef:
         """
         Lists the available resilience test templates.
 
@@ -1202,6 +1206,17 @@ class ResilienceHubV2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_test_sources"]
     ) -> ListTestSourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_templates"]
+    ) -> ListTestTemplatesPaginator:
         """
         Create a paginator for an operation.
 

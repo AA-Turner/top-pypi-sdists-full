@@ -139,7 +139,10 @@ impl SerializedError {
         if let ModulePathDetails::FileSystem(path) = error.path().details() {
             let removal_edit = error.quick_fixes().iter().find_map(|fix| match fix {
                 ErrorQuickFix::RemoveUnusedSuppression(edit) => Some(edit),
-                ErrorQuickFix::ReplaceWithEnumMember { .. } | ErrorQuickFix::AssertNotNone => None,
+                ErrorQuickFix::ReplaceWithEnumMember { .. }
+                | ErrorQuickFix::AssertNotNone
+                | ErrorQuickFix::ImportModule { .. }
+                | ErrorQuickFix::ReplaceDeprecatedContextManagerReturn(_) => None,
             });
             let line = removal_edit
                 .map(|edit| {
@@ -798,7 +801,7 @@ pub fn suppress_errors(errors: Vec<SerializedError>, comment_location: CommentLo
 /// Takes UnusedIgnore errors from `collect_unused_ignore_errors` and applies their
 /// structured suppression edits.
 pub fn remove_unused_ignores(
-    unused_ignore_errors: Vec<Error>,
+    unused_ignore_errors: &[Error],
     kind: UnusedIgnoreKind,
 ) -> anyhow::Result<usize> {
     let serialized: Vec<SerializedError> = unused_ignore_errors
@@ -918,7 +921,7 @@ mod tests {
         let collected = errors.collect_errors();
         let unused_errors = errors.collect_unused_ignore_errors(&collected);
         let removals =
-            suppress::remove_unused_ignores(unused_errors, UnusedIgnoreKind::Pyrefly).unwrap();
+            suppress::remove_unused_ignores(&unused_errors, UnusedIgnoreKind::Pyrefly).unwrap();
         let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
         assert_eq!(after, got_file);
         assert_eq!(removals, expected_removals);
@@ -936,7 +939,7 @@ mod tests {
         let collected = errors.collect_errors();
         let unused_errors = errors.collect_unused_ignore_errors(&collected);
         let removals =
-            suppress::remove_unused_ignores(unused_errors, UnusedIgnoreKind::Pyrefly).unwrap();
+            suppress::remove_unused_ignores(&unused_errors, UnusedIgnoreKind::Pyrefly).unwrap();
         let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
         assert_eq!(after, got_file);
         assert_eq!(removals, expected_removals);
@@ -989,7 +992,7 @@ mod tests {
         let collected = errors.collect_errors();
         let unused_errors = errors.collect_unused_ignore_errors(&collected);
         let removals =
-            suppress::remove_unused_ignores(unused_errors, UnusedIgnoreKind::Type).unwrap();
+            suppress::remove_unused_ignores(&unused_errors, UnusedIgnoreKind::Type).unwrap();
         let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
         assert_eq!(after, got_file);
         assert_eq!(removals, expected_removals);
@@ -1016,7 +1019,7 @@ mod tests {
         let collected = errors.collect_errors();
         let unused_errors = errors.collect_unused_ignore_errors(&collected);
         let removals =
-            suppress::remove_unused_ignores(unused_errors, UnusedIgnoreKind::All).unwrap();
+            suppress::remove_unused_ignores(&unused_errors, UnusedIgnoreKind::All).unwrap();
 
         assert_eq!(
             fs_anyhow::read_to_string(&get_path(&tdir)).unwrap(),
@@ -1454,7 +1457,7 @@ def f() -> int:
         let unused_errors = errors.collect_unused_ignore_errors(&collected);
 
         let removals =
-            suppress::remove_unused_ignores(unused_errors, UnusedIgnoreKind::All).unwrap();
+            suppress::remove_unused_ignores(&unused_errors, UnusedIgnoreKind::All).unwrap();
 
         let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
         assert_eq!(want, got_file);
@@ -1607,7 +1610,7 @@ foo(
 
     #[test]
     fn test_remove_first_unused_ignore_only() {
-        // Regression test for https://github.com/facebook/pyrefly/issues/1310
+        // Regression test for https://github.com/pyrefly-org/pyrefly/issues/1310
         let input = r#""""Test."""
 x = 1 + 1  # pyrefly: ignore
 y = 1 + "oops"  # pyrefly: ignore
@@ -1686,7 +1689,7 @@ def g() -> int:
     return "hello" # pyrefly: ignore[bad-return]"#;
         // No trailing newline on purpose.
         // Ensures files with only used suppressions are not rewritten (no newline added).
-        // https://github.com/facebook/pyrefly/issues/2185
+        // https://github.com/pyrefly-org/pyrefly/issues/2185
         assert_remove_ignores(input, input, 0);
     }
 
@@ -1697,7 +1700,7 @@ def f(x: int) -> int:
     return x + 1"#;
         // No trailing newline on purpose.
         // Ensures files without suppressions are not rewritten (no newline added).
-        // https://github.com/facebook/pyrefly/issues/2185
+        // https://github.com/pyrefly-org/pyrefly/issues/2185
         assert_remove_ignores(input, input, 0);
     }
 
@@ -1765,7 +1768,7 @@ a: int = "" # pyrefly: ignore [bad-assignment]
 
     #[test]
     fn test_strip_unused_error_code_preserves_original_formatting() {
-        // Regression: github.com/facebook/pyrefly/issues/3369
+        // Regression: github.com/pyrefly-org/pyrefly/issues/3369
         let before = r#"
 float(object())  # pyrefly:ignore[bad-argument-type,potato]
 "#;

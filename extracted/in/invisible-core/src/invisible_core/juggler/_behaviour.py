@@ -729,25 +729,6 @@ def plan_hesitation(persona: TypingPersona, act: str, nonce: int = 0,
 # Movement primitives
 # ──────────────────────────────────────────────────────────────────────
 
-def _fitts_ms(persona: PointerPersona, rng: random.Random,
-              distance: float, target_w: float) -> float:
-    """Movement time for a pointing motion. [lit] Fitts, Shannon form.
-
-    ``target_w`` is the effective width of what is being aimed at along the
-    direction of travel. A movement that aims at nothing in particular passes
-    a large width, which is why parking the cursor is fast and hitting a small
-    button is slow - the property a fixed ~1 s duration cannot express.
-    """
-    w = max(4.0, target_w)
-    idx = exact_log2(max(distance, 1.0) / w + 1.0)
-    mt = persona.fitts_a_ms + persona.fitts_b_ms * idx
-    mt *= math.exp(rng.gauss(0.0, persona.mt_sigma))
-    # Floor: no aimed hand movement completes in under ~60 ms. [lit] simple
-    # reaction time alone is ~150-200 ms; 60 ms is a deliberately loose floor
-    # that only guards against a pathological log-normal draw.
-    return _clamp(mt, 60.0, 6000.0)
-
-
 def _leg(
     persona: PointerPersona,
     rng: random.Random,

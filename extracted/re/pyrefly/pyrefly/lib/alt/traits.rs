@@ -10,6 +10,7 @@ use std::sync::Arc;
 use pyrefly_graph::index::Idx;
 use pyrefly_types::heap::TypeHeap;
 use pyrefly_types::type_alias::TypeAlias;
+use pyrefly_types::type_info::JoinStyle;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 
@@ -85,7 +86,6 @@ use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::Keyed;
 use crate::binding::binding::NoneIfRecursive;
-use crate::binding::binding::UndecoratedFunctionRangeAnswer;
 use crate::error::collector::ErrorCollector;
 use crate::types::annotation::Annotation;
 use crate::types::type_info::TypeInfo;
@@ -151,6 +151,7 @@ pub trait Solve<Ans: LookupAnswer>: Keyed {
     /// written to the shared answer cache.
     fn check_shortcut(
         _answers: &AnswersSolver<Ans>,
+        _idx: Idx<Self>,
         _binding: &Self::Value,
     ) -> Option<Self::Answer> {
         None
@@ -171,11 +172,22 @@ impl<Ans: LookupAnswer> Solve<Ans> for Key {
     }
 
     fn create_recursive(answers: &AnswersSolver<Ans>, binding: &Self::Value) -> Var {
-        answers.create_recursive(binding)
+        if matches!(binding, Binding::Function { .. }) {
+            // Function-definition SCCs grow from `Never`, so they do not need a recursive
+            // variable. A variable nested in the callable's return type cannot be simplified
+            // by `record_recursive` and would remain `Unknown` in the inferred return.
+            Var::ZERO
+        } else {
+            answers.create_recursive(binding)
+        }
     }
 
-    fn promote_recursive(_heap: &TypeHeap, x: Var) -> Self::Answer {
-        TypeInfo::of_ty(Type::Var(x))
+    fn promote_recursive(heap: &TypeHeap, x: Var) -> Self::Answer {
+        TypeInfo::of_ty(if x == Var::ZERO {
+            heap.mk_never()
+        } else {
+            Type::Var(x)
+        })
     }
 
     fn record_recursive(
@@ -183,10 +195,18 @@ impl<Ans: LookupAnswer> Solve<Ans> for Key {
         answer: TypeInfo,
         recursive: Var,
     ) -> TypeInfo {
+        if recursive == Var::ZERO {
+            // The `Never` function-definition seed does not occur in the computed answer.
+            return answer;
+        }
         answer.map_ty(|ty| answers.record_recursive(ty, recursive))
     }
 
-    fn check_shortcut(answers: &AnswersSolver<Ans>, binding: &Binding) -> Option<TypeInfo> {
+    fn check_shortcut(
+        answers: &AnswersSolver<Ans>,
+        idx: Idx<Self>,
+        binding: &Binding,
+    ) -> Option<TypeInfo> {
         match binding {
             Binding::ForwardToFirstUse(fwd) => {
                 let def_idx = answers.def_idx_for_forward_to_first_use(*fwd)?;
@@ -202,8 +222,11 @@ impl<Ans: LookupAnswer> Solve<Ans> for Key {
                 Some(TypeInfo::of_ty(answers.heap.mk_any_implicit()))
             }
             Binding::TypeLevelLambdaParameter(parameter) => {
-                let ty = answers.resolve_map_int_tuples_mapper_parameter(&parameter.identifier);
+                let ty = answers.resolve_map_int_tuples_mapper_parameter(parameter);
                 Some(TypeInfo::of_ty(ty))
+            }
+            Binding::Forward(_) | Binding::Narrow(..) | Binding::Phi(JoinStyle::NarrowOf(_), _) => {
+                answers.lambda_binding_answer(idx, binding)
             }
             _ => None,
         }
@@ -344,11 +367,11 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyUndecoratedFunction {
 impl<Ans: LookupAnswer> Solve<Ans> for KeyUndecoratedFunctionRange {
     fn solve(
         _answers: &AnswersSolver<Ans>,
-        binding: &BindingUndecoratedFunctionRange,
+        _binding: &BindingUndecoratedFunctionRange,
         _range: TextRange,
         _errors: &ErrorCollector,
     ) -> SolveResult<Self> {
-        SolveResult::Answer(UndecoratedFunctionRangeAnswer(binding.0))
+        SolveResult::Answer(EmptyAnswer)
     }
 
     fn promote_recursive(_heap: &TypeHeap, _: Var) -> Self::Answer {
@@ -361,9 +384,9 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyClass {
         answers: &AnswersSolver<Ans>,
         binding: &BindingClass,
         _range: TextRange,
-        errors: &ErrorCollector,
+        _errors: &ErrorCollector,
     ) -> SolveResult<Self> {
-        SolveResult::Answer(answers.solve_class(binding, errors))
+        SolveResult::Answer(answers.solve_class(binding))
     }
 
     fn promote_recursive(_heap: &TypeHeap, _: Var) -> Self::Answer {
@@ -570,13 +593,10 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyLegacyTypeParam {
     fn solve(
         answers: &AnswersSolver<Ans>,
         binding: &BindingLegacyTypeParam,
-        range: TextRange,
+        _range: TextRange,
         _errors: &ErrorCollector,
     ) -> SolveResult<Self> {
-        // `range` is the KeyLegacyTypeParam's own range (first occurrence of the TypeVar
-        // name in this scope), which is unique per (scope, TypeVar) pair and serves as
-        // the scope anchor for deterministic Quantified identity.
-        SolveResult::Answer(answers.solve_legacy_tparam(binding, range))
+        SolveResult::Answer(answers.solve_legacy_tparam(binding))
     }
 
     fn promote_recursive(heap: &TypeHeap, _: Var) -> Self::Answer {

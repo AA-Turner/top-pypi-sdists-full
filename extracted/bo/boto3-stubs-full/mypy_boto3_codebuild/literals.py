@@ -281,6 +281,7 @@ WebhookScopeTypeType = Literal["GITHUB_GLOBAL", "GITHUB_ORGANIZATION", "GITLAB_G
 WebhookStatusType = Literal["ACTIVE", "CREATE_FAILED", "CREATING", "DELETING"]
 CodeBuildServiceName = Literal["codebuild"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

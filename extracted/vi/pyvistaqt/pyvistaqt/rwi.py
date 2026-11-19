@@ -53,9 +53,12 @@ of them produces symptoms that are far removed from the cause):
    widget composites black (reproducible with a plain magenta-clearing
    ``QOpenGLWidget``; the format *content* is irrelevant). Setting the default
    in ``__init__`` also covers applications that created the ``QApplication``
-   themselves. The default format additionally requests desktop OpenGL
-   explicitly, since Wayland/EGL may otherwise return a GLES context whose
-   GLSL rejects VTK's ``#version 150`` shaders.
+   themselves. ``__init__`` installs our format only when the current default
+   is not already usable by VTK (``_is_suitable_format``: desktop OpenGL, core
+   profile, >= 3.2), so a host application's own suitable default (sample
+   count, buffer sizes, newer version) is left alone. Our format additionally
+   requests desktop OpenGL explicitly, since Wayland/EGL may otherwise return
+   a GLES context whose GLSL rejects VTK's ``#version 150`` shaders.
 3. ``paintGL`` must *always* render, unlike C++
    ``QVTKOpenGLNativeWidget::paintGL`` which skips the VTK render for paints
    scheduled by a finished render's ``WindowFrameEvent``. pyvista mutates the
@@ -130,6 +133,7 @@ from typing import TYPE_CHECKING
 from typing import Any
 from typing import ClassVar
 from typing import cast
+import warnings
 import weakref
 
 from qtpy.QtCore import QEvent
@@ -204,6 +208,21 @@ def _default_format() -> QSurfaceFormat:
     fmt.setStencilBufferSize(0)
     fmt.setSamples(0)  # MSAA happens in VTK's FBOs, not the Qt context
     return fmt
+
+
+def _is_suitable_format(fmt: QSurfaceFormat) -> bool:
+    """
+    Return whether VTK can render with contexts created from ``fmt``.
+
+    VTK needs desktop OpenGL requested explicitly (``DefaultRenderableType``,
+    which a fresh default format reports, may give GLES on Wayland/EGL), the
+    core profile, and version 3.2 or newer.
+    """
+    return (
+        fmt.renderableType() == QSurfaceFormat.RenderableType.OpenGL
+        and fmt.profile() == QSurfaceFormat.OpenGLContextProfile.CoreProfile
+        and (fmt.majorVersion(), fmt.minorVersion()) >= (3, 2)
+    )
 
 
 class _GLAPI:
@@ -281,7 +300,7 @@ class QVTKRenderWindowInteractor(QOpenGLWidget):
     }
 
     def __init__(self, parent=None, **kw):
-        """Initialize the widget and its render window (``rw``/``iren`` kwargs)."""
+        """Initialize the widget and its render window (``rw``/``iren``/``wflags``/``stereo`` kwargs)."""
         # The GL format must be set as the process-wide default: a per-widget
         # ``setFormat`` makes the widget's context incompatible with the
         # top-level window's share context on Wayland and the widget then
@@ -289,9 +308,23 @@ class QVTKRenderWindowInteractor(QOpenGLWidget):
         # QOpenGLWidget breaks with per-widget setFormat there). Setting the
         # default is effective as long as the top-level window has not been
         # created yet, so this works even when the user already made the
-        # QApplication. Same requirement as C++ QVTKOpenGLNativeWidget.
-        QSurfaceFormat.setDefaultFormat(_default_format())
-        QOpenGLWidget.__init__(self, parent)
+        # QApplication. Same requirement as C++ QVTKOpenGLNativeWidget. A
+        # default the application already chose is kept if VTK can use it.
+        if not _is_suitable_format(QSurfaceFormat.defaultFormat()):
+            QSurfaceFormat.setDefaultFormat(_default_format())
+        if kw.get("stereo"):
+            # The widget renders into Qt-managed FBOs, which have no
+            # quad-buffer (left/right back buffer) stereo path.
+            warnings.warn(
+                "stereo is not supported by this widget and is ignored; use the plotter's enable_stereo_render() for anaglyph stereo instead",
+                UserWarning,
+                stacklevel=2,
+            )
+        wflags = kw.get("wflags")
+        if wflags is None:
+            QOpenGLWidget.__init__(self, parent)
+        else:
+            QOpenGLWidget.__init__(self, parent, wflags)
         self.setUpdateBehavior(QOpenGLWidget.UpdateBehavior.NoPartialUpdate)
         self.setMouseTracking(True)  # get all mouse events
         self.setFocusPolicy(Qt.FocusPolicy.WheelFocus)
@@ -312,6 +345,7 @@ class QVTKRenderWindowInteractor(QOpenGLWidget):
         self._surface = None
         self._gl = None
         self._in_paint = False  # C++ InPaint
+        self._frame_fresh = False  # VTK's framebuffer holds a frame not yet blitted
         # Lazy offscreen (context, surface) servicing GL queries before the
         # widget is realized; dropped as soon as initializeGL runs. Creation
         # is disallowed during teardown: Finalize on a never-realized window
@@ -458,6 +492,9 @@ class QVTKRenderWindowInteractor(QOpenGLWidget):
             # rendered to the back buffer only: not meant to be shown yet
             return
         if not self._in_paint:
+            # The paint this schedules only has to show the frame VTK just
+            # rendered, not render it a second time.
+            self._frame_fresh = self._ctx is not None
             self.update()
 
     def _set_symbol_loader(self, rw):
@@ -559,6 +596,7 @@ class QVTKRenderWindowInteractor(QOpenGLWidget):
             iren.InvokeEvent("ConfigureEvent")
         else:
             rw.SetSize(dw, dh)
+        self._frame_fresh = False  # rendered at the old size
         # NOTE: no self.screen()/SetScreenSize here. VTK only uses the screen
         # size for fullscreen render windows (not applicable to a widget), and
         # PySide's wrapper for QWidget.screen() can end up owning -- and later
@@ -577,16 +615,20 @@ class QVTKRenderWindowInteractor(QOpenGLWidget):
         st.Reset()  # Qt touched GL since the last VTK call: resync the cache
         st.Push()
         st.vtkglDepthFunc(GL_LEQUAL)
-        # Unlike C++ QVTKOpenGLNativeWidget (which skips the VTK render when the
-        # paint was scheduled by a finished render's WindowFrameEvent), always
-        # render: pyvista mutates the scene (cameras, actors) without asking the
-        # widget to repaint, so a skipped render here shows a stale frame. This
-        # matches the vendored QVTKRenderWindowInteractor's paintEvent behavior.
-        if not self._in_paint:
+        # Like C++ QVTKOpenGLNativeWidget, skip the VTK render when this paint
+        # was scheduled by a render that just finished (``_cb_frame``): its
+        # frame is already in VTK's framebuffer and only needs the blit below.
+        # Any other paint (expose, resize, ``update()``) renders, because
+        # pyvista mutates the scene (cameras, actors) without asking the widget
+        # to repaint, and a skipped render there would show a stale frame.
+        fresh, self._frame_fresh = self._frame_fresh, False
+        if not self._in_paint and not fresh:
             self._in_paint = True
             try:
                 iren = rw.GetInteractor()
-                if iren is not None:
+                # A disabled interactor ignores Render(), and an off-screen
+                # plotter never enables its interactor.
+                if iren is not None and iren.GetEnabled():
                     iren.Render()
                 else:
                     rw.Render()
@@ -629,19 +671,19 @@ class QVTKRenderWindowInteractor(QOpenGLWidget):
             f.glEnable(GL_SCISSOR_TEST)
 
     # ---- interface expected by QtInteractor / pyvista -------------------------
-    def __getattr__(self, attr):
+    def __getattr__(self, item):
         """Behave like the vtkGenericRenderWindowInteractor for unknown attrs."""
         iren = self.__dict__.get("_Iren")
-        if iren is not None and hasattr(iren, attr):
-            return getattr(iren, attr)
+        if iren is not None and hasattr(iren, item):
+            return getattr(iren, item)
         # Try every later __getattr__ (e.g. BasePlotter's plugin loader): PyQt's QObject one doesn't chain.
         mro = type(self).__mro__
         for klass in mro[mro.index(QVTKRenderWindowInteractor) + 1 :]:
             getattr_ = klass.__dict__.get("__getattr__")
             if getattr_ is not None:
                 with contextlib.suppress(AttributeError):
-                    return getattr_.__get__(self, type(self))(attr)
-        msg = f"{type(self).__name__} has no attribute {attr!r}"
+                    return getattr_.__get__(self, type(self))(item)
+        msg = f"{type(self).__name__} has no attribute {item!r}"
         raise AttributeError(msg)
 
     def GetRenderWindow(self):
@@ -654,12 +696,6 @@ class QVTKRenderWindowInteractor(QOpenGLWidget):
         rw = self._RenderWindow
         if rw is not None:
             rw.Finalize()
-
-    def _remove_observers(self):
-        """Drop VTK's C++-side references to our bound methods."""
-        observers, self._vtk_observers = self._vtk_observers, []
-        for obj, tag in observers:
-            obj.RemoveObserver(tag)
 
     def CreateTimer(self, obj, evt):
         self._Timer.start(10)
@@ -809,10 +845,7 @@ class QVTKRenderWindowInteractor(QOpenGLWidget):
         self._Iren.KeyReleaseEvent()
 
     def wheelEvent(self, ev):
-        if hasattr(ev, "delta"):  # Qt4 compat kept from the vendored source
-            self._wheel_delta += ev.delta()
-        else:
-            self._wheel_delta += ev.angleDelta().y()
+        self._wheel_delta += ev.angleDelta().y()
         if self._wheel_delta >= 120:
             self._Iren.MouseWheelForwardEvent()
             self._wheel_delta = 0

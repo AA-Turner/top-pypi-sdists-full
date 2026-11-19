@@ -55,6 +55,7 @@ WorkflowDefinitionStatusType = Literal["ACTIVE", "DELETING"]
 WorkflowRunStatusType = Literal["DELETING", "FAILED", "RUNNING", "SUCCEEDED", "TIMED_OUT"]
 NovaActServiceServiceName = Literal["nova-act"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

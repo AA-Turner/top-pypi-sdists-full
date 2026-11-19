@@ -35,6 +35,9 @@ use crate::error_kind::Severity;
 pub struct ConfigError {
     severity: Severity,
     msg: anyhow::Error,
+    /// Whether the error reports that the running Pyrefly is not the version that the project
+    /// requires, which the CLI check reports with its own exit code.
+    is_version_mismatch: bool,
 }
 
 impl ConfigError {
@@ -42,6 +45,7 @@ impl ConfigError {
         Self {
             severity: Severity::Error,
             msg,
+            is_version_mismatch: false,
         }
     }
 
@@ -49,6 +53,15 @@ impl ConfigError {
         Self {
             severity: Severity::Warn,
             msg,
+            is_version_mismatch: false,
+        }
+    }
+
+    pub fn version_mismatch(msg: anyhow::Error) -> Self {
+        Self {
+            severity: Severity::Error,
+            msg,
+            is_version_mismatch: true,
         }
     }
 
@@ -60,7 +73,7 @@ impl ConfigError {
             Severity::Warn => {
                 warn!("{:#}", self.msg);
             }
-            Severity::Info => {
+            Severity::Hint | Severity::Info => {
                 info!("{:#}", self.msg);
             }
             Severity::Ignore => {}
@@ -71,11 +84,16 @@ impl ConfigError {
         ConfigError {
             severity: self.severity,
             msg: self.msg.context(context),
+            is_version_mismatch: self.is_version_mismatch,
         }
     }
 
     pub fn severity(&self) -> Severity {
         self.severity
+    }
+
+    pub fn is_version_mismatch(&self) -> bool {
+        self.is_version_mismatch
     }
 
     pub fn get_message(&self) -> String {
@@ -100,8 +118,20 @@ type BeforeCallback =
 type LoadCallback = Box<dyn Fn(&Path) -> (ArcId<ConfigFile>, Vec<ConfigError>) + Send + Sync>;
 
 /// Fallback function when no config file exists or loading fails.
-type FallbackCallback =
-    Box<dyn Fn(ModuleNameWithKind, &ModulePath) -> ArcId<ConfigFile> + Send + Sync>;
+///
+/// Returns the config along with any user-facing warnings produced while configuring it,
+/// such as an interpreter-discovery failure. Callers accumulate these like config-file errors.
+type FallbackCallback = Box<
+    dyn Fn(ModuleNameWithKind, &ModulePath) -> (ArcId<ConfigFile>, Vec<ConfigError>) + Send + Sync,
+>;
+
+/// Function that gives the config of a path.
+pub type LookupCallback = Arc<dyn Fn(&Path) -> ArcId<ConfigFile> + Send + Sync>;
+
+/// Function that replaces the config found for a Python file with one for that file alone, such
+/// as a PEP 723 script that runs in its own environment.
+pub type FileCallback =
+    Box<dyn Fn(ArcId<ConfigFile>, &ModulePath) -> ArcId<ConfigFile> + Send + Sync>;
 
 /// A way to find a config file given a directory or Python file.
 /// Uses a lot of caching.
@@ -115,6 +145,8 @@ pub struct ConfigFinder {
     before: BeforeCallback,
     /// If there is no config file, or loading it fails, use this fallback.
     fallback: FallbackCallback,
+    /// Applied to every config that [`Self::python_file`] returns.
+    file: FileCallback,
     clear_extra_caches: Box<dyn Fn() + Send + Sync>,
 }
 
@@ -129,20 +161,29 @@ impl ConfigFinder {
             Box::new(|_, _| Ok(None)),
             load,
             fallback,
+            Box::new(|config, _| config),
             clear_extra_caches,
         )
     }
 
     /// Create a new ConfigFinder that always returns the same constant.
     pub fn new_constant(constant: ArcId<ConfigFile>) -> Self {
-        let c1 = constant.dupe();
-        let c2 = constant.dupe();
-        let c3 = constant;
+        Self::new_lookup(
+            Arc::new(move |_| constant.dupe()),
+            Box::new(|config, _| config),
+        )
+    }
 
+    /// Create a new ConfigFinder that returns `lookup(path)` for each path, without an upward
+    /// search, passed through `file` for each Python file.
+    pub fn new_lookup(lookup: LookupCallback, file: FileCallback) -> Self {
+        let lookup2 = lookup.dupe();
+        let lookup3 = lookup.dupe();
         Self::new_custom(
-            Box::new(move |_, _| Ok(Some(c1.dupe()))),
-            Box::new(move |_| (c2.dupe(), Vec::new())),
-            Box::new(move |_, _| c3.dupe()),
+            Box::new(move |_, path| Ok(Some(lookup(path.as_path())))),
+            Box::new(move |config_file| (lookup2(config_file), Vec::new())),
+            Box::new(move |_, path| (lookup3(path.as_path()), Vec::new())),
+            file,
             Box::new(|| {}),
         )
     }
@@ -154,6 +195,7 @@ impl ConfigFinder {
         before: BeforeCallback,
         load: LoadCallback,
         fallback: FallbackCallback,
+        file: FileCallback,
         clear_extra_caches: Box<dyn Fn() + Send + Sync>,
     ) -> Self {
         let errors = Arc::new(Mutex::new(Vec::new()));
@@ -209,6 +251,7 @@ impl ConfigFinder {
             errors,
             before,
             fallback,
+            file,
             clear_extra_caches,
         }
     }
@@ -256,22 +299,24 @@ impl ConfigFinder {
     pub fn python_file(&self, name: ModuleNameWithKind, path: &ModulePath) -> ArcId<ConfigFile> {
         let module_name = name.name();
         match (self.before)(module_name, path) {
-            Ok(Some(x)) => return x,
+            Ok(Some(x)) => return (self.file)(x, path),
             Ok(None) => {}
             Err(e) => {
                 self.errors.lock().push(ConfigError::error(e));
             }
         }
 
-        let f = |dir: Option<&Path>| match dir {
-            Some(parent) => self
-                .search
-                .directory_absolute(parent)
-                .unwrap_or_else(|| (self.fallback)(name, path)),
-            None => (self.fallback)(name, path),
+        let f = |dir: Option<&Path>| -> (ArcId<ConfigFile>, Vec<ConfigError>) {
+            match dir {
+                Some(parent) => match self.search.directory_absolute(parent) {
+                    Some(config) => (config, Vec::new()),
+                    None => (self.fallback)(name, path),
+                },
+                None => (self.fallback)(name, path),
+            }
         };
 
-        match path.details() {
+        let (config, errors) = match path.details() {
             ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => {
                 let absolute = x.absolutize();
                 f(absolute.parent())
@@ -280,7 +325,21 @@ impl ConfigFinder {
             ModulePathDetails::BundledTypeshed(_) => f(None),
             ModulePathDetails::BundledTypeshedThirdParty(_) => f(None),
             ModulePathDetails::BundledThirdParty(_) => f(None),
+        };
+        // One run can synthesize configs for several module paths, and the same user-facing
+        // warning may be produced for more than one of them; report it once.
+        {
+            let mut accumulated = self.errors.lock();
+            for error in errors {
+                if !accumulated
+                    .iter()
+                    .any(|existing| existing.get_message() == error.get_message())
+                {
+                    accumulated.push(error);
+                }
+            }
         }
+        (self.file)(config, path)
     }
 
     /// If we have an error, print all the errors that the config finder has accumulated. This is used

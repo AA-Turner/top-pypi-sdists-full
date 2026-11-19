@@ -103,6 +103,7 @@ UpdateTargetsArchitectureType = Literal["aarch64", "armv6l", "armv7l", "x86_64"]
 UpdateTargetsOperatingSystemType = Literal["amazon_linux", "openwrt", "raspbian", "ubuntu"]
 GreengrassServiceName = Literal["greengrass"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -97,11 +97,14 @@ VCS_PROVENANCE_PATH = Path("/workspace/sibling-vcs-provenance.json")
 # Dockerfile reinstalls it with --no-deps over the lock-pinned wheel). Verifying
 # its install is local makes a regression (core silently reverting to the
 # enum-less released wheel) fail the build instead of crash-looping at runtime.
+#
+# OMN-22153: omniintelligence is provisioned the same way on the dev lane. Its
+# distribution name is not its directory name with underscores swapped, so it is
+# named. The directory is also the import name, which the content parity check
+# below resolves the installed package by.
 WORKSPACE_PACKAGES: dict[str, str] = {
-    "omnibase_core": "omnibase-core",
-    "omnibase_compat": "omnibase-compat",
-    "omnimarket": "omnimarket",
-}
+    repo: repo.replace("_", "-") for repo in ("omnibase_core", "omnibase_spi")
+} | {"omniintelligence": "omninode-intelligence"}
 
 
 _TREE_EXCLUDE_PARTS = (".git", "__pycache__", ".venv")
@@ -548,13 +551,8 @@ def main() -> int:
     pin_violation: str | None = None
     lock_path = SIBLING_REPOS_DIR / CONSUMING_REPO / "uv.lock"
     try:
-        comparisons = build_comparisons(
-            lock_path=lock_path,
-            siblings={
-                "omnibase-compat": SIBLING_REPOS_DIR / "omnibase_compat",
-                "omnimarket": SIBLING_REPOS_DIR / "omnimarket",
-            },
-        )
+        # Only the host self-check below remains (OMN-21284).
+        comparisons = build_comparisons(lock_path=lock_path, siblings={})
         # Host self-check (OMN-12989): the runtime image's OWN omnibase_infra is
         # built from the build context, NOT from sibling-repos — that is exactly
         # where the 2026-06-11 stale 0.37.0 entered. Compare the installed infra

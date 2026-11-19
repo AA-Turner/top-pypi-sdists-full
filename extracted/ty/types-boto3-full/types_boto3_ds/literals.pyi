@@ -194,6 +194,7 @@ UpdateStatusType = Literal["UpdateFailed", "Updated", "Updating"]
 UpdateTypeType = Literal["NETWORK", "OS", "SIZE"]
 DirectoryServiceServiceName = Literal["ds"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

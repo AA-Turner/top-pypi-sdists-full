@@ -1,0 +1,722 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""The factory floor publish node: its run request and result, the contract's runtime block, the overlay."""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Sequence
+from datetime import datetime
+from pathlib import PurePosixPath
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from omnimarket.handlers.node_overlay_reader import NodeOverlayError
+from omnimarket.nodes.node_factory_floor_publish_effect.models.model_friction_rollup_source import (
+    ModelFrictionRollupStepSettings,
+)
+from omnimarket.nodes.node_factory_floor_publish_effect.models.model_process_health_payload import (
+    ModelProcessHealthPayloadPolicy,
+)
+
+
+class ModelPublishTarget(BaseModel):
+    """One serving host: where the files are written over ssh and where that host answers (OMN-23081)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    ssh_target: str = Field(min_length=1, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.@-]*$")
+    remote_dir: str = Field(min_length=1)
+    serve_url: str = Field(min_length=1)
+    history_root: str = Field(min_length=1)
+
+    @field_validator("remote_dir", "history_root")
+    @classmethod
+    def _absolute_posix(cls, value: str) -> str:
+        path = PurePosixPath(value)
+        if not path.is_absolute() or ".." in path.parts or "\n" in value:
+            raise ValueError("a remote path must be an absolute path without '..'")
+        return value
+
+
+class PublishLimitMissingError(NodeOverlayError):
+    """A limit the overlay must name is missing; the message names the overlay key."""
+
+
+class PublishLimitBoundError(NodeOverlayError):
+    """The overlay's cycle bound is below the longest declared path; the message names the bound and both numbers."""
+
+
+class ModelPublishLimits(BaseModel):
+    """The limits the overlay carries for the publish cycle: no code default for any of them."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    cycle_bound_seconds: int = Field(gt=0)
+    step_timeout_seconds: dict[str, int]
+
+    @field_validator("step_timeout_seconds")
+    @classmethod
+    def _step_timeout_seconds(cls, value: dict[str, int]) -> dict[str, int]:
+        if not value:
+            raise ValueError("step_timeout_seconds must name at least one step")
+        for name, seconds in value.items():
+            if seconds <= 0:
+                raise ValueError(
+                    f"step_timeout_seconds[{name!r}] must be > 0, got {seconds}"
+                )
+        return value
+
+
+class ModelFactoryFloorPublishOverlay(BaseModel):
+    """Deployment facts of the hosts that serve the page. There is no packaged default for any of them.
+
+    The top-level ``ssh_target``, ``remote_dir``, ``serve_url`` and ``history_root`` are the first serving host; every
+    host in ``extra_targets`` is served the same files (OMN-23081), so the floor survives one host being down. The URL list
+    a reader may use is ``serve_urls``. ``local_copy_relpath``, relative to the registry home, is where each published
+    file is written on the publishing machine before any host is tried.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    ssh_target: str = Field(min_length=1, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.@-]*$")
+    remote_dir: str = Field(min_length=1)
+    serve_url: str = Field(min_length=1)
+    bus_lane: str = Field(min_length=1, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+    history_root: str = Field(min_length=1)
+    extra_targets: tuple[ModelPublishTarget, ...] = ()
+    local_copy_relpath: str | None = Field(default=None, min_length=1)
+
+    @property
+    def primary_target(self) -> ModelPublishTarget:
+        return ModelPublishTarget(
+            ssh_target=self.ssh_target,
+            remote_dir=self.remote_dir,
+            serve_url=self.serve_url,
+            history_root=self.history_root,
+        )
+
+    @property
+    def targets(self) -> tuple[ModelPublishTarget, ...]:
+        """Every serving host, the first one first."""
+        return (self.primary_target, *self.extra_targets)
+
+    @property
+    def serve_urls(self) -> tuple[str, ...]:
+        """The address of every serving host: a reader tries them in order and takes the first that answers."""
+        return tuple(t.serve_url for t in self.targets)
+
+    def for_target(self, target: ModelPublishTarget) -> ModelFactoryFloorPublishOverlay:
+        """This overlay narrowed to the one host ``target``: the copy and gate code that knows one host runs unchanged."""
+        return self.model_copy(
+            update={
+                "ssh_target": target.ssh_target,
+                "remote_dir": target.remote_dir,
+                "serve_url": target.serve_url,
+                "history_root": target.history_root,
+                "extra_targets": (),
+            }
+        )
+
+    @field_validator("local_copy_relpath")
+    @classmethod
+    def _relative_local(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        path = PurePosixPath(value)
+        if path.is_absolute() or ".." in path.parts:
+            raise ValueError(
+                "local_copy_relpath is relative to the registry home, without '..'"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _distinct_targets(self) -> ModelFactoryFloorPublishOverlay:
+        names = [t.ssh_target for t in self.targets]
+        if len(set(names)) != len(names):
+            raise ValueError("each serving host appears once in the overlay")
+        return self
+
+    # The tailnet login that owns the operator's own devices, exactly as ``tailscale status --json`` lists it in its
+    # user table. The operator-only reports are served to the devices that login owns and to nobody else; without
+    # this key the publish refuses (there is no packaged value and no default).
+    owner_login: str = Field(min_length=3, pattern=r"^[^\s@]+@[^\s@]+$")
+    limits: ModelPublishLimits
+
+    @field_validator("remote_dir", "history_root")
+    @classmethod
+    def _absolute_posix(cls, value: str) -> str:
+        path = PurePosixPath(value)
+        if not path.is_absolute() or ".." in path.parts or "\n" in value:
+            raise ValueError("a remote path must be an absolute path without '..'")
+        return value
+
+
+class ModelPublishSource(BaseModel):
+    """The JSON the factory floor effect wrote, relative to the registry home."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    relpath: str = Field(min_length=1)
+
+
+class ModelDeclaredLines(BaseModel):
+    """The part of the factory floor effect's overlay this node reads: which plans are lines.
+
+    The effect owns the overlay and its other fields; this node reads only ``plan_path_contains`` so the page can
+    draw a declared line that no plan matched as unread instead of leaving it out.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    plan_path_contains: tuple[str, ...] = Field(min_length=1)
+
+
+class ModelLinesOverlay(BaseModel):
+    """Where the declared lines are: the effect's overlay id and the environment variable that pins its file."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    overlay_id: str = Field(min_length=1)
+    file_env: str = Field(min_length=1)
+
+
+StepKind = Literal[
+    "module", "capture", "copy", "command", "runner_fleet", "friction_rollup"
+]
+
+
+class ModelPublishStep(BaseModel):
+    """One input step run before the record is read.
+
+    ``module`` runs ``python -m <module> <args>``; ``capture`` runs ``argv`` and keeps its standard output as a
+    JSON list at ``output_relpath``; ``command`` runs ``argv`` for what it writes itself and keeps nothing of its output; ``copy`` copies ``source_relpath`` to ``output_relpath`` (the JSON object at the key path ``select`` when it is given). ``{home}``,
+    ``{bus_lane}`` and ``{plugin_root}`` in ``args`` and ``argv`` are the registry home, the overlay's bus lane and the plugin root. A step that is not
+    ``required`` may fail: the failure is recorded in the status file and the page shows its source as unread.
+    Consecutive steps marked ``concurrent`` run together, so a run takes as long as the slowest of them and not the sum
+    (OMN-21733: the run took 8.5 to 10 minutes against a 300 s tick, which left the heartbeat older than twice its
+    interval half the time). A step with ``fresh_relpath`` and ``fresh_seconds`` is skipped, counted ok, while that file
+    under the registry home was written less than ``fresh_seconds`` ago, for an output that moves in days.
+    ``runner_fleet`` mirrors the deployed projection's saved observation to ``output_relpath``;
+    a failed read writes an unread cause so old counts cannot masquerade as a new read.
+    ``friction_rollup`` runs the friction rollup node over the ledger named by ``rollup`` with the overlay home's class
+    rules and writes its report to ``output_relpath``; a missing or invalid overlay fails the step and leaves the old file.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1, pattern=r"^[a-z][a-z0-9_]*$")
+    kind: StepKind
+    required: bool
+    timeout_seconds: int | None = Field(default=None, gt=0)
+
+    def limit_missing_message(self) -> str:
+        return f"overlay node_factory_floor_publish_effect: key limits.step_timeout_seconds.{self.name} is missing"
+
+    @property
+    def limit_resolved(self) -> bool:
+        return self.timeout_seconds is not None
+
+    @property
+    def seconds(self) -> int:
+        if self.timeout_seconds is None:
+            raise PublishLimitMissingError(self.limit_missing_message())
+        return self.timeout_seconds
+
+    module: str | None = None
+    args: tuple[str, ...] = ()
+    argv: tuple[str, ...] = ()
+    source_relpath: str | None = None
+    output_relpath: str | None = None
+    select: tuple[str, ...] = ()
+    concurrent: bool = False
+    fresh_relpath: str | None = None
+    fresh_seconds: int | None = Field(default=None, gt=0)
+    rollup: ModelFrictionRollupStepSettings | None = None
+    # Variables this step's program runs with in place of the unit's (OMN-23606): a module, command or capture step only.
+    # The floor's 14-day window read cannot be answered by the bus source (the answer is far past the read node's bound),
+    # so a host whose ledger record is the bus spent 5 to 14 s on a refused read before the reader took the file, while the
+    # tracker and friction steps need the bus read command the unit declares.
+    environment: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _shape(self) -> ModelPublishStep:
+        for key in self.environment:
+            if not re.fullmatch(r"[A-Z][A-Z0-9_]*", key):
+                raise ValueError(
+                    f"step {self.name} names the environment variable {key!r}, which is not an upper-case name"
+                )
+        if self.environment and self.kind not in ("module", "command", "capture"):
+            raise ValueError(
+                f"step {self.name} of kind {self.kind} runs no program, so it takes no environment"
+            )
+        if (self.fresh_relpath is None) != (self.fresh_seconds is None):
+            raise ValueError(
+                f"step {self.name} names fresh_relpath and fresh_seconds together or neither"
+            )
+        need = {
+            "module": bool(self.module),
+            "capture": bool(self.argv) and bool(self.output_relpath),
+            "copy": bool(self.source_relpath) and bool(self.output_relpath),
+            "command": bool(self.argv),
+            "runner_fleet": bool(self.output_relpath),
+            "friction_rollup": self.rollup is not None and bool(self.output_relpath),
+        }[self.kind]
+        if not need:
+            raise ValueError(
+                f"step {self.name} lacks the fields its kind {self.kind} needs"
+            )
+        return self
+
+
+class ModelPublishStepResult(BaseModel):
+    """What one step did. ``detail`` is an exit code or a reason and is published; ``diagnostic`` is the tail of the
+    program's error output, for the tick's own log, and is never published."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    status: Literal["ok", "failed", "unread"]
+    detail: str = ""
+    diagnostic: str = ""
+    # The wall-clock seconds the step took, measured by the handler (OMN-22699).
+    seconds: float = Field(default=0.0, ge=0)
+
+
+class ModelPublishNames(BaseModel):
+    """The file names the server serves."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    # The address of the site is the simple floor page (OMN-19998); the page with every line, machine and report is
+    # published beside it under ``page`` and is the one link the simple page carries.
+    page: str = Field(min_length=1)
+    simple_page: str = Field(min_length=1)
+    simple_data: str = Field(min_length=1)
+    simple_reads: str = Field(min_length=1)
+    compare_page: str = Field(min_length=1)
+    compare_data: str = Field(min_length=1)
+    delegation_tracker_page: str = Field(min_length=1)
+    delegation_tracker_data: str = Field(min_length=1)
+    delegation_history_data: str = Field(min_length=1)
+    floor_page: str = Field(min_length=1)
+    data: str = Field(min_length=1)
+    process_health: str = Field(min_length=1)
+    delegation: str = Field(min_length=1)
+    status: str = Field(min_length=1)
+    # The vendored OmniUI theme files the page links, published beside it under these names.
+    theme_css: tuple[str, ...] = Field(min_length=1)
+
+    # The site's icons (the SVG, the 32 px PNG, the apple-touch icon), published beside the pages under these names.
+    icons: tuple[str, ...] = Field(min_length=1)
+
+    @field_validator("theme_css", "icons")
+    @classmethod
+    def _theme_css(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        for name in value:
+            _checked_remote_name(name)
+        return value
+
+
+class ModelHistoryRetention(BaseModel):
+    """How long snapshots are kept. A snapshot younger than ``days`` is never pruned; ``max_count`` caps the total by
+    pruning the oldest past-window snapshots, so the total may exceed it while every snapshot is inside the window."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    days: int = Field(gt=0)
+    max_count: int = Field(gt=0)
+
+
+class ModelPublishHistory(BaseModel):
+    """The append-only history of the record, kept beside the live record on the serving host.
+
+    A snapshot is ``<subdirectory>/<stem>-<timestamp><suffix>`` under the overlay's ``history_root``, where the stem and
+    suffix are the record's published name split at its last dot, and the timestamp is the UTC publish time in
+    ``timestamp_format`` (a strftime format with no ``/`` or whitespace that sorts as time and stays unique per publish).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    subdirectory: str = Field(min_length=1, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+    timestamp_format: str = Field(min_length=1, pattern=r"^[A-Za-z0-9%_-]+$")
+    retention: ModelHistoryRetention
+
+
+class ModelPublishTransport(BaseModel):
+    """How the files reach the serving host."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    connect_timeout_seconds: int = Field(gt=0)
+    transfer_timeout_seconds: int = Field(gt=0)
+
+
+def _checked_remote_name(value: str) -> str:
+    """A published name: relative, forward-slashed, no empty part, no ``..`` and no dot-named part (the server hides those)."""
+    parts = value.split("/")
+    if (
+        not value
+        or value.startswith("/")
+        or any(not part or part.startswith(".") for part in parts)
+        or "\n" in value
+        or "\\" in value
+    ):
+        raise ValueError(
+            f"a published name must be a relative path without empty or dot-named parts: {value!r}"
+        )
+    return value
+
+
+class ModelReportPage(BaseModel):
+    """One page packaged with the node and published as ``remote`` under the served directory."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    page_relpath: str = Field(min_length=1)
+    remote: str
+
+    @field_validator("remote")
+    @classmethod
+    def _remote(cls, value: str) -> str:
+        return _checked_remote_name(value)
+
+
+class ModelReportData(BaseModel):
+    """One data file a report reads: a file under the registry home that a node (or a lane) wrote.
+
+    ``publish`` false means the floor publish already copies it under ``remote``; it is listed so the index can
+    show its age. ``as_of_key`` names the top-level JSON key that holds the data's own time; without it the file's
+    modified time is the age and the manifest says so.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1)
+    remote: str
+    relpath: str = Field(min_length=1)
+    as_of_key: str | None = None
+    publish: bool = True
+    projection: Literal["identity", "process_health_summary"] = "identity"
+
+    @field_validator("remote")
+    @classmethod
+    def _remote(cls, value: str) -> str:
+        return _checked_remote_name(value)
+
+
+class ModelReportEntry(BaseModel):
+    """One report on the site: where it is, what feeds it and how the feed is refreshed."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    title: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    href: str = Field(min_length=1, pattern=r"^[A-Za-z0-9_./-]+$")
+    refresh: Literal["tick", "snapshot"]
+    refresh_note: str = ""
+    pages: tuple[ModelReportPage, ...] = ()
+    data: tuple[ModelReportData, ...] = Field(min_length=1)
+
+
+class ModelReportsRuntime(BaseModel):
+    """The ``reports`` block of the ``runtime`` block: the reports site published beside the factory floor."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    index: ModelReportPage
+    manifest: str
+    entries: tuple[ModelReportEntry, ...] = Field(min_length=1)
+
+    @field_validator("manifest")
+    @classmethod
+    def _manifest(cls, value: str) -> str:
+        return _checked_remote_name(value)
+
+
+class ModelOperatorAccessRuntime(BaseModel):
+    """How the operator-only gate is built on the serving host and checked before a private report is published.
+
+    The owner's device addresses are read from ``tailscale_argv`` (``tailscale status --json``) on the publishing
+    host at every publish; nothing here names an address. ``operator_os`` is the platform classes of the operator's own
+    devices as the status lists them: the owner login also owns lab hosts, and a server is not the operator's hand.
+    The include file is written to ``<remote_dir's parent>/<access_dirname>/<include_name>`` on the serving host, a
+    directory the web container mounts read-only and that is never inside the served directory. ``gate_marker`` is a
+    text the web server's own configuration dump must carry: a server that does not carry the gate withdraws the private
+    reports instead of serving them to everyone.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    tailscale_argv: tuple[str, ...] = Field(min_length=1)
+    operator_os: tuple[str, ...] = Field(min_length=1)
+    access_dirname: str = Field(min_length=1, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+    include_name: str = Field(
+        min_length=1, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*\.conf$"
+    )
+    container_name: str = Field(min_length=1, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+    gate_marker: str = Field(min_length=1)
+
+
+class ModelOperatorReportsRuntime(BaseModel):
+    """The reports only the operator's own devices may read: published beside the site, never listed in its manifest."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    access: ModelOperatorAccessRuntime
+    # The manifest of these reports alone, under the gated path, so the shared manifest never names them.
+    manifest: str
+    entries: tuple[ModelReportEntry, ...] = Field(min_length=1)
+
+    @field_validator("manifest")
+    @classmethod
+    def _manifest(cls, value: str) -> str:
+        return _checked_remote_name(value)
+
+
+class ModelPublishCycle(BaseModel):
+    """The cycle bound the contract names, and the time each phase after the input steps is allowed (OMN-22699).
+
+    The input steps carry their own ``timeout_seconds``. The delegation read, the copies, the history prune and the
+    final status write are held to the numbers here: the handler clamps every call to what its phase has left, so the
+    longest path the contract allows (``ModelFactoryFloorPublishRuntime.declared_longest_path``) is a real bound.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    # The seconds one publish run may take on its longest declared path; the served status names it beside the seconds taken.
+    bound_seconds: int | None = Field(default=None, gt=0)
+    delegation_timeout_seconds: int = Field(gt=0)
+    # All the copies of one run (the snapshot, the pages, the data and the first status) share this; a copy that finds it spent is refused.
+    copy_budget_seconds: int = Field(gt=0)
+    history_prune_budget_seconds: int = Field(gt=0)
+    # The final status write, which carries the whole cycle's seconds.
+    final_status_seconds: int = Field(gt=0)
+
+
+def group_steps(steps: Sequence[ModelPublishStep]) -> list[list[ModelPublishStep]]:
+    """The steps in contract order, consecutive ``concurrent`` ones in one group."""
+    groups: list[list[ModelPublishStep]] = []
+    for step in steps:
+        if step.concurrent and groups and groups[-1][-1].concurrent:
+            groups[-1].append(step)
+        else:
+            groups.append([step])
+    return groups
+
+
+class ModelFactoryFloorPublishRuntime(BaseModel):
+    """The ``runtime`` block of contract.yaml."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    home_env: str = Field(min_length=1)
+    plugin_root_env: str = Field(min_length=1)
+    overlay_file_env: str = Field(min_length=1)
+    page_relpath: str = Field(min_length=1)
+    simple_page_relpath: str = Field(min_length=1)
+    # What node_floor_simple_effect writes (relative to the registry home); both are published when they exist.
+    simple_data_relpath: str = Field(min_length=1)
+    simple_reads_relpath: str = Field(min_length=1)
+    # OMN-23018: the running comparison page and what node_floor_compare_effect writes (relative to the registry home).
+    compare_page_relpath: str = Field(min_length=1)
+    compare_data_relpath: str = Field(min_length=1)
+    # OMN-23081: the delegation tracker page and what node_floor_delegation_effect writes (relative to the registry home).
+    delegation_tracker_page_relpath: str = Field(min_length=1)
+    delegation_tracker_data_relpath: str = Field(min_length=1)
+    delegation_history_data_relpath: str = Field(min_length=1)
+    # The age in seconds past which the Delegation tab draws the history as too old, with no number; the publisher writes it into the page.
+    delegation_history_max_age_seconds: int = Field(gt=0)
+    floor_page_relpath: str = Field(min_length=1)
+    # The directory, relative to the node, holding the vendored theme files named by ``names.theme_css``.
+    theme_css_relpath: str = Field(min_length=1)
+    # The directory, relative to the node, holding the icon files named by ``names.icons``.
+    icons_relpath: str = Field(min_length=1)
+    evidence_file: str = Field(min_length=1)
+    source: ModelPublishSource
+    process_health_relpath: str = Field(min_length=1)
+    process_health_payload: ModelProcessHealthPayloadPolicy
+    delegation_relpath: str = Field(min_length=1)
+    lines_overlay: ModelLinesOverlay
+    # The step whose status the record's completeness is judged on: not ok while a declared line is not drawn.
+    record_step: str = Field(min_length=1, pattern=r"^[a-z][a-z0-9_]*$")
+    steps: tuple[ModelPublishStep, ...] = Field(min_length=1)
+    # Steps run after the page and the record are served, in order, never concurrently. The canary status is published
+    # here, from the page as served, so its floor age is the age of the page a reader gets. A required step that fails
+    # raises after the page is served: a failed page upload stops the run before these steps, so the canary status
+    # then ages past its bound and reads as silent, and a failed canary publish is a failed run, never a hidden one.
+    after_publish_steps: tuple[ModelPublishStep, ...]
+    names: ModelPublishNames
+    transport: ModelPublishTransport
+    cycle: ModelPublishCycle
+    history: ModelPublishHistory
+    reports: ModelReportsRuntime
+    operator_reports: ModelOperatorReportsRuntime
+
+    def bound(self) -> int:
+        """The cycle bound the overlay names; raises ``PublishLimitMissingError`` naming ``limits.cycle_bound_seconds`` when unset."""
+        if self.cycle.bound_seconds is None:
+            raise PublishLimitMissingError(
+                "overlay node_factory_floor_publish_effect: key limits.cycle_bound_seconds is missing"
+            )
+        return self.cycle.bound_seconds
+
+    def with_limits(
+        self, limits: ModelPublishLimits
+    ) -> ModelFactoryFloorPublishRuntime:
+        """A copy of this runtime with every step's timeout and the cycle bound taken from ``limits``.
+
+        A required step with no overlay value raises ``PublishLimitMissingError`` naming the key; a step that is not
+        required and has no overlay value keeps its missing timeout (``timeout_seconds`` stays ``None``) and is drawn
+        unread at publish, so one missing optional key no longer stops the cycle. An overlay value for a step the contract
+        no longer declares is ignored, so removing a step never stops the cycle. When the resolved longest path exceeds the
+        bound, raises ``PublishLimitBoundError`` naming ``limits.cycle_bound_seconds`` and both numbers.
+        """
+
+        def resolve(step: ModelPublishStep) -> ModelPublishStep:
+            if step.name not in limits.step_timeout_seconds:
+                if step.required:
+                    raise PublishLimitMissingError(step.limit_missing_message())
+                return step
+            seconds = limits.step_timeout_seconds[step.name]
+            return step.model_copy(update={"timeout_seconds": seconds})
+
+        steps = tuple(resolve(s) for s in self.steps)
+        after = tuple(resolve(s) for s in self.after_publish_steps)
+        cycle = self.cycle.model_copy(
+            update={"bound_seconds": limits.cycle_bound_seconds}
+        )
+        rt = self.model_copy(
+            update={"steps": steps, "after_publish_steps": after, "cycle": cycle}
+        )
+        path = rt.declared_longest_path()
+        total = sum(path.values())
+        if total > limits.cycle_bound_seconds:
+            raise PublishLimitBoundError(
+                f"overlay node_factory_floor_publish_effect: key limits.cycle_bound_seconds is {limits.cycle_bound_seconds}, "
+                f"below the longest declared path of {total} s"
+            )
+        return rt
+
+    def declared_longest_path(self) -> dict[str, int]:
+        """The seconds each phase may take at most, from the timeouts this contract declares.
+
+        The input steps run in groups: a group of concurrent steps takes its slowest resolved member's timeout, and the
+        groups add up; a group whose members have no resolved timeout contributes 0. The after-publish steps add up over
+        their resolved members. The other phases are the cycle block's own numbers, which the handler enforces. Their sum is
+        the longest path a run may take; ``cycle.bound_seconds`` must hold it.
+        """
+        input_steps = 0
+        for group in group_steps(self.steps):
+            resolved = [step.seconds for step in group if step.limit_resolved]
+            if resolved:
+                input_steps += max(resolved)
+        return {
+            "input_steps": input_steps,
+            "delegation": self.cycle.delegation_timeout_seconds,
+            "copy": self.cycle.copy_budget_seconds,
+            "history_prune": self.cycle.history_prune_budget_seconds,
+            "after_publish": sum(
+                s.seconds for s in self.after_publish_steps if s.limit_resolved
+            ),
+            "final_status": self.cycle.final_status_seconds,
+        }
+
+
+class ModelFactoryFloorPublishContract(BaseModel):
+    """Only the ``runtime`` block of the contract is read by the handler."""
+
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    runtime: ModelFactoryFloorPublishRuntime
+
+
+class ModelFactoryFloorPublishRequest(BaseModel):
+    """One publish run. ``None`` takes the contract's environment names and the overlay."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    home: str | None = None
+    state_dir: str | None = None
+    skip_refresh: bool = False
+    refresh_delegation: bool = False
+    overlay: ModelFactoryFloorPublishOverlay | None = None
+    now: datetime | None = None
+
+
+class ModelFactoryFloorPublishResult(BaseModel):
+    """What one run published."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    published: tuple[str, ...]
+    generated_at: str
+    data_sha256: str
+    serve_url: str
+    steps: tuple[ModelPublishStepResult, ...]
+    # The steps that ran after the page was served (the canary status), in order.
+    after_publish: tuple[ModelPublishStepResult, ...] = ()
+    process_health_published: bool
+    delegation_published: bool = False
+    history_snapshot: str = ""
+    history_pruned: tuple[str, ...] = ()
+    # OMN-23081: every serving host's address (a reader takes the first that answers), the hosts every file reached, the hosts
+    # that missed files with the first reason each gave, and the local copy's directory (empty when the overlay names none).
+    serve_urls: tuple[str, ...] = ()
+    served_to: tuple[str, ...] = ()
+    failed_targets: dict[str, str] = Field(default_factory=dict)
+    local_copy: str = ""
+    # The seconds one run took in all and in each phase (input steps, delegation, copy, history prune, after-publish), OMN-22699.
+    cycle_seconds: float = Field(default=0.0, ge=0)
+    phase_seconds: dict[str, float] = Field(default_factory=dict)
+    # The ``source-cache:`` lines of the receipts the input steps wrote in this run (hits, misses, source reads, why the cache was off).
+    source_cache_lines: tuple[str, ...] = ()
+
+
+class ModelReportsPublishRequest(BaseModel):
+    """One reports-site publish. ``None`` takes the contract's environment names and the overlay."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    home: str | None = None
+    overlay: ModelFactoryFloorPublishOverlay | None = None
+    now: datetime | None = None
+
+
+class ModelReportsPublishResult(BaseModel):
+    """What one reports-site publish wrote and which data it found unread."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    published: tuple[str, ...]
+    unread: tuple[str, ...]
+    manifest_sha256: str
+    index_url: str
+
+
+class ModelOperatorAccessRequest(BaseModel):
+    """One operator-only publish. ``None`` takes the contract's environment names and the overlay."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    home: str | None = None
+    overlay: ModelFactoryFloorPublishOverlay | None = None
+    now: datetime | None = None
+    # The gate is still built and checked; only the operator-only files are left unwritten.
+    skip_reports: bool = False
+
+
+class ModelOperatorAccessResult(BaseModel):
+    """What one operator-only publish did: how many device addresses the gate admits, and what it published."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    admitted_devices: int
+    include_sha256: str
+    include_changed: bool
+    published: tuple[str, ...]
+    unread: tuple[str, ...]
+    # OMN-23081: the serving hosts whose gate was refused (their operator-only files were withdrawn) and why; empty when every host admitted.
+    failed_targets: dict[str, str] = Field(default_factory=dict)

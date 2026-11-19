@@ -384,6 +384,7 @@ WorkerStatusType = Literal[
 ]
 DeadlineCloudServiceName = Literal["deadline"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

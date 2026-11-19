@@ -106,6 +106,17 @@ bool EncodeHotwords(std::istream &is, const std::string &modeling_unit,
                     const ssentencepiece::Ssentencepiece *bpe_encoder,
                     std::vector<std::vector<int32_t>> *hotwords,
                     std::vector<float> *boost_scores) {
+  if (bpe_encoder == nullptr &&
+      (modeling_unit == "bpe" || modeling_unit == "bbpe" ||
+       modeling_unit == "cjkchar+bpe")) {
+    SHERPA_ONNX_LOGE(
+        "modeling_unit is '%s' but bpe_encoder is nullptr. Please check "
+        "that decoding_method is modified_beam_search (the greedy-search "
+        "decoders never construct the BPE encoder) and that bpe_vocab is "
+        "set. Skipping hotwords.",
+        modeling_unit.c_str());
+    return false;
+  }
   std::vector<std::string> lines;
   std::string line;
   std::string word;
@@ -139,11 +150,23 @@ bool EncodeHotwords(std::istream &is, const std::string &modeling_unit,
     } else {
       phrase = phrase.substr(1);
     }
+    // A phrase given as tokens from tokens.txt (starting with a word-start
+    // piece, e.g. "▁Het zn er") is used as is.
+    bool pretokenized = phrase.rfind("\xe2\x96\x81", 0) == 0;
+    {
+      std::istringstream tiss(phrase);
+      std::string w;
+      while (pretokenized && tiss >> w) {
+        pretokenized = symbol_table.Contains(w);
+      }
+    }
     std::istringstream piss(phrase);
     oss.clear();
     oss.str("");
     while (piss >> word) {
-      if (modeling_unit == "cjkchar") {
+      if (pretokenized) {
+        oss << " " << word;
+      } else if (modeling_unit == "cjkchar") {
         for (const auto &w : SplitUtf8(word)) {
           oss << " " << w;
         }
@@ -162,7 +185,7 @@ bool EncodeHotwords(std::istream &is, const std::string &modeling_unit,
           uint8_t byte = static_cast<uint8_t>(word[i]);
           tokens += id2token.at(byte);
           if ((i + 1) % 3 == 0 && (i + 1) < word.length()) {
-            tokens += " ";
+            tokens += ' ';
           }
         }
 

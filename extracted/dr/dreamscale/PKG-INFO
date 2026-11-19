@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a354
+Version: 0.1.0a357
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: click<8.5,>=8.1.7
-Requires-Dist: dreamscale-core==0.1.0a7
+Requires-Dist: dreamscale-core==0.1.0a10
 Requires-Dist: dreamscale-transport==0.1.1a162
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: jsonschema<5,>=4.23
@@ -87,7 +87,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a354"
+uv add "dreamscale==0.1.0a357"
 ```
 
 Install the CLI as a standalone tool:
@@ -116,10 +116,10 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a354"
-uv add "dreamscale[sim]==0.1.0a354"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a354"
-uv add "dreamscale[hud]==0.1.0a354"
+uv add "dreamscale[so101]==0.1.0a357"
+uv add "dreamscale[sim]==0.1.0a357"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a357"
+uv add "dreamscale[hud]==0.1.0a357"
 ```
 
 The base SDK supports Python 3.11 through 3.14. The `so101` extra currently
@@ -343,8 +343,8 @@ driver. An existing configured YAM installation can reuse its login and setup:
 ```bash
 dreamscale login
 dreamscale robots yam setup
-dreamscale doctor yam --model gpt-6-astra
-dreamscale run yam --model gpt-6-astra --instruction "Open both grippers"
+dreamscale doctor yam --model gpt-6.2-astra
+dreamscale run yam --model gpt-6.2-astra --instruction "Open both grippers"
 ```
 
 The command uses the same attended YAM lifecycle as policy runs: confirm the
@@ -361,12 +361,12 @@ gripper's tool point at most 8 cm per call, with its tilt and roll; open or clos
 gripper), checked by the arm's kinematics and calibrated joint ranges:
 
 ```bash
-dreamscale run so101 --model claude-fable-5-1 --instruction "put the marker in the cup"
+dreamscale run so101 --model claude-fable-5.2 --instruction "put the marker in the cup"
 ```
 
 Both robots take any managed LLM: `astra`, `sol`, `terra`, `luna`, `fable`, `opus`,
-`sonnet`, `haiku`, `argon`, `carbon`, `hydrogen` or `robotics-er` (the Gemini models
-take `--effort low|medium|high`, and Hydrogen also `xhigh`; Gemini Robotics-ER 2 Preview
+`sonnet`, `haiku`, `argon`, `carbon`, `hydrogen`, `neon` or `robotics-er` (the Gemini
+models take `--effort low|medium|high`, and Hydrogen and Neon also `xhigh`; Gemini Robotics-ER 2 Preview
 runs at `--speed standard` only),
 for example
 `dreamscale run so101 --model argon --instruction "put the marker in the cup"`.
@@ -377,7 +377,7 @@ The same attended YAM flow is available in Python:
 import dreamscale
 
 result = dreamscale.agents.run_yam(
-    model="gpt-6-astra",
+    model="gpt-6.2-astra",
     instruction="Open both grippers",
 )
 ```
@@ -404,7 +404,7 @@ measured results separately from commands sent. Then call:
 ```python
 result = dreamscale.agents.run(
     adapter,
-    model="gpt-6-astra",
+    model="gpt-6.2-astra",
     instruction="Pick up the cube",
 )
 # In an async application: result = await dreamscale.agents.arun(adapter, ...)
@@ -428,7 +428,7 @@ offline, without hardware or an account:
 python -m dreamscale.examples.llm_counter
 ```
 
-The example also supports `--live --model gpt-6-astra --max-cost 2.5` once the
+The example also supports `--live --model gpt-6.2-astra --max-cost 2.5` once the
 gateway has qualified its `virtual-counter/v1` profile. Production YAM uses
 the qualified `yam-bimanual/v1` profile and SO-101 uses `so101/v1`.
 

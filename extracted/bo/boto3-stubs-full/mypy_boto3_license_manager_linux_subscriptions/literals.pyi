@@ -49,6 +49,7 @@ SubscriptionProviderSourceType = Literal["RedHat"]
 SubscriptionProviderStatusType = Literal["ACTIVE", "INVALID", "PENDING"]
 LicenseManagerLinuxSubscriptionsServiceName = Literal["license-manager-linux-subscriptions"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

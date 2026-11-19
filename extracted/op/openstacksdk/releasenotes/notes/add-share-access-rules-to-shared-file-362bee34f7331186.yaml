@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added support to create, list, get and delete share access rules with the
-    shared file system service.

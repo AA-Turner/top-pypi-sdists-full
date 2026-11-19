@@ -195,6 +195,7 @@ SchemaVersionVisibilityType = Literal["PRIVATE", "PUBLIC"]
 TokenEndpointAuthenticationSchemeType = Literal["HTTP_BASIC", "REQUEST_BODY_CREDENTIALS"]
 ManagedintegrationsforIoTDeviceManagementServiceName = Literal["iot-managed-integrations"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

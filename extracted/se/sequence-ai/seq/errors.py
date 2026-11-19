@@ -194,7 +194,7 @@ class LeftRunning(KeyboardInterrupt):
 class GpuCancelled(LeftRunning):
     """Ctrl-C while `seq gpu add` waited for its GPUs to run: those not running yet removed, said by their ids with what each
     was billed as the platform says it once removed (`billed`, by id: sequence_ai.gpu._billed's words - not billed, or the
-    seconds one of the places asked for it held a card) - and any whose removal was not answered, and how to end it -
+    capacity it held while it started) - and any whose removal was not answered, and how to end it -
     where "cancelled" alone would name none.
 """
 

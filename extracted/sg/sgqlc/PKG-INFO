@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sgqlc
-Version: 18
+Version: 19
 Summary: Simple GraphQL Client
 License: ISCL
 License-File: AUTHORS
@@ -21,7 +21,7 @@ Provides-Extra: httpx
 Provides-Extra: pytest
 Provides-Extra: requests
 Provides-Extra: websocket
-Requires-Dist: graphql-core (>=3.2.6,<3.3.0)
+Requires-Dist: graphql-core (>=3.2.6,<3.4)
 Requires-Dist: httpx ; extra == "httpx"
 Requires-Dist: pytest ; extra == "pytest"
 Requires-Dist: requests ; extra == "requests"

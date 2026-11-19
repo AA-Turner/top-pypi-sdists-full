@@ -182,6 +182,18 @@ jobs:
         with:
           driver: docker-container
           name: onex-shared-buildkit
+          # OMN-19211: image, driver options and the cache ceiling come from the
+          # declaration (deploy/buildkit/builders.yaml, key `ci`; the config file
+          # is buildkitd.toml). dockerd's embedded BuildKit stays out of CI image
+          # builds, because its cache index loads before dockerd's API and a
+          # damaged one stopped every container on the runner host three times
+          # in 33 days.
+          # tests/unit/test_lab_builder_declaration_omn19211.py fails when these
+          # lines and the declaration disagree.
+          driver-opts: |
+            image=moby/buildkit:v0.34.1
+            network=host
+          buildkitd-config: deploy/buildkit/buildkitd.toml
 
       - name: Verify Buildx driver
         run: |
@@ -265,13 +277,13 @@ jobs:
       # OMN-12658: delegation-path import smoke. The Dockerfile RUN step already
       # fails the build on a skewed wheel; this step re-asserts the same import
       # on the loaded image so the failure mode is a clearly labeled required
-      # status check on the PR (foundation packages + canonical delegation node).
-      - name: Delegation import smoke (OMN-12658)
+      # status check on the PR (foundation packages).
+      - name: Foundation import smoke (OMN-12658)
         if: github.ref != 'refs/heads/main'
         run: |
-          echo "Asserting foundation + delegation node imports on the built image..."
+          echo "Asserting foundation package imports on the built image..."
           docker run --rm ${{ steps.build.outputs.imageid }} \
-            python -c "import omnibase_compat; import omnibase_core; from omnimarket.nodes.node_llm_delegation_call_effect import HandlerLlmDelegationCall; print(f'delegation import smoke OK: omnibase_compat={omnibase_compat.__version__}, omnibase_core={omnibase_core.__version__}, {HandlerLlmDelegationCall.__name__}')"
+            python -c "import omnibase_core; import omnibase_infra; print(f'foundation import smoke OK: omnibase_core={omnibase_core.__version__}')"
 
       - name: Verify torch is CPU-only
         if: github.ref != 'refs/heads/main'

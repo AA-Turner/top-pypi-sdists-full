@@ -36,7 +36,7 @@ from datamodel_code_generator._container_kinds import (
 )
 from datamodel_code_generator._document_reader import MISSING, as_mapping, descend, document_statuses, string_key
 from datamodel_code_generator._generation_contract import AttemptId
-from datamodel_code_generator._json_pointer import pointer_tokens, reference_tokens
+from datamodel_code_generator._json_pointer import document_part, pointer_tokens, reference_tokens
 from datamodel_code_generator._module_paths import written_path
 from datamodel_code_generator._mro import collect_members, linearize
 from datamodel_code_generator._openapi_paths import inherited_security
@@ -89,7 +89,6 @@ from datamodel_code_generator._target_contract import (
     OperationId,
     PartFacts,
     PartSchema,
-    RuntimeBackendValue,
     SourceDocument,
     SourceDocumentId,
     SourceExpression,
@@ -108,19 +107,20 @@ from datamodel_code_generator._target_contract import (
 )
 from datamodel_code_generator._target_module import TypeComposer
 from datamodel_code_generator._target_naming import TargetNames, path_placeholders
-from datamodel_code_generator._target_types import TypeTables, admits_none, is_none, present
+from datamodel_code_generator._target_types import TypeTables, is_none, present
 from datamodel_code_generator.enums import DataclassArguments, OpenAPIVersion
 from datamodel_code_generator.imports import IMPORT_ANY, IMPORT_DECIMAL, Import, _import_path, _stored_import
 from datamodel_code_generator.model import dataclass as dataclass_model
 from datamodel_code_generator.model import msgspec, pydantic_v2, typed_dict
 from datamodel_code_generator.model._decisions.enum_kind import json_type
-from datamodel_code_generator.model._decisions.nullability import reference_null
+from datamodel_code_generator.model._decisions.nullability import field_renders_none, reference_null
 from datamodel_code_generator.model._decisions.tag_value import field_source_name
 from datamodel_code_generator.model._decisions.union_assembly import WrittenMember, merge_members
+from datamodel_code_generator.model._field_imports import field_admits_none
 from datamodel_code_generator.model.base import (
-    UNDEFINED,
     DataModel,
     DataModelFieldBase,
+    _default_state,
     _has_root_field_constraints,
 )
 from datamodel_code_generator.model.dataclass import DataModelField as DataclassField
@@ -128,7 +128,8 @@ from datamodel_code_generator.model.enum import Enum, IntEnum, StrEnum, get_raw_
 from datamodel_code_generator.model.msgspec import DataModelField as MsgspecField
 from datamodel_code_generator.model.pydantic_v2 import DataModelField as PydanticField
 from datamodel_code_generator.model.pydantic_v2 import dataclass as pydantic_dataclass
-from datamodel_code_generator.model.pydantic_v2.base_model import _ANNOTATED_CONSTRAINT_BASES
+from datamodel_code_generator.model.pydantic_v2.base_model import _constraint_base as _model_constraint_base
+from datamodel_code_generator.model.pydantic_v2.base_model import _PydanticV2Model
 from datamodel_code_generator.model.pydantic_v2.imports import IMPORT_FIELD, IMPORT_SERIALIZE_AS_ANY
 from datamodel_code_generator.model.pydantic_v2.type_alias import TypeAlias as PydanticCompatibleTypeAlias
 from datamodel_code_generator.model.pydantic_v2.types import PydanticV2DataType, _writes_serialize_as_any
@@ -240,6 +241,12 @@ _PYDANTIC_CONFIGURATION: Final = (
     "alias_generator",
     "regex_engine",
 )
+_TRUE: Final = LiteralScalar("bool", value=True)
+_FALSE: Final = LiteralScalar("bool", value=False)
+_EXTRAS: Final[dict[object, Literal["allow", "forbid"]]] = {
+    LiteralScalar("str", "allow"): "allow",
+    LiteralScalar("str", "forbid"): "forbid",
+}
 _SEQUENCES: Final = cast(
     "dict[type, Literal['list', 'tuple', 'set', 'frozenset']]",
     {kind: kind.__name__ for kind in (list, tuple, set, frozenset)},
@@ -332,10 +339,10 @@ class _WalkedPathItem:
 
 @dataclass(frozen=True, slots=True)
 class _Selector:
-    """A union's declared discriminator: its wire property and each mapped value's resolved reference."""
+    """A union's declared discriminator: its wire property and its mapping, located as the parser reads it."""
 
     property_name: str
-    mapping: tuple[tuple[str, str], ...]
+    mapping: dict[str, str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -416,7 +423,6 @@ class _TargetRecording(OpenAPIParser):
         self.object_facts: dict[SchemaLocation | None, _ObjectFacts] = {}
         self.nullable_fields: dict[int, DataModelFieldBase] = {}
         self.document_facts: dict[str, tuple[tuple[str, FrozenLiteral], ...]] = {}
-        self.document_versions: dict[str, OpenAPIVersion] = {}
         super().__init__(source, config=config)
 
     def _reads_ref_siblings_at(self, location: SchemaLocation) -> bool:
@@ -469,18 +475,16 @@ class _TargetRecording(OpenAPIParser):
     ) -> list[DataType]:
         """Record each combined schema with the discriminator it declares, by the members it parses into.
 
-        Each mapped value, a reference or a schema name, resolves where the union is declared, as the parser
-        resolves its references.
+        The mapping is located where the union is declared, as the parser locates the one a field's extras carry.
         """
         members = super().parse_combined_schema(name, obj, path, target_attribute_name)
-        mapping = obj.schema_location and obj.schema_location.child("discriminator", "mapping")
+        raw = obj.extras.get("discriminator")
         selector = (
             _Selector(
                 declared.propertyName,
-                tuple(
-                    (value, self._ref_path(self._discriminator_mapping_ref(value, ref, mapping)))
-                    for value, ref in (declared.mapping or {}).items()
-                ),
+                self._located_mapping(mapping)
+                if isinstance(raw, dict) and isinstance(mapping := raw.get("mapping"), dict)
+                else {},
             )
             if isinstance(declared := obj.discriminator, Discriminator)
             else None
@@ -489,15 +493,19 @@ class _TargetRecording(OpenAPIParser):
         self.unions.update((id(member), union) for member in members)
         return members
 
-    def _copy_model_field(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, field: DataModelFieldBase, **options: Any
-    ) -> DataModelFieldBase:
+    def variant_tags(
+        self, property_name: str, mapping: dict[str, str], members: Sequence[DataType]
+    ) -> Iterator[tuple[DataModel, list[str | int | bool]]]:
+        """Yield the variants of a union that declares a discriminator with the tags the model reads for them."""
+        return self._variant_tags(property_name, mapping, members)
+
+    def _copy_model_field(self, field: DataModelFieldBase, **options: Any) -> DataModelFieldBase:
         """Record the field a copy of a field is of, as inherited fields and read or write variants copy."""
         copied = super()._copy_model_field(field, **options)
         self.copies[id(copied)] = (copied, field)
         return copied
 
-    def _copy_inherited_field(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def _copy_inherited_field(
         self, field: DataModelFieldBase, inherited_field: DataModelFieldBase, **options: Any
     ) -> DataModelFieldBase | None:
         """Record the inherited field a resolved copy of an inherited field is of."""
@@ -523,7 +531,7 @@ class _TargetRecording(OpenAPIParser):
         key = self.model_resolver.join_path(tuple(_rw_variant_path(base_reference.path, _rw_direction(suffix))))
         self.left_out[key] = tuple(source_fields), tuple(field for field in source_fields if id(field) not in kept)
 
-    def get_object_field(self, **options: Any) -> DataModelFieldBase:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def get_object_field(self, **options: Any) -> DataModelFieldBase:
         """Record a field whose own schema says it is nullable, which strict nullability alone puts on the field."""
         field = super().get_object_field(**options)
         if isinstance(schema := options.get("field"), JsonSchemaObject) and schema.nullable is True:
@@ -577,7 +585,6 @@ class _TargetRecording(OpenAPIParser):
         self.object_facts.clear()
         self.nullable_fields.clear()
         self.document_facts.clear()
-        self.document_versions.clear()
         cast("RecordingGenerationStore", self.generation_store).redirects.clear()
 
 
@@ -712,10 +719,9 @@ class TargetApiOpenAPIParser(_TargetRecording, ApiOpenAPIParser):
         self._callback_origin = previous
 
     def _parse_specification(self, specification: dict[str, YamlValue], path_parts: list[str]) -> None:
-        """Record the OpenAPI version the parser reads each walked document by, and its info, tags and servers."""
+        """Record the info, tags and servers of each walked document."""
         key = "/".join(path_parts)
         self.document_facts[key] = _keywords(self._document_as_written(specification), _DOCUMENT_FACTS)
-        self.document_versions[key] = cast("OpenAPIVersion", self._read_dialect(specification).version)
         super()._parse_specification(specification, path_parts)
 
     @override
@@ -774,7 +780,7 @@ class TargetApiOpenAPIParser(_TargetRecording, ApiOpenAPIParser):
         """
         try:
             with self._home_context(document):
-                return self.model_resolver.resolve_ref(f"{ref.partition('#')[0]}#").partition("#")[0]
+                return document_part(self.model_resolver.resolve_ref(f"{document_part(ref)}#"))
         except ValueError:
             return None
 
@@ -828,7 +834,7 @@ class TargetAsyncAPIParser(_TargetRecording, AsyncAPIParser):
     def _note_scanned_document(self, document: str, raw: dict[str, YamlValue]) -> None:
         """Hold each document the parser loads, which it scans once for discriminators, by its path."""
         super()._note_scanned_document(document, raw)
-        self._api_documents[document.partition("#")[0]] = raw
+        self._api_documents[document_part(document)] = raw
 
     @override
     def _collect_discriminator_schemas(self) -> None:
@@ -921,6 +927,15 @@ class _Others:
     values: TypeView | None = None
     kept: FieldUseBinding | None = None
     free: SchemaLocation | None = None
+
+
+def _held(others: _Others, extra: Literal["allow", "forbid", "ignore"] | None) -> _Others:
+    """Return what the readers of a class take of the other properties a schema gives (``others``) by its `extra`.
+
+    They take none where a Pydantic class drops them (`forbid`, `ignore`), and what the schema gives otherwise, under
+    `allow` too, so that no reader takes a member the schema leaves out.
+    """
+    return _Others("closed", others.patterns) if extra in {"forbid", "ignore"} else others
 
 
 @dataclass(frozen=True, slots=True)
@@ -1131,15 +1146,8 @@ def _ordered_union(
 
 
 def _constraint_base(data_type: DataType, *, encoded: bool = False) -> str | None:
-    """Return the name of the scalar a constrained scalar constrains, as the model generator reads it, or None.
-
-    With ``encoded``, a value decoded from base64 text with constraints constrains the type its decoding writes.
-    """
-    if getattr(data_type, "annotated_string", False):
-        return "str"
-    if encoded and (base := getattr(data_type, "encoded_base", None)):
-        return base
-    return None if (import_ := data_type.import_) is None else _ANNOTATED_CONSTRAINT_BASES.get(_identity(import_))
+    """Return the name of the scalar a constrained scalar constrains, as the model generator reads it, or None."""
+    return _model_constraint_base(data_type, annotated_string=True, encoded=encoded)
 
 
 def _constrained_base(data_type: DataType) -> BuiltinType | ImportedType | None:
@@ -1215,7 +1223,7 @@ class _Binder:
         self.hints = _Hints(manager.data_type)
         self.projectors: dict[tuple[Direction, bool], _Projector] = {}
         self.finals: dict[tuple[int, Direction], tuple[Reference | None, bool | None]] = {}
-        self.declaration_types = dict(parser._declaration_types)  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+        self.declaration_types = dict(parser._declaration_types)  # noqa: SLF001
 
     def identity(self, node: object) -> GraphObjectId:
         if (identity := self.identities.get(id(node))) is None:
@@ -1340,6 +1348,53 @@ class _Binder:
             and (field := self.root_field(model)) is not None
             and _has_root_field_constraints(field, row="declared")
         )
+
+    def leaves(
+        self, node: Reference | DataType, direction: Direction, stop: Callable[[DataType], bool], *, inline: bool = True
+    ) -> Iterator[tuple[Reference | DataType, DataModel | None, bool]]:
+        """Yield the nodes a value is one of, None aside, each with the model it names and whether it reads constrained.
+
+        A union is each of its members, a reference that binds no model the type it stands for, and with `inline` an
+        alias or root model the type it stands for, as an inlining projector reads them (``_Projector._base``,
+        ``_reference_value``), constrained when one of those models constrains it; a node `stop` holds, a reference to
+        any other model and any other node are one node each.
+        """
+
+        def walk(
+            node: Reference | DataType, active: frozenset[SymbolId], *, constrained: bool
+        ) -> Iterator[tuple[Reference | DataType, DataModel | None, bool]]:
+            reference = node if isinstance(node, Reference) else node.reference
+            if isinstance(node, DataType):
+                if node.type == "None":
+                    return
+                if stop(node):
+                    yield node, None, constrained
+                    return
+                if node.data_types:
+                    for child in node.data_types:
+                        yield from walk(child, active, constrained=constrained)
+                    return
+                if node.literals or node.enum_member_literals:
+                    reference = None
+            if reference is None:
+                yield node, None, constrained
+                return
+            if (final := self.final(reference, direction)) is None:
+                root = self.unwrapped(reference)
+                yield from () if root is None else walk(root, active, constrained=constrained)
+                return
+            model = _source(final)
+            if (
+                inline
+                and (symbol := self.symbols[id(model)]) not in active
+                and self.policies[id(model)].kind in WRAPPER_KINDS
+                and (field := self.root_field(model)) is not None
+            ):
+                yield from walk(field.data_type, active | {symbol}, constrained=constrained or self.constrains(model))
+                return
+            yield node, model, constrained
+
+        return walk(node, frozenset(), constrained=False)
 
     def projector(self, direction: Direction, *, inline: bool = False) -> _Projector:
         if (projector := self.projectors.get((direction, inline))) is None:
@@ -1592,14 +1647,8 @@ class _Projector:
     def _project(self, data_type: DataType) -> TypeView:
         if not self.inline and (known := self.projected.get(id(data_type))) is not None:
             return known[1]
-        projected, inferred_optional = self._base(data_type)
-        projected = self._container(data_type, projected)
-        nullable_reference = (
-            (reference := data_type.reference) is not None
-            and data_type.adds_reference_null
-            and self.binder.reference(reference, self.direction) is not None
-        )
-        if (data_type.is_optional or inferred_optional or nullable_reference) and projected != ImportedType(IMPORT_ANY):
+        projected = self._container(data_type, self._base(data_type))
+        if self._admits_none(data_type) and projected != ImportedType(IMPORT_ANY):
             base = projected
             projected = _ordered_union(
                 (projected, NoneType()),
@@ -1610,11 +1659,25 @@ class _Projector:
             self.projected[id(data_type)] = data_type, projected
         return projected
 
-    def _base(self, data_type: DataType) -> tuple[TypeView | None, bool]:
+    def _admits_none(self, data_type: DataType) -> bool:
+        """Return whether a type takes None, as the model's hint of it does (``DataType.admits_none``).
+
+        A reference that binds no symbol in the direction is read through as the type it stands for, which holds the
+        None of the model it names already, so it adds only its own None.
+        """
+        return data_type.is_optional or (
+            data_type.admits_none
+            and (
+                (reference := data_type.reference) is None
+                or self.binder.reference(reference, self.direction) is not None
+            )
+        )
+
+    def _base(self, data_type: DataType) -> TypeView | None:
         if data_type.python_type is not None:
-            return BoundType(data_type.python_type, self.hints.leaf(data_type)), False
+            return BoundType(data_type.python_type, self.hints.leaf(data_type))
         if data_type.type is not None:
-            return self._atomic(data_type), False
+            return self._atomic(data_type)
         if data_type.data_types or data_type.is_tuple:
             return self._structural(data_type)
         if (reference := data_type.reference) is not None and not (
@@ -1622,8 +1685,8 @@ class _Projector:
         ):
             return self._reference_value(
                 reference, serialize_as_any=data_type.use_serialize_as_any and data_type.alias is None
-            ), False
-        return self._atomic(data_type), False
+            )
+        return self._atomic(data_type)
 
     def _reference_value(self, reference: Reference, *, serialize_as_any: bool) -> TypeView:
         binder = self.binder
@@ -1677,7 +1740,7 @@ class _Projector:
                 return LiteralScalar("str", str(value))
 
     def _enum_members(self, data_type: DataType) -> tuple[SymbolId, tuple[GeneratedEnumMember, ...]]:
-        reference = data_type._enum_member_literal_reference or data_type.reference  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+        reference = data_type._enum_member_literal_reference or data_type.reference  # noqa: SLF001
         model = _source(cast("Reference", self.binder.final(cast("Reference", reference))))
         fields = {field.name: field for field in model.fields}
         symbol = self.binder.symbols[id(model)]
@@ -1686,7 +1749,7 @@ class _Projector:
             for _, name in data_type.enum_member_literals
         )
 
-    def _structural(self, data_type: DataType) -> tuple[TypeView, bool]:
+    def _structural(self, data_type: DataType) -> TypeView:
         hints = self.hints
         if data_type.is_tuple:
             arguments = tuple(self._project(child) for child in data_type.data_types)
@@ -1700,17 +1763,16 @@ class _Projector:
             )
             if count is not None:
                 arguments = (arguments[0] if arguments else ImportedType(IMPORT_ANY),) * count
-            return GenericType(_BUILTINS[SLOT_CLASSES["tuple"].name], arguments, "fixed", hint), False
+            return GenericType(_BUILTINS[SLOT_CLASSES["tuple"].name], arguments, "fixed", hint)
         if len(data_type.data_types) == 1:
-            return self._project(data_type.data_types[0]), False
+            return self._project(data_type.data_types[0])
         preserve_order = data_type.preserve_union_member_order
         projected = tuple(self._project(child) for child in data_type.data_types)
         flattened = tuple(member for value in projected for member in _members(value))
-        merged = merge_members(
+        members = merge_members(
             WrittenMember(member, member, null=not preserve_order and is_none(member))
             for member in (projected if preserve_order else flattened)
-        )
-        members, inferred_optional = merged.kept, merged.takes_null
+        ).kept
         union = (
             _ordered_union(
                 members,
@@ -1734,30 +1796,20 @@ class _Projector:
             hint = ModelHint(HintText(annotation.parts, (*annotation.imports, IMPORT_FIELD)), hints.of(union).static)
             hints.fixed[IMPORT_FIELD] = None
             schema = union.discriminator if isinstance(union, UnionType) else None
-            return UnionType(parts, preserve_order, schema, hint, discriminator), inferred_optional
-        return union, inferred_optional
+            return UnionType(parts, preserve_order, schema, hint, discriminator)
+        return union
 
     def selector(self, data_type: DataType) -> UnionDiscriminator | None:
-        """Return the discriminator a union's schema declares.
+        """Return the discriminator a union's schema declares, with the tags the model reads for each of its variants.
 
-        Each mapped value names the source of the model its reference resolves to, or the reference's own path when
-        no emitted model stands for it, as a model that only read and write variants stand for.
+        A variant is named by the source of its model, which its read and write variants share.
         """
         if (union := self.union(data_type)) is None or (selector := union.selector) is None:
             return None
-        references = self.binder.parser.model_resolver.references
+        variants = self.binder.parser.variant_tags(selector.property_name, selector.mapping, data_type.data_types)
         return UnionDiscriminator(
             selector.property_name,
-            tuple(
-                (
-                    value,
-                    self.binder.source(final)
-                    if (reference := references.get(path)) is not None
-                    and (final := self.binder.final(reference)) is not None
-                    else path,
-                )
-                for value, path in selector.mapping
-            ),
+            tuple((self.binder.source(variant.reference), tuple(tags)) for variant, tags in variants),
         )
 
     def union(self, data_type: DataType) -> _Union | None:
@@ -1910,21 +1962,24 @@ def _frozen_or_source(value: object) -> TypeArgument:
 
 
 def _emitted_default(  # ruff: ignore[too-many-return-statements]
-    field: DataModelFieldBase, backend: BackendName
+    field: DataModelFieldBase, backend: BackendName, assignment: AssignmentFacts
 ) -> tuple[DefaultKind, FrozenLiteral | SourceExpression | None]:
-    """Return the default kind and value that the builtin backend renders for a field."""
+    """Return the default kind and value that the builtin backend renders for a field, by its assignment facts.
+
+    A ``MISSING`` default is none of the constructor defaults the assignment facts tell.
+    """
     if backend == "typeddict":
         return "absent", None
     if getattr(field, "use_missing_sentinel_default", False):
         return "pydantic_missing", None
-    has_default, has_value = field._get_constructor_default_info()  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
+    has_default, has_value = assignment.default_info
     if not has_default:
         return "absent", None
     if not has_value:
         return "factory", None
-    if isinstance(field, MsgspecField) and field._get_field_data().get("default") is msgspec.UNSET:  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
+    if isinstance(field, MsgspecField) and field._get_field_data().get("default") is msgspec.UNSET:  # ruff: ignore[private-member-access]
         return "msgspec_unset", None
-    if field.default is None or field.default is UNDEFINED:
+    if _default_state(field.default) != "value":
         return "none", LiteralScalar("none", None)
     if isinstance(value := _frozen_or_source(field.default), (SourceExpression, ImportedExpression)):
         return "expression", SourceExpression(stable_repr(field.default))
@@ -1939,13 +1994,13 @@ def _constructor_keywords(field: DataModelFieldBase, backend: BackendName) -> tu
     keywords: list[tuple[str, TypeArgument]] = []
     match field:
         case PydanticField() if backend in {"pydantic", "pydantic_dataclass"}:
-            if (call := field._render_plan().call) is None:  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
+            if (call := field._render_plan().call) is None:  # ruff: ignore[private-member-access]
                 return ()
             items = sorted((argument.name, argument.value) for argument in call.kwargs)
             if call.factory is not None:
                 keywords.append(("default_factory", SourceExpression(str(call.factory.value))))
         case DataclassField() | MsgspecField() if backend in {"dataclass", "msgspec"}:
-            items = list(field._get_field_data().items())  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
+            items = list(field._get_field_data().items())  # ruff: ignore[private-member-access]
             if len(items) == 1 and items[0][0] == "default":
                 return ()
         case _:
@@ -1969,19 +2024,8 @@ def _qualifiers(field: DataModelFieldBase, backend: BackendName) -> tuple[str, .
     return tuple(qualifiers)
 
 
-def _setting(name: str, keywords: tuple[tuple[str, TypeArgument], ...], *, fallback: bool | None) -> BackendValue:
-    for key, value in reversed(keywords):
-        if key == name:
-            return (
-                RuntimeBackendValue("expression")
-                if isinstance(value, SourceExpression | ImportedExpression)
-                else KnownBackendValue(value)
-            )
-    return _backend_value(fallback) if fallback is not None else OpaqueBackendValue("model_policy_required")
-
-
 def _model_settings(model: DataModel, backend: BackendName) -> dict[str, BackendValue] | None:
-    internal: dict[str, object] = model._internal_template_data  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+    internal: dict[str, object] = model._internal_template_data  # noqa: SLF001
     match backend:
         case "dataclass" | "pydantic_dataclass":
             return {name: _backend_value(value) for name, value in model.written_dataclass_arguments.items()}
@@ -2020,8 +2064,11 @@ def _model_facts(model: DataModel, policy: _Policy) -> BackendModelFacts | None:
     parameters = _BACKEND_PARAMETERS.get(backend, ())
     configuration: tuple[BackendSetting, ...] = ()
     if backend in {"pydantic", "pydantic_dataclass"}:
-        key = "config_items" if backend == "pydantic" else "_safe_config_items"
-        items: list[tuple[str, str]] = model._internal_template_data.get(key, [])  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+        items: list[tuple[str, str]] = (
+            model._internal_template_data.get(model._CONFIG_ITEMS_KEY, [])  # noqa: SLF001
+            if isinstance(model, _PydanticV2Model)
+            else []
+        )
         configuration = _settings(
             _PYDANTIC_CONFIGURATION,
             {name: _syntax_value(value) for name, value in items if name in _PYDANTIC_CONFIGURATION},
@@ -2029,32 +2076,47 @@ def _model_facts(model: DataModel, policy: _Policy) -> BackendModelFacts | None:
     return BackendModelFacts(backend, _settings(parameters, values), configuration, policy.functional_typeddict)
 
 
-@dataclass(frozen=True, slots=True)
-class _FieldContext:
-    """Producer facts of a property field: whether its schema is nullable, and whether its own type accepts None.
+def _applied_configuration(model: DataModel) -> tuple[Literal["allow", "forbid", "ignore"] | None, bool]:
+    """Return the `extra` and the validation by field name of the configuration a Pydantic class applies.
 
-    None says the field's own type is unknown.
+    The model layer reads it with the bases as Pydantic applies them (``applied_config``); a class that sets no
+    `extra` ignores extra members, and one whose `extra` a configured base class the generator does not read may set
+    has none (None). It validates by field name as Pydantic settles it from what the class applies: by
+    `validate_by_name`, else by `populate_by_name`, else where `validate_by_alias` is false. Any other declaration has
+    no `extra` and validates by alias only, a root model too, which Pydantic gives no extra members.
     """
-
-    explicit_nullable: bool
-    preexisting_null: bool | None
+    if not isinstance(model, pydantic_v2.BaseModel | pydantic_dataclass.DataClass) or isinstance(
+        model, pydantic_v2.RootModel
+    ):
+        return None, False
+    items, known = model.applied_config()
+    extra: Literal["allow", "forbid", "ignore"] | None = "ignore" if known is None else None
+    if "extra" in (items if known is None else known):
+        extra = _EXTRAS.get(_syntax_value(items["extra"]).value, "ignore")
+    if (by_name := items.get("validate_by_name", items.get("populate_by_name"))) is not None:
+        return extra, _syntax_value(by_name).value == _TRUE
+    return extra, "validate_by_alias" in items and _syntax_value(items["validate_by_alias"]).value == _FALSE
 
 
 def _field_facts(  # noqa: PLR0913
     field: DataModelFieldBase,
     type_value: TypeView,
     backend: BackendName,
-    model_facts: BackendModelFacts | None,
-    context: _FieldContext | None,
+    assignment: AssignmentFacts,
     *,
+    annotation_null: bool,
+    wire_null: bool,
     explicit_name: bool,
 ) -> ModelFieldFacts:
-    """Read a field's model and builtin backend facts from the final field and its render data."""
+    """Read a field's model and builtin backend facts from the final field, its render data and its assignment facts.
+
+    The constructor requires a field that takes part in it without an emitted default; a TypedDict requires the keys
+    its qualifiers require, which the field's requiredness decides.
+    """
     emitted = not (backend == "msgspec" and field.extras.get("is_classvar") is True)
     qualifiers = _qualifiers(field, backend)
-    default_kind, default_value = _emitted_default(field, backend)
+    default_kind, default_value = _emitted_default(field, backend, assignment)
     keywords = _constructor_keywords(field, backend)
-    null_in_annotation = _annotation_null(field, type_value)
     emitted_facts = EmittedFieldFacts(
         emitted=emitted,
         emitted_default_kind=default_kind,
@@ -2062,44 +2124,33 @@ def _field_facts(  # noqa: PLR0913
         qualifiers=qualifiers,
         constructor_keywords=keywords if backend != "typeddict" else (),
     )
-    constructor_init = (
-        _backend_value(None)
-        if backend == "typeddict"
-        else _backend_value(value=False)
-        if not emitted or "ClassVar" in qualifiers
-        else _setting("init", keywords, fallback=None if model_facts is None else True)
-    )
+    in_init = assignment.participates_in_constructor
     return ModelFieldFacts(
         field.required,
         field.nullable,
         field.has_default,
-        field.type_has_null,
         field.read_only,
         field.write_only,
         type_value,
-        BackendFieldFacts(backend, emitted_facts, constructor_init),
-        context is not None
-        and (
-            context.preexisting_null is True
-            or (context.preexisting_null is False and context.explicit_nullable and null_in_annotation)
-        ),
-        null_in_annotation,
+        BackendFieldFacts(backend, emitted_facts),
+        wire_null,
+        annotation_null,
         explicit_name,
+        field.required if backend == "typeddict" else in_init and default_kind == "absent",
+        in_init,
     )
 
 
-def _annotation_null(field: DataModelFieldBase, type_value: TypeView) -> bool:
-    """Return whether the emitted field annotation accepts None, as the field's type hint decides."""
-    if admits_none(type_value):
-        return True
-    return field._field_null_source(field.data_type) is not None  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+def _one_node(data_type: DataType) -> bool:
+    """Return whether a node is one alternative of a value (``_Octets.alternatives``): a container or a scalar."""
+    return data_type in CONTAINERS or data_type.python_type is not None or data_type.type is not None
 
 
 def _members_of(data_type: DataType) -> list[DataType]:
     """Return the types a type holds as items, values or union members, below the wrappers that hold one type."""
     inner = data_type
     while (
-        len(inner.data_types) == 1 and inner.reference is None and not inner._is_container  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+        len(inner.data_types) == 1 and inner.reference is None and not inner._is_container  # noqa: SLF001
     ):
         inner = inner.data_types[0]
     return inner.data_types
@@ -2135,8 +2186,8 @@ class _Documents:
     """
 
     def __init__(self, parser: TargetParser) -> None:
-        loaded = parser._api_documents  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
-        roots = [document for document in loaded if document in parser._api_roots]  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
+        loaded = parser._api_documents  # ruff: ignore[private-member-access]
+        roots = [document for document in loaded if document in parser._api_roots]  # ruff: ignore[private-member-access]
         self.documents: dict[str, dict[str, YamlValue]] = {}
         self.ids: dict[str, SourceDocumentId] = {}
         self.unloadable: set[str] = set()
@@ -2180,9 +2231,7 @@ class _Models:
         self.slots: dict[int, FieldSlot] = {}
         self.facts: dict[FieldSlot, ModelFieldFacts] = {}
         self.locations: dict[SymbolId, SchemaLocation | None] = {}
-        self.contexts_by_field: dict[
-            int, tuple[FieldKind, SchemaLocation | None, str | None, _FieldContext | None]
-        ] = {}
+        self.contexts_by_field: dict[int, tuple[FieldKind, SchemaLocation | None, str | None]] = {}
         self.alias_nulls: dict[SymbolId, bool | None] = {}
         self.helpers: dict[SchemaLocation, list[TypeProjection]] = {}
         self.texts: dict[TypeUseId, bool] = {}
@@ -2231,7 +2280,7 @@ class _Models:
     def spelled_keys(self) -> dict[SchemaLocation, str]:
         """Return the key of each reference the parser filed under a JSON pointer, by the location it names."""
         return {
-            SchemaLocation(key.partition("#")[0], tokens): key
+            SchemaLocation(document_part(key), tokens): key
             for key in self.parser.model_resolver.references
             if (tokens := _pointer_tokens(key)) is not None
         }
@@ -2256,13 +2305,13 @@ class _Models:
         schema = parser.free_schemas[declaration]
         if (
             schema.ref is not None
-            and (target := parser._schema_reference_location(declaration.document, schema.ref)) is not None  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+            and (target := parser._schema_reference_location(declaration.document, schema.ref)) is not None  # noqa: SLF001
             and (reference := parser.model_resolver.references.get(self.reference_key(target))) is not None
         ):
             yield reference
             return
         with parser.model_resolver.current_root_context(declaration.document.split("/")):
-            data_type = parser._build_lightweight_type(schema)  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+            data_type = parser._build_lightweight_type(schema)  # noqa: SLF001
         from datamodel_code_generator._graph_links import drop_tree  # noqa: PLC0415
 
         try:
@@ -2314,6 +2363,7 @@ class _Models:
                         binder.source(model.reference),
                         self.reused_discriminator(model),
                         tuple(map(json_type, values)),
+                        *_applied_configuration(model),
                     )
                 )
         return tuple(symbols), tuple(artifacts)
@@ -2340,19 +2390,38 @@ class _Models:
                 if (projected := projector.project(field.data_type).value) is None:
                     continue
                 explicit = resolver.explicit_field_alias(field, model.reference, model_type)
+                annotation_null = field_admits_none(field)
                 self.facts[slot] = _field_facts(
                     field,
                     projected,
                     backend,
-                    symbol.facts,
-                    self.context(model, field)[3],
+                    model._field_assignment_facts(field),  # ruff: ignore[private-member-access]
+                    annotation_null=annotation_null,
+                    wire_null=self.wire_null(model, field, annotation_null=annotation_null),
                     explicit_name=explicit is not None and explicit[0] == field.name,
                 )
 
+    def wire_null(self, model: DataModel, field: DataModelFieldBase, *, annotation_null: bool) -> bool:
+        """Return whether a field's wire value may be JSON null, as the helper selectors read its JSON types.
+
+        A decided ``nullable`` says so, and so does the null of a ``type`` list; without either, a property takes the
+        null its own type accepts, or the ``nullable: true`` its schema declares (through field copies) where its
+        annotation accepts None and its own type is known to accept none. A decided ``nullable`` leaves out the null
+        the own type accepts (row ``legacy-wire-null-ignores-nullable-false``), and the own type's null is the one
+        ``preexisting_null`` reads, no null value of an enum and none of a type it cannot read, where
+        ``TypeTables.takes_null`` reads both (row ``legacy-wire-null-unknown-type``).
+        """
+        if field.nullable is not None or field.type_has_null:
+            return bool(field.nullable or field.type_has_null)
+        if self.context(model, field)[0] != "property":
+            return False
+        own = self.preexisting_null(field.data_type)
+        return own is True or (own is False and annotation_null and self.parser.nullable(field))
+
     def context(
         self, model: DataModel, field: DataModelFieldBase
-    ) -> tuple[FieldKind, SchemaLocation | None, str | None, _FieldContext | None]:
-        """Return a field's member kind, property declaration, wire name and, for a property, its producer facts.
+    ) -> tuple[FieldKind, SchemaLocation | None, str | None]:
+        """Return a field's member kind, property declaration and wire name.
 
         The property declaration is where the parser built the field (``reference.field_origin_of``); a tag the
         discriminator pass appends is declared where the model's schema declares the property. A field typed as a
@@ -2384,12 +2453,7 @@ class _Models:
                 kind = "discriminator_synthetic"
             elif origin.kind == "required-only":
                 kind = "required_only"
-        context = (
-            _FieldContext(self.parser.nullable(field) or field.nullable is True, self.preexisting_null(field.data_type))
-            if kind == "property"
-            else None
-        )
-        known = self.contexts_by_field[id(field)] = kind, schema, wire_name, context
+        known = self.contexts_by_field[id(field)] = kind, schema, wire_name
         return known
 
     def declaration(self, model: DataModel, wire_name: str) -> SchemaLocation | None:
@@ -2419,12 +2483,12 @@ class _Models:
         pending = [data_type]
         references: dict[int, tuple[Reference, bool]] = {}
         opaque = False
-        python_imports = self.parser._python_imports  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+        python_imports = self.parser._python_imports  # noqa: SLF001
         while pending:
             current = pending.pop()
             if current.is_optional or current.type == "None":
                 return True
-            if current._is_container:  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+            if current._is_container:  # noqa: SLF001
                 continue
             if (reference := current.reference) is not None:
                 named = references.get(id(reference), (reference, False))[1]
@@ -2463,7 +2527,17 @@ class _Models:
         active.add(symbol)
         field = model.fields[0]
         value = self.binder.projector("neutral").project(field.data_type).value
-        direct = field.nullable is True or (field.nullable is None and field.required and bool(field.type_has_null))
+        direct = (
+            field_renders_none(
+                hint_has_none=False,
+                has_default_factory=False,
+                nullable=field.nullable,
+                required=field.required,
+                type_has_null=field.required and field.type_has_null,
+                fall_back_to_nullable=False,
+            )
+            is not None
+        )
         unknown = value is None
         references: list[SymbolId] = []
         pending: list[TypeView] = [] if value is None else [value]
@@ -2479,7 +2553,7 @@ class _Models:
                     unknown = True
                 case _:
                     pass
-        null_in_annotation = value is not None and _annotation_null(field, value)
+        null_in_annotation = value is not None and field_admits_none(field)
         result: bool | None
         if direct and null_in_annotation:
             result = True
@@ -2547,7 +2621,7 @@ class _Models:
     def member(self, symbol: FinalModelSymbol, owner: DataModel, field: DataModelFieldBase) -> FieldUseBinding:
         slot = self.slots[id(field)]
         facts = self.facts.get(slot)
-        kind, schema, wire_name, _ = self.context(owner, field)
+        kind, schema, wire_name = self.context(owner, field)
         source = None if schema is None else self.documents.location(schema, "schema")
         return FieldUseBinding(
             kind,
@@ -2850,7 +2924,7 @@ class _SchemaUses(_Models):
                 del self.uses[neutral]
         for model in self.binder.models:
             for field in model.fields:
-                kind, schema, _, _ = self.context(model, field)
+                kind, schema, _ = self.context(model, field)
                 if schema is None:
                     continue
                 match kind:
@@ -2942,7 +3016,7 @@ class _SchemaUses(_Models):
         if (location := self.locations.get(self.binder.symbols[id(model)])) is None or location == declaration:
             return
         for field in model.fields:
-            kind, schema, _, _ = self.context(model, field)
+            kind, schema, _ = self.context(model, field)
             if kind == "property" and schema is not None and _below(schema, location):
                 self.nested(_rebased(schema, location, declaration), field.data_type, moved=(location, declaration))
 
@@ -3025,7 +3099,7 @@ class _UseFacts(_SchemaUses):
         it, as the parser reads that schema (``_ObjectFacts``); any of them with pattern properties gives the type
         them. A mapping no model says anything for types them by its values. Typed ones are the values of the field
         the model keeps them in, else of the model-free type their schema has in the use's direction, else of its
-        mapping.
+        mapping. What the class takes of them is ``held_others``.
         """
         facts = [
             (symbol, found)
@@ -3052,6 +3126,14 @@ class _UseFacts(_SchemaUses):
         ) or mapping
         source = self.documents.location(declaration, "schema")
         return _Others(said, patterns, source, values, None if kept is None else kept[0], free)
+
+    def applied_extra(self, value: TypeView | None) -> Literal["allow", "forbid", "ignore"] | None:
+        """Return the `extra` the class a type holds applies (``FinalModelSymbol.extra``), or None."""
+        return None if (symbol := self.held(value)) is None else self.symbol_table[symbol].extra
+
+    def held_others(self, value: TypeView | None, others: _Others) -> _Others:
+        """Return what the class a type holds takes of the other properties its schema gives (``_held``)."""
+        return _held(others, self.applied_extra(value))
 
     def member_shape(  # noqa: PLR0913
         self,
@@ -3137,7 +3219,7 @@ class _UseFacts(_SchemaUses):
         if isinstance(found, UnionType):
             return self.union_shape(present(found), source, direction, form=form, seen=seen)
         if others is None:
-            others = self.others(value, members, holder, direction)
+            others = self.held_others(value, self.others(value, members, holder, direction))
         if others.patterns:
             return TextShape("object", problem=(holder, _PATTERNS))
         additional = (
@@ -3225,9 +3307,10 @@ class _UseFacts(_SchemaUses):
         extras: tuple[SourceLocation, TypeView] | None = None
         declared = False
         if (others := self.use_others(use) if members else None) is not None:
-            declared = others.said in {"allowed", "schema"}
             if others.source is not None and others.values is not None:
                 extras = self.repeated(others.values, others.source), others.values
+            others = _held(others, extra := self.applied_extra(value))
+            declared = extra == "allow" or others.said in {"allowed", "schema"}
         return EncodingFacts(
             self.shape(value, source, use.members, direction, form=False, others=others),
             self.shape(value, source, use.members, direction, form=True, others=others),
@@ -3275,48 +3358,10 @@ class _Octets(_UseFacts):
         return self.excluded[member.consumer, member.wire_name or ""]
 
     def alternatives(
-        self,
-        node: Reference | DataType,
-        direction: Direction,
-        constrained: bool = False,  # noqa: FBT001, FBT002
-        active: frozenset[SymbolId] = frozenset(),
-    ) -> Iterator[tuple[Reference | DataType, bool]]:
-        """Yield the nodes a value is one of, None aside, and whether a model it is read through constrains it.
-
-        A union is each of its members, and an alias or root model the type it stands for, as an inlining projector
-        reads them (``_Projector._reference_value``); a container, a scalar and a reference to any other model are one
-        node each.
-        """
-        reference = node if isinstance(node, Reference) else node.reference
-        if isinstance(node, DataType):
-            if node in CONTAINERS or node.python_type is not None or node.type is not None:
-                if node.type != "None":
-                    yield node, constrained
-                return
-            if node.data_types:
-                for child in node.data_types:
-                    yield from self.alternatives(child, direction, constrained, active)
-                return
-            if node.literals or node.enum_member_literals:
-                reference = None
-        binder = self.binder
-        if reference is None:
-            yield node, constrained
-            return
-        if (final := binder.final(reference, direction)) is None:
-            root = binder.unwrapped(reference)
-            yield from () if root is None else self.alternatives(root, direction, constrained, active)
-            return
-        model = _source(final)
-        if (
-            (symbol := binder.symbols[id(model)]) not in active
-            and binder.policies[id(model)].kind in WRAPPER_KINDS
-            and (field := binder.root_field(model)) is not None
-        ):
-            wrapped = constrained or binder.constrains(model)
-            yield from self.alternatives(field.data_type, direction, wrapped, active | {symbol})
-            return
-        yield node, constrained
+        self, node: Reference | DataType, direction: Direction
+    ) -> Iterator[tuple[Reference | DataType, DataModel | None, bool]]:
+        """Yield the nodes a value is one of (``_Binder.leaves``): a container and a scalar are one node each."""
+        return self.binder.leaves(node, direction, _one_node)
 
     def view(self, leaf: Reference | DataType, direction: Direction, *, inline: bool = True) -> TypeView | None:
         """Return the type the models give one node of a value, each alias and root model by the type it stands for.
@@ -3370,13 +3415,13 @@ class _Octets(_UseFacts):
         for each item; and they are structured when one of their alternatives is a model, a mapping or an item
         container.
         """
-        leaves = [] if node is None else [leaf for leaf, _ in self.alternatives(node, direction)]
+        leaves = [] if node is None else [leaf for leaf, _, _ in self.alternatives(node, direction)]
         if (item := self.tables.contained(value, "items")) is not None:
             leaves = [
                 inner
                 for leaf in leaves
                 if isinstance(leaf, DataType) and leaf in ITEM_CONTAINERS and leaf.data_types
-                for inner, _ in self.alternatives(leaf.data_types[0], direction)
+                for inner, _, _ in self.alternatives(leaf.data_types[0], direction)
             ]
         found = self.tables.unwrapped(value if item is None else item)
         binary = [leaf for leaf in leaves if isinstance(leaf, DataType) and binary_content_of(leaf)]
@@ -3408,7 +3453,7 @@ class _Octets(_UseFacts):
         return next(
             (
                 leaf.data_types[-1]
-                for leaf, _ in self.alternatives(node, direction)
+                for leaf, _, _ in self.alternatives(node, direction)
                 if isinstance(leaf, DataType) and leaf in MAPPINGS and leaf.data_types
             ),
             None,
@@ -3446,17 +3491,19 @@ class _Octets(_UseFacts):
         members = [(name, member, self.part(member)) for name, _, member in property_members(use.members)]
         refused = self._text_binary(members, schema)
         named = tuple((name, part) for name, _, part in members)
-        extra: PartSchema | Literal["closed"] | None = None
-        if (others := self.use_others(use)) is not None:
-            if others.said == "closed":
-                extra = "closed"
-            elif others.source is not None:
-                with self.values_node(others, node, direction) as values:
-                    typed = others.values if values is None else self.view(values, direction, inline=False)
-                    extra = self.part_of(values, typed, direction)
-                    if refused is None and not extra.file and values is not None:
-                        refused = self.first(values, direction, others.free or schema)
-        return PartFacts(self.takes_object(use.type), named, extra), refused
+        loose: PartSchema | Literal["closed"] | None = None
+        if (others := self.use_others(use)) is None:
+            return PartFacts(self.takes_object(use.type), named, None), refused
+        if others.said == "closed":
+            loose = "closed"
+        elif others.source is not None:
+            with self.values_node(others, node, direction) as values:
+                typed = others.values if values is None else self.view(values, direction, inline=False)
+                loose = self.part_of(values, typed, direction)
+                if refused is None and not loose.file and values is not None:
+                    refused = self.first(values, direction, others.free or schema)
+        extra = "closed" if self.held_others(use.type, others).said == "closed" else loose
+        return PartFacts(self.takes_object(use.type), named, extra, loose), refused
 
     def _text_binary(
         self, members: Iterable[tuple[str, FieldUseBinding, PartSchema]], schema: SchemaLocation
@@ -3512,17 +3559,18 @@ class _Octets(_UseFacts):
             if len(shapes) > 1 or len(kinds) > 1 or len(whole) > 1:
                 return PartFacts(object=False, members=(), extra=None), None
             named.append((name, replace(parts[0], value=_joined(tuple(part.value for part in parts if part.value)))))
-        closed = all(
-            self.others(
+        reads = [
+            (
                 item := GeneratedSymbolType(symbol),
-                members,
-                self.holder(item, use.schema or use.id.schema_site),
-                direction,
-            ).said
-            == "closed"
+                self.others(item, members, self.holder(item, use.schema or use.id.schema_site), direction),
+            )
             for symbol, members in zip(union, declared, strict=True)
-        )
-        return PartFacts(object=True, members=tuple(named), extra="closed" if closed else None), refused
+        ]
+        closed = all(self.held_others(item, found).said == "closed" for item, found in reads)
+        loose = all(found.said == "closed" for _, found in reads)
+        return PartFacts(
+            object=True, members=tuple(named), extra="closed" if closed else None, loose="closed" if loose else None
+        ), refused
 
     def _union_alternatives(self, use: TypeUseBinding) -> list[SymbolId] | None:
         """Return the models of a multipart use whose type is a union of models it merges the members of, or None."""
@@ -3552,27 +3600,16 @@ class _Octets(_UseFacts):
     ) -> tuple[SchemaLocation | None, int]:
         """Return the first raw octets a value reaches (``first``), and the earliest walked model it leads back to."""
         low = len(walked)
-        pending: list[Reference | DataType] = [node]
         binder = self.binder
-        while pending:
-            current = pending.pop()
-            reference = current if isinstance(current, Reference) else current.reference
-            if isinstance(current, DataType):
-                if self.octet(current, direction):
-                    return type_origin_of(current) or fallback, low
-                if reference is None or current.literals or current.enum_member_literals:
-                    pending.extend(reversed(current.data_types))
-                    continue
-            if (final := binder.final(cast("Reference", reference), direction)) is None:
-                pending.extend(() if (root := binder.unwrapped(cast("Reference", reference))) is None else (root,))
-                continue
-            model = _source(final)
-            if binder.policies[id(model)].kind == "enum":
-                continue
-            found, reached = self.reach_model(binder.symbols[id(model)], direction, fallback, walked)
-            low = min(low, reached)
-            if found is not None:
-                return found, low
+        for leaf, model, _ in binder.leaves(node, direction, binary_content_of, inline=False):
+            if model is None:
+                if self.octet(leaf, direction):
+                    return type_origin_of(leaf) or fallback, low
+            elif binder.policies[id(model)].kind != "enum":
+                found, reached = self.reach_model(binder.symbols[id(model)], direction, fallback, walked)
+                low = min(low, reached)
+                if found is not None:
+                    return found, low
         return None, low
 
     def reach_model(
@@ -3628,16 +3665,16 @@ class _Octets(_UseFacts):
         alternatives are all enums or literals of strings carries text read by the model.
         """
         leaves = [] if node is None else list(self.alternatives(node, direction))
-        raw = [self.octet(leaf, direction) for leaf, _ in leaves]
+        raw = [self.octet(leaf, direction) for leaf, _, _ in leaves]
         octets = kind in _RAW_MEDIA and bool(raw) and all(raw)
         checked = octets and any(
-            constrained or isinstance(self.view(leaf, direction), ConstructorType) for leaf, constrained in leaves
+            constrained or isinstance(self.view(leaf, direction), ConstructorType) for leaf, _, constrained in leaves
         )
         text = (
             kind == "binary"
             and not any(raw)
             and bool(leaves)
-            and all(self.strings(self.view(leaf, direction)) for leaf, _ in leaves)
+            and all(self.strings(self.view(leaf, direction)) for leaf, _, _ in leaves)
         )
         return octets, not octets and any(raw), checked, text
 
@@ -4098,7 +4135,7 @@ class _Contracts(_Octets):
         schemes: list[WireDeclaration] = []
         locate = self.documents.location
         for document in self.documents.walked:
-            if document in self.parser._api_roots:  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+            if document in self.parser._api_roots:  # noqa: SLF001
                 found = read(
                     self.documents.documents[document],
                     partial(self.loaded_schema, document),
@@ -4128,7 +4165,7 @@ class _Contracts(_Octets):
 
     def loaded_target(self, document: str, ref: str) -> SchemaLocation | None:
         """Return where the schema a `$ref` of a document names is, as the parser resolves it, in a loaded document."""
-        target = self.parser._schema_reference_location(document, ref)  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+        target = self.parser._schema_reference_location(document, ref)  # noqa: SLF001
         return None if target is None or target.document not in self.documents.ids else target
 
     def channel(self, document: str, read: ReadChannel, order: int) -> ChannelContract:
@@ -4399,6 +4436,10 @@ def bind_operations(
     builder.encodings()
     security_schemes = security_schemes if asyncapi else builder.security_schemes()
     documents = builder.documents
+    root = next(iter(documents.ids), "")
+    graph = parser._graph  # ruff: ignore[private-member-access]
+    dialect = None if asyncapi else graph.known(graph.names.get(root, root)).dialect
+    version = OpenAPIVersion.V31 if dialect is None else cast("OpenAPIVersion", dialect.version)
     return BoundAttempt(
         GeneratedTypeContractBatch(
             attempt,
@@ -4411,9 +4452,7 @@ def bind_operations(
             fields,
             security_schemes,
             api_scope=True,
-            openapi=(
-                version := parser.document_versions.get(root := next(iter(documents.ids), ""), OpenAPIVersion.V31)
-            ),
+            openapi=version,
             document_versions=() if asyncapi else _own_versions(parser, documents, version),
             document_facts=parser.document_facts.get(root, ()),
             hint_type=builder.binder.hints.hint_type,
@@ -4435,7 +4474,7 @@ def _own_versions(
     return tuple(
         (identity, version)
         for uri, identity in documents.ids.items()
-        if (dialect := parser._dialect_at(SchemaLocation(uri, ()))) is not None  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
+        if (dialect := parser._dialect_at(SchemaLocation(uri, ()))) is not None  # ruff: ignore[private-member-access]
         and (version := cast("OpenAPIVersion", dialect.version)) != root
     )
 
@@ -4449,12 +4488,13 @@ def _pristine(
     walks a rebased copy of a document with nested `$id` resources and keeps the loaded one beside it, and keeps a
     document as written beside the one --use-single-value-enum-as-const read.
     """
-    cache = parser._schema_resource_cache  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
-    as_written = parser._document_as_written  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
-    located = {id(prepared): (location or _unnamed(parser), raw) for location, (raw, prepared) in cache.items()}
+    graph = parser._graph  # ruff: ignore[private-member-access]
+    as_written = parser._document_as_written  # ruff: ignore[private-member-access]
+    prepared = [(name, record) for name, record in graph.documents.items() if record.tree is not None]
+    located = {id(record.tree): (name or _unnamed(parser), record.loaded) for name, record in prepared}
     walked = [located.get(id(document), (uri or _unnamed(parser), document)) for uri, document in documents.items()]
     seen = {id(document) for _, document in walked}
-    loaded = (*walked, *((location, raw) for location, (raw, _) in cache.items() if id(raw) not in seen and location))
+    loaded = (*walked, *((name, record.loaded) for name, record in prepared if id(record.loaded) not in seen and name))
     return tuple((location, as_written(document)) for location, document in loaded)
 
 
@@ -4494,6 +4534,7 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator.config import AsyncAPIParserConfig, OpenAPIParserConfig
     from datamodel_code_generator.imports import Imports
+    from datamodel_code_generator.model._render_plan import AssignmentFacts
     from datamodel_code_generator.parser.base import ForwarderMap, ModuleContext, ModulePath, ParseConfig, Result
     from datamodel_code_generator.parser.openapi_media import MediaOwner
     from datamodel_code_generator.parser.openapi_scope import (

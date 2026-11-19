@@ -8,7 +8,8 @@ import scipy.spatial as ssp
 
 def cont_moments_cv(cont: npt.NDArray,
                     flt_epsilon: float = 1.19209e-07,
-                    dbl_epsilon: float = 2.2204460492503131e-16) -> dict:
+                    dbl_epsilon: float = 2.2204460492503131e-16
+                    ) -> dict | None:
     """Compute the moments of a contour
 
     The moments are computed in the same way as they are computed
@@ -89,17 +90,17 @@ def cont_moments_cv(cont: npt.NDArray,
             db1_20 *= -1
             db1_60 *= -1
 
-        m = dict(m00=a00 * db1_2,
-                 m10=a10 * db1_6,
-                 m01=a01 * db1_6,
-                 m20=a20 * db1_12,
-                 m11=a11 * db1_24,
-                 m02=a02 * db1_12,
-                 m30=a30 * db1_20,
-                 m21=a21 * db1_60,
-                 m12=a12 * db1_60,
-                 m03=a03 * db1_20,
-                 )
+        m = {"m00": a00 * db1_2,
+             "m10": a10 * db1_6,
+             "m01": a01 * db1_6,
+             "m20": a20 * db1_12,
+             "m11": a11 * db1_24,
+             "m02": a02 * db1_12,
+             "m30": a30 * db1_20,
+             "m21": a21 * db1_60,
+             "m12": a12 * db1_60,
+             "m03": a03 * db1_20,
+             }
 
         if m["m00"] > dbl_epsilon:
             # Center of gravity
@@ -127,7 +128,7 @@ def get_inert_ratio_cvx(
         cont: npt.NDArray | list[npt.NDArray]) -> float | npt.NDArray:
     """Compute the inertia ratio of the convex hull of a contour
 
-    The inertia ratio is computed from the central second order of moments
+    The inertia ratio is computed from the central second-order moments
     along x (mu20) and y (mu02) via `sqrt(mu20/mu02)`.
 
     Parameters
@@ -146,7 +147,7 @@ def get_inert_ratio_cvx(
     .. versionchanged:: 0.48.2
 
         For long channels, an integer overflow could occur in previous
-        versions, leading invalid or nan values.
+        versions, leading to invalid or nan values.
         See https://github.com/DC-analysis/dclab/issues/212
 
     Notes
@@ -243,8 +244,8 @@ def get_inert_ratio_prnc(
 
         if moments is not None:
             # orientation of the contour
-            orient = 0.5 * np.arctan2(2 * moments['mu11'],
-                                      moments['mu02'] - moments['mu20'])
+            orient = 0.5 * np.arctan2(2 * moments["mu11"],
+                                      moments["mu02"] - moments["mu20"])
             # rotate contour
             rho = np.sqrt(cc[:, 0]**2 + cc[:, 1]**2)
             phi = np.arctan2(cc[:, 1], cc[:, 0]) + orient + np.pi / 2
@@ -265,7 +266,7 @@ def get_inert_ratio_raw(
         cont: npt.NDArray | list[npt.NDArray]) -> float | npt.NDArray:
     """Compute the inertia ratio of a contour
 
-    The inertia ratio is computed from the central second order of moments
+    The inertia ratio is computed from the central second-order moments
     along x (mu20) and y (mu02) via `sqrt(mu20/mu02)`.
 
     Parameters
@@ -284,7 +285,7 @@ def get_inert_ratio_raw(
     .. versionchanged:: 0.48.2
 
         For long channels, an integer overflow could occur in previous
-        versions, leading invalid or nan values.
+        versions, leading to invalid or nan values.
         See https://github.com/DC-analysis/dclab/issues/212
 
     Notes
@@ -370,8 +371,8 @@ def get_tilt(
         moments = cont_moments_cv(cont[ii])
         if moments is not None:
             # orientation of the contour
-            tilt[ii] = 0.5 * np.arctan2(-2 * moments['mu11'],
-                                        moments['mu20'] - moments['mu02'])
+            tilt[ii] = 0.5 * np.arctan2(-2 * moments["mu11"],
+                                        moments["mu20"] - moments["mu02"])
 
     tilt = np.abs(tilt)
 

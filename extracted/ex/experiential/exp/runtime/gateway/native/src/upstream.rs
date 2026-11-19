@@ -444,17 +444,13 @@ async fn non_success_failure(
     };
     if body
         .as_deref()
-        .is_some_and(crate::rejection_shapes::names_account_policy_block)
+        .is_some_and(crate::end_user_block::body_names_end_user_policy_block)
     {
-        // An account-level policy block is the provider's verdict on the
-        // ACCOUNT, under whatever status the relay chose (OpenRouter answers
-        // 403 or a 400 `invalid_prompt`): the credential class, so the ladder
-        // fails over and the lane can be demoted. Ledger detail only.
-        return transport_failure(Some(403))
-            .with_provider_detail(Some(format!(
-                "{}: account_policy_block",
-                status_detail(status)
-            )))
+        // A block on this request's END USER, under whatever status the relay
+        // chose (OpenRouter answers 403 or a 400 `invalid_prompt`): a typed
+        // content-policy refusal, never a credential verdict on the account.
+        let detail = crate::end_user_block::end_user_block_detail(&status_detail(status));
+        return crate::end_user_block::end_user_block_failure(Some(detail))
             .with_rate_limit_facts(rate_limit.clone(), retry_after);
     }
     if status == 429 {
@@ -755,9 +751,12 @@ async fn non_success_failure(
     // A refused replayed reasoning payload keeps the caller's class too,
     // but the waterfall re-dials this rung once without those items
     // before the class is allowed to surface.
-    let encrypted_reasoning = body
-        .as_deref()
-        .is_some_and(|body| rejected_encrypted_reasoning(dialect, body));
+    // Gemini's refusal of a thought signature another Google backend minted
+    // takes the same repair (`thought_signature_repair`).
+    let encrypted_reasoning = body.as_deref().is_some_and(|body| {
+        rejected_encrypted_reasoning(dialect, body)
+            || crate::thought_signature_repair::rejected_thought_signature(dialect, body)
+    });
     // A context-window verdict keeps the caller's class and sentence, but a
     // lane can serve less than the window the model advertises: the ladder
     // may take it once, to a rung whose window is larger (`next_route_candidate`).

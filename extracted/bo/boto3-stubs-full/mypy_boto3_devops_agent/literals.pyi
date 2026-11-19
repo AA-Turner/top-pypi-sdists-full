@@ -198,6 +198,7 @@ ValidationStatusType = Literal["invalid", "pending-confirmation", "valid"]
 WebhookTypeType = Literal["apikey", "gitlab", "hmac", "pagerduty"]
 DevOpsAgentServiceServiceName = Literal["devops-agent"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

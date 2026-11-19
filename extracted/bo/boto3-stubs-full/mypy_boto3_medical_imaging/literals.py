@@ -73,6 +73,7 @@ SortOrderType = Literal["ASC", "DESC"]
 StorageTierType = Literal["ARCHIVE_INSTANT_ACCESS", "FREQUENT_ACCESS"]
 HealthImagingServiceName = Literal["medical-imaging"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

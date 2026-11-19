@@ -118,6 +118,7 @@ VpcIngressConnectionStatusType = Literal[
 ]
 AppRunnerServiceName = Literal["apprunner"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

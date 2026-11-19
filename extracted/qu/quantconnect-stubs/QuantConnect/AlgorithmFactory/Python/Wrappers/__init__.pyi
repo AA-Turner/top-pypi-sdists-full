@@ -213,7 +213,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
     @property
     def securities(self) -> QuantConnect.Securities.SecurityManager:
         """
-        Security object collection class stores an array of objects representing representing each security/asset
+        Security object collection class stores an array of objects representing each security/asset
         we have a subscription for.
         """
         ...

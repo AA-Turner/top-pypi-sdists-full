@@ -153,6 +153,7 @@ VoiceConnectorIntegrationTypeType = Literal[
 ]
 ChimeSDKVoiceServiceName = Literal["chime-sdk-voice"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

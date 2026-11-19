@@ -5,10 +5,21 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::cell::RefCell;
+use std::collections::BTreeSet;
+
+use lsp_types::SemanticTokenTypes;
 use pretty_assertions::assert_eq;
+use pyrefly_python::ast::Ast;
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::PythonVersion;
+use ruff_python_ast::PySourceType;
+use ruff_text_size::TextRange;
+use ruff_text_size::TextSize;
 
 use crate::state::require::Require;
+use crate::state::semantic_tokens::SemanticTokenBuilder;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::test::util::TestEnv;
 use crate::test::util::mk_multi_file_state_with_env;
@@ -1192,6 +1203,193 @@ token-type: enumMember
 }
 
 #[test]
+fn enum_member_definition_test() {
+    let mut env = TestEnv::new();
+    // A single-member enum normalizes Literal[E.A] to E. The literal-union fixtures
+    // therefore have a second member.
+    env.add(
+        "fixtures",
+        r#"
+from enum import Enum
+from typing import ClassVar, Literal
+
+class E(Enum):
+    A = 1
+    B = 2
+    ALIAS = A
+
+    @property
+    def kind(self) -> Literal[E.A]:
+        return E.A
+
+class F(Enum):
+    A = 1
+    B = 2
+
+class X(str, Enum):
+    title = "title"
+    other = "other"
+
+class Y(str, Enum):
+    title = "other"
+    other = "title"
+
+class SingletonE(Enum):
+    A = 1
+
+class SingletonF(Enum):
+    A = 1
+
+class Holder:
+    kind: ClassVar[Literal[E.A]] = E.A
+    A: ClassVar[Literal[E.A]] = E.A
+    title: ClassVar[Literal[X.title]] = X.title
+
+holder: Holder
+e: E
+enum_class: type[E]
+union_class: type[E] | type[F]
+mixed_class: type[E] | type[Holder]
+x: X
+str_enum_class: type[X] | type[Y]
+mixed_str_enum_class: type[X] | type[Holder]
+normalized_union_class: type[SingletonE] | type[SingletonF]
+"#,
+    );
+    for (expression, receiver_kind, attribute_kind) in [
+        ("E.A", "class", "enumMember"),
+        ("E.ALIAS", "class", "enumMember"),
+        ("e.A", "variable", "enumMember"),
+        ("enum_class.A", "class", "enumMember"),
+        ("union_class.A", "class", "enumMember"),
+        ("mixed_class.A", "class", "property"),
+        ("Holder.kind", "class", "property"),
+        ("Holder.A", "class", "property"),
+        ("holder.kind", "variable", "property"),
+        ("e.kind", "variable", "property"),
+        ("X.title", "class", "enumMember"),
+        ("x.title", "variable", "enumMember"),
+        ("str_enum_class.title", "class", "enumMember"),
+        ("mixed_str_enum_class.title", "class", "property"),
+        ("Holder.title", "class", "property"),
+        // BUG: A should be enumMember, but normalization loses the enum literal types.
+        // https://github.com/pyrefly-org/pyrefly/issues/5645
+        ("normalized_union_class.A", "class", "property"),
+    ] {
+        let (receiver, attribute) = expression.split_once('.').unwrap();
+        let code = format!("from fixtures import *\n{expression}\n");
+        let expected = format!(
+            "# main.py
+line: 0, column: 5, length: 8, text: fixtures
+token-type: namespace
+
+line: 0, column: 21, length: 1, text: *
+token-type: namespace
+
+line: 1, column: 0, length: {}, text: {receiver}
+token-type: {receiver_kind}
+
+line: 1, column: {}, length: {}, text: {attribute}
+token-type: {attribute_kind}",
+            receiver.len(),
+            receiver.len() + 1,
+            attribute.len(),
+        );
+        assert_full_semantic_tokens_with_syntax_and_env(
+            &[("main", &code)],
+            false,
+            env.clone(),
+            &expected,
+        );
+    }
+}
+
+#[test]
+fn narrowed_enum_instance_attribute_test() {
+    let code = r#"
+from enum import Enum
+
+class E(Enum):
+    A = 1
+    B = 2
+
+class Holder:
+    kind: E
+
+def f(holder: Holder) -> None:
+    if holder.kind is E.A:
+        pass
+    elif holder.kind is E.B:
+        pass
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 5, length: 4, text: enum
+token-type: namespace
+
+line: 1, column: 17, length: 4, text: Enum
+token-type: class
+
+line: 3, column: 6, length: 1, text: E
+token-type: class
+
+line: 3, column: 8, length: 4, text: Enum
+token-type: class
+
+line: 4, column: 4, length: 1, text: A
+token-type: variable, token-modifiers: [readonly]
+
+line: 5, column: 4, length: 1, text: B
+token-type: variable, token-modifiers: [readonly]
+
+line: 7, column: 6, length: 6, text: Holder
+token-type: class
+
+line: 8, column: 4, length: 4, text: kind
+token-type: variable
+
+line: 8, column: 10, length: 1, text: E
+token-type: class
+
+line: 10, column: 4, length: 1, text: f
+token-type: function
+
+line: 10, column: 6, length: 6, text: holder
+token-type: parameter
+
+line: 10, column: 14, length: 6, text: Holder
+token-type: class
+
+line: 11, column: 7, length: 6, text: holder
+token-type: parameter
+
+line: 11, column: 14, length: 4, text: kind
+token-type: property
+
+line: 11, column: 22, length: 1, text: E
+token-type: class
+
+line: 11, column: 24, length: 1, text: A
+token-type: enumMember
+
+line: 13, column: 9, length: 6, text: holder
+token-type: parameter
+
+line: 13, column: 16, length: 4, text: kind
+token-type: property
+
+line: 13, column: 24, length: 1, text: E
+token-type: class
+
+line: 13, column: 26, length: 1, text: B
+token-type: enumMember
+"#,
+    );
+}
+
+#[test]
 fn type_alias_test() {
     let code = r#"
 type A = int
@@ -1204,6 +1402,9 @@ type A2 = A
         &[("main", code)],
         r#"
 # main.py
+line: 1, column: 0, length: 4, text: type
+token-type: keyword
+
 line: 1, column: 5, length: 1, text: A
 token-type: interface
 
@@ -1221,6 +1422,9 @@ token-type: interface
 
 line: 2, column: 17, length: 3, text: int
 token-type: class, token-modifiers: [defaultLibrary]
+
+line: 5, column: 0, length: 4, text: type
+token-type: keyword
 
 line: 5, column: 5, length: 2, text: A2
 token-type: interface
@@ -1255,6 +1459,9 @@ token-type: interface
 
 
 # lib.py
+line: 1, column: 0, length: 4, text: type
+token-type: keyword
+
 line: 1, column: 5, length: 7, text: MyAlias
 token-type: interface
 
@@ -1983,6 +2190,306 @@ token-type: variable
 
 line: 2, column: 21, length: 5, text: items
 token-type: variable
+"#,
+    );
+}
+
+/// Decodes the delta-encoded tokens of `main` into `(line, column, text, token type)` tuples.
+fn decoded_semantic_tokens(
+    code: &str,
+    include_syntax_tokens: bool,
+    limit_range: Option<TextRange>,
+) -> Vec<(usize, usize, String, String)> {
+    let (handles, state) =
+        mk_multi_file_state_with_env(TestEnv::new(), &[("main", code)], Require::Exports, false);
+    let tokens = state
+        .transaction()
+        .semantic_tokens(
+            handles.get("main").unwrap(),
+            limit_range,
+            None,
+            include_syntax_tokens,
+        )
+        .unwrap();
+    let legend = SemanticTokensLegends::lsp_semantic_token_legends();
+    let mut line = 0;
+    let mut col = 0;
+    tokens
+        .into_iter()
+        .map(|token| {
+            col = match token.delta_line {
+                0 => col + token.delta_start as usize,
+                _ => token.delta_start as usize,
+            };
+            line += token.delta_line as usize;
+            let text = code.lines().nth(line).unwrap()[col..col + token.length as usize].to_owned();
+            let token_type = legend.token_types[token.token_type as usize]
+                .as_str()
+                .to_owned();
+            (line, col, text, token_type)
+        })
+        .collect()
+}
+
+/// Clients that do not augment syntax tokens rely on the full token stream for keyword
+/// highlighting, so every keyword must get a `keyword` token, and the stream must contain
+/// exactly the augmenting stream plus syntax tokens. The `type` alias keyword appears
+/// in both streams.
+#[test]
+fn full_stream_covers_keywords_and_extends_augmenting_stream_test() {
+    let code = r#"import os.path as osp
+from typing import Any
+lazy import json
+lazy from typing import Final
+
+
+async def coro(x: int) -> None:
+    await coro(x)
+    async for item in aiter([]):
+        pass
+    async with open("f") as c:
+        pass
+
+
+def gen():
+    yield 1
+    yield from range(3)
+
+
+class Foo:
+    attr = None
+
+    def __init__(self, a=True, b=False):
+        self.a = a
+
+
+def control(x):
+    global G
+    holder = 0
+
+    def inner():
+        nonlocal holder
+        holder += 1
+
+    if x and not x or x is None:
+        pass
+    elif x in [1] or x is not None or x not in []:
+        pass
+    else:
+        pass
+    for i in range(3):
+        if i:
+            continue
+        break
+    while False:
+        pass
+    try:
+        raise ValueError("e") from None
+    except ValueError as e:
+        del e
+    except* TypeError:
+        pass
+    finally:
+        assert True, "msg"
+    return lambda y: y
+
+
+def soft(command):
+    match command:
+        case [x, y]:
+            pass
+        case _:
+            pass
+
+
+type Alias = list[int]
+"#;
+    let full = decoded_semantic_tokens(code, true, None);
+    let keywords: BTreeSet<&str> = full
+        .iter()
+        .filter(|(_, _, _, token_type)| token_type == "keyword")
+        .map(|(_, _, text, _)| text.as_str())
+        .collect();
+    let expected_keywords: BTreeSet<&str> = [
+        "False", "None", "True", "and", "as", "assert", "async", "await", "break", "case", "class",
+        "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global",
+        "if", "import", "in", "is", "lambda", "lazy", "match", "nonlocal", "not", "or", "pass",
+        "raise", "return", "try", "type", "while", "with", "yield",
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(expected_keywords, keywords);
+
+    let syntax_token_types = ["comment", "keyword", "number", "operator", "string"];
+    let expected_augmenting: Vec<_> = full
+        .into_iter()
+        .filter(|(_, _, text, token_type)| {
+            !syntax_token_types.contains(&token_type.as_str())
+                || (token_type == "keyword" && text == "type")
+        })
+        .collect();
+    assert_eq!(
+        decoded_semantic_tokens(code, false, None),
+        expected_augmenting
+    );
+}
+
+#[test]
+fn type_alias_keyword_test() {
+    let code = r#"type Alias = int
+type Generic[T] = list[T]
+class Container:
+    type Nested = str
+type First = int; type Second = str
+type(0)
+def shadow():
+    type = 0
+    type
+"#;
+    for include_syntax_tokens in [false, true] {
+        let tokens: Vec<_> = decoded_semantic_tokens(code, include_syntax_tokens, None)
+            .into_iter()
+            .filter(|(_, _, text, _)| text == "type")
+            .collect();
+        let expected = [
+            (0, 0, "type", "keyword"),
+            (1, 0, "type", "keyword"),
+            (3, 4, "type", "keyword"),
+            (4, 0, "type", "keyword"),
+            (4, 18, "type", "keyword"),
+            (5, 0, "type", "class"),
+            (7, 4, "type", "variable"),
+            (8, 4, "type", "variable"),
+        ];
+        let expected: Vec<_> = expected
+            .into_iter()
+            .map(|(line, col, text, kind)| (line, col, text.to_owned(), kind.to_owned()))
+            .collect();
+        assert_eq!(tokens, expected);
+    }
+}
+
+#[test]
+fn type_alias_keyword_range_test() {
+    let code = "type Alias = int";
+    for include_syntax_tokens in [false, true] {
+        let expected = vec![(0, 0, "type".to_owned(), "keyword".to_owned())];
+        assert_eq!(
+            decoded_semantic_tokens(
+                code,
+                include_syntax_tokens,
+                Some(TextRange::new(TextSize::new(0), TextSize::new(4))),
+            ),
+            expected,
+        );
+        assert!(
+            decoded_semantic_tokens(
+                code,
+                include_syntax_tokens,
+                Some(TextRange::new(TextSize::new(4), TextSize::new(5))),
+            )
+            .is_empty()
+        );
+    }
+}
+
+#[test]
+fn attribute_range_skips_classification_but_visits_receiver() {
+    let code = "a.b.c";
+    let (ast, errors, _) = Ast::parse(code, PySourceType::Python);
+    assert!(errors.is_empty());
+    for (start, end, expected_attributes, expected_tokens) in [
+        (0, 1, vec![], vec!["a"]),
+        (2, 3, vec!["b"], vec!["b"]),
+        (4, 5, vec!["c"], vec!["c"]),
+        (1, 2, vec![], vec![]),
+        (2, 2, vec![], vec![]),
+    ] {
+        let classified = RefCell::new(Vec::new());
+        let mut builder = SemanticTokenBuilder::new(
+            Some(TextRange::new(TextSize::new(start), TextSize::new(end))),
+            Vec::new(),
+        );
+        builder.process_ast(
+            &ast,
+            &|attr| {
+                classified.borrow_mut().push(attr.attr.id.to_string());
+                Some(SemanticTokenTypes::Property)
+            },
+            &|_| Some((ModuleName::from_str("main"), SymbolKind::Variable)),
+        );
+        assert_eq!(*classified.borrow(), expected_attributes);
+        let tokens: Vec<_> = builder
+            .all_tokens_sorted()
+            .iter()
+            .map(|token| &code[token.range.start().to_usize()..token.range.end().to_usize()])
+            .collect();
+        assert_eq!(tokens, expected_tokens);
+    }
+}
+
+#[test]
+fn enum_member_on_expression_receiver_test() {
+    let code = r#"
+from enum import Enum
+
+class E(Enum):
+    A = 1
+    B = 2
+
+def make() -> E: ...
+es: list[E] = []
+make().A
+es[0].A
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 5, length: 4, text: enum
+token-type: namespace
+
+line: 1, column: 17, length: 4, text: Enum
+token-type: class
+
+line: 3, column: 6, length: 1, text: E
+token-type: class
+
+line: 3, column: 8, length: 4, text: Enum
+token-type: class
+
+line: 4, column: 4, length: 1, text: A
+token-type: variable, token-modifiers: [readonly]
+
+line: 5, column: 4, length: 1, text: B
+token-type: variable, token-modifiers: [readonly]
+
+line: 7, column: 4, length: 4, text: make
+token-type: function
+
+line: 7, column: 14, length: 1, text: E
+token-type: class
+
+line: 8, column: 0, length: 2, text: es
+token-type: variable
+
+line: 8, column: 4, length: 4, text: list
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 8, column: 9, length: 1, text: E
+token-type: class
+
+line: 9, column: 0, length: 4, text: make
+token-type: function
+
+line: 9, column: 7, length: 1, text: A
+token-type: enumMember
+
+line: 10, column: 0, length: 2, text: es
+token-type: variable
+
+line: 10, column: 6, length: 1, text: A
+token-type: enumMember
 "#,
     );
 }

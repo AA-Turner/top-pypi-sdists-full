@@ -67,7 +67,7 @@ def _drain_qt_events() -> None:
         return
     for _ in range(2):
         app.processEvents()
-        app.sendPostedEvents(None, QEvent.DeferredDelete)
+        app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 @pytest.fixture(autouse=True)
@@ -102,4 +102,4 @@ def check_gc(request):  # noqa: ANN201
 def plotting() -> None:
     """Require plotting."""
     if NO_PLOTTING:
-        pytest.skip(NO_PLOTTING, reason="Requires system to support plotting")
+        pytest.skip("Requires system to support plotting")

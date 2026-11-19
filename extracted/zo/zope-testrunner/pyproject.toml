@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zope.testrunner"
-version = "8.3"
+version = "8.4"
 description = "Zope testrunner script."
 license = "ZPL-2.1"
 classifiers = [
@@ -20,18 +20,18 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Testing",
 ]
 dynamic = ["readme"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     {name = "Zope Foundation and contributors",email = "zope-dev@zope.dev"},
 ]
@@ -90,4 +90,5 @@ readme = {file = ["README.rst", "docs/getting-started.rst", "CHANGES.rst"]}
 
 [tool.zest-releaser]
 create-wheel = false
+extra-message = ""
 upload-pypi = false

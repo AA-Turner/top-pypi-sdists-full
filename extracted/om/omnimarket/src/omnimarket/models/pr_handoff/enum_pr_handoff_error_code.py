@@ -21,6 +21,9 @@ class EnumPrHandoffErrorCode(StrEnum):
     REPO_OUT_OF_LANDING_SCOPE = "repo-out-of-landing-scope"
     """The request's repository is outside the landing scope the caller supplied, so the landing controller will not land it."""
 
+    SCOPE_UNREAD = "scope-unread"
+    """The request carries no usable landing scope: absent, unreadable or invalid."""
+
     STALE_HEAD = "stale_head"
     """An observation made after the request shows a head other than the one the lane pushed: someone else pushed, or the push failed."""
 
@@ -41,6 +44,15 @@ class EnumPrHandoffErrorCode(StrEnum):
 
     PR_NOT_OPEN = "pr_not_open"
     """The live PR is closed or merged."""
+
+    REVIEW_STATUS_MISSING = "review_status_missing"
+    """A new-work PR whose live head has no fable-review-gate commit status at all."""
+
+    REVIEW_STATUS_FAILING = "review_status_failing"
+    """A new-work PR whose live head's newest fable-review-gate commit status is not success."""
+
+    REVIEW_STATUS_OTHER_HEAD = "review_status_other_head"
+    """A new-work PR whose fable-review-gate commit status is only on an older head; a status on another head does not count."""
 
     SUPERSEDED = "superseded"
     """A newer handoff request for the same PR replaced this one while it waited."""
@@ -63,15 +75,22 @@ DECISION_REFUSAL_CODES: frozenset[EnumPrHandoffErrorCode] = frozenset(
         EnumPrHandoffErrorCode.MISSING_TICKET,
         EnumPrHandoffErrorCode.NOT_OWNED,
         EnumPrHandoffErrorCode.MISSING_LAB_PROOF,
+        EnumPrHandoffErrorCode.REVIEW_STATUS_MISSING,
+        EnumPrHandoffErrorCode.REVIEW_STATUS_FAILING,
+        EnumPrHandoffErrorCode.REVIEW_STATUS_OTHER_HEAD,
         EnumPrHandoffErrorCode.HELD,
         EnumPrHandoffErrorCode.WITHHELD,
         EnumPrHandoffErrorCode.PR_NOT_OPEN,
     }
 )
 
-# The orchestrator does not pass a scope yet, so it has no trigger for this code.
+# The orchestrator passes the landing scope and routes both scope refusals
+# through their own ``evaluated_<code>`` triggers (WAITING to REFUSED).
 LANDING_SCOPE_REFUSAL_CODES: frozenset[EnumPrHandoffErrorCode] = frozenset(
-    {EnumPrHandoffErrorCode.REPO_OUT_OF_LANDING_SCOPE}
+    {
+        EnumPrHandoffErrorCode.REPO_OUT_OF_LANDING_SCOPE,
+        EnumPrHandoffErrorCode.SCOPE_UNREAD,
+    }
 )
 
 

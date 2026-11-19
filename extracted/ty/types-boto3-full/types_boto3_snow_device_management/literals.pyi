@@ -56,6 +56,7 @@ TaskStateType = Literal["CANCELED", "COMPLETED", "IN_PROGRESS"]
 UnlockStateType = Literal["LOCKED", "UNLOCKED", "UNLOCKING"]
 SnowDeviceManagementServiceName = Literal["snow-device-management"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

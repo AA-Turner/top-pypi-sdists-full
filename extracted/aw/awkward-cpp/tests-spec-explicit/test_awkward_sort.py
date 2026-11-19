@@ -3,6 +3,51 @@ import numpy
 import kernels
 
 def test_awkward_sort_1():
+	toptr = [123, 123, 123, 123, 123]
+	toptr = [1, 1, 1, 1, 1]
+	fromptr = [1, 0, 0, 1, 1]
+	offsets = [0, 2]
+	offsetslength = 2
+	length = 5
+	ascending = True
+	stable = True
+	funcPy = getattr(kernels, 'awkward_sort')
+	funcPy(toptr = toptr,fromptr = fromptr,offsets = offsets,offsetslength = offsetslength,length = length,ascending = ascending,stable = stable)
+	pytest_toptr = [0, 1, 1, 1, 1]
+	assert toptr == pytest_toptr
+
+
+def test_awkward_sort_2():
+	toptr = [123, 123, 123, 123, 123]
+	toptr = [1, 1, 1, 1, 1]
+	fromptr = [1, 0, 0, 1, 1]
+	offsets = [0, 0, 0]
+	offsetslength = 3
+	length = 5
+	ascending = True
+	stable = True
+	funcPy = getattr(kernels, 'awkward_sort')
+	funcPy(toptr = toptr,fromptr = fromptr,offsets = offsets,offsetslength = offsetslength,length = length,ascending = ascending,stable = stable)
+	pytest_toptr = [1, 1, 1, 1, 1]
+	assert toptr == pytest_toptr
+
+
+def test_awkward_sort_3():
+	toptr = [123, 123, 123, 123, 123]
+	toptr = [1, 1, 1, 1, 1]
+	fromptr = [1, 0, 0, 1, 1]
+	offsets = [0, 2, 5]
+	offsetslength = 2
+	length = 5
+	ascending = True
+	stable = True
+	funcPy = getattr(kernels, 'awkward_sort')
+	funcPy(toptr = toptr,fromptr = fromptr,offsets = offsets,offsetslength = offsetslength,length = length,ascending = ascending,stable = stable)
+	pytest_toptr = [0, 1, 1, 1, 1]
+	assert toptr == pytest_toptr
+
+
+def test_awkward_sort_4():
 	toptr = []
 	fromptr = []
 	offsets = []
@@ -16,7 +61,7 @@ def test_awkward_sort_1():
 	assert toptr == pytest_toptr
 
 
-def test_awkward_sort_2():
+def test_awkward_sort_5():
 	toptr = [123, 123, 123, 123, 123, 123, 123]
 	fromptr = [8, 6, 7, 5, 3, 0, 9]
 	offsets = [0, 3, 3, 7]
@@ -30,7 +75,7 @@ def test_awkward_sort_2():
 	assert toptr == pytest_toptr
 
 
-def test_awkward_sort_3():
+def test_awkward_sort_6():
 	toptr = [123, 123, 123, 123, 123, 123, 123]
 	fromptr = [8, 6, 7, 5, 3, 0, 9]
 	offsets = [0, 3, 3, 7]
@@ -44,7 +89,7 @@ def test_awkward_sort_3():
 	assert toptr == pytest_toptr
 
 
-def test_awkward_sort_4():
+def test_awkward_sort_7():
 	toptr = [123, 123, 123, 123, 123, 123, 123]
 	fromptr = [8, 6, 7, 5, 3, 0, 9]
 	offsets = [0, 3, 3, 7]
@@ -58,7 +103,7 @@ def test_awkward_sort_4():
 	assert toptr == pytest_toptr
 
 
-def test_awkward_sort_5():
+def test_awkward_sort_8():
 	toptr = [123, 123, 123, 123, 123, 123, 123]
 	fromptr = [8, 6, 7, 5, 3, 0, 9]
 	offsets = [0, 3, 3, 7]

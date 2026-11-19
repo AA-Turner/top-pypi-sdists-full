@@ -570,8 +570,7 @@ def test_a_budget_that_expires_before_anything_runs_says_so(monkeypatch):
 # Which STEP failed. Three unrelated faults used to share one face.
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("resolve", ["prepare_session_geo", "resolve_session_timezone"])
-def test_a_database_failure_does_not_look_like_a_proxy_failure(monkeypatch, resolve):
+def test_a_database_failure_does_not_look_like_a_proxy_failure(monkeypatch):
     """The egress lookup SUCCEEDED here. Only the database step failed.
 
     Before the split, both steps came out of one blanket `except Exception:
@@ -579,7 +578,7 @@ def test_a_database_failure_does_not_look_like_a_proxy_failure(monkeypatch, reso
     the download's own message and nothing saying which half of the work it came
     from. The reflex that invites is to go and check the proxy, which is fine.
     """
-    from invisible_core import download
+    from invisible_core import _geo as download
 
     _answering(monkeypatch, "203.0.113.7")
     monkeypatch.setattr(download, "ensure_geoip_mmdb", lambda *a, **k: (_ for _ in ()).throw(
@@ -587,7 +586,7 @@ def test_a_database_failure_does_not_look_like_a_proxy_failure(monkeypatch, reso
 
     proxy = {"server": "http://proxy.example:8080"}
     with pytest.raises(_geo.GeoTimezoneError) as excinfo:
-        getattr(_geo, resolve)("auto", proxy)
+        _geo.prepare_session_geo("auto", proxy)
 
     error = excinfo.value
     assert error.kind == "geoip_unavailable"
@@ -608,7 +607,7 @@ def test_a_database_failure_with_no_proxy_does_not_mention_one(monkeypatch):
     still reaches a person: `_warn_locale_fallback` prints it to stderr, which
     the test below covers.
     """
-    from invisible_core import download
+    from invisible_core import _geo as download
 
     monkeypatch.setattr(download, "ensure_geoip_mmdb", lambda *a, **k: (_ for _ in ()).throw(
         OSError("disk full while writing the mmdb")))

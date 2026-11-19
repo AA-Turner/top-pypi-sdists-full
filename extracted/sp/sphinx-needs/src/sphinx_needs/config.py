@@ -143,6 +143,11 @@ class _BuildData:
     string, where it is written (None where no caller says) and the origin its caller
     appends to its warnings (``(from warning filter 'x')``): once per build, emptied
     where the types are set."""
+    namespaced_ids_off_reported: set[tuple[str, object, str]] = field(
+        default_factory=set
+    )
+    """The filters reported for reading a namespace value while ``needs_namespaced_ids``
+    is off, keyed as :attr:`is_a_reported` is: once per build, emptied with it."""
 
 
 class _Config:
@@ -565,7 +570,7 @@ class ExternalSource(TypedDict, total=False):
     which is used as it is"""
 
     id_prefix: str
-    """Prefix all IDs from the external source with this string (optional, uppercased)"""
+    """Prefix all IDs from the external source with this string, as written (optional)"""
 
     css_class: str
     """Added as the `external_css` field for each need item (optional)"""
@@ -685,6 +690,9 @@ class NeedType(TypedDict):
 
     directive: str
     """The directive name."""
+    directive_name: NotRequired[str]
+    """Whether the bare directive name is the need's: ``"claim"``, ``"yield"`` or
+    ``"qualified"``, over ``needs_directive_name``. ``need:<directive>`` always is."""
     title: str
     """A human readable title."""
     prefix: str
@@ -1015,6 +1023,30 @@ _OWN_ATTRIBUTES = (
 )
 
 
+class _OverrideAsText:
+    """The default a configuration value is registered with when its field's metadata
+    says ``"override_as_text": True``: Sphinx calls it for the value of an unset
+    option, and gets the field's default back.
+
+    Sphinx's ``Config.convert_overrides`` passes a ``-D`` value through as the text it
+    is for a callable default (Sphinx 7.4 to 9), as for a text or ``None`` one; a
+    callable is the one kind that does so while the unset value stays what the field
+    says, such as the integer ``1``. For an integer default Sphinx tries
+    ``int(value)`` and drops anything else with a warning.
+    """
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+    def __call__(self, _config: _SphinxConfig) -> Any:
+        return self.value
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.value!r})"
+
+
 @dataclass
 class NeedsSphinxConfig:
     """A wrapper around the Sphinx configuration,
@@ -1083,7 +1115,14 @@ class NeedsSphinxConfig:
 
     @classmethod
     def add_config_values(cls, app: Sphinx) -> None:
-        """Add all config values to the Sphinx application."""
+        """Add all config values to the Sphinx application.
+
+        A field whose metadata says ``"override_as_text": True`` is registered with a
+        callable default (:class:`_OverrideAsText`) rather than its default itself, so
+        that Sphinx passes a ``-D`` value for it through as the text it is rather than
+        converting it by the default's type; the value it reads unset is the field's
+        default all the same.
+        """
         for item in fields(cls):
             if item.default_factory is not MISSING:
                 default = item.default_factory()
@@ -1093,6 +1132,8 @@ class NeedsSphinxConfig:
                 raise Exception(
                     f"Config item {item.name} has no default value or factory."
                 )
+            if item.metadata.get("override_as_text", False):
+                default = _OverrideAsText(default)
             name = item.name
             if name.startswith("_"):
                 name = name[1:]
@@ -1262,6 +1303,14 @@ class NeedsSphinxConfig:
     def types(self, _value: object) -> None:
         _read_only(TYPES_READ_ONLY)
 
+    directive_name: str | None = field(
+        default=None, metadata={"rebuild": "env", "types": (str, type(None))}
+    )
+    """Whether a need type's bare directive name is the need's when another directive
+    has it too: ``"claim"`` (it is the need's), ``"yield"`` (it is the other one's) or
+    ``"qualified"`` (never the need's); ``need:<directive>`` always is. Unset behaves
+    as ``"claim"`` and reports the clash. A type's ``directive_name`` wins."""
+
     include_needs: bool = field(
         default=True, metadata={"rebuild": "html", "types": (bool,)}
     )
@@ -1279,6 +1328,12 @@ class NeedsSphinxConfig:
         default="^[A-Z0-9_]{5,}", metadata={"rebuild": "html", "types": ()}
     )
     """Regex to validate need IDs."""
+    namespaced_ids: bool = field(
+        default=False, metadata={"rebuild": "env", "types": (bool,)}
+    )
+    """Read a namespace out of every need id that holds ``::``: ``nc::m2::REQ_1`` is
+    the local id ``REQ_1`` in the namespace ``nc::m2``. False reads every id as a plain
+    id. Off by default in the 9.x series; on by default from 10.0."""
     show_link_type: bool = field(
         default=False, metadata={"rebuild": "html", "types": (bool,)}
     )
@@ -1606,6 +1661,11 @@ class NeedsSphinxConfig:
         default=False, metadata={"rebuild": "env", "types": (bool,)}
     )
     """If True, needimport parses each imported need's content in the markup its doctype names."""
+    import_restrict_content: bool = field(
+        default=False, metadata={"rebuild": "env", "types": (bool,)}
+    )
+    """If True, the content of a need needimport creates, and the text its templates
+    render, is parsed with docutils' file insertion and raw markup switched off."""
     external_needs: list[ExternalSource] = field(
         default_factory=list,
         metadata={
@@ -1659,6 +1719,16 @@ class NeedsSphinxConfig:
     If False, link conditions are stripped and only the target ID is written (e.g. 'NEED-1').
     Backlink fields are unaffected as they never carry conditions.
     """
+    json_format_version: int | str = field(
+        default=1,
+        # "env": a build whose value differs from the environment's reads the project
+        # again, so that it writes the file at all -- Sphinx 7.4 writes none for a build
+        # that reads nothing, which a value set for one build with ``-D`` would hit
+        metadata={"rebuild": "env", "types": (int, str), "override_as_text": True},
+    )
+    """The format version of the ``needs.json`` the needs builders write: ``1`` (the
+    default; the text ``"1"`` too, which is what ``-D`` gives), or ``"2a1"``, the
+    experimental draft of version 2."""
     build_needumls: str = field(
         default="", metadata={"rebuild": "html", "types": (str,)}
     )

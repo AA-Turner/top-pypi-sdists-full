@@ -11,6 +11,7 @@ import functools
 from unittest.mock import patch, AsyncMock, MagicMock
 from uuid import UUID, uuid4
 import uuid
+import warnings
 
 import httpx
 import icechunk
@@ -39,6 +40,7 @@ from arraylake.types import Repo as RepoModel
 
 from . import fake_jwt
 from arraylake.types import (
+    OpenRepoResponse,
     RepoOperationMode,
     RepoOperationStatusResponse,
     UserInfo,
@@ -130,6 +132,29 @@ def _set_cached_id_token(token_file, id_token):
 async def test_get_auth_headers_uses_api_token(test_token):
     assert await AsyncClient(token=test_token).get_auth_headers() == {"Authorization": f"Bearer {test_token}"}
     assert Client(token=test_token).get_auth_headers() == {"Authorization": f"Bearer {test_token}"}
+
+
+@pytest.mark.parametrize(
+    "mode, warning",
+    [
+        pytest.param("online", None, id="online"),
+        pytest.param("maintenance", "read-only for maintenance", id="maintenance"),
+        pytest.param("some_future_mode", "mode 'some_future_mode', which this client does not know", id="unknown"),
+    ],
+)
+async def test_open_repo_response_warns_for_every_non_online_mode(
+    mode: str, warning: str | None, test_token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    status = RepoOperationStatusResponse.model_validate({"mode": mode, "initiated_by": {}})
+    response = OpenRepoResponse.model_construct(status=status)
+    monkeypatch.setattr(AsyncClient, "_metastore_for_org", lambda self, org: MagicMock(open_repo=AsyncMock(return_value=response)))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        await AsyncClient(token=test_token)._open_repo_response("org/repo")
+
+    messages = [str(w.message) for w in caught]
+    assert messages == [] if warning is None else any(warning in m for m in messages)
 
 
 @pytest.mark.asyncio
@@ -1401,7 +1426,7 @@ async def test_bucket_lifecycle(isolated_org, default_bucket, token, helpers):
             nickname=second_bucket_nickname,
             uri=f"s3://{bucket_name}/{prefix}",
             region_name="us-west-2",
-            endpoint_url="http://some-other-url:1234",
+            endpoint_url="https://abc1234.r2.cloudflarestorage.com",
             auth_config={"method": "anonymous"},
         )
 
@@ -1413,7 +1438,7 @@ async def test_bucket_lifecycle(isolated_org, default_bucket, token, helpers):
                 nickname=third_bucket_name,
                 uri=f"s3://{bucket_name}/{prefix}",
                 region_name="us-west-2",
-                endpoint_url="http://some-other-url:1234",
+                endpoint_url="https://abc1234.r2.cloudflarestorage.com",
                 auth_config={"method": "anonymous"},
             )
 
@@ -1422,14 +1447,14 @@ async def test_bucket_lifecycle(isolated_org, default_bucket, token, helpers):
             org=org_name,
             nickname=third_bucket_name,
             uri=f"s3://{bucket_name}/{prefix}",
-            endpoint_url="http://some-other-url:4567",
+            endpoint_url="https://abc4567.r2.cloudflarestorage.com",
             use_ssl=False,
             auth_config={"method": "anonymous"},
         )
         buckets = await aclient.list_bucket_configs(org_name)
         assert len(buckets) == 3
         assert valid_bucket in _without_health(buckets)
-        assert valid_bucket.extra_config["endpoint_url"] == "http://some-other-url:4567"
+        assert valid_bucket.extra_config["endpoint_url"] == "https://abc4567.r2.cloudflarestorage.com"
 
         # Creating a bucket with an invalid platform should fail
         with pytest.raises(ValueError, match="Invalid platform"):

@@ -68,8 +68,9 @@ def benchmark(*args: Any, **kwargs: Any) -> Callable[[_T], _T]:
     - `max_seconds`: how long an episode may run on the robot's clock, the same for every task or {task: seconds}.
 
     - `init`: its constructor's arguments, a dict by name or a list by position - "{num_worlds}" how many worlds this eval
-      builds, "{policy.<field>}" what the evaluated policy declares (hz, action_chunk_valid_len, action_chunk_replan_at; at
-      the registration check none is, and a keyword argument that is one alone is left out, its default holding).
+      builds, "{policy.<field>}" what the evaluated policy declares (hz, action_chunk_valid_len, action_chunk_replan_at,
+      robot - the arm it was made for; at the registration check none is, and a keyword argument that is one alone
+      is left out, its default holding).
 
     Its class is built by its constructor after the machine's snapshot, its cameras opened there too; its file is
     imported before, so work alike for every eval goes at its module's top. Its methods: `@seq.reset def start(self,

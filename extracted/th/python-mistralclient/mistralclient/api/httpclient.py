@@ -96,16 +96,17 @@ class HTTPClient(object):
 
             if self.insecure:
                 self.ssl_options['verify'] = False
-            else:
-                if self.cacert:
-                    self.ssl_options['verify'] = self.cacert
-                else:
-                    self.ssl_options['verify'] = True
+            elif self.cacert:
+                self.ssl_options['verify'] = self.cacert
+            elif isinstance(self.session, requests.Session):
+                # A keystoneauth session already carries its own verify
+                self.ssl_options['verify'] = True
 
-            self.ssl_options['cert'] = (
-                kwargs.get(CERT_FILE),
-                kwargs.get(CERT_KEY)
-            )
+            if kwargs.get(CERT_FILE):
+                self.ssl_options['cert'] = (
+                    kwargs.get(CERT_FILE),
+                    kwargs.get(CERT_KEY)
+                )
 
     @log_request
     def get(self, url, headers=None):

@@ -41,12 +41,16 @@ use crate::binding::binding::UnpackedPosition;
 use crate::binding::binding::UnpackedValue;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamCollector;
+use crate::binding::expr::Evaluation;
+use crate::binding::expr::StaticUsage;
+use crate::binding::expr::TypeExpressionContext;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::NameReadInfo;
 use crate::export::special::SpecialExport;
 use crate::types::class::AttrsFieldSpecifierKind;
+use crate::types::quantified::QuantifiedAnchor;
 
 impl<'a> BindingsBuilder<'a> {
     /// Bind one level of an unpacked LHS target, for example in `x, (y, [*z]), q = foo`
@@ -162,7 +166,7 @@ impl<'a> BindingsBuilder<'a> {
         narrowed_idx: Idx<Key>,
     ) {
         let name = Hashed::new(&identifier.id);
-        let usage = Usage::NonPinningValue(None);
+        let usage = Usage::Inspection;
         let name_is_defined = match self.look_up_name_for_read(name, &usage) {
             NameReadInfo::Flow { .. }
             | NameReadInfo::Anywhere { .. }
@@ -187,7 +191,11 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         mut attr: ExprAttribute,
         mut assigned: Option<&mut Expr>,
-        make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        make_assigned_value: impl FnOnce(
+            &ExprAttribute,
+            Option<&Expr>,
+            Option<Idx<KeyAnnotation>>,
+        ) -> ExprOrBinding,
         ensure_assigned: bool,
     ) -> ExprOrBinding {
         let narrowing_identifier =
@@ -205,11 +213,22 @@ impl<'a> BindingsBuilder<'a> {
                     method.recognized_attribute_defining_method
                         && matches!(method.instance_or_class, MethodSelfKind::Instance)
                 });
+        // Updating a function's docstring does not retain its instance-callable view.
+        // Only the direct store base is exempt; assignment RHS captures still count.
+        let metadata_write = self.track_classmethod_uses
+            && attr.attr.id.as_str() == "__doc__"
+            && matches!(attr.value.as_ref(), Expr::Name(_));
+        if metadata_write {
+            self.track_classmethod_uses = false;
+        }
         self.ensure_expr(&mut attr.value, user.usage());
+        if metadata_write {
+            self.track_classmethod_uses = true;
+        }
         if ensure_assigned && let Some(assigned) = &mut assigned {
             self.ensure_expr(assigned, user.usage());
         }
-        let value = make_assigned_value(assigned.as_deref(), None);
+        let value = make_assigned_value(&attr, assigned.as_deref(), None);
         let idx = self.insert_binding_current(
             user,
             Binding::AssignToAttribute(Box::new(AssignToAttribute {
@@ -228,12 +247,16 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         attr: ExprAttribute,
         assigned: &mut Expr,
-        make_assigned_value: impl FnOnce(&Expr, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        make_assigned_value: impl FnOnce(
+            &ExprAttribute,
+            &Expr,
+            Option<Idx<KeyAnnotation>>,
+        ) -> ExprOrBinding,
     ) -> ExprOrBinding {
         self.bind_attr_assign_impl(
             attr,
             Some(assigned),
-            |expr, ann| make_assigned_value(expr.unwrap(), ann),
+            |attr, value, ann| make_assigned_value(attr, value.unwrap(), ann),
             true,
         )
     }
@@ -244,7 +267,11 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         mut subscript: ExprSubscript,
         mut assigned: Option<&mut Expr>,
-        make_assigned_value: impl FnOnce(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        make_assigned_value: impl FnOnce(
+            &ExprSubscript,
+            Option<&Expr>,
+            Option<Idx<KeyAnnotation>>,
+        ) -> ExprOrBinding,
         ensure_assigned: bool,
     ) {
         let narrowing_identifier =
@@ -260,7 +287,7 @@ impl<'a> BindingsBuilder<'a> {
         if ensure_assigned && let Some(assigned) = &mut assigned {
             self.ensure_expr(assigned, user.usage());
         }
-        let value = make_assigned_value(assigned.as_deref(), None);
+        let value = make_assigned_value(&subscript, assigned.as_deref(), None);
         let idx = self.insert_binding_current(
             user,
             Binding::AssignToSubscript(Box::new((subscript, Box::new(value)))),
@@ -274,12 +301,16 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         subscript: ExprSubscript,
         assigned: &mut Expr,
-        make_assigned_value: impl FnOnce(&Expr, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
+        make_assigned_value: impl FnOnce(
+            &ExprSubscript,
+            &Expr,
+            Option<Idx<KeyAnnotation>>,
+        ) -> ExprOrBinding,
     ) {
         self.bind_subscript_assign_impl(
             subscript,
             Some(assigned),
-            |expr, ann| make_assigned_value(expr.unwrap(), ann),
+            |subscr, value, ann| make_assigned_value(subscr, value.unwrap(), ann),
             true,
         )
     }
@@ -324,18 +355,20 @@ impl<'a> BindingsBuilder<'a> {
                 let attr_value = self.bind_attr_assign_impl(
                     x.clone(),
                     assigned,
-                    make_assigned_value,
+                    |_attr, value, ann| make_assigned_value(value, ann),
                     ensure_assigned,
                 );
                 // If this is a self-assignment, record it because we may use it to infer
                 // the existence of an instance-only attribute.
-                self.scopes.record_self_attr_assign(x, attr_value, None);
+                self.scopes
+                    .record_self_attr_assign(x, attr_value, None, true);
+                self.scopes.record_new_instance_attr_assign(x);
             }
             Expr::Subscript(x) => {
                 self.bind_subscript_assign_impl(
                     x.clone(),
                     assigned,
-                    make_assigned_value,
+                    |_subscr, value, ann| make_assigned_value(value, ann),
                     ensure_assigned,
                 );
             }
@@ -367,12 +400,7 @@ impl<'a> BindingsBuilder<'a> {
                 //
                 // We ignore such names for first-usage-tracking purposes, since
                 // we are not going to analyze the code at all.
-                self.ensure_expr(
-                    illegal_target,
-                    &mut Usage::StaticTypeInformation {
-                        is_annotation: false,
-                    },
-                );
+                self.ensure_expr(illegal_target, &mut Usage::Unchecked);
                 // Make sure the RHS is properly bound, so that we can report errors there.
                 // `ensure_expr` may itself create a `Key::Anon` for this range (for example,
                 // functional NamedTuple syntax recovered as an invalid `for` target).
@@ -537,12 +565,7 @@ impl<'a> BindingsBuilder<'a> {
             // Parser error recovery can synthesize empty identifiers. Skip creating a definition
             // binding, but still analyze any assigned value so we surface downstream errors.
             if ensure_assigned && let Some(assigned) = &mut assigned {
-                self.ensure_expr(
-                    assigned,
-                    &mut Usage::StaticTypeInformation {
-                        is_annotation: false,
-                    },
-                );
+                self.ensure_expr(assigned, &mut Usage::Unchecked);
             }
             return;
         }
@@ -624,7 +647,7 @@ impl<'a> BindingsBuilder<'a> {
                     && let Expr::StringLiteral(lit) = &kw.value
                     && lit.as_single_part_string().is_some()
                 {
-                    self.ensure_type(&mut kw.value, None);
+                    self.ensure_type(&mut kw.value, None, Evaluation::Eager);
                 }
             }
         }
@@ -701,32 +724,39 @@ impl<'a> BindingsBuilder<'a> {
         let uses_first_use =
             !is_definitely_type_alias && receiver_idx.is_none() && self.infer_with_first_use();
         let scope_idx = current.idx();
+        let type_alias_index = is_definitely_type_alias.then(|| self.type_alias_index());
         let mut tparams = None;
         if ensure_assigned {
-            if is_definitely_type_alias {
-                let mut legacy = LegacyTParamCollector::new(false);
+            if let Some(type_alias_index) = type_alias_index {
+                let mut legacy = LegacyTParamCollector::new(
+                    false,
+                    QuantifiedAnchor::TypeAlias(type_alias_index),
+                );
                 self.ensure_type_with_usage(
                     &mut value,
                     Some(&mut legacy),
-                    &mut Usage::TypeAliasRhs,
+                    &mut Usage::Static(
+                        StaticUsage::TypeExpression(TypeExpressionContext::TypeAliasValue),
+                        Evaluation::Eager,
+                    ),
                 );
                 tparams = Some(legacy.lookup_keys().into_boxed_slice());
             } else if has_typeform_annotation && value.is_string_literal_expr() {
-                self.ensure_type_with_usage(
-                    &mut value,
-                    None,
-                    &mut Usage::StaticTypeInformation {
-                        is_annotation: false,
-                    },
-                );
+                self.ensure_type(&mut value, None, Evaluation::Eager);
             } else {
                 self.ensure_expr(&mut value, current.usage());
             }
         }
         self.ensure_attrs_specifier_type_forward_ref(value.as_mut());
         let style = if self.scopes.in_class_body() {
-            FlowStyle::ClassField {
-                initial_value: Some((*value).clone()),
+            if is_definitely_type_alias {
+                // As for a `type` statement, the class attribute takes its type from the alias
+                // binding rather than from re-inferring the value.
+                FlowStyle::Other
+            } else {
+                FlowStyle::ClassField {
+                    initial_value: Some((*value).clone()),
+                }
             }
         } else if let Some(base_idx) = receiver_idx {
             // `pristine: false` because the visible binding is this
@@ -764,9 +794,9 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             None
         };
-        let binding = if is_definitely_type_alias {
+        let binding = if let Some(type_alias_index) = type_alias_index {
             let range = value.range();
-            let key_type_alias = KeyTypeAlias(self.type_alias_index());
+            let key_type_alias = KeyTypeAlias(type_alias_index);
             let binding_type_alias = BindingTypeAlias::Legacy {
                 name: name.id.clone(),
                 range: name.range,
@@ -788,7 +818,10 @@ impl<'a> BindingsBuilder<'a> {
                 expr: value,
                 legacy_tparams: tparams,
                 is_in_function_scope: self.scopes.in_function_scope(),
-                is_class_body_assignment: self.scopes.in_class_body(),
+                is_mutable_capture: (self.scopes.in_class_body()
+                    || !self.scopes.in_module_or_class_top_level())
+                    && self.scopes.is_mutable_capture(&name.id),
+                class_key: self.scopes.current_class_key(),
                 first_use: FirstUse::Undetermined,
                 def_idx: if uses_first_use { Some(def_idx) } else { None },
                 receiver_idx,

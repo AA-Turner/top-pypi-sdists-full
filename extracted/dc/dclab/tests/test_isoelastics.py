@@ -133,12 +133,12 @@ def test_convert_error():
                    lut_identifier="test-LE-2D-ana-18",
                    channel_width=15)
 
-    kwargs = dict(channel_width_in=15,
-                  channel_width_out=20,
-                  flow_rate_in=.12,
-                  flow_rate_out=.08,
-                  viscosity_in=15,
-                  viscosity_out=15)
+    kwargs = {"channel_width_in": 15,
+              "channel_width_out": 20,
+              "flow_rate_in": .12,
+              "flow_rate_out": .08,
+              "viscosity_in": 15,
+              "viscosity_out": 15}
 
     try:
         i1.convert(isoel=isoel,
@@ -376,7 +376,7 @@ def test_with_rtdc():
         channel_width=ds.config["setup"]["channel width"],
         flow_rate=ds.config["setup"]["flow rate"],
         temperature=ds.config["setup"]["temperature"],
-        model='buyukurganci-2022')
+        model="buyukurganci-2022")
     data2 = i1.get(col1="area_um",
                    col2="deform",
                    lut_identifier="LE-2D-FEM-19",
@@ -387,6 +387,32 @@ def test_with_rtdc():
                    px_um=ds.config["imaging"]["pixel size"])
     for d1, d2 in zip(data1, data2):
         assert np.allclose(d1, d2, atol=0, rtol=1e-14)
+
+
+@pytest.mark.parametrize("viscosity", [0, 0.0, False, -1.0])
+def test_with_rtdc_viscosity_not_positive(viscosity):
+    """A viscosity of e.g. 0 or False would yield zero-valued emodulus"""
+    keys = ["area_um", "deform"]
+    ddict = example_data_dict(size=8472, keys=keys)
+    ds = dclab.new_dataset(ddict)
+    ds.config["setup"]["flow rate"] = 0.16
+    ds.config["setup"]["channel width"] = 30
+    ds.config["imaging"]["pixel size"] = .34
+    i1 = iso.get_default()
+    with pytest.raises(ValueError, match="must be a positive number"):
+        i1.get_with_rtdcbase(col1="area_um",
+                             col2="deform",
+                             lut_identifier="LE-2D-FEM-19",
+                             dataset=ds,
+                             viscosity=viscosity,
+                             add_px_err=False)
+    with pytest.raises(ValueError, match="must be a positive number"):
+        i1.get(col1="area_um",
+               col2="deform",
+               lut_identifier="LE-2D-FEM-19",
+               channel_width=30,
+               flow_rate=0.16,
+               viscosity=viscosity)
 
 
 def test_with_rtdc_warning():

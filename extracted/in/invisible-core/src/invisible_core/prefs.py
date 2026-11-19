@@ -1902,7 +1902,7 @@ def _apply_timezone(prefs: Dict[str, Any], timezone: Optional[str]) -> None:
     # not know to the MACHINE's zone, in silence (js/src/vm/DateTime.cpp,
     # DateTimeInfo::timeZone), and ICU's lookup is exact: "america/phoenix"
     # names no zone. An explicit zone reached this line unchecked until the
-    # firefox-50 pin (resolve_session_timezone returns it as given); one from
+    # firefox-50 pin (prepare_session_geo returns it as given); one from
     # the exit was already checked in _geo.ip_to_timezone. Same spelling test
     # here, the IANA database's own names, and the caller gets the right one.
     if zone not in _iana_zones():

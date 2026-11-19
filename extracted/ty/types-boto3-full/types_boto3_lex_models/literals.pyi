@@ -111,6 +111,7 @@ StatusType = Literal["BUILDING", "FAILED", "NOT_BUILT", "READY", "READY_BASIC_TE
 StatusTypeType = Literal["Detected", "Missed"]
 LexModelBuildingServiceServiceName = Literal["lex-models"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

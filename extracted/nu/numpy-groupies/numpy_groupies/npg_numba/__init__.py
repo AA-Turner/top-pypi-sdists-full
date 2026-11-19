@@ -49,6 +49,7 @@ from numpy_groupies.npg_numba import argreductions, averaging, collect, cumulati
 from numpy_groupies.npg_numba.fallback import FALLBACK
 from numpy_groupies.npg_numba.gather import unpack, unpack_into
 from numpy_groupies.npg_numba.ops import _dispatch
+from numpy_groupies.npg_numba.ops import state_bytes_per_group as state_bytes_per_group
 from numpy_groupies.npg_numba.steps import step_count, step_indices
 
 # the numpy implementation answers the three calls numba cannot: the median
@@ -60,7 +61,7 @@ from numpy_groupies.registry import (
     missing_impl_error,
 )
 from numpy_groupies.typing import AFillValue, AResult, AScalar, AValue, RavelOrder
-from numpy_groupies.validation import EMPTY_GROUP_IDX
+from numpy_groupies.validation import EMPTY_GROUP_IDX, OBJECT_COLUMN_NOT_FOR_NUMBA, check_fill_kind
 
 FALLBACK.set_implementation(_numpy_aggregate)
 
@@ -105,6 +106,18 @@ def aggregate(
     # takes them apart, refuses what numpy refuses and answers a temporal
     # value - only the functions of the package go through it, and their
     # numpy aliases are the same functions, so np.mean gets its answer
+    # the kind of a fill value is asked of the values and not of the answer:
+    # no count, no position and no tick of another kind is a date, and the
+    # kernels behind this call would answer the compiler's TypingError instead
+    check_fill_kind(fill_value, getattr(a, "dtype", None))
+
+    a_dtype = getattr(a, "dtype", None)
+    if a_dtype is not None and a_dtype.kind == "O" and funcname != "array":
+        # the compiled kernels have no dtype for the values of an object
+        # column - the collecting function is the one call this backend
+        # hands to the numpy implementation
+        raise TypeError(OBJECT_COLUMN_NOT_FOR_NUMBA)
+
     if temporal_op is not None and is_temporal_input(a):
         if size is None:
             if not group_idx.size:

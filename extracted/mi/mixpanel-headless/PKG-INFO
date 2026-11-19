@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mixpanel-headless
-Version: 0.4.0
+Version: 0.5.0
 Summary: Python library for working with Mixpanel analytics data, designed for AI coding agents
 Project-URL: Homepage, https://mixpanel.github.io/mixpanel-headless/
 Project-URL: Repository, https://github.com/mixpanel/mixpanel-headless
@@ -352,7 +352,7 @@ for event in ws.stream_events(from_date="2025-01-01", to_date="2025-01-31"):
 
 ## CLI Reference
 
-**`mp account`** — Manage accounts: `list`, `add`, `update`, `remove`, `use`, `show`, `test`, `login`, `logout`, `token`, `export-bridge`, `remove-bridge`
+**`mp account`** — Manage accounts: `list`, `add`, `update`, `remove`, `use`, `show`, `test`, `login`, `logout`, `token`
 
 **`mp project`** — Switch the active project: `list`, `use`, `show`
 
@@ -360,7 +360,7 @@ for event in ws.stream_events(from_date="2025-01-01", to_date="2025-01-31"):
 
 **`mp target`** — Saved (account, project, optional workspace) cursors: `list`, `add`, `use`, `show`, `remove`
 
-**`mp session`** — Show resolved auth state (`mp session [--bridge]`)
+**`mp session`** — Show resolved auth state
 
 **`mp query`** — Run analytics: `segmentation`, `funnel`, `retention`, `saved-report`, `flows`, `event-counts`, `property-counts`, `activity-feed`, `frequency`, `segmentation-numeric`, `segmentation-sum`, `segmentation-average`
 
@@ -458,7 +458,7 @@ The plugin is built around the 5-engine query taxonomy — `query()`, `query_fun
 
 **Installation:**
 
-Add the plugin from the `mixpanel-plugin/` directory, then restart Claude Code. Run `/mixpanel-headless:setup` once; it creates a private Python environment for the plugin at `~/.claude/plugins/data/mixpanel-headless-<source>/venv` and installs `mixpanel_headless` 0.3.0 or later there (never into your system or user Python). The skills run that environment's `python` and `mp`, and the environment survives plugin updates.
+Add the plugin from the `mixpanel-plugin/` directory, then restart Claude Code. Run `/mixpanel-headless:setup` once; it creates a private Python environment for the plugin at `~/.claude/plugins/data/mixpanel-headless-<source>/venv` and installs `mixpanel_headless` 0.4.0 or later there (never into your system or user Python). The skills run that environment's `python` and `mp`, and the environment survives plugin updates.
 
 **What you get:**
 

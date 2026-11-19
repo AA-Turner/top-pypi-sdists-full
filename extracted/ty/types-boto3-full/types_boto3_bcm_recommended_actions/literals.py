@@ -76,6 +76,7 @@ MatchOptionType = Literal["EQUALS", "NOT_EQUALS"]
 SeverityType = Literal["CRITICAL", "INFO", "WARNING"]
 BillingandCostManagementRecommendedActionsServiceName = Literal["bcm-recommended-actions"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

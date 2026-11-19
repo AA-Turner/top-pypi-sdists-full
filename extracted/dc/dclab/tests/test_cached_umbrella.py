@@ -1,4 +1,5 @@
 import hashlib
+import json
 import time
 import shutil
 
@@ -43,6 +44,48 @@ def test_umbrella_cache():
     assert b == a
 
 
+def test_umbrella_cache_key_removed_concurrently(monkeypatch, store_keeper):
+    """The StoreKeeper may remove a key from the memory store any time
+
+    This simulates the case where `key in memory_store` is True, but
+    the key is removed before the value is retrieved.
+    """
+    monkeypatch.setattr(cached.memory_store.MemoryStore, "__contains__",
+                        lambda self, key: True)
+
+    @cached.umbrella_cache()
+    def func_removed(x):
+        time.sleep(.02)
+        return 2 * x
+
+    assert func_removed(4) == 8
+    assert func_removed(4) == 8
+
+
+def test_umbrella_cache_modify_returned_value(store_keeper):
+    """Modifying a returned value must not modify the cached value"""
+    @cached.umbrella_cache()
+    def func_array(n):
+        time.sleep(.02)
+        return np.zeros(n), [np.ones(2)]
+
+    # modify the computed value
+    a1, b1 = func_array(3)
+    a1 += 10
+    b1[0] += 10
+    b1.append("hans")
+
+    # modify the value retrieved from the memory store
+    a2, b2 = func_array(3)
+    assert np.all(a2 == 0)
+    assert len(b2) == 1
+    assert np.all(b2[0] == 1)
+    a2 += 10
+
+    a3, _ = func_array(3)
+    assert np.all(a3 == 0)
+
+
 def test_umbrella_cache_disabled():
     """Test if caching works"""
     wait = .05
@@ -79,6 +122,24 @@ def test_umbrella_cache_disk_store(tmp_path, store_keeper):
     t2 = time.perf_counter()
     assert t2 - t1 < wait
     assert b == a
+
+
+def test_umbrella_cache_disk_store_return_type(tmp_path, store_keeper):
+    """The return type must not change when loading from the disk store"""
+    store_keeper.set_disk_store_path(tmp_path)
+
+    @cached.umbrella_cache(bypass_memory_store=True)
+    def func_tuple(x):
+        time.sleep(.02)
+        return x, {1: (x,)}
+
+    a = func_tuple(4)
+    assert a == (4, {1: (4,)})
+    # from the disk store
+    b = func_tuple(4)
+    assert b == a
+    assert isinstance(b, tuple)
+    assert isinstance(b[1][1], tuple)
 
 
 def test_umbrella_cache_disk_store_hybrid(tmp_path, store_keeper):
@@ -133,7 +194,7 @@ def test_umbrella_cache_disk_store_hybrid_deleted(tmp_path, store_keeper):
     a = func1(4)
     assert a == 8
 
-    key = list(store_keeper.memory_store.data.keys())[0]
+    key = next(iter(store_keeper.memory_store.data.keys()))
 
     store_keeper.perform_tasks()
 
@@ -157,6 +218,100 @@ def test_umbrella_cache_disk_store_hybrid_deleted(tmp_path, store_keeper):
 
     store_keeper.perform_tasks()
     assert key in store_keeper.disk_store.index
+
+
+def test_umbrella_cache_disk_store_unreadable_not_in_index(tmp_path,
+                                                           store_keeper):
+    """Broken disk store entry that was written by another process
+
+    The entry is not in the index of this disk store, and the data
+    cannot be read (e.g. data file removed by another process).
+    """
+    store_keeper.set_disk_store_path(tmp_path)
+    store_keeper.event_run.clear()
+
+    @cached.umbrella_cache(topic="unreadable")
+    def func_unreadable(x):
+        time.sleep(.02)
+        return 2 * x
+
+    # Make sure the StoreKeeper thread is running (when it starts, it
+    # updates the index from the files on disk).
+    assert func_unreadable(1) == 2
+    time.sleep(store_keeper.interval)
+
+    ref = caches.compute_hash_for_cache(func_unreadable.__wrapped__,
+                                        (5,), {})
+    key = f"unreadable/{ref[:3]}/{ref[3:6]}/{ref[6:]}"
+    meta_path = tmp_path / f"{key}_meta.json"
+    meta_path.parent.mkdir(parents=True)
+    meta_path.write_text(json.dumps({"format": "json",
+                                     "file": "missing.json",
+                                     "size": 1}))
+    assert key not in store_keeper.disk_store.index
+    assert key in store_keeper.disk_store
+
+    assert func_unreadable(5) == 10
+
+
+def test_umbrella_cache_disk_store_unreadable_meta_replaced(
+        tmp_path, store_keeper):
+    """A broken disk store entry must be replaced by the StoreKeeper"""
+    store_keeper.set_disk_store_path(tmp_path)
+    store_keeper.event_run.clear()
+    time.sleep(store_keeper.interval)
+    calls = []
+
+    @cached.umbrella_cache(topic="broken-meta")
+    def func_broken_meta(x):
+        calls.append(x)
+        time.sleep(.02)
+        return 2 * x
+
+    assert func_broken_meta(5) == 10
+    store_keeper.perform_tasks()
+
+    ref = caches.compute_hash_for_cache(func_broken_meta.__wrapped__,
+                                        (5,), {})
+    key = f"broken-meta/{ref[:3]}/{ref[3:6]}/{ref[6:]}"
+    meta_path = tmp_path / f"{key}_meta.json"
+    assert meta_path.exists()
+    meta_path.write_text("{corrupt")
+
+    store_keeper.memory_store.clear()
+    assert func_broken_meta(5) == 10
+    assert len(calls) == 2
+    # The StoreKeeper must write the value to the disk store again.
+    store_keeper.perform_tasks()
+    assert json.loads(meta_path.read_text())["format"] == "json"
+
+    # The value is now taken from the disk store.
+    store_keeper.memory_store.clear()
+    assert func_broken_meta(5) == 10
+    assert len(calls) == 2
+
+
+def test_umbrella_cache_modify_returned_value_disk_store(tmp_path,
+                                                         store_keeper):
+    """Modifying a value from the disk store must not modify the cache"""
+    store_keeper.set_disk_store_path(tmp_path)
+    store_keeper.event_run.clear()
+    time.sleep(store_keeper.interval)
+
+    @cached.umbrella_cache()
+    def func_array_disk(n):
+        time.sleep(.02)
+        return np.zeros(n)
+
+    func_array_disk(4)
+    store_keeper.perform_tasks()
+    store_keeper.memory_store.clear()
+
+    # value from the disk store (also stored in the memory store)
+    a1 = func_array_disk(4)
+    a1 += 10
+    # value from the memory store
+    assert np.all(func_array_disk(4) == 0)
 
 
 def test_umbrella_cache_size(store_keeper):
@@ -239,7 +394,31 @@ def test_update_hash(store_keeper):
     ]
     hasher = hashlib.md5()
     caches.update_hash(hasher, data)
-    assert hasher.hexdigest() == "995204fa74d9f6e66ea055f9af0379b3"
+    assert hasher.hexdigest() == "8033098fffb1fd19f5828c5e2067b6ee"
+
+
+@pytest.mark.parametrize("args1,args2", [
+    # concatenated string representations are identical
+    ((1, 23), (12, 3)),
+    (("ab", "c"), ("a", "bc")),
+    # type is different
+    (("1",), (1,)),
+    ((None,), ("none",)),
+    ((b"1",), ("1",)),
+    # shape or dtype of arrays is different
+    ((np.arange(6.).reshape(2, 3),), (np.arange(6.).reshape(3, 2),)),
+    ((np.zeros(3),), (np.zeros(3, dtype=np.int64),)),
+    (([np.arange(3.), np.arange(4.)],), ([np.arange(4.), np.arange(3.)],)),
+    # nesting is different
+    ((["a", "b"], "c"), (["a"], "b", "c")),
+])
+def test_update_hash_no_collision(args1, args2):
+    """Different arguments must result in different hashes"""
+    def func(*args):
+        pass
+    hash1 = caches.compute_hash_for_cache(func, args1, {})
+    hash2 = caches.compute_hash_for_cache(func, args2, {})
+    assert hash1 != hash2
 
 
 def test_update_hash_custom_handlers(store_keeper):
@@ -262,7 +441,7 @@ def test_update_hash_custom_handlers(store_keeper):
     hasher = hashlib.md5()
     caches.update_hash(hasher, data,
                        custom_handlers={HandledClass: custom_handler})
-    assert hasher.hexdigest() == "995204fa74d9f6e66ea055f9af0379b3"
+    assert hasher.hexdigest() == "8033098fffb1fd19f5828c5e2067b6ee"
 
 
 def test_update_hash_custom_handlers_string(store_keeper):
@@ -285,7 +464,7 @@ def test_update_hash_custom_handlers_string(store_keeper):
     hasher = hashlib.md5()
     caches.update_hash(hasher, data,
                        custom_handlers={"HandledClass": custom_handler})
-    assert hasher.hexdigest() == "995204fa74d9f6e66ea055f9af0379b3"
+    assert hasher.hexdigest() == "8033098fffb1fd19f5828c5e2067b6ee"
 
 
 def test_update_hash_custom_handlers_fail(store_keeper):
@@ -333,7 +512,7 @@ def test_update_hash_for_json(store_keeper):
     ]
     hasher = hashlib.md5()
     caches.update_hash(hasher, data)
-    assert hasher.hexdigest() == "995204fa74d9f6e66ea055f9af0379b3"
+    assert hasher.hexdigest() == "8033098fffb1fd19f5828c5e2067b6ee"
 
 
 def test_update_hash_for_json_rtdc_config(store_keeper):
@@ -350,9 +529,9 @@ def test_update_hash_for_json_rtdc_config(store_keeper):
     ]
     hasher = hashlib.md5()
     caches.update_hash(hasher, data)
-    assert hasher.hexdigest() == "ce0633084e43f71c9bfbb689dddf1040"
+    assert hasher.hexdigest() == "8629e85d248cf6bf309a6fdde48e99a8"
 
     ds1.config["experiment"]["sample"] = "test2"  # yields different hash
     hasher = hashlib.md5()
     caches.update_hash(hasher, data)
-    assert hasher.hexdigest() == "816ab314bde68b0e6a355163a3b9dc2d"
+    assert hasher.hexdigest() == "267c2f3cdf20e3fa01503ba31657bdc1"

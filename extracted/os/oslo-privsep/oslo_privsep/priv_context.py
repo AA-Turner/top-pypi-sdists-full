@@ -14,8 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 import copy
 import enum
 import functools
@@ -23,7 +22,7 @@ import logging
 import multiprocessing
 import shlex
 import threading
-from typing import Any
+from typing import cast, Any, Final, ParamSpec, TypeVar
 
 from oslo_config import cfg
 from oslo_config import types
@@ -33,26 +32,28 @@ from oslo_privsep._i18n import _
 from oslo_privsep import capabilities
 from oslo_privsep import daemon
 
-
 LOG = logging.getLogger(__name__)
 
+P = ParamSpec('P')
+R = TypeVar('R')
 
-class CapNameOrInt(types.ConfigType):
+
+class CapNameOrInt(types.ConfigType[int]):
     def __init__(self) -> None:
-        return super().__init__('capability')
+        super().__init__('capability')
 
-    def __call__(self, value: Any) -> int:
+    def __call__(self, value: object) -> int:
         value_str = str(value).strip()
         try:
             return capabilities.CAPS_BYNAME[value_str]
         except KeyError:
             return int(value_str)
 
-    def _formatter(self, value: Any) -> str:
+    def _formatter(self, value: object) -> str:
         return str(value)
 
 
-OPTS = [
+OPTS: list[cfg.Opt] = [
     cfg.StrOpt('user', help=_('User that the privsep daemon should run as.')),
     cfg.StrOpt(
         'group', help=_('Group that the privsep daemon should run as.')
@@ -104,8 +105,8 @@ OPTS = [
     ),
 ]
 
-_ENTRYPOINT_ATTR = 'privsep_entrypoint'
-_HELPER_COMMAND_PREFIX = ['sudo']
+_ENTRYPOINT_ATTR: Final[str] = 'privsep_entrypoint'
+_HELPER_COMMAND_PREFIX: list[str] = ['sudo']
 
 
 def _list_opts() -> list[tuple[cfg.OptGroup, list[cfg.Opt]]]:
@@ -198,11 +199,11 @@ class PrivContext:
         self.timeout = timeout
 
     @property
-    def conf(self) -> Any:
+    def conf(self) -> cfg.ConfigOpts.GroupAttr:
         """Return the oslo.config section object as lazily as possible."""
         # Need to avoid looking this up before oslo_config has been
         # properly initialized.
-        return cfg.CONF[self.cfg_section]
+        return cast(cfg.ConfigOpts.GroupAttr, cfg.CONF[self.cfg_section])
 
     def __repr__(self) -> str:
         return f'PrivContext(cfg_section={self.cfg_section})'
@@ -258,19 +259,27 @@ class PrivContext:
     def set_client_mode(self, enabled: bool) -> None:
         self.client_mode = enabled
 
-    def entrypoint(self, func: Callable[..., Any]) -> functools.partial[Any]:
+    def entrypoint(self, func: Callable[P, R]) -> Callable[P, R]:
         """This is intended to be used as a decorator."""
-        return self._entrypoint(func)
+        f = self._entrypoint(func)
+
+        @functools.wraps(func)
+        def inner(*args: P.args, **kwargs: P.kwargs) -> R:
+            return f(*args, **kwargs)
+
+        setattr(inner, _ENTRYPOINT_ATTR, self)
+        return inner
 
     def entrypoint_with_timeout(
         self, timeout: float
-    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """This is intended to be used as a decorator with timeout."""
 
-        def wrap(func: Callable[..., Any]) -> Callable[..., Any]:
+        def wrap(func: Callable[P, R]) -> Callable[P, R]:
+            f = self._entrypoint(func)
+
             @functools.wraps(func)
-            def inner(*args: Any, **kwargs: Any) -> Any:
-                f = self._entrypoint(func)
+            def inner(*args: P.args, **kwargs: P.kwargs) -> R:
                 return f(*args, _wrap_timeout=timeout, **kwargs)
 
             setattr(inner, _ENTRYPOINT_ATTR, self)
@@ -278,7 +287,7 @@ class PrivContext:
 
         return wrap
 
-    def _entrypoint(self, func: Callable[..., Any]) -> functools.partial[Any]:
+    def _entrypoint(self, func: Callable[P, R]) -> functools.partial[R]:
         if not func.__module__.startswith(self.prefix):
             raise AssertionError(
                 f'{self!r} entrypoints must be below "{self.prefix}"'
@@ -295,19 +304,20 @@ class PrivContext:
             )
 
         f = functools.partial(self._wrap, func)
+        functools.update_wrapper(f, func)
         setattr(f, _ENTRYPOINT_ATTR, self)
         return f
 
-    def is_entrypoint(self, func: Callable[..., Any]) -> bool:
+    def is_entrypoint(self, func: object) -> bool:
         return getattr(func, _ENTRYPOINT_ATTR, None) is self
 
     def _wrap(
         self,
-        func: Callable[..., Any],
+        func: Callable[..., R],
         *args: Any,
         _wrap_timeout: float | None = None,
         **kwargs: Any,
-    ) -> Any:
+    ) -> R:
         if self.client_mode:
             name = f'{func.__module__}.{func.__name__}'
             if self.channel is not None and not self.channel.running:
@@ -319,7 +329,9 @@ class PrivContext:
                 # narrow type: this will always be non-None thank to the above
                 raise RuntimeError('channel is not initialized')
             r_call_timeout = _wrap_timeout or self.timeout
-            return self.channel.remote_call(name, args, kwargs, r_call_timeout)
+            return cast(
+                R, self.channel.remote_call(name, args, kwargs, r_call_timeout)
+            )
         else:
             return func(*args, **kwargs)
 

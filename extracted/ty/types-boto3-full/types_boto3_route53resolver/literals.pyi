@@ -180,6 +180,7 @@ SortOrderType = Literal["ASCENDING", "DESCENDING"]
 ValidationType = Literal["DISABLE", "ENABLE", "USE_LOCAL_RESOURCE_SETTING"]
 Route53ResolverServiceName = Literal["route53resolver"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

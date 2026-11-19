@@ -58,6 +58,7 @@ ResultStatusType = Literal["COMPLETED", "EXPIRED", "FAILED", "IN_PROGRESS"]
 SchemaType = Literal["ocsf", "raw"]
 AppFabricServiceName = Literal["appfabric"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

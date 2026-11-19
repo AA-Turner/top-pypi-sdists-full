@@ -242,7 +242,6 @@ def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = 
         _card_text(out, {"dead_end": entity.get("outcome_reason")}, "dead_end", _CARD_DESCRIPTION_CHARS)
         out.setdefault("dead_end", True)
     if kind == EntityType.ARTIFACT:
-        _card_text(out, entity, "resolution_note", _CARD_DESCRIPTION_CHARS)
         if entity.get("shared") is False:
             out["read_versions"] = 'view="versions"'
         if not entity.get("is_reference"):

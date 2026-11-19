@@ -80,6 +80,7 @@ SchemaElementType = Literal[
 TimeUnitType = Literal["DAILY", "HOURLY", "MONTHLY"]
 CostandUsageReportServiceServiceName = Literal["cur"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

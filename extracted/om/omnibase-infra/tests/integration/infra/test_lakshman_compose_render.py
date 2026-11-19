@@ -85,6 +85,8 @@ EXPECTED_RENDERED_SERVICES = {
     "cloud-migration",
     "onex-api",
     "projection-tenant-registry-writer",
+    # OMN-21587: build-only (scale 0), the infra half of the composed image.
+    "lakshman-infra-runtime-image",
 }
 #: Services that must never appear on this lane. ``keycloak`` and ``infisical``
 #: are the OMN-13581 cross-lane displacement risk (they carry no profile in the
@@ -119,6 +121,7 @@ EXPECTED_PUBLISHED_PORTS = {
     "cloud-migration": set(),
     "onex-api": set(),
     "projection-tenant-registry-writer": set(),
+    "lakshman-infra-runtime-image": set(),
 }
 #: Ports belonging to the four lanes that predate this one. Publishing any of
 #: them here would displace a live lane on the shared .201 host (OMN-13581).
@@ -291,6 +294,8 @@ def test_lakshman_lane_render_is_isolated_from_every_other_lane() -> None:
         assert set(service.get("networks", {})) == {LAKSHMAN_NETWORK}, (
             f"service {name!r} is attached to a network other than the lane's own"
         )
+        if service.get("scale") == 0:
+            continue  # build-only, no container (OMN-21587)
         assert "lakshman" in service["container_name"], (
             f"service {name!r} renders container_name "
             f"{service['container_name']!r}, which does not name this lane and "
@@ -347,6 +352,38 @@ def test_lakshman_lane_render_carries_its_own_runtime_identity() -> None:
     assert services["runtime-effects"]["environment"]["ONEX_GROUP_ID"] == (
         "onex-lakshman-runtime-effects"
     )
+
+
+#: OMN-21587: the services built on omnimarket's composed image. Since OMN-21279
+#: the infra image installs no omnimarket and sets no BIFROST_BASE_CONTRACT_PATH,
+#: so each of these failed to boot on it.
+COMPOSED_RUNTIME_SERVICES = frozenset(
+    {
+        "omninode-runtime",
+        "runtime-effects",
+        "projection-api",
+        "projection-delegation-writer",
+        "projection-tenant-registry-writer",
+    }
+)
+
+
+@pytest.mark.integration
+def test_lakshman_runtime_services_build_on_the_composed_market_image() -> None:
+    """The rendered build of every market workload is omnimarket's recipe on infra."""
+    services = _compose_config_json()["services"]
+    market_context = (REPO_ROOT / "workspace/sibling-repos/omnimarket").resolve()
+    for name in sorted(COMPOSED_RUNTIME_SERVICES):
+        build = services[name]["build"]
+        assert Path(build["context"]).resolve() == market_context, name
+        assert build["dockerfile"] == "Dockerfile.runtime", name
+        assert build["args"]["INFRA_RUNTIME_IMAGE"] == "infra-runtime", name
+        assert build["additional_contexts"]["infra-runtime"] == (
+            "service:lakshman-infra-runtime-image"
+        ), name
+    infra_build = services["lakshman-infra-runtime-image"]["build"]
+    assert Path(infra_build["context"]).resolve() == REPO_ROOT.resolve()
+    assert infra_build["dockerfile"] == "docker/Dockerfile.runtime"
 
 
 @pytest.mark.integration
@@ -676,4 +713,47 @@ def test_read_binding_consumer_group_is_unique_among_the_lane_bindings() -> None
                 groups[group] = name
     assert groups["lakshman.omnimarket-projections.runtime-read.consume.v1"] == (
         "runtime-effects"
+    )
+
+
+@pytest.mark.integration
+def test_every_service_naming_the_lane_overlay_mounts_it() -> None:
+    """A service whose environment names BIFROST_LANE_OVERLAY_PATH must mount a file there.
+
+    The runtime entrypoint renders the Bifrost contract from that path before the
+    service starts, so a service that names it without mounting it exits
+    ONEX_CORE_041 "Bifrost lane overlay not found" on every boot. The delegation
+    writer did exactly that on a fresh bring-up of this lane (OMN-17427): it merges
+    the lane's runtime env and had no mount, while the two runtimes beside it did.
+    The mount must be a read-only bind of this lane's overlay file with
+    create_host_path false, so a missing file is refused instead of made a directory.
+    The rendered config omits a false create_host_path (``bind: {}``) and writes a
+    true one out, so an absent key reads as false.
+    """
+    services = _compose_config_json()["services"]
+    expected_source = (
+        f"{RENDER_ONLY_SECRETS['ONEX_LANE_OVERLAY_DIR']}/{COMPOSE_PROJECT}.bifrost.yaml"
+    )
+    carriers = {
+        name: config
+        for name, config in services.items()
+        if (config.get("environment") or {}).get("BIFROST_LANE_OVERLAY_PATH")
+    }
+    assert "projection-delegation-writer" in carriers
+    invalid_mounts: dict[str, list[dict[str, Any]]] = {}
+    for name, config in carriers.items():
+        target = config["environment"]["BIFROST_LANE_OVERLAY_PATH"]
+        mounts = _mounts_at(config, target)
+        if not (
+            len(mounts) == 1
+            and mounts[0].get("type") == "bind"
+            and mounts[0].get("source") == expected_source
+            and mounts[0].get("read_only") is True
+            and mounts[0].get("bind", {}).get("create_host_path", False) is False
+        ):
+            invalid_mounts[name] = mounts
+    assert not invalid_mounts, (
+        f"{invalid_mounts} name BIFROST_LANE_OVERLAY_PATH but lack exactly one "
+        "read-only bind of this lane's overlay file with create_host_path false; "
+        "add `- *lane-overlay-mount` to their volumes"
     )

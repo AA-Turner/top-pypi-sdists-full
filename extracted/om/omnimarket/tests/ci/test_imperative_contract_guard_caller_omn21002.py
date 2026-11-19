@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github/workflows"
 CALLER = WORKFLOWS / "imperative-contract-guard.yml"
 ALLOWLIST = ROOT / "imperative-contract-allowlist.yaml"
-CORE_REF = "dev-20261018024445-b6ee996befa1"
+CORE_REF = "dev-20261110125852-e6bc5e13e9e7"
 CORE_HOOK_SHA = "031148215620031436cba30619bbae67c0bb38ad"
 CORE_USES = "OmniNode-ai/omnibase_core/.github/workflows/imperative-contract-guard.yml"
 RECORDED_PATHS = [
@@ -60,7 +60,6 @@ RECORDED_PATHS = [
     "omnimarket/nodes/node_build_loop_orchestrator/handlers/model_policy_loader.py",
     "omnimarket/nodes/node_bus_audit_compute/handlers/handler_bus_audit_compute.py",
     "omnimarket/nodes/node_canary_score_reducer/handlers/handler_canary_score_reducer.py",
-    "omnimarket/nodes/node_candidate_pool_compute/handlers/handler_candidate_pool.py",
     "omnimarket/nodes/node_chain_diff/handlers/handler_chain_diff.py",
     "omnimarket/nodes/node_chain_diff_compute/handlers/handler_chain_diff.py",
     "omnimarket/nodes/node_ci_fix_effect/handlers/handler_ci_fix.py",
@@ -320,13 +319,14 @@ def test_canonical_shape_hook_uses_the_exemption_commit_and_ci_a_dev_merge_tag()
         if any(hook["id"] == "canonical-file-shape" for hook in repo["hooks"])
     ]
     assert hook_repo["repo"] == "https://github.com/OmniNode-ai/omnibase_core"
-    # The hook retains its listed SHA exception; the caller uses a dev-merge tag.
-    assert hook_repo["rev"] in {CORE_HOOK_SHA, _caller_ref()}
     jobs = _mapping(WORKFLOWS / "ci.yml")["jobs"]
     assert isinstance(jobs, dict)
     # OMN-21331: CI reads core through a dev-merge tag, never a commit sha. The
     # tag's commit descends from the hook's exemption commit.
     core = jobs["canonical-file-shape"]["env"]["CANONICAL_FILE_SHAPE_CORE"]
+    # The hook runs the file-shape entry from its own core dev-merge tag, which
+    # the CI job pins to the same tag; the caller keeps its own tag.
+    assert hook_repo["rev"] in {CORE_HOOK_SHA, _caller_ref(), core.rsplit("@", 1)[1]}
     assert re.fullmatch(
         r"omnibase-core @ git\+https://github\.com/OmniNode-ai/omnibase_core"
         r"@dev-[0-9]{14}-[0-9a-f]{12}",

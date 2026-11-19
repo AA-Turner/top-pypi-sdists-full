@@ -258,6 +258,7 @@ VideoColorRangeType = Literal["FULL", "LIMITED"]
 VideoJobStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 RekognitionServiceName = Literal["rekognition"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

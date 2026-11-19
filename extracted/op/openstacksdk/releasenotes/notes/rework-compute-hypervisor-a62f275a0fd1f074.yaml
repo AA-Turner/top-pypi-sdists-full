@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Compute Hypervisor resource and functions are reworked to comply 2.88
-    microversion with deprecating misleading attributes.

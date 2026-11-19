@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add node vendor_passthru interface for Ironic API.

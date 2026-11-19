@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Implement fwaas v2 resources for managing firewall groups, rules
-    and policies.

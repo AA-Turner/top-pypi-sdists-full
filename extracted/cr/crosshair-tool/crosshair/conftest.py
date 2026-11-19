@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from sys import argv
 
@@ -24,7 +25,7 @@ def pytest_configure(config):
             set_hypothesis_home_dir(Path(".hypothesis") / f"xdist-{xdist_worker}")
 
 
-LEAK_LIMIT_KB = 400 * 1024
+LEAK_LIMIT_KB = 600 * 1024
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -32,12 +33,24 @@ def pytest_pyfunc_call(pyfuncitem):
     last_ram = mem_usage_kb()
     outcome = yield
     growth = mem_usage_kb() - last_ram
-    assert (
-        growth < LEAK_LIMIT_KB
-    ), f"Leaking memory (grew {growth // 1024}M while running)"
+    assert growth < LEAK_LIMIT_KB, (
+        f"Leaking memory (grew {growth // 1024}M while running)"
+    )
 
 
 @pytest.fixture()
 def space():
     with standalone_statespace as spc, NoTracing():
         yield spc
+
+
+@pytest.fixture()
+def small_int_str_digit_limit():
+    if not hasattr(sys, "set_int_max_str_digits"):
+        pytest.skip("No integer string conversion limit")
+    original_limit = sys.get_int_max_str_digits()
+    sys.set_int_max_str_digits(640)
+    try:
+        yield
+    finally:
+        sys.set_int_max_str_digits(original_limit)

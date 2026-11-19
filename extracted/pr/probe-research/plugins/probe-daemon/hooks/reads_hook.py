@@ -889,11 +889,6 @@ def _inbox(msg: dict) -> bool:
     return msg.get("kind") == KIND_MESSAGE and msg.get("origin") == ORIGIN_INBOX
 
 
-def deliver(sid: str, token: str, by: str) -> "list[str]":
-    """`deliver_items`, the texts only."""
-    return [text for _id, text in deliver_items(sid, token, by)]
-
-
 def deliver_items(sid: str, token: str, by: str) -> "list[tuple[str, str]]":
     """Claim what this hook may hand over now: every answer not held for a
     waiting `probe ask --wait`, every run alert, inbox and server message, every

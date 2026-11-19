@@ -1,0 +1,181 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Contract topics, declared principals and the rows derived from them (OMN-19998, issue L1-04).
+
+The principals overlay names which broker login runs which nodes; a node's rows follow from the topics its contract
+declares (event_bus.subscribe_topics and publish_topics). Every key is required; an unknown key is refused.
+"""
+
+from __future__ import annotations
+
+import re
+from enum import StrEnum
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from omnimarket.models.broker_acl.model_broker_acl_overlay import (
+    ModelBrokerAclFinding,
+    ModelBrokerAclRow,
+)
+
+_PLACEHOLDER_NAME = re.compile(r"[A-Z][A-Z0-9_]*")
+
+
+def fill_value_refusal(value: str) -> str | None:
+    """A short reason a placeholder value is refused, or None when it is usable."""
+    if not value.strip():
+        return "an empty or blank value"
+    if any(char in value for char in "${}"):
+        return "an unexpanded placeholder"
+    if any(char.isspace() for char in value):
+        return "whitespace"
+    return None
+
+
+class EnumTopicDirection(StrEnum):
+    PUBLISH = "publish"
+    SUBSCRIBE = "subscribe"
+
+
+class ModelContractTopicUse(BaseModel):
+    """One topic one node's contract declares, and whether the node publishes or subscribes to it.
+
+    `command` marks the node's primary command topic (event_bus.subscribe_topics[0], the topic an `onex run-node`
+    request is sent to) and `terminal` the contract's top-level terminal_event, so a caller's reverse rows are derivable.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    node: str = Field(min_length=1)
+    topic: str = Field(min_length=1)
+    direction: EnumTopicDirection
+    command: bool = False
+    terminal: bool = False
+    # False for a topic only the contract's terminal_event names (not in publish_topics): a caller's row follows from it,
+    # a runner's rows and the topic coverage check do not.
+    declared: bool = True
+
+
+class ModelNodePrincipal(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    principal: str = Field(min_length=1)
+    role: str = Field(min_length=1)
+    nodes: tuple[str, ...] = Field(min_length=1)
+
+
+class ModelNodeRole(BaseModel):
+    """A set of nodes run under several logins at once (a unit on every lab host): each login holds the rows of each node.
+
+    `calls` names the nodes the role's principals only send an `onex run-node` request to: they hold the reverse of a
+    runner's rows on the called node's command and terminal topics, and no consumer group. A role declares at least one.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    name: str = Field(min_length=1)
+    role: str = Field(min_length=1)
+    nodes: tuple[str, ...] = ()
+    calls: tuple[str, ...] = ()
+    principals: tuple[str, ...] = Field(min_length=1)
+    placeholders: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _names_nodes_or_calls(self) -> ModelNodeRole:
+        if not self.nodes and not self.calls:
+            raise ValueError(f"role {self.name!r} declares no nodes and no calls")
+        return self
+
+    @model_validator(mode="after")
+    def _placeholder_shape(self) -> ModelNodeRole:
+        for placeholder in self.placeholders:
+            if not _PLACEHOLDER_NAME.fullmatch(placeholder):
+                raise ValueError(
+                    f"placeholder {placeholder!r} does not match ^[A-Z][A-Z0-9_]*$"
+                )
+        if len(set(self.placeholders)) != len(self.placeholders):
+            repeated = next(
+                p for p in self.placeholders if self.placeholders.count(p) > 1
+            )
+            raise ValueError(f"role {self.name!r} names placeholder {repeated!r} twice")
+        if self.placeholders and len(self.principals) > 1:
+            raise ValueError(
+                f"role {self.name!r} names placeholders but holds {len(self.principals)} principals"
+            )
+        if self.placeholders:
+            reason = fill_value_refusal(self.principals[0])
+            if reason:
+                raise ValueError(f"role {self.name!r} principal has {reason}")
+        return self
+
+
+class ModelBrokerAclPrincipalsOverlay(BaseModel):
+    """The declared principals: which login runs which nodes, one login per node (principals) or one role of many logins (roles)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    scope: str = Field(min_length=1)
+    ticket: str = Field(min_length=1)
+    why: str = Field(min_length=1)
+    principals: tuple[ModelNodePrincipal, ...] = ()
+    roles: tuple[ModelNodeRole, ...] = ()
+    # Values for ${NAME} cells that no role holds (a consumer group package name, a login of another broker): names no role fills.
+    placeholder_values: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _names_something(self) -> ModelBrokerAclPrincipalsOverlay:
+        if not self.principals and not self.roles:
+            raise ValueError("an overlay declares at least one principal or role")
+        seen: dict[str, str] = {}
+        for role in self.roles:
+            for placeholder in role.placeholders:
+                if placeholder in seen:
+                    raise ValueError(
+                        f"placeholder {placeholder!r} is named by both {seen[placeholder]!r} and {role.name!r}"
+                    )
+                seen[placeholder] = role.name
+        for name, value in self.placeholder_values.items():
+            if not _PLACEHOLDER_NAME.fullmatch(name):
+                raise ValueError(
+                    f"placeholder {name!r} does not match ^[A-Z][A-Z0-9_]*$"
+                )
+            reason = fill_value_refusal(value)
+            if reason:
+                raise ValueError(f"placeholder {name!r} has {reason}")
+            if name in seen:
+                raise ValueError(
+                    f"placeholder {name!r} is named by both {seen[name]!r} and placeholder_values"
+                )
+        return self
+
+    def placeholder_logins(self) -> dict[str, str]:
+        """placeholder -> the role's single principal (empty when no role names one)."""
+        return {
+            placeholder: role.principals[0]
+            for role in self.roles
+            for placeholder in role.placeholders
+        }
+
+    def placeholder_fills(self) -> dict[str, str]:
+        """placeholder -> the name that fills it without the environment: role logins, then non-login values."""
+        return {**self.placeholder_logins(), **self.placeholder_values}
+
+
+class ModelBrokerAclDeriveRequest(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    scope: str = Field(min_length=1)
+    topic_uses: tuple[ModelContractTopicUse, ...]
+    principals: ModelBrokerAclPrincipalsOverlay
+    declared_rows: tuple[ModelBrokerAclRow, ...] = ()
+    # Derive only this node's rows (the readiness check asks what one node needs). A node no principal runs refuses.
+    only_node: str | None = Field(default=None, min_length=1)
+
+
+class ModelBrokerAclDeriveResult(BaseModel):
+    """Derived rows, sorted; a topic no row covers is listed and refuses the check."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    scope: str
+    status: Literal["derived", "refused"]
+    rows: tuple[ModelBrokerAclRow, ...] = ()
+    contract_topics: int = Field(default=0, ge=0)
+    derived_rows: int = Field(default=0, ge=0)
+    uncovered_topics: tuple[str, ...] = ()
+    findings: tuple[ModelBrokerAclFinding, ...] = ()

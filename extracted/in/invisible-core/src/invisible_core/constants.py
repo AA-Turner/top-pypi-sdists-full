@@ -12,8 +12,7 @@ the engine.
 What IS hand-written, because no seal carries it: the "firefox-" / "-stealth"
 affixes and the per-platform archive suffixes that surround the sealed version
 in BINARY_BASENAME / ARCHIVE_NAME, RELEASE_URL_TEMPLATE (the repo that hosts the
-releases), BINARY_ENTRY_REL (seal.DEFAULT_ENTRY_REL, the executable path inside
-each archive), and the four GEOIP_* constants (a third-party repo, its asset
+releases), and the four GEOIP_* constants (a third-party repo, its asset
 name and its download URL). Those move only when the hosting repo, the archive
 layout or the upstream GeoIP project moves.
 
@@ -24,7 +23,7 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from ._version import CORE_REVISION, __version__ as PKG_VERSION
-from .seal import DEFAULT_ENTRY_REL, active_seal, normalize_arch
+from .seal import active_seal, normalize_arch
 
 _SEAL = active_seal()
 
@@ -38,11 +37,6 @@ BUILD_ID: str = _SEAL.build_id
 CONTRACT_N: int = _SEAL.contract_n
 SEAL_DIGEST: str = _SEAL.digest
 SOURCE_COMMIT: str = _SEAL.source_commit
-
-# Retired. A superseded build is now simply a build no seal points at, and
-# ensure_binary() refuses any tag but the sealed one, so there is nothing to
-# blacklist. Kept as an empty frozenset for import compatibility.
-BROKEN_VERSIONS: frozenset[str] = frozenset()
 
 BINARY_BASENAME: str = f"firefox-{FIREFOX_UPSTREAM_VERSION}-stealth"
 
@@ -128,13 +122,7 @@ def ARCHIVE_NAME(platform_key: str, machine: str) -> str:
         return f"{BINARY_BASENAME}-win-{arch}.zip"
     if pk == "linux":
         return f"{BINARY_BASENAME}-linux-{arch}.tar.gz"
-    # macOS is no longer supported: no darwin name is ever built. Seals from old
-    # releases still carry darwin assets - read by the non-local branch above,
-    # which takes the name from the seal - but a LOCAL seal produces none.
     raise NotImplementedError(f"unsupported platform: {platform_key}")
-
-
-BINARY_ENTRY_REL = dict(DEFAULT_ENTRY_REL)
 
 # GitHub release URL template. Binaries are hosted on the source repo
 # (firefox_antidetect_patch) since firefox-14 - the same repo that builds them,

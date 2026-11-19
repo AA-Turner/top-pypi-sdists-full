@@ -67,6 +67,7 @@ TemplateParameterDataTypeType = Literal["NUMBER", "STRING"]
 VirtualClusterStateType = Literal["ARRESTED", "RUNNING", "TERMINATED", "TERMINATING"]
 EMRContainersServiceName = Literal["emr-containers"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

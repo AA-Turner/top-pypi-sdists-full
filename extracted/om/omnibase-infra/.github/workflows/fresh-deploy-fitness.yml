@@ -46,18 +46,9 @@ env:
 jobs:
   release-identity:
     name: release-identity
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
-    # OMN-14471: this gate now invokes the canonical node_release_identity_compute
-    # COMPUTE node (via scripts/check_release_identity.py), which imports
-    # omnibase_infra, so the job must run in the uv workspace rather than a bare
-    # setup-python. The gate BEHAVIOR is unchanged — only the environment that
-    # imports the node differs. Mirrors the sibling-lock-pins job below.
+    runs-on: ubuntu-latest
+    # OMN-21939: this gate runs omnibase_core's node_release_identity_check_compute
+    # (the check-release-identity hook's runtime) from the locked uv workspace.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -73,17 +64,12 @@ jobs:
           set -euo pipefail
           BASE="${{ github.event.pull_request.base.ref || 'dev' }}"
           git fetch --quiet origin "${BASE}" || true
-          uv run --frozen python scripts/check_release_identity.py --base "origin/${BASE}"
+          uv run --frozen python -m omnibase_core.nodes.node_release_identity_check_compute.runtime_release_identity_check \
+            --root . --base "origin/${BASE}"
 
   terminal-cost-completeness:
     name: terminal-cost-completeness
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -96,13 +82,7 @@ jobs:
 
   context-field-presence:
     name: context-field-presence
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -128,13 +108,7 @@ jobs:
     # fails and blocks merge. The live build-time compare still runs inside the
     # docker build (Dockerfile.runtime provenance step) where the directionality
     # is correct.
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    runs-on: ubuntu-latest
     # OMN-14017: setup-python-uv may need the full retry budget when GitHub/PyPI
     # fetches are slow on the shared runner lane.
     timeout-minutes: 30
@@ -152,10 +126,8 @@ jobs:
 
   pinned-wheel-skew:
     name: pinned-wheel-skew
-    # ADVISORY (continue-on-error) — NOT yet a blocking required gate. A baseline
-    # run on origin/dev flags PRE-EXISTING build-provenance drift this PR did not
-    # author: OMNIBASE_COMPAT_REF is pinned to a commit while a newer compat
-    # release exists, and ONEX_CHANGE_CONTROL_REF is a floating `main` ref. Wiring
+    # ADVISORY (continue-on-error). The original baseline flagged build-provenance drift,
+    # including a stale release pin and a floating branch ref. Wiring
     # this as blocking would ship a gate that is red on day one over pins owned by
     # separate platform-debt tickets — Rule 5 prohibits detection without a clean
     # baseline (same discipline as the actionlint carve-out in
@@ -164,13 +136,7 @@ jobs:
     # assert_pins_satisfied), so the deploy-time gap is already closed. This job
     # surfaces the drift in CI; it flips to blocking in a follow-up once the
     # pre-existing pins are refreshed.
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    runs-on: ubuntu-latest
     timeout-minutes: 8
     continue-on-error: true
     env:

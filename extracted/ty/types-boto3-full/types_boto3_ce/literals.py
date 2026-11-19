@@ -240,6 +240,7 @@ SupportedSavingsPlansTypeType = Literal[
 TermInYearsType = Literal["ONE_YEAR", "THREE_YEARS"]
 CostExplorerServiceName = Literal["ce"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

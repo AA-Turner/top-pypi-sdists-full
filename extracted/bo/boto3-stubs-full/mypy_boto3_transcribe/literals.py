@@ -258,6 +258,7 @@ VocabularyReadyWaiterName = Literal["vocabulary_ready"]
 VocabularyStateType = Literal["FAILED", "PENDING", "READY"]
 TranscribeServiceServiceName = Literal["transcribe"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

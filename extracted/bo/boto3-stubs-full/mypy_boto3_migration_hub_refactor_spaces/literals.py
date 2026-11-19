@@ -101,6 +101,7 @@ ServiceEndpointTypeType = Literal["LAMBDA", "URL"]
 ServiceStateType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 MigrationHubRefactorSpacesServiceName = Literal["migration-hub-refactor-spaces"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

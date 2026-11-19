@@ -647,6 +647,7 @@ VmPlatformType = Literal["LINUX", "UNKNOWN", "WINDOWS"]
 VulnerabilitySourceType = Literal["NVD"]
 Inspector2ServiceName = Literal["inspector2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

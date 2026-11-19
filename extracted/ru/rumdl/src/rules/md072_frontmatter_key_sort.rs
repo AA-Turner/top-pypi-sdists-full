@@ -13,7 +13,7 @@ static JSON_KEY_PATTERN: LazyLock<Regex> =
 ///
 /// This rule is disabled by default (opt-in) because key sorting
 /// is an opinionated style choice. Many projects prefer semantic ordering.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
 pub struct MD072Config {
     /// Whether this rule is enabled (default: false - opt-in rule)
     #[serde(default)]
@@ -1388,7 +1388,7 @@ mod tests {
         let fm_content: String = lines[1..fm_end].join("\n");
 
         // Should parse without error
-        let parsed: Result<serde_yaml::Value, _> = serde_yaml::from_str(&fm_content);
+        let parsed: Result<serde_json::Value, _> = serde_saphyr::from_str(&fm_content);
         assert!(parsed.is_ok(), "Fixed YAML should be valid: {fm_content}");
     }
 

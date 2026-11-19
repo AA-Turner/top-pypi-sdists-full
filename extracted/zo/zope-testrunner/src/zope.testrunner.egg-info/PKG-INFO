@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.testrunner
-Version: 8.3
+Version: 8.4
 Summary: Zope testrunner script.
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -15,16 +15,16 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.md
 Requires-Dist: zope.exceptions
@@ -217,6 +217,19 @@ test execution order, and run multiple tests in parallel.
 ===========================
  zope.testrunner Changelog
 ===========================
+
+8.4 (2026-11-19)
+================
+
+- Add support for Python 3.15.
+
+- Drop support for Python 3.10.
+
+- Fix running layers in a subprocess on Python 3.15 when started via
+  ``python -m zope.testrunner``: our ``profiling`` module shadowed the new
+  stdlib ``profiling`` package.
+  (`#210 <https://github.com/zopefoundation/zope.testrunner/issues/210>`_)
+
 
 8.3 (2026-07-30)
 ================
@@ -421,7 +434,7 @@ Backwards-incompatible changes
   `#130 <https://github.com/zopefoundation/zope.testrunner/issues/130>`_.
 
 - New option ``--gc-after-test``. It calls for a garbage collection
-  after each test and can be used to track down ``ResourceWarning``s
+  after each test and can be used to track down ``ResourceWarning`` s
   and cyclic garbage.
   With ``rv = gc.collect()``, ``!`` is output on verbosity level 1 when
   ``rv`` is non zero (i.e. when cyclic structures have been released),

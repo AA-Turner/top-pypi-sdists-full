@@ -800,6 +800,7 @@ TaskStatusType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
 VisibilityType = Literal["Full", "Limited"]
 PartnerCentralSellingAPIServiceName = Literal["partnercentral-selling"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

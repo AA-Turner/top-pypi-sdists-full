@@ -16,7 +16,11 @@ reason the lane receipts report; when none reports one it says so rather than gu
 from __future__ import annotations
 
 from collections import Counter
-from typing import Literal
+from typing import Literal, cast
+
+from omnimarket.handlers.handler_packaged_contract_loader import (
+    load_packaged_contract_section,
+)
 
 from ..models import (
     ModelLaneRefusal,
@@ -27,7 +31,12 @@ from ..models import (
 
 LANE = "silent-failure-alarm"
 TICKET = "OMN-17427"
-FILL_INTERVAL_MINUTES = 20
+_TIMEOUTS = cast(
+    "dict[str, float]",
+    load_packaged_contract_section("node_silent_failure_alarm_compute", "timeouts"),
+)
+
+FILL_INTERVAL_MINUTES = int(_TIMEOUTS["fill_interval_seconds"] // 60)
 NO_REASON = "no-refusal-reported"
 
 __all__ = ["HandlerPlacementShareAlarm", "ModelPlacementShareResult"]
@@ -90,6 +99,14 @@ class HandlerPlacementShareAlarm:
         placed = sum(r.placed for r in window)
         lost = max(dispatched - placed, sum(reasons.values()))
         runs = ",".join(keys)
+        named = sorted(
+            {(r.lane, r.status) for r in request.refusals if r.run_key in keys}
+        )
+        lane_reasons = ",".join(
+            f"{lane}:{status}" for lane, status in named[: request.lanes_named]
+        )
+        if len(named) > request.lanes_named:
+            lane_reasons += f",+{len(named) - request.lanes_named}-more"
         detail = (
             f"lab-fill placed {placed} of {dispatched} dispatched lanes over runs {runs}; "
             f"refusal reason {reason}"
@@ -98,6 +115,7 @@ class HandlerPlacementShareAlarm:
             f"FRICTION | lane={LANE} | ticket={TICKET} | actor=launchd:{LANE} | "
             f"class={'-'.join(kinds)} | reason={_cell(reason)} | runs={runs} | "
             f"dispatched={dispatched} | placed={placed} | "
+            f"{f'lane-reasons={lane_reasons} | ' if named else ''}"
             f"cost=est ~{lost * FILL_INTERVAL_MINUTES} lane-minutes "
             f"(unplaced lanes x the {FILL_INTERVAL_MINUTES}m fill interval) | {detail}"
         )

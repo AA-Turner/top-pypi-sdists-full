@@ -32,6 +32,7 @@ if not os.path.exists(os.path.join(comfy_path, 'folder_paths.py')):
 
 
 import utils.extra_config
+from comfyui_manager.common.git_compat import setup_git_environment
 from comfyui_manager.common import manager_util
 from comfyui_manager.common import cm_global
 from comfyui_manager.legacy import manager_core as core
@@ -80,7 +81,7 @@ core.check_invalid_nodes()
 def read_downgrade_blacklist():
     try:
         import configparser
-        config = configparser.ConfigParser(strict=False)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
         config.read(context.manager_config_path)
         default_conf = config['default']
 
@@ -135,25 +136,25 @@ class Ctx:
         self.no_deps = no_deps
 
     def set_user_directory(self, user_directory):
-        if user_directory is None:
-            return
+        if user_directory is not None:
+            extra_model_paths_yaml = os.path.join(user_directory, 'extra_model_paths.yaml')
+            if os.path.exists(extra_model_paths_yaml):
+                utils.extra_config.load_extra_path_config(extra_model_paths_yaml)
 
-        extra_model_paths_yaml = os.path.join(user_directory, 'extra_model_paths.yaml')
-        if os.path.exists(extra_model_paths_yaml):
-            utils.extra_config.load_extra_path_config(extra_model_paths_yaml)
+            context.update_user_directory(user_directory)
 
-        context.update_user_directory(user_directory)
+            if os.path.exists(context.manager_pip_overrides_path):
+                with open(context.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
+                    cm_global.pip_overrides = json.load(json_file)
 
-        if os.path.exists(context.manager_pip_overrides_path):
-            with open(context.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
-                cm_global.pip_overrides = json.load(json_file)
+            if os.path.exists(context.manager_pip_blacklist_path):
+                with open(context.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
+                    for x in f.readlines():
+                        y = x.strip()
+                        if y != '':
+                            cm_global.pip_blacklist.add(y)
 
-        if os.path.exists(context.manager_pip_blacklist_path):
-            with open(context.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
-                for x in f.readlines():
-                    y = x.strip()
-                    if y != '':
-                        cm_global.pip_blacklist.add(y)
+        setup_git_environment(core.get_config()['git_exe'])
 
     def update_custom_nodes_dir(self, target_dir):
         import folder_paths
@@ -1212,7 +1213,7 @@ def restore_snapshot(
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     try:
-        asyncio.run(core.restore_snapshot(snapshot_path, extras))
+        is_restored = asyncio.run(core.restore_snapshot(snapshot_path, extras))
     except Exception:
         print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
         traceback.print_exc()
@@ -1221,6 +1222,9 @@ def restore_snapshot(
         raise typer.Exit(code=1)
 
     _finalize_resolve(pip_fixer, uv_compile)
+
+    if not is_restored:
+        raise typer.Exit(code=1)
 
 
 @app.command(

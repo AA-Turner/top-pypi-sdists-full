@@ -201,6 +201,7 @@ WirelessGatewayTaskStatusType = Literal[
 WirelessGatewayTypeType = Literal["LoRaWAN"]
 IoTWirelessServiceName = Literal["iotwireless"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

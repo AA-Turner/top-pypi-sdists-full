@@ -157,6 +157,7 @@ ThresholdModeType = Literal["COUNT_OF_RESULTS", "FIELD_VALUE"]
 ViewTypeType = Literal["MANAGED", "USER"]
 CloudWatchOmniServiceName = Literal["cloudwatchomni"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

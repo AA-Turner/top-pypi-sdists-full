@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "collate-sqlfluff"
-version = "3.5.3"
+version = "3.6.0"
 description = "The SQL Linter for Humans"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.9"
@@ -81,8 +81,6 @@ dependencies = [
     "Jinja2",
     # Used for .sqlfluffignore
     "pathspec",
-    # We provide a testing library for plugins in sqlfluff.utils.testing
-    "pytest",
     # We require pyyaml >= 5.1 so that we can preserve the ordering of keys.
     "pyyaml>=5.1",
     # The new regex module to allow for more complex pattern matching,
@@ -108,74 +106,76 @@ Changes = "https://github.com/open-metadata/collate-sqlfluff/blob/main/CHANGELOG
 Twitter = "https://twitter.com/SQLFluff"
 Chat = "https://github.com/open-metadata/collate-sqlfluff#sqlfluff-on-slack"
 
+# Script, entry-point names and group differ from upstream sqlfluff so both distributions
+# can be installed side by side without overwriting each other.
 [project.scripts]
-sqlfluff = "sqlfluff.cli.commands:cli"
+collate-sqlfluff = "collate_sqlfluff.cli.commands:cli"
 
 [project.entry-points.diff_cover]
-sqlfluff = "sqlfluff.diff_quality_plugin"
+collate_sqlfluff = "collate_sqlfluff.diff_quality_plugin"
 
-[project.entry-points.sqlfluff]
-sqlfluff = "sqlfluff.core.plugin.lib"
+[project.entry-points.collate_sqlfluff]
+sqlfluff = "collate_sqlfluff.core.plugin.lib"
 # NOTE: We namespace the rules plugins with `rules`, because some
 # of them might later collide with other types of plugins. In particular
 # `tsql` may eventually refer to a dialect plugin and `jinja` may refer
 # to a templater plugin.
-sqlfluff_rules_capitalisation = "sqlfluff.rules.capitalisation"
-sqlfluff_rules_aliasing = "sqlfluff.rules.aliasing"
-sqlfluff_rules_layout = "sqlfluff.rules.layout"
-sqlfluff_rules_references = "sqlfluff.rules.references"
-sqlfluff_rules_ambiguous = "sqlfluff.rules.ambiguous"
-sqlfluff_rules_structure = "sqlfluff.rules.structure"
-sqlfluff_rules_convention = "sqlfluff.rules.convention"
-sqlfluff_rules_jinja = "sqlfluff.rules.jinja"
-sqlfluff_rules_tsql = "sqlfluff.rules.tsql"
+sqlfluff_rules_capitalisation = "collate_sqlfluff.rules.capitalisation"
+sqlfluff_rules_aliasing = "collate_sqlfluff.rules.aliasing"
+sqlfluff_rules_layout = "collate_sqlfluff.rules.layout"
+sqlfluff_rules_references = "collate_sqlfluff.rules.references"
+sqlfluff_rules_ambiguous = "collate_sqlfluff.rules.ambiguous"
+sqlfluff_rules_structure = "collate_sqlfluff.rules.structure"
+sqlfluff_rules_convention = "collate_sqlfluff.rules.convention"
+sqlfluff_rules_jinja = "collate_sqlfluff.rules.jinja"
+sqlfluff_rules_tsql = "collate_sqlfluff.rules.tsql"
 
 
 [tool.sqlfluff_docs]
 # NOTE: Stable version is used by docs/conf.py
-stable_version = "3.5.3"
+stable_version = "3.6.0"
 
 
 [tool.setuptools.package-data]
 # `default_config.cfg` is loaded by sqlfluff as part of config resolution.
 # For more details on `py.typed` see https://peps.python.org/pep-0561/
-sqlfluff = ["core/default_config.cfg", "py.typed"]
+collate_sqlfluff = ["core/default_config.cfg", "py.typed"]
 
 
 [tool.importlinter]
-root_package = "sqlfluff"
+root_package = "collate_sqlfluff"
 
 [[tool.importlinter.contracts]]
 name = "Forbid dependencies outside core"
 type = "forbidden"
 source_modules = [
-    "sqlfluff.core",
+    "collate_sqlfluff.core",
 ]
 forbidden_modules = [
-    "sqlfluff.api",
-    "sqlfluff.cli",
-    "sqlfluff.dialects",
-    "sqlfluff.rules",
-    "sqlfluff.utils",
+    "collate_sqlfluff.api",
+    "collate_sqlfluff.cli",
+    "collate_sqlfluff.dialects",
+    "collate_sqlfluff.rules",
+    "collate_sqlfluff.utils",
 ]
 
 [[tool.importlinter.contracts]]
 name = "API may not depend on CLI"
 type = "forbidden"
 source_modules = [
-    "sqlfluff.api",
+    "collate_sqlfluff.api",
 ]
 forbidden_modules = [
-    "sqlfluff.cli",
+    "collate_sqlfluff.cli",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Helper methods must be internally independent"
 type = "independence"
 modules = [
-    "sqlfluff.core.helpers.string",
-    "sqlfluff.core.helpers.slice",
-    "sqlfluff.core.helpers.dict",
+    "collate_sqlfluff.core.helpers.string",
+    "collate_sqlfluff.core.helpers.slice",
+    "collate_sqlfluff.core.helpers.dict",
 ]
 
 [[tool.importlinter.contracts]]
@@ -187,31 +187,31 @@ name = "Dependency layers within core"
 type = "layers"
 layers = [
     # `linter` references many things, including rules.
-    "sqlfluff.core.linter",
+    "collate_sqlfluff.core.linter",
     # `rules` should be independent from linter, but can reference the others.
-    "sqlfluff.core.rules",
+    "collate_sqlfluff.core.rules",
     # `parser` should be independent of `rules` and `linter`.
-    "sqlfluff.core.parser",
+    "collate_sqlfluff.core.parser",
     # `errors` should be a utility library, which can be referenced by the others.
-    "sqlfluff.core.errors",
+    "collate_sqlfluff.core.errors",
     # `types` should be almost independent (but may use helpers)
-    "sqlfluff.core.types",
+    "collate_sqlfluff.core.types",
     # `helpers` should be independent and not reference any of the above.
-    "sqlfluff.core.helpers",
+    "collate_sqlfluff.core.helpers",
 ]
 ignore_imports = [
     # `errors` references `rules` and `parser`, but only for type checking.
     # Splitting it up seems overkill for now, so an allowable exception.
-    "sqlfluff.core.errors -> sqlfluff.core.rules",
-    "sqlfluff.core.errors -> sqlfluff.core.parser",
+    "collate_sqlfluff.core.errors -> collate_sqlfluff.core.rules",
+    "collate_sqlfluff.core.errors -> collate_sqlfluff.core.parser",
     # The plugin host need the BaseRule type for type checking, because one
     # of the hooks returns rules. It's otherwise not something we can import
     # at this layer.
-    "sqlfluff.core.plugin.hookspecs -> sqlfluff.core.rules.base",
+    "collate_sqlfluff.core.plugin.hookspecs -> collate_sqlfluff.core.rules.base",
     # The formatter needs the LintedFile type for type checking (and the
     # formatter is imported by lots of other things), and we aren't otherwise
     # allowed to depend on the linter at this layer.
-    "sqlfluff.core.formatter -> sqlfluff.core.linter",
+    "collate_sqlfluff.core.formatter -> collate_sqlfluff.core.linter",
 ]
 
 
@@ -243,9 +243,9 @@ ignore = ["D107", "D105", "D418"]
 
 
 [tool.ruff.lint.isort]
-# Mark sqlfluff, test and it's plugins as known first party
+# Mark collate_sqlfluff, test and its plugins as known first party
 known-first-party = [
-    "sqlfluff",
+    "collate_sqlfluff",
     "sqlfluff_plugin_example",
     "sqlfluff_templater_dbt",
     "test",

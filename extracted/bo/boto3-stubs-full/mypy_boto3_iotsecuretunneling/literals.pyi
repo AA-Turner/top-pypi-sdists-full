@@ -36,6 +36,7 @@ ConnectionStatusType = Literal["CONNECTED", "DISCONNECTED"]
 TunnelStatusType = Literal["CLOSED", "OPEN"]
 IoTSecureTunnelingServiceName = Literal["iotsecuretunneling"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

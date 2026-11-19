@@ -370,6 +370,7 @@ if typing.TYPE_CHECKING:
     from .client import AsyncSarvamAI, SarvamAI
     from .decisions import State, StateParams
     from .doc_ai import (
+        DocAiExtractRequestMode,
         DocAiExtractRequestOutputFormat,
         DocAiGetResultsResponse,
         DocAiGetResultsResponseParams,
@@ -653,6 +654,7 @@ if typing.TYPE_CHECKING:
         SpeechToTextTranslateStreamingFlushSignal,
         SpeechToTextTranslateStreamingHighVadSensitivity,
         SpeechToTextTranslateStreamingInputAudioCodec,
+        SpeechToTextTranslateStreamingModel,
         SpeechToTextTranslateStreamingVadSignals,
     )
     from .text_to_speech_streaming import TextToSpeechStreamingModel, TextToSpeechStreamingSendCompletionEvent
@@ -794,6 +796,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocAiEvidenceParams": ".requests",
     "DocAiExample": ".types",
     "DocAiExampleParams": ".requests",
+    "DocAiExtractRequestMode": ".doc_ai",
     "DocAiExtractRequestOutputFormat": ".doc_ai",
     "DocAiExtractResults": ".types",
     "DocAiExtractResultsParams": ".requests",
@@ -1145,6 +1148,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SpeechToTextTranslateStreamingFlushSignal": ".speech_to_text_translate_streaming",
     "SpeechToTextTranslateStreamingHighVadSensitivity": ".speech_to_text_translate_streaming",
     "SpeechToTextTranslateStreamingInputAudioCodec": ".speech_to_text_translate_streaming",
+    "SpeechToTextTranslateStreamingModel": ".speech_to_text_translate_streaming",
     "SpeechToTextTranslateStreamingResponse": ".types",
     "SpeechToTextTranslateStreamingResponseParams": ".requests",
     "SpeechToTextTranslateStreamingVadSignals": ".speech_to_text_translate_streaming",
@@ -1458,6 +1462,7 @@ __all__ = [
     "DocAiEvidenceParams",
     "DocAiExample",
     "DocAiExampleParams",
+    "DocAiExtractRequestMode",
     "DocAiExtractRequestOutputFormat",
     "DocAiExtractResults",
     "DocAiExtractResultsParams",
@@ -1809,6 +1814,7 @@ __all__ = [
     "SpeechToTextTranslateStreamingFlushSignal",
     "SpeechToTextTranslateStreamingHighVadSensitivity",
     "SpeechToTextTranslateStreamingInputAudioCodec",
+    "SpeechToTextTranslateStreamingModel",
     "SpeechToTextTranslateStreamingResponse",
     "SpeechToTextTranslateStreamingResponseParams",
     "SpeechToTextTranslateStreamingVadSignals",

@@ -106,6 +106,7 @@ NetworkTypeType = Literal["DUAL", "IPV4"]
 WorkerConfigurationStateType = Literal["ACTIVE", "DELETING"]
 KafkaConnectServiceName = Literal["kafkaconnect"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

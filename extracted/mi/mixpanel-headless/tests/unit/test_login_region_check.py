@@ -7,9 +7,6 @@ exposes per-project ``domain`` strings that identify the cluster each
 project lives in. If the picked project's domain disagrees with the
 auth region, this is a configuration mistake the user must resolve
 before any further request can succeed (the bearer is region-bound).
-
-Reference: ``specs/043-frictionless-auth/contracts/error-messages.md``
-E-2 (region mismatch on browser auth).
 """
 
 from __future__ import annotations
@@ -119,8 +116,7 @@ class TestLoginRegionMismatch:
         Subsequent ``mp account test`` would authenticate happily
         against ``/me`` (which is project-agnostic) but every other
         request — using the now-cached default_project — would fail
-        with a confusing 401, and the bridge export would propagate
-        the wrong-region token to Cowork.
+        with a confusing 401.
         """
         from mixpanel_headless._internal.auth.storage import account_dir
 

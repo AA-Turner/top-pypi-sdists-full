@@ -44,27 +44,30 @@ class Direction(StrEnum):
     desc = "desc"
 
 
-def _table_identifier(namespace: str, table: str) -> str:
-    """Format exact names; quoted components escape double quotes by doubling them."""
+#: One identifier component: a bare name, or a double-quoted one with "" escaping ".
+_COMPONENT = r'(?:[A-Za-z0-9_-]+|"(?:[^"]|"")+")'
+
+
+def _table_identifier(*parts: str) -> str:
+    """Format exact names (the namespace, any nested levels, then the table);
+    quoted components escape double quotes by doubling them."""
 
     def quote(name: str) -> str:
         return name if re.fullmatch(r"[A-Za-z0-9_-]+", name) else '"' + name.replace('"', '""') + '"'
 
-    return f"{quote(namespace)}.{quote(table)}"
+    return ".".join(quote(part) for part in parts)
 
 
-def _parse_table_identifier(identifier: str) -> tuple[str, str]:
+def _parse_table_identifier(identifier: str) -> tuple[str, ...]:
+    """Parse ``NAMESPACE[.NESTED...].TABLE`` into its components, the table last."""
     # Keep this grammar in sync with the app's iceberg-identifier.ts formatter.
-    component = r'(?:[A-Za-z0-9_-]+|"(?:[^"]|"")+")'
-    match = re.fullmatch(rf"({component})\.({component})", identifier)
-    if match is None:
+    if re.fullmatch(rf"{_COMPONENT}(?:\.{_COMPONENT})+", identifier) is None:
         raise typer.BadParameter(
-            "Expected NAMESPACE.TABLE. Double-quote names containing dots or special characters, "
-            "and wrap the identifier in single quotes in your shell, e.g. '\"namespace.v2\".table'.",
+            "Expected NAMESPACE.TABLE, or NAMESPACE.NESTED.TABLE for a nested namespace. Double-quote names containing "
+            "dots or special characters, and wrap the identifier in single quotes in your shell, e.g. '\"namespace.v2\".table'.",
             param_hint="IDENTIFIER",
         )
-    namespace, table = (part[1:-1].replace('""', '"') if part.startswith('"') else part for part in match.groups())
-    return namespace, table
+    return tuple(part[1:-1].replace('""', '"') if part.startswith('"') else part for part in re.findall(_COMPONENT, identifier))
 
 
 def _json_object(value: str | None, option: str) -> dict[str, Any] | None:
@@ -88,7 +91,7 @@ def _show(value: Any, output: Output) -> None:
 
 def _show_list(rows: list[dict[str, Any]], output: Output, *, namespaces: bool) -> None:
     if not namespaces:
-        rows = [{**row, "identifier": _table_identifier(row["namespace"], row["name"])} for row in rows]
+        rows = [{**row, "identifier": _table_identifier(row["namespace"], *row.get("path", []), row["name"])} for row in rows]
     if output == Output.json:
         _show(rows, output)
         return
@@ -245,19 +248,23 @@ def list_tables(
 @table_app.command("describe")
 def describe_table(
     org: str,
-    identifier: str = typer.Argument(..., help="NAMESPACE.TABLE; double-quote components containing dots or special characters."),
+    identifier: str = typer.Argument(
+        ..., help="NAMESPACE.TABLE, or NAMESPACE.NESTED.TABLE in a nested namespace; double-quote components containing dots."
+    ),
     output: Output = Output.rich,
 ):
     """Load a table's schema, snapshots, partitioning, and properties. Requires arraylake[iceberg]."""
-    namespace, table = _parse_table_identifier(identifier)
+    parts = _parse_table_identifier(identifier)
+    namespace, *path, table = parts
     catalog = Client().get_iceberg(org)
     try:
-        loaded = catalog.load_table((namespace, table))
+        loaded = catalog.load_table(parts)
         _show(
             {
                 "name": table,
                 "namespace": namespace,
-                "identifier": _table_identifier(namespace, table),
+                "path": path,
+                "identifier": _table_identifier(*parts),
                 "metadata_location": loaded.metadata_location,
                 "metadata": loaded.metadata.model_dump(mode="json", by_alias=True),
             },

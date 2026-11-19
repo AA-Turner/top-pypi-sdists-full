@@ -25,6 +25,7 @@ __all__ = ("RegionName", "ResourceServiceName", "SSOOIDCServiceName", "ServiceNa
 
 SSOOIDCServiceName = Literal["sso-oidc"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

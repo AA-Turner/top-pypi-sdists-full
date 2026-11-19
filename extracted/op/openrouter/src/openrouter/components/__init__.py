@@ -2513,6 +2513,7 @@ if TYPE_CHECKING:
         ImageGenerationRequestOutputFormat,
         ImageGenerationRequestQuality,
         ImageGenerationRequestResolution,
+        ImageGenerationRequestResponseFormat,
         ImageGenerationRequestType,
         ImageGenerationRequestTypedDict,
         Markup,
@@ -4111,6 +4112,10 @@ if TYPE_CHECKING:
         PrivateEndpointPricing,
         PrivateEndpointPricingTypedDict,
     )
+    from .privateendpointpromptcaching import (
+        PrivateEndpointPromptCaching,
+        PrivateEndpointPromptCachingTypedDict,
+    )
     from .privateendpointquantization import PrivateEndpointQuantization
     from .privateendpointreasoningreturnmechanism import (
         PrivateEndpointReasoningReturnMechanism,
@@ -4858,6 +4863,10 @@ if TYPE_CHECKING:
     from .updateorganizationsettingsrequest import (
         UpdateOrganizationSettingsRequest,
         UpdateOrganizationSettingsRequestTypedDict,
+    )
+    from .updateprivateendpointpromptcaching import (
+        UpdatePrivateEndpointPromptCaching,
+        UpdatePrivateEndpointPromptCachingTypedDict,
     )
     from .updateprivateendpointrequest import (
         UpdatePrivateEndpointRequest,
@@ -6879,6 +6888,7 @@ __all__ = [
     "ImageGenerationRequestOutputFormat",
     "ImageGenerationRequestQuality",
     "ImageGenerationRequestResolution",
+    "ImageGenerationRequestResponseFormat",
     "ImageGenerationRequestType",
     "ImageGenerationRequestTypedDict",
     "ImageGenerationResponse",
@@ -7993,6 +8003,8 @@ __all__ = [
     "PrivateEndpointParameterCheckTypedDict",
     "PrivateEndpointPricing",
     "PrivateEndpointPricingTypedDict",
+    "PrivateEndpointPromptCaching",
+    "PrivateEndpointPromptCachingTypedDict",
     "PrivateEndpointQuantization",
     "PrivateEndpointReasoningReturnMechanism",
     "PrivateEndpointResponse",
@@ -8713,6 +8725,8 @@ __all__ = [
     "UpdateObservabilityDestinationResponseTypedDict",
     "UpdateOrganizationSettingsRequest",
     "UpdateOrganizationSettingsRequestTypedDict",
+    "UpdatePrivateEndpointPromptCaching",
+    "UpdatePrivateEndpointPromptCachingTypedDict",
     "UpdatePrivateEndpointRequest",
     "UpdatePrivateEndpointRequestDeclaredRegion",
     "UpdatePrivateEndpointRequestTypedDict",
@@ -10680,6 +10694,7 @@ _dynamic_imports: dict[str, str] = {
     "ImageGenerationRequestOutputFormat": ".imagegenerationrequest",
     "ImageGenerationRequestQuality": ".imagegenerationrequest",
     "ImageGenerationRequestResolution": ".imagegenerationrequest",
+    "ImageGenerationRequestResponseFormat": ".imagegenerationrequest",
     "ImageGenerationRequestType": ".imagegenerationrequest",
     "ImageGenerationRequestTypedDict": ".imagegenerationrequest",
     "Markup": ".imagegenerationrequest",
@@ -11891,6 +11906,8 @@ _dynamic_imports: dict[str, str] = {
     "PrivateEndpointParameterCheckTypedDict": ".privateendpointparametercheck",
     "PrivateEndpointPricing": ".privateendpointpricing",
     "PrivateEndpointPricingTypedDict": ".privateendpointpricing",
+    "PrivateEndpointPromptCaching": ".privateendpointpromptcaching",
+    "PrivateEndpointPromptCachingTypedDict": ".privateendpointpromptcaching",
     "PrivateEndpointQuantization": ".privateendpointquantization",
     "PrivateEndpointReasoningReturnMechanism": ".privateendpointreasoningreturnmechanism",
     "PrivateEndpointResponse": ".privateendpointresponse",
@@ -12436,6 +12453,8 @@ _dynamic_imports: dict[str, str] = {
     "UpdateObservabilityDestinationResponseTypedDict": ".updateobservabilitydestinationresponse",
     "UpdateOrganizationSettingsRequest": ".updateorganizationsettingsrequest",
     "UpdateOrganizationSettingsRequestTypedDict": ".updateorganizationsettingsrequest",
+    "UpdatePrivateEndpointPromptCaching": ".updateprivateendpointpromptcaching",
+    "UpdatePrivateEndpointPromptCachingTypedDict": ".updateprivateendpointpromptcaching",
     "UpdatePrivateEndpointRequest": ".updateprivateendpointrequest",
     "UpdatePrivateEndpointRequestDeclaredRegion": ".updateprivateendpointrequest",
     "UpdatePrivateEndpointRequestTypedDict": ".updateprivateendpointrequest",

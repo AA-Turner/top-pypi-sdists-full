@@ -1,0 +1,188 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Which pooled tenant key a routed request runs on, and that key's model.
+
+``omnimarket.routing.tenant_overlay_resolver`` calls these at the same read
+that loads the overlay (OMN-20992, OMN-21217) and re-exports every name here.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+from datetime import UTC, datetime
+from typing import Protocol, runtime_checkable
+
+from omnimarket.handlers.routing.byok_provider_backends import (
+    resolve_byok_provider_backend,
+)
+from omnimarket.handlers.tenant_identity_forms import sync_tenant_identity_forms
+from omnimarket.handlers.tenant_model_candidates import selected_key_models
+
+# The resolver's logger name, so these warnings read exactly as before the move.
+logger = logging.getLogger("omnimarket.routing.tenant_overlay_resolver")
+
+
+@runtime_checkable
+class ProtocolTenantOverlayReader(Protocol):
+    """Structural protocol satisfied by ``PostgresReadDatabaseAdapter`` and fakes."""
+
+    def query(
+        self, table: str, filters: dict[str, object] | None = None
+    ) -> list[dict[str, object]]:
+        """Return rows from ``table`` matching ``filters``."""
+        raise NotImplementedError
+
+
+#: The tenant's key catalog (node_projection_tenant_credentials, OMN-16316).
+#: OMN-20992: the pool the router chooses from. One row per registered key,
+#: keyed by ``api_key_ref``, with ``revoked_at`` and (since 0006) ``expires_at``.
+TENANT_CREDENTIALS_TABLE = "tenant_inference_credentials"
+
+
+def _selected_key_model(
+    db: ProtocolTenantOverlayReader,
+    *,
+    tenant_id: str,
+    provider: str | None,
+    secret_ref: str | None,
+    overlay_model: str,
+) -> str:
+    """Bind a pooled ref to its own choices, keeping unknown keys fail closed.
+
+    No-key overlays retain their distinct credential-absent posture. A house
+    overlay with no catalogue entry retains its configured model. A tenant ref
+    that cannot prove its own choices keeps that ref and the existing no-model
+    sentinel, so the effect refuses it before transport or model discovery.
+    """
+    return selected_key_models(
+        db,
+        tenant_id=tenant_id,
+        provider=provider,
+        secret_ref=secret_ref,
+        overlay_model=overlay_model,
+    )[0]
+
+
+def _select_pool_secret_ref(
+    db: ProtocolTenantOverlayReader,
+    *,
+    tenant_id: str,
+    provider: str | None,
+    overlay_secret_ref: str | None,
+    selector_key: str | None,
+    now: datetime,
+    exact_ref_only: bool = False,
+) -> str | None:
+    """Choose the key this request runs on from the tenant's pool (OMN-20992).
+
+    The overlay row names ONE ``secret_ref``: the key registered last, because
+    the BYOK bridge overwrites it on every registration. A tenant that holds
+    several keys for the routed provider (the company pool, operator ruling
+    2026-10-11T16:00:52Z) has them all in ``tenant_inference_credentials``, so
+    the choice is made here from that catalog, at the same I/O boundary that
+    already read the overlay, and the reducer keeps receiving a plain overlay.
+
+    * Candidates are this tenant's keys for the overlay's provider that are not
+      revoked and whose ``expires_at`` is unset or still ahead of ``now``.
+      Nothing routes to a lapsed key (ruling 2026-10-11T16:02:35Z).
+    * A key with a ``bound_host`` is not a candidate (OMN-22822). Its value
+      lives only in that host's local secret store and the host's own caller
+      (the review gateway) reads it there; the shared delegation lane resolves a
+      tenant key from the lane secret store, where a host-bound key is never
+      written. On the dev lane on 2026-11-04 and 2026-11-05 the h200 review key
+      was chosen here for 1,262 delegations, and every one failed with
+      "Failed to resolve secret from Infisical".
+    * With ``selector_key`` (the request's correlation id) the choice is a hash
+      of it over the candidates sorted by ref: stable for one request, spread
+      across the pool over many, and independent of the order a read returns.
+    * Without one, the overlay's own ref is kept while it is a candidate.
+    * Catalogued keys with none live: ``None``. The row is kept, so the tenant
+      fails closed at the effect boundary instead of falling back to a house
+      key (OMN-17372 ruling 3).
+    * No catalogued keys at all (a house overlay row, OMN-19186), no provider on
+      the row, or an unreadable catalog: the overlay's ref is returned as read,
+      which is exactly the behaviour before the pool existed. An unreadable
+      catalog is logged; the provider still refuses a lapsed key, so the cost
+      of not filtering here is one failed call, not a call on someone else's
+      key.
+    """
+    if not provider:
+        return overlay_secret_ref
+    backend = resolve_byok_provider_backend(provider)
+    exact_ref_only = exact_ref_only or bool(
+        backend and backend.endpoint_from_registration
+    )
+    try:
+        # OMN-21819: the pool spans rows stamped with either of the tenant's
+        # forms (name or registry UUID); a failed read of either is a failed read.
+        catalogued = [
+            row
+            for tenant_form in sync_tenant_identity_forms(db, tenant_id)
+            for row in db.query(
+                TENANT_CREDENTIALS_TABLE,
+                filters={"tenant_id": tenant_form, "provider": provider},
+            )
+        ]
+        # A missing or malformed primary key means the catalog could not be
+        # read as credentials, not that every registered key has expired.
+        # Keep this schema failure inside the existing read-error boundary.
+        for row in catalogued:
+            ref = row["api_key_ref"]
+            if not isinstance(ref, str) or not ref.strip():
+                raise ValueError("tenant key catalog contains an invalid api_key_ref")
+    except Exception:
+        logger.warning(
+            "tenant key pool read failed for tenant_id=%s provider=%s; routing "
+            "on the overlay's own key without pool selection",
+            tenant_id,
+            provider,
+            exc_info=True,
+        )
+        return None if exact_ref_only else overlay_secret_ref
+    if not catalogued:
+        return None if exact_ref_only else overlay_secret_ref
+    live = sorted(
+        str(row["api_key_ref"])
+        for row in catalogued
+        if row.get("api_key_ref")
+        and row.get("revoked_at") is None
+        and _not_expired(row.get("expires_at"), now)
+        and not row.get("bound_host")
+        and (not exact_ref_only or row.get("api_key_ref") == overlay_secret_ref)
+    )
+    if not live:
+        logger.warning(
+            "tenant key pool has no live key: tenant_id=%s provider=%s "
+            "catalogued=%d; the route is kept with no key so the call fails "
+            "closed",
+            tenant_id,
+            provider,
+            len(catalogued),
+        )
+        return None
+    if selector_key is None:
+        return overlay_secret_ref if overlay_secret_ref in live else live[0]
+    digest = hashlib.sha256(selector_key.encode("utf-8")).digest()
+    return live[int.from_bytes(digest[:8], "big") % len(live)]
+
+
+def _not_expired(value: object, now: datetime) -> bool:
+    """``True`` for an undated key or one whose expiry is still ahead of ``now``.
+
+    Postgres returns a ``datetime``; the local SQLite store returns ISO text.
+    A stored value that parses as neither is treated as expired: a date nobody
+    can read cannot prove the key still works.
+    """
+    if value is None:
+        return True
+    if isinstance(value, datetime):
+        expires_at = value
+    else:
+        try:
+            expires_at = datetime.fromisoformat(str(value))
+        except ValueError:
+            return False
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return expires_at > now

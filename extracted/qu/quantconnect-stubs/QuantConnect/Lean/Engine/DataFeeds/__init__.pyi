@@ -576,7 +576,7 @@ class UniverseSelection(System.Object):
 
     def apply_universe_selection(self, universe: QuantConnect.Data.UniverseSelection.Universe, date_time_utc: typing.Union[datetime.datetime, datetime.date], universe_data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
         """
-        Applies universe selection the the data feed and algorithm
+        Applies universe selection to the data feed and algorithm
         
         :param universe: The universe to perform selection on
         :param date_time_utc: The current date time in utc
@@ -2247,7 +2247,7 @@ class ManualTimeProvider(System.Object, QuantConnect.ITimeProvider):
         Sets the current time interpreting the specified time as a local time
         using the time zone used at instantiation.
         
-        :param time: The local time to set the current time time, will be
+        :param time: The local time to set the current time, will be
         converted into UTC
         """
         ...

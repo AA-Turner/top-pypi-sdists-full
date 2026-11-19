@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -19,6 +20,8 @@ import sys
 from pathlib import Path
 
 import pytest
+
+from omnibase_core.validators.no_unguarded_git_subprocess import scrub_git_location_env
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STAGE_SCRIPT = REPO_ROOT / "scripts" / "runtime_build" / "stage_workspace.sh"
@@ -32,8 +35,9 @@ SCHEMA_FILE = REPO_ROOT / "scripts" / "runtime_build" / "build-provenance-schema
 # per-repo provenance this asserts.
 SIBLING_REPOS = (
     "omnibase_core",
-    "omnibase_compat",
+    "omnibase_spi",
     "omnimarket",
+    "omniintelligence",
 )
 
 
@@ -43,19 +47,22 @@ def _git(repo: Path, *args: str) -> None:
         cwd=repo,
         check=True,
         capture_output=True,
-        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        env={**scrub_git_location_env(os.environ), "GIT_TERMINAL_PROMPT": "0"},
     )
 
 
 # Distribution names (as they appear in uv.lock / pyproject) keyed by repo dir.
 _DIST_NAME = {
     "omnibase_core": "omnibase-core",
-    "omnibase_compat": "omnibase-compat",
     "onex_change_control": "onex-change-control",
     "omnimarket": "omnimarket",
     "omnibase_infra": "omnibase-infra",
     "omnibase_spi": "omnibase-spi",
+    "omniintelligence": "omninode-intelligence",
 }
+# OMN-22153: no lock pins these (omnimarket does not depend on omniintelligence),
+# so the lock below omits them; the preflight must not ask for them.
+_LOCK_UNPINNED = frozenset({"omniintelligence"})
 _PIN_VERSION = "9.9.9"
 
 
@@ -69,6 +76,12 @@ def _init_repo(path: Path, dist: str, *, dirty: bool = False) -> None:
         f"[project]\nname = '{dist}'\nversion = '{_PIN_VERSION}'\n",
         encoding="utf-8",
     )
+    if dist == "omnimarket":
+        # OMN-21279: stage_workspace.sh copies the delegation routing ladder out
+        # of the staged omnimarket tree into the build context.
+        ladder = path / "src" / "omnimarket" / "configs"
+        ladder.mkdir(parents=True)
+        (ladder / "routing_tiers.yaml").write_text("tiers: []\n", encoding="utf-8")
     _git(path, "add", "-A")
     _git(path, "commit", "-q", "-m", "init")
     if dirty:
@@ -81,7 +94,9 @@ def _init_repo(path: Path, dist: str, *, dirty: bool = False) -> None:
 def _write_consumer_lock(omni_home: Path) -> None:
     """Write a uv.lock pinning every vendored sibling at _PIN_VERSION."""
     blocks = []
-    for dist in _DIST_NAME.values():
+    for repo, dist in _DIST_NAME.items():
+        if repo in _LOCK_UNPINNED:
+            continue
         blocks.append(f'[[package]]\nname = "{dist}"\nversion = "{_PIN_VERSION}"\n')
     (omni_home / "omnimarket" / "uv.lock").write_text(
         "\n".join(blocks), encoding="utf-8"
@@ -92,8 +107,9 @@ def _make_omni_home(tmp_path: Path, *, dirty_repo: str | None = None) -> Path:
     omni_home = tmp_path / "omni_home"
     for repo in SIBLING_REPOS:
         _init_repo(omni_home / repo, _DIST_NAME[repo], dirty=(repo == dirty_repo))
-    # omnibase_infra (the building repo) + spi must exist for the preflight.
-    for repo in ("omnibase_infra", "omnibase_spi"):
+    # omnibase_infra (the building repo) must exist for the preflight; spi is
+    # vendored now (OMN-17427), so the loop above made it.
+    for repo in ("omnibase_infra",):
         _init_repo(omni_home / repo, _DIST_NAME[repo])
     _write_consumer_lock(omni_home)
     return omni_home
@@ -225,7 +241,7 @@ def test_manifest_uses_infra_vcs_ref_and_folds_vcs_provenance(tmp_path: Path) ->
     app_dir.mkdir(parents=True)
     for repo in (
         "omnibase_core",
-        "omnibase_compat",
+        "omnibase_spi",
         "omnimarket",
     ):
         (sib_dir / repo).mkdir(parents=True)
@@ -285,3 +301,198 @@ def test_schema_declares_per_repo_vcs_provenance_and_infra_vcs_ref() -> None:
         "siblings"
     ]["additionalProperties"]
     assert set(sibling_schema["required"]) == {"vcs_ref", "vcs_dirty", "vcs_branch"}
+    # OMN-17427: the stamp command adds the tag and the build context, and the
+    # install audit adds the classification.
+    assert "dev_merge_tag" in sibling_schema["properties"]
+    assert (
+        "build_context" in schema["properties"]["per_repo_vcs_provenance"]["properties"]
+    )
+    assert "first_party_sources" in schema["properties"]
+
+
+# --- OMN-23947: a sibling whose pyproject leaves its version to git ------------
+
+_DYNAMIC_CORE_PYPROJECT = (
+    "[project]\nname = 'omnibase-core'\ndynamic = ['version']\n\n"
+    "[tool.hatch.version.raw-options]\n"
+    "git_describe_command = ['git', 'describe', '--dirty', '--tags', '--long',"
+    " '--match', 'v[0-9]*']\n"
+)
+
+
+def _git_out(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        env={**scrub_git_location_env(os.environ), "GIT_TERMINAL_PROMPT": "0"},
+    ).stdout.strip()
+
+
+def _make_derived_core_registry(tmp_path: Path, *, lock_at_latest: bool) -> Path:
+    """omnibase_core leaves its version to git: tag v1.2.3, then one commit.
+
+    The consumer lock names the tagged commit (``lock_at_latest`` False) or the
+    newest commit (True) through a dev-tag git source with a ``#<sha>`` fragment.
+    """
+    clones = tmp_path / "clones"
+    for repo in (*SIBLING_REPOS, "omnibase_infra"):
+        _init_repo(clones / repo, _DIST_NAME[repo])
+    _write_consumer_lock(clones)
+    core = clones / "omnibase_core"
+    (core / "pyproject.toml").write_text(_DYNAMIC_CORE_PYPROJECT, encoding="utf-8")
+    _git(core, "add", "-A")
+    _git(core, "commit", "-q", "-m", "dynamic version")
+    _git(core, "tag", "v1.2.3")
+    tagged = _git_out(core, "rev-parse", "HEAD")
+    (core / "later.txt").write_text("later\n", encoding="utf-8")
+    _git(core, "add", "-A")
+    _git(core, "commit", "-q", "-m", "later")
+    locked = _git_out(core, "rev-parse", "HEAD") if lock_at_latest else tagged
+    if lock_at_latest:
+        _git(core, "checkout", "-q", "--detach", "HEAD~1")
+    lock = clones / "omnimarket" / "uv.lock"
+    text = lock.read_text(encoding="utf-8")
+    old = f'name = "omnibase-core"\nversion = "{_PIN_VERSION}"\n'
+    assert old in text
+    lock.write_text(
+        text.replace(
+            old,
+            f'name = "omnibase-core"\nversion = "{_PIN_VERSION}"\n'
+            'source = { git = "https://example.test/omnibase_core.git'
+            f'?tag=dev-x#{locked}" }}\n',
+        ),
+        encoding="utf-8",
+    )
+    return clones
+
+
+@pytest.mark.unit
+def test_stage_derived_version_records_version_in_staged_pin_comparison(
+    tmp_path: Path,
+) -> None:
+    clones = _make_derived_core_registry(tmp_path, lock_at_latest=False)
+    build_ctx = tmp_path / "ctx"
+    result = _run_stage(clones, build_ctx)
+    assert result.returncode == 0, result.stderr
+
+    short = _git_out(clones / "omnibase_core", "rev-parse", "--short", "HEAD")
+    comparison = json.loads(
+        (build_ctx / "workspace" / "sibling-pin-comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    by_package = {c["package"]: c for c in comparison["comparisons"]}
+    assert by_package["omnibase-core"]["version_derived"] is True
+    assert by_package["omnibase-core"]["actual_version"] == f"1.2.4.dev1+g{short}"
+    # A sibling with a static version is not marked derived.
+    assert by_package["omnibase-spi"]["version_derived"] is False
+
+
+@pytest.mark.unit
+def test_stage_derived_version_aborts_when_clone_is_behind_locked_commit(
+    tmp_path: Path,
+) -> None:
+    clones = _make_derived_core_registry(tmp_path, lock_at_latest=True)
+    build_ctx = tmp_path / "ctx"
+    result = _run_stage(clones, build_ctx)
+    assert result.returncode != 0
+    assert "git SHA drift" in result.stderr
+
+
+def _dockerfile_core_pretend_variable() -> str:
+    """The env var the Dockerfile exports in the core_version block."""
+    text = (REPO_ROOT / "docker" / "Dockerfile.runtime").read_text(encoding="utf-8")
+    match = re.search(
+        r'if \[ -n "\$\{core_version\}" \]; then \s*\\?\s*\n'
+        r"\s*([A-Za-z_][A-Za-z0-9_]*)=\"\$\{core_version\}\";\s*\\?\s*\n"
+        r"\s*export \1;\s*\\?\s*\n",
+        text,
+    )
+    assert match is not None, (
+        "core_version export block not found in Dockerfile.runtime"
+    )
+    return match.group(1)
+
+
+@pytest.mark.unit
+def test_dockerfile_derived_version_exports_pretend_version_before_core_install() -> (
+    None
+):
+    text = (REPO_ROOT / "docker" / "Dockerfile.runtime").read_text(encoding="utf-8")
+    export = _dockerfile_core_pretend_variable()
+    assert export == "SETUPTOOLS_SCM_PRETEND_VERSION"
+    source = "/workspace/sibling-pin-comparison.json"
+    install = '"omnibase-core @ file:///workspace/sibling-repos/omnibase_core"'
+    core_at = text.index("core_version=")
+    assert text.index(source, core_at) > core_at
+    assert core_at < text.index(export, core_at) < text.index(install, core_at)
+
+
+@pytest.mark.integration
+def test_stage_derived_version_dockerfile_variable_builds_a_git_less_hatch_vcs_package(
+    tmp_path: Path,
+) -> None:
+    """A git-less hatch-vcs package builds only under the generic pretend var."""
+    pkg = tmp_path / "pkg"
+    (pkg / "pretend_probe_pkg").mkdir(parents=True)
+    (pkg / "pretend_probe_pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "pyproject.toml").write_text(
+        "[build-system]\n"
+        'requires = ["hatchling", "hatch-vcs"]\n'
+        'build-backend = "hatchling.build"\n\n'
+        "[project]\n"
+        'name = "pretend-probe-pkg"\n'
+        "dynamic = ['version']\n\n"
+        "[tool.hatch.version]\n"
+        'source = "vcs"\n\n'
+        "[tool.hatch.build.targets.wheel]\n"
+        'packages = ["pretend_probe_pkg"]\n',
+        encoding="utf-8",
+    )
+    assert not (pkg / ".git").exists()
+
+    def _build_env(**extra: str) -> dict[str, str]:
+        env = scrub_git_location_env(
+            {
+                k: v
+                for k, v in os.environ.items()
+                if not k.startswith("SETUPTOOLS_SCM_PRETEND_VERSION")
+            }
+        )
+        env.update(extra)
+        return env
+
+    name = _dockerfile_core_pretend_variable()
+    ctl = tmp_path / "ctl"
+    ctl.mkdir()
+    control = subprocess.run(
+        ["uv", "build", "--wheel", "--out-dir", str(ctl), str(pkg)],
+        env=_build_env(SETUPTOOLS_SCM_PRETEND_VERSION_FOR_PRETEND_PROBE_PKG="9.8.7"),
+        capture_output=True,
+        text=True,
+        timeout=240,
+        check=False,
+    )
+    assert control.returncode != 0
+    assert "No distribution name is known" in (control.stderr + control.stdout)
+
+    ok = tmp_path / "ok"
+    ok.mkdir()
+    good = subprocess.run(
+        ["uv", "build", "--wheel", "--out-dir", str(ok), str(pkg)],
+        env=_build_env(**{name: "9.8.7"}),
+        capture_output=True,
+        text=True,
+        timeout=240,
+        check=False,
+    )
+    assert good.returncode == 0, good.stderr + good.stdout
+    wheels = [
+        p
+        for p in ok.iterdir()
+        if p.name.startswith("pretend_probe_pkg-9.8.7-") and p.name.endswith(".whl")
+    ]
+    assert wheels, f"no pretend_probe_pkg-9.8.7 wheel in {ok}: {good.stderr}"

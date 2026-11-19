@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add workflow CronTrigger resource and proxy methods.

@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("contrast")
 
+LIBRARY_READER_THREAD_NAME = "ContrastLibraryReader"
+
 IMPORTABLE_FILE_SUFFIXES = (".py", ".so")
 CONTRAST_DIST_NAMES = (
     "contrast-agent",
@@ -73,7 +75,9 @@ class LibraryReader:
         self.enable_shields = enable_shields
         self.path_finder = path_finder
         self.analysis_thread = threading.Thread(
-            target=self._read_distribution_packages, daemon=True
+            target=self._read_distribution_packages,
+            name=LIBRARY_READER_THREAD_NAME,
+            daemon=True,
         )
 
     def start(self) -> None:

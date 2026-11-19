@@ -21,8 +21,10 @@ use std::sync::Arc;
 
 use compact_str::CompactString;
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
+use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::BoolOp;
@@ -63,12 +65,14 @@ use crate::einsum::evaluate_einops_einsum;
 use crate::einsum::evaluate_einsum;
 use crate::einsum::parse_einops_einsum_equation;
 use crate::einsum::parse_einsum_equation;
+use crate::env::TypeEnv;
 use crate::equality::TypeEq as TypeEqTrait;
 use crate::equality::TypeEqCtx;
 use crate::function::FuncDefId;
 use crate::gufunc::GufuncClassification;
 use crate::gufunc::evaluate_gufunc;
 use crate::gufunc::parse_gufunc_signature;
+use crate::known_class::KnownClass;
 use crate::literal::Lit;
 use crate::map_int_tuples::MapIntTuples;
 use crate::quantified::Quantified;
@@ -78,11 +82,15 @@ use crate::shaped_array::IntTuple;
 use crate::shaped_array::IntTupleView;
 use crate::shaped_array::reduce_axis_shape;
 use crate::tuple::Tuple;
+use crate::type_ord::TypeOrd;
+use crate::type_ord::TypeOrdCtx;
 use crate::type_var::FlagDomain;
 use crate::type_var::FlagMember;
 use crate::types::Type;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash
+)]
 pub enum TypeShapeDslDomain {
     Int,
     IntTuple,
@@ -99,7 +107,9 @@ impl TypeShapeDslDomain {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash
+)]
 /// The type-system domain accepted by one DSL parameter.
 ///
 /// `Value` represents a shape dimension or shape tuple. `Flag` represents literal-preserving
@@ -110,6 +120,14 @@ pub enum TypeShapeDslInputDomain {
     OptionalInt,
     Flag(FlagDomain),
     NamedInts,
+}
+
+/// The domain accepted by scalar and sequence narrowing operations. Boolean conditions are
+/// validated separately against `Flag[bool]`.
+pub fn type_shape_dsl_narrowable_flag_domain() -> FlagDomain {
+    FlagDomain::of(FlagMember::Int)
+        .join(FlagDomain::of(FlagMember::IntTuple))
+        .join(FlagDomain::of(FlagMember::NoneType))
 }
 
 impl TypeShapeDslInputDomain {
@@ -123,6 +141,44 @@ impl TypeShapeDslInputDomain {
             || (self == Self::OptionalInt
                 && result == TypeShapeDslDomain::Int
                 && narrowing.proves_not_none())
+    }
+
+    /// Which integer domain a parameter in this domain belongs to after `narrowing`, if any.
+    pub fn integer_domain(
+        self,
+        narrowing: TypeShapeDslParameterNarrowing,
+    ) -> Option<DslIntegerDomain> {
+        if self.can_use_as(TypeShapeDslDomain::Int, narrowing) {
+            return Some(DslIntegerDomain::Dimension);
+        }
+        let Self::Flag(domain) = self else {
+            return None;
+        };
+        let is_flag_int = if narrowing == TypeShapeDslParameterNarrowing::Integer {
+            // Any domain accepted by `dsl.is_int_value(...)` (`int | tuple[int, ...] | None` or a
+            // subset like `tuple[int, ...] | None`) may be used as `Flag[int]` inside the narrowed
+            // branch; if `int` wasn't in the declared union, that branch is simply dead at runtime.
+            domain.is_subset_of(type_shape_dsl_narrowable_flag_domain())
+        } else {
+            narrowing != TypeShapeDslParameterNarrowing::IsNone
+                && domain == FlagDomain::of(FlagMember::Int)
+        };
+        is_flag_int.then_some(DslIntegerDomain::Flag)
+    }
+
+    fn shared_integer_domain(
+        parameter_domains: &[Self],
+        uses: &[TypeShapeDslParameterUse],
+    ) -> Option<DslIntegerDomain> {
+        let [first, rest @ ..] = uses else {
+            return None;
+        };
+        let domain = parameter_domains[first.parameter].integer_domain(first.narrowing)?;
+        rest.iter()
+            .all(|use_| {
+                parameter_domains[use_.parameter].integer_domain(use_.narrowing) == Some(domain)
+            })
+            .then_some(domain)
     }
 
     /// Whether a value from this domain can be passed to a helper parameter in `expected`.
@@ -399,7 +455,9 @@ impl fmt::Display for TypeShapeDslInputDomain {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash
+)]
 struct ResolvedTypeShapeDslNodeId(u32);
 
 impl ResolvedTypeShapeDslNodeId {
@@ -410,7 +468,7 @@ impl ResolvedTypeShapeDslNodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash)]
 struct ResolvedTypeShapeDslNode {
     id: Arc<FuncDefId>,
     definition: Arc<StructurallyValidatedTypeShapeDslFunction>,
@@ -434,7 +492,7 @@ impl ResolvedTypeShapeDslNode {
 ///
 /// A function with no helper calls has only its root node. Keeping nodes in a flat program lets
 /// helper definitions be shared rather than recursively embedded once helper calls are resolved.
-#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash)]
 struct ResolvedTypeShapeDslProgram {
     nodes: Box<[ResolvedTypeShapeDslNode]>,
     edge_count: usize,
@@ -478,7 +536,7 @@ impl ResolvedTypeShapeDslProgram {
 }
 
 /// A validated DSL definition paired with its resolved program.
-#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash)]
 pub struct ResolvedTypeShapeDslFunction {
     program: Arc<ResolvedTypeShapeDslProgram>,
 }
@@ -1705,6 +1763,25 @@ impl DslStaticKind {
         }
     }
 
+    /// Parameter uses for a bare or narrowed parameter value that can join with a dimension or
+    /// `Flag[int]` integer expression once parameter annotations are checked.
+    fn integer_parameter_uses(&self) -> Option<Box<[TypeShapeDslParameterUse]>> {
+        match self {
+            Self::UnknownParameters(parameters) => Some(parameter_uses(
+                parameters,
+                TypeShapeDslParameterNarrowing::Unnarrowed,
+            )),
+            Self::ValueSet { sources, kinds }
+                if !sources.has_non_parameter_values()
+                    && kinds & FLAG_NONE == 0
+                    && kinds & FLAG_INT != 0 =>
+            {
+                sources.parameter_uses()
+            }
+            _ => None,
+        }
+    }
+
     fn join(self, other: Self) -> Option<Self> {
         match (self, other) {
             (left, right) if left == right => Some(left),
@@ -1960,6 +2037,7 @@ struct DslValidator<'a, F> {
     parameters: &'a Parameters,
     parameter_domains: Option<&'a [TypeShapeDslInputDomain]>,
     intrinsic: &'a F,
+    sys_info: SysInfo,
     helper_argument_domains: Option<&'a [Vec<TypeShapeDslInputDomain>]>,
     returns: Vec<TypeShapeDslReturn>,
     conditions: Vec<TypeShapeDslCondition>,
@@ -1975,6 +2053,7 @@ impl<'a, F: Fn(&Expr) -> Option<TypeShapeDslIntrinsic>> DslValidator<'a, F> {
     fn new(
         parameters: &'a Parameters,
         intrinsic: &'a F,
+        sys_info: SysInfo,
         parameter_domains: Option<&'a [TypeShapeDslInputDomain]>,
         helper_argument_domains: Option<&'a [Vec<TypeShapeDslInputDomain>]>,
     ) -> (Self, DslValidationFlow) {
@@ -2012,6 +2091,7 @@ impl<'a, F: Fn(&Expr) -> Option<TypeShapeDslIntrinsic>> DslValidator<'a, F> {
                 parameters,
                 parameter_domains,
                 intrinsic,
+                sys_info,
                 helper_argument_domains,
                 returns: Vec::new(),
                 conditions: Vec::new(),
@@ -3828,8 +3908,12 @@ impl<'a, F: Fn(&Expr) -> Option<TypeShapeDslIntrinsic>> DslValidator<'a, F> {
         let args = &call.arguments.args;
         let parameter_origins = self.validate_int_tuple_expression(&args[0], flow)?;
         let axis = self.slot(&args[1], flow)?;
+        if let DslStaticKind::DeferredInteger(index) = flow.kinds[axis] {
+            self.resolve_deferred_integer(index, DslIntegerDomain::Flag)?;
+        }
         let axis_parameters = match &flow.kinds[axis] {
             kind if kind.unnarrowed_parameter_origins().is_some() => kind.parameter_uses(),
+            DslStaticKind::DeferredInteger(_) => None,
             DslStaticKind::ValueSet { kinds, .. }
                 if *kinds & !(FLAG_INT | FLAG_SEQUENCE | FLAG_NONE) == 0 =>
             {
@@ -4104,7 +4188,7 @@ impl<'a, F: Fn(&Expr) -> Option<TypeShapeDslIntrinsic>> DslValidator<'a, F> {
             let (when_true, when_false) = self.validate_condition(&if_expr.test, flow)?;
             let when_true = self.validate_assignment_value(&if_expr.body, &when_true)?;
             let when_false = self.validate_assignment_value(&if_expr.orelse, &when_false)?;
-            let Some(kind) = when_true.join(when_false) else {
+            let Some(kind) = self.join_value_kinds(when_true, when_false)? else {
                 return Err(TypeShapeDslDefinitionError {
                     range: if_expr.range,
                     message: "conditional expression branches must have the same value domain",
@@ -4541,8 +4625,9 @@ impl<'a, F: Fn(&Expr) -> Option<TypeShapeDslIntrinsic>> DslValidator<'a, F> {
                         DslStaticKind::ValueSet {
                             sources,
                             kinds: FLAG_INT,
-                        } if sources.all_prove(TypeShapeDslParameterNarrowing::Integer)
-                            && sources.non_parameter_values_are(FLAG_INT) =>
+                        } if sources.non_parameter_values_are(FLAG_INT)
+                            && (sources.all_prove(TypeShapeDslParameterNarrowing::Integer)
+                                || sources.has_non_parameter_values()) =>
                         {
                             Some(DeferredIntegerClassification {
                                 default_domain: DslIntegerDomain::Flag,
@@ -4551,8 +4636,11 @@ impl<'a, F: Fn(&Expr) -> Option<TypeShapeDslIntrinsic>> DslValidator<'a, F> {
                         }
                         DslStaticKind::ValueSet { sources, kinds }
                             if kinds & FLAG_NONE == 0
-                                && sources.all_prove(TypeShapeDslParameterNarrowing::NonNone)
-                                && sources.non_parameter_values_are(FLAG_INT) =>
+                                && ((sources
+                                    .all_prove(TypeShapeDslParameterNarrowing::NonNone)
+                                    && sources.non_parameter_values_are(FLAG_INT))
+                                    || (!sources.has_non_parameter_values()
+                                        && kinds & FLAG_INT != 0)) =>
                         {
                             Some(DeferredIntegerClassification {
                                 default_domain: DslIntegerDomain::Dimension,
@@ -5490,6 +5578,110 @@ impl<'a, F: Fn(&Expr) -> Option<TypeShapeDslIntrinsic>> DslValidator<'a, F> {
         Ok(())
     }
 
+    fn join_value_kinds(
+        &mut self,
+        left: DslStaticKind,
+        right: DslStaticKind,
+    ) -> Result<Option<DslStaticKind>, TypeShapeDslDefinitionError> {
+        Ok(match (left, right) {
+            (DslStaticKind::DeferredInteger(left), DslStaticKind::DeferredInteger(right)) => Some(
+                DslStaticKind::DeferredInteger(self.merge_deferred_integers(left, right)?),
+            ),
+            (DslStaticKind::DeferredInteger(index), DslStaticKind::Dimension)
+            | (DslStaticKind::Dimension, DslStaticKind::DeferredInteger(index)) => {
+                self.resolve_deferred_integer(index, DslIntegerDomain::Dimension)?;
+                Some(DslStaticKind::Dimension)
+            }
+            (DslStaticKind::Dimension, other) | (other, DslStaticKind::Dimension)
+                if let Some(uses) = other.integer_parameter_uses() =>
+            {
+                // Syntax validation runs with `parameter_domains == None` before annotations are
+                // resolved; revalidation with `Some(domains)` checks that the parameter actually
+                // belongs to the dimension domain.
+                self.parameter_domains
+                    .is_none_or(|domains| {
+                        TypeShapeDslInputDomain::shared_integer_domain(domains, &uses)
+                            == Some(DslIntegerDomain::Dimension)
+                    })
+                    .then_some(DslStaticKind::Dimension)
+            }
+            (DslStaticKind::DeferredInteger(index), other)
+            | (other, DslStaticKind::DeferredInteger(index))
+                if let Some(uses) = other.integer_parameter_uses() =>
+            {
+                let kind_for_domain = |domain, uses| match domain {
+                    DslIntegerDomain::Dimension => DslStaticKind::Dimension,
+                    // Retain `parameter_uses` alongside `non_parameter_kinds: FLAG_INT` so the
+                    // merged Flag local stays input-only and cannot be used as a literal dimension.
+                    DslIntegerDomain::Flag => DslStaticKind::ValueSet {
+                        sources: DslValueSources {
+                            parameter_uses: uses,
+                            non_parameter_kinds: FLAG_INT,
+                        },
+                        kinds: FLAG_INT,
+                    },
+                };
+                // `previous` is `Some` when an earlier use already locked the deferred integer's
+                // domain before this branch merge.
+                let (root, previous) = self.deferred_integer_domain(index);
+                match self.parameter_domains {
+                    None => Some(match previous {
+                        None => DslStaticKind::DeferredInteger(root),
+                        Some(domain) => kind_for_domain(domain, uses),
+                    }),
+                    Some(domains) => {
+                        match TypeShapeDslInputDomain::shared_integer_domain(domains, &uses) {
+                            Some(domain) if previous.is_none_or(|prev| prev == domain) => {
+                                self.resolve_deferred_integer(index, domain)?;
+                                Some(kind_for_domain(domain, uses))
+                            }
+                            _ => None,
+                        }
+                    }
+                }
+            }
+            (
+                DslStaticKind::DeferredInteger(index),
+                flag @ DslStaticKind::ValueSet {
+                    kinds: FLAG_INT, ..
+                },
+            )
+            | (
+                flag @ DslStaticKind::ValueSet {
+                    kinds: FLAG_INT, ..
+                },
+                DslStaticKind::DeferredInteger(index),
+            ) => {
+                self.resolve_deferred_integer(index, DslIntegerDomain::Flag)?;
+                Some(flag)
+            }
+            (left, right) => {
+                left.join(right)
+                    .filter(|joined| match (joined, self.parameter_domains) {
+                        // A `ValueSet` cannot mix `Flag` parameters with `Int` / `Int | None` (or
+                        // shape) parameters; rejecting mixed sources here keeps 3+ branch merges
+                        // independent of branch order.
+                        (DslStaticKind::ValueSet { sources, .. }, Some(domains)) => {
+                            let all_flag = sources.parameter_uses.iter().all(|use_| {
+                                matches!(domains[use_.parameter], TypeShapeDslInputDomain::Flag(_))
+                            });
+                            let all_int_like =
+                                sources.non_parameter_kinds & !(FLAG_INT | FLAG_NONE) == 0
+                                    && sources.parameter_uses.iter().all(|use_| {
+                                        matches!(
+                                            domains[use_.parameter],
+                                            TypeShapeDslInputDomain::Value(TypeShapeDslDomain::Int)
+                                                | TypeShapeDslInputDomain::OptionalInt
+                                        )
+                                    });
+                            all_flag || all_int_like
+                        }
+                        _ => true,
+                    })
+            }
+        })
+    }
+
     fn merge_flows(
         &mut self,
         flows: Vec<DslValidationFlow>,
@@ -5508,38 +5700,12 @@ impl<'a, F: Fn(&Expr) -> Option<TypeShapeDslIntrinsic>> DslValidator<'a, F> {
                 if result.assigned[slot] {
                     let left = result.kinds[slot].clone();
                     let right = flow.kinds[slot].clone();
-                    let kind = match (left, right) {
-                        (
-                            DslStaticKind::DeferredInteger(left),
-                            DslStaticKind::DeferredInteger(right),
-                        ) => DslStaticKind::DeferredInteger(
-                            self.merge_deferred_integers(left, right)?,
-                        ),
-                        (DslStaticKind::DeferredInteger(index), DslStaticKind::Dimension)
-                        | (DslStaticKind::Dimension, DslStaticKind::DeferredInteger(index)) => {
-                            self.resolve_deferred_integer(index, DslIntegerDomain::Dimension)?;
-                            DslStaticKind::Dimension
-                        }
-                        (
-                            DslStaticKind::DeferredInteger(index),
-                            flag @ DslStaticKind::ValueSet {
-                                kinds: FLAG_INT, ..
-                            },
-                        )
-                        | (
-                            flag @ DslStaticKind::ValueSet {
-                                kinds: FLAG_INT, ..
-                            },
-                            DslStaticKind::DeferredInteger(index),
-                        ) => {
-                            self.resolve_deferred_integer(index, DslIntegerDomain::Flag)?;
-                            flag
-                        }
-                        (left, right) => left.join(right).ok_or(TypeShapeDslDefinitionError {
+                    let kind = self.join_value_kinds(left, right)?.ok_or(
+                        TypeShapeDslDefinitionError {
                             range,
                             message: "all continuing branch assignments to a local must have the same value domain",
-                        })?,
-                    };
+                        },
+                    )?;
                     result.kinds[slot] = kind;
                 }
             }
@@ -5552,29 +5718,39 @@ impl<'a, F: Fn(&Expr) -> Option<TypeShapeDslIntrinsic>> DslValidator<'a, F> {
         if_stmt: &StmtIf,
         flow: &DslValidationFlow,
     ) -> Result<Option<DslValidationFlow>, TypeShapeDslDefinitionError> {
+        // The binder binds nothing in a clause whose test `SysInfo` decides is false, or in
+        // any clause after a test it decides is true, so those clauses are not validated:
+        // resolving an intrinsic there would infer expressions that have no bindings. The
+        // binder still binds the code after the `if`, so its reachability is unaffected.
         let (when_true, mut when_false) = self.validate_condition(&if_stmt.test, flow)?;
+        let mut decided = self.sys_info.evaluate_bool(&if_stmt.test);
         let mut continuing = Vec::new();
-        if let Some(flow) = self.validate_suite(&if_stmt.body, when_true)? {
+        if decided != Some(false)
+            && let Some(flow) = self.validate_suite(&if_stmt.body, when_true)?
+        {
             continuing.push(flow);
         }
-        let mut has_else = false;
         for clause in &if_stmt.elif_else_clauses {
-            if !when_false.reachable {
+            if !when_false.reachable || decided == Some(true) {
                 break;
             }
             if let Some(test) = &clause.test {
                 let (when_true, next_false) = self.validate_condition(test, &when_false)?;
-                if let Some(flow) = self.validate_suite(&clause.body, when_true)? {
+                decided = self.sys_info.evaluate_bool(test);
+                if decided != Some(false)
+                    && let Some(flow) = self.validate_suite(&clause.body, when_true)?
+                {
                     continuing.push(flow);
                 }
                 when_false = next_false;
-            } else {
-                has_else = true;
-                if let Some(flow) = self.validate_suite(&clause.body, when_false.clone())? {
-                    continuing.push(flow);
-                }
+            } else if let Some(flow) = self.validate_suite(&clause.body, when_false.clone())? {
+                continuing.push(flow);
             }
         }
+        let has_else = if_stmt
+            .elif_else_clauses
+            .last()
+            .is_some_and(|clause| clause.test.is_none());
         if !has_else && when_false.reachable {
             continuing.push(when_false);
         }
@@ -5854,13 +6030,15 @@ impl ParsedTypeShapeDslFunction {
     pub fn validate(
         &self,
         intrinsic: impl Fn(&Expr) -> Option<TypeShapeDslIntrinsic>,
+        sys_info: SysInfo,
     ) -> Result<StructurallyValidatedTypeShapeDslFunction, TypeShapeDslDefinitionError> {
-        self.validate_with_helper_argument_domains(intrinsic, None, None)
+        self.validate_with_helper_argument_domains(intrinsic, sys_info, None, None)
     }
 
     fn validate_with_helper_argument_domains(
         &self,
         intrinsic: impl Fn(&Expr) -> Option<TypeShapeDslIntrinsic>,
+        sys_info: SysInfo,
         parameter_domains: Option<&[TypeShapeDslInputDomain]>,
         helper_argument_domains: Option<&[Vec<TypeShapeDslInputDomain>]>,
     ) -> Result<StructurallyValidatedTypeShapeDslFunction, TypeShapeDslDefinitionError> {
@@ -5870,6 +6048,7 @@ impl ParsedTypeShapeDslFunction {
         let (mut validator, flow) = DslValidator::new(
             parameters,
             &intrinsic,
+            sys_info,
             parameter_domains,
             helper_argument_domains,
         );
@@ -5954,6 +6133,7 @@ impl StructurallyValidatedTypeShapeDslFunction {
     pub fn validate_with_resolved_domains(
         &self,
         intrinsic: impl Fn(&Expr) -> Option<TypeShapeDslIntrinsic>,
+        sys_info: SysInfo,
         parameter_domains: &[TypeShapeDslInputDomain],
         helper_argument_domains: Option<&[Vec<TypeShapeDslInputDomain>]>,
     ) -> Result<Self, TypeShapeDslDefinitionError> {
@@ -5965,6 +6145,7 @@ impl StructurallyValidatedTypeShapeDslFunction {
         }
         self.parsed.validate_with_helper_argument_domains(
             intrinsic,
+            sys_info,
             Some(parameter_domains),
             helper_argument_domains,
         )
@@ -5996,7 +6177,7 @@ impl StructurallyValidatedTypeShapeDslFunction {
 }
 
 /// A deferred type-level DSL invocation retained until the operation's result is consumed.
-#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut)]
 pub struct TypeLevelDslCall {
     pub(crate) function: TypeLevelDslFunction,
@@ -6004,7 +6185,7 @@ pub struct TypeLevelDslCall {
 }
 
 /// The identity of a type-level DSL operation.
-#[derive(Debug, Clone, PartialEq, Eq, TypeEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq, TypeOrd, PartialOrd, Ord, Hash)]
 pub enum TypeLevelDslFunction {
     IndexShape,
     UserDefined(Arc<ResolvedTypeShapeDslFunction>),
@@ -6258,13 +6439,13 @@ impl TypeLevelDslCall {
         }
     }
 
-    fn normalize_value_argument(ty: &mut Type, domain: TypeShapeDslDomain) {
+    fn normalize_value_argument(ty: &mut Type, domain: TypeShapeDslDomain, ctx: &TypeOrdCtx) {
         if let Type::Union(union) = ty {
             union
                 .members
                 .iter_mut()
-                .for_each(|member| Self::normalize_value_argument(member, domain));
-            union.members.sort();
+                .for_each(|member| Self::normalize_value_argument(member, domain, ctx));
+            union.members.sort_by(|x, y| x.type_cmp(y, ctx));
             union.members.dedup();
             if union.members.len() == 1 {
                 *ty = union.members.pop().expect("union contains one member");
@@ -6279,11 +6460,12 @@ impl TypeLevelDslCall {
     }
 
     /// Normalize values whose DSL parameter domain gives them shape semantics.
-    pub(crate) fn normalize_value_arguments(&mut self) {
+    pub(crate) fn normalize_value_arguments(&mut self, env: &dyn TypeEnv) {
+        let ctx = &TypeOrdCtx::new(env);
         match &self.function {
             TypeLevelDslFunction::IndexShape => {
                 if let Some(shape) = self.args.first_mut() {
-                    Self::normalize_value_argument(shape, TypeShapeDslDomain::IntTuple);
+                    Self::normalize_value_argument(shape, TypeShapeDslDomain::IntTuple, ctx);
                 }
             }
             TypeLevelDslFunction::UserDefined(function) => {
@@ -6293,7 +6475,7 @@ impl TypeLevelDslCall {
                     .zip(function.parameter_domains().iter().copied())
                 {
                     if let TypeShapeDslInputDomain::Value(domain) = domain {
-                        Self::normalize_value_argument(argument, domain);
+                        Self::normalize_value_argument(argument, domain, ctx);
                     }
                 }
             }
@@ -6387,12 +6569,12 @@ impl TypeLevelDslCall {
     /// `tuple[IntTuple[2]]`, while the generic argument remains the unevaluated call so later
     /// specialization can still use its call-site arguments. Invalid calls use their gradual
     /// fallback here; their evaluation error is reported when the public call result is forced.
-    pub fn type_for_generic_bound_check(&self) -> Type {
-        self.evaluate().unwrap_or_else(|_| self.fallback())
+    pub fn type_for_generic_bound_check(&self, env: &dyn TypeEnv) -> Type {
+        self.evaluate(env).unwrap_or_else(|_| self.fallback())
     }
 
     /// Evaluates the call, reporting incompatible concrete shapes.
-    pub fn evaluate(&self) -> Result<Type, ShapeError> {
+    pub fn evaluate(&self, env: &dyn TypeEnv) -> Result<Type, ShapeError> {
         let project = |outcome| match outcome {
             DslOutcome::Value(DslValue::Unknown) => Ok(self.fallback()),
             DslOutcome::Value(value) => Ok(value.into_type()),
@@ -6410,7 +6592,7 @@ impl TypeLevelDslCall {
                 index_shape_from_type(&shape, index).map(|shape| shape.to_shape_arg_type())
             }
             TypeLevelDslFunction::UserDefined(function) => project(function.evaluate(&self.args)),
-            TypeLevelDslFunction::MapIntTuples(map) => map.evaluate(),
+            TypeLevelDslFunction::MapIntTuples(map) => map.evaluate(env),
         }
     }
 }
@@ -6532,7 +6714,7 @@ impl ResolvedTypeShapeDslProgram {
                                 unreachable!("validated Invalid return has a string message")
                             };
                             DslOutcome::Invalid(ShapeError::ShapeComputation {
-                                message: message.value.to_str().to_owned(),
+                                message: message.value.to_str().to_owned().into(),
                             })
                         }
                         TypeShapeDslReturnKind::Gradual(domain) => {
@@ -7133,12 +7315,12 @@ impl StructurallyValidatedTypeShapeDslFunction {
                         EinsumClassification::Supported(equation) => {
                             evaluate_einsum(&equation, operands)
                         }
-                        EinsumClassification::Unsupported(_) => {
+                        EinsumClassification::Unsupported => {
                             return DslOutcome::Value(DslValue::Unknown);
                         }
                         EinsumClassification::Invalid(error) => {
                             return DslOutcome::Invalid(ShapeError::ShapeComputation {
-                                message: error.message(),
+                                message: error.message().into(),
                             });
                         }
                     },
@@ -7149,7 +7331,7 @@ impl StructurallyValidatedTypeShapeDslFunction {
                             }
                             EinopsEinsumClassification::Invalid(error) => {
                                 return DslOutcome::Invalid(ShapeError::ShapeComputation {
-                                    message: error.message(),
+                                    message: error.message().into(),
                                 });
                             }
                         }
@@ -7197,7 +7379,7 @@ impl StructurallyValidatedTypeShapeDslFunction {
                         EinopsPatternClassification::Supported(pattern) => Some(pattern),
                         EinopsPatternClassification::Invalid(error) => {
                             return DslOutcome::Invalid(ShapeError::ShapeComputation {
-                                message: error.message(operation),
+                                message: error.message(operation).into(),
                             });
                         }
                     },
@@ -7322,7 +7504,7 @@ impl StructurallyValidatedTypeShapeDslFunction {
                         GufuncClassification::Unsupported(_unsupported) => None,
                         GufuncClassification::Invalid(error) => {
                             return DslOutcome::Invalid(ShapeError::ShapeComputation {
-                                message: error.message(),
+                                message: error.message().into(),
                             });
                         }
                     },
@@ -7393,7 +7575,7 @@ impl StructurallyValidatedTypeShapeDslFunction {
                         let index = if index < 0 { index + length } else { index };
                         if index < 0 || index >= length {
                             return DslOutcome::Invalid(ShapeError::ShapeComputation {
-                                message: "IntTuple index out of bounds".to_owned(),
+                                message: "IntTuple index out of bounds".to_owned().into(),
                             });
                         }
                         DslOutcome::Value(DslValue::Dimension(shape[index as usize].clone()))
@@ -7462,7 +7644,7 @@ impl StructurallyValidatedTypeShapeDslFunction {
                         let index = if index < 0 { index + length } else { index };
                         if index < 0 || index >= length {
                             return DslOutcome::Invalid(ShapeError::ShapeComputation {
-                                message: "`IntTuples` index out of bounds".to_owned(),
+                                message: "`IntTuples` index out of bounds".to_owned().into(),
                             });
                         }
                         DslOutcome::Value(DslValue::Shape(shapes[index as usize].clone()))
@@ -7545,12 +7727,9 @@ impl StructurallyValidatedTypeShapeDslFunction {
                     unreachable!("validated IntTuple product expression is a call")
                 };
                 match self.evaluate_expression(&call.arguments.args[0], environment, budget) {
-                    DslOutcome::Value(DslValue::Shape(shape)) => match shape.product() {
-                        // TODO(stroxler): Preserve a gradual product as a gradual dimension once
-                        // callers can distinguish an unknown equality check from a proven match.
-                        Int::Int => DslOutcome::Value(DslValue::Unknown),
-                        product => DslOutcome::Value(DslValue::Dimension(product)),
-                    },
+                    DslOutcome::Value(DslValue::Shape(shape)) => {
+                        DslOutcome::Value(DslValue::Dimension(shape.product()))
+                    }
                     DslOutcome::Value(DslValue::Unknown) => DslOutcome::Value(DslValue::Unknown),
                     DslOutcome::ExplicitGradual => {
                         unreachable!("validated IntTuple product operand cannot return gradual")
@@ -7721,7 +7900,7 @@ impl StructurallyValidatedTypeShapeDslFunction {
                 };
                 if step == Some(0) {
                     return DslOutcome::Invalid(ShapeError::ShapeComputation {
-                        message: "range() arg 3 must not be zero".to_owned(),
+                        message: "range() arg 3 must not be zero".to_owned().into(),
                     });
                 }
                 let (Some(start), Some(stop), Some(step)) = (start, stop, step) else {
@@ -7809,7 +7988,8 @@ impl StructurallyValidatedTypeShapeDslFunction {
                             DslOutcome::Invalid(ShapeError::ShapeComputation {
                                 message: format!(
                                     "Flag sequence `.index` value `{item}` was not found"
-                                ),
+                                )
+                                .into(),
                             })
                         }
                     },
@@ -8661,7 +8841,7 @@ fn lower_parameter(ty: &Type, domain: TypeShapeDslInputDomain) -> DslValue {
             }
             match ty {
                 Type::None => DslValue::FlagNone,
-                Type::ClassType(cls) if cls.is_builtin("int") => DslValue::GradualInt,
+                Type::ClassType(cls) if cls.is(KnownClass::Int) => DslValue::GradualInt,
                 Type::Int(Int::Literal(value)) => DslValue::FlagInt(*value),
                 // Symbolic shape integers satisfy `Flag[int]`, but DSL flag operations inspect
                 // only concrete runtime values. Generic substitution does not re-evaluate a call
@@ -8746,7 +8926,7 @@ fn evaluate_dimension_arithmetic(
             "modulo"
         };
         return DslOutcome::Invalid(ShapeError::ShapeComputation {
-            message: format!("dimension integer {operation} by zero"),
+            message: format!("dimension integer {operation} by zero").into(),
         });
     }
     let left = operand(left);
@@ -8759,7 +8939,7 @@ fn evaluate_dimension_arithmetic(
         return evaluate_i64_arithmetic(*left, op, *right).map_or_else(
             |operation| {
                 DslOutcome::Invalid(ShapeError::ShapeComputation {
-                    message: format!("dimension integer {operation} by zero"),
+                    message: format!("dimension integer {operation} by zero").into(),
                 })
             },
             |value| {
@@ -8789,7 +8969,7 @@ fn evaluate_flag_int_arithmetic(left: i64, op: TypeShapeDslArithmeticOp, right: 
     evaluate_i64_arithmetic(left, op, right).map_or_else(
         |operation| {
             DslOutcome::Invalid(ShapeError::ShapeComputation {
-                message: format!("Flag integer {operation} by zero"),
+                message: format!("Flag integer {operation} by zero").into(),
             })
         },
         |value| {
@@ -8934,7 +9114,7 @@ impl DslValue {
             TypeShapeDslDomain::Int => match Int::from_type(ty) {
                 Some(dimension) => match canonicalize(Type::Int(dimension)) {
                     Type::Int(dimension) => Self::Dimension(dimension),
-                    canonical => unreachable!("canonicalizing a dimension yields `{canonical}`"),
+                    canonical => unreachable!("canonicalizing a dimension yields `{canonical:?}`"),
                 },
                 None => Self::Unknown,
             },
@@ -9002,6 +9182,8 @@ fn common_int_tuple_member(shapes: &[IntTuple]) -> IntTuple {
     }
 }
 
+impl TypeOrd for StructurallyValidatedTypeShapeDslFunction {}
+
 #[cfg(test)]
 mod tests {
     use ruff_python_ast::AtomicNodeIndex;
@@ -9062,7 +9244,13 @@ mod tests {
         let parameters = Parameters::default();
         let domains = [];
         let intrinsic = |_: &Expr| None;
-        let (mut validator, _) = DslValidator::new(&parameters, &intrinsic, Some(&domains), None);
+        let (mut validator, _) = DslValidator::new(
+            &parameters,
+            &intrinsic,
+            SysInfo::default(),
+            Some(&domains),
+            None,
+        );
         validator.slots.insert(Name::new_static("base"), 0);
         validator.slots.insert(Name::new_static("left"), 1);
         validator.slots.insert(Name::new_static("right"), 2);
@@ -9175,11 +9363,7 @@ mod tests {
         };
         let int = TypeShapeDslInputDomain::Value(TypeShapeDslDomain::Int);
         let optional_int = TypeShapeDslInputDomain::OptionalInt;
-        let broad_flag = TypeShapeDslInputDomain::Flag(
-            FlagDomain::of(FlagMember::Int)
-                .join(FlagDomain::of(FlagMember::IntTuple))
-                .join(FlagDomain::of(FlagMember::NoneType)),
-        );
+        let broad_flag = TypeShapeDslInputDomain::Flag(type_shape_dsl_narrowable_flag_domain());
 
         for actual in [optional_int, broad_flag] {
             assert_eq!(

@@ -11,6 +11,589 @@ use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
+    test_overload_error_keeps_non_lambda_input_types,
+    r#"
+from typing import overload
+
+@overload
+def consume(items: list[str], *, label: int) -> None: ...
+@overload
+def consume(items: list[bytes], *, label: str) -> None: ...
+def consume(items, *, label): ...
+
+consume([], label=None)  # E: called with arguments: (list[@_], label=None)
+consume([1], label=None)  # E: called with arguments: (list[int], label=None)
+consume({"value": 1}, label=None)  # E: called with arguments: (dict[str, int], label=None)
+consume(list[int](), label=None)  # E: called with arguments: (list[int], label=None)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_constructor_details,
+    r#"
+from missing_backend import Array, Other  # E: Cannot find module `missing_backend`
+
+class Model:
+    def __new__(cls, array: Array, other: Other) -> "Model":
+        return super().__new__(cls)
+
+    def __init__(self, array: Array, other: Other) -> None:
+        pass
+
+def construct(array: Array, other: Other) -> Model:
+    return Model(array, other)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_overload,
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+@overload
+def transform(x: Array[int]) -> Array[str]: ...
+@overload
+def transform(x: int) -> str: ...
+def transform(x: Any) -> Any: ...
+
+assert_type(transform(1), str)
+"#,
+);
+
+// Return-only recovery does not affect the input contract used for overload preference.
+testcase!(
+    test_signature_unresolved_import_return_only,
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+@overload
+def transform(x: int) -> Array: ...
+@overload
+def transform(x: int) -> str: ...
+def transform(x: Any) -> Any: ...
+
+assert_type(transform(1), Any)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_call,
+    r#"
+from typing import Any, assert_type
+from missing_backend import Array, Other  # E: Cannot find module `missing_backend`
+import another_missing_backend as backend  # E: Cannot find module `another_missing_backend`
+
+def transform(x: Array, y: Other) -> backend.Array[int]:
+    return x
+
+assert_type(transform(1, 2), Any)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_nested,
+    r#"
+from typing import Any, Callable, assert_type
+from missing_backend import Array, Other  # E: Cannot find module `missing_backend`
+
+def transform(
+    x: list[Array], callback: Callable[[Other], Array]
+) -> list[Array]:
+    return x
+
+assert_type(transform([], lambda x: x), list[Any])
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_alias,
+    r#"
+from typing import Any, assert_type
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+Alias = Array[int]
+def transform(x: Alias) -> Alias:
+    return x
+
+assert_type(transform(1), Any)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_controls,
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+@overload
+def explicit_any(x: Any) -> Any: ...
+@overload
+def explicit_any(x: int) -> str: ...
+def explicit_any(x: Any) -> Any: ...
+assert_type(explicit_any(1), Any)
+
+def other_error(x: Undefined) -> Undefined:  # E: Could not find name `Undefined`  # E: Could not find name `Undefined`
+    return x
+assert_type(other_error(1), Any)
+
+# A missing argument is not a missing type in the declared signature.
+def identity[T](x: T) -> T:
+    return x
+assert_type(identity(Array()), Any)
+
+# Missing-import recovery remains gradual for ordinary assignments.
+x: Array = 1
+s: str = x
+x = s
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_missing_export,
+    TestEnv::one("backend", ""),
+    r#"
+from typing import Any, assert_type, overload
+from backend import Array  # E: Could not import `Array` from `backend`
+
+@overload
+def transform(x: Array) -> Any: ...
+@overload
+def transform(x: int) -> str: ...
+def transform(x: Any) -> Any: ...
+assert_type(transform(1), str)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_contextual_return,
+    r#"
+from typing import assert_type
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+def transform[T](x: Array) -> list[T]:
+    raise RuntimeError
+
+result: list[str] = transform(1)
+assert_type(result, list[str])
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_operator,
+    r#"
+from typing import assert_type
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+class Left:
+    def __add__(self, other: Array) -> str:
+        return "left"
+
+class Right:
+    def __radd__(self, other: object) -> int:
+        return 0
+
+assert_type(Left() + Right(), str)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_generic_class,
+    r#"
+from typing import Any, Callable, assert_type
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+def identity[**P, R](f: Callable[P, R]) -> Callable[P, R]:
+    return f
+
+class Box[T]:
+    @identity
+    def get(self) -> T:
+        raise RuntimeError
+
+def exercise(box: Box[Array], values: list[Array]) -> None:
+    # Receiver substitution does not make these defined generic contracts unavailable.
+    assert_type(box.get(), Any)
+    values.append(1)
+    assert_type(values.pop(), Any)
+    assert_type(values[0], Any)
+    assert_type(values + [1], list[Any])
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_dataclass,
+    r#"
+from dataclasses import dataclass
+from typing import assert_type
+from missing_backend import Array, Other  # E: Cannot find module `missing_backend`
+
+@dataclass
+class Model:
+    array: Array
+    other: Other
+
+assert_type(Model(1, 2), Model)
+
+@dataclass
+class GenericModel[T]:
+    value: T
+
+def exercise(model: type[GenericModel[Array]]) -> None:
+    assert_type(model(1), GenericModel[Array])
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_all_overloads,
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array, Other  # E: Cannot find module `missing_backend`
+
+@overload
+def transform(x: Array) -> int: ...
+@overload
+def transform(x: Other, y: Other) -> str: ...
+def transform(x: Any, y: Any = None) -> Any: ...
+
+assert_type(transform(1), int)
+assert_type(transform(1, 2), str)
+
+@overload
+def ambiguous(x: Array) -> int: ...
+@overload
+def ambiguous(x: Other) -> str: ...
+def ambiguous(x: Any) -> Any: ...
+
+assert_type(ambiguous(1), int)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_callable_alias,
+    r#"
+from typing import Any, Callable, assert_type
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+def exercise(transform: Callable[[Array], Array]) -> None:
+    assert_type(transform(1), Any)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_usable_union,
+    r#"
+from typing import Any, Literal, assert_type, overload
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+@overload
+def repeat(value: int | Array, *, eager: Literal[True]) -> list[int]: ...
+@overload
+def repeat(value: int | Array, *, eager: Literal[False] = False) -> tuple[int, ...]: ...
+def repeat(value: Any, *, eager: bool = False) -> Any: ...
+
+assert_type(repeat(7, eager=True), list[int])
+assert_type(repeat(7), tuple[int, ...])
+
+def scalar(value: int | Array) -> int:
+    return 0
+
+assert_type(scalar(7), int)
+assert_type(scalar("bad"), int)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_optional_input,
+    r#"
+from typing import assert_type
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+def optional(value: int, extra: Array | None = None) -> int:
+    return value
+
+assert_type(optional(7), int)
+assert_type(optional(7, None), int)
+assert_type(optional(7, object()), int)
+extra = object()
+assert_type(optional(7, extra), int)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_argument_errors,
+    r#"
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+def mixed(value: int | Array, count: int) -> str:
+    return "result"
+
+mixed(7, "bad")  # E: Argument
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_callable_input,
+    r#"
+from typing import Callable, assert_type
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+def consume(callback: Callable[[], int | Array]) -> int:
+    return 0
+
+def callback() -> int:
+    return 7
+
+assert_type(consume(callback), int)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_any_argument,
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+@overload
+def choose(value: Array) -> str: ...
+@overload
+def choose(value: int) -> bool: ...
+def choose(value: Any) -> Any: ...
+
+def exercise(value: Any) -> None:
+    assert_type(choose(value), str)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_bound_input,
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+@overload
+def choose[T: int](value: list[T] | Array) -> str: ...
+@overload
+def choose(value: list[str]) -> bool: ...
+def choose(value: Any) -> Any: ...
+
+values: list[str] = ["bad"]
+assert_type(choose(values), bool)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_lambda_context,
+    r#"
+from typing import Any, Callable, assert_type
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+def consume(callback: Callable[[Array], int]) -> int:
+    return 0
+
+consume(lambda value: assert_type(value, Any) or 0)
+"#,
+);
+
+testcase!(
+    test_signature_unresolved_import_contextual_binding,
+    TestEnv::new().enable_implicit_any_lambda_error(),
+    r#"
+from typing import Callable
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+def use(callback: Callable[[int], int], extra: Array | None = None) -> None:
+    pass
+
+def exercise(flag: bool) -> None:
+    use((lambda value: value) if flag else (lambda value: value))
+"#,
+);
+
+// Reproductions from https://github.com/pyrefly-org/pyrefly/issues/5634.
+testcase!(
+    test_missing_import_overload_fallback,
+    r#"
+from collections.abc import Callable
+from typing import Any, Literal, TypeVar, assert_type, overload
+from missing_backend import Tensor, Order, foo  # E: Cannot find module `missing_backend`
+
+@overload
+def compare(a: Tensor, kind: Literal["equal"], b: Tensor) -> bool: ...
+@overload
+def compare(a: Tensor, kind: str, b: Tensor) -> Tensor: ...
+def compare(a: Tensor, kind: str, b: Tensor) -> bool | Tensor:
+    return a == b
+
+def exercise(x: Tensor, y: Tensor) -> None:
+    assert_type(compare(x, "equal", y), bool)
+    compare(x, 1, y)  # E: No matching overload found
+
+def plain(a: int, order: Order = "K") -> int:
+    return a
+
+@overload
+def ones_like(a: int, order: Order = "K") -> int: ...
+@overload
+def ones_like(a: str, order: Order = "K") -> str: ...
+def ones_like(a: int | str, order: Order = "K") -> int | str:
+    return a
+
+assert_type(plain(1), int)
+assert_type(ones_like(1), int)
+assert_type(ones_like("x"), str)
+
+R = TypeVar("R")
+def ident(x: R) -> Callable[[R], R]:
+    raise RuntimeError
+
+assert_type(ident(foo)(1), Any)
+"#,
+);
+
+testcase!(
+    test_missing_import_overload_order,
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+@overload
+def missing_first(value: Array, other: Any) -> Array: ...
+@overload
+def missing_first(value: int, other: Any) -> str: ...
+def missing_first(value: Any, other: Any) -> Any: ...
+
+@overload
+def known_first(value: int, other: Any) -> str: ...
+@overload
+def known_first(value: Array, other: Any) -> Array: ...
+def known_first(value: Any, other: Any) -> Any: ...
+
+def exercise(other: Any) -> None:
+    assert_type(missing_first(1, other), str)
+    assert_type(known_first(1, other), str)
+"#,
+);
+
+testcase!(
+    test_missing_import_overload_gradual_argument,
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+@overload
+def alpha(cutoff: float) -> float: ...
+@overload
+def alpha(cutoff: Array) -> Array: ...
+def alpha(cutoff: Any) -> Any:
+    return cutoff
+
+def exercise(value: Any) -> None:
+    assert_type(alpha(value), Any)
+    assert_type(alpha(cutoff=value), Any)
+    assert_type(alpha(1.0), float)
+
+# Unannotated arguments must retain the same gradual behavior.
+def unannotated(value) -> None:
+    alpha(value)[:, None]
+"#,
+);
+
+testcase!(
+    test_missing_import_overload_gradual_argument_spec,
+    TestEnv::new().enable_spec_compliant_overloads(),
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array  # E: Cannot find module `missing_backend`
+
+@overload
+def alpha(cutoff: Array) -> Array: ...
+@overload
+def alpha(cutoff: float) -> float: ...
+def alpha(cutoff: Any) -> Any:
+    return cutoff
+
+def exercise(value: Any) -> None:
+    assert_type(alpha(value), Any)
+    assert_type(alpha(cutoff=value), Any)
+    assert_type(alpha(1.0), float)
+"#,
+);
+
+testcase!(
+    test_missing_import_return_only_fallback,
+    r#"
+from typing import Any, Literal, TypedDict, assert_type, overload
+from missing_backend import Frame  # E: Cannot find module `missing_backend`
+
+class Row(TypedDict):
+    frame: Frame
+
+class OptionalRow(TypedDict, total=False):
+    frame: Frame
+
+@overload
+def to(value: int, backend: Literal["torch"]) -> Frame: ...
+@overload
+def to(value: int, backend: str) -> int: ...
+def to(value: int, backend: str) -> Any:
+    raise RuntimeError
+
+def exercise(row: Row, optional: OptionalRow) -> None:
+    assert_type(row.get("frame"), Any)
+    assert_type(optional.get("frame"), Any | None)
+    row.get("frame").head()
+    assert_type(to(1, "torch"), Any)
+    to(1, "torch").cpu()
+"#,
+);
+
+testcase!(
+    test_missing_import_input_preference_boundary,
+    r#"
+from typing import Any, assert_type, overload
+from missing_backend import Array, Device  # E: Cannot find module `missing_backend`
+
+@overload
+def known_arm(value: int | Array) -> list[int]: ...
+@overload
+def known_arm(value: object) -> object: ...
+def known_arm(value: Any) -> Any:
+    raise RuntimeError
+
+@overload
+def omitted(value: int, device: Device | None = None) -> list[int]: ...
+@overload
+def omitted(value: object) -> object: ...
+def omitted(value: Any, device: Any = None) -> Any:
+    raise RuntimeError
+
+# Input-wide preference includes known union arms and omitted optional annotations.
+assert_type(known_arm(7), object)
+assert_type(omitted(7), object)
+"#,
+);
+
+testcase!(
+    test_overload_expansion_keeps_lambda_context,
+    TestEnv::new().enable_implicit_any_lambda_error(),
+    r#"
+from typing import Callable, overload, assert_type
+
+@overload
+def f(callback: Callable[[int], None], value: int) -> int: ...
+@overload
+def f(callback: Callable[[str], None], value: str) -> str: ...
+def f(callback, value) -> int | str: ...
+
+def g(value: int | str) -> None:
+    assert_type(f(lambda arg: None, value), int | str)
+    assert_type(f(value=value, callback=lambda arg: None), int | str)
+"#,
+);
+
+testcase!(
     test_py,
     r#"
 from typing import overload, assert_type
@@ -46,6 +629,9 @@ def returns_expr(x: int) -> int:  # E: `@overload` bodies should not contain exe
 def returns_expr(x: str) -> str:
     ...
 
+def returns_expr(x: int | str) -> int | str:
+    return x
+
 @overload
 def raises_other(x: int) -> int:  # E: `@overload` bodies should not contain executable logic
     raise ValueError("bad")
@@ -53,6 +639,9 @@ def raises_other(x: int) -> int:  # E: `@overload` bodies should not contain exe
 @overload
 def raises_other(x: str) -> str:
     ...
+
+def raises_other(x: int | str) -> int | str:
+    return x
 
 @overload
 def has_assignment(x: int) -> int:  # E: `@overload` bodies should not contain executable logic
@@ -63,6 +652,9 @@ def has_assignment(x: int) -> int:  # E: `@overload` bodies should not contain e
 def has_assignment(x: str) -> str:
     ...
 
+def has_assignment(x: int | str) -> int | str:
+    return x
+
 @overload
 def has_multiple_stmts(x: int) -> int:  # E: `@overload` bodies should not contain executable logic
     print("side effect")
@@ -71,15 +663,6 @@ def has_multiple_stmts(x: int) -> int:  # E: `@overload` bodies should not conta
 @overload
 def has_multiple_stmts(x: str) -> str:
     ...
-
-def returns_expr(x: int | str) -> int | str:
-    return x
-
-def raises_other(x: int | str) -> int | str:
-    return x
-
-def has_assignment(x: int | str) -> int | str:
-    return x
 
 def has_multiple_stmts(x: int | str) -> int | str:
     return x
@@ -166,7 +749,7 @@ def body_docstring_then_pass(x: int | str) -> int | str:
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2867
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2867
 testcase!(
     test_urlunparse_prefers_string_overload_for_parse_result,
     r#"
@@ -272,15 +855,32 @@ class A:
     @overload
     def B(self, x: int) -> B: ...
     @overload
-    def B(self, x: str) -> B: ...
+    def B(self, x: str) -> B: ...  # E: Expected a type form, got instance of `(self: Self@A, x: int) -> B`
     def B(self, x):
         return B()
 
 class B:
     x: int
+    "#,
+);
 
-assert_type(A().B(0).x, int)
-assert_type(A().B("1").x, int)
+// With postponed annotations, every `-> B` refers to the method `B`, not the class.
+testcase!(
+    test_overload_method_name_matches_class_postponed,
+    r#"
+from __future__ import annotations
+from typing import assert_type, overload
+
+class A:
+    @overload
+    def B(self, x: int) -> B: ...  # E: Expected a type form, got class attribute `B` of type `Overload[
+    @overload
+    def B(self, x: str) -> B: ...  # E: Expected a type form, got instance of `(self: Self@A, x: int) -> B`
+    def B(self, x):
+        return B()
+
+class B:
+    x: int
     "#,
 );
 
@@ -1037,6 +1637,115 @@ def f[T](x: T) -> T:
 );
 
 testcase!(
+    test_overloaded_async_iterator_impl,
+    r#"
+from collections.abc import AsyncIterator
+from typing import Literal, assert_type, overload
+
+class Patch:
+    pass
+
+class FullState(Patch):
+    pass
+
+@overload
+def astream(*, diff: Literal[True] = ...) -> AsyncIterator[Patch]: ...
+@overload
+def astream(*, diff: Literal[False]) -> AsyncIterator[FullState]: ...
+async def astream(*, diff: bool = True) -> AsyncIterator[Patch] | AsyncIterator[FullState]:
+    if diff:
+        yield Patch()
+    else:
+        yield FullState()
+
+assert_type(astream(), AsyncIterator[Patch])
+assert_type(astream(diff=True), AsyncIterator[Patch])
+assert_type(astream(diff=False), AsyncIterator[FullState])
+    "#,
+);
+
+testcase!(
+    test_overloaded_async_iterator_coroutine_factory,
+    r#"
+from collections.abc import AsyncIterator, Coroutine
+from typing import Any, assert_type, overload
+
+async def stream[T](value: T) -> AsyncIterator[T]:
+    yield value
+
+async def make_stream[T](value: T) -> AsyncIterator[T]:
+    return stream(value)
+
+@overload
+async def factory(value: int) -> AsyncIterator[int]: ...
+@overload
+async def factory(value: str) -> AsyncIterator[str]: ...
+def factory(value: int | str) -> Any:
+    return make_stream(value)
+
+async def check() -> None:
+    result = assert_type(factory(1), Coroutine[Any, Any, AsyncIterator[int]])
+    assert_type(await result, AsyncIterator[int])
+    assert_type(await factory("value"), AsyncIterator[str])
+    "#,
+);
+
+testcase!(
+    test_overloaded_async_iterator_explicit_coroutine,
+    r#"
+from collections.abc import AsyncIterator, Coroutine
+from typing import Any, assert_type, overload
+
+async def stream[T](value: T) -> AsyncIterator[T]:
+    yield value
+
+async def make_stream[T](value: T) -> AsyncIterator[T]:
+    return stream(value)
+
+@overload
+def factory(value: int) -> Coroutine[Any, Any, AsyncIterator[int]]: ...
+@overload
+def factory(value: str) -> Coroutine[Any, Any, AsyncIterator[str]]: ...
+def factory(value: int | str) -> Any:
+    return make_stream(value)
+
+async def check() -> None:
+    result = assert_type(factory(1), Coroutine[Any, Any, AsyncIterator[int]])
+    assert_type(await result, AsyncIterator[int])
+    assert_type(await factory("value"), AsyncIterator[str])
+    "#,
+);
+
+testcase!(
+    test_overloaded_async_iterator_inconsistent_impl,
+    r#"
+from collections.abc import AsyncIterator, Coroutine
+from typing import Any, Protocol, assert_type, overload
+
+class StreamFactory(Protocol):
+    @overload
+    async def stream(self, value: int) -> AsyncIterator[int]: ...
+    @overload
+    async def stream(self, value: str) -> AsyncIterator[str]: ...
+
+@overload
+async def stream(value: int) -> AsyncIterator[int]: ...  # E: is not assignable to implementation return type
+@overload
+async def stream(value: str) -> AsyncIterator[str]: ...  # E: is not assignable to implementation return type
+async def stream(value: int | str) -> AsyncIterator[int | str]:
+    yield value
+
+async def check(factory: StreamFactory) -> None:
+    result = assert_type(stream(1), Coroutine[Any, Any, AsyncIterator[int]])
+    assert_type(await result, AsyncIterator[int])
+    assert_type(await stream("value"), AsyncIterator[str])
+    result_from_protocol = assert_type(factory.stream(1), Coroutine[Any, Any, AsyncIterator[int]])
+    assert_type(await result_from_protocol, AsyncIterator[int])
+    assert_type(await factory.stream("value"), AsyncIterator[str])
+    "#,
+);
+
+testcase!(
     test_param_consistency,
     r#"
 from typing import overload
@@ -1257,6 +1966,47 @@ def f(x: E) -> str:
 def g(x: E):
     assert_type(f(x), Literal['X', 'Y'])
     "#,
+);
+
+testcase!(
+    test_do_not_expand_flag_arguments,
+    r#"
+from enum import Flag, IntFlag
+from typing import Literal, assert_type, overload
+
+class BaseFlag(Flag):
+    pass
+
+class Bits(BaseFlag):
+    A = 1
+    B = 2
+
+class IntBits(IntFlag):
+    A = 1
+    B = 2
+
+@overload
+def choose(value: Literal[Bits.A]) -> Literal["A"]: ...
+@overload
+def choose(value: Literal[Bits.B]) -> Literal["B"]: ...
+def choose(value: Bits) -> str:
+    return value.name or ""
+
+@overload
+def choose_int(value: Literal[IntBits.A]) -> Literal["A"]: ...
+@overload
+def choose_int(value: Literal[IntBits.B]) -> Literal["B"]: ...
+def choose_int(value: IntBits) -> str:
+    return value.name or ""
+
+def check(value: Bits, int_value: IntBits) -> None:
+    choose(value)  # E: No matching overload found for function `choose`
+    choose_int(int_value)  # E: No matching overload found for function `choose_int`
+
+def check_members(value: Literal[Bits.A, Bits.B], int_value: Literal[IntBits.A, IntBits.B]) -> None:
+    assert_type(choose(value), Literal["A", "B"])
+    assert_type(choose_int(int_value), Literal["A", "B"])
+"#,
 );
 
 testcase!(
@@ -1730,6 +2480,40 @@ g(x=1, y="hello")  # E: No matching overload found for function `g` called with 
     "#,
 );
 
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/5074
+testcase!(
+    test_overload_error_shows_lambda_argument_types,
+    r#"
+from typing import Callable, overload
+
+class Key:
+    # Returning `object` keeps `Key` from satisfying `SupportsRichComparison`.
+    def __lt__(self, other: object) -> object:
+        return object()
+
+def sort_values(values: list[Key]) -> None:
+    values.sort(key=lambda value: value)  # E: No matching overload found for function `list.sort` called with arguments: (key=(value: Key) -> Key)
+
+class C:
+    @overload
+    def m(self, callback: Callable[[int], int], y: int) -> None: ...
+    @overload
+    def m(self, callback: Callable[[str], str], y: str) -> None: ...
+    def m(self, callback, y): ...
+
+# The lambda returns `None`, so like the one above it fails its check against the closest overload.
+C().m(lambda v: None, 1.5)  # E: No matching overload found for function `C.m` called with arguments: ((v: int) -> None, float)
+
+@overload
+def va(*args: Callable[[int], int]) -> None: ...
+@overload
+def va(*args: Callable[[str], str]) -> None: ...
+def va(*args): ...
+
+va(lambda v: None)  # E: No matching overload found for function `va` called with arguments: ((v: int) -> None)
+    "#,
+);
+
 testcase!(
     test_overload_error_shows_call_error,
     r#"
@@ -1947,7 +2731,7 @@ def demo_variadic(s: tuple[int, ...]):
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2600.
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2600.
 testcase!(
     test_materialization_does_not_leak_into_partial_contained,
     r#"
@@ -1988,7 +2772,7 @@ def test(x: A[None], y: A[Any]) -> None:
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2043
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2043
 testcase!(
     test_overload_paramspec_unify_with_ellipsis_callable,
     r#"
@@ -2224,7 +3008,7 @@ assert_type(f(x), Any)
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/3161
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3161
 testcase!(
     test_overload_unpacked_tuple_varargs,
     r#"
@@ -2802,4 +3586,272 @@ def g(a: A, i: int, fl: float):
     assert_type(call_box(a, i), Box[int])
     assert_type(call_box(a, fl), Box[float])
     "#,
+);
+
+// When several overloads match and an argument type contains `Any`, choosing between them
+// materializes the arguments. A lambda argument must not be re-inferred without its parameter
+// type as a hint there, or its parameter is reported as unknown although the hint types it.
+testcase!(
+    test_overload_materialization_does_not_report_unhinted_lambda,
+    TestEnv::new()
+        .enable_implicit_any_lambda_error()
+        .enable_unknown_attribute_access_error(),
+    r#"
+from typing import Any, Callable, Generic, TypeVar, overload
+
+T = TypeVar("T")
+
+class Box(Generic[T]):
+    @overload
+    def then(self, f: Callable[[T], int]) -> int: ...
+    @overload
+    def then(self, f: Callable[[T], str]) -> str: ...
+    def then(self, f: Callable[[T], Any]) -> Any: ...
+
+def f(box: Box[Any]) -> None:
+    box.then(lambda r: r.name)
+    g = lambda r: r.name  # E: Type of lambda parameter `r` is unknown  # E: The type of attribute `name` is unknown
+"#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5396
+testcase!(
+    test_overload_lambda_parameter_after_boolop,
+    TestEnv::new().enable_unknown_attribute_access_error(),
+    r#"
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import assert_type
+
+@dataclass
+class D:
+    a: str | None
+    b: str
+
+def apply(f: Callable[[D], object]) -> None: ...
+
+def check(ds: list[D]) -> None:
+    sorted(ds, key=lambda d: (d.a or "", assert_type(d.b, str)))
+    ds.sort(key=lambda d: (d.a or "", assert_type(d.b, str)))
+    sorted(ds, key=lambda d: (d.a, assert_type(d.b, str)))
+    sorted(ds, key=lambda d: (assert_type(d.b, str), d.a or ""))
+    apply(lambda d: (d.a or "", assert_type(d.b, str)))
+    sorted(ds, key=lambda d: (d.a and assert_type(d.a, str), assert_type(d.b, str)))
+    sorted(ds, key=lambda d: (assert_type(d.a, str) if d.a else "", assert_type(d.b, str)))
+    sorted(ds, key=lambda d: (d.a or "", d.a or "", assert_type(d.b, str)))
+    sorted(ds, key=lambda d: (
+        d.a or "",
+        sorted(ds, key=lambda inner: (
+            inner.a or "", assert_type(inner.b, str), assert_type(d.b, str),
+        )),
+    ))
+"#,
+);
+
+testcase!(
+    test_overload_lambda_narrowing_with_different_parameter_hints,
+    r#"
+from typing import Any, Callable, assert_type, overload
+
+@overload
+def choose(f: Callable[[int | None], int]) -> int: ...
+@overload
+def choose(f: Callable[[str | None], str]) -> str: ...
+def choose(f: Any) -> Any: ...
+
+assert_type(choose(lambda x: (x or "", x.upper() if x else "")[1]), str)
+assert_type(choose(lambda x: (x or 0, x + 1 if x else 0)[1]), int)
+"#,
+);
+
+// Sequential boolean expressions form a DAG of narrowed reads of the same parameter.
+testcase!(
+    test_overload_lambda_narrowing_chain,
+    r#"
+from typing import Callable, assert_type
+
+class D:
+    a: str | None
+    b: str
+
+def apply(f: Callable[[D], object]) -> None: ...
+
+def check(ds: list[D]) -> None:
+    apply(lambda d: (
+        d.a or "", d.a or "", d.a or "", d.a or "",
+        d.a or "", d.a or "", d.a or "", d.a or "",
+        d.a or "", d.a or "", d.a or "", d.a or "",
+        d.a or "", d.a or "", d.a or "", d.a or "",
+        d.a or "", d.a or "", d.a or "", d.a or "",
+        d.a or "", d.a or "", d.a or "", d.a or "",
+        d.a or "", d.a or "", d.a or "", d.a or "",
+        d.a or "", d.a or "", d.a or "", d.a or "",
+        assert_type(d.b, str),
+    ))
+"#,
+);
+
+testcase!(
+    test_overload_lambda_nested_parameter_hints,
+    r#"
+from typing import Any, Callable, assert_type, overload
+
+@overload
+def choose(f: Callable[[int | None], int]) -> int: ...
+@overload
+def choose(f: Callable[[str | None], str]) -> str: ...
+def choose(f: Any) -> Any: ...
+
+def apply(f: Callable[[str | None], object]) -> None: ...
+
+assert_type(choose(lambda x: (
+    x or "",
+    apply(lambda y: (y or "", x or "", y.upper() if y else "")),
+    x.upper() if x else "",
+)[2]), str)
+assert_type(choose(lambda x: (
+    x or 0,
+    apply(lambda y: (y or "", x or 0, y.upper() if y else "")),
+    x + 1 if x else 0,
+)[2]), int)
+
+@overload
+def pair(f: Callable[[int | None, str | None], int]) -> int: ...
+@overload
+def pair(f: Callable[[str | None, int | None], str]) -> str: ...
+def pair(f: Any) -> Any: ...
+
+assert_type(pair(lambda x, y: (
+    x or "", y or 0, y + 1 if y else 0, x.upper() if x else "",
+)[3]), str)
+"#,
+);
+
+testcase!(
+    test_overload_lambda_replayed_predicate,
+    r#"
+from typing import Callable, assert_type
+
+def apply(f: Callable[[str | None], object]) -> None: ...
+
+apply(lambda x: (
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    x if x == (lambda y="": y)() else x,
+    assert_type(x, str | None),
+))
+"#,
+);
+
+testcase!(
+    test_overload_lambda_replayed_unsolved_default,
+    r#"
+from typing import Callable, assert_type
+
+def apply(f: Callable[[list[str] | None], object]) -> None: ...
+
+apply(lambda x: (
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    x if x == (lambda y=[]: y)() else x,
+    assert_type(x, list[str] | None),
+))
+"#,
+);
+
+testcase!(
+    test_overload_lambda_replayed_capture,
+    r#"
+from typing import Callable, assert_type
+
+def apply(f: Callable[[str | None], object]) -> None: ...
+
+apply(lambda x: (
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    x if x == (lambda: x)() else x,
+    assert_type(x, str | None),
+))
+"#,
+);
+
+testcase!(
+    test_overload_intervening_statement_before_implementation,
+    r#"
+from typing import overload
+
+@overload
+def fn(value: int) -> str: ...
+@overload
+def fn(value: str) -> int: ...
+
+def asdf(): ...
+
+def fn(value: str | int) -> int | str:  # E: @overload signatures must be immediately followed by another @overload or the implementation
+    return 0
+"#,
+);
+
+testcase!(
+    test_overload_intervening_statement_between_signatures,
+    r#"
+from typing import overload
+
+@overload
+def fn(value: int) -> str: ...
+
+x = 1
+
+@overload
+def fn(value: str) -> int: ...  # E: @overload signatures must be immediately followed by another @overload or the implementation
+
+def fn(value: str | int) -> int | str:
+    return 0
+"#,
+);
+
+testcase!(
+    test_overload_in_class_intervening_statement,
+    r#"
+from typing import overload
+
+class A:
+    @overload
+    def m(self, x: int) -> int: ...
+
+    field: int = 1
+
+    @overload
+    def m(self, x: str) -> str: ...  # E: @overload signatures must be immediately followed by another @overload or the implementation
+
+    def m(self, x: int | str) -> int | str:
+        return x
+"#,
 );

@@ -39,6 +39,7 @@ GetEntitlementFilterNameType = Literal[
 GetEntitlementsPaginatorName = Literal["get_entitlements"]
 MarketplaceEntitlementServiceServiceName = Literal["marketplace-entitlement"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

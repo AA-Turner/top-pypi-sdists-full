@@ -64,6 +64,9 @@ skills:
   - crawl:0.0.1
   - github:0.0.1
   - image:0.0.1
+  # Stock photos for a post or a page (the user, 18 November 2026): searched
+  # on the providers the person has a key for, credited as each asks.
+  - image-stock:0.0.1
   - pdf:0.0.1
   - text-summarizer:0.0.1
   - video:0.0.1
@@ -100,6 +103,9 @@ optional:
     # Email needs the runtime's social token: a visitor's or a deployment's
     # runtime has none, and the agent says it cannot mail.
     - datalayer-email:0.0.1
+    # Stock photos: off without one at least of UNSPLASH_ACCESS_KEY,
+    # PEXELS_API_KEY, PIXABAY_API_KEY, FREEPIK_API_KEY.
+    - image-stock:0.0.1
   backend_tools:
     # Set up when the person linked that account in Settings.
     - social-post-x:0.0.1
@@ -230,6 +236,25 @@ ui:
   - plugin: a2ui-surface
     renderer: a2ui
   - plugin: x-budget
+  # In the chat's title bar (18 November 2026): the network drop-down and the drafts waiting,
+  # set by the agent with its frontend tool, run in the page.
+  - plugin: social-header
+  # A deck built in the conversation (18 November 2026): it hands the agent the
+  # page-deck frontend tools and draws the deck as it is built.
+  - plugin: page-deck
+    placement: right
+  # Its side panels (18 November 2026): it opens and closes them, and the
+  # deck it builds shows in the right one.
+  - plugin: side-panels
+  # A short notice from an edge of the chat (18 November 2026), run in the page.
+  - plugin: notices
+# The tools run in the page (18 November 2026): a slide deck built in the
+# conversation, for a campaign plan, a results recap or a launch pitch. Nothing
+# is published by them.
+frontend_tools:
+  - page-deck:0.0.1
+  - side-panels:0.0.1
+  - notices:0.0.1
 model_config:
   temperature: 0.7
   max_tokens: 4096
@@ -275,9 +300,46 @@ system_prompt: >-
   When the person asks to get something by email — a summary of the week, a
   campaign report, a draft — send it with the datalayer-email skill: it goes to
   them alone, at their account's address, a few a day; you cannot mail anybody
-  else, so say so if asked. When the person asks you to remember, recall, list or forget something, use the
+  else, so say so if asked. When a post or a page needs a picture and you have
+  the image-stock skill, search the stock providers it lists, show the person
+  a few with where each comes from, and once they chose one put the credit line
+  the skill gives where the picture is used; download a picture only to use
+  it, never in bulk. When the person asks you to remember, recall, list or forget something, use the
   datalayer-memory skills, and never delete everything they remember without their
   explicit confirmation of how many.
+  The chat's title bar shows how many drafts wait for the person's approval:
+  call set_social_header with drafts (their number as value, tone attention)
+  each time that number changes, after you show a draft and after one is
+  approved, posted or dropped, and with visible false at none. It runs in the
+  page and posts nothing. The network chosen in the title bar's drop-down is
+  told to you with the turn: draft for it.
+  You can build a slide deck in the conversation with the deck tools, which run
+  in the page and publish nothing: a campaign plan, a results recap, a pitch
+  for a launch. Make one when the person asks for a deck, slides or a
+  presentation, or when a plan or a recap of several parts reads better as
+  slides; not for a short answer. Start it with deck_create, then lay the
+  deck's outline out in one or two deck_add_slides calls, each slide with a
+  title, three to five short bullets, speaker notes that say what to tell over
+  it, and a picture only at an https address you were given or found, with
+  its credit as the caption; never a call a slide. Keep deck_add_slide for a
+  single slide added later, fix one with deck_update_slide, deck_move_slide
+  or deck_delete_slide, and set its look
+  with deck_set_theme when the person asks for a template or their brand's
+  colours. Every figure on a slide comes from what you read, never invented.
+  Ask before a deck of more than eight slides, saying the outline you would
+  follow. Once it is built, say in two or three lines what the deck contains
+  and that Present shows it full screen; do not repeat the slides in the chat.
+  The deck you build shows in the chat's right panel, which opens with its first
+  slide; the conversation keeps a line per call. Open the panel with
+  open_side_panel (side right) when the person asks to see the deck again, close
+  it with close_side_panel when they move on to something else, and do not open
+  it otherwise.
+  You can slide a short notice in from an edge of the chat with show_notice
+  (tone info, success, warning or error, a title of a few words, a line of
+  text): it runs in the page and changes nothing else. Use it sparingly, at most
+  once in a turn, for what the person should not miss, such as a deck finished
+  or a draft waiting for their approval, and never to repeat what your answer
+  says.
 
 policy:
   shield:

@@ -1,55 +1,44 @@
 Metadata-Version: 2.4
 Name: zope.globalrequest
-Version: 3.0
+Version: 3.1
 Summary: Global way of retrieving the currently active request.
-Home-page: https://github.com/zopefoundation/zope.globalrequest
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL
-Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.globalrequest/issues
-Project-URL: Sources, https://github.com/zopefoundation/zope.globalrequest
-Keywords: zope request global
-Platform: Any
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Source, https://github.com/zopefoundation/zope.globalrequest
+Project-URL: Issues, https://github.com/zopefoundation/zope.globalrequest/issues
+Project-URL: Changelog, https://raw.githubusercontent.com/zopefoundation/zope.globalrequest/master/CHANGES.rst
+Keywords: zope,request,global
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Plone
 Classifier: Framework :: Zope :: 3
 Classifier: Framework :: Zope :: 5
+Classifier: Framework :: Zope :: 6
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Intended Audience :: Other Audience
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
-Requires-Dist: setuptools
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
 Requires-Dist: zope.interface
 Requires-Dist: zope.publisher
 Requires-Dist: zope.traversing
 Provides-Extra: test
 Requires-Dist: zope.testrunner>=6.4; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: platform
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
-
+zope.globalrequest
+==================
 
 Introduction
 ------------
@@ -66,6 +55,18 @@ the latter promotes a clean separation of concerns and the pattern of having a g
 
 Changelog
 =========
+
+3.1 (2026-11-18)
+----------------
+
+- Add support for Python 3.14, 3.15.
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Add ``LICENSE.txt`` and ``COPYRIGHT.txt``, so they ship in the sdist.
+
+- Drop support for Python 3.10, 3.9.
+
 
 3.0 (2025-09-12)
 ----------------

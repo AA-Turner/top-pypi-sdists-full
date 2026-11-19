@@ -108,6 +108,7 @@ UkraineTrnTypeType = Literal["Business", "Individual"]
 UzbekistanTaxRegistrationNumberTypeType = Literal["Business", "Individual"]
 TaxSettingsServiceName = Literal["taxsettings"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

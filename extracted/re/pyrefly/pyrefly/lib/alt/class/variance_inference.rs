@@ -5,9 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::fmt::Result as FmtResult;
+use std::fmt;
 
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
@@ -15,9 +13,8 @@ use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_types::dimension::Int;
-use pyrefly_types::dimension::gradual_size;
 use pyrefly_types::heap::TypeHeap;
-use pyrefly_types::shaped_array::IntTupleView;
+use pyrefly_util::display::DisplayWith;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
@@ -30,6 +27,7 @@ use crate::alt::types::class_bases::ClassBases;
 use crate::types::callable::Callable;
 use crate::types::callable::Params;
 use crate::types::class::Class;
+use crate::types::env::TypeEnv;
 use crate::types::function::FuncMetadata;
 use crate::types::quantified::Quantified;
 use crate::types::tuple::Tuple;
@@ -48,7 +46,6 @@ use crate::types::types::Type;
 // - Concatenate
 // - Intersect (Our variance inference algorithm is not defined on this. Unclear to me yet what to do on this type.)
 // - Forall (I suspect that we should not visit this, since the forall type is related to a function, and variance makes no sense in the absence of a class definition)
-// - Unpack (potentially just visit the inner type recursively?)
 // - SpecialForm
 // - ParamSpecValue
 // - Args and Kwargs
@@ -64,8 +61,8 @@ pub struct VarianceMap(SmallMap<Name, Variance>);
 
 static EMPTY_VARIANCE_MAP: VarianceMap = VarianceMap(SmallMap::new());
 
-impl Display for VarianceMap {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+impl<'e> DisplayWith<dyn TypeEnv + 'e> for VarianceMap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _env: &(dyn TypeEnv + 'e)) -> fmt::Result {
         write!(f, "{{")?;
         for (key, value) in self.0.iter() {
             write!(f, "{key}: {value}, ")?;
@@ -416,52 +413,6 @@ fn on_type(
                 on_type(path, ty, on_edge, on_var);
             }
         }
-        Type::ShapedArray(tensor) => {
-            // Tensor dimensions are invariant - Tensor[2, 3] is not a subtype of Tensor[3, 2]
-            let mut visit_dim = |ty: &Type| {
-                on_type(
-                    path.with_direction(DirectionalVariance::Invariant),
-                    ty,
-                    on_edge,
-                    on_var,
-                );
-            };
-            match tensor.shape().view() {
-                IntTupleView::Concrete(dims) => {
-                    for dim in dims {
-                        visit_dim(&Type::Int(dim.clone()));
-                    }
-                }
-                IntTupleView::Gradual => {
-                    let middle = gradual_size();
-                    visit_dim(&middle);
-                }
-                IntTupleView::Unpacked {
-                    prefix,
-                    middle,
-                    suffix,
-                } => {
-                    for dim in prefix {
-                        visit_dim(&Type::Int(dim.clone()));
-                    }
-                    visit_dim(middle);
-                    for dim in suffix {
-                        visit_dim(&Type::Int(dim.clone()));
-                    }
-                }
-            }
-        }
-        Type::NNModule(module) => {
-            // NNModule fields are invariant
-            for (_, ty) in module.fields.iter() {
-                on_type(
-                    path.with_direction(DirectionalVariance::Invariant),
-                    ty,
-                    on_edge,
-                    on_var,
-                );
-            }
-        }
         Type::DataFrame(schema) => {
             on_type(path, &schema.underlying_type(), on_edge, on_var);
         }
@@ -470,6 +421,9 @@ fn on_type(
         }
         Type::Tuple(t) => {
             handle_tuple_type(t, path, on_edge, on_var);
+        }
+        Type::Unpack(inner, _) => {
+            on_type(path, inner, on_edge, on_var);
         }
         Type::Int(dim) => {
             // Symbolic integer expressions contain types, all invariant.
@@ -682,37 +636,6 @@ fn check_typevar(
     }
 }
 
-/// Check a single callable signature for variance violations at `range`.
-/// The return type is a covariant position; parameters are contravariant.
-fn check_callable_variance(
-    callable: &Callable,
-    range: TextRange,
-    violations: &mut Vec<VarianceViolation>,
-) {
-    if let Type::Quantified(q) = &callable.ret {
-        check_typevar(
-            q.name(),
-            Variance::Covariant,
-            q.variance(),
-            range,
-            violations,
-        );
-    }
-    if let Params::List(param_list) | Params::Partial(param_list) = &callable.params {
-        for param in param_list.items().iter() {
-            if let Type::Quantified(q) = param.as_type() {
-                check_typevar(
-                    q.name(),
-                    Variance::Contravariant,
-                    q.variance(),
-                    range,
-                    violations,
-                );
-            }
-        }
-    }
-}
-
 fn initial_inference_map(tparams: Option<&TParams>) -> InferenceMap {
     tparams
         .iter()
@@ -738,6 +661,11 @@ fn initialize_environment_impl<Ans: LookupAnswer>(
     let params = initial_inference_map(solver.get_class_tparams(class).map(|t| &**t));
 
     environment.insert(class.dupe(), params.clone());
+    // Specified variances never change, so a class whose variances are all specified
+    // contributes only its parameters; walking its fields would compute their types for nothing.
+    if !params.values().any(|parameter| parameter.needs_inference()) {
+        return params;
+    }
     let mut on_var = |_name: &Name, _state: InferenceState, _: PreInferenceVariance| {};
 
     // get the variance results of a given class c
@@ -810,6 +738,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
             for (my_class, params) in env.iter() {
                 let mut new_params = params.clone();
+                if !params.values().any(|parameter| parameter.needs_inference()) {
+                    new_environment.insert(my_class.dupe(), new_params);
+                    continue;
+                }
 
                 let mut on_var = |name: &Name, state: InferenceState, _: PreInferenceVariance| {
                     if let Some(parameter) = new_params.get_mut(name) {
@@ -876,7 +808,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     ///
     /// Checking behavior:
     /// - Base classes: DEEP checking (recurse into all nested generics)
-    /// - Methods: SHALLOW checking (only direct TypeVar usage, not nested Callables)
+    /// - Methods: SHALLOW checking (see `check_annotation_variance`)
     /// - Fields: NO checking (mutable fields constrain variance during inference only)
     pub fn check_variance_violations(
         &self,
@@ -887,7 +819,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let mut violations = Vec::new();
 
         // Check base classes deeply using on_type for traversal
-        for (base_type, range) in class_bases.iter_with_ranges() {
+        for (base_type, position) in class_bases.iter_with_positions() {
+            let range = self.class_base_range(class, position);
             let mut on_var =
                 |name: &Name, state: InferenceState, declared: PreInferenceVariance| {
                     // An unresolved path establishes no position to validate. Treating it as
@@ -916,7 +849,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             if ty.is_toplevel_callable() {
                 let range = class_fields
                     .and_then(|f| f.field_decl_range(name))
-                    .unwrap_or_else(|| class.range());
+                    .unwrap_or_else(|| class.range(self));
                 self.check_method_shallow(ty, range, &mut violations);
             }
         }
@@ -932,8 +865,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         self.bindings().function_def_range(func_id.def_index)
     }
 
-    /// Check a method's signatures for variance violations (shallow: direct
-    /// TypeVars in params/return only, not nested Callables).
+    /// Check a method's signatures for variance violations (shallow: see
+    /// `check_annotation_variance`).
     ///
     /// Each overload arm is reported at its own `def` range, taken from that arm's
     /// own metadata — not the merged group metadata, which points at the
@@ -945,6 +878,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         field_range: TextRange,
         violations: &mut Vec<VarianceViolation>,
     ) {
+        // As in `on_method_impl`, a callable without function metadata is treated as a method.
+        let skip_receiver =
+            |metadata: Option<&FuncMetadata>| metadata.is_none_or(|m| !m.flags.is_staticmethod);
         if let Type::Overload(overload) = ty {
             for signature in overload.signatures.iter() {
                 let (callable, metadata) = match signature {
@@ -952,12 +888,108 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     OverloadType::Forall(forall) => (&forall.body.signature, &forall.body.metadata),
                 };
                 let range = self.func_def_range(metadata).unwrap_or(field_range);
-                check_callable_variance(callable, range, violations);
+                self.check_callable_variance(
+                    callable,
+                    skip_receiver(Some(metadata)),
+                    range,
+                    violations,
+                );
             }
             return;
         }
+        let skip_receiver = skip_receiver(ty.toplevel_func_metadata());
         for (callable, _) in ty.toplevel_callable_signatures() {
-            check_callable_variance(callable, field_range, violations);
+            self.check_callable_variance(callable, skip_receiver, field_range, violations);
+        }
+    }
+
+    /// Check a single callable signature for variance violations at `range`.
+    /// The return type is a covariant position; parameters are contravariant.
+    /// Like inference, this skips the receiver, which is bound by dispatch.
+    fn check_callable_variance(
+        &self,
+        callable: &Callable,
+        skip_receiver: bool,
+        range: TextRange,
+        violations: &mut Vec<VarianceViolation>,
+    ) {
+        self.check_annotation_variance(&callable.ret, Variance::Covariant, range, violations);
+        let skip = usize::from(skip_receiver);
+        match &callable.params {
+            Params::List(param_list) | Params::Partial(param_list) => {
+                for param in param_list.items().iter().skip(skip) {
+                    self.check_annotation_variance(
+                        param.as_type(),
+                        Variance::Contravariant,
+                        range,
+                        violations,
+                    );
+                }
+            }
+            Params::ParamSpec(prefix, param_spec) => {
+                for ty in prefix.iter().skip(skip).map(|p| p.ty()).chain([param_spec]) {
+                    self.check_annotation_variance(ty, Variance::Contravariant, range, violations);
+                }
+            }
+            Params::Ellipsis | Params::Materialization => {}
+        }
+    }
+
+    /// Check a parameter or return annotation that appears at `position`.
+    ///
+    /// The check is shallow: a TypeVar or ParamSpec is checked when it fills the entire
+    /// position. A ParamSpec is also checked when it is a direct argument of the
+    /// annotation's top-level callable or class. A TypeVarTuple is checked when it is
+    /// unpacked directly into `*args` or the annotation's top-level tuple.
+    fn check_annotation_variance(
+        &self,
+        ty: &Type,
+        position: Variance,
+        range: TextRange,
+        violations: &mut Vec<VarianceViolation>,
+    ) {
+        match ty {
+            Type::Quantified(q) => {
+                check_typevar(q.name(), position, q.variance(), range, violations);
+            }
+            Type::Unpack(inner, _) => {
+                self.check_annotation_variance(inner, position, range, violations);
+            }
+            Type::Tuple(Tuple::Unpacked(parts))
+                if let (_, Type::Quantified(q), _) = parts.parts() =>
+            {
+                check_typevar(q.name(), position, q.variance(), range, violations);
+            }
+            Type::ClassType(cls) => {
+                let variances = self
+                    .type_order()
+                    .get_variance_from_class(cls.class_object());
+                for (param, targ) in cls.targs().iter_paired() {
+                    let q = match targ {
+                        Type::Quantified(q) => q,
+                        Type::Concatenate(_, t) if let Type::Quantified(q) = &**t => q,
+                        _ => continue,
+                    };
+                    if q.is_param_spec() {
+                        check_typevar(
+                            q.name(),
+                            position.compose(variances.get(param.name())),
+                            q.variance(),
+                            range,
+                            violations,
+                        )
+                    }
+                }
+            }
+            _ => {
+                // A callable's parameters are contravariant, so a ParamSpec that supplies
+                // them sits in the inverse of the callable's position.
+                for (callable, _) in ty.toplevel_callable_signatures() {
+                    if let Params::ParamSpec(_, Type::Quantified(q)) = &callable.params {
+                        check_typevar(q.name(), position.inv(), q.variance(), range, violations);
+                    }
+                }
+            }
         }
     }
 }

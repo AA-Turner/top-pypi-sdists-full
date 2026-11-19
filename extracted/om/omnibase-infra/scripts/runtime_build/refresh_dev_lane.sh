@@ -69,6 +69,8 @@
 #      the lane label. The census's own drift code, passed through unchanged.
 #   4/5 the closing census could not run (inventory unobservable / host
 #      undeclared); the census's own codes, passed through unchanged.
+#      After a failed refresh, its original exit code (1/2) takes precedence;
+#      lane_census in the receipt records the closing census's own code.
 #   64 usage / precondition error, including a --ref whose commit is not
 #      contained in origin/dev (OMN-21272; refused before the lane lock)
 
@@ -189,7 +191,12 @@ readonly COMPOSE_PROJECT="${DEV_COMPOSE_PROJECT}"
 # correct home for them, out of scope for this config-duplication kill.
 readonly REDPANDA_CONTAINER="omnibase-infra-redpanda"
 readonly POSTGRES_CONTAINER="omnibase-infra-postgres"
-readonly CORE_SERVICES=(omninode-runtime runtime-effects runtime-worker projection-api)
+# OMN-22930 (T8), OMN-21288 (T9): a lane whose rendered policy folds the effects or workers
+# role into main has no runtime-effects or runtime-worker container, so each is left out of
+# the services this refresh builds, gates, snapshots and rolls back. The verifier reads the
+# same set from --container-ids.
+# shellcheck disable=SC2046,SC2207
+readonly CORE_SERVICES=(omninode-runtime $([[ ",${DEV_RUNTIME_MAIN_FOLDED_PROFILES:-}," == *,effects,* ]] || echo runtime-effects) $([[ ",${DEV_RUNTIME_MAIN_FOLDED_PROFILES:-}," == *,workers,* ]] || echo runtime-worker) projection-api)
 # OMN-18496: must equal CLOUD_MIGRATION_FAILED_EXIT_CODE in
 # src/omnibase_infra/handlers/handler_runtime_deploy.sh.
 readonly CLOUD_MIGRATION_FAILED_DEPLOY_EXIT=3
@@ -231,10 +238,6 @@ readonly REFRESH_BUILD_SERVICES=(
     projection-savings-writer
     projection-tenant-credentials-writer
     projection-live-events-writer
-    # OMN-16025 -- the infra routing-decision projection consumer. Dev-lane-only
-    # for the same reason as the six above, and in the build scope for the same
-    # reason: `restart: unless-stopped` keeps a stale image running and healthy.
-    infra-routing-decisions-consumer
     # OMN-17530 -- the tenant-scoped control plane. Here for redpanda-sasl-enable's
     # reason and NOT the writers'. All three are TAG-REFERENCED -- onex-api from
     # the omninode_infra clone, the migrate image from that repo's
@@ -271,6 +274,17 @@ readonly REFRESH_BUILD_SERVICES=(
     # everywhere except here, which left it declared, censused as critical
     # drift, and never running on either lab lane.
     tenant-projection-writer
+    # OMN-21279 -- build-only infra half of the composed runtime image;
+    # scale 0 in the overlay, so up starts no container for it.
+    dev-lane-infra-runtime-image
+    # OMN-21481 -- the public cost estimator page. TAG-REFERENCED like onex-api,
+    # its image built from the web front end's repository, so there is nothing
+    # to build here; naming it gets it RECREATED on every governed refresh,
+    # which is what brings the page back with no manual step. Its image is
+    # built on the lab host, not here: a host without it fails this refresh
+    # at the recreate with No such image, and the recovery is the build the
+    # docker-compose.dev-lane.yml comment spells, then the refresh again.
+    cost-estimator-web
 )
 # The clones this refresh records prior HEADs for and moves to the deployed
 # ref: SIBLING_LANE_REFRESH_REPOS from sibling_clone_manifest.sh, the single
@@ -415,6 +429,10 @@ fi
 # lane is never a candidate -- the census is read for this lane only, and the
 # label is read again from the container itself immediately before the removal.
 LANE_CENSUS_PYTHON="${LANE_CENSUS_PYTHON:-python3}"
+# lane-census-check.sh reads the host registry from the file LANE_CENSUS_REGISTRY
+# names or, unset, from the lane census node's overlay under ONEX_SKILL_OVERLAY_ROOTS,
+# in this environment (OMN-22152): the refresh supplies nothing itself, and with
+# neither present the driver exits 3 before reading Docker.
 CENSUS_SCRIPT="${REPO_ROOT}/scripts/lane-census-check.sh"
 CENSUS_EXIT=0
 CENSUS_REMOVED=()
@@ -587,7 +605,8 @@ run_preflight_required_env() {
         --lane "${LANE}" \
         --runtime-policy-env "${REPO_ROOT}/docker/runtime-policy.env" \
         --compose-file "${INFRA_CLONE}/docker/docker-compose.infra.yml" \
-        --compose-file "${INFRA_CLONE}/docker/docker-compose.dev-lane.yml"
+        --compose-file "${INFRA_CLONE}/docker/docker-compose.dev-lane.yml" \
+        --compose-file "${INFRA_CLONE}/docker/docker-compose.dev-tenant-fold.yml"
 }
 
 # OMN-20867: the lane's env fragment from the private deployment overlay clone,
@@ -599,24 +618,29 @@ run_preflight_required_env() {
 # reader refuses (a key outside its schema's allowlist, an empty value, two
 # clones that both carry fragments) stops the refresh here, before anything is
 # built.
-LANE_ENV_EXPORTS=""
+# OMN-24081: the same call renders the dev lane's embedding address and the lane bifrost
+# overlay it binds from the llm_endpoints overlay, over the operator env sourced above, so a
+# warm refresh never puts back an address a person once typed into that file; an overlay that
+# cannot be rendered stops the refresh here too. STATE_DIR is where the rewritten lane overlay
+# directory is written.
+STATE_DIR="${HOME}/.omnibase/state/dev_lane_refresh"
 if ! LANE_ENV_EXPORTS="$(PYTHONPATH="${REPO_ROOT}/scripts/deploy-agent${PYTHONPATH:+:${PYTHONPATH}}" \
-        run_python -c 'import sys
+        run_python -c 'import os
+import sys
 from pathlib import Path
+from deploy_agent import executor
 from deploy_agent.instance_lanes import default_instance_lane_env_exports
-sys.stdout.write(default_instance_lane_env_exports(sys.argv[1], Path(sys.argv[2])))' \
-        "${REPO_ROOT}" "${OMNI_HOME}")"; then
-    err "LANE_ENV_FRAGMENT_REFUSED: the lane env fragment could not be applied"
+llm = executor.load_dev_boot_guard(executor._LLM_ENV_MODULE)
+sys.stdout.write(default_instance_lane_env_exports(sys.argv[1], Path(sys.argv[2])) + llm.refresh_exports(executor, dict(os.environ), Path(sys.argv[2]), Path(sys.argv[3]), mounts_lane_declaration=True))' \
+        "${REPO_ROOT}" "${OMNI_HOME}" "${STATE_DIR}")"; then
+    err "LANE_ENV_FRAGMENT_REFUSED: the lane env fragment or the LLM endpoint env could not be applied"
     err "  (reason above); nothing was built or restarted."
     exit 64
 fi
-if [[ -n "${LANE_ENV_EXPORTS}" ]]; then
-    # shellcheck source=/dev/null
-    source <(printf '%s' "${LANE_ENV_EXPORTS}")
-    log "lane env fragment applied: $(printf '%s' "${LANE_ENV_EXPORTS}" | sed -e 's/^export //' | tr '\n' ' ')"
-else
-    log "lane env fragment: none"
-fi
+# shellcheck source=/dev/null
+source <(printf '%s' "${LANE_ENV_EXPORTS}")
+export ONEX_DEPLOY_LANE_ENV_EXPORTS="${LANE_ENV_EXPORTS}"
+log "lane env applied from the overlays: $(printf '%s' "${LANE_ENV_EXPORTS}" | sed -e 's/^export //' | tr '\n' ' ')"
 
 INFRA_CLONE="${OMNI_HOME}/omnibase_infra"
 
@@ -703,7 +727,6 @@ if [[ "${MODE}" == "print-rollback-cmd" ]]; then
     exit 0
 fi
 
-STATE_DIR="${HOME}/.omnibase/state/dev_lane_refresh"
 HISTORY_DIR="${STATE_DIR}/history"
 mkdir -p "${HISTORY_DIR}"
 UTC_NOW="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -1063,7 +1086,6 @@ GATE1_JSON="${WORKDIR}/gate1.json"
 GATE_EXIT=0
 BOOT_WINDOW_SECONDS="$(runtime_boot_window_seconds "${NEW_CONTAINER_IDS[omninode-runtime]:-}")"
 log "runtime boot window: ${BOOT_WINDOW_SECONDS}s left of omninode-runtime's declared start budget"
-# shellcheck disable=SC2086
 run_verify \
     --lane "${LANE}" \
     --expected-revision "${NEW_INFRA_SHA_SHORT}" \
@@ -1075,7 +1097,7 @@ run_verify \
     --broker-container "${REDPANDA_CONTAINER}" \
     --min-contracts "${MIN_CONTRACTS}" \
     --boot-window-seconds "${BOOT_WINDOW_SECONDS}" \
-    ${REQUIRE_DIGEST_CHANGE} \
+    ${REQUIRE_DIGEST_CHANGE:+"${REQUIRE_DIGEST_CHANGE}"} \
     --json > "${GATE1_JSON}" || GATE_EXIT=$?
 
 if ! jq -e . "${GATE1_JSON}" >/dev/null 2>&1; then
@@ -1254,21 +1276,21 @@ if [[ "${RESULT}" == "SUCCESS" && "${DEPLOY_EXIT}" -eq "${CLOUD_MIGRATION_FAILED
 fi
 
 # --- close with the lane census (OMN-20876) ----------------------------------
-# A refresh that landed is only done when the lane it landed on matches its
-# manifest: the census is read last, and its exit code is the refresh's.
-CENSUS_RAN=false
-if [[ "${RESULT}" == "SUCCESS" ]]; then
-    CENSUS_RAN=true
-    log "=== Lane census ==="
-    lane_census_close || CENSUS_EXIT=$?
-    if [[ "${CENSUS_EXIT}" -ne 0 ]]; then
-        RESULT="FAILED_CENSUS_DRIFT"
-        err "=============================================================="
-        err "STOP AND REPORT: the health-gate passed but the lane census exited"
-        err "${CENSUS_EXIT} -- the dev lane does not match its manifest (findings"
-        err "above). The refresh does not certify a lane that has drifted."
-        err "=============================================================="
-    fi
+# Reconcile leftover recreates after recovery too (OMN-19998). A failed refresh
+# keeps its result and exit code; the receipt also records any remaining drift
+# or unreadable inventory. Only a SUCCESS can become FAILED_CENSUS_DRIFT.
+CENSUS_RAN=true
+log "=== Lane census ==="
+lane_census_close || CENSUS_EXIT=$?
+if [[ "${RESULT}" == "SUCCESS" && "${CENSUS_EXIT}" -ne 0 ]]; then
+    RESULT="FAILED_CENSUS_DRIFT"
+    err "=============================================================="
+    err "STOP AND REPORT: the health-gate passed but the lane census exited"
+    err "${CENSUS_EXIT} -- the dev lane does not match its manifest (findings"
+    err "above). The refresh does not certify a lane that has drifted."
+    err "=============================================================="
+elif [[ "${CENSUS_EXIT}" -ne 0 ]]; then
+    err "STOP AND REPORT: recovery census exited ${CENSUS_EXIT} (findings above); preserving refresh result ${RESULT}."
 fi
 if [[ "${#CENSUS_REMOVED[@]}" -gt 0 ]]; then
     CENSUS_REMOVED_JSON="$(printf '%s\n' "${CENSUS_REMOVED[@]}" | jq -Rn '[inputs]')"

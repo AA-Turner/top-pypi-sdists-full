@@ -20,6 +20,7 @@ import copy
 import io
 import json
 import sys
+from typing import Any
 from unittest import mock
 
 from osc_lib.tests import utils as oscutils
@@ -682,6 +683,94 @@ class TestConsoleShow(TestBaremetal):
 
         self.baremetal_mock.node.get_console.assert_called_once_with(
             'node_uuid')
+
+
+class TestConsoleUrlShow(TestBaremetal):
+    def setUp(self) -> None:
+        super(TestConsoleUrlShow, self).setUp()
+
+        # Get the command object to test
+        self.cmd = baremetal_node.ConsoleUrlShowBaremetalNode(self.app, None)
+
+    def test_console_url_show(self) -> None:
+        self.baremetal_mock.node.get_console.return_value = {
+            "console_enabled": True,
+            "console_info": {"type": "vnc", "url": "https://example/vnc"}}
+        parsed_args = self.check_parser(
+            self.cmd, ['node_uuid'], [('node', 'node_uuid')])
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.baremetal_mock.node.get_console.assert_called_once_with(
+            'node_uuid')
+        self.assertEqual(('type', 'url'), columns)
+        self.assertEqual(('vnc', 'https://example/vnc'), data)
+
+    def test_console_url_show_no_console_info(self) -> None:
+        self.baremetal_mock.node.get_console.return_value = {
+            "console_enabled": False, "console_info": None}
+        parsed_args = self.check_parser(
+            self.cmd, ['node_uuid'], [('node', 'node_uuid')])
+
+        self.assertRaises(exc.CommandError,
+                          self.cmd.take_action, parsed_args)
+
+
+class TestConsoleUrlOpen(TestBaremetal):
+    def setUp(self) -> None:
+        super(TestConsoleUrlOpen, self).setUp()
+
+        # Get the command object to test
+        self.cmd = baremetal_node.ConsoleUrlOpenBaremetalNode(self.app, None)
+
+    def _parse(self) -> Any:
+        return self.check_parser(
+            self.cmd, ['node_uuid'], [('node', 'node_uuid')])
+
+    @mock.patch.object(baremetal_node.webbrowser, 'open', autospec=True)
+    def test_console_url_open(self, mock_open: mock.Mock) -> None:
+        self.baremetal_mock.node.get_console.return_value = {
+            "console_enabled": True,
+            "console_info": {"type": "vnc", "url": "https://example/vnc"}}
+        mock_open.return_value = True
+
+        self.cmd.take_action(self._parse())
+
+        self.baremetal_mock.node.get_console.assert_called_once_with(
+            'node_uuid')
+        mock_open.assert_called_once_with('https://example/vnc')
+
+    @mock.patch.object(baremetal_node.webbrowser, 'open', autospec=True)
+    def test_console_url_open_no_console_info(
+            self, mock_open: mock.Mock) -> None:
+        self.baremetal_mock.node.get_console.return_value = {
+            "console_enabled": False, "console_info": None}
+
+        self.assertRaises(exc.CommandError,
+                          self.cmd.take_action, self._parse())
+        mock_open.assert_not_called()
+
+    @mock.patch.object(baremetal_node.webbrowser, 'open', autospec=True)
+    def test_console_url_open_not_web_url(
+            self, mock_open: mock.Mock) -> None:
+        self.baremetal_mock.node.get_console.return_value = {
+            "console_enabled": True,
+            "console_info": {"type": "shellinabox", "url": "file:///etc"}}
+
+        self.assertRaises(exc.CommandError,
+                          self.cmd.take_action, self._parse())
+        mock_open.assert_not_called()
+
+    @mock.patch.object(baremetal_node.webbrowser, 'open', autospec=True)
+    def test_console_url_open_browser_failure(
+            self, mock_open: mock.Mock) -> None:
+        self.baremetal_mock.node.get_console.return_value = {
+            "console_enabled": True,
+            "console_info": {"type": "vnc", "url": "https://example/vnc"}}
+        mock_open.return_value = False
+
+        self.assertRaises(exc.CommandError,
+                          self.cmd.take_action, self._parse())
 
 
 class TestSecurebootOff(TestBaremetal):
@@ -1671,6 +1760,19 @@ class TestBaremetalList(TestBaremetal):
         self.baremetal_mock.node.list.assert_called_with(
             **kwargs
         )
+
+    def test_baremetal_list_by_instance_name_or_uuid(self) -> None:
+        for value, key in (('for-instance', 'instance_name'),
+                           ('1be26c0b-03f2-4d2e-ae87-c02d7f33c123',
+                            'instance_uuid')):
+            arglist = ['--instance', value]
+            verifylist = [('instance', value)]
+            parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+            self.cmd.take_action(parsed_args)
+
+            self.baremetal_mock.node.list.assert_called_with(
+                marker=None, limit=None, **{key: value})
 
     def test_baremetal_list_fields(self) -> None:
         arglist = [
@@ -4461,10 +4563,12 @@ class TestVifList(TestBaremetal):
         self.baremetal_mock.node.vif_list.return_value = [
             baremetal_fakes.FakeBaremetalResource(
                 None,
-                copy.deepcopy(baremetal_fakes.VIFS),
+                copy.deepcopy(baremetal_fakes.VIFS['vifs'][0]),
                 loaded=True,
             ),
         ]
+        self.baremetal_mock.port.list.return_value = []
+        self.baremetal_mock.portgroup.list.return_value = []
 
         # Get the command object to test
         self.cmd = baremetal_node.VifListBaremetalNode(self.app, None)
@@ -4478,6 +4582,52 @@ class TestVifList(TestBaremetal):
         self.cmd.take_action(parsed_args)
 
         self.baremetal_mock.node.vif_list.assert_called_once_with('node_uuid')
+
+    def test_baremetal_vif_list_attachments(self) -> None:
+        self.baremetal_mock.node.vif_list.return_value = [
+            baremetal_fakes.FakeBaremetalResource(
+                None, {'id': vif_id}, loaded=True)
+            for vif_id in ('vif-pg', 'vif-port', 'vif-unattached')
+        ]
+        self.baremetal_mock.port.list.return_value = [
+            baremetal_fakes.FakeBaremetalResource(
+                None,
+                {'uuid': 'port-uuid', 'address': 'aa:aa:aa:aa:aa:aa',
+                 'internal_info': {'cleaning_vif_port_id': 'vif-port',
+                                   'unrelated': 'foo'}},
+                loaded=True),
+            baremetal_fakes.FakeBaremetalResource(
+                None,
+                {'uuid': 'port-uuid-2', 'address': 'bb:bb:bb:bb:bb:bb',
+                 'internal_info': {}},
+                loaded=True),
+        ]
+        self.baremetal_mock.portgroup.list.return_value = [
+            baremetal_fakes.FakeBaremetalResource(
+                None,
+                {'uuid': 'pg-uuid', 'address': 'cc:cc:cc:cc:cc:cc',
+                 'internal_info': {'tenant_vif_port_id': 'vif-pg'}},
+                loaded=True),
+        ]
+
+        parsed_args = self.check_parser(self.cmd, ['node_uuid'],
+                                        [('node', 'node_uuid')])
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.baremetal_mock.port.list.assert_called_once_with(
+            node='node_uuid', detail=True, limit=0)
+        self.baremetal_mock.portgroup.list.assert_called_once_with(
+            node='node_uuid', detail=True, limit=0)
+        self.assertEqual(
+            ('id', 'purpose', 'attached_to', 'attached_uuid', 'address'),
+            tuple(columns))
+        self.assertEqual([
+            ('vif-pg', 'tenant', 'portgroup', 'pg-uuid',
+             'cc:cc:cc:cc:cc:cc'),
+            ('vif-port', 'cleaning', 'port', 'port-uuid',
+             'aa:aa:aa:aa:aa:aa'),
+            ('vif-unattached', None, None, None, None),
+        ], list(data))
 
 
 class TestVifAttach(TestBaremetal):

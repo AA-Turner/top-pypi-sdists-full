@@ -63,6 +63,7 @@ TlsPolicyType = Literal["OPTIONAL", "REQUIRE"]
 WarmupStatusType = Literal["DONE", "IN_PROGRESS"]
 PinpointEmailServiceName = Literal["pinpoint-email"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -54,7 +54,15 @@ pub(crate) fn selected_jobs(
     selectors: &[String],
     catalog: &BTreeMap<String, JobSelection>,
 ) -> BTreeSet<String> {
-    let mut jobs: BTreeSet<String> = BTreeSet::new();
+    ordered_jobs(selectors, catalog).into_iter().collect()
+}
+
+/// The jobs `selectors` name, each once in the order first named.
+pub(crate) fn ordered_jobs(
+    selectors: &[String],
+    catalog: &BTreeMap<String, JobSelection>,
+) -> Vec<String> {
+    let mut jobs: Vec<String> = Vec::new();
     let parts = selectors
         .iter()
         .flat_map(|selector| selector.split(char::is_whitespace))
@@ -63,8 +71,11 @@ pub(crate) fn selected_jobs(
         let Ok(ParsedSelector::Kind { kind, value, .. }) = parse_selector(part) else {
             continue;
         };
-        if JOB_SELECTOR_KINDS.contains(&kind.as_str()) && catalog.contains_key(&value) {
-            jobs.insert(value);
+        if JOB_SELECTOR_KINDS.contains(&kind.as_str())
+            && catalog.contains_key(&value)
+            && !jobs.contains(&value)
+        {
+            jobs.push(value);
         }
     }
     jobs
@@ -98,9 +109,16 @@ pub(crate) fn job_catalog(py: Python<'_>) -> PyResult<Option<Catalog>> {
 
 /// Each job's selector tokens and each group's members declared for `target`, and the names a schedule or sensor starts there.
 fn inventory_catalog(inventory: &OrchestrationInventory, target: Option<&str>) -> Catalog {
-    let declared_for = |targets: &[String]| {
+    catalog_where(inventory, |targets: &[String]| {
         targets.is_empty() || target.is_some_and(|target| targets.iter().any(|name| name == target))
-    };
+    })
+}
+
+/// Each job's selector tokens and each group's members `declared_for` accepts the targets of.
+pub(crate) fn catalog_where(
+    inventory: &OrchestrationInventory,
+    declared_for: impl Fn(&[String]) -> bool,
+) -> Catalog {
     let tokens = |value: &str| value.split_whitespace().map(str::to_owned).collect();
     let mut catalog: BTreeMap<String, JobSelection> = BTreeMap::new();
     let mut triggered: BTreeSet<String> = BTreeSet::new();
@@ -148,7 +166,7 @@ fn inventory_catalog(inventory: &OrchestrationInventory, target: Option<&str>) -
         );
     }
     for sensor in &inventory.sensors {
-        if sensor.targets.as_deref().is_none_or(declared_for) {
+        if sensor.targets.as_deref().is_none_or(&declared_for) {
             triggered.extend(
                 sensor
                     .job_references

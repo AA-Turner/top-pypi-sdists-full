@@ -13,7 +13,7 @@ import shutil
 import sys
 import tokenize
 import warnings
-from argparse import ArgumentTypeError, BooleanOptionalAction, Namespace
+from argparse import BooleanOptionalAction, Namespace
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
@@ -56,7 +56,7 @@ from datamodel_code_generator.__main__ import (
     _generation_config,
     run_generate_from_config,
 )
-from datamodel_code_generator.arguments import _dataclass_arguments, arg_parser
+from datamodel_code_generator.arguments import arg_parser
 from datamodel_code_generator.config import GenerateConfig
 from datamodel_code_generator.deprecations import DEPRECATIONS, Deprecation
 from datamodel_code_generator.format import CodeFormatter, Formatter, PythonVersion
@@ -2059,6 +2059,7 @@ def test_boolean_optional_option_sets_are_pinned() -> None:
         "use_encoded_str_for_constrained_base64",
         "use_strict_str_for_base64",
         "merge_shared_variant_tags",
+        "use_unmapped_variant_tag_values",
         "use_standard_collections",
         "use_object_type",
         "use_typed_nullable_map_values",
@@ -2075,6 +2076,7 @@ def test_boolean_optional_option_sets_are_pinned() -> None:
         "use_tuple_for_fixed_items",
         "use_tuple_for_closed_arrays",
         "use_closed_typed_dict",
+        "use_validate_default_for_root_model_type_aliases",
         "use_plain_alias_for_recursive_models",
         "read_format_as_annotation",
         "type_overrides_replace_whole_type",
@@ -2109,6 +2111,7 @@ def test_boolean_optional_option_sets_are_pinned() -> None:
         "read_dynamic_anchors_in_document_order",
         "read_ids_with_empty_fragment",
         "read_single_allof_refs_in_their_documents",
+        "read_ref_siblings_in_closed_allof_members",
         "ignore_ref_siblings_by_schema_version",
         "read_yaml_1_1_numbers_as_text",
         "read_implied_options_from_merged_values",
@@ -3255,7 +3258,7 @@ def test_generate_pyproject_config_json_mapping_option_preserves_value(capsys: p
 )
 def test_dataclass_arguments_valid(json_str: str, expected: dict) -> None:
     """Test that valid JSON is parsed correctly."""
-    assert _dataclass_arguments(json_str) == expected
+    assert arg_parser.parse_args(["--dataclass-arguments", json_str]).dataclass_arguments == expected
 
 
 @pytest.mark.parametrize(
@@ -3269,10 +3272,14 @@ def test_dataclass_arguments_valid(json_str: str, expected: dict) -> None:
         ('{"frozen": "not_bool"}', "Expected bool for 'frozen', got str"),
     ],
 )
-def test_dataclass_arguments_invalid(json_str: str, match: str) -> None:
-    """Test that invalid input raises ArgumentTypeError."""
-    with pytest.raises(ArgumentTypeError, match=match):
-        _dataclass_arguments(json_str)
+def test_dataclass_arguments_invalid(json_str: str, match: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that invalid input is refused as an invalid value of the option."""
+    run_main_with_system_exit(
+        ["--dataclass-arguments", json_str],
+        expected_code=2,
+        capsys=capsys,
+        expected_stderr_contains=f"argument --dataclass-arguments: {match}",
+    )
 
 
 @pytest.mark.cli_doc(

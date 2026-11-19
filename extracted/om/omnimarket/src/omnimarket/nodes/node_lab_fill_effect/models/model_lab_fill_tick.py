@@ -11,11 +11,13 @@ row that did not go, why.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .model_lab_fill_effect import LANE_PATTERN, RUN_KEY_PATTERN
+from .model_lab_fill_send_gate import DEFAULT_FACT_HOSTS
 
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
 PriorityClass = Literal["mvp-landing", "process-fix", "other"]
@@ -28,6 +30,25 @@ class ModelLabFillTickHost(BaseModel):
 
     host: str = Field(min_length=1)
     free: int = Field(ge=0)
+
+
+class ModelLabFillTickCloud(BaseModel):
+    """The overlay's cloud placement switch (OMN-21881), read by the caller from its overlay.
+
+    ``enabled`` is the one flag: off, no lane carries ``--placement auto``. ``lane_kinds``
+    are the repo-only lane kinds the overlay offers to a cloud session; a row is eligible
+    when its ``lane_kind`` is one of them and node_cloud_session_placement_effect's route
+    action does not refuse it. ``placement_dir`` and ``account`` name the account state the
+    credit is read from; either empty, the credit reads ``unmeasured``.
+    """
+
+    model_config = _FROZEN
+
+    enabled: bool = False
+    lane_kinds: tuple[str, ...] = ()
+    excluded_repos: tuple[str, ...] = ()
+    placement_dir: str = ""
+    account: str = ""
 
 
 class ModelLabFillTickRequest(BaseModel):
@@ -65,6 +86,15 @@ class ModelLabFillTickRequest(BaseModel):
     # Brief-check refusals of one ticket before it is parked, and for how many hours.
     park_after: int = Field(default=2, ge=1)
     park_hours: int = Field(default=24, ge=1)
+    # OMN-21881: the overlay's cloud placement switch; the default is off.
+    cloud: ModelLabFillTickCloud = Field(default_factory=ModelLabFillTickCloud)
+    # OMN-23277, the send gate: each host's reach (host -> hosts it reaches) and the hosts whose facts a brief may cite.
+    # A host absent from host_reach reaches no other host, so an h200-bound brief is sent only where it is declared.
+    host_reach: Mapping[str, tuple[str, ...]] = Field(default_factory=dict)
+    fact_hosts: tuple[str, ...] = DEFAULT_FACT_HOSTS
+    # OMN-19998, the select step's held tickets (ticket -> skip reason, ModelLabFillSelectResult.holds()): a row whose ticket
+    # is held there is skipped with reason "selection:<reason>" and never launched.
+    selection_holds: Mapping[str, str] = Field(default_factory=dict)
 
     @field_validator("ledger_path", "approved_work_path", "brief_dir")
     @classmethod
@@ -94,6 +124,8 @@ class ModelLabFillTickDispatch(BaseModel):
     host: str
     priority: PriorityClass
     receipt: str = ""
+    # ``auto`` when the lane went with --placement auto (OMN-21881); empty otherwise.
+    placement: str = ""
 
 
 class ModelLabFillTickSkip(BaseModel):
@@ -173,10 +205,14 @@ class ModelLabFillTickResult(BaseModel):
     placed: int = 0
     # The STATUS row's ``refusals=`` value: ``none`` only when every lane made was placed.
     refusals_cell: str = "none"
+    # OMN-21881: one line - the cloud placement verdict and why, the age of the newest
+    # host=cloud CLAIM in the ledger, and the cloud credit left (``unmeasured`` when unread).
+    cloud_line: str = ""
 
 
 __all__: list[str] = [
     "ModelLabFillTickAlarm",
+    "ModelLabFillTickCloud",
     "ModelLabFillTickDispatch",
     "ModelLabFillTickHost",
     "ModelLabFillTickRefusal",

@@ -1,0 +1,14 @@
+nick: code-annotations
+tags:
+    - tools
+    - library
+oeps:
+    oep-2: true
+    oep-3:
+        state: false
+        reason: TODO - Implement for this application if appropriate
+    oep-5:
+        state: false
+        reason: TODO - Implement for this application if appropriate
+    oep-7: true
+    oep-18: true

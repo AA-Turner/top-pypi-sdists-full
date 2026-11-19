@@ -59,7 +59,7 @@ class Config(Base):
             rst.append("")
             rst.append(".. csv-table::")
             rst.append(
-                "    :header: {}, parsed, description [units]".format(key))
+                f"    :header: {key}, parsed, description [units]")
             rst.append("    :widths: 30, 10, 60")
             rst.append("    :delim: tab")
             rst.append("")
@@ -70,11 +70,9 @@ class Config(Base):
                 elif item[1] is float:
                     ref = ":class:`float`"
                 else:
-                    ref = ":func:`{f} <dclab.definitions" \
-                          + f".meta_parse.{item[1].__name__}>`"
-                rst.append("    {}\t {}\t {}".format(item[0],
-                                                     ref,
-                                                     item[2]))
+                    ref = (":func:`{f} <dclab.definitions"
+                           f".meta_parse.{item[1].__name__}>`")
+                rst.append(f"    {item[0]}\t {ref}\t {item[2]}")
 
             rst.append("")
 
@@ -95,13 +93,13 @@ class Features(Base):
 
         rst.append(".. csv-table::")
         rst.append(
-            "    :header: {} features, description [units]".format(which))
+            f"    :header: {which} features, description [units]")
         rst.append("    :widths: 2, 7")
         rst.append("    :delim: tab")
         rst.append("")
 
         for item in feats:
-            rst.append("    {}\t {}".format(item[0], item[1]))
+            rst.append(f"    {item[0]}\t {item[1]}")
 
         rst.append("")
 
@@ -109,6 +107,6 @@ class Features(Base):
 
 
 def setup(app):
-    app.add_directive('dclab_features', Features)
-    app.add_directive('dclab_config', Config)
-    return {'version': '0.1'}   # identifies the version of our extension
+    app.add_directive("dclab_features", Features)
+    app.add_directive("dclab_config", Config)
+    return {"version": "0.1"}   # identifies the version of our extension

@@ -6,19 +6,21 @@
  */
 
 use std::fmt;
-use std::fmt::Display;
 
 use dupe::Dupe;
 use parse_display::Display;
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_util::display::DisplayWith;
 use pyrefly_util::display::commas_iter;
 use ruff_python_ast::name::Name;
 
 use crate::display::TypeDisplayContext;
+use crate::env::TypeEnv;
 use crate::stdlib::Stdlib;
 use crate::type_output::DisplayOutput;
 use crate::type_output::TypeOutput;
@@ -28,7 +30,7 @@ use crate::types::Type;
 
 /// The style of a type alias declaration.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum TypeAliasStyle {
     /// A type alias declared with the `type` keyword
     Scoped,
@@ -40,9 +42,10 @@ pub enum TypeAliasStyle {
 
 /// A type alias, which may be scoped (PEP 695) or legacy.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct TypeAlias {
     pub name: Box<Name>,
+    /// The expression type retains explicit class specialization for value access.
     ty: Box<Type>,
     pub style: TypeAliasStyle,
 }
@@ -72,7 +75,15 @@ impl TypeAlias {
     /// `type X = int` is represented as `TypeAlias(X, type[int])`, and
     /// `as_type` returns `type[int]`; the caller must turn it into `int`.
     pub fn as_type(&self) -> Type {
-        *self.ty.clone()
+        match self.ty.as_ref() {
+            Type::SpecializedClassDef(cls) => Type::type_of(Type::ClassType(cls.clone())),
+            ty => ty.clone(),
+        }
+    }
+
+    /// Returns the stored expression type without normalization for annotations.
+    pub fn as_type_ref(&self) -> &Type {
+        &self.ty
     }
 
     pub fn as_type_mut(&mut self) -> &mut Type {
@@ -98,7 +109,10 @@ impl TypeAlias {
                 output.write_str("TypeAlias[")?;
                 output.write_str(self.name.as_str())?;
                 output.write_str("[")?;
-                output.write_str(&format!("{}", commas_iter(|| tparams.iter())))?;
+                output.write_str(&format!(
+                    "{}",
+                    commas_iter(|| tparams.iter().map(|q| q.name()))
+                ))?;
                 output.write_str("], ")?;
                 write_type(&self.ty, output)?;
                 output.write_str("]")
@@ -115,9 +129,9 @@ impl TypeAlias {
     }
 }
 
-impl Display for TypeAlias {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let ctx = TypeDisplayContext::new(&[&self.ty]);
+impl<'e> DisplayWith<dyn TypeEnv + 'e> for TypeAlias {
+    fn fmt(&self, f: &mut fmt::Formatter, env: &(dyn TypeEnv + 'e)) -> fmt::Result {
+        let ctx = TypeDisplayContext::new(env, &[&self.ty]);
         let mut output = DisplayOutput::new(&ctx, f);
         self.fmt_with_type(&mut output, &|ty, output| output.write_type(ty), None)
     }
@@ -125,11 +139,11 @@ impl Display for TypeAlias {
 
 /// The index of a type alias within a file, used to resolve references to recursive type aliases.
 #[derive(Debug, Clone, Dupe, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
-#[derive(Display, Visit, VisitMut, TypeEq)]
+#[derive(Display, Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct TypeAliasIndex(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum TypeAliasData {
     /// A recursive reference to a type alias. E.g., when resolving `type X = int | list[X]`,
     /// the `X` in `list[X]` is represented as a `Ref`. This does not store the actual value of the
@@ -151,7 +165,7 @@ impl TypeAliasData {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct TypeAliasRef {
     pub name: Name,
     /// Type arguments that this alias has been specialized with.

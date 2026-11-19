@@ -391,6 +391,7 @@ WebScopeTypeType = Literal["HOST_ONLY", "SUBDOMAINS"]
 WhatsAppSourceConfigurationStatusType = Literal["INVALID", "REJECTED", "VALID"]
 QConnectServiceName = Literal["qconnect"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

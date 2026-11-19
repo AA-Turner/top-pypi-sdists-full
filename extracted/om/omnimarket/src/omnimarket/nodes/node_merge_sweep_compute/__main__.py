@@ -23,7 +23,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import pathlib
 import sys
 from importlib import resources
@@ -35,7 +34,11 @@ import yaml
 from omnimarket.cli.args import add_output_args, resolve_output_config
 from omnimarket.cli.output.registry import resolve_handler
 from omnimarket.cli.reporting import build_report_from_merge_sweep_result
+from omnimarket.handlers.runtime_paths import runtime_dir
 from omnimarket.inference.secret_store_resolver import resolve_api_key
+from omnimarket.models.merge_sweep.model_history_entry import ModelFailureHistoryEntry
+from omnimarket.models.merge_sweep.model_pr_info import ModelPRInfo
+from omnimarket.models.merge_sweep.model_sweep_request import ModelMergeSweepRequest
 from omnimarket.nodes.contract_topics import contract_secret_ref
 from omnimarket.nodes.node_merge_sweep_compute.adapter_github_http import (
     GitHubHttpClient,
@@ -44,9 +47,6 @@ from omnimarket.nodes.node_merge_sweep_compute.branch_protection import (
     BranchProtectionCache,
 )
 from omnimarket.nodes.node_merge_sweep_compute.handlers.handler_merge_sweep import (
-    ModelFailureHistoryEntry,
-    ModelMergeSweepRequest,
-    ModelPRInfo,
     NodeMergeSweep,
 )
 from omnimarket.nodes.node_merge_sweep_compute.protocols import GitHubPrFetchProtocol
@@ -64,7 +64,6 @@ _DEFAULT_REPOS = [
     "OmniNode-ai/omninode_infra",
     "OmniNode-ai/omnidash",
     "OmniNode-ai/omnimarket",
-    "OmniNode-ai/omnibase_compat",
     "OmniNode-ai/omniweb",
 ]
 
@@ -161,9 +160,7 @@ def main(
     argv: list[str] | None = None, github: GitHubPrFetchProtocol | None = None
 ) -> int:
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
-    onex_state_dir = os.environ.get(
-        "ONEX_STATE_DIR", os.path.expanduser("~/.onex_state")
-    )
+    onex_state_dir = runtime_dir("onex_state.default_dir", "ONEX_STATE_DIR")
 
     parser = argparse.ArgumentParser(
         description="Classify open PRs into merge tracks (A-update, A, A-resolve, B, skip)."

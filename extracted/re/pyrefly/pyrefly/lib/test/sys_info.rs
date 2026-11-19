@@ -222,6 +222,28 @@ inverted: int = "not windows" if sys.platform != "win32" else subprocess.CREATE_
 );
 
 testcase!(
+    test_platform_ternary_walrus,
+    TestEnv::new_with_platform(PythonPlatform::linux()),
+    r#"
+from typing import Literal, assert_type
+import sys
+
+(skipped_body := 1) if sys.platform == "win32" else (live_else := 2)
+(live_body := 3) if sys.platform == "linux" else (skipped_else := 4)
+assert_type(live_else, Literal[2])
+assert_type(live_body, Literal[3])
+
+(outer := ((nested_skipped := 1) if sys.platform == "win32" else (nested_live := 2)))
+assert_type(outer, Literal[2])
+assert_type(nested_live, Literal[2])
+
+[(comp_skipped_body := 1) if sys.platform == "win32" else (comp_live_else := 2) for _ in [0]]
+[(comp_live_body := 3) if sys.platform == "linux" else (comp_skipped_else := 4) for _ in [0]]
+[(comp_outer := ((comp_nested_skipped := 1) if sys.platform == "win32" else 2)) for _ in [0]]
+"#,
+);
+
+testcase!(
     test_platform_ternary_yield_in_skipped_orelse,
     TestEnv::new_with_platform(PythonPlatform::windows()),
     r#"
@@ -549,7 +571,7 @@ testcase!(
     "",
 );
 
-// https://github.com/facebook/pyrefly/issues/3756: a module-level `TYPE_CHECKING` constant is
+// https://github.com/pyrefly-org/pyrefly/issues/3756: a module-level `TYPE_CHECKING` constant is
 // treated as `True` by type checkers and `False` at runtime, so it must have type `bool`.
 testcase!(
     test_type_checking_constant_bad_annotation,
@@ -635,5 +657,86 @@ testcase!(
     TestEnv::one_with_path("foo", "foo.pyi", "TYPE_CHECKING = 1"),
     r#"
 import foo
+"#,
+);
+
+// A line continuation joins the walrus to the `if`, so the parser recovers a ternary
+// whose test `SysInfo` decides is false, and `q` is defined in the skipped branch.
+testcase!(
+    test_walrus_continued_into_statically_false_if,
+    r#"
+import sys
+
+# E: Invalid annotated assignment target
+(q := 1) \
+if sys.version_info >= (3, 99):  # E: Expected `else`, found `:` # E: Expected an expression
+    pass  # E: Unexpected indentation
+"#,
+);
+
+testcase!(
+    test_walrus_in_statically_decided_ternary,
+    r#"
+import sys
+y = (q := 1) if sys.version_info >= (3, 99) else 2
+z = 3 if sys.version_info >= (3, 0) else (r := 4)
+w = [(s := 5) if sys.version_info >= (3, 99) else 6 for _ in range(1)]
+"#,
+);
+
+testcase!(
+    test_inactive_code,
+    TestEnv::new().enable_inactive_code_error(),
+    r#"
+import sys
+import typing
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    X = int
+else:
+    class X: ...  # E: This code is inactive for the current type-checking configuration
+    Y = 1
+
+if not typing.TYPE_CHECKING:
+    Z = 1  # E: inactive
+
+if sys.version_info < (3, 0):
+    print(1)  # E: inactive
+elif sys.version_info >= (3, 0):
+    print(2)
+else:
+    print(3)  # E: inactive
+
+# A `while` body guarded by the environment is still checked, so it is not inactive.
+while sys.version_info < (3, 0):
+    w: int = ""  # E: `Literal['']` is not assignable to `int`
+"#,
+);
+
+testcase!(
+    test_inactive_code_in_unreachable_code,
+    TestEnv::new().enable_inactive_code_error(),
+    r#"
+import sys
+
+def f() -> None:
+    return
+    if sys.version_info < (3, 0):  # E: This code is unreachable
+        print(1)
+"#,
+);
+
+testcase!(
+    test_inactive_code_suppression,
+    TestEnv::new().enable_inactive_code_error(),
+    r#"
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
+else:
+    x = 1  # pyrefly: ignore[inactive-code]
+    y = 2
 "#,
 );

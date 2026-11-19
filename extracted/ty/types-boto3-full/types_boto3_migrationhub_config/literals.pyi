@@ -26,6 +26,7 @@ __all__ = ("MigrationHubConfigServiceName", "ResourceServiceName", "ServiceName"
 TargetTypeType = Literal["ACCOUNT"]
 MigrationHubConfigServiceName = Literal["migrationhub-config"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

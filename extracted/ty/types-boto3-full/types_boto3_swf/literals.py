@@ -226,6 +226,7 @@ WorkflowExecutionTerminatedCauseType = Literal[
 WorkflowExecutionTimeoutTypeType = Literal["START_TO_CLOSE"]
 SWFServiceName = Literal["swf"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

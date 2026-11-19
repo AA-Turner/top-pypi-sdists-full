@@ -176,6 +176,7 @@ class Warm:
                  clock: Callable[[], float] = time.monotonic) -> None:
         self._ping, self.every_s, self.for_s, self._clock = ping, every_s, for_s, clock
         self._used_at: Optional[float] = None
+        self._sooner: Optional[float] = None           # when the next iteration comes, if sooner than its turn
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
@@ -200,18 +201,32 @@ class Warm:
         return self.every_s <= idle_s <= self.for_s
 
     def tick(self) -> bool:
-        """One iteration: send a ping when one is due. Returns whether the pings continue."""
+        """One iteration: send a ping when one is due. Returns whether the pings continue. A `ping()` that returns False
+        sent nothing (the connection was busy, or its ping yielded to a request: link.py) and is not counted."""
         if not self.due():
             return True
         try:
-            self._ping()
+            sent = self._ping()
         except Exception:  # noqa: BLE001 (whatever the caller's connection raises: it is dead)
             return False
-        self.pings += 1
+        if sent is not False:
+            self.pings += 1
         return True
 
+    def check_in(self, seconds: float) -> None:
+        """Have the next iteration come `seconds` from now, if that is sooner than its turn: a ping left out for now
+        (link.py's that yields to a request) is asked about again by the time it may no longer wait."""
+        self._sooner = self._clock() + max(0.0, seconds)
+
+    def _wait(self) -> float:
+        """How long until the next iteration: `every_s`, or less where check_in() asked for one sooner."""
+        sooner, self._sooner = self._sooner, None
+        if sooner is None:
+            return self.every_s
+        return max(0.0, min(self.every_s, sooner - self._clock()))
+
     def _run(self) -> None:
-        while not self._stop.wait(self.every_s):
+        while not self._stop.wait(self._wait()):
             if not self.tick():
                 return
 

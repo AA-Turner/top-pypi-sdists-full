@@ -15,7 +15,7 @@ import os
 from typing import Optional
 
 INTERNAL = "SEQ_INTERNAL_MOCK"
-NOT_FOR_USERS = ("the base URL 'mock' is not available: the mock tier is the SDK's internal test fixture, not for "
+NOT_FOR_USERS = ("the base URL 'mock' is not available: the mock tier is sequence-ai's internal test fixture, not for "
                  "users. Leave the base URL unset to use the platform, with your API key (SEQUENCES_API_KEY).")
 
 FIXTURE = "sequence_ai._core.mock_direct"

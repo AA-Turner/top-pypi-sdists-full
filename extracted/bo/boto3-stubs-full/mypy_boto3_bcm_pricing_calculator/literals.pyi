@@ -136,6 +136,7 @@ WorkloadEstimateUpdateUsageErrorCodeType = Literal[
 ]
 BillingandCostManagementPricingCalculatorServiceName = Literal["bcm-pricing-calculator"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

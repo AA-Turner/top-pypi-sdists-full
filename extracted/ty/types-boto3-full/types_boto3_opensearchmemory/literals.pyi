@@ -65,6 +65,7 @@ SpaceDeletedWaiterName = Literal["space_deleted"]
 SpaceStatusType = Literal["ACTIVE", "CREATING", "DELETED", "DELETING", "FAILED", "UPDATING"]
 OpenSearchMemoryServiceName = Literal["opensearchmemory"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

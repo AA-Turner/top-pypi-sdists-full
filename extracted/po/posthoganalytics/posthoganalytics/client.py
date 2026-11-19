@@ -123,6 +123,7 @@ from posthoganalytics.feature_flags import (
     InconclusiveMatchError,
     RequiresServerEvaluation,
     _get_definition_unresolved_reason,
+    _group_key_to_string,
     match_feature_flag_properties,
     resolve_bucketing_value,
 )
@@ -1923,7 +1924,7 @@ class Client(object):
 
     def new_context(self, fresh=False, capture_exceptions: Optional[bool] = None):
         """
-        Create a new context for managing shared state. Learn more about [contexts](/docs/libraries/python#contexts).
+        Create a new context for managing shared state. Learn more about [contexts](/docs/libraries/python#posthognew_context).
 
         Args:
             fresh: Whether to create a fresh context that doesn't inherit from parent.
@@ -4638,7 +4639,7 @@ class Client(object):
                     reason=UnresolvedFlagReason.MISSING_CONTEXT,
                 )
             focused_group_properties = group_properties[group_name]
-            group_key = groups[group_name]
+            group_key = _group_key_to_string(groups[group_name])
             return match_feature_flag_properties(
                 feature_flag,
                 group_key,
@@ -4701,6 +4702,10 @@ class Client(object):
     ) -> Optional[bool]:
         """
         Check if a feature flag is enabled for a user.
+
+        `feature_enabled` is deprecated and will be removed in a future major version. Use
+        `posthog.evaluate_flags(distinct_id, ...)` and call `flags.is_enabled(key)` instead. This
+        consolidates flag evaluation into a single `/flags` request per incoming request.
 
         Args:
             key: The feature flag key.
@@ -5059,6 +5064,10 @@ class Client(object):
         """
         Get multivariate feature flag value for a user.
 
+        `get_feature_flag` is deprecated and will be removed in a future major version. Use
+        `posthog.evaluate_flags(distinct_id, ...)` and call `flags.get_flag(key)` instead. This
+        consolidates flag evaluation into a single `/flags` request per incoming request.
+
         Args:
             key: The feature flag key.
             distinct_id: The distinct ID of the user.
@@ -5161,6 +5170,10 @@ class Client(object):
         """
         Get the payload for a feature flag.
 
+        `get_feature_flag_payload` is deprecated and will be removed in a future major version. Use
+        `posthog.evaluate_flags(distinct_id, ...)` and call `flags.get_flag_payload(key)` instead. This
+        consolidates flag evaluation into a single `/flags` request per incoming request.
+
         Args:
             key: The feature flag key.
             distinct_id: The distinct ID of the user.
@@ -5180,12 +5193,12 @@ class Client(object):
 
         Examples:
             ```python
-            is_my_flag_enabled = posthog.feature_enabled('flag-key', 'distinct_id_of_your_user')
+            flags = posthog.evaluate_flags('distinct_id_of_your_user')
 
-            if is_my_flag_enabled:
+            if flags.is_enabled('flag-key'):
                 # Do something differently for this user
                 # Optional: fetch the payload
-                matched_flag_payload = posthog.get_feature_flag_payload('flag-key', 'distinct_id_of_your_user')
+                matched_flag_payload = flags.get_flag_payload('flag-key')
             ```
 
         Category:

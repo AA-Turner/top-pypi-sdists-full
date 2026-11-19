@@ -57,6 +57,7 @@ from omnimarket.nodes.node_event_emit_effect.spool.topic_resolver import (
     resolve_event_type,
     resolve_partition_key_field,
 )
+from tests.helpers.work_ledger_open_gate import OPEN_JUDGE_GATE
 
 pytestmark = pytest.mark.unit
 
@@ -149,7 +150,7 @@ def _work_ledger_producer_payloads() -> dict[str, dict[str, Any]]:
             payloads[request.event_type] = dict(request.payload)
             raise ValueError("captured")
 
-    producer = HandlerWorkLedgerEmit(emitter=_Capture())
+    producer = HandlerWorkLedgerEmit(judge_gate=OPEN_JUDGE_GATE, emitter=_Capture())
     records = records_for_all_ledger_row_types()
     index = {record.event.event_id: record.event for record in records}
     for record in records:
@@ -236,7 +237,16 @@ def test_shadow_parity_is_byte_identical_for_every_event_type(
     # delegation.disposition_recorded and its one fan-out target: 83 -> 84.
     # OMN-20001 adds the eleven work.ledger.typed.<type> v2 envelopes, held
     # byte-identical across both paths by the same assertion: 84 -> 95.
-    assert len(event_types) == 95, (
+    # OMN-21112 registers the two compaction commands and six receipt events,
+    # each held byte-identical across both paths by the same assertion: 95 -> 103.
+    # OMN-21320 registers delegation.run_step, held byte-identical by the same
+    # assertion: 103 -> 104. OMN-22016 registers additive.miss, the miss record
+    # of an additive call, held byte-identical by the same assertion: 104 -> 105.
+    # OMN-23213 registers the C32 probe's local-auth-boundary-probe-completed
+    # run event, held byte-identical by the same assertion: 105 -> 106.
+    # OMN-23642 registers the lab proof judge's lab-proof-judge-use-recorded
+    # event, held byte-identical by the same assertion: 106 -> 107.
+    assert len(event_types) == 107, (
         f"registry drifted to {len(event_types)} event types; update the "
         "expected parity count deliberately, do not auto-follow it"
     )
@@ -274,7 +284,12 @@ def test_shadow_parity_is_byte_identical_for_every_event_type(
     # 86 -> 87: OMN-20012's disposition event fans out to exactly one topic.
     # 87 -> 98: OMN-20001's eleven work.ledger.typed.<type> envelopes each fan
     # out to exactly one topic.
-    assert total_old == total_new == 98
+    # 98 -> 106: OMN-21112's eight compaction events each fan out to exactly one topic.
+    # 106 -> 107: OMN-21320's delegation.run_step fans out to exactly one topic.
+    # 107 -> 108: OMN-22016's additive.miss fans out to exactly one topic.
+    # 108 -> 109: OMN-23213's c32.auth_boundary_probe.completed fans out to exactly one topic.
+    # 109 -> 110: OMN-23642's lab-proof-judge-use-recorded fans out to exactly one topic.
+    assert total_old == total_new == 110
     enriched = sum(
         1
         for msgs in new_by_event.values()
@@ -285,7 +300,7 @@ def test_shadow_parity_is_byte_identical_for_every_event_type(
     keyed = sum(1 for msgs in new_by_event.values() for m in msgs if m.key is not None)
     # 65 -> 70: every published record is unconditionally enriched, so this
     # count tracks total_new exactly (OMN-17019 C9 registry growth).
-    assert enriched == 98, f"only {enriched}/98 new-path messages were enriched"
+    assert enriched == 110, f"only {enriched}/110 new-path messages were enriched"
     # 2 of the 67 registered events declare no partition_key_field; the daemon
     # publishes those with a null key, so 68 is the correct non-null count.
     # All five OMN-17019 obligation kinds declare partition_key_field:
@@ -303,7 +318,14 @@ def test_shadow_parity_is_byte_identical_for_every_event_type(
     # partition_key_field delegation_correlation_id.
     # 84 -> 95: OMN-20001's eleven work.ledger.typed.<type> envelopes declare
     # partition_key_field ledger_id.
-    assert keyed == 95, f"only {keyed}/95 new-path messages carried a partition key"
+    # 95 -> 103: OMN-21112's compaction events declare partition_key_field
+    # (session_id, or invocation_id for compaction.package).
+    # 103 -> 104: OMN-21320's delegation.run_step declares partition_key_field
+    # correlation_id.
+    # 104 -> 105: OMN-22016's additive.miss declares partition_key_field profile.
+    # 105 -> 106: OMN-23213's c32.auth_boundary_probe.completed declares partition_key_field criterion.
+    # 106 -> 107: OMN-23642's lab-proof-judge-use-recorded is published keyed.
+    assert keyed == 107, f"only {keyed}/107 new-path messages carried a partition key"
 
 
 # ---------------------------------------------------------------------------

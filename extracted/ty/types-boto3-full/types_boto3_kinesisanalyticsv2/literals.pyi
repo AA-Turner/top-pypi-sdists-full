@@ -118,6 +118,7 @@ StorageLocationTypeType = Literal["S3"]
 UrlTypeType = Literal["FLINK_DASHBOARD_URL", "ZEPPELIN_UI_URL"]
 KinesisAnalyticsV2ServiceName = Literal["kinesisanalyticsv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -8,7 +8,7 @@ name = "invisible_core"
 # the engine this core is sealed to, so a binary bump always moves the version
 # string pip compares before it decides whether to reinstall. A core-only fix
 # against the same engine moves CORE_REVISION instead, by hand - and
-# scripts/version_gate.py refuses to publish content that changed under a
+# `python -m invisible_core.release` refuses to publish content that changed under a
 # version string that did not.
 dynamic = ["version"]
 description = "Pure config for a stealth Firefox profile: seed -> fingerprint -> prefs, engine download, proxy, geo, and the Juggler client the wrappers drive it with. Zero Playwright."
@@ -38,7 +38,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
-    "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

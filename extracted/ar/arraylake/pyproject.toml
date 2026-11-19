@@ -70,7 +70,7 @@ openeo = [
   # openeo 0.40-0.52 pin xarray<2025.01.2, too old for zarr>=3.1 (see the xarray
   # extra). The xarray floor makes the resolver skip those openeo releases (0.53
   # dropped the pin) whatever the upper bound becomes.
-  "openeo>=0.35.0,<0.54",
+  "openeo>=0.35.0,<0.55",
   "xarray >= 2025.6.0",
 ]
 
@@ -143,6 +143,12 @@ module=[
 "uvloop",
 "zarr.*",
 "openeo.*",
+# Only `store_config.dualstack_endpoint` imports it, for callers that install it (the server, booth).
+"botocore",
+"botocore.*",
+# TEMPORARY(zax-private): zax-client is on a private index, so CI cannot install it.
+"zax_client",
+"zax_client.*",
 ]
 
 [tool.ruff]

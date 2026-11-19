@@ -181,6 +181,7 @@ ResponsibilityTransferTypeType = Literal["BILLING"]
 TargetTypeType = Literal["ACCOUNT", "ORGANIZATIONAL_UNIT", "ROOT"]
 OrganizationsServiceName = Literal["organizations"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

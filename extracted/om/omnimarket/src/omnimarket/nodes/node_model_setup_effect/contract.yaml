@@ -14,7 +14,7 @@ node_version: {major: 1, minor: 0, patch: 0}
 
 description: >
   Model setup EFFECT. Reports which of the models delegation can use (Gemini,
-  OpenRouter, OpenAI, Anthropic, GLM, Ollama, a local URL) are set up on this machine, and tests one by
+  OpenRouter, OpenAI, Anthropic, GLM, a Local Model by URL) are set up on this machine, and tests one by
   running a single delegation pinned to its backend (`onex delegate
   --backend-id`, pin-or-refuse), recording pass, or fail with the provider's
   reason, and the time. Storing a key is not this node's work: the `onex models`
@@ -31,6 +31,17 @@ description: >
   routes overlay, beside the other entries, and tested by one delegation pinned
   to it. The local models keep the customer's order, first tried first;
   `reorder` and `remove_model` change it, and `remove_local` takes them all out.
+  `set_first` records the one set-up model every delegation on this machine
+  tries first, before the local models and any key, and moves it to the front
+  of its provider's list; `clear_first` forgets it. A status lists that
+  provider first, marked `tried_first`.
+  `set_only` records the developer's rule, `local` or `free`, under which every
+  delegation on this machine skips a model outside it; `clear_only` removes it.
+  A status carries the rule in force as `only`.
+  `ladder` lists every routable model in the order delegation tries it: the
+  model chosen first, then the local models, then each key's models. Each rung
+  carries its provider, model and cost class: `free`, `paid`, or `unknown` when
+  the catalogue declares no price (never read as free).
 
 output_model: omnimarket.nodes.node_model_setup_effect.models.model_model_setup_result.ModelModelSetupResult
 
@@ -41,6 +52,25 @@ handler:
 
 handler_routing:
   default_handler: omnimarket.nodes.node_model_setup_effect.handlers.handler_model_setup:HandlerModelSetup
+  handlers:
+    - operation: model_setup.probe_models
+      handler:
+        name: HandlerEndpointProbe
+        module: omnimarket.nodes.node_model_setup_effect.handlers.handler_endpoint_probe
+      handler_module: omnimarket.nodes.node_model_setup_effect.handlers.handler_endpoint_probe
+      event_model: omnimarket.models.model_endpoint_probe.ModelEndpointProbeRequest
+    - operation: model_setup.connections
+      handler:
+        name: HandlerEndpointConnections
+        module: omnimarket.nodes.node_model_setup_effect.handlers.handler_endpoint_connections
+      handler_module: omnimarket.nodes.node_model_setup_effect.handlers.handler_endpoint_connections
+      event_model: omnimarket.nodes.node_model_setup_effect.models.model_endpoint_connection.ModelEndpointConnectionRequest
+    - operation: model_setup.discover
+      handler:
+        name: HandlerEndpointModels
+        module: omnimarket.nodes.node_model_setup_effect.handlers.handler_endpoint_models
+      handler_module: omnimarket.nodes.node_model_setup_effect.handlers.handler_endpoint_models
+      event_model: omnimarket.models.model_endpoint_models.ModelEndpointModelsRequest
 
 descriptor:
   node_archetype: effect
@@ -67,3 +97,14 @@ event_bus:
 
 metadata:
   transport_type: kafka
+
+# OMN-23413: the HTTP this node makes, always to the server the user connects.
+endpoints:
+  model_server_models:
+    url_ref: connection.base_url
+    method: GET
+    description: "Read-only: the models a user-connected server lists."
+  model_server_probe:
+    url_ref: connection.base_url
+    method: POST
+    description: "One-token check of a chosen model on the user's server."

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from ._async import AsyncAcquireSoftReadWriteReturnProxy, AsyncSoftReadWriteLock
-from ._sync import SoftReadWriteLock
+__lazy_modules__ = ["contrast_vendor.filelock._soft_rw._async"]
+
+from contrast_vendor.filelock._soft_rw._async import AsyncAcquireSoftReadWriteReturnProxy, AsyncSoftReadWriteLock
+from contrast_vendor.filelock._soft_rw._sync import SoftReadWriteLock
 
 __all__ = [
     "AsyncAcquireSoftReadWriteReturnProxy",

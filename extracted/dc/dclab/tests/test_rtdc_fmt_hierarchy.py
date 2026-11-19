@@ -32,8 +32,8 @@ def test_access_without_apply_filter():
     assert not ch.filter.parent_changed
 
 
-@pytest.mark.filterwarnings('ignore::dclab.features.emodulus.'
-                            + 'YoungsModulusLookupTableExceededWarning')
+@pytest.mark.filterwarnings("ignore::dclab.features.emodulus."
+                            "YoungsModulusLookupTableExceededWarning")
 def test_config_calculation():
     keys = ["area_um", "deform"]
     ddict = example_data_dict(size=8472, keys=keys)
@@ -50,7 +50,7 @@ def test_config_calculation():
     assert np.allclose(ch["emodulus"], ds["emodulus"], equal_nan=True)
     ds.config["calculation"]["emodulus temperature"] = 24.0
     # the user still has to call `apply_filter` to update the config:
-    assert not ch.config["calculation"]["emodulus temperature"] == 24.0
+    assert ch.config["calculation"]["emodulus temperature"] != 24.0
     # ...and the cache
     assert not np.allclose(ch["emodulus"], ds["emodulus"], equal_nan=True)
     ch.rejuvenate()
@@ -58,8 +58,8 @@ def test_config_calculation():
     assert np.allclose(ch["emodulus"], ds["emodulus"], equal_nan=True)
 
 
-@pytest.mark.filterwarnings('ignore::dclab.features.emodulus.'
-                            + 'YoungsModulusLookupTableExceededWarning')
+@pytest.mark.filterwarnings("ignore::dclab.features.emodulus."
+                            "YoungsModulusLookupTableExceededWarning")
 def test_config_calculation_does_not_work_in_child_issue_92():
     """As long as #92 is alive, this test should pass."""
     keys = ["area_um", "deform"]
@@ -202,10 +202,27 @@ def test_event_count():
     assert len(ds) == len(ch) + 1
 
 
+def test_limit_events_not_inherited():
+    """The "limit events" filter of the parent must not be applied twice"""
+    ds = new_dataset(example_data_dict(size=100, keys=["area_um", "deform"]))
+    ds.config["filtering"]["limit events"] = 50
+    ds.apply_filter()
+    ch = new_dataset(ds)
+    assert ch.config["filtering"]["limit events"] == 0
+    assert len(ch) == 50
+
+    # Removing the limit in the parent must propagate to the child
+    ds.config["filtering"]["limit events"] = 0
+    ds.apply_filter()
+    ch.apply_filter()
+    assert len(ch) == 100
+    assert np.sum(ch.filter.all) == 100
+
+
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_feat_contour():
     path = retrieve_data("fmt-hdf5_fl_2017.zip")
     ds = new_dataset(path)
@@ -219,7 +236,7 @@ def test_feat_contour():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_feat_image():
     path = retrieve_data("fmt-hdf5_fl_2017.zip")
     ds = new_dataset(path)
@@ -233,7 +250,7 @@ def test_feat_image():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_feat_image_bg():
     path = retrieve_data("fmt-hdf5_fl_2017.zip")
     # add a fake image_bg column
@@ -251,7 +268,7 @@ def test_feat_image_bg():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_feat_mask():
     path = retrieve_data("fmt-hdf5_mask-contour_2018.zip")
     ds = new_dataset(path)
@@ -265,7 +282,7 @@ def test_feat_mask():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_feat_trace():
     path = retrieve_data("fmt-hdf5_fl_2017.zip")
     ds = new_dataset(path)
@@ -281,7 +298,7 @@ def test_feat_trace():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_features():
     path = retrieve_data("fmt-hdf5_fl_2017.zip")
     ds = new_dataset(path)
@@ -295,7 +312,7 @@ def test_features():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_feature_contained():
     pytest.importorskip("nptdms")
     path_im = retrieve_data("fmt-tdms_fl-image_2016.zip")
@@ -312,7 +329,7 @@ def test_feature_contained():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_features_loaded():
     path = retrieve_data("fmt-hdf5_fl_2017.zip")
     ds = new_dataset(path)
@@ -444,7 +461,7 @@ def test_index_slicing_tdms_fails(feat, idxs):
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 @pytest.mark.parametrize("idxs", [slice(0, 3), np.arange(3),
                                   [0, 1, 2], [True, True, True, False]])
 def test_index_slicing_trace(idxs):
@@ -553,6 +570,70 @@ def test_manual_exclude_parent_changed():
     c.rejuvenate()
     c.filter.apply_manual_indices(c, [1, 2])
     assert c.filter.retrieve_manual_indices(c) == [1, 2]
+
+
+def test_manual_exclude_hidden_kept():
+    """Hidden manually excluded events are restored by the parent"""
+    data = example_data_dict(10, keys=["area_um", "deform"])
+    p = new_dataset(data)
+    c = new_dataset(p)
+    c.filter.manual[2] = False
+    c.apply_filter()
+    # The parent hides the excluded event
+    p.filter.manual[2] = False
+    p.apply_filter()
+    c.apply_filter()
+    assert len(c) == 9
+    assert np.all(c.filter.manual)
+    assert c.filter.retrieve_manual_indices(c) == [2]
+    # The parent shows the event again, the child still excludes it
+    p.filter.manual[2] = True
+    p.apply_filter()
+    c.apply_filter()
+    assert len(c) == 10
+    assert not c.filter.manual[2]
+    assert np.sum(c.filter.all) == 9
+
+
+def test_manual_exclude_reinclude_parent_changed():
+    """Re-included events must stay included when the parent changes"""
+    data = example_data_dict(10, keys=["area_um", "deform"])
+    p = new_dataset(data)
+    c = new_dataset(p)
+    c.filter.manual[2] = False
+    c.apply_filter()
+    assert np.sum(c.filter.all) == 9
+    # re-include the event
+    c.filter.manual[2] = True
+    c.apply_filter()
+    assert np.sum(c.filter.all) == 10
+    # change the parent
+    p.filter.manual[9] = False
+    p.apply_filter()
+    c.apply_filter()
+    assert len(c) == 9
+    assert c.filter.manual[2]
+    assert np.sum(c.filter.all) == 9
+    assert c.filter.retrieve_manual_indices(c) == []
+
+
+def test_readonly():
+    """Modifying child feature data must not modify the cached data"""
+    ddict = example_data_dict(size=67, keys=["area_um", "deform"])
+    ds = new_dataset(ddict)
+    ch = new_dataset(ds)
+    reference = np.array(ch["area_um"], copy=True)
+    with pytest.raises(ValueError,
+                       match="assignment destination is read-only"):
+        ch["area_um"][:][:10] = 1
+    with pytest.raises(ValueError,
+                       match="assignment destination is read-only"):
+        np.asarray(ch["area_um"])[:10] = 1
+    assert np.all(ch["area_um"][:] == reference)
+    assert np.all(ch["area_um"][:] == ds["area_um"][:])
+    # explicit copies can still be modified
+    data = np.array(ch["area_um"], copy=True)
+    data[:10] = 1
 
 
 @pytest.mark.filterwarnings(

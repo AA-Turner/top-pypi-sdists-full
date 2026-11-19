@@ -59,7 +59,7 @@ class FacebookAdTranscriptInput(TypedDict, total=False):
     allowFallbacks: NotRequired[bool]
     """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     id: NotRequired[str]
-    """Meta Ad Library ad ID (e.g. "1020359190509080"). Provide either id or url."""
+    """Meta Ad Library ad ID (e.g. "3152243841584775"). Provide either id or url."""
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
@@ -67,7 +67,7 @@ class FacebookAdTranscriptInput(TypedDict, total=False):
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     url: NotRequired[str]
-    """Meta Ad Library ad URL (e.g. "https://www.facebook.com/ads/library?id=1020359190509080"). Provide either id or url."""
+    """Meta Ad Library ad URL (e.g. "https://www.facebook.com/ads/library?id=3152243841584775"). Provide either id or url."""
 
 
 class FacebookAdsSearchInput(TypedDict, total=False):
@@ -398,18 +398,9 @@ class FacebookPostInput(TypedDict, total=False):
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     requireFields: NotRequired[
-        list[
-            Literal[
-                "authorVerified",
-                "feedbackId",
-                "reactions",
-                "videoId",
-                "videoUrl",
-                "views",
-            ]
-        ]
+        list[Literal["authorVerified", "feedbackId", "reactions", "videoUrl", "views"]]
     ]
-    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `videoId` or `views`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a post that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `videoUrl` or `views`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a post that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     url: Required[str]
@@ -2004,52 +1995,24 @@ class FacebookMarketplaceLocationSearchLocation(BaseModel):
 
 
 class FacebookPageContactData(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    about: str | None = Field(default=None, description="The page's intro text.")
-    ad_status: str | None = Field(
-        default=None,
-        alias="adStatus",
-        description="Facebook Ad Library status sentence for the page.",
-    )
-    cover_photo_url: str | None = Field(
-        default=None,
-        alias="coverPhotoUrl",
-        description="Cover photo image URL of the page.",
-    )
-    created_utc: float | None = Field(
-        default=None,
-        alias="createdUtc",
-        description="UTC epoch timestamp in seconds (Unix time) the page was created. Multiply by 1000 for a JS Date in milliseconds.",
-    )
-    id: str | None = Field(
-        default=None, description="Numeric Facebook id of the page, as a string."
-    )
     items: list[FacebookPageContactItem] = Field(
         description="Contact record for the requested Facebook Page (one item). Populated whenever the provider has data for the entity."
-    )
-    price_range: str | None = Field(
-        default=None,
-        alias="priceRange",
-        description='Price range the page advertises, e.g. "$$".',
-    )
-    rating: str | None = Field(
-        default=None,
-        description='Recommendation summary Facebook shows for the page, e.g. "94% recommend (14,553 reviews)".',
-    )
-    services: str | None = Field(
-        default=None,
-        description="Services the page lists, e.g. dine-in or online booking.",
     )
 
 
 class FacebookPageContactItem(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
+    about: str | None = Field(default=None, description="The page's intro text.")
     ad_library_page_id: str | None = Field(
         default=None,
         alias="adLibraryPageId",
         description="The page's Facebook Ad Library id, the `pageId` facebook.company_ads takes. It differs from `id`. Absent when Facebook shows none.",
+    )
+    ad_status: str | None = Field(
+        default=None,
+        alias="adStatus",
+        description="Facebook Ad Library status sentence for the page, or null when the source does not report it.",
     )
     address: str | None = Field(
         default=None,
@@ -2059,13 +2022,26 @@ class FacebookPageContactItem(BaseModel):
         default=None,
         description='The page\'s primary category (e.g. "Seafood Restaurant"). Populated whenever the provider has data for the entity. Present whenever the upstream returns this record.',
     )
+    cover_photo_url: str | None = Field(
+        default=None,
+        alias="coverPhotoUrl",
+        description="Cover photo image URL of the page.",
+    )
+    created_utc: float | None = Field(
+        default=None,
+        alias="createdUtc",
+        description="UTC epoch timestamp in seconds (Unix time) the page was created, or null when the source does not report it. Absent when Facebook shows no creation date, as on age-restricted Pages. Multiply by 1000 for a JS Date in milliseconds.",
+    )
     email: str | None = Field(
         default=None,
         description="The page's public contact email. Empty when the page lists none.",
     )
     followers: int | None = Field(
         default=None,
-        description="The page's follower count. Some sources read it from Facebook's rounded label, so \"474K followers\" comes back as 474000; name it in requireFields for the exact count.",
+        description="The page's follower count, or null when the source does not report it. Some sources read it from Facebook's rounded label, so \"474K followers\" comes back as 474000; name it in requireFields for the exact count.",
+    )
+    id: str | None = Field(
+        default=None, description="Numeric Facebook id of the page, as a string."
     )
     image: str | None = Field(
         default=None,
@@ -2078,6 +2054,19 @@ class FacebookPageContactItem(BaseModel):
     phone: str | None = Field(
         default=None,
         description="The page's public phone number. Empty when the page lists none.",
+    )
+    price_range: str | None = Field(
+        default=None,
+        alias="priceRange",
+        description='Price range the page advertises, e.g. "$$".',
+    )
+    rating: str | None = Field(
+        default=None,
+        description='Recommendation summary Facebook shows for the page, e.g. "94% recommend (14,553 reviews)", or null when the source does not report it.',
+    )
+    services: str | None = Field(
+        default=None,
+        description="Services the page lists, e.g. dine-in or online booking.",
     )
     title: str = Field(
         description="The page's public name. Populated whenever the provider has data for the entity."
@@ -2901,7 +2890,7 @@ class FacebookNamespace:
         Price: $0.0012 per request.
 
         Example:
-            res = client.facebook.ad_transcript(id="931919822778200")
+            res = client.facebook.ad_transcript(id="3152243841584775")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "facebook.ad_transcript", dict(input), options
@@ -2919,7 +2908,7 @@ class FacebookNamespace:
         Search the Meta Ad Library by keyword and get matching ads (advertiser,
         creative text, CTA, platforms, and run dates) with cursor pagination.
 
-        Price: $0.0011 per request.
+        Price: $0.00105 per request.
 
         Example:
             res = client.facebook.ads_search(country="US", query="nike", searchType="keyword_exact_phrase")
@@ -3756,7 +3745,7 @@ class AsyncFacebookNamespace:
         Price: $0.0012 per request.
 
         Example:
-            res = client.facebook.ad_transcript(id="931919822778200")
+            res = client.facebook.ad_transcript(id="3152243841584775")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "facebook.ad_transcript", dict(input), options
@@ -3774,7 +3763,7 @@ class AsyncFacebookNamespace:
         Search the Meta Ad Library by keyword and get matching ads (advertiser,
         creative text, CTA, platforms, and run dates) with cursor pagination.
 
-        Price: $0.0011 per request.
+        Price: $0.00105 per request.
 
         Example:
             res = client.facebook.ads_search(country="US", query="nike", searchType="keyword_exact_phrase")

@@ -33,7 +33,7 @@ def compress(
         ret_path: bool = False,
         byte_book_keeper: ByteBookKeeper | None = None,
         ):
-    """Create a new dataset with all features compressed lossless
+    """Create a new dataset with all features compressed losslessly
 
     Parameters
     ----------
@@ -43,7 +43,8 @@ def compress(
         output file path
     basin_input:
         list of additional paths from which to put features in the
-        output file
+        output file; each path must be a file-based HDF5 basin of
+        `path_in`
     crop_event_images: bool
         Crop event images using an internal "h5datasetchop" basin.
         This reduces storage size by removing pixels that are not
@@ -51,7 +52,8 @@ def compress(
         "frame", "size_y", and "size_x", as well as "image_bg" for the
         "image" feature must be available.
     check_suffix: bool
-        check suffixes for input and output files
+        check the suffix of the input file (".rtdc" is always
+        appended to the output file name if missing)
     ret_path: bool
         whether to return the output path
     byte_book_keeper:
@@ -103,105 +105,110 @@ def compress(
         bbk = ByteBookKeeper()
     bbk["cli-compress"] = 1
 
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
+    # Prepare monitoring
+    stop_event = threading.Event()
+    monitor_thread = threading.Thread(
+        target=common.monitor,
+        args=("Compression", bbk, stop_event),
+        name="Compression",
+        daemon=True)
+    monitor_thread.start()
 
-        # Prepare monitoring
-        stop_event = threading.Event()
-        monitor_thread = threading.Thread(
-            target=common.monitor,
-            args=("Compression", bbk, stop_event),
-            name="Compression",
-            daemon=True)
-        monitor_thread.start()
+    try:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
 
-        # Make sure all basin files are valid and available
-        # and create `basin_maps` dictionary with mapping for each basin.
-        basin_maps = {}
-        if basin_input:
-            with new_dataset(path_in) as ds0:
-                for bn in ds0.basins:
-                    if (bn.basin_type == "file"
-                        and bn.basin_format == "hdf5"
-                            and bn.is_available()):
-                        pb = pathlib.Path(bn.location).resolve()
-                        if pb in basin_input:
-                            if bn.mapping == "same":
-                                basin_maps[pb] = None
-                            else:
-                                basin_maps[pb] = ds0[bn.mapping][:]
+            # Make sure all basin files are valid and available
+            # and create `basin_maps` dictionary with mapping for each basin.
+            basin_maps = {}
+            if basin_input:
+                with new_dataset(path_in) as ds0:
+                    for bn in ds0.basins:
+                        if (bn.basin_type == "file"
+                            and bn.basin_format == "hdf5"
+                                and bn.is_available()):
+                            pb = pathlib.Path(bn.location).resolve()
+                            if pb in basin_input:
+                                if bn.mapping == "same":
+                                    basin_maps[pb] = None
+                                else:
+                                    basin_maps[pb] = ds0[bn.mapping][:]
 
-        if set(basin_maps.keys()) != set(basin_input):
-            raise ValueError(
-                f"The following files are not basins of the input file "
-                f"'{path_in.name}': {set(basin_input) - set(basin_maps)}"
-            )
+            if set(basin_maps.keys()) != set(basin_input):
+                raise ValueError(
+                    f"The following files are not basins of the input file "
+                    f"'{path_in.name}': {set(basin_input) - set(basin_maps)}"
+                )
 
-        # Which features are taken from which file?
-        features_all = set()
-        pp_features = {}
-        # The input file `path_in` takes metadata precedence in `rtdc_copy`
-        paths = [path_in] + list(basin_maps.keys())
-        for pp in paths:
-            pp_feats = set()
-            with h5py.File(pp, locking=False) as h5:
-                for loc in ["events", "basin_events"]:
-                    for feat in h5.get(loc, {}):
-                        if feat not in features_all:
-                            pp_feats.add(feat)
-                            if bbk is not None:
-                                bbk[feat] = get_size(h5[f"{loc}/{feat}"])
-            # Set of features in `features` but not `features_all`
-            pp_features[pp] = list(pp_feats)
-            # update features_all list
-            features_all = features_all | pp_feats
-
-        # Start with the actual compression
-        with h5py.File(path_temp, "w") as h5_out:
+            # Which features are taken from which file?
+            features_all = set()
+            pp_features = {}
+            # The input file `path_in` takes metadata precedence in `rtdc_copy`
+            paths = [path_in] + list(basin_maps.keys())
             for pp in paths:
-                with h5py.File(pp, locking=False) as h5_in:
-                    compress_input(
-                        h5_in=h5_in,
-                        h5_out=h5_out,
-                        features=pp_features[pp],
-                        crop_event_images=crop_event_images,
-                        basinmap=basin_maps.get(pp),
-                        byte_book_keeper=bbk,
-                        include_other_data=(pp == path_in),
-                    )
+                pp_feats = set()
+                with h5py.File(pp, locking=False) as h5:
+                    for loc in ["events", "basin_events"]:
+                        for feat in h5.get(loc, {}):
+                            if feat not in features_all:
+                                pp_feats.add(feat)
+                                if bbk is not None:
+                                    bbk[feat] = get_size(h5[f"{loc}/{feat}"])
+                # Set of features in `features` but not `features_all`
+                pp_features[pp] = list(pp_feats)
+                # update features_all list
+                features_all = features_all | pp_feats
 
-            h5_out.require_group("logs")
-            # rename old dclab-compress logs
-            for lkey in ["dclab-compress", "dclab-compress-warnings"]:
-                if lkey in h5_out["logs"]:
-                    # This is cached, so no worry calling it multiple times.
-                    md55m = util.hashfile(path_in, count=80)
-                    # rename
-                    h5_out["logs"][f"{lkey}_{md55m}"] = h5_out["logs"][lkey]
-                    del h5_out["logs"][lkey]
+            # Start with the actual compression
+            with h5py.File(path_temp, "w") as h5_out:
+                for pp in paths:
+                    with h5py.File(pp, locking=False) as h5_in:
+                        compress_input(
+                            h5_in=h5_in,
+                            h5_out=h5_out,
+                            features=pp_features[pp],
+                            crop_event_images=crop_event_images,
+                            basinmap=basin_maps.get(pp),
+                            byte_book_keeper=bbk,
+                            include_other_data=(pp == path_in),
+                        )
 
-        # warnings log
-        if w:
-            logs["dclab-compress-warnings"] = common.assemble_warnings(w)
+                h5_out.require_group("logs")
+                # rename old dclab-compress logs
+                for lkey in ["dclab-compress", "dclab-compress-warnings"]:
+                    if lkey in h5_out["logs"]:
+                        # This is cached, so no worry calling it
+                        # multiple times.
+                        md55m = util.hashfile(path_in, count=80)
+                        # rename
+                        logs_out = h5_out["logs"]
+                        logs_out[f"{lkey}_{md55m}"] = logs_out[lkey]
+                        del logs_out[lkey]
 
-    # Write log file
-    with RTDCWriter(path_temp,
-                    compression_kwargs=cmp_kw,
-                    mode="append") as hw:
-        for name, value in logs.items():
-            hw.store_log(name, value)
+            # warnings log
+            if w:
+                logs["dclab-compress-warnings"] = common.assemble_warnings(w)
 
-    # Finally, rename temp to out
-    # Collect garbage, a workaround for Windows'
-    # "PermissionError: [WinError 32] The process cannot access the
-    # file because it is being used by another process"
-    gc.collect()
-    path_temp.rename(path_out)
+        # Write log file
+        with RTDCWriter(path_temp,
+                        compression_kwargs=cmp_kw,
+                        mode="append") as hw:
+            for name, value in logs.items():
+                hw.store_log(name, value)
 
-    if bbk is not None:
-        bbk.complete_item("cli-compress")
-    stop_event.set()
-    monitor_thread.join()
+        # Finally, rename temp to out
+        # Collect garbage, a workaround for Windows'
+        # "PermissionError: [WinError 32] The process cannot access the
+        # file because it is being used by another process"
+        gc.collect()
+        path_temp.rename(path_out)
+
+        if bbk is not None:
+            bbk.complete_item("cli-compress")
+    finally:
+        # also stop the monitor thread if something went wrong
+        stop_event.set()
+        monitor_thread.join()
 
     if ret_path:
         return path_out
@@ -258,8 +265,10 @@ def compress_input(h5_in: h5py.File,
         feat_croppable.remove("mask")
 
         for feat in feat_croppable:
-            if feat in h5_in.get("events", {}):
-                # only crop image features that are not a basin already
+            # Only crop image features that are not a basin already and
+            # that should be copied from this file (e.g. "image" is not
+            # copied from a basin if it is already in the input file).
+            if feat in h5_in.get("events", {}) and feat in features:
                 features.remove(feat)
                 features_crop.append(feat)
 
@@ -323,9 +332,15 @@ def compress_input(h5_in: h5py.File,
 
 
 def compress_parser():
-    descr = "Create a compressed version of an .rtdc file. This can be " \
-            + "used for saving disk space (loss-less compression). The " \
-            + "data generated during an experiment is usually not compressed."
+    """Return the argument parser of the ``dclab-compress`` command
+
+    Returns
+    -------
+    parser: argparse.ArgumentParser
+    """
+    descr = ("Create a compressed version of an .rtdc file. This can be "
+             "used for saving disk space (lossless compression). The "
+             "data generated during an experiment is usually not compressed.")
     parser = argparse.ArgumentParser(description=descr)
     parser.add_argument("input", metavar="INPUT", type=str,
                         help="Input path (.rtdc file)")
@@ -336,7 +351,7 @@ def compress_parser():
                         action="store_true",
                         help="Reduce the amount of storage required by "
                              "cropping event images. This removes pixels "
-                             "not related to events which reduced file size.")
+                             "not related to events, which reduces file size.")
     parser.add_argument("-b",
                         "--basin-input",
                         action="append",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cyclonedx-bom
-Version: 8.0.1
+Version: 9.0.0
 Summary: CycloneDX Software Bill of Materials (SBOM) generator for Python projects and environments
 License: Apache-2.0
 License-File: LICENSE
@@ -31,7 +31,7 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: System :: Software Distribution
 Classifier: Typing :: Typed
 Requires-Dist: chardet (>=5.1,!=6.*,<8)
-Requires-Dist: cyclonedx-python-lib[validation] (>=8,<12)
+Requires-Dist: cyclonedx-python-lib[validation] (>=11.12,<12)
 Requires-Dist: packageurl-python (>=0.11,<2)
 Requires-Dist: packaging (>=22,<27)
 Requires-Dist: pip-requirements-parser (>=32,<33)

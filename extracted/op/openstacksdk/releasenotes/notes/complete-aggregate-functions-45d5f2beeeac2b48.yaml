@@ -1,6 +1,0 @@
----
-features:
-  - Complete compute.aggregate functions to the latest state
-fixes:
-  - aggregate.deleted property is renamed to 'is_deleted' to comply with the
-    naming convention

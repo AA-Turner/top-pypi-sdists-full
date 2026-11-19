@@ -1,11 +1,14 @@
 import os
 from importlib.metadata import version
-from typing import List, Optional
+from typing import Any, List, Optional
 from unittest import mock
 
 from opentelemetry.environment_variables import OTEL_TRACES_EXPORTER
 from opentelemetry.instrumentation.distro import BaseDistro  # type: ignore
-from opentelemetry.sdk._configuration import _OTelSDKConfigurator
+from opentelemetry.sdk._configuration import (
+    _OTelSDKConfigurator,  # pyright: ignore[reportPrivateUsage]
+)
+from opentelemetry.util.types import Attributes
 from opentelemetry.sdk.resources import (
     Resource,
     ResourceDetector,
@@ -20,8 +23,8 @@ from opentelemetry_resourcedetector_process import ProcessResourceDetector
 
 __version__ = version("opentelemetry_container_distro")
 
-# Generally speaking, the beahvior of the opentelemetry-distro (just a thin layer over
-# opentelemetry-sdk) is what I want to preserve here.  The only realy shortcoming of
+# Generally speaking, the behavior of the opentelemetry-distro (just a thin layer over
+# opentelemetry-sdk) is what I want to preserve here.  The only real shortcoming of
 # the opentelemetry-sdk implementation is that it doesn't allow you to inject
 # resource detectors, and it is hardwired to use a very plain `Resource.create` call,
 # which will use the OTEL_RESOURCE_ATTRIBUTES and/or OTEL_SERVICE_NAME to provide a
@@ -37,7 +40,7 @@ __version__ = version("opentelemetry_container_distro")
 
 class OpenTelemetryContainerConfigurator(_OTelSDKConfigurator):
     def __init__(self, additional_detectors: Optional[List[ResourceDetector]] = None):
-        self.resource_detectors = [
+        self.resource_detectors: list[ResourceDetector] = [
             DockerResourceDetector(),
             KubernetesDownwardAPIVolumeResourceDetector(),
             KubernetesDownwardAPIEnvironmentResourceDetector(),
@@ -45,18 +48,18 @@ class OpenTelemetryContainerConfigurator(_OTelSDKConfigurator):
         ]
         super().__init__()
 
-    def _mocked_resource_create(self, auto_resource):
+    def _mocked_resource_create(self, auto_resource: Attributes) -> Resource:
         return Resource.create(auto_resource).merge(self.resource)
 
-    def _configure(self, **kwargs):
-        self.resource = get_aggregated_resources(self.resource_detectors)
+    def _configure(self, **kwargs: Any) -> None:
+        self.resource: Resource = get_aggregated_resources(self.resource_detectors)
         with mock.patch(
-            'opentelemetry.sdk._configuration.Resource', spec=Resource
+            "opentelemetry.sdk._configuration.Resource", spec=Resource
         ) as MockedResource:
             MockedResource.create = self._mocked_resource_create
-            return super()._configure(**kwargs)
+            return super()._configure(**kwargs)  # pyright: ignore[reportUnknownMemberType]
 
 
 class OpenTelemetryContainerDistro(BaseDistro):
-    def _configure(self, **kwargs):
+    def _configure(self, **kwargs: Any) -> None:
         os.environ.setdefault(OTEL_TRACES_EXPORTER, "otlp_proto_grpc")

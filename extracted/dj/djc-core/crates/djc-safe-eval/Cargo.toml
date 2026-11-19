@@ -8,6 +8,7 @@ edition = "2024"
 readme = "README.md"
 
 [dependencies]
+stacker = { workspace = true }
 ruff_python_parser = { workspace = true }
 ruff_python_ast = { workspace = true }
 ruff_python_codegen = { workspace = true }

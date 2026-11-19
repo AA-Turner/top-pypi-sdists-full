@@ -200,6 +200,7 @@ ServiceNameType = Literal[
 UpdateResourceCollectionActionType = Literal["ADD", "REMOVE"]
 DevOpsGuruServiceName = Literal["devops-guru"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

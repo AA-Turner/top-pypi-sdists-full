@@ -32,10 +32,11 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from dreamscale_core import training_families
 from dreamscale_core.training_data import split_columns
+from dreamscale_core.training_families import ACTION_ERROR
 
 from dreamscale import errors
+from dreamscale._training_families import families as training_families
 from dreamscale.config import dashboard_url, dreamscale_home, load_config, warn_engine_ignored
 from dreamscale.control import ControlPlaneClient
 
@@ -343,8 +344,8 @@ EVAL_CAVEAT = (
 def held_out_metric(run_or_quote: dict) -> tuple[str, str, str]:
     """The label, checkpoint field and evaluation point for a run's held-out score."""
     contract = run_or_quote.get("contract") or {}
-    if contract.get("eval_metric") == training_families.ACTION_ERROR:
-        metric = training_families.ACTION_ERROR
+    if contract.get("eval_metric") == ACTION_ERROR:
+        metric = ACTION_ERROR
     else:
         metric = training_families.held_out_metric(run_or_quote.get("base")) or "loss"
     return f"held-out {metric.replace('_', ' ')}", f"eval_{metric}", metric

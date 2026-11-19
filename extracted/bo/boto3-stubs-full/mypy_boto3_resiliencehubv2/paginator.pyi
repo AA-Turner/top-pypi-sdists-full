@@ -34,6 +34,7 @@ Usage::
         ListTestRunSourcesPaginator,
         ListTestRunsPaginator,
         ListTestSourcesPaginator,
+        ListTestTemplatesPaginator,
         ListTestsPaginator,
         ListUserJourneysPaginator,
     )
@@ -63,6 +64,7 @@ Usage::
     list_test_run_sources_paginator: ListTestRunSourcesPaginator = client.get_paginator("list_test_run_sources")
     list_test_runs_paginator: ListTestRunsPaginator = client.get_paginator("list_test_runs")
     list_test_sources_paginator: ListTestSourcesPaginator = client.get_paginator("list_test_sources")
+    list_test_templates_paginator: ListTestTemplatesPaginator = client.get_paginator("list_test_templates")
     list_tests_paginator: ListTestsPaginator = client.get_paginator("list_tests")
     list_user_journeys_paginator: ListUserJourneysPaginator = client.get_paginator("list_user_journeys")
     ```
@@ -122,6 +124,8 @@ from .type_defs import (
     ListTestSourcesResponseTypeDef,
     ListTestsRequestPaginateTypeDef,
     ListTestsResponseTypeDef,
+    ListTestTemplatesRequestPaginateTypeDef,
+    ListTestTemplatesResponseTypeDef,
     ListUserJourneysRequestPaginateTypeDef,
     ListUserJourneysResponseTypeDef,
 )
@@ -154,6 +158,7 @@ __all__ = (
     "ListTestRunSourcesPaginator",
     "ListTestRunsPaginator",
     "ListTestSourcesPaginator",
+    "ListTestTemplatesPaginator",
     "ListTestsPaginator",
     "ListUserJourneysPaginator",
 )
@@ -554,6 +559,24 @@ class ListTestSourcesPaginator(_ListTestSourcesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListTestSources.html#ResilienceHubV2.Paginator.ListTestSources.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/paginators/#listtestsourcespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTestTemplatesPaginatorBase = Paginator[ListTestTemplatesResponseTypeDef]
+else:
+    _ListTestTemplatesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListTestTemplatesPaginator(_ListTestTemplatesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListTestTemplates.html#ResilienceHubV2.Paginator.ListTestTemplates)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/paginators/#listtesttemplatespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTestTemplatesRequestPaginateTypeDef]
+    ) -> PageIterator[ListTestTemplatesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListTestTemplates.html#ResilienceHubV2.Paginator.ListTestTemplates.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/paginators/#listtesttemplatespaginator)
         """
 
 if TYPE_CHECKING:

@@ -203,6 +203,7 @@ UserStatusTypeType = Literal["ACTIVE", "INACTIVE", "PENDING"]
 UserTypeType = Literal["ADMIN", "MINIMALUSER", "POWERUSER", "USER", "WORKSPACESUSER"]
 WorkDocsServiceName = Literal["workdocs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

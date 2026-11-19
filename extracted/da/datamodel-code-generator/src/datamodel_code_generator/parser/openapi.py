@@ -14,7 +14,6 @@ from dataclasses import replace
 from enum import Enum
 from functools import cache, cached_property, partial
 from operator import getitem
-from pathlib import Path
 from re import Pattern
 from types import UnionType
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Final, Optional, TypeVar, Union, cast, get_args, get_origin
@@ -33,6 +32,7 @@ from datamodel_code_generator import (
 )
 from datamodel_code_generator._document_reader import as_mapping as _as_mapping
 from datamodel_code_generator._document_reader import discriminator_mapping_ref, string_key, string_keys
+from datamodel_code_generator._json_pointer import document_part
 from datamodel_code_generator._openapi_objects import OBJECT_MEMBERS as _OBJECT_MEMBERS
 from datamodel_code_generator._openapi_paths import (
     OPERATION_METHODS,
@@ -59,7 +59,7 @@ from datamodel_code_generator.parser._rw_split import update_field_refs_for_vari
 from datamodel_code_generator.parser._schema_dispatch import Default, DispatchTable, Row, SchemaSite
 from datamodel_code_generator.parser._schema_graph import keep_resolved_ref, validate_resolved_ref
 from datamodel_code_generator.parser._schema_object import _has_map_key_keywords, _located_model_schema
-from datamodel_code_generator.parser._schema_refs import raw_ref_value, ref_file_document  # noqa: F401  # Preserve the established parser.openapi export.
+from datamodel_code_generator.parser._schema_refs import read_ref_value, ref_file_document  # noqa: F401  # Preserve the established parser.openapi export.
 from datamodel_code_generator.parser.base import Result, get_special_path
 from datamodel_code_generator.parser.jsonschema import (
     Discriminator,
@@ -85,7 +85,6 @@ from datamodel_code_generator.reference import (
     SCHEMA_LOCATION_KEY,
     FieldNameResolver,
     _source_path,
-    is_url,
     snake_to_upper_camel,
 )
 from datamodel_code_generator.types import (
@@ -98,6 +97,7 @@ from datamodel_code_generator.util import BaseModel, YamlStringKeywords
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator, Sequence
     from contextlib import AbstractContextManager
+    from pathlib import Path
     from urllib.parse import ParseResult
 
     from pydantic import GetCoreSchemaHandler, ValidatorFunctionWrapHandler
@@ -643,7 +643,7 @@ class OpenAPIParser(JsonSchemaParser):
         ``role`` is the OpenAPI object the reference's position expects, which a document it names at its root holds.
         The pointer is read by row ``legacy-split-pointer-tokens``.
         """
-        value = raw_ref_value(self, self._ref_path(ref), reading="legacy-split-pointer-tokens", role=role)
+        value = read_ref_value(self, self._ref_path(ref), reading="legacy-split-pointer-tokens", role=role)
         return cast("dict[str, Any]", value)
 
     @contextmanager
@@ -860,13 +860,11 @@ class OpenAPIParser(JsonSchemaParser):
         """Return a copy of the discriminator dict with its mapping values as the references they name.
 
         Each is the reference the union is read from (``_get_discriminator_union_type``), with the location the parser
-        resolves it to from the document that declares the mapping (``located_mapping_paths``).
+        resolves it to from the document that declares the mapping (``_located_mapping``).
         """
         result = discriminator.copy()
-        mapping = discriminator.get("mapping")
-        if mapping:
-            refs = _union_tags.discriminator_mapping_refs(self, mapping)
-            result["mapping"] = _union_tags.located_mapping_paths(self, refs, refs)
+        if mapping := discriminator.get("mapping"):
+            result["mapping"] = self._located_mapping(mapping, text="reference")
         return result
 
     @override
@@ -898,7 +896,7 @@ class OpenAPIParser(JsonSchemaParser):
             mapping = discriminator.get("mapping", {})
             if mapping:
                 subtypes = [*_union_tags.discriminator_mapping_refs(self, mapping).values()]
-                if subtypes and ref.partition("#")[0] == current_document:
+                if subtypes and document_part(ref) == current_document:
                     return build_union(self.data_type, [self._get_discriminator_subtype_data_type(v) for v in subtypes])
                 subtypes = [keep_resolved_ref(v, self._ref_path(v)) for v in subtypes]
         if not subtypes:
@@ -908,7 +906,7 @@ class OpenAPIParser(JsonSchemaParser):
             document, _, fragment = subtype.partition("#")
             if document != current_document:
                 with (
-                    self.model_resolver.current_base_path_context(self.base_path),
+                    _schema_documents.base_path_context(self, self.base_path),
                     self.model_resolver.base_url_context(None),
                     self.root_id_context({}),
                 ):
@@ -1134,8 +1132,8 @@ class OpenAPIParser(JsonSchemaParser):
                 methods = self.get_ref_model(item_ref, "pathItem")
                 # Extract base path from reference for external file resolution
                 resolved_ref = self._ref_path(item_ref)
-                ref_file = resolved_ref.split("#")[0] if "#" in resolved_ref else resolved_ref
-                ref_base_path = Path(ref_file).parent if ref_file and not is_url(ref_file) else None
+                ref_file = document_part(resolved_ref)
+                ref_base_path = _schema_refs.schema_document_directory(self, ref_file) if ref_file else None
             else:
                 methods = methods_
                 ref_base_path = None
@@ -1152,7 +1150,7 @@ class OpenAPIParser(JsonSchemaParser):
             path = [*scope_path, relative_name] if relative_name else get_special_path("root", scope_path)
 
             base_path_context = (
-                self.model_resolver.current_base_path_context(ref_base_path) if ref_base_path else nullcontext()
+                _schema_documents.base_path_context(self, ref_base_path) if ref_base_path else nullcontext()
             )
             with base_path_context:
                 for operation_name, raw_operation_ in methods.items():
@@ -1248,8 +1246,8 @@ class OpenAPIParser(JsonSchemaParser):
         """
         return (
             self.use_enum_field_as_literal_in_operations
-            and self._operation_enum_applies(site)
-            and self.should_parse_enum_as_literal(site.obj, property_name=site.name)
+            and self._reads_enum(site.obj)
+            and self._enum_site_form(site.obj, site.name) == "literal"
         )
 
     def _build_operation_enum(self, site: SchemaSite[JsonSchemaObject]) -> DataType:
@@ -1614,9 +1612,9 @@ class OpenAPIParser(JsonSchemaParser):
             attempted |= missing
             self._loads_only_used_references = True
             try:
-                with self.model_resolver.current_base_path_context(Path()):
+                with _schema_documents.base_path_context(self, self.model_resolver._resolved_base_path()):  # noqa: SLF001
                     for path in sorted({_source_path(path) for path in missing}):
-                        if (root := roots.get(path.split("#", 1)[0])) is None:
+                        if (root := roots.get(document_part(path))) is None:
                             self.resolve_ref(path)
                         else:
                             self.reserved_refs[root].add(path)
@@ -1718,7 +1716,7 @@ class OpenAPIParser(JsonSchemaParser):
             for ref_in_allof in refs:
                 resolved_ref = self._ref_path(ref_in_allof)
                 # External parents may be registered after this child document is read.
-                if resolved_ref in self._discriminator_schemas or resolved_ref.partition("#")[0] != document[:-1]:
+                if resolved_ref in self._discriminator_schemas or document_part(resolved_ref) != document[:-1]:
                     self._discriminator_subtypes[resolved_ref].append(self._schema_key(schema, child, "allOf"))
 
     def _register_discriminator_schema(self, ref: str, schema: dict[str, Any]) -> None:

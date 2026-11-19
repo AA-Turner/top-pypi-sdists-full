@@ -12,7 +12,6 @@ from typing_extensions import TypeIs
 
 from datamodel_code_generator._all_or_none import all_or_none
 from datamodel_code_generator._client.config import absolute
-from datamodel_code_generator._client.model_facts import ALIASES
 from datamodel_code_generator._client.naming import HELPER_ARGUMENTS, RESERVED_ARGUMENTS, RESERVED_MEMBERS
 from datamodel_code_generator._client.security import CredentialSpec, SecurityPlanner
 from datamodel_code_generator._openapi_wire_plan import (
@@ -62,7 +61,6 @@ from datamodel_code_generator._target_contract import (
     property_members,
     request_media,
     type_uses,
-    uses_by_id,
 )
 from datamodel_code_generator._target_naming import (
     PATH_PLACEHOLDER,
@@ -75,6 +73,7 @@ from datamodel_code_generator._target_operations import (
     CLIENT,
     alias,
     argument_names,
+    claim,
     coded_use,
     declared_by,
     declared_media_type,
@@ -89,7 +88,7 @@ from datamodel_code_generator._target_operations import (
     response_bodyless,
     type_names,
 )
-from datamodel_code_generator._target_types import present
+from datamodel_code_generator._target_types import is_alias, present
 from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import _rw_variant_flag
 
@@ -140,7 +139,6 @@ STREAM_MEDIA: Final = {
 }
 """The media types a stream helper reads, by its kind: an event stream for SSE, JSON lines for NDJSON."""
 STREAMED: Final = frozenset(media for kinds in STREAM_MEDIA.values() for media in kinds)
-_NULL: Final = frozenset({"null"})
 _UNDECLARED: Final = PartFacts(object=True, members=(), extra=None)
 _DEFAULTS: Final = {"bool": ("bool",), "int": ("int",), "float": ("int", "float"), "str": ("str",)}
 
@@ -404,7 +402,7 @@ class Planner:
         self.config = config
         self.wire = wire
         self.facts = facts
-        self.uses = uses_by_id(request.batch)
+        self.uses = wire.tables.uses
         self.parameter_plans = parameter_plans(wire)
         self.header_plans = dict(wire.headers)
         self.forms = {use: (fields, additional, encoded) for use, fields, additional, encoded in wire.forms}
@@ -412,7 +410,7 @@ class Planner:
         self.documents = {document.id: document.uri for document in request.batch.documents}
         self.resource_names = {item.tag: item.namespace for item in config.resource_names}
         self.problems: list[Diagnostic] = []
-        self.security = SecurityPlanner(request.batch, self.problems)
+        self.security = SecurityPlanner(request.batch, wire.tables.schemes, self.problems)
         self.settings = self.resolved()
         tags = {group_tag(operation) for operation in selected}
         self.problems.extend(
@@ -593,24 +591,19 @@ class Planner:
         namespaces = {namespace for resource in members for namespace in _opened(resource)}
         named = list(specs)
         for namespace, operations in members.items():
-            scope = NameScope(child.rpartition(".")[2] for child in namespaces if child.rpartition(".")[0] == namespace)
-            explicit = {spec.index for spec in operations if self._explicit_method(spec.contract)}
-            for spec in operations:
-                if spec.index in explicit and not scope.take(spec.name):
-                    message = f"The resource {stable_repr(namespace)} takes the name {stable_repr(spec.name)} twice"
-                    self.problems.append(_problem("E_NAME_COLLISION", message))
-            for name in RESERVED_MEMBERS:
-                scope.take(name)
             parts = _namespace_parts(namespace)
-            derived = [spec for spec in operations if spec.index not in explicit]
-            claimed = dict(
-                zip(
-                    (spec.index for spec in derived),
-                    self.names.claim(scope, [(spec.name, local(spec.contract), parts) for spec in derived]),
-                    strict=True,
-                )
+            methods, taken = claim(
+                self.names,
+                NameScope(child.rpartition(".")[2] for child in namespaces if child.rpartition(".")[0] == namespace),
+                [
+                    spec.name if self._explicit_method(spec.contract) else (spec.name, local(spec.contract), parts)
+                    for spec in operations
+                ],
+                RESERVED_MEMBERS,
+                refused=RESERVED_MEMBERS,
             )
-            methods = [claimed.get(spec.index, spec.name) for spec in operations]
+            head = f"The resource {stable_repr(namespace)} takes the name"
+            self.problems.extend(_problem("E_NAME_COLLISION", f"{head} {stable_repr(name)} twice") for name in taken)
             prefix = (self._resource_pascal(namespace),)
             pascals = type_names(
                 self.names, ((name, spec.contract, prefix) for spec, name in zip(operations, methods, strict=True))
@@ -632,7 +625,6 @@ class Planner:
         explicit = {(item.in_, item.name): item.python_name for item in names}
         plans = self.parameter_plans.get(operation.id, {})
         declared: list[tuple[WireDeclaration, ParameterLocation, str, ParameterPlan, str | None]] = []
-        scope = NameScope()
         for declaration in operation.parameters:
             location, wire_name = parameter_place(declaration)
             if (plan := plans.get((location, wire_name))) is None:
@@ -641,27 +633,24 @@ class Planner:
                 CLIENT, self.names, operation, location, wire_name, source=declaration.use_site, problems=self.problems
             )
             declared.append((declaration, location, wire_name, plan, given))
-            if given is None:
-                continue
             if given in RESERVED_ARGUMENTS:
                 message = (
                     f"The {location} parameter {stable_repr(wire_name)} of {label(operation)} cannot take the name "
                     f"{stable_repr(given)}"
                 )
                 self.problems.append(_problem("E_RESERVED_NAME", message, declaration.use_site))
-            elif not scope.take(given):
-                message = f"The arguments of {label(operation)} take {stable_repr(given)} twice"
-                self.problems.append(_problem("E_NAME_COLLISION", message, operation.id.use_site))
-        for name in (*RESERVED_ARGUMENTS, *(HELPER_ARGUMENTS if operation.id in self.helpers else ())):
-            scope.take(name)
         python_names = argument_names(
+            CLIENT,
             self.names,
-            scope,
+            operation,
             [
                 (wire_name, given, declared_by(declaration, operation))
                 for declaration, _, wire_name, _, given in declared
             ],
             path,
+            reserved=(*RESERVED_ARGUMENTS, *(HELPER_ARGUMENTS if operation.id in self.helpers else ())),
+            refused=RESERVED_ARGUMENTS,
+            problems=self.problems,
         )
         specs: list[ParameterSpec] = []
         for (declaration, location, wire_name, plan, _), python_name in zip(declared, python_names, strict=True):
@@ -680,7 +669,7 @@ class Planner:
                     default=None if required or plan.credential else _default(use, argument),
                     converts=use is not None
                     and use.type is not None
-                    and argument != self.facts.argument(use.type, ALIASES),
+                    and argument != self.facts.argument(use.type, is_alias),
                 )
             )
         self.problems.extend(
@@ -880,7 +869,7 @@ class Planner:
         which every declared member's plan then tells apart from them.
         """
         parts = _parts(use)
-        declared_extra = parts.extra
+        declared_extra = parts.loose
         additional: PartSpec | None = PartSpec(plan=PartPlan("", "json" if declared_extra is None else "string"))
         if declared_extra == "closed":
             additional = None
@@ -888,7 +877,7 @@ class Planner:
             additional = PartSpec(
                 plan=PartPlan("", repeated=declared_extra.repeated, text=declared_extra.text), file=True
             )
-        elif (extras := form_extras(self.wire.kinds, use)) is not None:
+        elif (extras := form_extras(self.wire.kinds, use, loose=True)) is not None:
             text = not part_json(self.wire.kinds, extras.type, None, self.wire.versions)
             additional = PartSpec(
                 plan=PartPlan("", "string" if text else "json", repeated=extras.repeated),
@@ -919,6 +908,8 @@ class Planner:
             )
         if any(spec.file for spec in specs) or (additional is not None and additional.file):
             return tuple(specs), additional, (), None
+        if parts.extra == "closed":
+            additional = None
         others = None if additional is None or additional.plan.kind != "json" else additional.plan
         written = tuple(
             PartPlan(spec.plan.name, spec.plan.kind, repeated=spec.plan.repeated)
@@ -939,13 +930,13 @@ class Planner:
         parts = _parts(use)
         declared = dict(parts.members)
         members = _members(use)
-        declared_extra = parts.extra
+        declared_extra = parts.loose
         if not any(declared[name].file for name, _, _ in members) and not (
             isinstance(declared_extra, PartSchema) and declared_extra.file
         ):
             return None, None
         additional: PartSpec | None = PartSpec(plan=PartPlan("", repeated=True), file=True)
-        extras = form_extras(self.wire.kinds, use)
+        extras = form_extras(self.wire.kinds, use, loose=True)
         if declared_extra == "closed":
             additional = None
         elif extras is not None and not (isinstance(declared_extra, PartSchema) and declared_extra.file):

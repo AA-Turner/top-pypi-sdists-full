@@ -43,12 +43,15 @@ def tdms2rtdc(path_tdms=None, path_rtdc=None, compute_features=False,
         parser = tdms2rtdc_parser()
         args = parser.parse_args()
 
-        path_tdms = pathlib.Path(args.tdms_path).resolve()
-        path_rtdc = pathlib.Path(args.rtdc_path)
+        path_tdms = args.tdms_path
+        path_rtdc = args.rtdc_path
         compute_features = args.compute_features
         skip_initial_empty_image = not args.include_empty_boundary_images
         skip_final_empty_image = not args.include_empty_boundary_images
         verbose = True
+
+    path_tdms = pathlib.Path(path_tdms).resolve()
+    path_rtdc = pathlib.Path(path_rtdc)
 
     # Determine whether input path is a tdms file or a directory
     if path_tdms.is_dir():
@@ -150,39 +153,45 @@ def tdms2rtdc(path_tdms=None, path_rtdc=None, compute_features=False,
 
 
 def tdms2rtdc_parser():
-    descr = "Convert RT-DC .tdms files to the hdf5-based .rtdc file format. " \
-            + "Note: Do not delete original .tdms files after conversion. " \
-            + "The conversion might be incomplete."
+    """Return the argument parser of the ``dclab-tdms2rtdc`` command
+
+    Returns
+    -------
+    parser: argparse.ArgumentParser
+    """
+    descr = ("Convert RT-DC .tdms files to the hdf5-based .rtdc file format. "
+             "Note: Do not delete original .tdms files after conversion. "
+             "The conversion might be incomplete.")
     parser = argparse.ArgumentParser(description=descr)
-    parser.add_argument('--compute-ancillary-features',
-                        dest='compute_features',
-                        action='store_true',
-                        help='Compute features, such as volume or emodulus, '
-                             + 'that are otherwise computed on-the-fly. '
-                             + 'Use this if you want to minimize analysis '
-                             + 'time in e.g. DCscope. CAUTION: ancillary '
-                             + 'feature recipes might be subject to change '
-                             + '(e.g. if an error is found in the recipe). '
-                             + 'Disabling this option maximizes '
-                             + 'compatibility with future versions and '
-                             + 'allows to isolate the original data.')
+    parser.add_argument("--compute-ancillary-features",
+                        dest="compute_features",
+                        action="store_true",
+                        help="Compute features, such as volume or emodulus, "
+                             "that are otherwise computed on-the-fly. "
+                             "Use this if you want to minimize analysis "
+                             "time in e.g. DCscope. CAUTION: ancillary "
+                             "feature recipes might be subject to change "
+                             "(e.g. if an error is found in the recipe). "
+                             "Disabling this option maximizes "
+                             "compatibility with future versions and "
+                             "allows isolating the original data.")
     parser.set_defaults(compute_features=False)
-    parser.add_argument('--include-empty-boundary-images',
-                        dest='include_empty_boundary_images',
-                        action='store_true',
-                        help='In old versions of Shape-In, the first or last '
-                             + 'images were sometimes not stored in the '
-                             + 'resulting .avi file. In dclab, such images '
-                             + 'are represented as zero-valued images. Set '
-                             + 'this option, if you wish to include these '
-                             + 'events with empty image data.')
+    parser.add_argument("--include-empty-boundary-images",
+                        dest="include_empty_boundary_images",
+                        action="store_true",
+                        help="In old versions of Shape-In, the first or last "
+                             "images were sometimes not stored in the "
+                             "resulting .avi file. In dclab, such images "
+                             "are represented as zero-valued images. Set "
+                             "this option, if you wish to include these "
+                             "events with empty image data.")
     parser.set_defaults(include_empty_boundary_images=False)
-    parser.add_argument('tdms_path', metavar="TDMS_PATH", type=str,
-                        help='Input path (tdms file or folder containing '
-                             + 'tdms files)')
-    parser.add_argument('rtdc_path', metavar="RTDC_PATH", type=str,
-                        help='Output path (file or folder), existing data '
-                             + 'will be overridden')
-    parser.add_argument('--version', action='version',
-                        version=f'dclab-tdms2rtdc {version}')
+    parser.add_argument("tdms_path", metavar="TDMS_PATH", type=str,
+                        help="Input path (tdms file or folder containing "
+                             "tdms files)")
+    parser.add_argument("rtdc_path", metavar="RTDC_PATH", type=str,
+                        help="Output path (file or folder), existing data "
+                             "will be overwritten")
+    parser.add_argument("--version", action="version",
+                        version=f"dclab-tdms2rtdc {version}")
     return parser

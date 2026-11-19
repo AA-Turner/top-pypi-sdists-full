@@ -61,6 +61,7 @@ RuleTypeType = Literal["AND", "ATLEAST", "OR"]
 StatusType = Literal["DEPLOYED", "PENDING", "PENDING_DELETION"]
 Route53RecoveryControlConfigServiceName = Literal["route53-recovery-control-config"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

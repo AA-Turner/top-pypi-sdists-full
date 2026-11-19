@@ -93,6 +93,7 @@ VirtualRouterStatusCodeType = Literal["ACTIVE", "DELETED", "INACTIVE"]
 VirtualServiceStatusCodeType = Literal["ACTIVE", "DELETED", "INACTIVE"]
 AppMeshServiceName = Literal["appmesh"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -15,6 +15,8 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_util::assert_bytes;
+use pyrefly_util::display::DisplayWith;
+use pyrefly_util::display::Fmt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
@@ -22,7 +24,10 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 use vec1::Vec1;
 
+use crate::display::TypeDisplayContext;
+use crate::env::TypeEnv;
 use crate::facet::FacetKind;
+use crate::quantified::TypeVarLike;
 use crate::type_var::TypeVar;
 use crate::types::AnyStyle;
 use crate::types::Type;
@@ -182,12 +187,22 @@ impl TypeInfo {
                     .into_iter()
                     .map(|TypeInfo { ty, facets }| (ty, facets.map(|x| *x)))
                     .unzip();
-                let ty = join_types(
-                    tys,
-                    union_types,
-                    is_subset_eq,
-                    join_style.map(|base_type_info| base_type_info.ty.clone()),
-                );
+                // Whole-name NarrowOf excludes reassignment; facet NarrowOf may not.
+                // Keep error-Any absorption here so assigned facet types stay in the join.
+                let ty = match &join_style {
+                    JoinStyle::NarrowOf(base)
+                        if matches!(base.ty, Type::Any(style) if style.is_error())
+                            && tys.iter().any(|ty| ty == &base.ty) =>
+                    {
+                        base.ty.clone()
+                    }
+                    _ => join_types(
+                        tys,
+                        union_types,
+                        is_subset_eq,
+                        join_style.map(|base_type_info| base_type_info.ty.clone()),
+                    ),
+                };
                 let branches = facets_branches.into_iter().flatten().collect::<Vec<_>>();
                 let facets = if branches.len() == n {
                     NarrowedFacets::join(
@@ -364,17 +379,32 @@ impl TypeInfo {
             })
             .collect()
     }
+
+    /// `ctx` must have been created from every type in this `TypeInfo`.
+    pub fn display_with_context<'a>(
+        &'a self,
+        ctx: &'a TypeDisplayContext<'a>,
+    ) -> impl Display + 'a {
+        Fmt(move |f| {
+            write!(f, "{}", ctx.display(self.ty()))?;
+            if let Some(facets) = &self.facets
+                && facets.has_displayable_content()
+            {
+                write!(f, " (")?;
+                facets.fmt_with_prefix(&mut Vec::new(), ctx, f)?;
+                write!(f, ")")?;
+            }
+            Ok(())
+        })
+    }
 }
 
-impl Display for TypeInfo {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.ty().fmt(f)?;
-        if let Some(facets) = &self.facets
-            && facets.has_displayable_content()
-        {
-            write!(f, " ({facets})")?;
-        }
-        Ok(())
+impl<'e> DisplayWith<dyn TypeEnv + 'e> for TypeInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, env: &(dyn TypeEnv + 'e)) -> fmt::Result {
+        let mut types = Vec::new();
+        self.visit(&mut |ty| types.push(ty));
+        let ctx = TypeDisplayContext::new(env, &types);
+        self.display_with_context(&ctx).fmt(f)
     }
 }
 
@@ -576,6 +606,7 @@ impl NarrowedFacets {
     fn fmt_with_prefix(
         &self,
         prefix: &mut Vec<FacetKind>,
+        ctx: &TypeDisplayContext,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         let mut first = true;
@@ -591,17 +622,17 @@ impl NarrowedFacets {
                 write!(f, ", ")?;
             }
             match value {
-                NarrowedFacet::Leaf(ty) => Self::fmt_type_with_label(prefix, facet, ty, f),
+                NarrowedFacet::Leaf(ty) => Self::fmt_type_with_label(prefix, facet, ty, ctx, f),
                 NarrowedFacet::WithRoot(ty, facets) => {
-                    Self::fmt_type_with_label(prefix, facet, ty, f)?;
+                    Self::fmt_type_with_label(prefix, facet, ty, ctx, f)?;
                     if facets.has_displayable_content() {
                         write!(f, ", ")?;
-                        facets.fmt_with_prefix_and_facet(prefix, facet, f)?;
+                        facets.fmt_with_prefix_and_facet(prefix, facet, ctx, f)?;
                     }
                     Ok(())
                 }
                 NarrowedFacet::WithoutRoot { facets, .. } => {
-                    facets.fmt_with_prefix_and_facet(prefix, facet, f)
+                    facets.fmt_with_prefix_and_facet(prefix, facet, ctx, f)
                 }
             }?;
         }
@@ -612,10 +643,11 @@ impl NarrowedFacets {
         &self,
         prefix: &mut Vec<FacetKind>,
         facet: &'a FacetKind,
+        ctx: &TypeDisplayContext,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         prefix.push(facet.clone());
-        self.fmt_with_prefix(prefix, f)?;
+        self.fmt_with_prefix(prefix, ctx, f)?;
         prefix.pop();
         Ok(())
     }
@@ -624,9 +656,16 @@ impl NarrowedFacets {
         prefix: &[FacetKind],
         facet: &FacetKind,
         ty: &Type,
+        ctx: &TypeDisplayContext,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        write!(f, "_{}{}: {}", prefix.iter().join(""), facet, ty)
+        write!(
+            f,
+            "_{}{}: {}",
+            prefix.iter().join(""),
+            facet,
+            ctx.display(ty)
+        )
     }
 }
 
@@ -645,12 +684,6 @@ impl VisitMut<Type> for NarrowedFacets {
         facets.values_mut().for_each(|value| {
             value.visit_mut(f);
         })
-    }
-}
-
-impl Display for NarrowedFacets {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt_with_prefix(&mut Vec::new(), f)
     }
 }
 
@@ -850,19 +883,26 @@ impl NarrowedFacet {
             }
         }
         let ty = ty_branches.map(|tys| {
-            join_types(
-                tys,
-                union_types,
-                is_subset_eq,
-                join_style.flat_map(|base_facet| {
-                    base_facet.as_ref().and_then(|facet| match facet {
-                        NarrowedFacet::WithRoot(ty, _) | NarrowedFacet::Leaf(ty) => {
-                            Some(ty.clone())
-                        }
-                        NarrowedFacet::WithoutRoot { .. } => None,
-                    })
-                }),
-            )
+            let join_style = join_style.flat_map(|base_facet| {
+                base_facet.as_ref().and_then(|facet| match facet {
+                    NarrowedFacet::WithRoot(ty, _) | NarrowedFacet::Leaf(ty) => Some(ty.clone()),
+                    NarrowedFacet::WithoutRoot { .. } => None,
+                })
+            });
+            // Assigning a facet does not rebind its root name. A merge of root narrows
+            // can therefore contain facet reassignments that widen the base type.
+            // Such facets must not simplify back to the type before the branch.
+            let join_style = match join_style {
+                JoinStyle::NarrowOf(base_ty)
+                    if tys
+                        .iter()
+                        .any(|ty| ty != &base_ty && !is_subset_eq(ty, &base_ty)) =>
+                {
+                    JoinStyle::ReassignmentOf(base_ty)
+                }
+                style => style,
+            };
+            join_types(tys, union_types, is_subset_eq, join_style)
         });
         let facets = facets_branches.and_then(|branches| {
             NarrowedFacets::join(
@@ -920,8 +960,8 @@ fn join_types(
 /// the join.
 /// - If the base type is `Any`, and `Any` is still present in the join, just use `Any`.
 ///   This avoids creating union types like `Any | int` on gradual code that assigns or
-///   narrows a gradually-typed variable. We only do this for explicit and implicit any,
-///   not for `Any` that resulted from a type error.
+///   narrows a gradually-typed variable. We only do this for explicit and implicit any;
+///   `TypeInfo::join` handles unchanged error-derived Any in whole-name narrow-only joins.
 /// - If the merge involves only narrows of base *and* the base type is a subset
 ///   of the resulting union, simplify the union. This would not be needed if we
 ///   had general union simplification, but it is useful today because:
@@ -939,7 +979,7 @@ fn join_types_impl(
         && types.iter().any(|t| t.is_any())
     {
         base_ty
-    } else if is_narrow {
+    } else if is_narrow && !base_ty.is_any() {
         // Check for the case where `base_ty` is directly in the merge before doing
         // a subset check. We do this to avoid the possibility of pinning a `Var` to
         // itself inside the join (which at one point caused a stack overflow).
@@ -981,178 +1021,225 @@ fn dedup_compatible_type_vars(mut types: Vec<Type>) -> Vec<Type> {
 
 #[cfg(test)]
 mod tests {
-
+    use pyrefly_util::display::DisplayWithCtx;
     use ruff_python_ast::name::Name;
     use vec1::Vec1;
 
     use crate::class::ClassType;
     use crate::display::tests::fake_class;
     use crate::facet::FacetKind;
+    use crate::test_type_env::TestTypeEnv;
     use crate::type_info::JoinStyle;
     use crate::type_info::TypeInfo;
     use crate::types::TArgs;
     use crate::types::Type;
 
-    fn fake_class_type(class_name: &str) -> Type {
+    fn fake_class_type(env: &TestTypeEnv, class_name: &str) -> Type {
         Type::ClassType(ClassType::new(
-            fake_class(class_name, "class_defs_module", 5),
+            fake_class(env, class_name, "class_defs_module", 5),
             TArgs::default(),
         ))
     }
 
     #[test]
     fn test_type_info_one_level_only() {
+        let env = TestTypeEnv::new();
         let x = || FacetKind::Attribute(Name::new_static("x"));
         let y = || FacetKind::Attribute(Name::new_static("y"));
-        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
-        assert_eq!(type_info.to_string(), "Foo");
-        type_info.add_narrow(&Vec1::new(x()), fake_class_type("Bar"));
-        assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
-        type_info.add_narrow(&Vec1::new(y()), fake_class_type("Baz"));
-        assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.y: Baz)");
+        let mut type_info = TypeInfo::of_ty(fake_class_type(&env, "Foo"));
+        assert_eq!(type_info.display_with(&env).to_string(), "Foo");
+        type_info.add_narrow(&Vec1::new(x()), fake_class_type(&env, "Bar"));
+        assert_eq!(type_info.display_with(&env).to_string(), "Foo (_.x: Bar)");
+        type_info.add_narrow(&Vec1::new(y()), fake_class_type(&env, "Baz"));
+        assert_eq!(
+            type_info.display_with(&env).to_string(),
+            "Foo (_.x: Bar, _.y: Baz)"
+        );
     }
 
     #[test]
     fn test_type_info_adding_sub_facets() {
+        let env = TestTypeEnv::new();
         let x = || FacetKind::Attribute(Name::new_static("x"));
         let y = || FacetKind::Attribute(Name::new_static("y"));
         let z = || FacetKind::Attribute(Name::new_static("z"));
-        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
-        type_info.add_narrow(&Vec1::new(x()), fake_class_type("Bar"));
-        type_info.add_narrow(&Vec1::from_vec_push(vec![x()], y()), fake_class_type("Baz"));
-        assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.x.y: Baz)");
-        type_info.add_narrow(&Vec1::from_vec_push(vec![x()], z()), fake_class_type("Qux"));
+        let mut type_info = TypeInfo::of_ty(fake_class_type(&env, "Foo"));
+        type_info.add_narrow(&Vec1::new(x()), fake_class_type(&env, "Bar"));
+        type_info.add_narrow(
+            &Vec1::from_vec_push(vec![x()], y()),
+            fake_class_type(&env, "Baz"),
+        );
         assert_eq!(
-            type_info.to_string(),
+            type_info.display_with(&env).to_string(),
+            "Foo (_.x: Bar, _.x.y: Baz)"
+        );
+        type_info.add_narrow(
+            &Vec1::from_vec_push(vec![x()], z()),
+            fake_class_type(&env, "Qux"),
+        );
+        assert_eq!(
+            type_info.display_with(&env).to_string(),
             "Foo (_.x: Bar, _.x.y: Baz, _.x.z: Qux)"
         );
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y()], x()),
-            fake_class_type("Foo"),
+            fake_class_type(&env, "Foo"),
         );
         assert_eq!(
-            type_info.to_string(),
+            type_info.display_with(&env).to_string(),
             "Foo (_.x: Bar, _.x.y: Baz, _.x.y.x: Foo, _.x.z: Qux)"
         );
     }
 
     #[test]
     fn test_type_info_creating_subtrees_and_narrowing_roots() {
+        let env = TestTypeEnv::new();
         let x = || FacetKind::Attribute(Name::new_static("x"));
         let y = || FacetKind::Attribute(Name::new_static("y"));
         let z = || FacetKind::Attribute(Name::new_static("z"));
         let w = || FacetKind::Attribute(Name::new_static("w"));
-        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
+        let mut type_info = TypeInfo::of_ty(fake_class_type(&env, "Foo"));
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y()], z()),
-            fake_class_type("Bar"),
+            fake_class_type(&env, "Bar"),
         );
-        assert_eq!(type_info.to_string(), "Foo (_.x.y.z: Bar)");
+        assert_eq!(
+            type_info.display_with(&env).to_string(),
+            "Foo (_.x.y.z: Bar)"
+        );
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y()], w()),
-            fake_class_type("Baz"),
+            fake_class_type(&env, "Baz"),
         );
-        assert_eq!(type_info.to_string(), "Foo (_.x.y.z: Bar, _.x.y.w: Baz)");
-        type_info.add_narrow(&Vec1::from_vec_push(vec![x()], y()), fake_class_type("Qux"));
         assert_eq!(
-            type_info.to_string(),
+            type_info.display_with(&env).to_string(),
+            "Foo (_.x.y.z: Bar, _.x.y.w: Baz)"
+        );
+        type_info.add_narrow(
+            &Vec1::from_vec_push(vec![x()], y()),
+            fake_class_type(&env, "Qux"),
+        );
+        assert_eq!(
+            type_info.display_with(&env).to_string(),
             "Foo (_.x.y: Qux, _.x.y.z: Bar, _.x.y.w: Baz)"
         );
     }
 
     #[test]
     fn test_type_info_overwiting_existing_narrows() {
+        let env = TestTypeEnv::new();
         let x = || FacetKind::Attribute(Name::new_static("x"));
         let y = || FacetKind::Attribute(Name::new_static("y"));
         let z = || FacetKind::Attribute(Name::new_static("z"));
-        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
+        let mut type_info = TypeInfo::of_ty(fake_class_type(&env, "Foo"));
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y()], z()),
-            fake_class_type("Bar"),
+            fake_class_type(&env, "Bar"),
         );
-        type_info.add_narrow(&Vec1::from_vec_push(vec![x()], y()), fake_class_type("Qux"));
-        assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux, _.x.y.z: Bar)");
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x()], y()),
-            fake_class_type("Qux1"),
+            fake_class_type(&env, "Qux"),
         );
-        assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux1, _.x.y.z: Bar)");
+        assert_eq!(
+            type_info.display_with(&env).to_string(),
+            "Foo (_.x.y: Qux, _.x.y.z: Bar)"
+        );
+        type_info.add_narrow(
+            &Vec1::from_vec_push(vec![x()], y()),
+            fake_class_type(&env, "Qux1"),
+        );
+        assert_eq!(
+            type_info.display_with(&env).to_string(),
+            "Foo (_.x.y: Qux1, _.x.y.z: Bar)"
+        );
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y()], z()),
-            fake_class_type("Bar1"),
+            fake_class_type(&env, "Bar1"),
         );
-        assert_eq!(type_info.to_string(), "Foo (_.x.y: Qux1, _.x.y.z: Bar1)");
+        assert_eq!(
+            type_info.display_with(&env).to_string(),
+            "Foo (_.x.y: Qux1, _.x.y.z: Bar1)"
+        );
     }
 
     #[test]
     fn test_type_info_empty_join() {
+        let env = TestTypeEnv::new();
         let type_info = TypeInfo::join(
             Vec::new(),
             &|ts| {
                 if ts.is_empty() {
-                    fake_class_type("Never")
+                    fake_class_type(&env, "Never")
                 } else {
-                    fake_class_type("FakeUnionType")
+                    fake_class_type(&env, "FakeUnionType")
                 }
             },
             &|_, _| false,
             JoinStyle::SimpleMerge,
         );
-        assert_eq!(type_info.to_string(), "Never");
+        assert_eq!(type_info.display_with(&env).to_string(), "Never");
     }
 
     #[test]
     fn test_type_info_invalidating_prefix() {
+        let env = TestTypeEnv::new();
         let x = || FacetKind::Attribute(Name::new_static("x"));
         let y = || FacetKind::Attribute(Name::new_static("y"));
         let idx0 = || FacetKind::Index(0);
         let idx1 = || FacetKind::Index(1);
         let z = || FacetKind::Attribute(Name::new_static("z"));
-        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
-        type_info.add_narrow(&Vec1::from_vec_push(vec![x()], y()), fake_class_type("Bar"));
+        let mut type_info = TypeInfo::of_ty(fake_class_type(&env, "Foo"));
+        type_info.add_narrow(
+            &Vec1::from_vec_push(vec![x()], y()),
+            fake_class_type(&env, "Bar"),
+        );
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y(), idx0()], z()),
-            fake_class_type("Bar"),
+            fake_class_type(&env, "Bar"),
         );
         type_info.add_narrow(
             &Vec1::from_vec_push(vec![x(), y(), idx1()], z()),
-            fake_class_type("Bar"),
+            fake_class_type(&env, "Bar"),
         );
         assert_eq!(
-            type_info.to_string(),
+            type_info.display_with(&env).to_string(),
             "Foo (_.x.y: Bar, _.x.y[0].z: Bar, _.x.y[1].z: Bar)"
         );
         // x has no narrowed indexes, so do nothing
         type_info.invalidate_all_indexes_for_assignment(&[x()]);
         assert_eq!(
-            type_info.to_string(),
+            type_info.display_with(&env).to_string(),
             "Foo (_.x.y: Bar, _.x.y[0].z: Bar, _.x.y[1].z: Bar)"
         );
         // this path doesn't have any narrowing, so do nothing
         type_info.invalidate_all_indexes_for_assignment(&[x(), z()]);
         assert_eq!(
-            type_info.to_string(),
+            type_info.display_with(&env).to_string(),
             "Foo (_.x.y: Bar, _.x.y[0].z: Bar, _.x.y[1].z: Bar)"
         );
         // this clears the narrowing for both x.y[0] and x.y[1], but not x.y
         type_info.invalidate_all_indexes_for_assignment(&[x(), y()]);
-        assert_eq!(type_info.to_string(), "Foo (_.x.y: Bar)");
+        assert_eq!(type_info.display_with(&env).to_string(), "Foo (_.x.y: Bar)");
     }
 
     #[test]
     fn test_type_info_do_not_invalidate_parent() {
+        let env = TestTypeEnv::new();
         let x = || FacetKind::Attribute(Name::new_static("x"));
         let y = || FacetKind::Key("y".to_owned());
-        let mut type_info = TypeInfo::of_ty(fake_class_type("Foo"));
+        let mut type_info = TypeInfo::of_ty(fake_class_type(&env, "Foo"));
         type_info.add_narrow(
             &Vec1::from_vec_push(Vec::new(), x()),
-            fake_class_type("Bar"),
+            fake_class_type(&env, "Bar"),
         );
-        assert_eq!(type_info.to_string(), "Foo (_.x: Bar)");
+        assert_eq!(type_info.display_with(&env).to_string(), "Foo (_.x: Bar)");
         type_info.update_for_assignment(
             &Vec1::from_vec_push(vec![x()], y()),
-            Some(fake_class_type("Baz")),
+            Some(fake_class_type(&env, "Baz")),
         );
-        assert_eq!(type_info.to_string(), "Foo (_.x: Bar, _.x[\"y\"]: Baz)");
+        assert_eq!(
+            type_info.display_with(&env).to_string(),
+            "Foo (_.x: Bar, _.x[\"y\"]: Baz)"
+        );
     }
 }

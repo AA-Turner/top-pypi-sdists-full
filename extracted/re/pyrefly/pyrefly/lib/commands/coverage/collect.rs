@@ -25,12 +25,14 @@ use pyrefly_types::annotation::Annotation;
 use pyrefly_types::class::Class;
 use pyrefly_types::class::ClassType;
 use pyrefly_types::function::PropertyRole;
+use pyrefly_types::known_class::KnownClass;
 use pyrefly_types::types::Type;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::includes::Includes;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::thread_pool::ThreadCount;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprName;
 use ruff_python_ast::Parameters;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -74,6 +76,7 @@ use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionHandle;
+use crate::types::env::TypeEnv;
 
 /// All parameters with merge keys: positional-only → index, keyword-capable → name,
 /// variadic → singleton, implicit receiver → `None`.
@@ -443,29 +446,23 @@ fn is_schema_class(answers: &Answers, cls_binding: &ClassBinding) -> bool {
         })
 }
 
-/// Builtin classes whose constructor names the type it yields. Iterator adapters are left out.
-const IMPLICIT_BUILTIN_CONSTRUCTORS: &[&str] = &[
-    "bool",
-    "bytearray",
-    "bytes",
-    "complex",
-    "dict",
-    "float",
-    "frozendict",
-    "frozenset",
-    "int",
-    "list",
-    "memoryview",
-    "object",
-    "range",
-    "sentinel",
-    "set",
-    "slice",
-    "str",
-    "tuple",
+/// Generic builtin classes whose constructor names the type it returns.
+const IMPLICIT_GENERIC_BUILTINS: &[KnownClass] = &[
+    KnownClass::Dict,
+    KnownClass::FrozenDict,
+    KnownClass::FrozenSet,
+    KnownClass::List,
+    KnownClass::MemoryView,
+    KnownClass::Set,
+    KnownClass::Slice,
+    KnownClass::Tuple,
 ];
 
+/// Stdlib classes whose instances are conventionally left unannotated, as `(module, class)`.
+const IMPLICIT_STDLIB_CLASSES: &[KnownClass] = &[KnownClass::LoggingLogger, KnownClass::RePattern];
+
 fn parse_variables(
+    env: &dyn TypeEnv,
     module: &Module,
     answers: &Answers,
     exports: &SmallMap<Name, ExportLocation>,
@@ -475,30 +472,63 @@ fn parse_variables(
 ) -> Vec<Variable> {
     let bindings = answers.bindings();
 
-    /// Only a call hides its type at the assignment site, unless the callee names the class it
-    /// yields: a builtin constructor like `list()`, or an explicitly specialized class like
-    /// `Spam[int]()`.
-    fn untyped_if_call(answers: &Answers, idx: Idx<Key>, expr: &Expr) -> SlotCounts {
+    /// Only a call hides its type at the assignment site, unless the callee is the class it
+    /// returns: a non-generic class like `Spam()` or `module.Spam()`, a generic builtin like
+    /// `list()`, or an explicitly specialized class like `Spam[int]()`. Other generic classes are
+    /// left out because their type arguments are inferred. Instances of `IMPLICIT_STDLIB_CLASSES`
+    /// are exempt whatever the call.
+    fn untyped_if_call(
+        env: &dyn TypeEnv,
+        answers: &Answers,
+        idx: Idx<Key>,
+        expr: &Expr,
+    ) -> SlotCounts {
         let Expr::Call(call) = expr else {
             return SlotCounts::default();
         };
 
+        let bindings = answers.bindings();
+        let bound_type = |name: &ExprName| {
+            let key = Key::BoundName(ShortIdentifier::expr_name(name));
+            answers.get_idx(bindings.key_to_idx_hashed_opt(Hashed::new(&key))?)
+        };
         let callee_names = |cls: &ClassType| match call.func.as_ref() {
+            // Resolving the name covers aliases like `from pathlib import Path as P`, and rules
+            // out a function that shadows a builtin class.
             Expr::Name(n) => {
-                IMPLICIT_BUILTIN_CONSTRUCTORS.contains(&n.id.as_str()) && cls.is_builtin(&n.id)
+                (cls.targs().is_empty()
+                    || cls
+                        .known()
+                        .is_some_and(|known| IMPLICIT_GENERIC_BUILTINS.contains(&known)))
+                    && bound_type(n).is_some_and(
+                        |t| matches!(t.ty(), Type::ClassDef(c) if c == cls.class_object()),
+                    )
+            }
+            // Only the attribute name is compared, so the base must be a module name and generic
+            // builtins are left out: a method like `obj.Spam()` or a function like `mod.list()`
+            // doesn't match. Nested modules like `a.b.Spam()` are left out too.
+            Expr::Attribute(attr) => {
+                cls.targs().is_empty()
+                    && *cls.name(env) == attr.attr.id
+                    && attr
+                        .value
+                        .as_name_expr()
+                        .and_then(bound_type)
+                        .is_some_and(|t| matches!(t.ty(), Type::Module(_)))
             }
             Expr::Subscript(sub) => match sub.value.as_ref() {
-                Expr::Name(n) => *cls.name() == n.id,
-                Expr::Attribute(attr) => *cls.name() == attr.attr.id,
+                Expr::Name(n) => *cls.name(env) == n.id,
+                Expr::Attribute(attr) => *cls.name(env) == attr.attr.id,
                 _ => false,
             },
             _ => false,
         };
 
-        if answers
-            .get_idx(idx)
-            .is_some_and(|t| matches!(t.ty(), Type::ClassType(cls) if callee_names(cls)))
-        {
+        let is_implicit_stdlib =
+            |cls: &ClassType| IMPLICIT_STDLIB_CLASSES.iter().any(|class| cls.is(*class));
+        if answers.get_idx(idx).is_some_and(|t| {
+            matches!(t.ty(), Type::ClassType(cls) if callee_names(cls) || is_implicit_stdlib(cls))
+        }) {
             SlotCounts::default()
         } else {
             SlotCounts::untyped()
@@ -546,7 +576,7 @@ fn parse_variables(
         .filter_map(|idx| match bindings.get(idx) {
             Binding::NameAssign(na)
                 if !na.is_in_function_scope
-                    && !na.is_class_body_assignment
+                    && na.class_key.is_none()
                     && let Expr::Call(call) = na.expr.as_ref()
                     && cython_attr(bindings, &call.func)
                         .is_some_and(|f| CYTHON_DECLARATIONS.contains(&f)) =>
@@ -615,10 +645,14 @@ fn parse_variables(
                     // flow (e.g. a later `while True: ... break`). Skip optional imports
                     // (`try: import x; except _: x = None`) like plain imports.
                     _ if involves_import_or_def(bindings, *idx, &mut SmallSet::new()) => continue,
-                    Binding::NameAssign(na) => untyped_if_call(answers, *idx, na.expr.as_ref()),
+                    Binding::NameAssign(na) => {
+                        untyped_if_call(env, answers, *idx, na.expr.as_ref())
+                    }
                     Binding::MultiTargetAssign(_, rhs_idx, _, _) => match bindings.get(*rhs_idx) {
                         Binding::Function { .. } | Binding::ClassDef(..) => continue,
-                        Binding::Expr(_, expr) => untyped_if_call(answers, *idx, expr.as_ref()),
+                        Binding::Expr(_, expr) => {
+                            untyped_if_call(env, answers, *idx, expr.as_ref())
+                        }
                         _ => {
                             unreachable!(
                                 "MultiTargetAssign RHS should be Expr, Function, or ClassDef"
@@ -700,7 +734,8 @@ fn own_annotation_idx(
     match &bindings.get(field).definition {
         ClassFieldDefinition::DeclaredByAnnotation { annotation, .. } => Some(*annotation),
         ClassFieldDefinition::DefinedInMethod { annotation, .. }
-        | ClassFieldDefinition::AssignedInBody { annotation, .. } => *annotation,
+        | ClassFieldDefinition::AssignedInBody { annotation, .. }
+        | ClassFieldDefinition::DefinedWithoutAssign { annotation, .. } => *annotation,
         _ => None,
     }
 }
@@ -741,7 +776,7 @@ fn inherited_annotation_slots(
     class_idx: Idx<KeyClass>,
     field_name: &Name,
 ) -> Option<SlotCounts> {
-    let class = answers.get_idx(class_idx).and_then(|r| r.0.clone())?;
+    let class = answers.get_idx(class_idx).and_then(|r| r.0)?;
     class_mro(answers, &class)
         .ancestors_no_object()
         .iter()
@@ -805,7 +840,7 @@ fn parse_instance_attrs(
         .iter()
         .map(|&class_idx| {
             let mut names = SmallSet::new();
-            if let Some(cls) = answers.get_idx(class_idx).and_then(|r| r.0.clone()) {
+            if let Some(cls) = answers.get_idx(class_idx).and_then(|r| r.0) {
                 let ancestors = class_mro(answers, &cls).ancestors_no_object();
                 let mro =
                     std::iter::once(&cls).chain(ancestors.iter().map(ClassType::class_object));
@@ -902,6 +937,7 @@ fn parse_instance_attrs(
             ClassFieldDefinition::DeclaredByAnnotation {
                 annotation,
                 initialized_in_recognized_method,
+                ..
             } => {
                 if !initialized_in_recognized_method && !module.path().is_interface() {
                     continue;
@@ -1518,7 +1554,7 @@ fn collect_class_members(
         if binding.parent.has_function_ancestor() {
             continue;
         }
-        let Some(cls) = answers.get_idx(idx).and_then(|r| r.0.clone()) else {
+        let Some(cls) = answers.get_idx(idx).and_then(|r| r.0) else {
             continue;
         };
 
@@ -1612,6 +1648,7 @@ impl ModuleSymbols {
         merge_overloads(&mut functions);
         let mut classes = parse_classes(&module, &answers, &hidden_classes);
         let mut variables = parse_variables(
+            &transaction.type_env(handle),
             &module,
             &answers,
             &exports,
@@ -2322,6 +2359,22 @@ mod tests {
         compare_snapshot("variables.expected.json", &report);
     }
 
+    /// Calls returning a `logging.Logger` or `re.Pattern` have 0 slots, whatever the callee is.
+    /// Other calls count, even when the callee has the name of a stdlib factory.
+    #[test]
+    fn test_report_implicit_stdlib_classes() {
+        let report = build_module_report_for_test("implicit_stdlib_classes.py");
+        compare_snapshot("implicit_stdlib_classes.expected.json", &report);
+    }
+
+    /// Calling a non-generic class has 0 slots. Calling a generic class counts, because its type
+    /// arguments are inferred, and so does a callee that doesn't name the class it returns.
+    #[test]
+    fn test_report_implicit_class_constructors() {
+        let report = build_module_report_for_test("implicit_class_constructors.py");
+        compare_snapshot("implicit_class_constructors.expected.json", &report);
+    }
+
     /// gh-3773: optional imports must not be reported as untyped variables.
     #[test]
     fn test_report_optional_imports() {
@@ -2759,7 +2812,7 @@ mod tests {
 
     /// @overload merging with a fallback returning `Any`.
     /// Best-wins semantics mean the merged return is `Typed`, not `Any`.
-    /// Regression test for https://github.com/facebook/pyrefly/issues/3257.
+    /// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3257.
     #[test]
     fn test_report_overloads_any_fallback() {
         let report = build_module_report_for_test("overloads_any_fallback.py");
@@ -3287,7 +3340,7 @@ def g(x: int) -> int:
         assert!(!fqns.contains("pkg.baz"));
 
         // A re-export of a name its origin module doesn't define keeps the
-        // local FQN but traces to no origin (github.com/facebook/pyrefly/issues/4025)
+        // local FQN but traces to no origin (github.com/pyrefly-org/pyrefly/issues/4025)
         let (fqns, origins) = compute(
             &[
                 (
@@ -3517,6 +3570,43 @@ class Child(Middle):
                 }
             }
         }
+    }
+
+    /// A sentinel under a bare `Final` is a `DefinedWithoutAssign` field, and a subclass
+    /// attribute inherits its coverage from that annotation.
+    #[test]
+    fn test_inherited_bare_final_sentinel_annotation() {
+        let base = r#"
+from typing import Final
+from typing_extensions import Sentinel
+class Base:
+    plain: Final = 1
+    marker: Final = Sentinel("marker")
+"#;
+        let child = r#"
+from base import Base
+class Child(Base):
+    def __init__(self) -> None:
+        self.plain = Base.plain
+        self.marker = Base.marker
+"#;
+        let mut env = TestEnv::new();
+        env.add("base", base);
+        env.add("child", child);
+        let (state, handle) = env
+            .with_default_require_level(Require::Everything)
+            .to_state();
+        let symbols = collect_symbols(&state.transaction(), &handle("child"), false);
+        let slots = |name: &str| {
+            symbols
+                .variables
+                .iter()
+                .find(|v| v.name == format!("child.Child.{name}"))
+                .unwrap_or_else(|| panic!("missing attribute {name}"))
+                .slots
+        };
+        assert_eq!(slots("plain"), SlotCounts::typed());
+        assert_eq!(slots("marker"), SlotCounts::typed());
     }
 
     /// Inheritance coverage follows the nearest explicit attribute annotation, even across a

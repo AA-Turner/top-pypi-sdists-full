@@ -17,6 +17,36 @@ node_version:
   minor: 0
   patch: 0
 description: Host-local reconciliation with content-proven surfaces and dispatch floor eligibility.
+retirement:
+  retired_repositories:
+  - onex_change_control
+  - ycbench_onex
+  - omnibase_compat
+  # Deployment-specific names extend this policy through the node overlay.
+  backup_directory: .onex_state/retired-repository-bundles
+  sync_directories: [scripts, systemd, launchd, deploy]
+  source_sync_glob: '*sync*.py'
+  registry_file_globs:
+  - '*.yaml'
+  - '*.yml'
+  - '*repos*.json'
+  - '*registry*.json'
+  - 'config/**/*.yaml'
+  - 'config/**/*.yml'
+  - 'config/**/*.json'
+  registry_key_pattern: '^(repos|repositories|.*_repos)$'
+  registry_constant_pattern: "^_?(REPOS|REPOSITORIES|SIBLING_CLONE_MANIFEST|\
+    (DEFAULT|LANDING|SYNC|CLONE|SCAN|FILL|FLEET|CI|OTHER|KNOWN|ORG|ALL|WATCH|TARGET|REGISTRY|CANONICAL)(_[A-Z]+)*_REPOS)$"
+  # A virtualenv is generated, not declared input.
+  generated_directory_markers: [pyvenv.cfg]
+  # Compose-only YAML tags are read as their plain value; any other tag is malformed.
+  compose_yaml_tags: [override, reset]
+# The canonical clone sync keeps this flock file by design (taken with fcntl.flock
+# and never removed), so a stale-lock line naming it is judged by its lock state,
+# not by its age. Deployment-specific names extend this policy through the node
+# overlay's clone_locks.additional_persistent_flock_files.
+clone_locks:
+  persistent_flock_files: [onex-canonical-clone-sync.lock]
 input_model: omnimarket.models.model_host_reconcile.ModelHostReconcileCommand
 output_model: omnimarket.models.model_host_reconcile.ModelHostReconcileRunResult
 handler:
@@ -46,6 +76,28 @@ event_bus:
   - onex.evt.omnimarket.host-reconcile-run-completed.v1
 runtime_dispatch:
   external_trigger: true
+# The node owns its schedule: every host that runs the reconciler gets one repair-mode run per
+# cadence tick, through the node's own entry point. Which hosts those are, and what schedules the
+# run on each, is the node overlay (<root>/node_host_reconcile_effect/overlay.yaml, hosts:), and
+# the package names no host. `python -m omnimarket.nodes.node_host_reconcile_effect schedule check`
+# fails for any host that declares the reconciler with no scheduler.
+schedule:
+  unit_name: onex-host-reconcile
+  mode: repair
+  branch: dev
+  # The run bound (step timeout twice, plus 300 s) with the unit's own margin.
+  timeout_seconds: 4200
+  dispatch_venv: .onex-dispatch-venv
+  state_directory: .onex_state/host-reconcile
+  cadence:
+    on_calendar: "*-*-* *:19:00"
+    randomized_delay: 120s
+    persistent: true
+    description: hourly at minute 19
+  schedulers:
+    systemd-user: installed by this node (schedule install) as a systemd user timer
+    launchd: a launchd agent the host's owner installs; the overlay row names its label
+    external: a timer another owner installs; the overlay row names its unit
 externally_consumed_topics:
 - onex.evt.omnimarket.host-reconcile-run-completed.v1
 metadata:

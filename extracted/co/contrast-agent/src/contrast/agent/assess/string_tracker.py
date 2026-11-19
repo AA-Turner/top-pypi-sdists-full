@@ -1,6 +1,5 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-import sys
 import time
 from collections import OrderedDict
 from typing import Any
@@ -66,13 +65,12 @@ class StringTracker(OrderedDict):
     def get(self, key, default=None):
         return super().get(id(key), default)
 
-    if sys.version_info[:2] >= (3, 11):
-        # Prior to 3.11, `pop` likely uses `__getitem__` under the hood. However, this
-        # is no longer true in 3.11, which means we need to override this method.
-        def pop(self, key, default: Any = _NoDefault):
-            if default is _NoDefault:
-                return super().pop(id(key))
-            return super().pop(id(key), default)
+    # Prior to 3.11, `pop` likely uses `__getitem__` under the hood. However, this
+    # is no longer true in 3.11, which means we need to override this method.
+    def pop(self, key, default: Any = _NoDefault):
+        if default is _NoDefault:
+            return super().pop(id(key))
+        return super().pop(id(key), default)
 
     def __contains__(self, key):
         return super().__contains__(id(key))

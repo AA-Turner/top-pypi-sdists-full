@@ -15,14 +15,16 @@ use pyrefly_types::dimension::canonicalize;
 use pyrefly_types::dimension::gradual_size;
 use pyrefly_types::dimension::is_gradual_size;
 use pyrefly_types::dimension::is_optional_int;
+use pyrefly_types::env::TypeEnv;
 use pyrefly_types::heap::TypeHeap;
+use pyrefly_types::known_class::KnownClass;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::quantified::QuantifiedKind;
+use pyrefly_types::quantified::TypeVarLike;
 use pyrefly_types::shaped_array::IntTuple;
 use pyrefly_types::shaped_array::is_int_tuples_type;
 use pyrefly_types::shaped_array::tuple_carrier_to_shape;
 use pyrefly_types::simplify::unions;
-use pyrefly_types::stdlib::Stdlib;
 use pyrefly_types::tuple::Tuple;
 use pyrefly_types::type_var::Restriction;
 use pyrefly_types::types::Type;
@@ -35,7 +37,7 @@ use pyrefly_types::types::Type;
 pub(crate) fn type_as_intvar_solution(ty: &Type) -> Option<Type> {
     match ty {
         _ if ty.is_any() => Some(gradual_size()),
-        Type::ClassType(cls) if cls.is_builtin("int") => Some(gradual_size()),
+        Type::ClassType(cls) if cls.is(KnownClass::Int) => Some(gradual_size()),
         Type::Quantified(q) if q.kind() == QuantifiedKind::IntVar => Some(ty.clone()),
         Type::TypeVar(tv) if tv.kind() == QuantifiedKind::IntVar => Some(ty.clone()),
         // An unsolved solver variable has no dimension structure for `Int::from_type` to retain.
@@ -49,7 +51,7 @@ fn shape_int_bound_solution(ty: &Type) -> Option<Type> {
     match ty {
         Type::Var(_) => None,
         Type::Any(_) => Some(gradual_size()),
-        Type::ClassType(cls) if cls.is_builtin("int") => Some(gradual_size()),
+        Type::ClassType(cls) if cls.is(KnownClass::Int) => Some(gradual_size()),
         _ => Int::from_type(ty).map(|dimension| canonicalize(Type::Int(dimension))),
     }
 }
@@ -90,7 +92,7 @@ fn canonicalize_int_tuples_member(ty: &Type) -> Type {
     int_tuples_member(ty).unwrap_or_else(|| ty.clone())
 }
 
-fn canonicalize_int_tuples_sequence(candidate: &Type, heap: &TypeHeap) -> Type {
+fn canonicalize_int_tuples_sequence(candidate: &Type, env: &dyn TypeEnv, heap: &TypeHeap) -> Type {
     match candidate {
         Type::Tuple(Tuple::Concrete(members)) => Type::Tuple(Tuple::Concrete(
             members.iter().map(canonicalize_int_tuples_member).collect(),
@@ -102,7 +104,7 @@ fn canonicalize_int_tuples_sequence(candidate: &Type, heap: &TypeHeap) -> Type {
             let (prefix, middle, suffix) = parts.parts();
             Type::Tuple(Tuple::unpacked(
                 prefix.iter().map(canonicalize_int_tuples_member).collect(),
-                canonicalize_int_tuples_sequence(middle, heap),
+                canonicalize_int_tuples_sequence(middle, env, heap),
                 suffix.iter().map(canonicalize_int_tuples_member).collect(),
             ))
         }
@@ -112,8 +114,9 @@ fn canonicalize_int_tuples_sequence(candidate: &Type, heap: &TypeHeap) -> Type {
                 union
                     .members
                     .iter()
-                    .map(|member| canonicalize_int_tuples_sequence(member, heap))
+                    .map(|member| canonicalize_int_tuples_sequence(member, env, heap))
                     .collect(),
+                env,
                 heap,
             );
             if let Type::Union(normalized_union) = &mut normalized {
@@ -134,6 +137,7 @@ fn canonicalize_int_tuples_sequence(candidate: &Type, heap: &TypeHeap) -> Type {
 pub(crate) fn normalize_shape_tuple_bound_candidate(
     quantified: &Quantified,
     candidate: &Type,
+    env: &dyn TypeEnv,
     heap: &TypeHeap,
 ) -> Option<Type> {
     if quantified.kind() != QuantifiedKind::TypeVar {
@@ -142,7 +146,7 @@ pub(crate) fn normalize_shape_tuple_bound_candidate(
     match quantified.restriction() {
         Restriction::Bound(Type::IntTuple(_)) => Some(candidate.clone()),
         Restriction::Bound(bound) if is_int_tuples_type(bound) => {
-            Some(canonicalize_int_tuples_sequence(candidate, heap))
+            Some(canonicalize_int_tuples_sequence(candidate, env, heap))
         }
         _ => None,
     }
@@ -157,7 +161,7 @@ pub(crate) fn normalize_shape_tuple_bound_candidate(
 pub(crate) fn normalize_shape_int_bound_solution(
     quantified: &Quantified,
     ty: &Type,
-    stdlib: &Stdlib,
+    env: &dyn TypeEnv,
     heap: &TypeHeap,
 ) -> Option<ShapeIntBoundSolution> {
     if quantified.kind() != QuantifiedKind::TypeVar {
@@ -172,8 +176,7 @@ pub(crate) fn normalize_shape_int_bound_solution(
         return None;
     }
     let normalize_member = |member: &Type| {
-        shape_int_bound_solution(member)
-            .unwrap_or_else(|| member.clone().promote_implicit_literals(stdlib))
+        shape_int_bound_solution(member).unwrap_or_else(|| member.clone().promote(env.stdlib()))
     };
     if optional_int_bound {
         let normalize_optional_member = |member: &Type| match member {
@@ -188,6 +191,7 @@ pub(crate) fn normalize_shape_int_bound_solution(
                         .iter()
                         .map(normalize_optional_member)
                         .collect(),
+                    env,
                     heap,
                 ),
                 member => normalize_optional_member(member),
@@ -205,11 +209,11 @@ pub(crate) fn normalize_shape_int_bound_solution(
             if members.iter().all(|member| matches!(member, Type::Int(_))) {
                 ShapeIntBoundSolution {
                     answer: gradual_size(),
-                    precise_union: Some(unions(members, heap)),
+                    precise_union: Some(unions(members, env, heap)),
                 }
             } else {
                 ShapeIntBoundSolution {
-                    answer: unions(members, heap),
+                    answer: unions(members, env, heap),
                     precise_union: None,
                 }
             }
@@ -241,26 +245,6 @@ pub(crate) fn simplify_shape_type(ty: &mut Type) {
     if let Type::IntTuple(shape) = ty {
         **shape = shape.normalize();
     }
-    if let Type::ShapedArray(tensor) = ty {
-        match tensor.tuple_carrier_shape_arg_index() {
-            Some(index)
-                if !matches!(
-                    tensor.base_class.targs().as_slice().get(index),
-                    Some(Type::IntTuple(_))
-                ) =>
-            {
-                let shape = tensor.shape();
-                tensor.set_shape(shape);
-            }
-            None => {
-                let shape = tensor.shape().normalize();
-                tensor.set_shape(shape);
-            }
-            // This traversal is post-order, so the first-class shape argument was normalized
-            // before its containing shaped array.
-            Some(_) => {}
-        }
-    }
 }
 
 #[cfg(test)]
@@ -268,6 +252,7 @@ mod tests {
     use pyrefly_types::identity::IdentityIgnored;
     use pyrefly_types::lit_int::LitInt;
     use pyrefly_types::shaped_array::IntTuple;
+    use pyrefly_types::test_type_env::TestTypeEnv;
     use pyrefly_types::tuple::Tuple;
     use pyrefly_types::types::Union;
     use pyrefly_types::types::Var;
@@ -289,7 +274,7 @@ mod tests {
             IntTuple::new(vec![Int::Literal(2)]).to_shape_arg_type(),
         ]));
         assert_eq!(
-            canonicalize_int_tuples_sequence(&candidate, &TypeHeap::new()),
+            canonicalize_int_tuples_sequence(&candidate, &TestTypeEnv::new(), &TypeHeap::new()),
             expected
         );
 
@@ -300,7 +285,7 @@ mod tests {
         ));
         let canonical_member = IntTuple::new(vec![Int::Literal(2)]).to_shape_arg_type();
         assert_eq!(
-            canonicalize_int_tuples_sequence(&unpacked, &TypeHeap::new()),
+            canonicalize_int_tuples_sequence(&unpacked, &TestTypeEnv::new(), &TypeHeap::new()),
             Type::Tuple(Tuple::unpacked(
                 vec![canonical_member.clone()],
                 Type::Tuple(Tuple::Unbounded(Box::new(canonical_member.clone()))),
@@ -320,7 +305,7 @@ mod tests {
             display_name: IdentityIgnored(None),
         }));
         assert_eq!(
-            canonicalize_int_tuples_sequence(&candidate, &TypeHeap::new()),
+            canonicalize_int_tuples_sequence(&candidate, &TestTypeEnv::new(), &TypeHeap::new()),
             Type::Union(Box::new(Union {
                 members: vec![
                     Type::Tuple(Tuple::Concrete(vec![

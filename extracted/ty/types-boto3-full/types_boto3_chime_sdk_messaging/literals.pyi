@@ -80,6 +80,7 @@ SearchFieldOperatorType = Literal["EQUALS", "INCLUDES"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 ChimeSDKMessagingServiceName = Literal["chime-sdk-messaging"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -3,7 +3,6 @@ from enum import Enum
 
 class ListScriptsResponse200ItemKind(str, Enum):
     APPROVAL = "approval"
-    COMMAND = "command"
     FAILURE = "failure"
     PREPROCESSOR = "preprocessor"
     SCRIPT = "script"

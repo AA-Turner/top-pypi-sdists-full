@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import hashlib
 import os
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -80,32 +79,9 @@ def write_user_js(profile_dir: "str | os.PathLike[str]", prefs: Dict[str, Any]) 
     return out
 
 
-def tz_env(timezone: str) -> str:
-    """DEPRECATED, and it does nothing: returns ``timezone`` unchanged. It
-    goes in the next release.
-
-    It mapped an IANA zone to the ``TZ`` the launch put in the browser's
-    environment, so that the C runtime and ICU agreed with Date and Intl. From
-    the firefox-50 engine nothing a page can reach reads ``TZ``: every realm,
-    worker and worklet, ``document.lastModified`` and EXSLT's date take the
-    zone from ``juggler.timezone.override`` and the context's own
-    (``_apply_timezone``), and the launch no longer writes ``TZ`` at all. The
-    table was also the defect: on Windows no value of ``TZ`` satisfies both the
-    C runtime and ICU, so America/Phoenix gave the machine's zone in a Worker
-    ([B334]), and the zones outside the table were never covered.
-    """
-    warnings.warn(
-        "invisible_core.tz_env is deprecated and does nothing: the engine reads "
-        "the session's zone from juggler.timezone.override, not from TZ. It "
-        "will be removed in the next release.",
-        DeprecationWarning, stacklevel=2)
-    return timezone
-
-
 def build_launch_env(
     prefs: Dict[str, Any],
     *,
-    timezone: Optional[str] = None,
     #: The host network to DECLARE (`_webrtc_network.network_to_declare`); every
     #: session declares it, with or without a proxy. None only for a caller that builds
     #: an environment by hand.
@@ -135,8 +111,7 @@ def build_launch_env(
     base_env wins.
 
     No ``TZ``: the engine takes the session's zone from the prefs
-    (``juggler.timezone.override``) in every realm, and ``timezone=`` is
-    accepted for one release only to warn that it does nothing (``tz_env``).
+    (``juggler.timezone.override``) in every realm.
 
     STEALTHFOX_FONT_MANIFEST points the engine at the font manifest THIS package
     declares, and it has to be an env var rather than the pref of the same name:
@@ -153,12 +128,6 @@ def build_launch_env(
     engine on its packaged copy - the floor a browser launched without this
     package still has to stand on.
     """
-    if timezone is not None:
-        warnings.warn(
-            "build_launch_env(timezone=...) is deprecated and does nothing: the "
-            "engine reads the session's zone from juggler.timezone.override, not "
-            "from TZ. It will be removed in the next release.",
-            DeprecationWarning, stacklevel=2)
     env = _engine_env.without_the_hosts(dict(os.environ if base_env is None else base_env))
     if manifest_path is not None:
         # An already-set value in base_env wins, same rule as the network declaration:
@@ -273,35 +242,6 @@ def cached_font_manifest_path(manifest: str) -> "Path | None":
                 pass
             if not (out.is_file() and out.read_bytes() == raw):
                 raise
-    return out
-
-
-def write_font_manifest(profile_dir: "str | os.PathLike[str]",
-                        manifest: str) -> "Path | None":
-    """Write `manifest` beside the profile and return its path, or None.
-
-    Returns None for an empty manifest rather than writing an empty file: the
-    engine treats an unreadable or empty source as "use my own copy", and an
-    empty file would be an indistinguishable way of saying the same thing while
-    looking like a configured one.
-
-    Written as BYTES with an explicit ascii encode. `write_text` on Windows
-    translates every newline to CRLF, and this project has already shipped a
-    30k-star repository a commit that was 48 additions and 48 deletions for a
-    one-line change because of exactly that. The engine's parser splits on a
-    bare newline.
-    """
-    if not manifest:
-        return None
-    d = Path(profile_dir)
-    d.mkdir(parents=True, exist_ok=True)
-    out = d / "bundle-fonts.list"
-    raw = manifest.encode("ascii")
-    # bytes([13, 10]), not a literal: a CR escape written through a shell
-    # heredoc is how this very line was corrupted on the first attempt, which is
-    # the same failure the assertion is guarding against.
-    assert bytes([13, 10]) not in raw, "il manifest ha terminazioni CRLF"
-    out.write_bytes(raw)
     return out
 
 

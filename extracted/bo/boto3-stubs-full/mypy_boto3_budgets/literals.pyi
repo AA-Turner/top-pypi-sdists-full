@@ -165,6 +165,7 @@ ThresholdTypeType = Literal["ABSOLUTE_VALUE", "PERCENTAGE"]
 TimeUnitType = Literal["ANNUALLY", "CUSTOM", "DAILY", "MONTHLY", "QUARTERLY"]
 BudgetsServiceName = Literal["budgets"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

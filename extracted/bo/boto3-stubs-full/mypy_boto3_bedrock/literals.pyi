@@ -320,6 +320,7 @@ StatusType = Literal["INCOMPATIBLE_ENDPOINT", "REGISTERED"]
 VectorSearchRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
 BedrockServiceName = Literal["bedrock"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

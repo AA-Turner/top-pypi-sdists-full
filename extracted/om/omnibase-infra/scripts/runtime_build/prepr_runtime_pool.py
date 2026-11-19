@@ -102,22 +102,32 @@ from typing import Any, Protocol
 
 import yaml
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[1]
+from omnibase_infra.models.lab_proof.model_proof_ledger import ModelProofLedger
+from omnibase_infra.models.lab_proof.model_proof_log_bundle import (
+    ARCHIVE_KEY,
+    STACK_BUILT_LINES,
+    ModelProofLogBundle,
+)
+
+
+def _sibling(*parts: str) -> Path:
+    return Path(__file__).resolve().parents[2].joinpath(*parts)
+
+
 # OMN-20934: the pool names the lab's machines, so it is deployment config and
 # never ships here. Whoever runs the pool supplies it under their workspace
 # config root, resolved by the runtime's workspace config owner resolver.
 POOL_CONFIG_RELATIVE = Path("config") / "lab" / "prepr_runtime_pool.yaml"
 # OMN-20934: the lane manifest is private config too; the census planner owns
 # where it is read from.
-LANE_CENSUS_PLAN_PY = SCRIPT_DIR.parent / "lane_census_plan.py"
-PROVE_SH = SCRIPT_DIR / "prepr_pool_prove.sh"
-SLOT_LEASE_PY = SCRIPT_DIR / "prepr_teardown_slot.py"
-SLOT_POLICY_PY = SCRIPT_DIR / "prepr_slot_policy.py"
+LANE_CENSUS_PLAN_PY = _sibling("scripts", "lane_census_plan.py")
+PROVE_SH = _sibling("scripts", "runtime_build", "prepr_pool_prove.sh")
+SLOT_LEASE_PY = _sibling("scripts", "runtime_build", "prepr_teardown_slot.py")
+SLOT_POLICY_PY = _sibling("scripts", "runtime_build", "prepr_slot_policy.py")
 # OMN-19566: the receipt module, the fact publisher and the profile registry
-LAB_PASS_RECEIPT_PY = SCRIPT_DIR.parent / "ci" / "lab_pass_receipt.py"
-PUBLISH_LAB_FACT_PY = SCRIPT_DIR.parent / "ci" / "publish_lab_fact_event.py"
-PROFILE_REGISTRY = REPO_ROOT / "config" / "lab_proof_profiles.yaml"
+LAB_PASS_RECEIPT_PY = _sibling("scripts", "ci", "lab_pass_receipt.py")
+PUBLISH_LAB_FACT_PY = _sibling("scripts", "ci", "publish_lab_fact_event.py")
+PROFILE_REGISTRY = _sibling("config", "lab_proof_profiles.yaml")
 RUNTIME_PROOF_KIND = "runtime_image"
 
 KINDS = ("isolated", "prepr-slot")
@@ -143,15 +153,10 @@ POST_BRINGUP_PARAM = "POST_BRINGUP_CMD"
 #: The literal dot prepr_pool_prove.sh puts on each side of a LIVE_GREP term it
 #: derives from a changed node (OMN-19566): a runtime logs ``.<node>.`` only once
 #: the node runs (its consumer group, its own loggers), never on discovery.
-LIVE_TERM_DOT = "[.]"
 
-# Prepended to every remote command: a non-login ssh shell on a Docker Desktop
-# Mac has no docker on PATH, and a bare `docker ps` there reads zero containers
-# and is false (STATUS ledger:4019).
-REMOTE_PATH = (
-    "export PATH=/Applications/Docker.app/Contents/Resources/bin:/usr/local/bin:"
-    "$HOME/.local/bin:/opt/homebrew/bin:$PATH; "
-)
+# Prepended to every remote command (the overlay's remote_command_prefix): a
+# non-login ssh shell on a Docker Desktop Mac has no docker on PATH, and a bare
+# `docker ps` there reads zero containers and is false (STATUS ledger:4019).
 
 
 # --------------------------------------------------------------------------- config
@@ -217,34 +222,47 @@ def _slot_policy() -> ModuleType:
 def default_pool_config() -> Path:
     """The pool table under the workspace config root, or a loud refusal.
 
-    The root is the runtime's workspace config owner for ``$OMNI_HOME``
-    (``workspace_runtime_config_root``: ``$ONEX_WORKSPACE_CONFIG_ROOT`` when set).
-    There is no in-repo fallback: a fork with no overlay is told how to supply
-    one instead of being pointed at our lab.
+    The root is ``$ONEX_WORKSPACE_CONFIG_ROOT``, else the developer config of
+    ``$OMNI_HOME`` (never a directory beside the working one when it is unset).
+    There is no in-repo fallback: a fork with no overlay is told how to supply one.
     """
-    from omnibase_infra.runtime.service_kernel import (
-        ENV_WORKSPACE_CONFIG_ROOT,
-        workspace_runtime_config_root,
-    )
+    import omnibase_infra.handlers.handler_workspace_config_root_resolve as resolver
+    from omnibase_infra.models.workspace import ModelWorkspaceConfigRootRequest
 
-    configured = os.environ.get(ENV_WORKSPACE_CONFIG_ROOT, "").strip()
-    registry_root = os.environ.get("OMNI_HOME", "").strip()
-    if not configured and not registry_root:
+    registry = os.environ.get("OMNI_HOME", "").strip()
+    request = ModelWorkspaceConfigRootRequest(
+        workspace_root=Path(registry or "."), allow_developer_config=bool(registry)
+    )
+    resolution = (handler := resolver.HandlerWorkspaceConfigRootResolve()).handle(
+        request
+    )
+    if resolution.config_root is None:
         raise ValueError(
             f"the pre-merge runtime pool is not configured: set "
-            f"{ENV_WORKSPACE_CONFIG_ROOT} to the directory that holds "
+            f"{resolver.ENV_WORKSPACE_CONFIG_ROOT} to the directory that holds "
             f"{POOL_CONFIG_RELATIVE}, or pass --config <path>"
         )
-    root = workspace_runtime_config_root(Path(registry_root or "."))
-    path = root / POOL_CONFIG_RELATIVE
+    path = resolution.config_root / POOL_CONFIG_RELATIVE
     if not path.is_file():
         raise ValueError(
             f"the pre-merge runtime pool is not configured: {path} does not exist; "
             f"write your lab's pool table there (schema: this script's "
-            f"load_pool_config), set {ENV_WORKSPACE_CONFIG_ROOT} to the directory "
+            f"load_pool_config), set {resolver.ENV_WORKSPACE_CONFIG_ROOT} to the directory "
             f"that holds {POOL_CONFIG_RELATIVE}, or pass --config <path>"
         )
     return path
+
+
+def settings() -> Any:
+    """The driver's contract overlay (OMN-22153), in the config root of the pool table."""
+    from omnibase_infra.models.prepr_pool import ModelPreprPoolOverlay
+
+    root = default_pool_config().parents[len(POOL_CONFIG_RELATIVE.parts) - 1]
+    return ModelPreprPoolOverlay.read(root)
+
+
+def _remote(command: str) -> str:
+    return str(settings().remote_command_prefix) + command
 
 
 def load_pool_config(path: Path | None = None) -> PoolConfig:
@@ -408,7 +426,7 @@ class Transport(Protocol):
 class SshTransport:
     def __init__(
         self,
-        connect_timeout: int = 10,
+        connect_timeout: int = 0,
         local_check: Callable[[str], bool] = is_this_host,
     ) -> None:
         self._local_check = local_check
@@ -417,7 +435,7 @@ class SshTransport:
             "-o",
             "BatchMode=yes",
             "-o",
-            f"ConnectTimeout={connect_timeout}",
+            f"ConnectTimeout={connect_timeout or settings().ssh_connect_timeout_s}",
         ]
 
     def _local(self, host: PoolHost) -> bool:
@@ -429,8 +447,7 @@ class SshTransport:
         try:
             if self._local(host):
                 proc = subprocess.run(
-                    ["bash", "-c", command],
-                    cwd=Path.home(),
+                    ["bash", "-c", settings().local_command_prefix + command],
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -438,7 +455,7 @@ class SshTransport:
                 )
             else:
                 proc = subprocess.run(
-                    ["ssh", *self._opts, host.ssh_target, REMOTE_PATH + command],
+                    ["ssh", *self._opts, host.ssh_target, _remote(command)],
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -477,8 +494,7 @@ class LocalTransport:
             "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
         )
         proc = subprocess.Popen(
-            ["bash", "-c", REMOTE_PATH + command],
-            cwd=Path.home(),
+            ["bash", "-c", settings().local_command_prefix + _remote(command)],
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -534,14 +550,6 @@ class HostRoutingTransport:
 # --------------------------------------------------------------------------- ledger
 
 
-_ROW = re.compile(r"^(\S+Z) \| (HOLD|RELEASE) \|")
-
-
-def _field(row: str, key: str) -> str | None:
-    m = re.search(rf"(?:^|\| |\s){key}=([^\s|]+)", row)
-    return m.group(1) if m else None
-
-
 def _parse_ts(value: str) -> dt.datetime | None:
     try:
         return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -552,37 +560,8 @@ def _parse_ts(value: str) -> dt.datetime | None:
 def live_surface_holds(
     ledger_lines: Sequence[str], now: dt.datetime
 ) -> dict[str, tuple[str, str, str]]:
-    """Map surface -> (hold id, lane, until) for every HOLD still in force.
-
-    A HOLD is in force until its ``until=`` passes or a RELEASE cites its id
-    (``re=<id>``). Rows without ``surface=`` are not host leases and are ignored.
-    """
-    holds: dict[str, tuple[str, str, str, dt.datetime]] = {}
-    released: set[str] = set()
-    for line in ledger_lines:
-        m = _ROW.match(line)
-        if not m:
-            continue
-        if m.group(2) == "RELEASE":
-            ref = _field(line, "re")
-            if ref:
-                released.add(ref)
-            continue
-        surface = _field(line, "surface")
-        until = _field(line, "until")
-        if not surface or not until:
-            continue
-        until_ts = _parse_ts(until)
-        if until_ts is None:
-            continue
-        hold_id = _field(line, "id") or f"{m.group(1)}-{_field(line, 'lane')}"
-        holds[hold_id] = (surface, _field(line, "lane") or "?", until, until_ts)
-    live: dict[str, tuple[str, str, str]] = {}
-    for hold_id, (surface, lane, until, until_ts) in holds.items():
-        if hold_id in released or until_ts <= now:
-            continue
-        live[surface] = (hold_id, lane, until)
-    return live
+    """Map surface -> (hold id, lane, until) for every HOLD still in force."""
+    return ModelProofLedger(lines=tuple(ledger_lines)).live_surface_holds(now)
 
 
 # --------------------------------------------------------------------------- probe
@@ -701,10 +680,11 @@ def survey(
 ) -> list[HostState]:
     states: list[HostState] = []
     max_workers = max(1, sum(host.status != "excluded" for host in cfg.hosts))
+    probe_s = settings().probe_timeout_s
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             i: executor.submit(
-                transport.run, host, _probe_command(cfg, host), timeout=30
+                transport.run, host, _probe_command(cfg, host), timeout=probe_s
             )
             for i, host in enumerate(cfg.hosts)
             if host.status != "excluded"
@@ -758,7 +738,7 @@ def acquire_lease(
         f"printf '%s' {shlex.quote(body)} > {lease}/lease.json && echo ACQUIRED; "
         f"else echo HELD; cat {lease}/lease.json 2>/dev/null; fi"
     )
-    rc, out = transport.run(host, cmd, timeout=30)
+    rc, out = transport.run(host, cmd, timeout=settings().lease_call_timeout_s)
     if rc == 0 and "ACQUIRED" in out:
         return True, "acquired"
     if "HELD" not in out:
@@ -789,7 +769,9 @@ def acquire_lease(
             f"else {held_now}; fi; rmdir {guard}; "
             f"else {held_now}; fi"
         )
-        rc, out = transport.run(host, break_cmd, timeout=30)
+        rc, out = transport.run(
+            host, break_cmd, timeout=settings().lease_call_timeout_s
+        )
         if rc == 0 and "ACQUIRED" in out:
             return (
                 True,
@@ -850,7 +832,7 @@ def release_lease(
         f"'') echo ABSENT;; *) echo FOREIGN;; esac; rmdir {guard}; "
         "else echo GUARDBUSY; fi"
     )
-    rc, out = transport.run(host, cmd, timeout=30)
+    rc, out = transport.run(host, cmd, timeout=settings().lease_call_timeout_s)
     if "RELEASED" in out:
         return True, "released"
     if "ABSENT" in out:
@@ -870,6 +852,7 @@ class Readback:
     restored: bool
     residue: str
     group: GroupFacts | None = None
+    changed_path: dict[str, Any] | None = None
 
     @property
     def outcome(self) -> str:
@@ -1010,8 +993,10 @@ def judge(
 ) -> Readback:
     """Decide the run from the phase outputs of prepr_pool_prove.sh.
 
-    Pure: every PASS/FAIL line a PR body cites is derived here from text, so a
-    test can hand it the text a broken stack prints and see the FAIL.
+    Pure but for the one command changed_path_live is asked of
+    (``declared_changed_path``): every PASS/FAIL line a PR body cites is derived
+    here from text, so a test can hand it the text a broken stack prints and see
+    the FAIL.
 
     ``base_probe`` is the probe output of the same bundle built at dev on the
     same host (a base control). With it, a contract that fails to wire at dev
@@ -1124,44 +1109,13 @@ def judge(
         notes.append(
             "wiring failures the base does not have: " + ", ".join(new_failures[:8])
         )
-    # OMN-19566: changed_path_live. The probe prints one mention count per
-    # LIVE_GREP name per runtime; a name no runtime mentions is a changed path
-    # that never ran. A caller may name LIVE_GREP; otherwise the probe derives
-    # it from the diff, one name per changed node that exists at the head and
-    # runs in a runtime. A node whose contract declares no topics and no runtime
-    # profile gets no name: the probe lists it on a not-applicable line instead
-    # (OMN-18893), and with no other name that line is the check's passing
-    # outcome, its evidence naming the node, never a pass for want of a line.
-    # With neither a name nor that line there is no check: the profile makes the
-    # check mandatory only for a PR that changes a node, and for such a PR the
-    # receipt's verifier then names it as missing rather than this judge
-    # inventing a pass.
-    mentions: dict[str, int] = {}
-    for _, name, count in re.findall(r"^\s+(\S+) mentions (\S+): (\d+)$", probe, re.M):
-        name = name.removeprefix(LIVE_TERM_DOT).removesuffix(LIVE_TERM_DOT)
-        # a term that carries the directory and the contract name is reported
-        # under the directory, the name a reader finds in the diff
-        name = re.sub(r"^\(([^|()]+)\|[^|()]+\)$", r"\1", name)
-        mentions[name] = mentions.get(name, 0) + int(count)
-    not_applicable = [
-        n
-        for line in re.findall(r"^live-grep not-applicable: ([^(\n]+?) \(", probe, re.M)
-        for n in line.split()
-    ]
-    if mentions:
-        dead = sorted(n for n, c in mentions.items() if c == 0)
-        checks["changed_path_live"] = not dead
-        if dead:
-            notes.append(
-                "changed path not live, no runtime log mentions: " + ", ".join(dead)
-            )
-    elif not_applicable:
-        checks["changed_path_live"] = True
-    if not_applicable:
-        notes.append(
-            "changed path not applicable, runs in no runtime (no topics, no runtime "
-            "profile): " + ", ".join(not_applicable)
-        )
+    # changed_path_live is judged by node_lab_proof_judge_compute (OMN-23715). It reads
+    # the probe's live-grep lines and the PR's changed paths; a check it does not answer
+    # stays absent, so the receipt's verifier names it missing, never a pass.
+    answer = declared_changed_path(outputs)
+    if answer is not None and answer["verdict"] != "NO_CHECK":
+        checks["changed_path_live"] = bool(answer["ok"])
+        notes += answer["notes"]
     rcs = re.findall(r"^(\S+) (?:focused|suite) rc=(\d+)", tests, re.M)
     failed_ids = re.findall(r"^FAILED (\S+)", tests, re.M)
     # pytest rc 1 = tests failed; a dev control at rc 1 means the test fails at
@@ -1238,9 +1192,7 @@ def judge(
         restored = False
         notes.append(f"slot teardown verdict {slot_td.group(1)}")
     residue += f", snapshot-diff={diff_m.group(1) if diff_m else 'missing'}"
-    return Readback(
-        checks=checks, notes=notes, restored=restored, residue=residue, group=group
-    )
+    return Readback(checks, notes, restored, residue, group, answer)
 
 
 #: how many trailing lines of the post-up command's output the readback carries
@@ -1507,6 +1459,29 @@ def pr_changed_paths(clone: str) -> dict[tuple[str, int], list[str]]:
     return changed
 
 
+def declared_changed_path(outputs: Mapping[str, str]) -> dict[str, Any] | None:
+    """node_lab_proof_judge_compute's answer for changed_path_live, or None (OMN-23715).
+
+    None when the overlay names no command or the command errors or answers nothing
+    readable: the check then stays absent, never a pass.
+    """
+    command = settings().lab_proof_judge_command.strip()
+    if not command:
+        return None
+    done = subprocess.run(
+        [*shlex.split(os.path.expandvars(command)), "pool-run"],
+        input=json.dumps({k: outputs.get(k, "") for k in ("clone", "probe")}),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=settings().fact_publish_timeout_s,
+    )
+    answer = None
+    with contextlib.suppress(ValueError):
+        answer = json.loads(done.stdout) if done.returncode == 0 else None
+    return answer if isinstance(answer, dict) else None
+
+
 def _lines(text: str, pattern: str) -> str:
     return "; ".join(m.strip() for m in re.findall(pattern, text, re.M))
 
@@ -1534,7 +1509,7 @@ def _check_map(
         "group_built": ("group_built", _lines(clone, r"^group-commit .*$")),
         "stack_built": (
             "stack_built",
-            _lines(build, r"^(?:build|up) rc=\d+.*$|^slot-migration FAILED$"),
+            _lines(build, STACK_BUILT_LINES),
         ),
         "image_identity": (
             "runtime_image_identity",
@@ -1565,14 +1540,6 @@ def _check_map(
             "post_bringup",
             _lines(outputs.get("post-bringup", ""), r"^post-bringup .*$"),
         ),
-        "changed_path_live": (
-            "changed_path_live",
-            _lines(
-                probe,
-                r"^(?:live-grep (?:derived from the diff|not-applicable): .*"
-                r"|\s+\S+ mentions \S+: \d+)$",
-            ),
-        ),
     }
 
 
@@ -1597,6 +1564,8 @@ def receipt_checks(
     for key, ok in rb.checks.items():
         name, lines = mapping.get(key, (key, ""))
         evidence = lines or f"no line for {key} in the phase output"
+        if key == "changed_path_live" and rb.changed_path:
+            evidence = rb.changed_path["evidence"]
         evidence = f"prepr_runtime_pool.judge {key}: {evidence}"[:_EVIDENCE_LIMIT]
         if not built and key not in _STACK_INDEPENDENT:
             rows.append(
@@ -1794,7 +1763,7 @@ def publish_events(
             capture_output=True,
             text=True,
             check=False,
-            timeout=120,
+            timeout=settings().fact_publish_timeout_s,
         )
         said = (done.stdout.strip() or done.stderr.strip() or "no output").splitlines()
         results.append(f"  publish {m.key}: rc={done.returncode} {said[-1][:240]}")
@@ -1845,7 +1814,7 @@ def dispatch_check_runs(
                 capture_output=True,
                 text=True,
                 check=False,
-                timeout=60,
+                timeout=settings().check_run_dispatch_timeout_s,
             )
         except (OSError, subprocess.SubprocessError) as exc:
             results.append(
@@ -1921,6 +1890,7 @@ def run_proof(
     publish: Callable[[Sequence[MintedReceipt]], list[str]] | None = None,
     overlay: Path | None = None,
     post_up_command: str | None = None,
+    ledger_append: Callable[[str], None] = ModelProofLedger.no_append,
 ) -> tuple[int, str]:
     params = read_params(params_path)
     if overlay is not None and not overlay.is_file():
@@ -2030,11 +2000,13 @@ def run_proof(
                 not in (
                     "INFRA_PR",
                     "INFRA_HEAD",
+                    "INFRA_TAG",
                     "INFRA_GROUP",
                     "INFRA_GROUP_BASE",
                     "INFRA_GROUP_TREE",
                     "MARKET_PR",
                     "MARKET_HEAD",
+                    "MARKET_TAG",
                     "MARKET_GROUP",
                     "MARKET_GROUP_BASE",
                     "MARKET_GROUP_TREE",
@@ -2073,6 +2045,13 @@ def run_proof(
     text = render_readback(
         rb, host, params, started, finished_at.strftime("%Y-%m-%dT%H:%M:%SZ")
     )
+    # OMN-19998: the build logs are read back before teardown removes them, and
+    # kept beside the receipts; the receipt's stack_built evidence names them.
+    out_dir = receipt_dir or params_path.parent / "lab-proof-receipts"
+    logs_text, outputs["build"] = ModelProofLogBundle.keep(
+        outputs, out_dir / f"{holder}-{now:%Y%m%dT%H%M%SZ}.logs"
+    )
+    text += "\n" + logs_text
     # OMN-19566: every proof, PASS, FAIL or INCONCLUSIVE, leaves one pr-head
     # receipt per PR it proved, keyed by the exact head, beside its bus event.
     minted, receipt_notes = mint_pr_head_receipts(
@@ -2083,13 +2062,21 @@ def run_proof(
         now,
         max(finished_at, now),
         verifier_identity or default_verifier_identity(),
-        receipt_dir or params_path.parent / "lab-proof-receipts",
+        out_dir,
     )
     receipt_text = render_receipts(minted, receipt_notes)
     if receipt_text:
         text += "\n" + receipt_text
     if publish is not None and minted:
         text += "\n" + "\n".join(publish(minted))
+    # OMN-19998: two INCONCLUSIVE proofs in a row for one repo raise an alarm row
+    if rb.outcome == "INCONCLUSIVE":
+        text += ModelProofLedger(lines=tuple(ledger_lines)).alarm_on_streak(
+            [f.repo for f in pr_subject_facts(outputs.get("clone", ""))],
+            f"{started}-{holder}",
+            finished_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            ledger_append,
+        )
     # the ledger grammar takes PASS, FAIL or ABORTED on a surface RELEASE; an
     # INCONCLUSIVE run is released as ABORTED with the verdict in its text
     release_result = rb.outcome if rb.outcome in ("PASS", "FAIL") else "ABORTED"
@@ -2102,27 +2089,14 @@ def run_proof(
 
 
 # Set by the driver from the pool config; a params file cannot override them.
-RESERVED_PARAMS = (
-    "TAG",
-    "W",
-    "MODEL_ENDPOINT",
-    "DOCKER_CONFIG_MODE",
-    "SLOT_KIND",
-    "PREPR_SLOT",
-    "PROJECT",
-    "MAIN_PORT",
-    "EFFECTS_PORT",
-    "SLOT_PORTS",
-    "POSITIVE_CONTROL",
-    "NEIGHBOUR_PROJECTS",
-    "REASON",
-    "OVERLAY_FILE",
-    "POST_UP_COMMAND",
-    "ONEX_PREPR_LEASE_TOKEN",
-    "ONEX_PREPR_LEASE_DIR",
-    "ONEX_PREPR_REAPER_HELD",
-    "ONEX_LANE_LOCK_HELD",
-    "ONEX_LANE_LOCK_DIR",
+RESERVED_PARAMS = tuple(
+    shlex.split(
+        "TAG W MODEL_ENDPOINT CLONE_BASE_URL PROBE_POLL_S DOCKER_CONFIG_MODE SLOT_KIND "
+        "PREPR_SLOT PROJECT MAIN_PORT EFFECTS_PORT SLOT_PORTS POSITIVE_CONTROL "
+        "NEIGHBOUR_PROJECTS REASON OVERLAY_FILE POST_UP_COMMAND ONEX_PREPR_LEASE_TOKEN "
+        "ONEX_PREPR_LEASE_DIR ONEX_PREPR_REAPER_HELD ONEX_LANE_LOCK_HELD "
+        "ONEX_LANE_LOCK_DIR"
+    )
 )
 
 
@@ -2182,6 +2156,8 @@ def _run_stack(
         f"TAG={tag}",
         f"W={work}",
         f"MODEL_ENDPOINT={shlex.quote(cfg.model_endpoint)}",
+        f"CLONE_BASE_URL={shlex.quote(settings().clone_base_url())}",
+        f"PROBE_POLL_S={settings().probe_poll_s}",
         f"DOCKER_CONFIG_MODE={shlex.quote(host.docker_config)}",
         f"SLOT_KIND={host.kind}",
         f"PREPR_SLOT={host.slot}",
@@ -2255,7 +2231,8 @@ def _run_stack(
         return rc
 
     try:
-        transport.run(host, f"mkdir -p {remote_dir}", timeout=30)
+        setup_s = settings().remote_setup_timeout_s
+        transport.run(host, f"mkdir -p {remote_dir}", timeout=setup_s)
         if transport.put(host, PROVE_SH, f"{remote_dir}/prove.sh") or transport.put(
             host, local_env, f"{remote_dir}/params.env"
         ):
@@ -2280,11 +2257,14 @@ def _run_stack(
         log(f"run aborted before teardown: {exc}")
     finally:
         with defer_interrupts():
+            _, outputs[ARCHIVE_KEY] = transport.run(
+                host, ModelProofLogBundle.fetch_command(work), timeout=setup_s
+            )
             for phase in ("teardown", "snap-post"):
                 if "lease-lost" in outputs:
                     break
                 phase_run(phase, 600)
-            transport.run(host, f"rm -rf {remote_dir} /tmp/{tag}-*", timeout=30)
+            transport.run(host, f"rm -rf {remote_dir} /tmp/{tag}-*", timeout=setup_s)
     return outputs
 
 
@@ -2405,7 +2385,7 @@ def resolve_ref_in_clone(clone: Path, ref: str) -> str:
         ["git", "-C", str(clone), "rev-parse", "--verify", "--quiet", spec],
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=settings().git_resolve_timeout_s,
         check=False,
         # a git hook's GIT_DIR would override -C and read some other repository
         env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
@@ -3028,6 +3008,9 @@ def main(argv: Sequence[str] | None = None, transport: Transport | None = None) 
         verifier_identity=args.verifier_identity,
         publish=publisher,
         overlay=args.overlay,
+        ledger_append=ModelProofLedger.appender(
+            os.environ.get("ONEX_LEDGER_APPEND_COMMAND", ""), args.ledger
+        ),
         post_up_command=args.post_up_command,
     )
     print(text)

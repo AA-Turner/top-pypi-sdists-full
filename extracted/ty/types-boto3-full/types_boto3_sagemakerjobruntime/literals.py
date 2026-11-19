@@ -33,6 +33,7 @@ __all__ = (
 CompletionStatusType = Literal["failed", "ready"]
 SagemakerJobRuntimeServiceServiceName = Literal["sagemakerjobruntime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -191,6 +191,7 @@ TemplateVersionStatusType = Literal[
 ]
 ProtonServiceName = Literal["proton"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

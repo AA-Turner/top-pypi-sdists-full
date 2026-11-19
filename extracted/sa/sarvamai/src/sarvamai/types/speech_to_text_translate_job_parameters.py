@@ -18,10 +18,11 @@ class SpeechToTextTranslateJobParameters(UniversalBaseModel):
     """
     Model to be used for speech to text translation.
     
-    - **saaras:v2.5** (default): Translation model that translates audio from any spoken Indic language to English.
+    - **saaras:v3** (default): Translation model that translates audio from any spoken Indic language to English.
       - Example: Hindi audio → English text output
+    - **saaras:v2.5**: Earlier translation model, kept for backward compatibility.
     
-    For the latest model (saaras:v3), use the `/speech-to-text` endpoint with `mode="translate"`.
+    `saaras:v4` is not supported on this endpoint. For the latest model (saaras:v4), use the `/speech-to-text` endpoint with `mode="translate"`.
     """
 
     with_diarization: typing.Optional[bool] = pydantic.Field(default=None)

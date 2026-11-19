@@ -1,12 +1,12 @@
 import operator as op
-from functools import partial
 import sys
+from functools import partial
 
 import numpy as np
+
 from .. import units as pq
 from ..quantity import Quantity
 from .common import TestCase
-
 
 if sys.version.startswith('3'):
     long = int
@@ -183,6 +183,20 @@ class TestDTypes(TestCase):
         self.assertQuantityEqual(
             -Quantity(-5.0, 'm'),
             Quantity(5.0, 'm')
+        )
+
+    def test_positive(self):
+        self.assertQuantityEqual(
+            +pq.m,
+            Quantity(1, 'm')
+        )
+        self.assertQuantityEqual(
+            +Quantity(5, 'm'),
+            Quantity(5, 'm')
+        )
+        self.assertQuantityEqual(
+            +Quantity(-5.0, 'm'),
+            Quantity(-5.0, 'm')
         )
 
     def test_addition(self):

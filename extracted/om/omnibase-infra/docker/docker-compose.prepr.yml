@@ -189,12 +189,11 @@ services:
   # Docker daemon, not within a project. A second copy on a slot would race the
   # dev lane's own autoheal over the dev lane's containers.
   autoheal: *prepr_fenced
-  # The migration gate and the intelligence API gate the DEV databases. A
+  # The migration gate gates the DEV databases. A
   # slot's databases are migrated by the forward-migration and
   # intelligence-migration one-shots below, under their own profile, against
   # the suffixed names.
   migration-gate: *prepr_fenced
-  intelligence-api: *prepr_fenced
   # Auxiliary consumers. Out of the slot's declared twelve (OMN-18890), so they
   # are fenced rather than namespaced: a service the lane manifest does not
   # declare must not be running in a slot, or the census cannot reconcile it.
@@ -202,7 +201,6 @@ services:
   agent-actions-consumer: *prepr_fenced
   skill-lifecycle-consumer: *prepr_fenced
   context-audit-consumer: *prepr_fenced
-  infra-routing-decisions-consumer: *prepr_fenced
   # =========================================================================
   # The slot's forward migration. Its own profile, `prepr-migrate`, so it runs
   # as an explicit one-shot step of the entrypoint and never as part of a
@@ -254,29 +252,6 @@ services:
       POSTGRES_USER: "role_omniintelligence_${ONEX_DB_SLOT:?ONEX_DB_SLOT must be set}"
       POSTGRES_PASSWORD: "${ROLE_OMNIINTELLIGENCE_PASSWORD:?ROLE_OMNIINTELLIGENCE_PASSWORD must be set}"
   # =========================================================================
-  # The gateway's existing corpus and runner, scoped to the slot. The corpus
-  # volume must also be private: its copier deletes the previous contents.
-  cloud-migration-files:
-    profiles: !override ["prepr-migrate"]
-    container_name: "omninode-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-cloud-migration-files"
-    depends_on: !override []
-    volumes: !override
-      - prepr_cloud_migrations:/work
-    labels: !override
-      - "com.omninode.lane=prepr-${ONEX_PREPR_SLOT}"
-  cloud-migration:
-    profiles: !override ["prepr-migrate"]
-    container_name: "omninode-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-cloud-migration"
-    depends_on: !override []
-    volumes: !override
-      - prepr_cloud_migrations:/work
-      - ../docker/migrations/cloud/run-cloud-migrations.sh:/run-cloud-migrations.sh:ro
-    environment:
-      DB_NAME: "omninode_cloud_${ONEX_DB_SLOT:?ONEX_DB_SLOT must be set}"
-      DB_USER: "role_omninode_${ONEX_DB_SLOT:?ONEX_DB_SLOT must be set}"
-      PGPASSWORD: "${ROLE_OMNINODE_PASSWORD:?ROLE_OMNINODE_PASSWORD must be set}"
-    labels: !override
-      - "com.omninode.lane=prepr-${ONEX_PREPR_SLOT}"
   # THE SLOT'S TWELVE. Names, ports, volumes and namespace only -- every other
   # property is inherited, which is the whole reason this is an overlay.
   #
@@ -285,13 +260,33 @@ services:
   # profile (which every dependency now is), and a slot must not wait on, or
   # be able to restart, a dev-lane container.
   # =========================================================================
+  # OMN-21433: every slot service restarts at most three times on failure. The
+  # inherited `unless-stopped` looped a service that cannot start (three writers
+  # exit in a slot on the dev-principal check) 9047 times against the shared
+  # Postgres; now it stays exited and the slot reports it.
+  # OMN-21279: the dev overlay's build-only infra image, which the slot's
+  # runtime services build omnimarket's composed image FROM. Compose refuses a
+  # `service:` build context that names a service outside the active profile,
+  # so it moves onto `prepr` with them. Its scale 0 is inherited: no container.
+  # `networks` is overridden onto the dev network because a service with none
+  # makes compose create a `default` network, and a slot never creates one
+  # (prepr_verify_rendered_slot.py refuses it; OMN-21433).
+  dev-lane-infra-runtime-image:
+    profiles: !override ["prepr"]
+    networks: !override
+      - omnibase-infra-network
   omninode-runtime:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omninode-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-runtime"
     depends_on: !override []
     ports: !override
       - "${PREPR_RUNTIME_MAIN_PORT:?PREPR_RUNTIME_MAIN_PORT must be set - the slot's reserved runtime port from prepr_slot_policy.py}:8085"
     environment:
+      # OMN-21551: docker-compose.dev-lane.yml names the dev lane's own tenant
+      # (the house tenant) as this runtime's ONEX_TENANT_ID. This lane is not
+      # that lane, so it keeps none: blank is unset to omnimarket.
+      ONEX_TENANT_ID: ""
       !!merge <<: [*prepr_slot_db_env, *prepr_slot_bus_env, *prepr_slot_marker_env]
       # OMN-19494 (LO4): the slot's own lane id, `prepr-1` or `prepr-2`. This
       # file layers over docker-compose.dev-lane.yml, which declares
@@ -320,6 +315,7 @@ services:
       # turn a branch defect into an intermittent one.
   runtime-effects:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omninode-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-runtime-effects"
     depends_on: !override []
     ports: !override
@@ -332,6 +328,10 @@ services:
       # comment-only match still fails it.
       - "${PREPR_RUNTIME_EFFECTS_PORT:?PREPR_RUNTIME_EFFECTS_PORT must be set}:8085"
     environment:
+      # OMN-21551: docker-compose.dev-lane.yml names the dev lane's own tenant
+      # (the house tenant) as this runtime's ONEX_TENANT_ID. This lane is not
+      # that lane, so it keeps none: blank is unset to omnimarket.
+      ONEX_TENANT_ID: ""
       # OMN-19812: effects names its lane too (lane-scoped effects contracts, OMN-19408).
       ONEX_RUNTIME_LANE: "prepr-${ONEX_PREPR_SLOT}"
       !!merge <<: [*prepr_slot_db_env, *prepr_slot_bus_env, *prepr_slot_marker_env]
@@ -364,14 +364,15 @@ services:
       - *lane-overlay-mount
       - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
       - ${VERTEX_ACCESS_TOKEN_HOST_FILE:-/dev/null}:/run/secrets/vertex_access_token:ro
-      - ${CODING_AGENT_CODEX_AUTH_HOST_FILE:-/dev/null}:/home/omniinfra/.codex/auth.json:ro
-      - ${CODING_AGENT_CLAUDE_CREDS_HOST_DIR:-/dev/null}:/home/omniinfra/.claude:ro
+      - ${CODING_AGENT_CODEX_AUTH_HOST_FILE:-/dev/null}:/home/${RUNTIME_USER_NAME:-omniinfra}/.codex/auth.json:ro
+      - ${CODING_AGENT_CLAUDE_CREDS_HOST_DIR:-/dev/null}:/home/${RUNTIME_USER_NAME:-omniinfra}/.claude:ro
     labels: !override
       - "com.omninode.lane=prepr-${ONEX_PREPR_SLOT}"
       - "com.omninode.service=runtime-effects"
       - "com.omninode.layer=runtime"
   runtime-worker:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omninode-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-runtime-worker"
     depends_on: !override []
     environment:
@@ -388,6 +389,7 @@ services:
       - "com.omninode.layer=runtime"
   projection-api:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omnimarket-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-projection-api"
     depends_on: !override []
     ports: !override
@@ -400,6 +402,7 @@ services:
       - "com.omninode.layer=runtime"
   tenant-projection-writer:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omnimarket-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-tenant-projection-writer"
     depends_on: !override []
     environment:
@@ -434,6 +437,7 @@ services:
   # -------------------------------------------------------------------------
   projection-tenant-registry-writer:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omnimarket-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-projection-tenant-registry-writer"
     depends_on: !override []
     environment:
@@ -445,6 +449,7 @@ services:
       - "com.omninode.layer=runtime"
   projection-delegation-writer:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omnimarket-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-projection-delegation-writer"
     depends_on: !override []
     environment:
@@ -456,6 +461,7 @@ services:
       - "com.omninode.layer=runtime"
   projection-registration-writer:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omnimarket-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-projection-registration-writer"
     depends_on: !override []
     environment:
@@ -467,6 +473,7 @@ services:
       - "com.omninode.layer=runtime"
   projection-savings-writer:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omnimarket-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-projection-savings-writer"
     depends_on: !override []
     environment:
@@ -478,6 +485,7 @@ services:
       - "com.omninode.layer=runtime"
   projection-tenant-credentials-writer:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omnimarket-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-projection-tenant-credentials-writer"
     depends_on: !override []
     environment:
@@ -489,6 +497,7 @@ services:
       - "com.omninode.layer=runtime"
   projection-live-events-writer:
     profiles: !override ["prepr"]
+    restart: "on-failure:3"
     container_name: "omnimarket-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-projection-live-events-writer"
     depends_on: !override []
     environment:
@@ -498,57 +507,13 @@ services:
       - "com.omninode.lane=prepr-${ONEX_PREPR_SLOT}"
       - "com.omninode.service=projection-live-events-writer"
       - "com.omninode.layer=runtime"
-  # -------------------------------------------------------------------------
-  # The slot's own gateway API.
-  #
-  # It carries its own profile, `prepr-gateway`, enabled by the entrypoint
-  # alongside the runtime family. Every claimed slot mints its own tenant.
-  #
-  # onex-api is IMAGE-REFERENCED (${ONEX_API_IMAGE}), not lane-built: it is a
-  # self-contained application in the omninode_infra clone with no omnibase
-  # wheel, so a slot cannot build it from the branch under test the way it
-  # builds the runtime family. OMN-18891 added the topic-namespace surface to
-  # that application, but whether the TAG on this host carries that surface is
-  # a property of when the image was last built, not of the branch. A tag
-  # predating OMN-18891 reads KAFKA_TOPIC_NAMESPACE and does nothing with it,
-  # so the container would publish UNPREFIXED into the dev lane's topics
-  # through exactly the path the isolation exists to protect.
-  #
-  # The entrypoint pins the local image digest and checks the running
-  # gateway's namespace transform before minting the slot tenant (OMN-18894).
-  # The descriptor records `gateway_started` so an omitted gateway never
-  # implies a gateway proof.
-  # -------------------------------------------------------------------------
-  onex-api:
-    profiles: !override ["prepr-gateway"]
-    container_name: "onex-api-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}"
-    depends_on: !override []
-    ports: !override
-      - "${PREPR_GATEWAY_PORT:?PREPR_GATEWAY_PORT must be set}:8000"
-    environment:
-      !!merge <<: [*prepr_slot_db_env, *prepr_slot_bus_env, *prepr_slot_marker_env]
-      OMNINODE_CLOUD_DB_URL: "postgresql://role_omninode_${ONEX_DB_SLOT:?ONEX_DB_SLOT must be set}:${ROLE_OMNINODE_PASSWORD:?ROLE_OMNINODE_PASSWORD must be set - the slot's own role_omninode_<slot> credential}@postgres:5432/omninode_cloud_${ONEX_DB_SLOT}"
-      # Shared Valkey server, the slot's own logical index. The dev lane's URL
-      # carries no index and therefore uses 0, so no slot index collides with
-      # it as long as the policy table starts at 1 -- which it does, and a test
-      # asserts it.
-      WORKFLOW_RATE_LIMIT_VALKEY_URL: "redis://:${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set}@valkey:6379/${PREPR_VALKEY_DB_INDEX:?PREPR_VALKEY_DB_INDEX must be set}"
-      ONEX_API_BASE_URL: "http://onex-api-prepr-${ONEX_PREPR_SLOT}:8000"
-    volumes: !override
-      - ${ONEX_PREPR_TENANT_STATE_DIR:?ONEX_PREPR_TENANT_STATE_DIR must name a per-slot host directory this slot may write its own tenant credential into - prepr_verify_lane.sh creates it; it is NOT the dev lane's ONEX_LAB_TENANT_STATE_DIR, because two lanes writing one credential file is two lanes sharing a tenant}:/var/lib/onex-lab-tenant
-    labels: !override
-      - "com.omninode.lane=prepr-${ONEX_PREPR_SLOT}"
-      - "com.omninode.service=onex-api"
-      - "com.omninode.layer=gateway"
-# ---------------------------------------------------------------------------
-# The network is JOINED, never created.
-#
-# `external: true` is what makes this true mechanically. Without it compose
-# would create `omnibase-infra-network` if absent -- and the dangerous case is
-# not absence, it is a slot brought up while the dev lane is down, creating the
-# network with its own settings and owning it, so the dev lane's next bring-up
-# attaches to a network a slot made and a slot's teardown can remove.
-# ---------------------------------------------------------------------------
+  # OMN-19513: the claude hook-events projection writer belongs to the primary
+  # dev lane. A slot's lane is outside the node's own `runtime_lanes` scope, so a
+  # slot's main runtime never attaches the node and a writer here would wire zero
+  # contracts. Back to the inert profile the base file declares; SLOT_SERVICES
+  # does not name it either.
+  projection-claude-hook-events-writer:
+    profiles: !override ["profile-carrier-optin"]
 networks:
   omnibase-infra-network:
     name: omnibase-infra-network
@@ -563,8 +528,6 @@ networks:
 # would have mounted one is fenced.
 # ---------------------------------------------------------------------------
 volumes:
-  prepr_cloud_migrations:
-    name: "omninode-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-cloud-migrations"
   prepr_runtime_logs:
     name: "omninode-prepr-${ONEX_PREPR_SLOT:?ONEX_PREPR_SLOT must be set}-runtime-logs"
   prepr_runtime_data:

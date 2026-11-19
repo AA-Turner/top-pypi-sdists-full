@@ -223,6 +223,7 @@ VoiceIdType = Literal[
 ]
 PollyServiceName = Literal["polly"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -47,6 +47,7 @@ TimeOffValidationCodeType = Literal[
 TimeOffValidationSeverityType = Literal["ERROR", "WARNING"]
 ConnectSchedulingServiceName = Literal["connectscheduling"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

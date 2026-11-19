@@ -208,6 +208,53 @@ def test_copy_basins_internal_none():
         assert len(basin_dicts) == 0
 
 
+def test_copy_basins_internal_shared_basinmap():
+    """Two internal basins that share the same basinmap feature"""
+    h5path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
+    h5path_small = h5path.with_name("input_file.rtdc")
+    h5path_out = h5path.with_name("copied.rtdc")
+
+    with h5py.File(h5path) as src, RTDCWriter(h5path_small) as hw:
+        rtdc_copy(src_h5file=src,
+                  dst_h5file=hw.h5file,
+                  features="scalar")
+        size = src["events/deform"].shape[0]
+        basin_map = np.zeros(size, dtype=np.int64)
+        basin_map[1::2] = 1
+        hw.store_basin(basin_name="background",
+                       basin_type="internal",
+                       basin_format="h5dataset",
+                       basin_locs=["basin_events"],
+                       internal_data={"image_bg": np.zeros((2, 80, 320))},
+                       basin_map=basin_map,
+                       basin_feats=["image_bg"],
+                       )
+        hw.store_basin(basin_name="user-defined",
+                       basin_type="internal",
+                       basin_format="h5dataset",
+                       basin_locs=["basin_events"],
+                       internal_data={"userdef1": np.array([3., 7.])},
+                       basin_map=basin_map,
+                       basin_feats=["userdef1"],
+                       )
+
+    # sanity check
+    with h5py.File(h5path_small) as h5:
+        assert [f for f in h5["events"] if f.startswith("basinmap")] \
+            == ["basinmap0"]
+
+    with h5py.File(h5path_small) as src, h5py.File(h5path_out, "a") as dst:
+        rtdc_copy(src_h5file=src,
+                  dst_h5file=dst,
+                  features="all",
+                  include_basins=True)
+
+    with dclab.new_dataset(h5path_out) as ds:
+        assert len(ds.basins_get_dicts()) == 2
+        assert "image_bg" in ds.features_basin
+        assert np.all(ds["userdef1"][:4] == [3, 7, 3, 7])
+
+
 def test_copy_basins_internal_no_scalar():
     """Store an internal basin and only export scalar features"""
     h5path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
@@ -441,6 +488,29 @@ def test_copy_chunks_not_defined():
         assert hc["events/deform"].chunks[0] == 5
 
 
+def test_copy_compression_zstd_without_options(tmp_path):
+    """Zstandard compression without compression level"""
+    path = tmp_path / "zstd_no_options.rtdc"
+    path_copy = tmp_path / "test_copy.rtdc"
+    with h5py.File(path, "w") as h5:
+        h5.attrs["experiment:event count"] = 100
+        h5.create_dataset("events/deform",
+                          data=np.linspace(0, .1, 100),
+                          compression=32015)
+        create_plist = h5["events/deform"].id.get_create_plist()
+        assert create_plist.get_filter_by_id(32015)[1] == (), "sanity check"
+        # zstd uses its default level if not specified (smaller than 5)
+        assert not is_properly_compressed(h5["events/deform"])
+
+    with h5py.File(path) as h5, h5py.File(path_copy, "w") as hc:
+        rtdc_copy(src_h5file=h5,
+                  dst_h5file=hc)
+
+    with h5py.File(path_copy) as hc:
+        assert is_properly_compressed(hc["events/deform"])
+        assert np.allclose(hc["events/deform"][:], np.linspace(0, .1, 100))
+
+
 def test_copy_logs():
     path = retrieve_data("fmt-hdf5_image-bg_2020.zip")
     path_copy = path.with_name("test_copy.rtdc")
@@ -550,6 +620,30 @@ def test_copy_no_events():
         assert "test_log" in hc["logs"]
 
 
+@pytest.mark.parametrize("compressed", [False, True])
+def test_copy_zero_events(compressed, tmp_path):
+    """Features of a measurement without events are copied (empty)"""
+    path_in = tmp_path / "input.rtdc"
+    path_copy = tmp_path / "test_copy.rtdc"
+    kwargs = hdf5plugin.Zstd(clevel=5) if compressed else {}
+
+    with h5py.File(path_in, "w") as h5:
+        h5.attrs["experiment:event count"] = 0
+        h5.require_group("events").create_dataset(
+            "deform", shape=(0,), dtype=float, maxshape=(None,),
+            chunks=(100,), fletcher32=compressed, **kwargs)
+
+    with h5py.File(path_in) as h5, h5py.File(path_copy, "w") as hc:
+        rtdc_copy(src_h5file=h5,
+                  dst_h5file=hc)
+
+    with h5py.File(path_copy) as hc:
+        assert hc["events/deform"].shape == (0,)
+        assert is_properly_compressed(hc["events/deform"])
+        # min/max/mean cannot be computed for empty features
+        assert "min" not in hc["events/deform"].attrs
+
+
 def test_copy_scalar_features_only():
     path = retrieve_data("fmt-hdf5_image-bg_2020.zip")
     path_copy = path.with_name("test_copy.rtdc")
@@ -620,8 +714,8 @@ def test_copy_tables():
 
     # generate a table
     columns = ["bread", "beer", "chocolate"]
-    ds_dt = np.dtype({'names': columns,
-                      'formats': [np.float64] * len(columns)})
+    ds_dt = np.dtype({"names": columns,
+                      "formats": [np.float64] * len(columns)})
     tab_data = np.zeros((10, len(columns)))
     tab_data[:, 0] = np.arange(10)
     tab_data[:, 1] = 1000

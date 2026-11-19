@@ -8,6 +8,8 @@ internal_packages = ["acme-*", "@acme/*"]
 private_registries = ["https://npm.acme.dev"]
 trusted_registries = []
 check_provenance = true
+unproven_packages = "warn"
+approved_packages = ["pypi:new-but-reviewed", "npm:@acme/tool"]
 ```
 
 The synced Skylos Cloud policy (``.skylos/config.yaml`` or
@@ -16,6 +18,15 @@ Cloud values only tighten the repository's values: booleans are combined
 with OR, the release age takes the larger value, internal package patterns
 are combined, and registry lists set in Cloud replace the repository's lists
 because a repository-added registry would widen what is trusted.
+
+``unproven_packages`` ("off", "warn" or "block"; default "warn") decides what
+happens to a package whose name is new or barely used on its registry (see
+``skylos.rules.sca.package_history``); Cloud can only make it stricter.
+``approved_packages`` names packages someone has checked: ``name``,
+``pypi:name`` or ``npm:name``, with ``*`` wildcards. Cloud's list and the
+repository's list are combined: an approval is a reviewed decision either
+way, and under ``SKYLOS_POLICY_BASE`` the repository's list comes from the
+base commit, so a pull request cannot approve its own new package.
 
 ``registries_from_cloud`` says Cloud set a registry list; the install hook
 then uses Cloud's lists instead of ``[tool.skylos.hooks] trusted_registries``.
@@ -32,7 +43,9 @@ default: the install hook holds new versions for
 
 from __future__ import annotations
 
+import fnmatch
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,6 +57,8 @@ MAX_RELEASE_AGE_HOURS = 24 * 365
 MAX_PATTERNS = 200
 MAX_PATTERN_LENGTH = 200
 MAX_PYPROJECT_BYTES = 2_000_000
+UNPROVEN_MODES = ("off", "warn", "block")
+DEFAULT_UNPROVEN_MODE = "warn"
 SOURCE_PYPROJECT = "pyproject"
 SOURCE_CLOUD = "cloud"
 
@@ -55,7 +70,10 @@ class SupplyChainPolicy:
     internal_packages: tuple[str, ...] = ()
     private_registries: tuple[str, ...] = ()
     trusted_registries: tuple[str, ...] = ()
+    npm_registry_mirrors: tuple[str, ...] = ()
     check_provenance: bool = True
+    unproven_packages: str = DEFAULT_UNPROVEN_MODE
+    approved_packages: tuple[str, ...] = ()
     registries_from_cloud: bool = False
     sources: tuple[str, ...] = ()
     problems: tuple[str, ...] = ()
@@ -69,6 +87,31 @@ class SupplyChainPolicy:
         if not self.min_release_age_hours:
             return None
         return self.min_release_age_hours
+
+    def is_approved(self, ecosystem: str, name: str) -> bool:
+        """Whether ``approved_packages`` lists this package (``pypi`` or ``npm``)."""
+        return package_matches(ecosystem, name, self.approved_packages)
+
+
+def package_matches(ecosystem: str, name: str, patterns: tuple[str, ...]) -> bool:
+    eco = str(ecosystem or "").lower()
+    candidate = _package_key(eco, name)
+    for pattern in patterns:
+        prefix, separator, rest = pattern.partition(":")
+        if separator and prefix.lower() in {"pypi", "npm"}:
+            if prefix.lower() != eco:
+                continue
+            pattern = rest
+        if fnmatch.fnmatchcase(candidate, _package_key(eco, pattern)):
+            return True
+    return False
+
+
+def _package_key(ecosystem: str, name: str) -> str:
+    text = str(name or "").strip().lower()
+    if ecosystem == "pypi":
+        return re.sub(r"[-_.]+", "-", text)
+    return text
 
 
 @dataclass(frozen=True)
@@ -94,14 +137,20 @@ def load_supply_chain_policy(root: str | Path | None) -> SupplyChainPolicy:
     return _combine(local, synced, tuple(sources))
 
 
-def _combine(local: _Layer, synced: _Layer, sources: tuple[str, ...]) -> SupplyChainPolicy:
+def _combine(
+    local: _Layer, synced: _Layer, sources: tuple[str, ...]
+) -> SupplyChainPolicy:
     lv = local.values
     sv = synced.values
     block_malware = _either_true(lv.get("block_malware"), sv.get("block_malware"), True)
     check_provenance = _either_true(
         lv.get("check_provenance"), sv.get("check_provenance"), True
     )
-    ages = [value for value in (lv.get("min_release_age_hours"), sv.get("min_release_age_hours")) if value is not None]
+    ages = [
+        value
+        for value in (lv.get("min_release_age_hours"), sv.get("min_release_age_hours"))
+        if value is not None
+    ]
     min_age = None
     if ages:
         min_age = max(ages)
@@ -112,13 +161,28 @@ def _combine(local: _Layer, synced: _Layer, sources: tuple[str, ...]) -> SupplyC
     trusted = lv.get("trusted_registries", ())
     if "trusted_registries" in sv:
         trusted = sv["trusted_registries"]
+    mirrors = lv.get("npm_registry_mirrors", ())
+    if "npm_registry_mirrors" in sv:
+        mirrors = sv["npm_registry_mirrors"]
+    modes = [
+        value
+        for value in (lv.get("unproven_packages"), sv.get("unproven_packages"))
+        if value is not None
+    ]
+    unproven = DEFAULT_UNPROVEN_MODE
+    if modes:
+        unproven = max(modes, key=UNPROVEN_MODES.index)
+    approved = _union(lv.get("approved_packages", ()), sv.get("approved_packages", ()))
     return SupplyChainPolicy(
         block_malware=block_malware,
         min_release_age_hours=min_age,
         internal_packages=internal,
         private_registries=tuple(private),
         trusted_registries=tuple(trusted),
+        npm_registry_mirrors=tuple(mirrors),
         check_provenance=check_provenance,
+        unproven_packages=unproven,
+        approved_packages=approved,
         registries_from_cloud="private_registries" in sv or "trusted_registries" in sv,
         sources=sources,
         problems=local.problems + synced.problems,
@@ -159,7 +223,20 @@ def _parse_layer(table: dict[str, Any], label: str) -> _Layer:
             )
         else:
             values["min_release_age_hours"] = age
-    for key in ("internal_packages", "private_registries", "trusted_registries"):
+    if "unproven_packages" in table:
+        mode = table["unproven_packages"]
+        if isinstance(mode, str) and mode.strip().lower() in UNPROVEN_MODES:
+            values["unproven_packages"] = mode.strip().lower()
+        else:
+            problems.append(
+                f"{label}: unproven_packages must be one of {', '.join(UNPROVEN_MODES)}"
+            )
+    for key in (
+        "internal_packages",
+        "private_registries",
+        "trusted_registries",
+        "approved_packages",
+    ):
         if key not in table:
             continue
         items = _patterns(table[key])
@@ -167,6 +244,17 @@ def _parse_layer(table: dict[str, Any], label: str) -> _Layer:
             problems.append(f"{label}: {key} must be a list of strings")
         else:
             values[key] = items
+    if "npm_registry_mirrors" in table:
+        from skylos.rules.sca.npm_mirror_policy import normalize_npm_mirror_prefixes
+
+        mirrors = normalize_npm_mirror_prefixes(table["npm_registry_mirrors"])
+        # An invalid operator value still replaces a repository value.
+        values["npm_registry_mirrors"] = mirrors or ()
+        if mirrors is None:
+            problems.append(
+                f"{label}: npm_registry_mirrors must be a list of at most 50 "
+                "HTTPS registry URL prefixes without credentials or query strings"
+            )
     return _Layer(values=values, problems=tuple(problems))
 
 
@@ -262,6 +350,8 @@ def _table(data: Any, path: tuple[str, ...]) -> dict[str, Any]:
 
 __all__ = [
     "DEFAULT_HOOK_RELEASE_AGE_HOURS",
+    "UNPROVEN_MODES",
     "SupplyChainPolicy",
     "load_supply_chain_policy",
+    "package_matches",
 ]

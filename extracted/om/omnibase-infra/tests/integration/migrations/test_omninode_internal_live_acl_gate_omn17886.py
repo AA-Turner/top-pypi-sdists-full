@@ -349,6 +349,21 @@ def test_fresh_build_matches_the_topology_modulo_the_shrink_only_allowlist(
         assert lab_job_live == lab_job_declared, lab_job_table
         assert "DELETE" not in lab_job_live, lab_job_table
 
+    # OMN-17427: delegation execution ownership and its outbox, vendored
+    # ahead of omnimarket#4277, grant exactly the runtime read/write ACL.
+    for delegation_table in ("delegation_lab_jobs", "delegation_lab_job_outbox"):
+        delegation_declared = {
+            privilege
+            for principal, relation, privilege in declared_acl(
+                load_topology_profile(PROFILE)
+            ).table_grants
+            if principal == _RUNTIME and relation == delegation_table
+        }
+        assert delegation_declared == {"SELECT", "INSERT", "UPDATE"}, delegation_table
+        delegation_live = _live_privileges(fresh_build, delegation_table, _RUNTIME)
+        assert delegation_live == delegation_declared, delegation_table
+        assert "DELETE" not in delegation_live, delegation_table
+
     # OMN-19399: the worktree reconcile projection grants exactly the runtime
     # writer's SELECT/INSERT/UPDATE privileges, with no DELETE or sequence.
     worktree_reconcile_declared = {
@@ -384,7 +399,19 @@ def test_fresh_build_matches_the_topology_modulo_the_shrink_only_allowlist(
     assert "DELETE" not in memory_window_live
     # OMN-19513: 0001 from omnimarket#3050 explicitly grants the runtime
     # SELECT/INSERT/UPDATE on both work-ledger tables, with no DELETE.
-    for work_ledger_table in ("work_ledger_rows", "work_ledger_state"):
+    # OMN-21947: 0008 grants the runtime SELECT/INSERT/UPDATE on the immutable
+    # citation table, with no DELETE.
+    # OMN-23152: 0008 grants the runtime SELECT/INSERT/UPDATE on the sequence
+    # conflicts table, with no DELETE.
+    # OMN-23705: 0012 grants the runtime SELECT/INSERT/UPDATE on the latest-state
+    # table, with no DELETE.
+    for work_ledger_table in (
+        "work_ledger_rows",
+        "work_ledger_state",
+        "ledger_line_citation",
+        "work_ledger_seq_conflicts",
+        "work_ledger_latest",
+    ):
         work_ledger_declared = {
             privilege
             for principal, relation, privilege in declared_acl(
@@ -479,6 +506,34 @@ def test_fresh_build_matches_the_topology_modulo_the_shrink_only_allowlist(
         fresh_build, "alert_channel_liveness_verdicts", _RUNTIME
     )
     assert alert_liveness_live == {"SELECT", "INSERT", "UPDATE"}
+
+    # OMN-22320: node_projection_work_questions/0001 grants the runtime
+    # SELECT/INSERT/UPDATE on the five work-question tables, the topology
+    # declares exactly that, and the build delivers it with no DELETE.
+    for work_question_table in (
+        "work_outcome_units",
+        "orchestration_style_outcomes",
+        "lane_drift_and_stalls",
+        "brief_quality_vs_outcome",
+        "subagent_waste",
+        # OMN-22478: the overlay store holds the same grant.
+        "overlay_store",
+    ):
+        work_question_declared = {
+            privilege
+            for principal, relation, privilege in declared_acl(
+                load_topology_profile(PROFILE)
+            ).table_grants
+            if principal == _RUNTIME and relation == work_question_table
+        }
+        assert work_question_declared == {"SELECT", "INSERT", "UPDATE"}, (
+            work_question_table
+        )
+        work_question_live = _live_privileges(
+            fresh_build, work_question_table, _RUNTIME
+        )
+        assert work_question_live == work_question_declared, work_question_table
+        assert "DELETE" not in work_question_live, work_question_table
 
     live = set(report["findings"])
     allowed = {entry["finding"] for entry in _load_allowlist()}

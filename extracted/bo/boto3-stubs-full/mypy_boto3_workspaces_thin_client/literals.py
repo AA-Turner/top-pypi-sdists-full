@@ -67,6 +67,7 @@ SoftwareSetValidationStatusType = Literal["NOT_VALIDATED", "VALIDATED"]
 TargetDeviceStatusType = Literal["ARCHIVED", "DEREGISTERED"]
 WorkSpacesThinClientServiceName = Literal["workspaces-thin-client"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

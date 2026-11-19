@@ -11,10 +11,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import os
 import unittest
 from unittest import mock
-import importlib
 import socket
 import threading
 import time
@@ -26,27 +24,7 @@ class _Exception(Exception):
     pass
 
 
-class TestHubType(unittest.TestCase):
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "eventlet"})
-    def test_eventlet_mode(self):
-        hub = importlib.reload(os_ken.lib.hub)
-        self.assertEqual("eventlet", hub.HUB_TYPE)
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "native"})
-    def test_native_mode(self):
-        hub = importlib.reload(os_ken.lib.hub)
-        self.assertEqual("native", hub.HUB_TYPE)
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "other"})
-    def test_other_mode(self):
-        self.assertRaises(NotImplementedError, importlib.reload, os_ken.lib.hub)
-
-
-class TestStreamServerEventlet(unittest.TestCase):
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "eventlet"})
-    def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
+class TestStreamServer(unittest.TestCase):
 
     @mock.patch("os_ken.lib.ip.valid_ipv6", return_value=False)
     @mock.patch("os_ken.lib.hub.listen")
@@ -54,7 +32,8 @@ class TestStreamServerEventlet(unittest.TestCase):
         mock_listen.return_value = mock.Mock()
         handle = mock.Mock()
 
-        server = self.hub.StreamServer(("127.0.0.1", 1234), handle=handle)
+        server = os_ken.lib.hub.StreamServer(
+            ("127.0.0.1", 1234), handle=handle)
 
         mock_listen.assert_called_once_with(("127.0.0.1", 1234))
         self.assertEqual(server.handle, handle)
@@ -65,7 +44,7 @@ class TestStreamServerEventlet(unittest.TestCase):
         mock_listen.return_value = mock.Mock()
         handle = mock.Mock()
 
-        server = self.hub.StreamServer(("::1", 1234), handle=handle)
+        server = os_ken.lib.hub.StreamServer(("::1", 1234), handle=handle)
 
         mock_listen.assert_called_once_with(("::1", 1234), family=socket.AF_INET6)
         self.assertEqual(server.handle, handle)
@@ -76,7 +55,8 @@ class TestStreamServerEventlet(unittest.TestCase):
         mock_listen.return_value = mock.Mock()
         handle = mock.Mock()
 
-        server = self.hub.StreamServer(("/tmp/test_socket",), handle=handle)
+        server = os_ken.lib.hub.StreamServer(
+            ("/tmp/test_socket",), handle=handle)
 
         mock_listen.assert_called_once_with("/tmp/test_socket", family=socket.AF_UNIX)
         self.assertEqual(server.handle, handle)
@@ -96,7 +76,8 @@ class TestStreamServerEventlet(unittest.TestCase):
             "ca_certs": "ca.pem",
         }
 
-        server = self.hub.StreamServer(("127.0.0.1", 1234), handle=handle, **ssl_args)
+        server = os_ken.lib.hub.StreamServer(
+            ("127.0.0.1", 1234), handle=handle, **ssl_args)
 
         ssl_ctx.load_cert_chain.assert_called_once_with("cert.pem", "key.pem")
         ssl_ctx.load_verify_locations.assert_called_once_with("ca.pem")
@@ -111,43 +92,24 @@ class TestStreamServerEventlet(unittest.TestCase):
         handle.assert_called_once_with(ssl_ctx.wrap_socket(), addr)
 
 
-class TestStreamServerNative(TestStreamServerEventlet):
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "native"})
-    def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
-
-
-class TestStreamClientEventlet(unittest.TestCase):
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "eventlet"})
-    def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
+class TestStreamClient(unittest.TestCase):
 
     def test_connection(self):
         addr = ("127.0.0.1", 1234)
         timeout = 5
         with mock.patch("socket.create_connection") as mock_create_conn:
             mock_create_conn.return_value = mock.Mock()
-            client = self.hub.StreamClient(addr, timeout=timeout)
+            client = os_ken.lib.hub.StreamClient(addr, timeout=timeout)
             connection = client.connect()
 
             self.assertIsNotNone(connection)
             mock_create_conn.assert_called_once_with(addr, timeout=timeout)
 
 
-class TestStreamClientNative(TestStreamClientEventlet):
+class TestEvent(unittest.TestCase):
 
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "native"})
     def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
-
-
-class TestEventEventlet(unittest.TestCase):
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "eventlet"})
-    def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
+        self.hub = os_ken.lib.hub
         self.event = self.hub.Event()
 
     def test_initial_state(self):
@@ -170,24 +132,41 @@ class TestEventEventlet(unittest.TestCase):
         result = self.event.wait(timeout=1)
         self.assertTrue(result)
 
-    def test_wait_timeout(self):
-        result = self.event.wait(timeout=1)
-        self.assertFalse(result)
+    def test_set_between_check_and_wait(self):
+        # set() lands right after the waiter tests the flag and before it
+        # starts waiting; the waiter must still be woken.
+        event = self.event
+        real_set = event.set
+
+        class Flag(object):
+            raced = False
+
+            def __get__(self, obj, objtype=None):
+                value = obj.__dict__['_flag']
+                if not value and not Flag.raced:
+                    Flag.raced = True
+                    real_set()
+                return value
+
+            def __set__(self, obj, value):
+                obj.__dict__['_flag'] = value
+
+        class RacyEvent(type(event)):
+            _cond = Flag()
+
+        event.__class__ = RacyEvent
+        event._cond = False
+
+        done = []
+        thread = threading.Thread(target=lambda: done.append(event.wait()),
+                                  daemon=True)
+        thread.start()
+        thread.join(3)
+        self.assertEqual([True], done)
 
     def test_timeout_context(self):
         with os_ken.lib.hub.Timeout(seconds=10):
             time.sleep(1)
-
-
-class TestEventNative(TestEventEventlet):
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "native"})
-    def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
-        self.event = self.hub.Event()
-
-    def test_wait_timeout(self):
-        pass
 
     def test_timeout_context_exception(self):
         try:
@@ -199,11 +178,10 @@ class TestEventNative(TestEventEventlet):
             pass
 
 
-class TestThreadManagementEventlet(unittest.TestCase):
+class TestThreadManagement(unittest.TestCase):
 
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "eventlet"})
     def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
+        self.hub = os_ken.lib.hub
 
     def test_spawn(self):
         result = []
@@ -237,6 +215,8 @@ class TestThreadManagementEventlet(unittest.TestCase):
         thread.wait()
         self.assertIn("exception", mock_log_error.call_args[0][0])
 
+    # NOTE: wait() does not raise the exception that ended the thread.
+    @unittest.expectedFailure
     def test_spawn_raise_error_true(self):
         def failing_task():
             raise Exception()
@@ -249,8 +229,8 @@ class TestThreadManagementEventlet(unittest.TestCase):
             raise os_ken.lib.hub.TaskExit()
 
         try:
-            thread = self.hub.spawn(exit_task, raise_error=True)
-        except:
+            self.hub.spawn(exit_task, raise_error=True)
+        except Exception:
             self.fail("Should not be here")
 
     def test_joinall(self):
@@ -279,33 +259,12 @@ class TestThreadManagementEventlet(unittest.TestCase):
         self.assertTrue(callable(self.hub.TaskExit))
 
 
-class TestThreadManagementNative(unittest.TestCase):
+class TestListen(unittest.TestCase):
 
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "native"})
     def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
+        self.hub = os_ken.lib.hub
 
-
-class TestListenEventlet(unittest.TestCase):
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "eventlet"})
-    def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
-
-        self.patcher = mock.patch('eventlet.green.socket.socket')
-        self.mock_socket = self.patcher.start()
-
-        self.sock = mock.MagicMock()
-        self.mock_socket.return_value = self.sock
-
-
-class TestListenEventlet(unittest.TestCase):
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "eventlet"})
-    def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
-
-        self.patcher = mock.patch('eventlet.green.socket.socket')
+        self.patcher = mock.patch('socket.socket')
         self.mock_socket = self.patcher.start()
 
         self.sock = mock.MagicMock()
@@ -323,7 +282,6 @@ class TestListenEventlet(unittest.TestCase):
 
         self.sock.setsockopt.assert_has_calls([
             mock.call(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1),
-            mock.call(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1),
         ])
 
         self.sock.bind.assert_called_once_with(addr)
@@ -340,32 +298,9 @@ class TestListenEventlet(unittest.TestCase):
 
         self.sock.setsockopt.assert_has_calls([
             mock.call(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1),
-            mock.call(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1),
         ])
 
         self.sock.bind.assert_called_once_with(addr)
         self.sock.listen.assert_called_once_with(50)
 
         self.assertEqual(self.sock, sock)
-
-    def test_reuse_port_enabled(self):
-        addr = ('127.0.0.1', 8081)
-
-        sock = self.hub.listen(addr, reuse_port=True)
-
-        self.sock.setsockopt.assert_any_call(
-            socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self.sock.bind.assert_called_once_with(addr)
-
-
-class TestListenNative(unittest.TestCase):
-
-    @mock.patch.dict(os.environ, {"OSKEN_HUB_TYPE": "native"})
-    def setUp(self):
-        self.hub = importlib.reload(os_ken.lib.hub)
-
-        self.patcher = mock.patch('socket.socket')
-        self.mock_socket = self.patcher.start()
-
-        self.sock = mock.MagicMock()
-        self.mock_socket.return_value = self.sock

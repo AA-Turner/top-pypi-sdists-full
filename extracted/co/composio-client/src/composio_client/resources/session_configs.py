@@ -67,6 +67,8 @@ class SessionConfigsResource(SyncAPIResource):
         cursor: str | Omit = omit,
         limit: int | Omit = omit,
         archived: bool | None | Omit = omit,
+        include_archived: bool | None | Omit = omit,
+        include_summary: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
@@ -79,6 +81,8 @@ class SessionConfigsResource(SyncAPIResource):
                 "cursor": cursor,
                 "limit": limit,
                 "archived": archived,
+                "include_archived": include_archived,
+                "include_summary": include_summary,
             }
         )
         query_data = merge_mapping(query, query_fields)
@@ -142,6 +146,8 @@ class AsyncSessionConfigsResource(AsyncAPIResource):
         cursor: str | Omit = omit,
         limit: int | Omit = omit,
         archived: bool | None | Omit = omit,
+        include_archived: bool | None | Omit = omit,
+        include_summary: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
@@ -154,6 +160,8 @@ class AsyncSessionConfigsResource(AsyncAPIResource):
                 "cursor": cursor,
                 "limit": limit,
                 "archived": archived,
+                "include_archived": include_archived,
+                "include_summary": include_summary,
             }
         )
         query_data = merge_mapping(query, query_fields)
@@ -213,6 +221,8 @@ class SessionConfigsResourceWithRawResponse:
         cursor: str | Omit = omit,
         limit: int | Omit = omit,
         archived: bool | None | Omit = omit,
+        include_archived: bool | None | Omit = omit,
+        include_summary: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
@@ -225,6 +235,8 @@ class SessionConfigsResourceWithRawResponse:
                 "cursor": cursor,
                 "limit": limit,
                 "archived": archived,
+                "include_archived": include_archived,
+                "include_summary": include_summary,
             }
         )
         query_data = merge_mapping(query, query_fields)
@@ -284,6 +296,8 @@ class AsyncSessionConfigsResourceWithRawResponse:
         cursor: str | Omit = omit,
         limit: int | Omit = omit,
         archived: bool | None | Omit = omit,
+        include_archived: bool | None | Omit = omit,
+        include_summary: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
@@ -296,6 +310,8 @@ class AsyncSessionConfigsResourceWithRawResponse:
                 "cursor": cursor,
                 "limit": limit,
                 "archived": archived,
+                "include_archived": include_archived,
+                "include_summary": include_summary,
             }
         )
         query_data = merge_mapping(query, query_fields)
@@ -358,6 +374,8 @@ class SessionConfigsResourceWithStreamingResponse:
         cursor: str | Omit = omit,
         limit: int | Omit = omit,
         archived: bool | None | Omit = omit,
+        include_archived: bool | None | Omit = omit,
+        include_summary: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
@@ -370,6 +388,8 @@ class SessionConfigsResourceWithStreamingResponse:
                 "cursor": cursor,
                 "limit": limit,
                 "archived": archived,
+                "include_archived": include_archived,
+                "include_summary": include_summary,
             }
         )
         query_data = merge_mapping(query, query_fields)
@@ -435,6 +455,8 @@ class AsyncSessionConfigsResourceWithStreamingResponse:
         cursor: str | Omit = omit,
         limit: int | Omit = omit,
         archived: bool | None | Omit = omit,
+        include_archived: bool | None | Omit = omit,
+        include_summary: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
@@ -447,6 +469,8 @@ class AsyncSessionConfigsResourceWithStreamingResponse:
                 "cursor": cursor,
                 "limit": limit,
                 "archived": archived,
+                "include_archived": include_archived,
+                "include_summary": include_summary,
             }
         )
         query_data = merge_mapping(query, query_fields)

@@ -5,15 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
-    import sys
-
-    if sys.version_info[:2] >= (3, 11):
-        from typing import NotRequired
-    else:
-        try:
-            from typing_extensions import NotRequired
-        except ImportError:
-            from typing import Optional as NotRequired
+    from typing import NotRequired
 
 # Unfortunately, TypedDicts do not currently support arbitrary extra keys in addition to
 # required keys, so we cannot use one here.
@@ -53,6 +45,8 @@ def definitions() -> list[PolicyDefinition]:
         + file_move
         + file_permissions
         + nosql
+        + network
+        + scripting
         + authn
         + authz
         + outbound_request
@@ -195,6 +189,40 @@ nosql: list[PolicyDefinition] = [
             "Collection._update_retryable",
         ],
         "event": {"name": "nosql"},
+    },
+]
+
+network: list[PolicyDefinition] = [
+    {
+        "module": "socket",
+        "method_names": ["socket.connect", "socket.connect_ex"],
+        "event": {
+            "name": "socket",
+            "stream": "network-connect",
+            "dgram": "network-udp",
+        },
+    },
+    {
+        "module": "socket",
+        "method_names": ["socket.listen"],
+        "event": {"name": "socket", "stream": "network-listen"},
+    },
+    {
+        "module": "socket",
+        # Sending or receiving UDP datagrams requires the socket to be bound, either
+        # explicitly with bind, or implicitly by connect (above), sendto or sendmsg. We
+        # report those calls rather than instrumenting every send and recv, which are
+        # hot paths for TCP sockets too.
+        "method_names": ["socket.bind", "socket.sendto", "socket.sendmsg"],
+        "event": {"name": "socket", "dgram": "network-udp"},
+    },
+]
+
+scripting: list[PolicyDefinition] = [
+    {
+        "module": "builtins",
+        "method_names": ["exec", "eval"],
+        "event": {"name": "scripting"},
     },
 ]
 

@@ -17,7 +17,7 @@
 System-level utilities and helper functions.
 """
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 import functools
 import logging
 import multiprocessing
@@ -60,7 +60,7 @@ class ProcessExecutionError(Exception):
         stdout: str | None = None,
         stderr: str | None = None,
         exit_code: str | int | None = None,
-        cmd: list[str] | str | None = None,
+        cmd: Sequence[str] | str | None = None,
         description: str | None = None,
     ):
         super().__init__(stdout, stderr, exit_code, cmd, description)
@@ -236,7 +236,7 @@ def execute(
     shell: bool = False,
     loglevel: int = logging.DEBUG,
     log_errors: LogErrors = LogErrors.DEFAULT,
-    binary: Literal[True] = ...,
+    binary: Literal[True],
     on_execute: Callable[..., Any] | None = None,
     on_completion: Callable[..., Any] | None = None,
     preexec_fn: Callable[..., Any] | None = None,
@@ -634,10 +634,10 @@ def ssh_execute(
     process_input: bytes | None = None,
     addl_env: Any = None,
     check_exit_code: bool = True,
-    binary: Literal[True] = True,
+    binary: Literal[False] = False,
     timeout: int | None = None,
     sanitize_stdout: bool = True,
-) -> tuple[bytes, bytes]: ...
+) -> tuple[str, str]: ...
 
 
 @overload
@@ -647,10 +647,10 @@ def ssh_execute(
     process_input: bytes | None = None,
     addl_env: Any = None,
     check_exit_code: bool = True,
-    binary: Literal[False] = False,
+    binary: Literal[True] = True,
     timeout: int | None = None,
     sanitize_stdout: bool = True,
-) -> tuple[str, str]: ...
+) -> tuple[bytes, bytes]: ...
 
 
 @overload

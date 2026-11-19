@@ -3634,7 +3634,7 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, Quant
     @overload
     def remove(self, pair: System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.Security]) -> bool:
         """
-        Remove a key value of of symbol-securities from the collections.
+        Remove a key value of symbol-securities from the collections.
         
         :param pair: Key Value pair of symbol-security to remove
         :returns: Boolean true on success.
@@ -7012,7 +7012,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
     def contracts(self, contracts: typing.Any) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
         """
         Explicitly sets the selected contract symbols for this universe.
-        This overrides and and all other methods of selecting symbols assuming it is called last.
+        This overrides any and all other methods of selecting symbols assuming it is called last.
         
         :param contracts: The option contract symbol objects to select
         :returns: Universe with filter applied.
@@ -7023,7 +7023,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
     def contracts(self, contracts: typing.List[QuantConnect.Symbol]) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
         """
         Explicitly sets the selected contract symbols for this universe.
-        This overrides and and all other methods of selecting symbols assuming it is called last.
+        This overrides any and all other methods of selecting symbols assuming it is called last.
         
         :param contracts: The option contract symbol objects to select
         :returns: Universe with filter applied.
@@ -7034,7 +7034,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
     def contracts(self, contracts: typing.List[QuantConnect_Securities_ContractSecurityFilterUniverse_TData]) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
         """
         Explicitly sets the selected contract symbols for this universe.
-        This overrides and and all other methods of selecting symbols assuming it is called last.
+        This overrides any and all other methods of selecting symbols assuming it is called last.
         
         :param contracts: The option contract symbol objects to select
         :returns: Universe with filter applied.

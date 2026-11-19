@@ -20,13 +20,16 @@ from uuid import UUID
 
 import pytest
 
+from omnimarket.models.model_review_status import ModelReviewStatusRow
 from omnimarket.models.pr_handoff import (
     EnumPrHandoffErrorCode,
     EnumPrHandoffLedgerStatus,
     EnumPrHandoffState,
     ModelPrHandoffFailed,
     ModelPrHandoffHandedOff,
+    ModelPrHandoffLandingScopeReading,
     ModelPrHandoffLedgerAppended,
+    ModelPrHandoffReviewStatus,
 )
 from omnimarket.models.work_ledger_append import (
     EnumWorkLedgerAppendStatus,
@@ -296,6 +299,100 @@ async def test_missing_lab_comment_is_refused() -> None:
 async def test_hold_marker_on_the_live_pr_is_refused() -> None:
     cid, run = await _refused_on_observation(labels=["do-not-merge"])
     await _assert_refused(cid, run, E.HELD)
+
+
+async def _refused_by_review_status(
+    review_status: ModelPrHandoffReviewStatus,
+) -> tuple[UUID, b.HandoffRun]:
+    cid = b.new_cid()
+    run = await b.drive(
+        [],
+        [(b.request(cid), cid), (b.observation(b.at(60)), cid)],
+        review_status=review_status,
+    )
+    return cid, run
+
+
+def _gate_status(head: str, state: str) -> ModelReviewStatusRow:
+    return ModelReviewStatusRow(
+        head_sha=head, context="fable-review-gate", state=state, at=b.at(30)
+    )
+
+
+@chain_obligation("error:accepted>evaluated_review_status_missing")
+async def test_handoff_review_status_missing_is_refused() -> None:
+    cid, run = await _refused_by_review_status(
+        ModelPrHandoffReviewStatus(new_work=True, statuses=())
+    )
+    await _assert_refused(cid, run, E.REVIEW_STATUS_MISSING)
+
+
+@chain_obligation("error:accepted>evaluated_review_status_failing")
+async def test_handoff_review_status_failing_is_refused() -> None:
+    cid, run = await _refused_by_review_status(
+        ModelPrHandoffReviewStatus(
+            new_work=True, statuses=(_gate_status(b.HEAD, "failure"),)
+        )
+    )
+    await _assert_refused(cid, run, E.REVIEW_STATUS_FAILING)
+
+
+@chain_obligation("error:accepted>evaluated_review_status_other_head")
+async def test_handoff_review_status_on_another_head_is_refused() -> None:
+    cid, run = await _refused_by_review_status(
+        ModelPrHandoffReviewStatus(
+            new_work=True, statuses=(_gate_status(b.OTHER_HEAD, "success"),)
+        )
+    )
+    await _assert_refused(cid, run, E.REVIEW_STATUS_OTHER_HEAD)
+
+
+@chain_obligation("error:accepted>evaluated_repo-out-of-landing-scope")
+async def test_repository_outside_the_landing_scope_is_refused() -> None:
+    cid = b.new_cid()
+    run = await b.drive(
+        [],
+        [(b.request(cid), cid)],
+        landing_scope=ModelPrHandoffLandingScopeReading(repos=("acme-gadgets",)),
+    )
+    assert_error_chain(
+        run.events,
+        expected_event_types=[REQUESTED, ACCEPTED_EVT, FAILED],
+        terminal_fields={
+            "error_code": E.REPO_OUT_OF_LANDING_SCOPE,
+            "terminal_state": S.REFUSED,
+            "handoff_key": b.KEY,
+            "ledger_request_id": None,
+            "live_head_sha": None,
+        },
+        correlation_id=cid,
+        bus_history_count=await run.bus_history_count(),
+    )
+    assert run.ledger.requests == []
+
+
+@chain_obligation("error:accepted>evaluated_scope-unread")
+async def test_missing_landing_scope_is_refused() -> None:
+    cid = b.new_cid()
+    run = await b.drive(
+        [],
+        [(b.request(cid), cid)],
+        landing_scope=ModelPrHandoffLandingScopeReading(),
+    )
+    assert_error_chain(
+        run.events,
+        expected_event_types=[REQUESTED, ACCEPTED_EVT, FAILED],
+        terminal_fields={
+            "error_code": E.SCOPE_UNREAD,
+            "terminal_state": S.REFUSED,
+            "handoff_key": b.KEY,
+            "ledger_request_id": None,
+            "live_head_sha": None,
+        },
+        correlation_id=cid,
+        bus_history_count=await run.bus_history_count(),
+    )
+    assert run.ledger.requests == []
 
 
 @chain_obligation("error:accepted>evaluated_withheld")

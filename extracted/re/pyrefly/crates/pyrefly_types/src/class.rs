@@ -11,19 +11,21 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::hash::Hasher;
-use std::sync::Arc;
 
 use dupe::Dupe;
 use parse_display::Display;
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
+use pyrefly_python::docstring::DocRanges;
 use pyrefly_python::module::Module;
+use pyrefly_python::module_key::ModuleKey;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::qname::QName;
+use pyrefly_util::assert_bytes;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Identifier;
@@ -31,40 +33,65 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
+use crate::env::TypeEnv;
 use crate::equality::TypeEq;
+use crate::function::Deprecation;
+use crate::known_class::KnownClass;
+use crate::type_ord::TypeOrd;
+use crate::type_ord::TypeOrdCtx;
+use crate::types::DjangoKind;
 use crate::types::Substitution;
 use crate::types::TArgs;
 use crate::types::TParams;
 use crate::types::Type;
 
-/// The name of a nominal type, e.g. `str`
-#[derive(Debug, Clone, Display, Dupe)]
-pub struct Class(Arc<ClassInner>);
+/// The identity of a nominal type, e.g. `str`: the module that defines it and the index of its
+/// definition there (see `ClassDefIndex`), plus its known class, which the identity fixes. The
+/// definition data lives in a row of the module's metadata, which a `TypeEnv` reads
+/// (`Class::def`).
+///
+/// Equality, hashing and `Ord` go by identity: the module (by name, then path), then the index.
+/// All three are the same in every run and with any number of threads, because `ModuleKey`
+/// compares and hashes by value and indices are assigned in source order during binding. Unions
+/// sort their members with `TypeOrd` instead, which orders classes by name.
+#[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Class {
+    module: ModuleKey,
+    index: ClassDefIndex,
+    /// Only set for top-level classes.
+    known: Option<KnownClass>,
+}
 
-impl Hash for Class {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.key_eq().hash(state)
+assert_bytes!(Class, 16);
+
+impl Debug for Class {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.known {
+            Some(known) => write!(f, "{}.{}", self.module_name(), known.name()),
+            None => write!(f, "{}#{}", self.module_name(), self.index),
+        }
     }
 }
 
-impl PartialEq for Class {
-    fn eq(&self, other: &Self) -> bool {
-        self.key_eq().eq(&other.key_eq())
-    }
-}
-
-impl Eq for Class {}
+/// A class's definition data is not part of its identity. A change to it that dependents care
+/// about (see `ClassDef::same_definition`) is found by comparing the old and new rows, and
+/// invalidates every computation that read the row, so `TypeEq` does not compare it.
 impl TypeEq for Class {}
 
-impl Ord for Class {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.key_ord().cmp(&other.key_ord())
-    }
-}
-
-impl PartialOrd for Class {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+/// Classes are ordered by name, read through the env, and then by identity (`Ord`). A recheck
+/// tracks both: a new name is a new definition (`ClassDef::same_definition`), and identity is what
+/// `TypeEq` compares, so a recheck orders a union as a fresh check does. Each class reads its own
+/// row, so this is a total order even when an open buffer and its file on disk, which are one
+/// module to `ModuleKey`, hold different classes at one index.
+impl TypeOrd for Class {
+    fn type_cmp(&self, other: &Self, ctx: &TypeOrdCtx) -> Ordering {
+        // Both classes read the same row, so the order below would also say `Equal`.
+        if self.module.exact() == other.module.exact() && self.index == other.index {
+            return Ordering::Equal;
+        }
+        self.name(ctx.env())
+            .cmp(other.name(ctx.env()))
+            .then_with(|| self.cmp(other))
     }
 }
 
@@ -102,10 +129,15 @@ pub struct ClassFieldProperties {
     is_initialized_on_class: bool,
     // The field is defined in the class body (not in a method via self.x = ...)
     is_defined_in_class_body: bool,
+    /// False if the field's definition alone shows that it is not an abstract method, so that
+    /// checking for abstract members does not need its type.
+    may_be_abstract: bool,
     attrs_field_specifier: Option<AttrsFieldSpecifier>,
+    /// An explicit Django method-copy policy set in the class body.
+    django_queryset_only: Option<bool>,
     range: TextRange,
-    // The range of the docstring following this field, if present
-    docstring_range: Option<TextRange>,
+    /// The documentation of this field.
+    doc_ranges: DocRanges,
 }
 
 /// The index of a class within the file, used as a reference to data associated with the class.
@@ -118,17 +150,20 @@ impl ClassFieldProperties {
         is_annotated: bool,
         has_default_value: bool,
         is_defined_in_class_body: bool,
+        may_be_abstract: bool,
         attrs_field_specifier: Option<AttrsFieldSpecifier>,
         range: TextRange,
-        docstring_range: Option<TextRange>,
+        doc_ranges: DocRanges,
     ) -> Self {
         Self {
             is_annotated,
             is_initialized_on_class: has_default_value,
             is_defined_in_class_body,
+            may_be_abstract,
             attrs_field_specifier,
+            django_queryset_only: None,
             range,
-            docstring_range,
+            doc_ranges,
         }
     }
 
@@ -136,12 +171,51 @@ impl ClassFieldProperties {
         self.is_initialized_on_class
     }
 
+    /// Attach the method-copy policy found during binding.
+    pub fn with_django_queryset_only(mut self, value: Option<bool>) -> Self {
+        self.django_queryset_only = value;
+        self
+    }
     pub fn is_defined_in_class_body(&self) -> bool {
         self.is_defined_in_class_body
     }
 
-    pub fn docstring_range(&self) -> Option<TextRange> {
-        self.docstring_range
+    /// Whether `self` and `other` declare a field the same way, wherever in the file they are.
+    /// Locations are read only by the module that declares the field.
+    fn same_declaration(&self, other: &Self) -> bool {
+        let Self {
+            is_annotated,
+            is_initialized_on_class,
+            is_defined_in_class_body,
+            may_be_abstract,
+            attrs_field_specifier,
+            django_queryset_only,
+            range: _,
+            doc_ranges: _,
+        } = self;
+        *is_annotated == other.is_annotated
+            && *is_initialized_on_class == other.is_initialized_on_class
+            && *is_defined_in_class_body == other.is_defined_in_class_body
+            && *may_be_abstract == other.may_be_abstract
+            && *django_queryset_only == other.django_queryset_only
+            && match (attrs_field_specifier, &other.attrs_field_specifier) {
+                (None, None) => true,
+                (Some(x), Some(y)) => {
+                    let AttrsFieldSpecifier {
+                        kind,
+                        default_is_nothing,
+                        default_decorator_method_range,
+                        converter_decorator_method_range,
+                    } = x;
+                    *kind == y.kind
+                        && *default_is_nothing == y.default_is_nothing
+                        && default_decorator_method_range.is_some()
+                            == y.default_decorator_method_range.is_some()
+                        && converter_decorator_method_range.is_some()
+                            == y.converter_decorator_method_range.is_some()
+                }
+                _ => false,
+            }
     }
 }
 
@@ -156,6 +230,17 @@ impl ClassFields {
 
     pub fn empty() -> Self {
         Self(SmallMap::new())
+    }
+
+    /// Whether `self` and `other` declare the same fields, in the same order and the same way,
+    /// wherever in the file they are declared.
+    pub fn same_declarations(&self, other: &ClassFields) -> bool {
+        self.0.len() == other.0.len()
+            && self
+                .0
+                .iter()
+                .zip(other.0.iter())
+                .all(|((n1, p1), (n2, p2))| n1 == n2 && p1.same_declaration(p2))
     }
 
     pub fn len(&self) -> usize {
@@ -194,8 +279,18 @@ impl ClassFields {
             .map(|(name, _)| name)
     }
 
+    /// Whether the class defines `name` in a way that shows it is not an abstract method.
+    pub fn defines_concrete_field(&self, name: &Name) -> bool {
+        self.0.get(name).is_some_and(|prop| !prop.may_be_abstract)
+    }
+
     pub fn is_field_annotated(&self, name: &Name) -> bool {
         self.0.get(name).is_some_and(|prop| prop.is_annotated)
+    }
+
+    /// Return the explicit Django method-copy policy, if present.
+    pub fn django_queryset_only(&self, name: &Name) -> Option<bool> {
+        self.0.get(name).and_then(|prop| prop.django_queryset_only)
     }
 
     pub fn is_attrs_field_specifier(&self, name: &Name) -> bool {
@@ -249,53 +344,95 @@ impl ClassFields {
         Some(self.0.get(name)?.range)
     }
 
-    pub fn field_docstring_range(&self, name: &Name) -> Option<TextRange> {
-        self.0.get(name)?.docstring_range
+    /// The declaration range and documentation of a field.
+    pub fn field_decl(&self, name: &Name) -> Option<(TextRange, &DocRanges)> {
+        let field = self.0.get(name)?;
+        Some((field.range, &field.doc_ranges))
+    }
+
+    pub fn field_doc_ranges(&self, name: &Name) -> Option<&DocRanges> {
+        Some(&self.0.get(name)?.doc_ranges)
     }
 }
 
-/// What is known about a class's type parameters after the binding phase.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum PrecomputedTParams {
-    /// The class declares no type parameters, so there is nothing to look up.
-    NotGeneric,
-    /// The class has legacy type variables. Computing its type parameters at
-    /// binding time could produce a cycle, so they come from the class's
-    /// `KeyTParams` / `BindingTParams` pair instead.
-    FromBinding,
-    /// Computed during binding, which is possible whenever the class has no
-    /// legacy type variables.
-    Precomputed(Arc<TParams>),
-}
-
-/// Align to a cache line to prevent false sharing. `ClassInner` is stored
-/// behind `Arc` and accessed concurrently from multiple threads during
-/// type checking. Without alignment, multiple `Arc<ClassInner>` allocations
-/// can land on the same cache line, causing cross-thread invalidation
-/// traffic when any of them are accessed (even read-only, due to the Arc
-/// refcount on adjacent allocations).
-#[repr(align(64))]
-struct ClassInner {
-    def_index: ClassDefIndex,
+/// The definition data of a class, which the binding phase records in a row of its module's
+/// metadata. A `Class` identifies the row by its module and index.
+#[derive(Clone)]
+pub struct ClassDef {
     qname: QName,
+    /// Only set for top-level classes.
+    known: Option<KnownClass>,
     is_protocol: bool,
-    precomputed_tparams: PrecomputedTParams,
+    deprecation: Option<Box<Deprecation>>,
+    /// Whether the class declares any type parameters. This is decided from syntax alone; the
+    /// type parameters themselves come from the class's `KeyTParams`.
+    has_tparams: bool,
 }
 
-impl Debug for ClassInner {
+impl ClassDef {
+    pub fn new(
+        name: Identifier,
+        parent: NestingContext,
+        module: Module,
+        has_tparams: bool,
+        is_protocol: bool,
+        deprecation: Option<Box<Deprecation>>,
+    ) -> Self {
+        let known = if parent.is_toplevel() {
+            KnownClass::lookup(module.name(), name.id.as_str())
+        } else {
+            None
+        };
+        Self {
+            known,
+            qname: QName::new(name, parent, module),
+            is_protocol,
+            deprecation,
+            has_tparams,
+        }
+    }
+
+    /// Whether two versions of a class's definition have the same definition facts: the name and
+    /// the enclosing scopes that its printed name shows, whether it is a protocol, its deprecation,
+    /// and whether it declares type parameters. Positions are not compared, because any edit above
+    /// a class moves them. `known` is computed from the module, the name and the nesting, so it
+    /// follows from those.
+    pub fn same_definition(&self, other: &Self) -> bool {
+        let same_name = self.qname.id() == other.qname.id()
+            && match (
+                self.qname.parent().is_toplevel(),
+                other.qname.parent().is_toplevel(),
+            ) {
+                (true, true) => true,
+                (false, false) => {
+                    self.qname.name_relative_to_module() == other.qname.name_relative_to_module()
+                }
+                _ => false,
+            };
+        same_name
+            && self.deprecation == other.deprecation
+            && self.is_protocol == other.is_protocol
+            && self.has_tparams == other.has_tparams
+    }
+
+    pub fn known(&self) -> Option<KnownClass> {
+        self.known
+    }
+}
+
+impl Debug for ClassDef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ClassInner")
-            .field("index", &self.def_index)
+        f.debug_struct("ClassDef")
             .field("qname", &self.qname)
             .field("is_protocol", &self.is_protocol)
-            .field("tparams", &self.precomputed_tparams)
-            // We don't print `fields` because it's way too long.
+            .field("deprecation", &self.deprecation)
+            .field("has_tparams", &self.has_tparams)
             .finish_non_exhaustive()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum ClassKind {
     StaticMethod(Name),
     ClassMethod(Name),
@@ -308,30 +445,34 @@ pub enum ClassKind {
 }
 
 impl ClassKind {
-    fn from_qname(qname: &QName) -> Self {
-        let name = qname.id();
-        match (qname.module_name().as_str(), name.as_str()) {
-            ("builtins", "staticmethod") => Self::StaticMethod(name.clone()),
-            ("abc", "abstractstaticmethod") => Self::StaticMethod(name.clone()),
-            ("builtins", "classmethod") => Self::ClassMethod(name.clone()),
-            ("abc", "abstractclassmethod") => Self::ClassMethod(name.clone()),
-            ("builtins", "property") => Self::Property(name.clone()),
-            ("abc", "abstractproperty") => Self::Property(name.clone()),
-            ("functools", "cached_property") => Self::CachedProperty(name.clone()),
-            ("cached_property", "threaded_cached_property") => Self::CachedProperty(name.clone()),
-            ("cached_property", "cached_property") => Self::CachedProperty(name.clone()),
-            ("cinder", "cached_property") => Self::CachedProperty(name.clone()),
-            ("cinder", "async_cached_property") => Self::CachedProperty(name.clone()),
-            ("enum", "property") => Self::Property(name.clone()),
-            ("enum", "member") => Self::EnumMember,
-            ("enum", "nonmember") => Self::EnumNonmember,
-            ("dataclasses", "Field") => Self::DataclassField,
+    /// `name` is the class's own name, which the descriptor kinds carry.
+    fn new(known: Option<KnownClass>, name: &Name) -> Self {
+        match known {
+            Some(KnownClass::StaticMethod | KnownClass::AbcAbstractStaticMethod) => {
+                Self::StaticMethod(name.clone())
+            }
+            Some(KnownClass::ClassMethod | KnownClass::AbcAbstractClassMethod) => {
+                Self::ClassMethod(name.clone())
+            }
+            Some(
+                KnownClass::Property | KnownClass::AbcAbstractProperty | KnownClass::EnumProperty,
+            ) => Self::Property(name.clone()),
+            Some(
+                KnownClass::FunctoolsCachedProperty
+                | KnownClass::CachedPropertyThreadedCachedProperty
+                | KnownClass::CachedProperty
+                | KnownClass::CinderCachedProperty
+                | KnownClass::CinderAsyncCachedProperty,
+            ) => Self::CachedProperty(name.clone()),
+            Some(KnownClass::EnumMember) => Self::EnumMember,
+            Some(KnownClass::EnumNonmember) => Self::EnumNonmember,
+            Some(KnownClass::DataclassesField) => Self::DataclassField,
             _ => Self::Class,
         }
     }
 }
 
-impl Display for ClassInner {
+impl Display for ClassDef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "class {}", self.qname.id())?;
         writeln!(f, ": ...")
@@ -346,108 +487,124 @@ impl Display for ClassInner {
 //   which involves substituting type arguments for the class type parameters as
 //   well as descriptor handling (including method binding).
 impl Class {
-    pub fn new(
-        def_index: ClassDefIndex,
-        name: Identifier,
-        parent: NestingContext,
-        module: Module,
-        precomputed_tparams: PrecomputedTParams,
-        is_protocol: bool,
-    ) -> Self {
-        Self(Arc::new(ClassInner {
-            def_index,
-            qname: QName::new(name, parent, module),
-            is_protocol,
-            precomputed_tparams,
-        }))
-    }
-
-    pub fn range(&self) -> TextRange {
-        self.0.qname.range()
-    }
-
-    pub fn name(&self) -> &Name {
-        self.0.qname.id()
-    }
-
-    pub fn qname(&self) -> &QName {
-        &self.0.qname
-    }
-
-    pub fn kind(&self) -> ClassKind {
-        ClassKind::from_qname(self.qname())
-    }
-
-    pub fn is_protocol(&self) -> bool {
-        self.0.is_protocol
-    }
-
-    pub fn precomputed_tparams(&self) -> &PrecomputedTParams {
-        &self.0.precomputed_tparams
+    /// The class defined at `index` in the module `module`. `known` is the known class of its
+    /// definition (`ClassDef::known`).
+    pub fn new(module: ModuleKey, index: ClassDefIndex, known: Option<KnownClass>) -> Self {
+        Self {
+            module,
+            index,
+            known,
+        }
     }
 
     pub fn index(&self) -> ClassDefIndex {
-        self.0.def_index
+        self.index
     }
 
     pub fn module_name(&self) -> ModuleName {
-        self.0.qname.module_name()
+        self.module.name()
     }
 
-    pub fn module_path(&self) -> &ModulePath {
-        self.0.qname.module_path()
+    /// The path of the module that defines this class, which is the path to look the module up
+    /// by.
+    pub fn module_path(&self) -> &'static ModulePath {
+        self.module.path()
     }
 
-    pub fn module(&self) -> &Module {
-        self.0.qname.module()
+    pub fn module_key(&self) -> ModuleKey {
+        self.module
     }
 
-    pub fn has_qname(&self, module: &str, parent: &NestingContext, name: &str) -> bool {
-        self.0.qname.module_name().as_str() == module
-            && self.0.qname.parent() == parent
-            && self.0.qname.id() == name
+    /// The known class this is, if it is one. Only top-level classes can be known classes.
+    pub fn known(&self) -> Option<KnownClass> {
+        self.known
     }
 
-    pub fn has_toplevel_qname(&self, module: &str, name: &str) -> bool {
-        self.has_qname(module, &NestingContext::toplevel(), name)
+    pub fn is(&self, known: KnownClass) -> bool {
+        self.known == Some(known)
     }
 
-    pub fn is_builtin(&self, name: &str) -> bool {
-        self.has_toplevel_qname("builtins", name)
+    pub fn def<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a ClassDef {
+        env.class_def(self)
     }
 
-    /// Key to use for equality purposes. If we have the same module and index,
-    /// we must point at the same class underneath.
-    fn key_eq(&self) -> (ClassDefIndex, ModuleName, ModulePath) {
-        (
-            self.0.def_index,
-            self.0.qname.module_name(),
-            self.0.qname.module_path().to_key_eq(),
-        )
+    pub fn name<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a Name {
+        self.def(env).qname.id()
     }
 
-    /// Key to use for comparison purposes. Main used to sort identifiers in union,
-    /// and then alphabetically sorting by the name gives a predictable answer.
-    fn key_ord(&self) -> (&QName, ClassDefIndex) {
-        (&self.0.qname, self.0.def_index)
+    pub fn qname<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a QName {
+        &self.def(env).qname
+    }
+
+    pub fn range<E: TypeEnv + ?Sized>(&self, env: &E) -> TextRange {
+        self.def(env).qname.range()
+    }
+
+    /// The module that defines this class.
+    pub fn module<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a Module {
+        self.def(env).qname.module()
+    }
+
+    pub fn is_protocol<E: TypeEnv + ?Sized>(&self, env: &E) -> bool {
+        self.def(env).is_protocol
+    }
+
+    pub fn deprecation<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> Option<&'a Deprecation> {
+        self.def(env).deprecation.as_deref()
+    }
+
+    pub fn kind<E: TypeEnv + ?Sized>(&self, env: &E) -> ClassKind {
+        ClassKind::new(self.known(), self.name(env))
+    }
+
+    /// The type parameters of this class, which are empty if it is not generic.
+    pub fn tparams<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a TParams {
+        env.class_tparams(self)
+    }
+
+    /// Whether the class declares any type parameters, which its definition decides from syntax.
+    pub fn has_tparams<E: TypeEnv + ?Sized>(&self, env: &E) -> bool {
+        self.def(env).has_tparams
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct ClassType(Class, TArgs);
 
-impl Display for ClassType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", Type::ClassType(self.clone()))
-    }
+assert_bytes!(ClassType, 24);
+
+/// A Django specialization of a class instance, made where the instance is constructed.
+///
+/// A manager bound to a model resolves generated members against its queryset. A many-to-many
+/// manager accepts the target model's primary key type where the stubs accept `int` in place of
+/// model instances. A custom manager or queryset uses its effective base for inherited members
+/// and nominal upcasts. A model field keeps the read, assignment and override types that its
+/// declaration in the model implies. Type traversal and substitution include this data, and
+/// instance binding preserves it when replacing `Self`. Explicit method return types stand
+/// alone: neither their model nor their row is rebound to the manager's model.
+#[derive(Debug, Clone, Copy)]
+pub enum DjangoSpecialization<'a> {
+    /// The queryset of a `django.db.models.manager.Manager` bound to a model.
+    Queryset(&'a ClassType),
+    /// The primary key type of the target model of a many-to-many manager.
+    TargetPkType(&'a Type),
+    /// The effective base of a strict subclass of a Django manager or queryset.
+    EffectiveBase(&'a ClassType),
+    /// The types of a model field: what reading it from a model instance gives, what assigning
+    /// it accepts, and what an override in a subclass must accept.
+    Field {
+        get_type: &'a Type,
+        set_type: &'a Type,
+        override_type: &'a Type,
+    },
 }
 
 impl ClassType {
-    /// Create a class type.
+    /// Create a class type without a Django specialization, dropping any that `targs` carries.
     /// The `targs` must match the `tparams`, if this fails we will panic.
     pub fn new(class: Class, targs: TArgs) -> Self {
-        Self(class, targs)
+        Self(class, targs.without_django())
     }
 
     pub fn class_object(&self) -> &Class {
@@ -458,6 +615,9 @@ impl ClassType {
         self.0
     }
 
+    /// The type parameters that the type arguments were created for. Code that pairs the type
+    /// arguments with parameters uses these, so that the two always match. The class's current
+    /// type parameters are `class_object().tparams(env)`.
     pub fn tparams(&self) -> &TParams {
         self.1.tparams()
     }
@@ -474,31 +634,109 @@ impl ClassType {
     ///
     /// This is used to propagate instantiation of base class type parameters when computing
     /// the MRO.
-    pub fn substitute_with(&self, substitution: &Substitution) -> Self {
-        Self(self.0.dupe(), self.1.substitute_with(substitution))
+    pub fn substitute_with(&self, substitution: &Substitution, env: &dyn TypeEnv) -> Self {
+        Self(self.0.dupe(), self.1.substitute_with(substitution, env))
+    }
+
+    /// Attach the queryset of a manager bound to a model. Only `Manager` itself carries one.
+    pub fn with_django_queryset(self, queryset: ClassType) -> Self {
+        assert!(
+            self.is(KnownClass::DjangoManager),
+            "only `Manager` carries a Django queryset"
+        );
+        Self(
+            self.0,
+            self.1
+                .with_django(DjangoKind::Queryset, [queryset.to_type()]),
+        )
+    }
+
+    /// Attach the primary key type of a many-to-many manager's target model. Only
+    /// `ManyRelatedManager` itself carries one.
+    pub fn with_django_target_pk_type(self, pk_type: Type) -> Self {
+        assert!(
+            self.is(KnownClass::DjangoManyRelatedManager),
+            "only `ManyRelatedManager` carries a Django target primary key type"
+        );
+        Self(
+            self.0,
+            self.1.with_django(DjangoKind::TargetPkType, [pk_type]),
+        )
+    }
+
+    /// Attach the effective base of a strict subclass of a Django manager or queryset.
+    /// `Manager` and `QuerySet` themselves express their binding in their type arguments.
+    pub fn with_django_base(self, base: ClassType) -> Self {
+        assert!(
+            !self.is(KnownClass::DjangoManager) && !self.is(KnownClass::DjangoQuerySet),
+            "`Manager` and `QuerySet` do not carry a Django effective base"
+        );
+        Self(
+            self.0,
+            self.1
+                .with_django(DjangoKind::EffectiveBase, [base.to_type()]),
+        )
+    }
+
+    /// Attach the types of a model field. The caller checks that the class inherits from
+    /// Django's `Field`, which needs the class's MRO.
+    pub fn with_django_field(self, get_type: Type, set_type: Type, override_type: Type) -> Self {
+        Self(
+            self.0,
+            self.1
+                .with_django(DjangoKind::Field, [get_type, set_type, override_type]),
+        )
+    }
+
+    pub fn django_specialization(&self) -> Option<DjangoSpecialization<'_>> {
+        self.1.django()
     }
 
     pub fn substitution(&self) -> Substitution<'_> {
         self.targs().substitution()
     }
 
-    pub fn name(&self) -> &Name {
-        self.0.name()
-    }
-
-    pub fn qname(&self) -> &QName {
-        self.0.qname()
-    }
-
     pub fn to_type(self) -> Type {
         Type::ClassType(self)
     }
 
-    pub fn has_qname(&self, module: &str, name: &str) -> bool {
-        self.0.has_toplevel_qname(module, name)
+    pub fn known(&self) -> Option<KnownClass> {
+        self.0.known()
     }
 
-    pub fn is_builtin(&self, name: &str) -> bool {
-        self.0.is_builtin(name)
+    pub fn is(&self, known: KnownClass) -> bool {
+        self.0.is(known)
+    }
+
+    pub fn def<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a ClassDef {
+        self.0.def(env)
+    }
+
+    pub fn name<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a Name {
+        self.0.name(env)
+    }
+
+    pub fn qname<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a QName {
+        self.0.qname(env)
+    }
+
+    pub fn range<E: TypeEnv + ?Sized>(&self, env: &E) -> TextRange {
+        self.0.range(env)
+    }
+
+    pub fn module<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a Module {
+        self.0.module(env)
+    }
+
+    pub fn is_protocol<E: TypeEnv + ?Sized>(&self, env: &E) -> bool {
+        self.0.is_protocol(env)
+    }
+
+    pub fn deprecation<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> Option<&'a Deprecation> {
+        self.0.deprecation(env)
+    }
+
+    pub fn kind<E: TypeEnv + ?Sized>(&self, env: &E) -> ClassKind {
+        self.0.kind(env)
     }
 }

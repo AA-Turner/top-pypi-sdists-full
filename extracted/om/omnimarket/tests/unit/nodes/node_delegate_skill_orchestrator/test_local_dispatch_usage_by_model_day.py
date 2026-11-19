@@ -38,8 +38,10 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from omnimarket.enums.enum_cost_basis import EnumCostBasis
 from omnimarket.enums.enum_delegation_failure_class import EnumDelegationFailureClass
 from omnimarket.enums.enum_usage_source import EnumUsageSource
+from omnimarket.handlers.routing import delegation_backend_resolution
 from omnimarket.models.delegation.wire.model_named_test_run import ModelNamedTestRun
 from omnimarket.models.delegation.wire.model_named_test_run_request import (
     EnumNamedTestRunStatus,
@@ -62,7 +64,6 @@ from omnimarket.nodes.node_llm_delegation_call_effect.handlers import (
     transport,
 )
 from omnimarket.projection.sqlite_metering_reader import read_metering_records
-from omnimarket.routing import delegation_backend_resolution
 from tests.unit.nodes.node_delegate_skill_orchestrator.test_local_dispatch_escalation_omn13849 import (
     _dispatch as _ladder_dispatch,
 )
@@ -282,6 +283,11 @@ class _MeteredTierEffect:
             tokens_out=tokens_out,
             latency_ms=5,
             actual_cost_usd=_TIER_COST[tier],
+            cost_basis=(
+                EnumCostBasis.UNKNOWN
+                if tier in self._unmeasured_tiers
+                else EnumCostBasis.CLOUD_API_COST
+            ),
             usage_source=(
                 EnumUsageSource.UNKNOWN
                 if tier in self._unmeasured_tiers

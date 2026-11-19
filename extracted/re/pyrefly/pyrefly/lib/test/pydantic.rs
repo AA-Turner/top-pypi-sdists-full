@@ -9,9 +9,12 @@
 mod aliases;
 mod base_settings;
 mod config;
+mod constructor_arguments;
 mod dataclasses;
 mod extra;
 mod field;
+mod model_validate;
 mod root_model;
+mod schema_aliases;
 mod strictness;
 pub(crate) mod util;

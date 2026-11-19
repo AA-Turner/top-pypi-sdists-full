@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Adds support for filtering baremetal ports by ``conductor_groups``.

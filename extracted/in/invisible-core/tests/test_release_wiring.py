@@ -9,7 +9,7 @@ A gate somebody has to remember is a runbook note wearing a gate's clothes.
 Three layers now stand between a working tree and the index, and each one is
 asserted here so it cannot quietly rot:
 
-  1. `version_gate.py publish` - the only supported upload path. It runs `check`
+  1. `python -m invisible_core.release publish` - the only supported upload path. It runs `check`
      in-process and never reaches twine on a refusal (proved in
      test_release_gate.py, which drives it against real known-bad trees).
   2. .github/workflows/publish.yml - the index credential lives in a GitHub
@@ -38,24 +38,22 @@ import invisible_core
 # repo under an editable install and .../Lib under a regular one, so the same
 # expression means two different things depending on how it was installed.
 REPO_ROOT = Path(__file__).resolve().parents[1]
-GATE = REPO_ROOT / "scripts" / "version_gate.py"
 HOOK = REPO_ROOT / ".githooks" / "pre-push"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
-INSTALLER = REPO_ROOT / "scripts" / "install_hooks.py"
 
 pytestmark = pytest.mark.integration
 
 # These files are outside both build targets, so they are absent from an
 # installed copy and from the sdist. Skipping is correct there; failing would
 # make `pytest` red for a user who merely installed the package.
-_in_checkout = GATE.exists()
+_in_checkout = HOOK.exists()
 requires_checkout = pytest.mark.skipif(
     not _in_checkout, reason="not a source checkout - the release wiring does not ship")
 
 
 @requires_checkout
 def test_every_layer_of_the_wiring_exists():
-    missing = [str(p) for p in (GATE, HOOK, WORKFLOW, INSTALLER) if not p.exists()]
+    missing = [str(p) for p in (HOOK, WORKFLOW) if not p.exists()]
     assert missing == [], (
         "the publish gate is wired to nothing again:\n  " + "\n  ".join(missing))
 
@@ -102,7 +100,7 @@ def test_the_upload_job_cannot_start_without_the_gate_job():
         "the upload job does not name the environment the credential lives in"
 
     steps = " ".join(str(s.get("run", "")) for s in upload.get("steps", []))
-    assert "version_gate.py publish" in steps, \
+    assert "invisible_core.release publish" in steps, \
         "the upload job does not go through the gate's own publish path"
 
 
@@ -142,7 +140,7 @@ def test_no_job_uploads_without_going_through_the_gate():
             continue
         assert "twine upload" not in stripped, (
             f"the workflow uploads directly, around the gate: {stripped!r}\n"
-            "  use `version_gate.py publish`, which runs the gate in-process first.")
+            "  use `python -m invisible_core.release publish`, which runs the gate in-process first.")
         assert "pypi-publish" not in stripped, (
             f"a publish action bypasses the gate entirely: {stripped!r}")
 
@@ -151,7 +149,7 @@ def test_no_job_uploads_without_going_through_the_gate():
 def test_the_gate_job_runs_the_gate_and_the_checkout_brings_the_ledger():
     text = WORKFLOW.read_text(encoding="utf-8")
     gate_job = text.split("\n  gate:", 1)[1].split("\n  upload:", 1)[0]
-    assert "version_gate.py check" in gate_job
+    assert "invisible_core.release check" in gate_job
     # A shallow checkout that dropped PUBLISHED.json is one of the ways the gate
     # used to disarm itself silently. It now exits 4, but not having the file at
     # all in CI would just mean every release run fails.

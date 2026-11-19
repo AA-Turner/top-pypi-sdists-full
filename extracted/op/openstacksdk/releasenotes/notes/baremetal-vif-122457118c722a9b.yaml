@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Implements VIF attach/detach API for bare metal nodes.

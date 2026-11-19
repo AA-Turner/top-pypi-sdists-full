@@ -14,17 +14,140 @@ They assert static file contents only — no Docker build, no network.
 
 from __future__ import annotations
 
+import ast
 import re
+import shlex
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DOCKERFILE = _REPO_ROOT / "docker" / "Dockerfile.runtime"
 _WORKFLOW = (
     _REPO_ROOT / ".github" / "workflows" / "build-workspace-candidate-runtime.yml"
 )
+
+
+def _candidate_steps(workflow: dict[object, object]) -> list[dict]:
+    jobs = workflow["jobs"]
+    assert isinstance(jobs, dict)
+    build_job = jobs["build-workspace-candidate"]
+    assert isinstance(build_job, dict)
+    steps = build_job["steps"]
+    assert isinstance(steps, list)
+    assert all(isinstance(step, dict) for step in steps)
+    return steps
+
+
+def _step_index(steps: list[dict], name: str) -> int:
+    indices = [index for index, step in enumerate(steps) if step.get("name") == name]
+    assert len(indices) == 1, f"expected exactly one step named {name!r}, got {indices}"
+    return indices[0]
+
+
+def _stage_host_distributions(steps: list[dict]) -> set[str]:
+    """Read direct host pip installs before the executable staging command."""
+    stage_indices = [
+        index
+        for index, step in enumerate(steps)
+        if re.search(
+            r"^\s*bash\s+scripts/runtime_build/stage_workspace\.sh(?:\s|$)",
+            step.get("run", ""),
+            re.MULTILINE,
+        )
+    ]
+    assert len(stage_indices) == 1, "expected exactly one staging command"
+    installed: set[str] = set()
+    for step in steps[: stage_indices[0]]:
+        script = step.get("run", "").replace("\\\n", " ")
+        for line in script.splitlines():
+            if not re.match(r"^\s*python3\s+-m\s+pip\s+install\s", line):
+                continue
+            tokens = shlex.split(line, comments=True)
+            for token in tokens[4:]:
+                if token in {"--upgrade", "-U"}:
+                    continue
+                installed.add(canonicalize_name(Requirement(token).name))
+    return installed
+
+
+def _stage_python_sources(stage_script: Path) -> dict[str, str]:
+    """Inspect SCRIPT_DIR-relative helpers and Python heredocs in staging."""
+    shell = stage_script.read_text(encoding="utf-8")
+    sources = {}
+    for relative_path in sorted(
+        set(re.findall(r"\$\{SCRIPT_DIR\}/([\w./-]+\.py)\b", shell))
+    ):
+        path = (stage_script.parent / relative_path).resolve()
+        sources[str(path)] = path.read_text(encoding="utf-8")
+    assert sources, "expected staging to reference Python helpers"
+    for index, match in enumerate(
+        re.finditer(
+            r"\bpython3\b[^\n]*<<'(?P<delimiter>\w+)'\n"
+            r"(?P<source>.*?)\n(?P=delimiter)(?:\n|$)",
+            shell,
+            re.DOTALL,
+        )
+    ):
+        sources[f"{stage_script}:heredoc-{index}"] = match["source"]
+    return sources
+
+
+@pytest.mark.unit
+def test_stage_third_party_sources_follow_script_references(tmp_path: Path) -> None:
+    helper = tmp_path / "new_host_helper.py"
+    helper.write_text("import newly_required_package\n", encoding="utf-8")
+    stage = tmp_path / "stage_workspace.sh"
+    stage.write_text(
+        'python3 "${SCRIPT_DIR}/new_host_helper.py"\n'
+        "python3 - <<'PY'\nimport inline_dependency\nPY\n",
+        encoding="utf-8",
+    )
+    sources = _stage_python_sources(stage)
+    assert sources[str(helper)] == "import newly_required_package\n"
+    assert sources[f"{stage}:heredoc-0"] == "import inline_dependency"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("install_run", "expected"),
+    [
+        ("python3 -m pip install --upgrade 'PyYAML>=6'", True),
+        (
+            "python3 -m pip install -U \\\n            'pyyaml>=6' # host dependencies",
+            True,
+        ),
+        ("python3 -m pip install 'pydantic>=2' # pyyaml>=6", False),
+        ("python3 -m pip install 'unrelated-pyyaml>=6'", False),
+        ("# python3 -m pip install 'pyyaml>=6'", False),
+        ("echo python3 -m pip install 'pyyaml>=6'", False),
+        ("python -m pip install 'pyyaml>=6'", False),
+    ],
+)
+def test_stage_third_party_distributions_use_requirement_names(
+    install_run: str, expected: bool
+) -> None:
+    steps = [
+        {"name": "Renamed dependency setup", "run": install_run},
+        {
+            "name": "Renamed staging step",
+            "run": "set -euo pipefail\nbash scripts/runtime_build/stage_workspace.sh",
+        },
+    ]
+    assert ("pyyaml" in _stage_host_distributions(steps)) is expected
+
+
+@pytest.mark.unit
+def test_stage_third_party_distributions_exclude_late_installs() -> None:
+    steps = [
+        {"run": "bash scripts/runtime_build/stage_workspace.sh"},
+        {"run": "python3 -m pip install 'pyyaml>=6'"},
+    ]
+    assert _stage_host_distributions(steps) == set()
 
 
 @pytest.fixture(scope="module")
@@ -128,6 +251,35 @@ class TestWorkspaceCandidateWorkflow:
     def test_workflow_stages_siblings(self, workflow_text: str) -> None:
         assert "scripts/runtime_build/stage_workspace.sh" in workflow_text
 
+    def test_stage_step_host_python_has_every_third_party_import(
+        self, workflow: dict[object, object]
+    ) -> None:
+        """Install every host-side staging dependency before staging (OMN-19998)."""
+        steps = _candidate_steps(workflow)
+        installed = _stage_host_distributions(steps)
+        import_to_distribution = {"yaml": "pyyaml"}
+        sources = _stage_python_sources(
+            _REPO_ROOT / "scripts/runtime_build/stage_workspace.sh"
+        )
+        for source_path, source in sources.items():
+            tree = ast.parse(source, filename=source_path)
+            imports: set[str] = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imports.update(alias.name.split(".")[0] for alias in node.names)
+                elif (
+                    isinstance(node, ast.ImportFrom)
+                    and node.level == 0
+                    and node.module
+                    and node.module != "__future__"
+                ):
+                    imports.add(node.module.split(".")[0])
+            for name in sorted(imports - sys.stdlib_module_names):
+                distribution = import_to_distribution.get(name, name)
+                assert canonicalize_name(distribution) in installed, (
+                    f"missing host dependency {distribution!r} imported by {source_path}"
+                )
+
     def test_workflow_runs_unweakened_trivy_scan(self, workflow_text: str) -> None:
         # SAME scan as the prod path: CRITICAL,HIGH, --ignore-unfixed, exit 1.
         assert "aquasecurity/trivy-action" in workflow_text
@@ -179,6 +331,86 @@ class TestWorkspaceCandidateWorkflow:
         push_idx = workflow_text.index("Push candidate image to Amazon ECR")
         assert assert_idx < push_idx
 
+    def test_workflow_composes_omnimarket_layer_before_scan(
+        self, workflow: dict[object, object]
+    ) -> None:
+        steps = _candidate_steps(workflow)
+        compose_idx = _step_index(
+            steps, "Compose the omnimarket layer onto the candidate (OMN-21279)"
+        )
+        assert (
+            _step_index(steps, "Build runtime image (workspace stability-candidate)")
+            < compose_idx
+        )
+        for step_name in (
+            "Generate unignored Trivy audit report (OMN-16229)",
+            "Run Trivy vulnerability scanner",
+            "Assert required config paths exist in the built image (OMN-15676)",
+            "Push candidate image to Amazon ECR",
+        ):
+            assert compose_idx < _step_index(steps, step_name)
+
+    def test_workflow_composes_from_the_staged_omnimarket_tree(
+        self, workflow: dict[object, object]
+    ) -> None:
+        steps = _candidate_steps(workflow)
+        step = steps[
+            _step_index(
+                steps, "Compose the omnimarket layer onto the candidate (OMN-21279)"
+            )
+        ]
+        assert (
+            step["env"]["OMNIMARKET_TREE"]
+            == "${{ steps.stage-siblings.outputs.workspace_root }}/omnimarket"
+        )
+        assert step["env"]["CANDIDATE_IMAGE"] == "${{ steps.meta.outputs.tags }}"
+        assert '--file "${OMNIMARKET_TREE}/Dockerfile.runtime"' in step["run"]
+        assert '--build-arg "INFRA_RUNTIME_IMAGE=${INFRA_IMAGE}"' in step["run"]
+        assert '--build-arg "OMNIMARKET_VCS_REF=${OMNIMARKET_VCS_REF}"' in step["run"]
+        assert '--tag "${CANDIDATE_IMAGE}"' in step["run"]
+        assert 'docker tag "${CANDIDATE_IMAGE}" "${INFRA_IMAGE}"' in step["run"]
+        assert "set -euo pipefail" in step["run"]
+        assert "import omnimarket" in step["run"]
+
     def test_workflow_has_no_skip_or_bypass_tokens(self, workflow_text: str) -> None:
         assert "[skip-" not in workflow_text
         assert "--no-verify" not in workflow_text
+
+
+@pytest.mark.unit
+@pytest.mark.live_contact(
+    "tests/ci/fixtures/ci_live_contact/candidate_topic_provision_no_omnimarket_omn19998.json"
+)
+def test_recorded_infra_only_candidate_is_composed_before_push(
+    recorded_response: dict[str, object], workflow: dict[object, object]
+) -> None:
+    """The recorded run 40272282023 predates the compose step.
+
+    Pin the failure that step answers: an infra-only candidate built, then
+    could not import omnimarket in the lab topic-provision Job. Check that the
+    job now carries the import probe. Step order is the ordering test's concern.
+    """
+    response = recorded_response["response"]
+    assert isinstance(response, dict)
+    jobs = {job["name"]: job for job in response["jobs"]}
+    build = jobs[
+        "Build runtime stability-candidate / Build + scan + push workspace stability-candidate"
+    ]
+    smoke = jobs["Candidate render/wiring smoke on an ephemeral kind cluster"]
+    assert build["conclusion"] == "success"
+    assert smoke["conclusion"] == "failure"
+    assert (
+        "Provision the contract-declared topics on the lane (OMN-18264)"
+        in smoke["failed_steps"]
+    )
+    log_lines = response["job_log"]["lines"]
+    assert any(
+        "FATAL omnimarket contracts unresolvable: No module named 'omnimarket'" in line
+        for line in log_lines
+    )
+
+    steps = _candidate_steps(workflow)
+    compose = _step_index(
+        steps, "Compose the omnimarket layer onto the candidate (OMN-21279)"
+    )
+    assert "import omnimarket" in steps[compose]["run"]

@@ -2,8 +2,7 @@
 `seq policy shell <name> -- <command>`: one command run in a container of your deployment's worker serving now, to look
 into it - what is installed, where its files are, what its card says - its output printed and its exit code this
 command's own. It runs as your policy's code does there, with none of the platform's secrets nor your own; one command
-at a time on a worker, up to 120 s. (The gateway's POST /v1/deployments/{name}/shell; the worker's harness/transport/
-shell.py.)
+at a time on a worker, up to 120 s.
 
 `seq benchmark shell <name> -- <command>`: the same on a machine of your benchmark's newest version, in its image on the
 card it declares - opened for it once its image is there to load, waited for, what it waits on said as it moves on - which
@@ -143,8 +142,8 @@ def shell(name: str, words: list[str], *, worker: str | None = None, timeout_s: 
 def benchmark_shell(name: str, words: list[str], *, version: int | None = None, timeout_s: float = 30.0,
                     base_url: str | None = None, echo=print, clock=time.monotonic) -> dict:
     """The command run once on a shell machine of benchmark `name` (its version `version`, else its newest), asked
-    again while the machine opens - for WAIT_MOST_S at most - what it waits on said as the platform words it (the gateway's
-    eval/machine_start.of_shell), again when that moves on and each SAID_AGAIN_S it lasts; then as on a policy's worker. What
+    again while the machine opens - for WAIT_MOST_S at most - what it waits on said as the platform words it
+, again when that moves on and each SAID_AGAIN_S it lasts; then as on a policy's worker. What
     it answered: exit_code, output, truncated, timed_out, seconds, machine, version.
 """
     body = {"command": command_of(words, "benchmark"), "timeout_s": timeout_s,

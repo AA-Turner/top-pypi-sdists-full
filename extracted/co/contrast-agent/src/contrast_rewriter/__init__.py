@@ -21,7 +21,7 @@ import time
 
 # Seems like it is necessary to import this prior to rewriting to avoid some weird partial import state
 import tokenize  # noqa: F401
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from contrast_vendor.wrapt.importer import _ImportHookChainedLoader
@@ -94,7 +94,7 @@ class DeferredLogger:
 
     def debug(self, message, *args, **kwargs):
         kwargs.setdefault(
-            "time", datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z")
+            "time", datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
         )
         self.messages.append(("debug", message, args, kwargs))
 

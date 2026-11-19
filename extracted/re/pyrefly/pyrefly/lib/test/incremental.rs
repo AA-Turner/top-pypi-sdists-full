@@ -7,7 +7,10 @@
 
 //! Tests of the `State` object.
 
+use std::env;
 use std::mem;
+use std::num::NonZeroUsize;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -21,17 +24,29 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::thread_pool::TEST_THREAD_COUNT;
+use pyrefly_util::thread_pool::ThreadCount;
+use ruff_python_ast::name::Name;
+use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 
+use crate::alt::answers::Solutions;
+use crate::binding::binding::KeyExport;
+use crate::binding::binding::KeyTParams;
+use crate::binding::metadata::ClassRowChange;
 use crate::config::config::ConfigFile;
+use crate::config::error::ErrorDisplayConfig;
 use crate::config::finder::ConfigFinder;
+use crate::error::error::Error;
 use crate::error::error::print_errors;
 use crate::state::errors::Errors;
 use crate::state::load::FileContents;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
+use crate::test::util::TestEnv;
 use crate::test::util::init_test;
+use crate::test::util::report_unreachable_at_warn;
+use crate::types::types::Type;
 
 #[derive(Default, Clone, Dupe, Debug)]
 struct IncrementalData(Arc<Mutex<SmallMap<ModuleName, Arc<String>>>>);
@@ -79,10 +94,27 @@ impl Incremental {
     }
 
     fn with_files(files: Vec<String>) -> Self {
+        Self::with_files_and_threads(files, TEST_THREAD_COUNT)
+    }
+
+    fn with_files_and_threads(files: Vec<String>, threads: ThreadCount) -> Self {
+        Self::with_site_packages(files, threads, Vec::new())
+    }
+
+    /// Like `with_files_and_threads`, but imports that no file provides also resolve against the
+    /// packages in `site_package_path`.
+    fn with_site_packages(
+        files: Vec<String>,
+        threads: ThreadCount,
+        site_package_path: Vec<PathBuf>,
+    ) -> Self {
         init_test();
         let data = IncrementalData::default();
 
         let mut config = ConfigFile::default();
+        if !site_package_path.is_empty() {
+            config.python_environment.site_package_path = Some(site_package_path);
+        }
         config.python_environment.set_empty_to_default();
         let mut sourcedb = MapDatabase::new(config.get_sys_info());
         for file in &files {
@@ -92,6 +124,12 @@ impl Incremental {
             );
         }
         config.source_db = Some(ArcId::new(Box::new(sourcedb)));
+        report_unreachable_at_warn(
+            config
+                .root
+                .errors
+                .get_or_insert_with(ErrorDisplayConfig::default),
+        );
         config.configure();
         let config = ArcId::new(config);
 
@@ -99,7 +137,7 @@ impl Incremental {
             data: data.dupe(),
             files,
             require: None,
-            state: State::new(ConfigFinder::new_constant(config), TEST_THREAD_COUNT),
+            state: State::new(ConfigFinder::new_constant(config), threads),
             to_set: Vec::new(),
         }
     }
@@ -177,6 +215,48 @@ impl Incremental {
         res
     }
 
+    /// Run a check, and expect the same errors, at the same locations, as a check of the same files
+    /// from scratch.
+    fn check_matches_fresh_check(&mut self, want: &[&str]) {
+        let incremental = self.unchecked(want);
+        let mut fresh = Incremental::with_files(self.files.clone());
+        for (module, contents) in self.data.0.lock().iter() {
+            fresh.set(module.as_str(), contents);
+        }
+        let fresh = fresh.unchecked(want);
+        let show = |result: &IncrementalResult| {
+            result
+                .errors
+                .collect_display_errors()
+                .iter()
+                .map(|e| format!("{} {}: {}", e.path(), e.display_range(), e.msg()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(show(&incremental), show(&fresh));
+    }
+
+    /// Run a check, expecting to recompute `recompute`, and check that the modules in `want` have
+    /// the errors and exported answers that checking the same sources from scratch gives.
+    fn check_matches_clean(&mut self, want: &[&str], recompute: &[&str]) -> IncrementalResult {
+        let res = self.unchecked(want);
+        res.check_recompute(recompute);
+        let mut clean = Incremental::with_files(self.files.clone());
+        for (m, contents) in self.data.0.lock().iter() {
+            clean.set(m.as_str(), contents);
+        }
+        let clean_res = clean.unchecked(want);
+        let errors = res.errors.collect_display_errors();
+        let clean_errors = clean_res.errors.collect_display_errors();
+        for m in want {
+            assert_eq!(
+                module_snapshot(self, &errors, m),
+                module_snapshot(&clean, &clean_errors, m),
+                "`{m}` differs from a clean check"
+            );
+        }
+        res
+    }
+
     /// Run a check. Expect to recompute things to have changed, but ignore error comments.
     fn check_ignoring_expectations(
         &mut self,
@@ -186,6 +266,42 @@ impl Incremental {
         let res = self.unchecked(want);
         res.check_recompute(recompute);
         res
+    }
+}
+
+#[test]
+fn test_functools_wrapping_mutation_invalidates_unwrap() {
+    let mut i = Incremental::new();
+    let module = |mutation: &str| {
+        format!(
+            r#"
+from functools import update_wrapper, wraps
+from inspect import unwrap
+
+def source() -> str:
+    return "source"
+
+@wraps(source)
+def wrapper() -> int:
+    return 1
+
+result = unwrap(wrapper)()
+
+def unrelated() -> bool:
+    return False
+
+{mutation}
+"#
+        )
+    };
+    for mutation in ["", "update_wrapper(unrelated, source)", ""] {
+        i.set("main", &module(mutation));
+        let expected = if mutation.is_empty() { "str" } else { "Any" };
+        i.set(
+            "foo",
+            &format!("from main import result\nfrom typing import Any, assert_type\nassert_type(result, {expected})\n"),
+        );
+        i.unchecked(&["main", "foo"]).check_errors();
     }
 }
 
@@ -525,11 +641,8 @@ fn test_type_shape_dsl_helper_edit_invalidates_caller() {
     i.set(
         "shape_extensions",
         r#"
-from typing import Callable
-
 class Int: pass
 class IntTuple: pass
-def shaped_array[T](*, shape: str) -> Callable[[type[T]], type[T]]: ...
 def type_shape_dsl_function[F](fn: F) -> F: return fn
 "#,
     );
@@ -547,9 +660,8 @@ def leaf(first: Int, second: Int) -> Int:
         "main",
         r#"
 from helpers import leaf
-from shape_extensions import Int, IntTuple, shaped_array, type_shape_dsl_function
+from shape_extensions import Int, IntTuple, type_shape_dsl_function
 
-@shaped_array(shape="Shape")
 class Tensor[Shape: IntTuple]: ...
 
 @type_shape_dsl_function
@@ -602,7 +714,6 @@ fn test_type_shape_dsl_broadcast_edit_invalidates_importer() {
         "shape_extensions",
         r#"
 class IntTuple: pass
-def shaped_array[T](*, shape: str): ...
 def type_shape_dsl_function[F](fn: F) -> F: return fn
 
 @type_shape_dsl_function
@@ -613,9 +724,8 @@ def broadcast(left: IntTuple, right: IntTuple) -> IntTuple:
     i.set(
         "main",
         r#"
-from shape_extensions import IntTuple, broadcast, shaped_array
+from shape_extensions import IntTuple, broadcast
 
-@shaped_array(shape="Shape")
 class Tensor[Shape: IntTuple]: ...
 
 def chosen() -> Tensor[broadcast(IntTuple[2], IntTuple[3])]: ...
@@ -636,7 +746,6 @@ result: Tensor[[2]] = chosen()
         "shape_extensions",
         r#"
 class IntTuple: pass
-def shaped_array[T](*, shape: str): ...
 def type_shape_dsl_function[F](fn: F) -> F: return fn
 
 @type_shape_dsl_function
@@ -1086,7 +1195,8 @@ fn test_stale_typed_dict() {
 
     i.set("foo", "class D: x: int");
 
-    i.check_ignoring_expectations(&["main"], &["main", "foo", "bar", "baz"]);
+    // `baz` uses `D2` without reading anything of `D`, so it is not rechecked.
+    i.check_matches_clean(&["main"], &["main", "foo", "bar"]);
 }
 
 #[test]
@@ -1274,6 +1384,20 @@ fn test_fine_grained_related_export_recompute() {
     i.check(&["main"], &["foo", "main"]);
 }
 
+#[test]
+fn test_parse_error_survives_dependency_recompute() {
+    let mut i = Incremental::new();
+    i.set("foo", "x: int = 1");
+    i.set(
+        "main",
+        "from foo import x\nprint(x)\nif  # E: Parse error: Expected an expression",
+    );
+    i.check(&["main"], &["main", "foo"]);
+
+    i.set("foo", "x: str = 'changed'");
+    i.check(&["main"], &["foo", "main"]);
+}
+
 /// Test fine-grained tracking with unused `import foo` style.
 #[test]
 fn test_import_module_regular_import_unused() {
@@ -1396,7 +1520,75 @@ fn test_inferred_type_changes_trigger_recompute() {
         "main",
         "from bar import instance\ny = instance.x + 1 # E: `+` is not supported",
     );
-    i.check(&["main"], &["foo", "bar", "main"]);
+    // `bar` constructs an `A` without reading `x`, so it is not rechecked.
+    i.check(&["main"], &["foo", "main"]);
+}
+
+/// A property defined through a descriptor class moves when an edit above it changes the length
+/// of the file. Its answer does not record its location, so a module that reads the property is
+/// not recomputed.
+#[test]
+fn test_edit_above_descriptor() {
+    let mut i = Incremental::new();
+    let foo = |value: &str| {
+        format!(
+            r#"
+from typing import Callable, Generic, TypeVar
+
+T = TypeVar("T")
+R = TypeVar("R")
+
+class lazy_property(Generic[T, R]):
+    def __init__(self, fget: Callable[[type[T]], R]) -> None: ...
+    def __get__(self, obj: object, owner: type[T]) -> R: ...
+
+class A:
+    def f(self) -> int:
+        return {value}
+
+    @lazy_property
+    def p(cls: type["A"]) -> int:
+        return 1
+"#
+        )
+    };
+    i.set("foo", &foo("1"));
+    i.set("main", "from foo import A\nx: int = A.p");
+    i.check(&["main", "foo"], &["main", "foo"]);
+
+    i.set("foo", &foo("100000"));
+    i.check(&["main", "foo"], &["foo"]);
+}
+
+/// The location of a class's `@total_ordering` decorator moves when an edit above the class changes
+/// the length of the file. It only says where to report errors, so a module that uses the class is
+/// not recomputed.
+#[test]
+fn test_edit_above_total_ordering() {
+    let mut i = Incremental::new();
+    let foo = |value: &str| {
+        format!(
+            r#"
+from functools import total_ordering
+
+def f() -> int:
+    return {value}
+
+@total_ordering
+class A:
+    def __eq__(self, other: object) -> bool:
+        return True
+    def __lt__(self, other: "A") -> bool:
+        return True
+"#
+        )
+    };
+    i.set("foo", &foo("1"));
+    i.set("main", "from foo import A\nx: bool = A() <= A()");
+    i.check(&["main", "foo"], &["main", "foo"]);
+
+    i.set("foo", &foo("100000"));
+    i.check(&["main", "foo"], &["foo"]);
 }
 
 /// Test that when a function's return type changes, callers that import only
@@ -1498,9 +1690,8 @@ fn test_overlapping_exports_cycle_detected() {
     assert!(res.changed.contains(&"bar".to_owned()));
 }
 
-// Synthetic defense-in-depth reproducer for https://github.com/facebook/pyrefly/issues/4171.
+// Synthetic defense-in-depth reproducer for https://github.com/pyrefly-org/pyrefly/issues/4171.
 #[test]
-#[should_panic(expected = "Transaction has uncommitted changes")]
 fn test_deep_scc_chain_stabilizes_after_epoch_cap() {
     const LEVELS: usize = 208;
 
@@ -1556,6 +1747,24 @@ fn test_deep_scc_chain_stabilizes_after_epoch_cap() {
     assert!(errors[0].contains("not assignable to `int`"), "{errors:?}");
 }
 
+/// Editing `z` changes `foo.x` twice, once directly and once through `bar.y`, which cycle detection
+/// reports as a cycle. The recheck that follows recomputes `foo`, `bar` and `main` together, and
+/// `bar.w` and `main.v` change in it.
+#[test]
+fn test_changes_after_cycle_detection_are_committed() {
+    let mut i = Incremental::new();
+    i.set("foo", "import bar\nz = 1\nx = (bar.y, z)");
+    i.set("bar", "import foo\ny = foo.z\nw = foo.x");
+    i.set("main", "import bar\nv = bar.w");
+    i.check(&["foo", "bar", "main"], &["bar", "foo", "main"]);
+
+    i.set("foo", "import bar\nz = ''\nx = (bar.y, z)");
+    i.check_matches_clean(
+        &["foo", "bar", "main"],
+        &["bar", "bar", "foo", "foo", "foo", "main", "main"],
+    );
+}
+
 /// Test a more complex non-overlapping case with a chain of re-exports.
 ///
 /// This models a longer dependency chain where multiple intermediate modules
@@ -1599,7 +1808,8 @@ fn test_class_field_type_change_propagates() {
 
     // Change A's field type from int to str - modules should be recomputed
     i.set("foo", "class A:\n    x: str = 'hello'");
-    i.check_ignoring_expectations(&["main"], &["main", "foo", "bar"]);
+    // `bar` declares a field of type `A` without reading `x`, so it is not rechecked.
+    i.check_matches_clean(&["main"], &["main", "foo"]);
 }
 
 /// Test that class base type change propagates through the dependency chain.
@@ -1621,7 +1831,8 @@ fn test_class_base_type_change_propagates() {
 
     // Change Base's method return type - main should be recomputed
     i.set("foo", "class Base:\n    def m(self) -> str: return 'hello'");
-    i.check_ignoring_expectations(&["main"], &["main", "foo", "bar"]);
+    // `bar` declares `Derived` without reading `m`, so it is not rechecked.
+    i.check_matches_clean(&["main"], &["main", "foo"]);
 }
 
 /// Test that class MRO change propagates when a base class is added/removed.
@@ -1667,7 +1878,8 @@ fn test_base_class_field_change_derived_import_only() {
 
     // Change x to str - main should see the updated type (error)
     i.set("foo", "class Base:\n    x: str = 'hello'");
-    i.check_ignoring_expectations(&["foo"], &["main", "foo", "bar"]);
+    // `bar` declares `Derived` without reading `x`, so it is not rechecked.
+    i.check_matches_clean(&["foo", "main"], &["main", "foo"]);
 }
 
 /// Test that dataclass field changes propagate through the dependency chain.
@@ -1744,11 +1956,9 @@ fn test_class_field_removal_propagates() {
         "main",
         "from bar import B\ndef f(b: B) -> int:\n    return b.a.y # E: Object of class `A` has no attribute `y`",
     );
-    // Only foo and main recompute: foo because it changed, main
-    // because it has a `Class` dep on `foo::A` (it queries `A.y`).
-    // bar doesn't need to be recomputed — its `class B: a: A`
-    // binding doesn't depend on A's field set, only on `KeyExport(A)`.
-    i.check(&["main"], &["foo", "main"]);
+    // Removing `y` changes the fields that `A` declares. `main` looks `y` up in them, and `bar`
+    // reads them while it solves `B.a`, so both are rechecked.
+    i.check(&["main"], &["bar", "foo", "main"]);
 }
 
 /// Test that method signature changes propagate through the dependency chain.
@@ -1769,7 +1979,8 @@ fn test_class_method_signature_change_propagates() {
 
     // Change method to require an argument - main should see an error
     i.set("foo", "class A:\n    def m(self, n: int) -> int: return n");
-    i.check_ignoring_expectations(&["main"], &["main", "foo", "bar"]);
+    // `bar` declares a field of type `A` without reading `m`, so it is not rechecked.
+    i.check_matches_clean(&["main"], &["main", "foo"]);
 }
 
 /// Test generic class type parameter changes propagate.
@@ -1794,7 +2005,9 @@ fn test_generic_class_type_param_change_propagates() {
 
     // Change items to list[str] - main should see a type error
     i.set("foo", "class Container:\n    items: list[str]");
-    i.check_ignoring_expectations(&["main"], &["main", "foo", "bar"]);
+    // `bar` declares a field of type `Container` without reading `items`, so it is not
+    // rechecked.
+    i.check_matches_clean(&["main"], &["main", "foo"]);
 }
 
 /// Test that NamedTuple field changes propagate correctly.
@@ -1878,7 +2091,8 @@ fn test_four_level_class_field_chain() {
     i.check(&["main"], &["main", "foo", "bar", "baz"]);
 
     i.set("foo", "class A:\n    val: str = 'hello'");
-    i.check_ignoring_expectations(&["main"], &["main", "foo", "bar"]);
+    // `bar` declares a field of type `A` without reading `val`, so it is not rechecked.
+    i.check_matches_clean(&["main"], &["main", "foo"]);
 }
 
 /// Test that star import invalidates when the export *set* changes.
@@ -2727,8 +2941,11 @@ fn test_class_deprecation_metadata_change_invalidates() {
 
     // foo.C is NOT deprecated initially
     i.set("foo", "class C:\n    x: int = 1");
-    // # E: comment is present for the second check when deprecation warning appears
-    i.set("main", "from foo import C # E:\nc = C()");
+    // The second check expects deprecation warnings at the import and constructor call.
+    i.set(
+        "main",
+        "from foo import C # E: `C` is deprecated\nc = C() # E: `foo.C` is deprecated",
+    );
     i.check_ignoring_expectations(&["foo", "main"], &["foo", "main"]);
 
     // Add @deprecated decorator to class - main should be recomputed
@@ -2737,6 +2954,85 @@ fn test_class_deprecation_metadata_change_invalidates() {
         "from warnings import deprecated\n@deprecated('use D instead')\nclass C:\n    x: int = 1",
     );
     i.check(&["foo", "main"], &["foo", "main"]);
+}
+
+/// A class reference depends on deprecation metadata even when no constructor is called.
+#[test]
+fn test_class_reference_deprecation_metadata_change_invalidates() {
+    let mut i = Incremental::new();
+
+    i.set("foo", "class C: pass");
+    i.set("main", "import foo\ncls = foo.C # E: use D instead");
+    i.check_ignoring_expectations(&["foo", "main"], &["foo", "main"]);
+
+    i.set(
+        "foo",
+        "from warnings import deprecated\n@deprecated('use D instead')\nclass C: pass",
+    );
+    i.check(&["foo", "main"], &["foo", "main"]);
+}
+
+/// Class aliases carry deprecation changes through their exported type.
+#[test]
+fn test_class_alias_deprecation_change_invalidates() {
+    let mut i = Incremental::new();
+    i.set("foo", "class C: pass\nAlias = C");
+    i.set("main", "import foo\ncls = foo.Alias # E: use D instead");
+    i.check_ignoring_expectations(&["foo", "main"], &["foo", "main"]);
+
+    i.set(
+        "foo",
+        "from warnings import deprecated\n@deprecated('use D instead')\nclass C: pass\nAlias = C # E: use D instead",
+    );
+    i.check(&["foo", "main"], &["foo", "main"]);
+
+    i.set(
+        "foo",
+        "from warnings import deprecated\n@deprecated('use E instead')\nclass C: pass\nAlias = C # E: use E instead",
+    );
+    let result = i.check_ignoring_expectations(&["foo", "main"], &["foo", "main"]);
+    let errors = result.errors.collect_display_errors();
+    assert_eq!(errors.len(), 2);
+    assert!(
+        errors
+            .iter()
+            .all(|error| error.msg().contains("use E instead"))
+    );
+
+    i.set("foo", "class C: pass\nAlias = C");
+    let result = i.check_ignoring_expectations(&["foo", "main"], &["foo", "main"]);
+    assert!(result.errors.collect_display_errors().is_empty());
+}
+
+/// Specialized class aliases carry deprecation changes through their exported type.
+#[test]
+fn test_specialized_class_alias_deprecation_change_invalidates() {
+    let mut i = Incremental::new();
+    i.set("foo", "class C[T]: pass\nAlias = C[int]");
+    i.set("main", "import foo\nfoo.Alias() # E: use D instead");
+    i.check_ignoring_expectations(&["foo", "main"], &["foo", "main"]);
+
+    i.set(
+        "foo",
+        "from warnings import deprecated\n@deprecated('use D instead')\nclass C[T]: pass\nAlias = C[int] # E: use D instead",
+    );
+    i.check(&["foo", "main"], &["foo", "main"]);
+
+    i.set("foo", "class C[T]: pass\nAlias = C[int]");
+    let result = i.check_ignoring_expectations(&["foo", "main"], &["foo", "main"]);
+    assert!(result.errors.collect_display_errors().is_empty());
+}
+
+/// Reading a class object does not depend on the types of its methods.
+#[test]
+fn test_class_reference_method_change_does_not_invalidate() {
+    let mut i = Incremental::new();
+    i.set("foo", "class C:\n    def method(self) -> int: return 1");
+    i.set("main", "import foo\ncls = foo.C");
+    i.check(&["foo", "main"], &["foo", "main"]);
+
+    i.set("foo", "class C:\n    def method(self) -> str: return 'new'");
+    i.check(&["foo", "main"], &["foo"]);
 }
 
 /// Test that when an export changes from direct definition to re-export, dependents are invalidated.
@@ -2858,6 +3154,29 @@ fn test_class_docstring_change_invalidates() {
     i.check(&["foo", "main"], &["foo"]);
 }
 
+/// Test that changing the `Doc` text of a parameter recomputes only the module that defines it.
+#[test]
+fn test_annotated_doc_change_invalidates() {
+    let mut i = Incremental::new();
+    let foo = |doc: &str| {
+        format!(
+            "from typing import Annotated\n\
+             class Doc:\n    def __init__(self, documentation: str, /) -> None: ...\n\
+             def f(x: Annotated[int, Doc(\"{doc}\")]) -> int:\n    return x\n\
+             class C:\n    def m(self, x: Annotated[int, Doc(\"{doc}\")]) -> None: ...\n"
+        )
+    };
+
+    i.set("foo", &foo("Original"));
+    i.set("main", "from foo import C, f\nx = f(1)\nC().m(1)");
+    i.check(&["foo", "main"], &["foo", "main"]);
+
+    // Change the `Doc` text, which also moves the ranges after it - foo should be recomputed
+    // (main is not recomputed since the type signatures didn't change)
+    i.set("foo", &foo("Updated with more words"));
+    i.check(&["foo", "main"], &["foo"]);
+}
+
 /// Test that when __all__ contains Module entries (like `__all__.extend(other.__all__)`),
 /// changing those entries triggers wildcard fallback and invalidates star importers.
 ///
@@ -2958,4 +3277,2562 @@ def first(shapes: IntTuple) -> IntTuple:
     let changed = i.unchecked(&["consumer", "helpers"]);
     changed.check_recompute(&["consumer", "helpers", "main"]);
     changed.check_errors();
+}
+
+/// Whether an imported `Final` settles a test depends on whether a module on the way to it defines
+/// or star-imports it under a test of the environment, which can change without changing its type.
+#[test]
+fn test_final_moved_under_environment_test_rechecks_importer() {
+    let mut i = Incremental::new();
+    let errors = |i: &mut Incremental| {
+        i.unchecked(&["main"])
+            .errors
+            .collect_display_errors()
+            .map(|error| error.msg().to_owned())
+    };
+    i.set("bar", "from typing import Final\nDEBUG: Final = False");
+    i.set("foo", "from bar import DEBUG as DEBUG");
+    i.set(
+        "main",
+        "from foo import DEBUG\nif DEBUG:\n    x = 1\nelse:\n    x = ''\nobserved: str = x",
+    );
+    assert_eq!(errors(&mut i), ["This code is unreachable"]);
+
+    i.set(
+        "bar",
+        "import sys\nfrom typing import Final\nif sys.platform != 'win32':\n    DEBUG: Final = False",
+    );
+    let unsettled = errors(&mut i);
+    assert_eq!(unsettled.len(), 1, "{unsettled:?}");
+    assert!(
+        unsettled[0].contains("not assignable to `str`"),
+        "{unsettled:?}"
+    );
+
+    i.set("bar", "from typing import Final\nDEBUG: Final = False");
+    i.set("foo", "from bar import *");
+    assert_eq!(errors(&mut i), ["This code is unreachable"]);
+
+    i.set(
+        "foo",
+        "import sys\nfrom bar import *\nif sys.platform == 'win32':\n    DEBUG = True",
+    );
+    let unsettled = errors(&mut i);
+    assert_eq!(unsettled.len(), 1, "{unsettled:?}");
+    assert!(
+        unsettled[0].contains("not assignable to `str`"),
+        "{unsettled:?}"
+    );
+
+    i.set("foo", "from bar import *");
+    assert_eq!(errors(&mut i), ["This code is unreachable"]);
+
+    i.set(
+        "foo",
+        "import sys\nif sys.platform != 'win32':\n    from bar import *",
+    );
+    let unsettled = errors(&mut i);
+    assert_eq!(unsettled.len(), 1, "{unsettled:?}");
+    assert!(
+        unsettled[0].contains("not assignable to `str`"),
+        "{unsettled:?}"
+    );
+}
+
+/// A star import in a suite this configuration rules out brings in whatever the other module
+/// defines, so defining the constant there must recheck the importer.
+#[test]
+fn test_constant_defined_behind_skipped_star_import_rechecks_importer() {
+    let mut i = Incremental::new();
+    let errors = |i: &mut Incremental| {
+        i.unchecked(&["main"])
+            .errors
+            .collect_display_errors()
+            .map(|error| error.msg().to_owned())
+    };
+    i.set("bar", "from typing import Final\nDEBUG: Final = False");
+    i.set("baz", "");
+    i.set(
+        "foo",
+        "import sys\nfrom bar import DEBUG as DEBUG\nif sys.platform == 'win32':\n    from baz import *",
+    );
+    i.set(
+        "main",
+        "from foo import DEBUG\nif DEBUG:\n    x = 1\nelse:\n    x = ''\nobserved: str = x",
+    );
+    assert_eq!(errors(&mut i), ["This code is unreachable"]);
+
+    i.set("baz", "from typing import Final\nDEBUG: Final = True");
+    let unsettled = errors(&mut i);
+    assert_eq!(unsettled.len(), 1, "{unsettled:?}");
+    assert!(
+        unsettled[0].contains("not assignable to `str`"),
+        "{unsettled:?}"
+    );
+}
+
+/// Module `b` of the type-parameter tests. It uses `a.Foo` directly, and it exposes `Foo` and
+/// copies of `Foo`'s type parameters to other modules: as a class object, in aliases, in the bounds
+/// and defaults of its own classes, and in function signatures.
+const TPARAMS_B: &str = r#"
+from typing import Generic, TypeAlias, TypeVar, reveal_type
+from a import Foo
+
+S = TypeVar("S", default=Foo[int])
+R = TypeVar("R", bound=Foo[int])
+
+FooAlias = Foo
+FooBool = Foo[bool]
+FooExplicit: TypeAlias = Foo
+type FooTypeAlias = Foo
+
+class BDefault[T = Foo[int]]: ...
+class BBound[T: Foo[int]]: ...
+class LegacyDefault(Generic[S]): ...
+class LegacyBound(Generic[R]): ...
+
+def make() -> Foo: ...
+def make_bool() -> Foo[bool]: ...
+def take_int(x: Foo[int]) -> None: ...
+def ident[X: Foo[int]](x: X) -> X: ...
+
+x1: Foo[bool]
+x2: Foo[str]
+x3: Foo[bool, str]
+reveal_type(Foo())
+
+def direct(v: Foo, w: Foo[bool]) -> Foo[int]:
+    reveal_type(v)
+    return w
+"#;
+
+/// More modules that use `a.Foo`: `b_specialize` imports it from `a`, and each `c_*` module sees it
+/// only through what `b` exports. Each imports as little as possible and avoids assignability
+/// checks between specializations of `Foo` unless they are what it tests, so that it is rechecked
+/// only when what it reads changes.
+const TPARAMS_USERS: &[(&str, &str)] = &[
+    // Only specializes `Foo`, which reads its type parameters and nothing else of it.
+    (
+        "b_specialize",
+        r#"
+from a import Foo
+x1: Foo[bool]
+x2: Foo[str]
+x3: Foo[bool, str]
+"#,
+    ),
+    // `Foo`'s class object, re-bound in `b`, only specialized.
+    (
+        "c_specialize",
+        r#"
+from b import FooAlias
+y1: FooAlias[bool]
+y2: FooAlias[str]
+y3: FooAlias[bool, str]
+"#,
+    ),
+    // `Foo`'s class object, re-bound in `b`.
+    (
+        "c_class",
+        r#"
+from typing import reveal_type
+from b import FooAlias
+y1: FooAlias[bool]
+y2: FooAlias[str]
+y3: FooAlias[bool, str]
+reveal_type(FooAlias())
+def f(v: FooAlias) -> FooAlias[int]:
+    reveal_type(v)
+    return v
+def g(w: FooAlias[bool]) -> FooAlias[int]:
+    return w
+"#,
+    ),
+    // A class in `b` with a scoped type parameter bounded by `Foo[int]`.
+    (
+        "c_bound",
+        r#"
+from typing import reveal_type
+from b import BBound
+y: BBound[int]
+def f(x: BBound) -> None:
+    reveal_type(x)
+"#,
+    ),
+    // A class in `b` with a legacy type variable bounded by `Foo[int]`.
+    (
+        "c_legacy_bound",
+        r#"
+from typing import reveal_type
+from b import LegacyBound
+y: LegacyBound[int]
+def f(x: LegacyBound) -> None:
+    reveal_type(x)
+"#,
+    ),
+    // A class in `b` with a scoped type parameter defaulting to `Foo[int]`.
+    (
+        "c_default",
+        r#"
+from typing import reveal_type
+from b import BDefault
+def default_of[T](x: BDefault[T]) -> T: ...
+def f(x: BDefault) -> None:
+    reveal_type(x)
+    reveal_type(default_of(x))
+"#,
+    ),
+    // A class in `b` with a legacy type variable defaulting to `Foo[int]`.
+    (
+        "c_legacy_default",
+        r#"
+from typing import reveal_type
+from b import LegacyDefault
+def default_of[T](x: LegacyDefault[T]) -> T: ...
+def f(x: LegacyDefault) -> None:
+    reveal_type(x)
+    reveal_type(default_of(x))
+"#,
+    ),
+    // Uses the classes in `b` whose scoped type parameters embed `Foo[int]`, without reading
+    // anything of `Foo` itself.
+    (
+        "c_never",
+        r#"
+from typing import Never
+from b import BBound, BDefault
+def f(x: BBound[Never], y: BDefault) -> None: ...
+"#,
+    ),
+    // Uses the classes in `b` whose legacy type variables embed `Foo[int]`, without reading
+    // anything of `Foo` itself.
+    (
+        "c_legacy_never",
+        r#"
+from typing import Never
+from b import LegacyBound, LegacyDefault
+def f(x: LegacyBound[Never], y: LegacyDefault) -> None: ...
+"#,
+    ),
+    // Functions in `b` whose signatures mention `Foo`.
+    (
+        "c_function",
+        r#"
+from typing import reveal_type
+from b import ident, make, make_bool
+reveal_type(make())
+reveal_type(make_bool())
+y: int = make_bool()
+ident(1)
+"#,
+    ),
+    // Assignability between signatures in `b`, which depends on `Foo`'s variance.
+    (
+        "c_function_variance",
+        r#"
+from b import make_bool, take_int
+take_int(make_bool())
+"#,
+    ),
+    // An implicit type alias in `b`.
+    (
+        "c_alias",
+        r#"
+from typing import reveal_type
+from b import FooBool
+y: int = FooBool()
+def f(x: FooBool) -> None:
+    reveal_type(x)
+"#,
+    ),
+    // An explicit `TypeAlias` in `b`.
+    (
+        "c_explicit_alias",
+        r#"
+from typing import reveal_type
+from b import FooExplicit
+y: FooExplicit[bool]
+def f(x: FooExplicit) -> None:
+    reveal_type(x)
+"#,
+    ),
+    // A `type` statement in `b`.
+    (
+        "c_type_alias",
+        r#"
+from typing import reveal_type
+from b import FooTypeAlias
+y: int = FooTypeAlias()
+def f(x: FooTypeAlias) -> None:
+    reveal_type(x)
+"#,
+    ),
+];
+
+/// What a rebuild must reproduce for `module`: its errors, and the answers of all its exports,
+/// re-exports included, in `Debug` form. The `Debug` form includes the type parameters that
+/// classes and type arguments carry, so a stale copy of them is visible even where no error shows
+/// it.
+fn module_snapshot(i: &Incremental, errors: &[Error], module: &str) -> Vec<String> {
+    let mut res = errors
+        .iter()
+        .filter(|e| e.path().as_path() == Path::new(module))
+        .map(|e| {
+            format!(
+                "error {} {:?}: {}",
+                e.display_range(),
+                e.error_kind(),
+                e.msg()
+            )
+        })
+        .collect::<Vec<_>>();
+    let transaction = i.state.transaction();
+    let handle = i.handle(module);
+    let solutions = transaction.get_solutions(&handle).unwrap();
+    for name in transaction.get_exports(&handle).keys() {
+        let Some(ty) = solutions.get_hashed_opt(Hashed::new(&KeyExport(name.clone()))) else {
+            continue;
+        };
+        res.push(format!("export {name}: {ty:?}"));
+        if let Type::ClassDef(cls) = ty
+            && cls.module_path() == handle.path()
+            && let Some(tparams) = solutions.get_hashed_opt(Hashed::new(&KeyTParams(cls.index())))
+        {
+            res.push(format!("export {name} type parameters: {tparams:?}"));
+        }
+    }
+    res.sort();
+    res
+}
+
+/// What `rebuild_against_clean` observed for one edit.
+struct Rebuild {
+    /// The modules that the recheck recomputed, sorted, once per recomputation.
+    rechecked: Vec<String>,
+    /// The `module_snapshot` of every module after the recheck.
+    rebuilt: SmallMap<String, Vec<String>>,
+    /// The `module_snapshot` of every module in a clean check of the edited sources.
+    clean: SmallMap<String, Vec<String>>,
+}
+
+impl Rebuild {
+    /// The modules whose errors or exported answers differ from the clean check, each with the
+    /// lines that differ.
+    fn stale(&self) -> SmallMap<&str, Vec<String>> {
+        self.rebuilt
+            .iter()
+            .filter_map(|(m, got)| {
+                let want = self.clean.get(m).unwrap();
+                (got != want).then(|| {
+                    let stale = got
+                        .iter()
+                        .filter(|x| !want.contains(x))
+                        .map(|x| format!("    stale:   {x}"));
+                    let missing = want
+                        .iter()
+                        .filter(|x| !got.contains(x))
+                        .map(|x| format!("    missing: {x}"));
+                    (m.as_str(), stale.chain(missing).collect())
+                })
+            })
+            .collect()
+    }
+}
+
+/// Check every module of `files`, apply `edits`, recheck every module with `threads` threads, and
+/// check the edited sources from scratch. Imports that no file provides resolve against the
+/// packages in `site_package_path`.
+fn rebuild_against_clean(
+    files: &[(&str, &str)],
+    edits: &[(&str, &str)],
+    threads: ThreadCount,
+    site_package_path: &[PathBuf],
+) -> Rebuild {
+    let modules = files.map(|(m, _)| *m);
+    let checked = |sources: &[(&str, &str)]| {
+        let mut i = Incremental::with_site_packages(
+            modules.map(|m| (*m).to_owned()),
+            threads,
+            site_package_path.to_vec(),
+        );
+        for (m, contents) in sources {
+            i.set(m, contents);
+        }
+        let result = i.unchecked(&modules);
+        (i, result)
+    };
+    let snapshots = |i: &Incremental, result: &IncrementalResult| {
+        let errors = result.errors.collect_display_errors();
+        modules
+            .iter()
+            .map(|m| ((*m).to_owned(), module_snapshot(i, &errors, m)))
+            .collect::<SmallMap<_, _>>()
+    };
+    let (mut rebuilt, _) = checked(files);
+    for (m, contents) in edits {
+        rebuilt.set(m, contents);
+    }
+    let result = rebuilt.unchecked(&modules);
+    let edited = files.map(|(m, contents)| {
+        let contents = edits
+            .iter()
+            .find(|(edited, _)| edited == m)
+            .map_or(*contents, |(_, contents)| *contents);
+        (*m, contents)
+    });
+    let (clean, clean_result) = checked(&edited);
+    Rebuild {
+        rechecked: result.changed.clone(),
+        rebuilt: snapshots(&rebuilt, &result),
+        clean: snapshots(&clean, &clean_result),
+    }
+}
+
+/// Check that rechecking after `edits` gives every module of `files` the errors and exported
+/// answers that a clean check of the edited sources gives, at several thread counts, except for
+/// exactly the modules in `stale`. A correct recheck leaves none, so a test lists modules here only
+/// to document a known bug.
+fn assert_rebuild_matches_clean(files: &[(&str, &str)], edits: &[(&str, &str)], stale: &[&str]) {
+    let mut expected = stale.to_vec();
+    expected.sort();
+    for threads in [1, 3, 8] {
+        let rebuild = rebuild_against_clean(
+            files,
+            edits,
+            ThreadCount::NumThreads(NonZeroUsize::new(threads).unwrap()),
+            &[],
+        );
+        let differences = rebuild.stale();
+        let mut actual = differences.keys().copied().collect::<Vec<_>>();
+        actual.sort();
+        assert!(
+            actual == expected,
+            "stale modules after the recheck at {threads} threads: expected {expected:?}, got {actual:?} (rechecked: {:?})\n{}",
+            rebuild.rechecked,
+            differences
+                .iter()
+                .map(|(m, lines)| format!("`{m}` differs from a clean check\n{}", lines.join("\n")))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
+}
+
+/// The errors of `module` after rechecking `edits`, which must be the same at 1, 3 and 8 threads.
+fn rebuilt_errors(files: &[(&str, &str)], edits: &[(&str, &str)], module: &str) -> Vec<String> {
+    let [first, rest @ ..] = [1, 3, 8].map(|threads| {
+        let rebuild = rebuild_against_clean(
+            files,
+            edits,
+            ThreadCount::NumThreads(NonZeroUsize::new(threads).unwrap()),
+            &[],
+        );
+        rebuild
+            .rebuilt
+            .get(module)
+            .unwrap()
+            .iter()
+            .filter(|line| line.starts_with("error "))
+            .cloned()
+            .collect::<Vec<_>>()
+    });
+    for errors in rest {
+        assert_eq!(errors, first);
+    }
+    first
+}
+
+/// The modules whose errors or exported answers differ from a clean check after a rebuild in
+/// `assert_tparams_rebuild_matches_clean`, for each way it applies the edit. A correct rebuild
+/// leaves none, so a test lists modules here only to document a known bug.
+struct StaleModules {
+    a_edited: &'static [&'static str],
+    a_and_b_edited: &'static [&'static str],
+}
+
+impl StaleModules {
+    const NONE: Self = Self {
+        a_edited: &[],
+        a_and_b_edited: &[],
+    };
+}
+
+/// Check that changing `Foo` in module `a` from `before` to `after` and rechecking gives every
+/// module the errors and exported answers that checking the edited sources from scratch gives,
+/// except for exactly the modules in `stale`.
+///
+/// The edit is checked twice: on its own, and together with a comment-only edit to `b`. The
+/// comment forces `b` to be rechecked, so a module that imports from `b` is stale only if what `b`
+/// exports hides the change.
+fn assert_tparams_rebuild_matches_clean(before: &str, after: &str, stale: StaleModules) {
+    let files = ["a", "b"]
+        .into_iter()
+        .chain(TPARAMS_USERS.iter().map(|(m, _)| *m))
+        .collect::<Vec<_>>();
+    let checked = |a: &str, b: &str| {
+        let mut i = Incremental::with_files(files.map(|x| (*x).to_owned()));
+        i.set("a", a);
+        i.set("b", b);
+        for (m, contents) in TPARAMS_USERS {
+            i.set(m, contents);
+        }
+        let errors = i.unchecked(&files).errors.collect_display_errors();
+        (i, errors)
+    };
+    let touched_b = format!("{TPARAMS_B}# touched\n");
+    let mut failures = Vec::new();
+    for (variant, b_after, expected_stale) in [
+        ("a edited", TPARAMS_B, stale.a_edited),
+        ("a and b edited", &touched_b, stale.a_and_b_edited),
+    ] {
+        let (mut rebuilt, initial_errors) = checked(before, TPARAMS_B);
+        rebuilt.set("a", after);
+        if b_after != TPARAMS_B {
+            rebuilt.set("b", b_after);
+        }
+        let result = rebuilt.unchecked(&files);
+        let rebuilt_errors = result.errors.collect_display_errors();
+        let (clean, clean_errors) = checked(after, b_after);
+        let b_errors = |errors: &[Error]| {
+            errors
+                .iter()
+                .filter(|e| e.path().as_path() == Path::new("b"))
+                .map(|e| e.msg())
+                .collect::<Vec<_>>()
+        };
+        assert_ne!(
+            b_errors(&initial_errors),
+            b_errors(&clean_errors),
+            "the edit does not change the errors of `b`, so the test observes nothing"
+        );
+        let mut actual_stale = Vec::new();
+        let mut unexpected = Vec::new();
+        for m in &files {
+            let got = module_snapshot(&rebuilt, &rebuilt_errors, m);
+            let want = module_snapshot(&clean, &clean_errors, m);
+            if got == want {
+                continue;
+            }
+            actual_stale.push(*m);
+            if !expected_stale.contains(m) {
+                let stale = got
+                    .iter()
+                    .filter(|x| !want.contains(x))
+                    .map(|x| format!("    stale:   {x}"));
+                let missing = want
+                    .iter()
+                    .filter(|x| !got.contains(x))
+                    .map(|x| format!("    missing: {x}"));
+                unexpected.push(format!(
+                    "`{m}` differs from a clean check\n{}",
+                    stale.chain(missing).collect::<Vec<_>>().join("\n")
+                ));
+            }
+        }
+        actual_stale.sort();
+        let mut expected_stale = expected_stale.to_vec();
+        expected_stale.sort();
+        if actual_stale != expected_stale {
+            failures.push(format!(
+                "[{variant}] stale modules: expected {expected_stale:?}, got {actual_stale:?} (rechecked: {:?})\n{}",
+                result.changed,
+                unexpected.join("\n")
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "\n{}", failures.join("\n"));
+}
+
+#[test]
+fn test_tparams_pep695_bound_change_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        "class Foo[T: int]: ...",
+        "class Foo[T: str]: ...",
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_pep695_constraints_change_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        "class Foo[T: (int, bytes)]: ...",
+        "class Foo[T: (str, bytes)]: ...",
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_pep695_default_change_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        "class Foo[T = int]: ...",
+        "class Foo[T = str]: ...",
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_pep695_variance_change_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        "class Foo[T]:\n    def get(self) -> T: ...",
+        "class Foo[T]:\n    def get(self) -> T: ...\n    def set(self, x: T) -> None: ...",
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_pep695_arity_change_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        "class Foo[T]: ...",
+        "class Foo[T, U]: ...",
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_pep695_becoming_generic_propagates() {
+    assert_tparams_rebuild_matches_clean("class Foo: ...", "class Foo[T]: ...", StaleModules::NONE);
+}
+
+#[test]
+fn test_tparams_pep695_becoming_non_generic_propagates() {
+    assert_tparams_rebuild_matches_clean("class Foo[T]: ...", "class Foo: ...", StaleModules::NONE);
+}
+
+#[test]
+fn test_tparams_pep695_order_change_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        "class Foo[T: int, U: str]: ...",
+        "class Foo[U: str, T: int]: ...",
+        StaleModules::NONE,
+    );
+}
+
+/// `Foo` declared with legacy type variables.
+fn legacy_foo(tvars: &str, class: &str) -> String {
+    format!("from typing import Generic, TypeVar\n{tvars}\n{class}\n")
+}
+
+#[test]
+fn test_tparams_legacy_bound_change_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        &legacy_foo("T = TypeVar('T', bound=int)", "class Foo(Generic[T]): ..."),
+        &legacy_foo("T = TypeVar('T', bound=str)", "class Foo(Generic[T]): ..."),
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_legacy_constraints_change_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        &legacy_foo("T = TypeVar('T', int, bytes)", "class Foo(Generic[T]): ..."),
+        &legacy_foo("T = TypeVar('T', str, bytes)", "class Foo(Generic[T]): ..."),
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_legacy_default_change_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        &legacy_foo(
+            "T = TypeVar('T', default=int)",
+            "class Foo(Generic[T]): ...",
+        ),
+        &legacy_foo(
+            "T = TypeVar('T', default=str)",
+            "class Foo(Generic[T]): ...",
+        ),
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_legacy_variance_change_propagates() {
+    let class = "class Foo(Generic[T]):\n    def get(self) -> T: ...";
+    assert_tparams_rebuild_matches_clean(
+        &legacy_foo("T = TypeVar('T')", class),
+        &legacy_foo("T = TypeVar('T', covariant=True)", class),
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_legacy_arity_change_propagates() {
+    let tvars = "T = TypeVar('T')\nU = TypeVar('U')";
+    assert_tparams_rebuild_matches_clean(
+        &legacy_foo(tvars, "class Foo(Generic[T]): ..."),
+        &legacy_foo(tvars, "class Foo(Generic[T, U]): ..."),
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_legacy_becoming_generic_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        &legacy_foo("T = TypeVar('T')", "class Foo: ..."),
+        &legacy_foo("T = TypeVar('T')", "class Foo(Generic[T]): ..."),
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_legacy_becoming_non_generic_propagates() {
+    assert_tparams_rebuild_matches_clean(
+        &legacy_foo("T = TypeVar('T')", "class Foo(Generic[T]): ..."),
+        &legacy_foo("T = TypeVar('T')", "class Foo: ..."),
+        StaleModules::NONE,
+    );
+}
+
+#[test]
+fn test_tparams_legacy_order_change_propagates() {
+    let tvars = "T = TypeVar('T', bound=int)\nU = TypeVar('U', bound=str)";
+    assert_tparams_rebuild_matches_clean(
+        &legacy_foo(tvars, "class Foo(Generic[T, U]): ..."),
+        &legacy_foo(tvars, "class Foo(Generic[U, T]): ..."),
+        StaleModules::NONE,
+    );
+}
+
+/// Check that rebuilding modules whose type parameters refer to classes, including their own
+/// class, after a comment-only edit leaves their exports unchanged, so that the module `user`,
+/// which imports from them, is not rechecked. Fixpoint iteration builds copies of type parameters
+/// inside other type parameters, so this checks that comparing those copies in export diffing does
+/// not report spurious changes, at several thread counts.
+fn assert_tparams_exports_stable(sources: &[(&str, &str)], user: &str) {
+    let mut files = sources.map(|(m, _)| (*m).to_owned());
+    files.push("user".to_owned());
+    let names = files.map(|x| x.as_str());
+    for threads in [1, 2, 3, 8] {
+        for _ in 0..3 {
+            let mut i = Incremental::with_files_and_threads(
+                files.clone(),
+                ThreadCount::NumThreads(NonZeroUsize::new(threads).unwrap()),
+            );
+            for (m, contents) in sources {
+                i.set(m, contents);
+            }
+            i.set("user", user);
+            i.unchecked(&names);
+            for (m, contents) in sources {
+                i.set(m, &format!("{contents}\n# comment\n"));
+            }
+            let res = i.unchecked(&names);
+            assert!(
+                !res.changed.contains(&"user".to_owned()),
+                "a comment-only edit changed the exports at {threads} threads: rechecked {:?}",
+                res.changed
+            );
+        }
+    }
+}
+
+#[test]
+fn test_tparams_exports_stable_self_bound() {
+    assert_tparams_exports_stable(
+        &[("rec", "class N[T: 'N']: ...\nclass M[T: 'list[M]']: ...")],
+        "from rec import M, N\nx: N[N]\ny: M[list[M]]",
+    );
+}
+
+#[test]
+fn test_tparams_exports_stable_mutual_bound() {
+    assert_tparams_exports_stable(
+        &[("rec", "class A[T: 'B']: ...\nclass B[U: 'A']: ...")],
+        "from rec import A, B\nx: A[B[A]]",
+    );
+}
+
+#[test]
+fn test_tparams_exports_stable_mutual_bound_across_modules() {
+    assert_tparams_exports_stable(
+        &[
+            ("rec", "from rec2 import B\nclass A[T: B]: ..."),
+            ("rec2", "from rec import A\nclass B[U: A]: ..."),
+        ],
+        "from rec import A\nfrom rec2 import B\nx: A[B[A]]",
+    );
+}
+
+#[test]
+fn test_tparams_exports_stable_self_default() {
+    assert_tparams_exports_stable(
+        &[(
+            "rec",
+            "class D[T = 'D']: ...\nclass P[T = 'list[P]']: ...\nclass Q[T, U = 'Q[int]']: ...",
+        )],
+        "from rec import D, P, Q\nx: D\ny: P\nz: Q[str]",
+    );
+}
+
+#[test]
+fn test_tparams_exports_stable_self_constraints() {
+    assert_tparams_exports_stable(
+        &[("rec", "class C[T: ('C', int)]: ...")],
+        "from rec import C\nx: C[int]",
+    );
+}
+
+#[test]
+fn test_tparams_exports_stable_restricted_bound() {
+    assert_tparams_exports_stable(
+        &[(
+            "rec",
+            "class Foo[X: int]: ...\nclass B[T: Foo[int]]: ...\ny = B[Foo[bool]]()",
+        )],
+        "from rec import B, Foo, y\nx: B[Foo[bool]] = y",
+    );
+}
+
+#[test]
+fn test_tparams_exports_stable_legacy() {
+    assert_tparams_exports_stable(
+        &[(
+            "rec",
+            r#"
+from typing import Generic, TypeVar
+T = TypeVar("T", bound="L")
+D = TypeVar("D", default="LD")
+U = TypeVar("U", bound="LB")
+V = TypeVar("V", bound="LA")
+class L(Generic[T]): ...
+class LD(Generic[D]): ...
+class LA(Generic[U]): ...
+class LB(Generic[V]): ...
+class Mixed[W: L[L]]: ...
+"#,
+        )],
+        "from rec import L, LA, LB, LD, Mixed\nx: L[L]\ny: LD\nz: LA[LB[LA]]\nw: Mixed[L[L]]",
+    );
+}
+
+/// Check `main`, which imports `bar`, in a project where `foo` names two files. `main` sees
+/// `shadow/foo.py`, while `bar` is checked with its own configuration, sees `lib/foo.py` and
+/// re-exports it. The type parameters that reach `main` through `bar` are declared in
+/// `lib/foo.py`, so their bounds and defaults must come from there, even though `foo` names
+/// `shadow/foo.py` in `main`.
+fn check_with_shadowed_module(shadow_foo: &str) {
+    const LIB_FOO: &str = r#"
+from typing import Generic, TypeVar
+A = TypeVar("A")
+B = TypeVar("B", default=int)
+C = TypeVar("C", bound=int)
+class Box(Generic[B]): ...
+def f(x: C) -> C: ...
+def g[T: int](x: T) -> T: ...
+"#;
+    const MAIN: &str = r#"
+from typing import assert_type
+from bar import Box, f, g
+def use(b: Box) -> None:
+    assert_type(b, Box[int])
+f(1)
+f("x")  # E: `str` is not assignable to upper bound `int` of type variable `C`
+g(1)
+g("x")  # E: `str` is not assignable to upper bound `int` of type variable `T`
+"#;
+    init_test();
+    let config = |modules: &[(&str, &str)]| {
+        let mut config = ConfigFile::default();
+        config.python_environment.set_empty_to_default();
+        let mut sourcedb = MapDatabase::new(config.get_sys_info());
+        for (name, path) in modules {
+            sourcedb.insert(
+                ModuleName::from_str(name),
+                ModulePath::memory(PathBuf::from(path)),
+            );
+        }
+        config.source_db = Some(ArcId::new(Box::new(sourcedb)));
+        config.configure();
+        ArcId::new(config)
+    };
+    let main_config = config(&[
+        ("main", "main.py"),
+        ("foo", "shadow/foo.py"),
+        ("bar", "lib/bar.py"),
+    ]);
+    let lib_config = config(&[("foo", "lib/foo.py"), ("bar", "lib/bar.py")]);
+    let sys_info = main_config.get_sys_info();
+    let (main_load, main_fallback) = (main_config.dupe(), main_config.dupe());
+    let finder = ConfigFinder::new_custom(
+        Box::new(move |_, path| {
+            Ok(Some(if path.as_path().starts_with("lib") {
+                lib_config.dupe()
+            } else {
+                main_config.dupe()
+            }))
+        }),
+        Box::new(move |_| (main_load.dupe(), Vec::new())),
+        Box::new(move |_, _| (main_fallback.dupe(), Vec::new())),
+        Box::new(|config, _| config),
+        Box::new(|| {}),
+    );
+    let state = State::new(finder, TEST_THREAD_COUNT);
+    let mut transaction = state.new_committable_transaction(Require::Exports, None);
+    transaction.as_mut().set_memory(
+        [
+            ("main.py", MAIN),
+            ("shadow/foo.py", shadow_foo),
+            ("lib/foo.py", LIB_FOO),
+            ("lib/bar.py", "from foo import *\n"),
+        ]
+        .map(|(path, contents)| {
+            (
+                PathBuf::from(path),
+                Some(Arc::new(FileContents::from_source(contents.to_owned()))),
+            )
+        })
+        .to_vec(),
+    );
+    let main = Handle::new(
+        ModuleName::from_str("main"),
+        ModulePath::memory(PathBuf::from("main.py")),
+        sys_info,
+    );
+    state.run_with_committing_transaction(
+        transaction,
+        &[main.dupe()],
+        Require::Everything,
+        None,
+        None,
+    );
+    state
+        .transaction()
+        .get_errors([&main])
+        .check_against_expectations()
+        .unwrap();
+}
+
+#[test]
+fn test_shadowed_module_tparams_absent_from_shadowing_module() {
+    check_with_shadowed_module(
+        r#"
+from typing import TypeVar
+A = TypeVar("A")
+"#,
+    );
+}
+
+#[test]
+fn test_shadowed_module_tparams_differ_in_shadowing_module() {
+    check_with_shadowed_module(
+        r#"
+from typing import Generic, TypeVar
+A = TypeVar("A")
+B = TypeVar("B", default=str)
+C = TypeVar("C", bound=str)
+class Box(Generic[B]): ...
+def g[T: str](x: T) -> T: ...
+"#,
+    );
+}
+
+/// Editing a type parameter's bound rechecks the modules that read the bound, and not the ones
+/// that only use its class.
+// Bug: the bound is part of `Foo`'s `KeyTParams`, which `bar` reads to fill in `Foo`'s type
+// arguments, so `bar` is rechecked too.
+#[test]
+fn test_tparams_bound_change_rechecks_only_readers() {
+    let mut i = Incremental::new();
+    i.set("foo", "class Foo[T: int]: ...");
+    i.set(
+        "main",
+        "from foo import Foo\ndef f(x: Foo[bool]) -> None: ...",
+    );
+    i.set("bar", "from foo import Foo\ndef g(x: Foo) -> None: ...");
+    i.check(&["foo", "main", "bar"], &["foo", "main", "bar"]);
+    i.set("foo", "class Foo[T: str]: ...");
+    i.check_ignoring_expectations(&["foo", "main", "bar"], &["bar", "foo", "main"]);
+}
+
+/// The messages of the errors in the last check.
+fn error_messages(res: &IncrementalResult) -> Vec<String> {
+    res.errors
+        .collect_display_errors()
+        .map(|error| error.msg().to_owned())
+}
+
+/// Renaming a class keeps its index, but the types that refer to it, such as the return type of
+/// `make`, compare unequal, since the name is part of the class. So the rename recomputes `main`,
+/// whose error names the class.
+#[test]
+fn test_class_rename_invalidates_class_dependency() {
+    let mut i = Incremental::new();
+    i.set("foo", "class Foo: ...\ndef make() -> Foo: ...");
+    i.set(
+        "main",
+        "from foo import make\nx: int = make()  # E: `Foo` is not assignable to `int`",
+    );
+    i.check(&["main", "foo"], &["foo", "main"]);
+
+    i.set("foo", "class Bar: ...\ndef make() -> Bar: ...");
+    let res = i.unchecked(&["main", "foo"]);
+    res.check_recompute(&["foo", "main"]);
+    assert_eq!(error_messages(&res), ["`Bar` is not assignable to `int`"]);
+}
+
+/// Renaming a class keeps its index. `main` shows the class's name, which it reads from the class's
+/// row in `foo`'s metadata, so the rename rechecks it, and its union of the class with `Mid` is
+/// sorted by the new name.
+#[test]
+fn test_class_rename_at_same_index_matches_clean() {
+    let foo = |name: &str| format!("class {name}: ...\nclass Mid: ...\nA = {name}\n");
+    let main = "from foo import A, Mid\ndef f(c: bool):\n    return A() if c else Mid()\nx: int = f(True)\n";
+    assert_rebuild_matches_clean(
+        &[("foo", &foo("Abc")), ("main", main)],
+        &[("foo", &foo("Zed"))],
+        &[],
+    );
+}
+
+/// An index that is out of range after its module drops classes reads the module's placeholder
+/// row. Without an import cycle, every module that holds such an index is rechecked before the
+/// check is committed, so, as in a clean check, no error or exported type shows the placeholder.
+#[test]
+fn test_dropped_classes_show_no_placeholder() {
+    let files = [
+        ("foo", "class A: ...\nclass B:\n    x: int = 1\nv = B()\n"),
+        ("bar", "from foo import v\nw = [v]\n"),
+        (
+            "main",
+            "from typing import reveal_type\nfrom bar import w\nreveal_type(w)\nreveal_type(w[0].x)\n",
+        ),
+    ];
+    // `B` moves to index 0, and the old index 1 is out of range.
+    assert_rebuild_matches_clean(
+        &files,
+        &[("foo", "class B:\n    x: int = 1\nv = B()\n")],
+        &[],
+    );
+    // Every class is dropped.
+    assert_rebuild_matches_clean(&files, &[("foo", "v = 1\n")], &[]);
+}
+
+/// Deprecating a class must recompute `main`, which sees the class only through the return type
+/// of `make`. The comment keeps every range the same, so only the deprecation changes.
+#[test]
+fn test_class_deprecation_invalidates_class_dependency() {
+    let mut i = Incremental::new();
+    i.set(
+        "foo",
+        "from warnings import deprecated\n#deprecated('x')\nclass Foo: ...\ndef make() -> Foo: ...",
+    );
+    i.set(
+        "main",
+        "from foo import make\nx: int = make()  # E: `Foo` is not assignable to `int`",
+    );
+    i.check(&["main", "foo"], &["foo", "main"]);
+
+    i.set(
+        "foo",
+        "from warnings import deprecated\n@deprecated('x')\nclass Foo: ...\ndef make() -> Foo: ...",
+    );
+    i.unchecked(&["main", "foo"])
+        .check_recompute(&["foo", "main"]);
+}
+
+/// Making a class a protocol must recompute `main`, which uses the class, so `main` sees that
+/// `Bar` now matches `Foo`. The padding keeps every range the same.
+#[test]
+fn test_class_protocol_change_invalidates_class_dependency() {
+    let mut i = Incremental::new();
+    i.set(
+        "foo",
+        "from typing import Protocol\nclass Foo(        ):\n    def m(self) -> int: ...",
+    );
+    i.set(
+        "main",
+        "from foo import Foo\nclass Bar:\n    def m(self) -> int: ...\nx: Foo = Bar()  # E: `Bar` is not assignable to `Foo`",
+    );
+    i.check(&["main", "foo"], &["foo", "main"]);
+
+    i.set(
+        "foo",
+        "from typing import Protocol\nclass Foo(Protocol):\n    def m(self) -> int: ...",
+    );
+    let res = i.unchecked(&["main", "foo"]);
+    res.check_recompute(&["foo", "main"]);
+    assert_eq!(error_messages(&res), Vec::<String>::new());
+}
+
+/// Edits that do not change `Foo`'s definition do not recompute `main`, which only depends on
+/// `Foo`: an edit above `Foo` only moves it, and adding a class after `Foo` leaves `Foo` and its
+/// index the same.
+#[test]
+fn test_unrelated_class_edit_does_not_invalidate_class_dependency() {
+    let mut i = Incremental::new();
+    i.set(
+        "foo",
+        "def f() -> int:\n    return 1\nclass Foo: ...\ndef make() -> Foo: ...",
+    );
+    i.set(
+        "main",
+        "from foo import make\nx: int = make()  # E: `Foo` is not assignable to `int`",
+    );
+    i.check(&["main", "foo"], &["foo", "main"]);
+
+    i.set(
+        "foo",
+        "def f() -> int:\n    return 12\nclass Foo: ...\ndef make() -> Foo: ...",
+    );
+    i.check(&["main", "foo"], &["foo"]);
+
+    i.set(
+        "foo",
+        "def f() -> int:\n    return 12\nclass Foo: ...\ndef make() -> Foo: ...\nclass Bar: ...",
+    );
+    i.check(&["main", "foo"], &["foo"]);
+}
+
+/// Rebuilding a module with fewer classes moves the classes after the removed one to lower
+/// indices. The modules that depend on them, directly or through a chain, must end up reporting
+/// the current classes.
+#[test]
+fn test_fewer_classes_rebuild_reports_current_classes() {
+    let mut i = Incremental::new();
+    // A chain of modules makes it more likely that `main` reads `bar`'s types while `foo` is
+    // being rebuilt.
+    i.set("foo", "class Foo: ...\nclass Bar:\n    x: int = 1");
+    i.set("bar", "from foo import Bar\nbar = Bar()");
+    i.set("baz", "from bar import bar\nbaz = bar");
+    i.set(
+        "main",
+        "from typing import reveal_type\nfrom baz import baz\nreveal_type(baz)  # E: revealed type: Bar\ny: str = baz.x  # E: `int` is not assignable to `str`",
+    );
+    i.check(&["main", "bar", "baz"], &["foo", "bar", "baz", "main"]);
+
+    i.set("foo", "class Bar:\n    x: int = 1");
+    let res = i.unchecked(&["main", "foo"]);
+    assert_eq!(
+        error_messages(&res),
+        ["revealed type: Bar", "`int` is not assignable to `str`"]
+    );
+}
+
+/// A module can see its own classes through the modules it imports. `foo` is rebuilt with fewer
+/// classes and reads `Sub` from `bar`, which is in an import cycle with `foo`. `bar` is only
+/// rebuilt after `foo`'s exports change, so `foo` first reads the MRO of `Sub` that `bar` computed
+/// against the old `foo`, which names `Foo` at its old index. `foo` treats it as a class it no
+/// longer has; rebuilding `bar` then changes the MRO of `Sub`, so `foo` is rebuilt against it.
+#[test]
+fn test_own_class_read_through_cycle_after_fewer_classes() {
+    let mut i = Incremental::new();
+    i.set(
+        "foo",
+        "from bar import Sub\nclass Baz: ...\nclass Foo: ...\nsub = Sub()",
+    );
+    i.set("bar", "from foo import Foo\nclass Sub(Foo): ...");
+    i.check(&["foo", "bar"], &["foo", "bar"]);
+
+    i.set("foo", "from bar import Sub\nclass Foo: ...\nsub = Sub()");
+    i.check_matches_clean(&["foo", "bar"], &["bar", "foo", "foo"]);
+}
+
+/// Like `test_own_class_read_through_cycle_after_fewer_classes`, but `foo` reads its enum `E` back
+/// through `bar` and narrows by one of its members, which looks up the fields and the metadata of
+/// `E` at its old index. `foo` leaves the value unnarrowed until it is rebuilt against the new
+/// `bar`.
+#[test]
+fn test_own_enum_read_through_cycle_after_fewer_classes() {
+    let foo = |classes: &str| {
+        format!(
+            "from enum import Enum\nfrom bar import DEFAULT, get\n{classes}class E(Enum):\n    X = 1\n    Y = 2\nx = get()\nif x is not DEFAULT:\n    y = x\n"
+        )
+    };
+    let mut i = Incremental::new();
+    i.set("foo", &foo("class Baz: ...\n"));
+    i.set(
+        "bar",
+        "from typing import Final\nfrom foo import E\ndef get() -> E: ...\nDEFAULT: Final = E.X",
+    );
+    i.check(&["foo", "bar"], &["foo", "bar"]);
+
+    i.set("foo", &foo(""));
+    i.check_matches_clean(&["foo", "bar"], &["bar", "foo", "foo"]);
+}
+
+/// Like `test_own_class_read_through_cycle_after_fewer_classes`, but the old index of `B` is still
+/// in range, at the class `C` that moved into it, so `foo` first reads `x` from `C`. `y` changes
+/// again when `foo` is rebuilt against the new `bar`, so the cycle fallback rebuilds both modules
+/// once more.
+#[test]
+fn test_own_class_read_through_cycle_at_index_of_other_class() {
+    let foo = |classes: &str| {
+        format!(
+            "from bar import Sub\n{classes}class B:\n    x: int = 0\nclass C:\n    x: str = \"\"\ny = Sub().x\n"
+        )
+    };
+    let mut i = Incremental::new();
+    i.set("foo", &foo("class A: ...\n"));
+    i.set("bar", "from foo import B\nclass Sub(B): ...");
+    i.check(&["foo", "bar"], &["foo", "bar"]);
+
+    i.set("foo", &foo(""));
+    i.check_matches_clean(&["foo", "bar"], &["bar", "bar", "foo", "foo", "foo"]);
+}
+
+// In the `test_stale_cycle_` tests below, the edit makes `a` read back, through `b`, a value that
+// `b` computed against the old `a`. When that value names a class of `a`, it names it by its old
+// index. A class compares by its module, index, name and a few other facts, but not by its fields
+// or type parameters, so the exports of `a` that `b` reads often compare equal to their old
+// answers. Then `b` is not rechecked, and `a`, `b` and `main`, which observes them, keep the stale
+// value. Where `a` and `b` only refer to each other, as in most of these tests, a clean check gives
+// `Unknown`.
+
+/// `a` drops `A`, which moves `B` to index 0, and reads back `w`, which names `B` at index 1.
+// Bug: `a` reports that `<placeholder>`, the row of the out-of-range old index of `B`, has no
+// attribute `x`, and `main` reveals `<placeholder>`.
+#[test]
+fn test_stale_cycle_class_out_of_range_attribute_in_owner() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "class A: ...\nclass B:\n    x: int = 1\nv = B()\n"),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass B:\n    x: int = 1\nv = w\nz = v.x\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, z\nreveal_type(v)\nreveal_type(z)\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// Like `test_stale_cycle_class_out_of_range_attribute_in_owner`, but `v` names `B` at its new
+/// index, so it changes and `b` is rechecked. `a`'s exports then change again, which `run_internal`
+/// reports as a cycle, so its fallback rechecks `a`, `b` and `main` together.
+#[test]
+fn test_stale_cycle_class_out_of_range_corrected_by_recheck() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "class A: ...\nclass B:\n    x: int = 1\nv = B()\n"),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass B:\n    x: int = 1\nv: B = B()\nz = w.x\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, z\nreveal_type(v)\nreveal_type(z)\n",
+            ),
+        ],
+        &[],
+    );
+}
+
+/// Like `test_stale_cycle_class_out_of_range_attribute_in_owner`, through a cycle of three modules:
+/// `foo` reads back `x` through `bar` and `baz`.
+// Bug: `foo` reports that `<placeholder>`, the row of the out-of-range old index of `B`, has no
+// attribute `x`, and `main` reveals `<placeholder>`.
+#[test]
+fn test_stale_cycle_of_three_modules_class_out_of_range() {
+    assert_rebuild_matches_clean(
+        &[
+            ("foo", "class A: ...\nclass B:\n    x: int = 1\nx = B()\n"),
+            ("bar", "import baz\ny = baz.z\n"),
+            ("baz", "import foo\nz = foo.x\n"),
+            ("main", "import foo\n"),
+        ],
+        &[
+            (
+                "foo",
+                "import bar\nclass B:\n    x: int = 1\nx = bar.y\nq = x.x\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom foo import x, q\nreveal_type(x)\nreveal_type(q)\n",
+            ),
+        ],
+        &["foo", "bar", "baz", "main"],
+    );
+}
+
+/// `a` drops `A`, which moves `B` to index 0, and reads back `w`, which names `B` at index 1. Only
+/// `main` reads its fields.
+// Bug: `main` reveals `<placeholder>`, the row of the out-of-range old index of `B`, and reports
+// that `<placeholder>` has no attribute `x`.
+#[test]
+fn test_stale_cycle_class_out_of_range() {
+    let files = [
+        ("a", "class A: ...\nclass B:\n    x: int = 1\nv = B()\n"),
+        ("b", "from a import v\nw = v\n"),
+        ("main", "import a\n"),
+    ];
+    let edits = [
+        ("a", "from b import w\nclass B:\n    x: int = 1\nv = w\n"),
+        (
+            "main",
+            "from typing import reveal_type\nfrom a import v\nreveal_type(v)\nreveal_type(v.x)\n",
+        ),
+    ];
+    assert_rebuild_matches_clean(&files, &edits, &["a", "b", "main"]);
+    assert_eq!(
+        rebuilt_errors(&files, &edits, "main"),
+        [
+            "error 3:12-15 RevealType: revealed type: <placeholder>",
+            "error 4:12-17 RevealType: revealed type: Unknown",
+            "error 4:13-16 MissingAttribute: Object of class `<placeholder>` has no attribute `x`",
+        ]
+    );
+}
+
+/// `a` swaps `A` and `B`, and reads back `w`, which names index 0 as `A`, where `a` now defines
+/// `B`.
+// Bug: `main` reveals `B`, the class now at the old index of `A`, reports that `B` has no attribute
+// `x`, and reveals `v.y` as `str`.
+#[test]
+fn test_stale_cycle_class_displaced() {
+    let files = [
+        (
+            "a",
+            "class A:\n    x: int = 1\nclass B:\n    y: str = ''\nv = A()\n",
+        ),
+        ("b", "from a import v\nw = v\n"),
+        ("main", "import a\n"),
+    ];
+    let edits = [
+        (
+            "a",
+            "from b import w\nclass B:\n    y: str = ''\nclass A:\n    x: int = 1\nv = w\n",
+        ),
+        (
+            "main",
+            "from typing import reveal_type\nfrom a import v\nreveal_type(v)\nreveal_type(v.x)\nreveal_type(v.y)\n",
+        ),
+    ];
+    assert_rebuild_matches_clean(&files, &edits, &["a", "b", "main"]);
+    assert_eq!(
+        rebuilt_errors(&files, &edits, "main"),
+        [
+            "error 3:12-15 RevealType: revealed type: B",
+            "error 4:12-17 RevealType: revealed type: Unknown",
+            "error 4:13-16 MissingAttribute: Object of class `B` has no attribute `x`",
+            "error 5:12-17 RevealType: revealed type: str",
+        ]
+    );
+}
+
+/// `a` swaps `A[T]` and `B`, and reads back `w`, `A[str]`, whose index 0 now names the non-generic
+/// `B`.
+// Bug: `main` reveals `B[str]`, with `B`, the class now at the old index of `A`, and `v.get()` as
+// `int`, and reports that `B[str]` is not assignable to `A[str]`.
+#[test]
+fn test_stale_cycle_generic_class_displaced_by_plain_class() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[T]:\n    def get(self) -> T: ...\nclass B:\n    def get(self) -> int: ...\nv = A[str]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass B:\n    def get(self) -> int: ...\nclass A[T]:\n    def get(self) -> T: ...\nv = w\nu = v.get()\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, A, B\nreveal_type(v)\nreveal_type(v.get())\nx: B = v\ny: A[str] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `a` swaps `A` and `B[T]`, and reads back `w`, `A`, whose index 0 now names the generic `B`.
+// Bug: `main` reveals `B`, the class now at the old index of `A`, and `v.get()` as the escaped type
+// variable `T` of `B`.
+#[test]
+fn test_stale_cycle_plain_class_displaced_by_generic_class() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A:\n    def get(self) -> int: ...\nclass B[T]:\n    def get(self) -> T: ...\nv = A()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass B[T]:\n    def get(self) -> T: ...\nclass A:\n    def get(self) -> int: ...\nv = w\nu = v.get()\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, B\nreveal_type(v)\nreveal_type(v.get())\nx: B[int] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `A` gains a type parameter, and `a` reads back `w`, `A[int]`.
+// Bug: `main` reveals `A[int]`, and `u` and `v.get()` as the escaped type variable `U`.
+#[test]
+fn test_stale_cycle_type_parameter_added() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[T]:\n    def get(self) -> T: ...\nv = A[int]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass A[T, U]:\n    def get(self) -> U: ...\nv = w\nu = v.get()\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, u, A\nreveal_type(v)\nreveal_type(u)\nreveal_type(v.get())\nx: A[int, str] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `A` loses a type parameter, and `a` reads back `w`, `A[int, str]`.
+// Bug: `main` reveals `A[int, str]`, and `u` and `v.get()` as the escaped type variable `T`.
+#[test]
+fn test_stale_cycle_type_parameter_removed() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[T, U]:\n    def get(self) -> U: ...\nv = A[int, str]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass A[T]:\n    def get(self) -> T: ...\nv = w\nu = v.get()\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, u, A\nreveal_type(v)\nreveal_type(u)\nreveal_type(v.get())\nx: A[int] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// The type variable of `A` becomes a ParamSpec, and `a` reads back `w`, `A[int]`.
+// Bug: `a` and `main` report that `v.call(1)` expects `*`-unpacked `P.args` and `**`-unpacked
+// `P.kwargs`, and `main` reveals `A[int]` and `v.call` as `(ParamSpec(P)) -> None`, and reports that
+// `A[int]` is not assignable to `A[[int]]`.
+#[test]
+fn test_stale_cycle_type_var_becomes_param_spec() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[T]:\n    def call(self, x: T) -> T: ...\nv = A[int]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass A[**P]:\n    def call(self, *args: P.args, **kwargs: P.kwargs) -> None: ...\nv = w\nv.call(1)\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, A\nreveal_type(v)\nv.call(1)\nreveal_type(v.call)\nx: A[[int]] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// The type variable of `A` becomes a TypeVarTuple, and `a` reads back `w`, `A[int]`.
+// Bug: `a` and `main` report that `tuple[Literal[1]]` is not assignable to `tuple[*Ts]` in
+// `v.call(1)`, and `main` reveals `A[int]` and reports that `A[int]` is not assignable to `A[int]`.
+#[test]
+fn test_stale_cycle_type_var_becomes_type_var_tuple() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[T]:\n    def call(self, x: T) -> T: ...\nv = A[int]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass A[*Ts]:\n    def call(self, *args: *Ts) -> tuple[*Ts]: ...\nv = w\nv.call(1)\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, A\nreveal_type(v)\nreveal_type(v.call(1))\nreveal_type(v.call)\nx: A[int] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// The ParamSpec of `A` becomes a type variable, and `a` reads back `w`, `A[[int, str]]`.
+// Bug: `a` and `main` report that `Literal[1]` is not assignable to `T` in `v.call(1)`, and `main`
+// reveals `A[[int, str]]` and `v.call(1)` as `T`, and reports that `A[[int, str]]` is not
+// assignable to `A[int]`.
+#[test]
+fn test_stale_cycle_param_spec_becomes_type_var() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[**P]:\n    def call(self, *args: P.args, **kwargs: P.kwargs) -> None: ...\nv = A[[int, str]]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass A[T]:\n    def call(self, x: T) -> T: ...\nv = w\nu = v.call(1)\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, A\nreveal_type(v)\nreveal_type(v.call(1))\nx: A[int] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `A[*Ts]` becomes `A[T, *Ts]`, and `a` reads back `w`, `A[int, str]`, whose arguments all belong
+/// to `*Ts`.
+// Bug: `a` and `main` report that `Literal[1]` is not assignable to `T`, and `main` reports that
+// `tuple[Literal['x']]` is not assignable to `tuple[*Ts]`, reveals `A[int, str]` and
+// `v.call(1, 'x')` as `tuple[*Ts]`, and reports that `A[int, str]` is not assignable to
+// `A[int, str]`.
+#[test]
+fn test_stale_cycle_type_var_added_before_type_var_tuple() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[*Ts]:\n    def call(self, *args: *Ts) -> tuple[*Ts]: ...\nv = A[int, str]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass A[T, *Ts]:\n    def call(self, x: T, *args: *Ts) -> tuple[*Ts]: ...\nv = w\nu = v.call(1)\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, A\nreveal_type(v)\nreveal_type(v.call(1, 'x'))\nx: A[int, str] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `A` becomes invariant, and `a` reads back `w`, `A[bool]`.
+// Bug: `a` and `main` report that `A[bool]` is not assignable to `A[int]`, and `main` reveals
+// `A[bool]`.
+#[test]
+fn test_stale_cycle_variance_changes() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[T]:\n    def get(self) -> T: ...\nv = A[bool]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass A[T]:\n    def get(self) -> T: ...\n    def set(self, x: T) -> None: ...\nv = w\nu: A[int] = v\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, A\nreveal_type(v)\nx: A[int] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// The bound of the type variable of `A` changes from `int` to `str`, and `a` reads back `w`,
+/// `A[int]`.
+// Bug: `main` reveals `A[int]`, and `v.get()` as the escaped type variable `T`.
+#[test]
+fn test_stale_cycle_bound_changes() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[T: int]:\n    def get(self) -> T: ...\nv = A[int]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass A[T: str]:\n    def get(self) -> T: ...\nv = w\nu = v.get()\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, A\nreveal_type(v)\nreveal_type(v.get())\nx: A[int] = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `A` loses a type parameter, and `a` reads back `w`, `A[int, str]`, and uses it as an `A[int]`.
+// Bug: `main` reveals `A[int, str]`, and `z` as the escaped type variable `T`.
+#[test]
+fn test_stale_cycle_type_parameter_removed_owner_specializes() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "class A[T, U]:\n    x: U\nv = A[int, str]()\n"),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass A[T]:\n    x: T\nv = w\ny: A[int] = v\nz = v.x\nclass C(A[int]): ...\nq: A[int] = C()\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, z\nreveal_type(v)\nreveal_type(z)\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `a` drops `f` and reads back `g`, `b`'s alias of the old `f`. `a`'s exports change again after
+/// `b` is rechecked, which `run_internal` reports as a cycle, so its fallback rechecks `a`, `b` and
+/// `main` together.
+#[test]
+fn test_stale_cycle_function_removed() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "def f[T: int](x: T) -> T: ...\n"),
+            ("b", "from a import f\ng = f\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            ("a", "from b import g\nh = g\n"),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import h\nreveal_type(h)\n",
+            ),
+        ],
+        &[],
+    );
+}
+
+/// `a` declares `k` before `f` and reads back `g`, `b`'s alias of the old `f`, whose type parameter
+/// has the declaration index that the type parameter of `k` now has. As in
+/// `test_stale_cycle_function_removed`, the recheck ends in the cycle fallback.
+#[test]
+fn test_stale_cycle_function_type_parameter_displaced() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "def f[T: int](x: T) -> T: ...\n"),
+            ("b", "from a import f\ng = f\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import g\ndef k[S: str](x: S) -> S: ...\ndef f[T: int](x: T) -> T: ...\nh = g\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import h\nreveal_type(h(1))\nh('x')\n",
+            ),
+        ],
+        &[],
+    );
+}
+
+/// `a` drops `e`, declared before `f`, and reads back `g`, `b`'s alias of the old `f`, whose type
+/// parameter has a declaration index that `a` no longer has. As in
+/// `test_stale_cycle_function_removed`, the recheck ends in the cycle fallback.
+#[test]
+fn test_stale_cycle_function_type_parameter_removed() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "def e[R](x: R) -> R: ...\ndef f[T: int](x: T) -> T: ...\n",
+            ),
+            ("b", "from a import f\ng = f\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import g\ndef f[T: int](x: T) -> T: ...\nh = g\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import h\nreveal_type(h(1))\nh('x')\n",
+            ),
+        ],
+        &[],
+    );
+}
+
+/// `a` declares `Z[**P = [int, str]]` before `A`, and reads back `w` and `e`, which name index 0 as
+/// `A`, where `a` now defines `Z`.
+// Bug: `a` and `main` report that `Z`, the class now at the old index of `A`, has no attribute
+// `get`, and `main` reveals `Z[str]` and `Z`.
+#[test]
+fn test_stale_cycle_class_displaced_by_param_spec_default() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class A[T = int]:\n    def get(self) -> T: ...\nv = A[str]()\nd = A()\n",
+            ),
+            ("b", "from a import v, d\nw = v\ne = d\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w, e\nclass Z[**P = [int, str]]: ...\nclass A[T = int]:\n    def get(self) -> T: ...\nv = w\nd = e\nu = d.get()\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, d\nreveal_type(v)\nreveal_type(d)\nreveal_type(d.get())\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `a` swaps `A` and `B`, whose legacy type parameter `U` defaults to `T`, and reads back `w`,
+/// `A[int, int]`, which names index 0 as `A`, where `a` now defines `B`.
+// Bug: `a` and `main` report that `B`, the class now at the old index of `A`, has no attribute
+// `get`, and `main` reveals `B[int, int]`.
+#[test]
+fn test_stale_cycle_legacy_default_owner_displaced() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "from typing import Generic, TypeVar\nT = TypeVar('T')\nU = TypeVar('U', default=T)\nclass A(Generic[T, U]):\n    def get(self) -> U: ...\nclass B(Generic[U]): ...\nv = A[int]()\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from typing import Generic, TypeVar\nfrom b import w\nT = TypeVar('T')\nU = TypeVar('U', default=T)\nclass B(Generic[U]): ...\nclass A(Generic[T, U]):\n    def get(self) -> U: ...\nv = w\nu = v.get()\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v\nreveal_type(v)\nreveal_type(v.get())\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `a` renames `Abc`, at index 0, to `Zzz`, and reads back `w`, the union `Abc | Zed`.
+// Bug: `main` reveals `Zed | Zzz`, with the new name of the class at index 0, and
+// `list[Zed | Zzz]`.
+#[test]
+fn test_stale_cycle_union_after_class_rename() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "class Abc: ...\nclass Zed: ...\ndef mk(c: bool):\n    return Abc() if c else Zed()\nv = mk(True)\n",
+            ),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\nclass Zzz: ...\nclass Zed: ...\nv = w\nu = [v, Zed(), Zzz()]\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, u, Zed, Zzz\nreveal_type(v)\nreveal_type(u)\nx: Zed | Zzz = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `a` drops `A` and reads back `w`, which names `B` at its old index, while the annotation `B` in
+/// `a` names it at its new index.
+// Bug: `a` and `main` report that `<placeholder>`, the row of the out-of-range old index of `B`,
+// is not assignable to `B`, and `main` reveals `<placeholder>`.
+#[test]
+fn test_stale_cycle_class_index_of_two_versions() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "class A: ...\nclass B: ...\nv = B()\n"),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            ("a", "from b import w\nclass B: ...\nv = w\nu: B = v\n"),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, B\nreveal_type(v)\nx: B = v\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `a` swaps the enum `E` and the class `P`, and reads back `w` and `y`, which name index 0 as `E`,
+/// where `a` now defines `P`.
+// Bug: `main` reveals `v` as `P`, the class now at the old index of `E`, after narrowing.
+#[test]
+fn test_stale_cycle_enum_displaced() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "from enum import Enum\nclass E(Enum):\n    X = 1\n    Y = 2\nclass P: ...\ndef mk() -> E: ...\nv = mk()\nx = E.X\n",
+            ),
+            ("b", "from a import v, x\nw = v\ny = x\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from enum import Enum\nfrom b import w, y\nclass P: ...\nclass E(Enum):\n    X = 1\n    Y = 2\nv = w\nx = y\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, x\nif v is not x:\n    reveal_type(v)\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// Like `test_stale_cycle_enum_displaced`, with uppercase constants, whose types keep the member
+/// literal, so `main` narrows by the member.
+// Bug: `main` reveals `XM` as `Literal[P.X]`, where `P` is the class now at the old index of `E`,
+// and `V` as `P` after narrowing by `is not` and `!=`.
+#[test]
+fn test_stale_cycle_enum_constant_displaced() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "from enum import Enum\nclass E(Enum):\n    X = 1\n    Y = 2\nclass P: ...\ndef mk() -> E: ...\nV = mk()\nXM = E.X\n",
+            ),
+            ("b", "from a import V, XM\nW = V\nYM = XM\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from enum import Enum\nfrom b import W, YM\nclass P: ...\nclass E(Enum):\n    X = 1\n    Y = 2\nV = W\nXM = YM\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import V, XM\nreveal_type(XM)\nif V is not XM:\n    reveal_type(V)\nif V != XM:\n    reveal_type(V)\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// `a` drops the type alias `A0`, and reads back `w`, which refers to `A1` at its old index, now
+/// out of range.
+// Bug: `main` reveals `int | list[A1]` and `list[A1]`.
+#[test]
+fn test_stale_cycle_type_alias_out_of_range() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "type A0 = int\ntype A1 = list[A1] | int\nv: A1 = 1\n"),
+            ("b", "from a import v\nw = v\n"),
+            ("main", "import a\n"),
+        ],
+        &[
+            (
+                "a",
+                "from b import w\ntype A1 = list[A1] | int\nv = w\nu = [v]\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom a import v, u\nreveal_type(v)\nreveal_type(u)\n",
+            ),
+        ],
+        &["a", "b", "main"],
+    );
+}
+
+/// Without a cycle: `a` declares `k` before `f`, which moves the declaration of the type parameter
+/// of `f`. `main` calls `g`, `b`'s alias of `f`.
+#[test]
+fn test_function_type_parameter_displaced() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "def f[T: int](x: T) -> T: ...\n"),
+            ("b", "from a import f\ng = f\n"),
+            ("main", "import b\n"),
+        ],
+        &[
+            (
+                "a",
+                "def k[S: str](x: S) -> S: ...\ndef f[T: int](x: T) -> T: ...\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom b import g\nreveal_type(g(1))\ng('x')\n",
+            ),
+        ],
+        &[],
+    );
+}
+
+/// Without a cycle: `a` declares a type alias with a ParamSpec default before `A`, which moves the
+/// declaration of the type parameter of `A`. The instances of `A` that `b` keeps pair with the
+/// parameters of the moved `A`, so `main` sees the same types as in a clean check.
+#[test]
+fn test_class_type_parameter_default_displaced() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "class A[T = int]:\n    def get(self) -> T: ...\n"),
+            ("b", "from a import A\nw = A[str]()\ne: A = A()\n"),
+            ("main", "import b\n"),
+        ],
+        &[
+            (
+                "a",
+                "type Z[**P = [int, str]] = int\nclass A[T = int]:\n    def get(self) -> T: ...\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nimport b\nreveal_type(b.w)\nreveal_type(b.e)\nreveal_type(b.w.get())\nreveal_type(b.e.get())\n",
+            ),
+        ],
+        &[],
+    );
+}
+
+/// Without a cycle: moving `A` down `a` moves the declaration of its type parameter. The `A[int]`
+/// that `b` keeps pairs with the parameter of the moved `A`, so `main` reveals `int`.
+#[test]
+fn test_generic_class_moved() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "class A[T]:\n    def get(self) -> T: ...\n"),
+            ("b", "from a import A\nw = A[int]()\n"),
+            ("main", "import b\n"),
+        ],
+        &[
+            ("a", "x = 1\nclass A[T]:\n    def get(self) -> T: ...\n"),
+            (
+                "main",
+                "from typing import reveal_type\nimport b\nreveal_type(b.w)\nreveal_type(b.w.get())\n",
+            ),
+        ],
+        &[],
+    );
+}
+
+/// Moving a generic class gives its type parameters no new identity, so the modules that keep
+/// its instances are not rechecked.
+#[test]
+fn test_generic_class_moved_rechecks_only_its_module() {
+    let mut i = Incremental::new();
+    i.set("foo", "class A[T]:\n    def get(self) -> T: ...\n");
+    i.set("bar", "from foo import A\nw = A[int]()\n");
+    i.set(
+        "main",
+        "from typing import assert_type\nfrom bar import w\nassert_type(w.get(), int)\n",
+    );
+    i.check(&["main"], &["main", "foo", "bar"]);
+    i.set("foo", "x = 1\n\nclass A[T]:\n    def get(self) -> T: ...\n");
+    i.check(&["main"], &["foo"]);
+}
+
+/// A legacy generic class moves down its module, and another module subclasses an instance of it.
+#[test]
+fn test_legacy_generic_class_moved_under_subclass() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "a",
+                "from typing import Generic, TypeVar\nT = TypeVar('T')\nclass A(Generic[T]):\n    def get(self) -> T: ...\n",
+            ),
+            ("b", "from a import A\nclass B(A[int]): ...\n"),
+            ("main", "import b\n"),
+        ],
+        &[
+            (
+                "a",
+                "from typing import Generic, TypeVar\nT = TypeVar('T')\nx = 1\nclass A(Generic[T]):\n    def get(self) -> T: ...\n",
+            ),
+            (
+                "main",
+                "from typing import reveal_type\nfrom b import B\nreveal_type(B().get())\nx: int = B().get()\n",
+            ),
+        ],
+        &[],
+    );
+}
+
+/// A generic class moves down its module, and another module returns an instance of it.
+#[test]
+fn test_generic_class_moved_under_return_annotation() {
+    assert_rebuild_matches_clean(
+        &[
+            ("a", "class A[T]:\n    def get(self) -> T: ...\n"),
+            ("b", "from a import A\ndef make() -> A[int]: ...\n"),
+            ("main", "import b\n"),
+        ],
+        &[
+            ("a", "\nclass A[T]:\n    def get(self) -> T: ...\n"),
+            (
+                "main",
+                "import b\nx: int = b.make().get()\ny: str = b.make().get()\n",
+            ),
+        ],
+        &[],
+    );
+}
+
+/// A module in an import cycle can build a union from classes that it reads back through the
+/// cycle before the other module is rebuilt. `foo` loses its first class, so each of its classes
+/// moves down one index, and `foo` first reads `members` from the `bar` that was checked against
+/// the old `foo`. `z` then holds each old class beside the new class at the same index, which is
+/// the same class by identity but has another name and position. Sorting the union must not
+/// panic, and the rebuild must equal a clean check at every thread count.
+#[test]
+fn test_displaced_classes_in_union_through_cycle() {
+    let names = (0..24).map(|i| format!("A{i:02}")).collect::<Vec<_>>();
+    let union = names.join(" | ");
+    let classes = names
+        .iter()
+        .map(|name| format!("class {name}: ...\n"))
+        .collect::<String>();
+    let foo = |padding: &str| {
+        format!(
+            "from bar import members\n{padding}{classes}def cond() -> bool: ...\ndef get() -> {union}: ...\nz = members if cond() else get()\n"
+        )
+    };
+    let bar = format!(
+        "from foo import {}\ndef get() -> {union}: ...\nmembers = get()\n",
+        names.join(", ")
+    );
+    assert_rebuild_matches_clean(
+        &[("foo", &foo("class Pad: ...\n")), ("bar", &bar)],
+        &[("foo", &foo(""))],
+        &[],
+    );
+}
+
+/// A union keeps its class members ordered by name, so renaming a class in one module can reorder
+/// a union in another, even when no export of the first module changes and the second module reads
+/// nothing else about the class. The rename changes `obj`, whose class has a new name, so `bar` is
+/// rechecked and its rebuild equals a clean check.
+#[test]
+fn test_class_rename_reorders_union_in_importer() {
+    let foo = |name: &str| {
+        format!("def make():\n    class {name}: ...\n    return {name}()\nobj = make()\n")
+    };
+    let bar = r#"
+from foo import obj
+class Bar: ...
+def f(c: bool):
+    return obj if c else Bar()
+"#;
+    let exported = |solutions: &Solutions| {
+        ["obj", "Bar", "f"]
+            .map(|name| format!("{:?}", solutions.get(&KeyExport(Name::new_static(name)))))
+    };
+
+    let mut i = Incremental::new();
+    i.set("foo", &foo("Abc"));
+    i.set("bar", bar);
+    i.check(&["bar"], &["bar", "foo"]);
+    i.set("foo", &foo("Foo"));
+    i.unchecked(&["bar"]).check_recompute(&["bar", "foo"]);
+    let incremental = i
+        .state
+        .transaction()
+        .get_solutions(&i.handle("bar"))
+        .unwrap();
+
+    let mut clean = Incremental::new();
+    clean.set("foo", &foo("Foo"));
+    clean.set("bar", bar);
+    clean.check(&["bar"], &["bar", "foo"]);
+    let expected = clean
+        .state
+        .transaction()
+        .get_solutions(&clean.handle("bar"))
+        .unwrap();
+
+    assert_eq!(exported(&incremental), exported(&expected));
+}
+
+/// The error for a descriptor whose `__get__` cannot be called is reported at the read in `main`,
+/// so it moves with `main`, not with the file that defines the descriptor.
+#[test]
+fn test_descriptor_error_location_after_edit_in_defining_module() {
+    let mut i = Incremental::new();
+    let foo = |padding: &str| {
+        format!(
+            r#"{padding}
+class D:
+    @property
+    def __get__(self, extra: int) -> int: ...
+
+class C:
+    d = D()
+"#
+        )
+    };
+    let main = format!("from foo import C\nv = C().d\n{}", "x = 1\n".repeat(40));
+    i.set("foo", &foo(""));
+    i.set("main", &main);
+    i.check_matches_fresh_check(&["main", "foo"]);
+
+    i.set("foo", &foo("# a\n# b\n# c"));
+    i.check_matches_fresh_check(&["main", "foo"]);
+}
+
+/// A dataclass reports the descriptors of its own fields only, so an edit to the module of its
+/// base class does not leave an error at a stale location in the subclass's module.
+#[test]
+fn test_dataclass_descriptor_error_location_after_edit_in_base_module() {
+    let mut i = Incremental::new();
+    let foo = |padding: &str| {
+        format!(
+            r#"{padding}
+from dataclasses import dataclass
+
+class NonData:
+    def __get__(self, obj: object, objtype: object) -> int: ...
+
+@dataclass
+class Base:
+    x: NonData = NonData()
+"#
+        )
+    };
+    let main = format!(
+        "from dataclasses import dataclass\nfrom foo import Base\n@dataclass\nclass Child(Base):\n    y: int = 0\n{}",
+        "z = 1\n".repeat(40)
+    );
+    i.set("foo", &foo(""));
+    i.set("main", &main);
+    i.check_matches_fresh_check(&["main", "foo"]);
+
+    i.set("foo", &foo("# a\n# b\n# c"));
+    i.check_matches_fresh_check(&["main", "foo"]);
+}
+
+/// A module that reads one field of a class is not rechecked when another field of the class
+/// changes type: it depends on the keys of the class that it reads, not on the whole class.
+#[test]
+fn test_reader_of_unchanged_class_field_is_not_rechecked() {
+    let mut i = Incremental::new();
+    i.set("foo", "class Hub:\n    a: int = 1\n    b: int = 2");
+    i.set(
+        "bar",
+        "from foo import Hub\ndef f(h: Hub) -> int:\n    return h.a",
+    );
+    i.set(
+        "main",
+        "from foo import Hub\ndef g(h: Hub) -> int:\n    return h.b",
+    );
+    i.check(&["main", "bar", "foo"], &["main", "bar", "foo"]);
+
+    i.set("foo", "class Hub:\n    a: int = 1\n    b: str = ''");
+    i.check_matches_clean(&["main", "bar", "foo"], &["foo", "main"]);
+}
+
+/// Declaring another field changes the fields that the class declares, which every attribute
+/// lookup on the class reads, so every module that looks up an attribute of the class is
+/// rechecked. Moving the class, which changes no declaration, rechecks no reader.
+#[test]
+fn test_class_declarations_change_rechecks_attribute_readers() {
+    let mut i = Incremental::new();
+    i.set("foo", "class Hub:\n    a: int = 1\n    b: int = 2");
+    i.set(
+        "bar",
+        "from foo import Hub\ndef f(h: Hub) -> int:\n    return h.a",
+    );
+    i.set(
+        "main",
+        "from foo import Hub\ndef g(h: Hub) -> int:\n    return h.b",
+    );
+    i.check(&["main", "bar", "foo"], &["main", "bar", "foo"]);
+
+    i.set(
+        "foo",
+        "# moved\n\nclass Hub:\n    a: int = 1\n    b: int = 2",
+    );
+    i.check(&["main", "bar", "foo"], &["foo"]);
+
+    i.set(
+        "foo",
+        "# moved\n\nclass Hub:\n    a: int = 1\n    b: int = 2\n    c: int = 3",
+    );
+    i.check_matches_clean(&["main", "bar", "foo"], &["bar", "foo", "main"]);
+}
+
+const FIELDS: ClassRowChange = ClassRowChange {
+    fields: true,
+    def: false,
+};
+const DEF: ClassRowChange = ClassRowChange {
+    fields: false,
+    def: true,
+};
+const BOTH: ClassRowChange = ClassRowChange {
+    fields: true,
+    def: true,
+};
+
+/// The class rows that differ between two versions of a module, by class index.
+fn class_row_changes(old: &str, new: &str) -> Vec<(u32, ClassRowChange)> {
+    let rows = |code: &str| {
+        let (state, handle) = TestEnv::one("main", code).to_state();
+        state
+            .transaction()
+            .get_bindings_metadata(&handle("main"))
+            .unwrap()
+    };
+    rows(old)
+        .changed_class_rows(&rows(new))
+        .map(|(class, change)| (class.0, change))
+        .collect()
+}
+
+#[test]
+fn test_class_row_changes_of_definition_facts() {
+    let fields = "    x: int = 0";
+    // A rename, of the class or of a class that encloses it.
+    assert_eq!(
+        class_row_changes(
+            &format!("class A:\n{fields}"),
+            &format!("class B:\n{fields}")
+        ),
+        [(0, DEF)]
+    );
+    assert_eq!(
+        class_row_changes("class A:\n    class B: ...", "class C:\n    class B: ..."),
+        [(0, DEF), (1, DEF)]
+    );
+    // Becoming a protocol.
+    assert_eq!(
+        class_row_changes(
+            &format!("from typing import Protocol\nclass A:\n{fields}"),
+            &format!("from typing import Protocol\nclass A(Protocol):\n{fields}"),
+        ),
+        [(0, DEF)]
+    );
+    // Becoming deprecated.
+    assert_eq!(
+        class_row_changes(
+            &format!("from warnings import deprecated\nclass A:\n{fields}"),
+            &format!("from warnings import deprecated\n@deprecated('old')\nclass A:\n{fields}"),
+        ),
+        [(0, DEF)]
+    );
+    // Declaring type parameters.
+    assert_eq!(
+        class_row_changes(
+            &format!("class A:\n{fields}"),
+            &format!("class A[T]:\n{fields}")
+        ),
+        [(0, DEF)]
+    );
+}
+
+#[test]
+fn test_class_row_changes_ignore_positions() {
+    // Moving a class changes neither its fields nor its definition.
+    assert_eq!(
+        class_row_changes(
+            "class A:\n    x: int = 0",
+            "def f() -> None: ...\n\nclass A:\n    x: int = 0"
+        ),
+        []
+    );
+    // A field change leaves the definition alone.
+    assert_eq!(
+        class_row_changes("class A:\n    x: int = 0", "class A:\n    y: int = 0"),
+        [(0, FIELDS)]
+    );
+}
+
+#[test]
+fn test_class_row_changes_of_added_and_removed_classes() {
+    let two = "class A: ...\nclass B: ...";
+    assert_eq!(class_row_changes(two, "class A: ..."), [(1, BOTH)]);
+    assert_eq!(class_row_changes("class A: ...", two), [(1, BOTH)]);
+}
+
+/// Edits to the fields of a class in `foo`, read by `main`.
+#[test]
+fn test_class_field_edits_match_clean() {
+    let main = r#"
+from foo import C
+def f(c: C) -> int:
+    return c.x
+y = C().z
+w = C.x
+"#;
+    for (before, after) in [
+        // A field changes type.
+        (
+            "class C:\n    x: int = 0\n    z: int = 0",
+            "class C:\n    x: str = ''\n    z: int = 0",
+        ),
+        // A field is removed.
+        (
+            "class C:\n    x: int = 0\n    z: int = 0",
+            "class C:\n    z: int = 0",
+        ),
+        // A field is added.
+        (
+            "class C:\n    z: int = 0",
+            "class C:\n    x: int = 0\n    z: int = 0",
+        ),
+        // A field stops being initialized on the class.
+        (
+            "class C:\n    x: int = 0\n    z: int = 0",
+            "class C:\n    x: int\n    z: int = 0",
+        ),
+        // A field becomes a property.
+        (
+            "class C:\n    x: int = 0\n    z: int = 0",
+            "class C:\n    @property\n    def x(self) -> str: ...\n    z: int = 0",
+        ),
+        // A method changes signature.
+        (
+            "class C:\n    def x(self) -> int: ...\n    z: int = 0",
+            "class C:\n    def x(self, n: int) -> int: ...\n    z: int = 0",
+        ),
+    ] {
+        assert_rebuild_matches_clean(&[("foo", before), ("main", main)], &[("foo", after)], &[]);
+    }
+}
+
+/// Edits to the bases of a class in `bar`, whose attributes `main` reads through its MRO from
+/// `foo`, and an edit to an inherited field in `foo`.
+#[test]
+fn test_class_base_edits_match_clean() {
+    let foo = "class A:\n    x: int = 0\nclass B:\n    x: str = ''\n    y: str = ''";
+    let main = r#"
+from bar import C
+def f(c: C) -> int:
+    return c.x
+y = C().y
+"#;
+    for (bar_before, bar_after) in [
+        (
+            "from foo import A, B\nclass C(A): ...",
+            "from foo import A, B\nclass C(B): ...",
+        ),
+        (
+            "from foo import A, B\nclass C(A, B): ...",
+            "from foo import A, B\nclass C(B, A): ...",
+        ),
+        (
+            "from foo import A, B\nclass C(A, B): ...",
+            "from foo import A, B\nclass C: ...",
+        ),
+    ] {
+        assert_rebuild_matches_clean(
+            &[("foo", foo), ("bar", bar_before), ("main", main)],
+            &[("bar", bar_after)],
+            &[],
+        );
+    }
+    assert_rebuild_matches_clean(
+        &[
+            ("foo", foo),
+            ("bar", "from foo import A, B\nclass C(A, B): ..."),
+            ("main", main),
+        ],
+        &[(
+            "foo",
+            "class A:\n    x: bytes = b''\nclass B:\n    x: str = ''\n    y: str = ''",
+        )],
+        &[],
+    );
+}
+
+/// Edits to what `ClassMetadata` records about a class in `foo`, which `main` uses.
+#[test]
+fn test_class_metadata_edits_match_clean() {
+    for (before, after, main) in [
+        // A dataclass becomes frozen.
+        (
+            "from dataclasses import dataclass\n@dataclass\nclass D:\n    x: int",
+            "from dataclasses import dataclass\n@dataclass(frozen=True)\nclass D:\n    x: int",
+            "from foo import D\nd = D(1)\nd.x = 2",
+        ),
+        // A class becomes final.
+        (
+            "from typing import final\nclass D: ...",
+            "from typing import final\n@final\nclass D: ...",
+            "from foo import D\nclass E(D): ...",
+        ),
+        // A class stops being a protocol.
+        (
+            "from typing import Protocol\nclass D(Protocol):\n    def m(self) -> int: ...",
+            "from typing import Protocol\nclass D:\n    def m(self) -> int: ...",
+            "from foo import D\nclass Impl:\n    def m(self) -> int: return 0\nd: D = Impl()",
+        ),
+        // An enum gains a member.
+        (
+            "from enum import Enum\nclass D(Enum):\n    A = 1",
+            "from enum import Enum\nclass D(Enum):\n    A = 1\n    B = 2",
+            "from foo import D\nx = D.B",
+        ),
+        // A TypedDict stops being total.
+        (
+            "from typing import TypedDict\nclass D(TypedDict):\n    a: int",
+            "from typing import TypedDict\nclass D(TypedDict, total=False):\n    a: int",
+            "from foo import D\nd: D = {}",
+        ),
+        // A class loses its metaclass.
+        (
+            "class M(type):\n    def hello(cls) -> int: ...\nclass D(metaclass=M): ...",
+            "class M(type):\n    def hello(cls) -> int: ...\nclass D: ...",
+            "from foo import D\nx = D.hello()",
+        ),
+        // A named tuple gains a field.
+        (
+            "from typing import NamedTuple\nclass D(NamedTuple):\n    a: int",
+            "from typing import NamedTuple\nclass D(NamedTuple):\n    a: int\n    b: str",
+            "from foo import D\nd = D(1)",
+        ),
+    ] {
+        assert_rebuild_matches_clean(&[("foo", before), ("main", main)], &[("foo", after)], &[]);
+    }
+}
+
+/// Edits that change which class a definition index names, and the type parameters of a
+/// legacy generic class.
+#[test]
+fn test_class_definition_edits_match_clean() {
+    let main = r#"
+from foo import A, B
+def f(a: A, b: B) -> int:
+    return a.x + b.y
+"#;
+    for (before, after) in [
+        // A class is inserted above `A`, so `A` and `B` get new indices.
+        (
+            "class A:\n    x: int = 0\nclass B:\n    y: int = 0",
+            "class Z:\n    x: str = ''\nclass A:\n    x: int = 0\nclass B:\n    y: int = 0",
+        ),
+        // `A` and `B` swap places.
+        (
+            "class A:\n    x: int = 0\nclass B:\n    y: int = 0",
+            "class B:\n    y: int = 0\nclass A:\n    x: int = 0",
+        ),
+        // `A` is renamed.
+        (
+            "class A:\n    x: int = 0\nclass B:\n    y: int = 0",
+            "class A2:\n    x: int = 0\nclass B:\n    y: int = 0",
+        ),
+    ] {
+        assert_rebuild_matches_clean(&[("foo", before), ("main", main)], &[("foo", after)], &[]);
+    }
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "foo",
+                "from typing import Generic, TypeVar\nT = TypeVar('T')\nclass G(Generic[T]):\n    x: T",
+            ),
+            ("main", "from foo import G\ng: G[int] = G()\ny = g.x"),
+        ],
+        &[("foo", "class G:\n    x: str = ''")],
+        &[],
+    );
+}
+
+/// A dataclass field added in a base class in `foo` changes the `__init__` of a dataclass in
+/// `bar` that `main` calls.
+#[test]
+fn test_inherited_dataclass_field_edit_matches_clean() {
+    assert_rebuild_matches_clean(
+        &[
+            (
+                "foo",
+                "from dataclasses import dataclass\n@dataclass\nclass Base:\n    a: int",
+            ),
+            (
+                "bar",
+                "from dataclasses import dataclass\nfrom foo import Base\n@dataclass\nclass Child(Base):\n    b: str",
+            ),
+            ("main", "from bar import Child\nc = Child(1, '')"),
+        ],
+        &[(
+            "foo",
+            "from dataclasses import dataclass\n@dataclass\nclass Base:\n    a: int\n    c: int",
+        )],
+        &[],
+    );
+}
+
+/// A model in `bar` binds a custom manager from `foo`, which is in an import cycle with `bar`, so
+/// the bound manager carries an effective base, and `foo` reads it back. The edit removes the
+/// manager's `Manager` base. `foo` is rebuilt first and reads the bound manager that `bar` computed
+/// against the old `foo`, whose effective base names a class that is no longer a base of the
+/// manager. The rebuild must not panic, and at every thread count it must match a clean check.
+#[test]
+fn test_django_manager_loses_manager_base_through_cycle() {
+    let foo = |bases: &str| {
+        format!(
+            "from django.db import models\nfrom bar import Article\nclass ArticleManager{bases}:\n    def published(self): ...\nmanager = Article.objects\nrows = manager.all()\npublished = manager.published()\n"
+        )
+    };
+    let bar = "from django.db import models\nfrom foo import ArticleManager\nclass Article(models.Model):\n    objects = ArticleManager()\n";
+    let site_package_path = [PathBuf::from(env::var("DJANGO_TEST_PATH").unwrap())];
+    for threads in [1, 3, 8] {
+        let rebuild = rebuild_against_clean(
+            &[("foo", &foo("(models.Manager)")), ("bar", bar)],
+            &[("foo", &foo(""))],
+            ThreadCount::NumThreads(NonZeroUsize::new(threads).unwrap()),
+            &site_package_path,
+        );
+        assert_eq!(
+            rebuild.stale(),
+            SmallMap::new(),
+            "stale modules after the recheck at {threads} threads"
+        );
+    }
 }

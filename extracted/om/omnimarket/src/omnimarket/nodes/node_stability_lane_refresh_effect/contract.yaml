@@ -1,0 +1,110 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Stability Lane Refresh Effect (OMN-21613, epic OMN-21611)
+#
+# Refreshes a stability lane from a committed, dated release pin. The pin names one release tag each for
+# omnibase_infra, omnibase_core and omnimarket and is chosen and bumped by the lane's owner. A request for a
+# different set exits nonzero unless it carries a bump; a request for the set already applied runs nothing.
+# Every host fact (address, box id, consumer groups, ports, caps, paths) is an overlay value, so a second host
+# is a second overlay and no other lane's deploy path changes. The build, recreate, health gate and rollback
+# stay in omnibase_infra's refresh_stability_lane.sh, run through an injected runner; container names are the
+# lane's compose project's and are not overlay values.
+name: node_stability_lane_refresh_effect
+contract_name: node_stability_lane_refresh_effect
+node_name: node_stability_lane_refresh_effect
+contract_version: {major: 0, minor: 1, patch: 0}
+node_version: {major: 0, minor: 1, patch: 0}
+node_type: effect
+lifecycle: experimental
+runtime_profiles: [effects]
+
+description: >
+  Plans or runs the stability lane refresh from the committed pin file on this host's overlay. Refuses a dev tag,
+  a sha, a branch or a tag the host's clone does not hold; refuses a tag set other than the pin's unless bumped;
+  runs nothing when the pinned set is already applied.
+
+handler:
+  module: omnimarket.nodes.node_stability_lane_refresh_effect.handlers.handler_stability_lane_refresh
+  class: HandlerStabilityLaneRefresh
+  input_model: omnimarket.nodes.node_stability_lane_refresh_effect.models.model_stability_lane_refresh.ModelStabilityRefreshCommand
+
+# HandlerStabilityLaneRefresh takes the overlay, pin source, applied-set store, runner, tag check, disk
+# reading and health probe as constructor parameters, so the node runs through its own CLI, not handler_routing.
+
+descriptor:
+  node_archetype: effect
+  runtime_profiles: [effects]
+  purity: impure
+  idempotent: true
+  side_effects: [docker-compose, git-read, http-read, file-write]
+  timeout_ms: 3600000
+
+input_model:
+  name: ModelStabilityRefreshCommand
+  module: omnimarket.nodes.node_stability_lane_refresh_effect.models.model_stability_lane_refresh
+  description: Whether to execute, whether the request is a bump, and an optional requested tag set.
+output_model:
+  name: ModelStabilityRefreshResult
+  module: omnimarket.nodes.node_stability_lane_refresh_effect.models.model_stability_lane_refresh
+  description: The outcome, the exit code, the tag set, the set the lane ran, the argv and the environment names.
+
+terminal_event: onex.evt.omnimarket.stability-refresh-completed.v1
+
+runtime_dispatch:
+  external_trigger: true
+  # The serve tick runtime_stability_refresh_serve reads the command topic; the node is not runtime-wired.
+  command_topic: onex.cmd.omnimarket.stability-refresh-requested.v1
+
+topics:
+  stability_refresh_requested: onex.cmd.omnimarket.stability-refresh-requested.v1
+  stability_refresh_pin_accepted: onex.evt.omnimarket.stability-refresh-pin-accepted.v1
+  stability_refresh_refused: onex.evt.omnimarket.stability-refresh-refused.v1
+  stability_refresh_completed: onex.evt.omnimarket.stability-refresh-completed.v1
+  stability_refresh_failed: onex.evt.omnimarket.stability-refresh-failed.v1
+
+# The serve tick (runtime_stability_refresh_serve, run by a host timer as the operator account) reads the request topic
+# and publishes the four answer topics. The node has no handler_routing and its handler takes its dependencies as constructor
+# parameters, so the runtime must wire nothing from this block: a non-empty subscribe_topics makes infra's auto-wiring build the
+# handler and quarantine it (tests/unit/contracts/test_every_node_auto_wires_in_process_omn17427.py), a crash loop under
+# ONEX_WIRING_STRICT_MODE=1. The request topic stays in topics: and runtime_dispatch.command_topic above, which the serve tick
+# reads, and in the broker rows the grants below name.
+event_bus:
+  subscribe_topics: []
+  publish_topics:
+    - onex.evt.omnimarket.stability-refresh-pin-accepted.v1
+    - onex.evt.omnimarket.stability-refresh-refused.v1
+    - onex.evt.omnimarket.stability-refresh-completed.v1
+    - onex.evt.omnimarket.stability-refresh-failed.v1
+
+# The login the serve tick runs under (the host's lane login, filled from the broker_acl_principals overlay): it reads the
+# request topic and its consumer group, and writes the four answers. The requesting login's rows (write the request, read
+# the answers) are a scope overlay of the overlays repository, never this contract.
+broker_acl_grants:
+  - principal: "${ONEX_ACL_STABILITY_REFRESH_SERVE_PRINCIPAL}"
+    grants:
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.cmd.omnimarket.stability-refresh-requested.v1, operation: READ}
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.cmd.omnimarket.stability-refresh-requested.v1, operation: DESCRIBE}
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.evt.omnimarket.stability-refresh-pin-accepted.v1, operation: WRITE}
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.evt.omnimarket.stability-refresh-pin-accepted.v1, operation: DESCRIBE}
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.evt.omnimarket.stability-refresh-refused.v1, operation: WRITE}
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.evt.omnimarket.stability-refresh-refused.v1, operation: DESCRIBE}
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.evt.omnimarket.stability-refresh-completed.v1, operation: WRITE}
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.evt.omnimarket.stability-refresh-completed.v1, operation: DESCRIBE}
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.evt.omnimarket.stability-refresh-failed.v1, operation: WRITE}
+      - {resource_type: TOPIC, pattern: LITERAL, name: onex.evt.omnimarket.stability-refresh-failed.v1, operation: DESCRIBE}
+      - {resource_type: GROUP, pattern: PREFIXED, name: local.omnimarket.node_stability_lane_refresh_effect.consume.v1., operation: READ}
+      - {resource_type: GROUP, pattern: PREFIXED, name: local.omnimarket.node_stability_lane_refresh_effect.consume.v1., operation: DESCRIBE}
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.stability-refresh-pin-accepted.v1
+  - onex.evt.omnimarket.stability-refresh-refused.v1
+  - onex.evt.omnimarket.stability-refresh-completed.v1
+  - onex.evt.omnimarket.stability-refresh-failed.v1
+
+overlay:
+  node: node_stability_lane_refresh_effect
+  roots_env: ONEX_SKILL_OVERLAY_ROOTS
+
+metadata:
+  ticket: OMN-21613
+  transport_type: inmemory

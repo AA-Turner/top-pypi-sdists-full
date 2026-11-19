@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.queued_job_flow_status_continued_on_error_item import QueuedJobFlowStatusContinuedOnErrorItem
     from ..models.queued_job_flow_status_failure_module import QueuedJobFlowStatusFailureModule
     from ..models.queued_job_flow_status_modules_item import QueuedJobFlowStatusModulesItem
     from ..models.queued_job_flow_status_preprocessor_module import QueuedJobFlowStatusPreprocessorModule
@@ -25,6 +26,8 @@ class QueuedJobFlowStatus:
         user_states (Union[Unset, Any]):
         preprocessor_module (Union[Unset, QueuedJobFlowStatusPreprocessorModule]):
         retry (Union[Unset, QueuedJobFlowStatusRetry]):
+        continued_on_error (Union[Unset, List['QueuedJobFlowStatusContinuedOnErrorItem']]): On a root flow, the steps at
+            any depth that failed and that the flow went past because of continue_on_error (at most 100).
     """
 
     step: int
@@ -33,6 +36,7 @@ class QueuedJobFlowStatus:
     user_states: Union[Unset, Any] = UNSET
     preprocessor_module: Union[Unset, "QueuedJobFlowStatusPreprocessorModule"] = UNSET
     retry: Union[Unset, "QueuedJobFlowStatusRetry"] = UNSET
+    continued_on_error: Union[Unset, List["QueuedJobFlowStatusContinuedOnErrorItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -54,6 +58,14 @@ class QueuedJobFlowStatus:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        continued_on_error: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.continued_on_error, Unset):
+            continued_on_error = []
+            for continued_on_error_item_data in self.continued_on_error:
+                continued_on_error_item = continued_on_error_item_data.to_dict()
+
+                continued_on_error.append(continued_on_error_item)
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -69,11 +81,14 @@ class QueuedJobFlowStatus:
             field_dict["preprocessor_module"] = preprocessor_module
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if continued_on_error is not UNSET:
+            field_dict["continued_on_error"] = continued_on_error
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.queued_job_flow_status_continued_on_error_item import QueuedJobFlowStatusContinuedOnErrorItem
         from ..models.queued_job_flow_status_failure_module import QueuedJobFlowStatusFailureModule
         from ..models.queued_job_flow_status_modules_item import QueuedJobFlowStatusModulesItem
         from ..models.queued_job_flow_status_preprocessor_module import QueuedJobFlowStatusPreprocessorModule
@@ -107,6 +122,13 @@ class QueuedJobFlowStatus:
         else:
             retry = QueuedJobFlowStatusRetry.from_dict(_retry)
 
+        continued_on_error = []
+        _continued_on_error = d.pop("continued_on_error", UNSET)
+        for continued_on_error_item_data in _continued_on_error or []:
+            continued_on_error_item = QueuedJobFlowStatusContinuedOnErrorItem.from_dict(continued_on_error_item_data)
+
+            continued_on_error.append(continued_on_error_item)
+
         queued_job_flow_status = cls(
             step=step,
             modules=modules,
@@ -114,6 +136,7 @@ class QueuedJobFlowStatus:
             user_states=user_states,
             preprocessor_module=preprocessor_module,
             retry=retry,
+            continued_on_error=continued_on_error,
         )
 
         queued_job_flow_status.additional_properties = d

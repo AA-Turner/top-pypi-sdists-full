@@ -205,6 +205,7 @@ WarmPoolStateType = Literal["Hibernated", "Running", "Stopped"]
 WarmPoolStatusType = Literal["PendingDelete"]
 AutoScalingServiceName = Literal["autoscaling"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

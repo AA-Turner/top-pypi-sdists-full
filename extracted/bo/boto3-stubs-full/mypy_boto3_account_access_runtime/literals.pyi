@@ -34,6 +34,7 @@ AccessTypeType = Literal["PROGRAMMATIC_ACCESS"]
 ListRolesPaginatorName = Literal["list_roles"]
 AccountAccessRuntimeServiceName = Literal["account-access-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

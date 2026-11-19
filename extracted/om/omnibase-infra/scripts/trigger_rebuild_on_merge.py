@@ -68,7 +68,6 @@
 from __future__ import annotations
 
 import ast
-import fnmatch
 import importlib.util
 import json
 import os
@@ -226,6 +225,51 @@ class ModelCiBusLaneDelegationFaultRoute(BaseModel):
     no_escalation: bool
 
 
+class ModelCiBusLaneSecretSource(BaseModel):
+    """Where a lane's injected secret resolver reads one secret (OMN-20275), shape only."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    source_type: str
+    source_path: str
+
+
+class ModelCiBusLaneSecretMapping(BaseModel):
+    """One logical secret name and its source (OMN-20275), shape only."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    logical_name: str
+    source: ModelCiBusLaneSecretSource
+
+
+class ModelCiBusLaneSecretNamespace(BaseModel):
+    """A pattern-scoped secret source of a lane, shape only."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    namespace: str
+    ref_pattern: str
+    source_type: str
+    source_path_template: str
+    ttl_seconds: int | None = None
+
+
+class ModelCiBusLaneSecretResolver(BaseModel):
+    """A lane's injected secret resolver declaration (OMN-20275), shape only.
+
+    Names and paths only. This publisher never resolves a secret, so it keeps
+    no policy here; it models the block so that ``extra="forbid"`` keeps
+    meaning "unknown key" instead of "key this script has not learned yet".
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    enable_convention_fallback: bool = False
+    mappings: tuple[ModelCiBusLaneSecretMapping, ...] = ()
+    namespaces: tuple[ModelCiBusLaneSecretNamespace, ...] = ()
+
+
 class ModelCiBusLane(BaseModel):
     """One checked-in CI control-bus lane declaration.
 
@@ -297,6 +341,20 @@ class ModelCiBusLane(BaseModel):
     broker_topology: ModelCiBusLaneBrokerTopology | None = None
     delegation_routes: tuple[ModelCiBusLaneDelegationRoute, ...] = ()
     delegation_fault_routes: tuple[ModelCiBusLaneDelegationFaultRoute, ...] = ()
+    # OMN-20275. Optional and unread by this publisher: the dev lane declares
+    # the ordered fallback buses and the injected secret resolver for the
+    # runtime bindings. Modelled so the strict overlay keeps validating.
+    binding_fallback: tuple[str, ...] = ()
+    secret_resolver: ModelCiBusLaneSecretResolver | None = None
+    # OMN-23613 (step A1 of the HTTP API removal). Optional and unread by this
+    # publisher: the tenant the chain canary stamps on the delegation it
+    # publishes to the lane's bus. Modelled so the strict overlay keeps
+    # validating once omnimarket declares it (omnimarket's parity gate reads this
+    # model from the omnibase_infra release that repository pins, so this change
+    # is released and pinned BEFORE the key is added there). The shape is checked
+    # (UUID) by the one component that acts on it, node_chain_canary_effect.
+    # lane_transport, not duplicated here: two copies of a policy drift.
+    tenant_id: str | None = None
 
     @field_validator("broker")
     @classmethod
@@ -386,23 +444,19 @@ class ModelCiBusOverlay(BaseModel):
 # The script is also loaded directly from its file path by hermetic tests. Give
 # Pydantic the explicit namespace so postponed annotations resolve without
 # depending on the module having first been inserted into sys.modules.
-ModelCiBusOverlay.model_rebuild(
-    _types_namespace={
-        "ModelCiBusLane": ModelCiBusLane,
-        "ModelCiBusLaneDsnReference": ModelCiBusLaneDsnReference,
-        "ModelCiBusLaneBrokerTopology": ModelCiBusLaneBrokerTopology,
-        "ModelCiBusLaneDelegationRoute": ModelCiBusLaneDelegationRoute,
-        "ModelCiBusLaneDelegationFaultRoute": ModelCiBusLaneDelegationFaultRoute,
-    }
-)
-ModelCiBusLane.model_rebuild(
-    _types_namespace={
-        "ModelCiBusLaneDsnReference": ModelCiBusLaneDsnReference,
-        "ModelCiBusLaneBrokerTopology": ModelCiBusLaneBrokerTopology,
-        "ModelCiBusLaneDelegationRoute": ModelCiBusLaneDelegationRoute,
-        "ModelCiBusLaneDelegationFaultRoute": ModelCiBusLaneDelegationFaultRoute,
-    }
-)
+_CI_BUS_TYPES_NAMESPACE = {
+    "ModelCiBusLane": ModelCiBusLane,
+    "ModelCiBusLaneDsnReference": ModelCiBusLaneDsnReference,
+    "ModelCiBusLaneBrokerTopology": ModelCiBusLaneBrokerTopology,
+    "ModelCiBusLaneDelegationRoute": ModelCiBusLaneDelegationRoute,
+    "ModelCiBusLaneDelegationFaultRoute": ModelCiBusLaneDelegationFaultRoute,
+    "ModelCiBusLaneSecretResolver": ModelCiBusLaneSecretResolver,
+    "ModelCiBusLaneSecretMapping": ModelCiBusLaneSecretMapping,
+    "ModelCiBusLaneSecretNamespace": ModelCiBusLaneSecretNamespace,
+    "ModelCiBusLaneSecretSource": ModelCiBusLaneSecretSource,
+}
+ModelCiBusOverlay.model_rebuild(_types_namespace=_CI_BUS_TYPES_NAMESPACE)
+ModelCiBusLane.model_rebuild(_types_namespace=_CI_BUS_TYPES_NAMESPACE)
 
 
 class ModelRedeployStartCommandWire(BaseModel):

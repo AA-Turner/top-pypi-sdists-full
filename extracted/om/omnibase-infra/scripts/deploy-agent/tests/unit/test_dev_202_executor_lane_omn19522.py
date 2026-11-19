@@ -64,6 +64,8 @@ from deploy_agent.executor import (
 from deploy_agent.job_state import JobStore
 from deploy_agent.routing import load_routing_table
 
+from .test_lab_overlay_omn18200 import build_passes, captured
+
 pytestmark = pytest.mark.unit
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -100,6 +102,9 @@ def _capture_compose_up(
     def fake_run(
         cmd: list[str], timeout: int, **kwargs: object
     ) -> subprocess.CompletedProcess[str]:
+        if cmd[:2] == ["docker", "inspect"]:
+            # OMN-25106: the roll reads a service's health before it rolls it.
+            return subprocess.CompletedProcess(cmd, 1, "", "No such object")
         captured.append(cmd)
         return _ok()
 
@@ -119,6 +124,9 @@ def _capture_build(executor: DeployExecutor) -> list[list[str]]:
     def fake_run(
         cmd: list[str], timeout: int, **kwargs: object
     ) -> subprocess.CompletedProcess[str]:
+        if cmd[:2] == ["docker", "inspect"]:
+            # OMN-25106: the roll reads a service's health before it rolls it.
+            return subprocess.CompletedProcess(cmd, 1, "", "No such object")
         captured.append(cmd)
         return _ok()
 
@@ -135,6 +143,9 @@ def _capture_migrations(executor: DeployExecutor) -> list[list[str]]:
     def fake_run(
         cmd: list[str], timeout: int, **kwargs: object
     ) -> subprocess.CompletedProcess[str]:
+        if cmd[:2] == ["docker", "inspect"]:
+            # OMN-25106: the roll reads a service's health before it rolls it.
+            return subprocess.CompletedProcess(cmd, 1, "", "No such object")
         captured.append(cmd)
         if "to_regclass" in " ".join(cmd):
             # The projection-table probe answers "the table exists".
@@ -173,7 +184,6 @@ class TestDev202LaneConfig:
         cfg = lane_config_for(EnumRuntimeLane.DEV)
 
         assert cfg.compose_project == "omnibase-infra-dev-202"
-        assert cfg.build_project == "omnibase-infra-dev-202"
         assert cfg.compose_files[0] == COMPOSE_FILE
         assert [Path(f).name for f in cfg.compose_files] == [
             "docker-compose.infra.yml",
@@ -318,21 +328,18 @@ class _FakeApplier:
     def __init__(self, **kwargs: Any) -> None:
         self.manifest_sha: str | None = "c" * 40
 
-    def capture_compose_inputs(self, *, sha: str, stamp: str) -> dict[str, str]:
+    def capture_compose_inputs(self, *, sha: str, stamp: str) -> Any:
         # OMN-19501: the compose-lane half, taken under the lane lock; opaque
-        # to the agent, which hands it back to ``apply``.
-        return {"sha": sha, "stamp": stamp}
+        # to the agent, which hands it back to the onex-api build.
+        return captured(sha, stamp)
 
-    def apply(
-        self,
-        *,
-        sha: str,
-        stamp: str,
-        correlation_id: str,
-        capture: object = None,
-    ) -> Path:
-        _FakeApplier.calls.append("apply")
-        return Path("/state/lab-overlay/x.json")
+    state_dir = Path("/state")
+
+    def archive_overlay(self, destination: Path) -> str:
+        _FakeApplier.calls.append("build")
+        return "c" * 40
+
+    _run = staticmethod(build_passes)
 
     def build_repair_migrate_image(
         self, *, sha: str, stamp: str, correlation_id: str
@@ -413,6 +420,7 @@ class TestDev202PhasesOff:
         assert _FakeApplier.calls == []
 
     @pytest.mark.gateway_lane
+    @pytest.mark.usefixtures("gateway_phase_available")
     def test_dev_202_phases_off_gateway_deploy_is_a_no_op(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -470,9 +478,11 @@ class TestDev202PhasesOff:
             if (spec or {}).get("profiles") == ["dev-202-disabled"]
         }
         cfg = DEV_INSTANCE_LANE_CONFIGS["dev-202"]
-        assert disabled_by_overlay >= _DEV_202_DISABLED
+        # OMN-24476: the three removed services are declared by no overlay any
+        # more; the table still lists them so no argv on this instance names one.
+        assert disabled_by_overlay >= {"keycloak", "infisical"}
         assert cfg.disabled_services == frozenset(
-            disabled_by_overlay | set(DEV_LANE_GATEWAY_SERVICES)
+            disabled_by_overlay | set(DEV_LANE_GATEWAY_SERVICES) | _DEV_202_DISABLED
         )
 
     def test_dev_202_phases_off_restarted_services_exclude_disabled(
@@ -508,25 +518,33 @@ class TestDev201Unchanged:
 
         assert cfg == default
         assert cfg.compose_project == COMPOSE_PROJECT == "omnibase-infra"
-        assert cfg.build_project == "omnibase-infra"
         assert [Path(f).name for f in cfg.compose_files] == [
             "docker-compose.infra.yml",
             "docker-compose.dev-lane.yml",
+            "docker-compose.dev-tenant-fold.yml",
         ]
         assert cfg.postgres_container == "omnibase-infra-postgres"
         assert cfg.runtime_health_targets == RUNTIME_HEALTH_TARGETS
         assert cfg.main_runtime_container == "omninode-runtime"
-        assert cfg.disabled_phases == frozenset()
-        assert cfg.disabled_services == frozenset()
+        # OMN-21629: the one change to the default lane, declared as data in the
+        # routing table (flags: disabled_phases). See
+        # test_dev_201_gateway_off_omn21629.py.
+        assert cfg.disabled_phases == frozenset({EnumInstancePhase.GATEWAY_DEPLOY})
+        assert cfg.disabled_services == frozenset(DEV_LANE_GATEWAY_SERVICES)
         for phase in EnumInstancePhase:
-            assert lane_runs_phase(EnumRuntimeLane.DEV, phase)
+            assert lane_runs_phase(EnumRuntimeLane.DEV, phase) is (
+                phase is not EnumInstancePhase.GATEWAY_DEPLOY
+            )
 
     def test_dev_201_unchanged_compose_argv(self) -> None:
         select_dev_instance("dev-201")
-        up = _capture_compose_up(DeployExecutor())[0]
+        ups = _capture_compose_up(DeployExecutor())
+        up = ups[0]
         assert _project_of(up) == "omnibase-infra"
-        assert len(_files_of(up)) == 2
-        assert "onex-api" in up
+        assert len(_files_of(up)) == 3
+        # OMN-24476: onex-api is no longer a dev-lane service.
+        assert "onex-api" not in [c[-1] for c in ups]
+        assert "cost-estimator-web" in [c[-1] for c in ups]
 
         builds = _capture_build(DeployExecutor())
         assert {_project_of(c) for c in builds} == {"omnibase-infra"}
@@ -536,9 +554,15 @@ class TestDev201Unchanged:
         assert set(DEV_LANE_ONLY_MIGRATION_SERVICES) <= named
 
     @pytest.mark.gateway_lane
-    def test_dev_201_unchanged_gateway_deploy_still_runs(
+    @pytest.mark.usefixtures("gateway_phase_available")
+    def test_dev_201_unchanged_gateway_deploy_runs_where_the_flag_is_absent(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """The gateway phase is not removed, it is a flag (OMN-21629).
+
+        The ``gateway_phase_available`` fixture puts the composition of an
+        instance without ``flags: disabled_phases`` in dev-201's slot.
+        """
         monkeypatch.setattr(
             executor_mod, "deploy_gateway_script", lambda: "/nonexistent/deploy.sh"
         )
@@ -553,13 +577,13 @@ class TestDev201Unchanged:
             )
 
     @pytest.mark.usefixtures("_fake_applier")
-    def test_dev_201_unchanged_job_runs_every_phase(
+    def test_dev_201_unchanged_job_runs_every_phase_but_the_gateway(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _, fake, _, _ = _run_dev_job(tmp_path, monkeypatch, instance="dev-201")
         assert "seed_infisical lane=dev" in fake.calls
         assert "deliver_onex_api_pin" in fake.calls
-        assert _FakeApplier.calls == ["apply"]
+        assert _FakeApplier.calls == ["build"]
 
     def test_dev_201_unchanged_without_a_router(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

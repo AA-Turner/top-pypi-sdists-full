@@ -54,6 +54,11 @@ def resolve_token_path(api_endpoint: str) -> pathlib.Path:
     return (TOKEN_DIR / f"{_endpoint_slug(api_endpoint)}.json").expanduser()
 
 
+def has_token_file(api_endpoint: str) -> bool:
+    """Whether a cached login exists for the endpoint, valid or not."""
+    return resolve_token_path(api_endpoint).exists()
+
+
 class Auth0UrlCode(BaseModel):
     url: str
     user_code: str

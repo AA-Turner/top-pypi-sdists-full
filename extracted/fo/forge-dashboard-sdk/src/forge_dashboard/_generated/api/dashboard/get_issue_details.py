@@ -136,6 +136,10 @@ def sync_detailed(
     one for each comment's reactions (up to 50), so the reaction calls run
     at most eight at a time and stop at the first rate limit.
 
+    `references` lists the items that refer to the issue. GitHub adds
+    them to the same query; Forgejo reads the issue's timeline once more, one
+    request per page of 50 events and an empty one to end on.
+
     Every text is Markdown exactly as the forge stores it (`format` is
     always `markdown`). The server neither converts nor sanitises it, so a
     client must render it with raw HTML disabled. Each text is cut at
@@ -201,6 +205,10 @@ def sync(
     one for each comment's reactions (up to 50), so the reaction calls run
     at most eight at a time and stop at the first rate limit.
 
+    `references` lists the items that refer to the issue. GitHub adds
+    them to the same query; Forgejo reads the issue's timeline once more, one
+    request per page of 50 events and an empty one to end on.
+
     Every text is Markdown exactly as the forge stores it (`format` is
     always `markdown`). The server neither converts nor sanitises it, so a
     client must render it with raw HTML disabled. Each text is cut at
@@ -260,6 +268,10 @@ async def asyncio_detailed(
     issue, one for its comments, one for the description's reactions and
     one for each comment's reactions (up to 50), so the reaction calls run
     at most eight at a time and stop at the first rate limit.
+
+    `references` lists the items that refer to the issue. GitHub adds
+    them to the same query; Forgejo reads the issue's timeline once more, one
+    request per page of 50 events and an empty one to end on.
 
     Every text is Markdown exactly as the forge stores it (`format` is
     always `markdown`). The server neither converts nor sanitises it, so a
@@ -325,6 +337,10 @@ async def asyncio(
     issue, one for its comments, one for the description's reactions and
     one for each comment's reactions (up to 50), so the reaction calls run
     at most eight at a time and stop at the first rate limit.
+
+    `references` lists the items that refer to the issue. GitHub adds
+    them to the same query; Forgejo reads the issue's timeline once more, one
+    request per page of 50 events and an empty one to end on.
 
     Every text is Markdown exactly as the forge stores it (`format` is
     always `markdown`). The server neither converts nor sanitises it, so a

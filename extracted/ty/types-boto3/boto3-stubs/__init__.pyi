@@ -12,6 +12,7 @@ from boto3 import session as session
 from boto3.session import Session as Session
 from botocore.config import Config
 from botocore.session import Session as BotocoreSession
+from types_boto3_abuse_signal.client import AbuseSignalClient
 from types_boto3_accessanalyzer.client import AccessAnalyzerClient
 from types_boto3_account.client import AccountClient
 from types_boto3_account_access.client import AccountAccessClient
@@ -500,6 +501,24 @@ def set_stream_logger(
 def _get_default_session() -> Session: ...
 
 class NullHandler(logging.Handler): ...
+
+@overload
+def client(
+    service_name: Literal["abuse-signal"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> AbuseSignalClient:
+    """
+    Create client for AbuseSignal service.
+    """
 
 @overload
 def client(

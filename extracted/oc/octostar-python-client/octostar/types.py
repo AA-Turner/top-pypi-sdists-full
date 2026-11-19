@@ -46,8 +46,8 @@ class Response(Generic[T]):
     """A response from an endpoint"""
 
     status_code: HTTPStatus
-    content: bytes
-    headers: MutableMapping[str, str]
+    content: bytes = attr.ib(repr=False)
+    headers: MutableMapping[str, str] = attr.ib(repr=False)
     parsed: Optional[T]
 
 

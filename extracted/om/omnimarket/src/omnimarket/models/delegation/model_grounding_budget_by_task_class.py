@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-"""Per-task-class grounded input budgets for delegation backends (OMN-20486)."""
+"""Per-task-class grounded input budgets (OMN-20486); the measured ceilings are an overlay value (OMN-23631)."""
 
 from __future__ import annotations
 
@@ -31,7 +31,12 @@ class ModelGroundingBudgetByTaskClass(BaseModel):
     )
 
     def budget_for(self, backend_id: str, task_type: str) -> int | None:
-        """Return the class budget for ``backend_id``, or ``None`` when unset."""
+        """Return the class budget declared for ``backend_id``, or ``None`` when unset.
+
+        The measured correct ceiling that bounds it (OMN-22220) is an overlay value
+        read through ``node_delegation_code_budget_compute`` (OMN-23631); the bound
+        is applied by ``handlers.routing.measured_correct_ceiling.grounded_input_budget``.
+        """
         return self.backends.get(backend_id, {}).get(task_type)
 
 

@@ -3,14 +3,8 @@
 
 import contextlib
 import os
-import sys
 from types import TracebackType
-from typing import Any, TypedDict, cast, get_type_hints
-
-if sys.version_info >= (3, 11):
-    from typing import Unpack
-else:
-    from typing_extensions import Unpack
+from typing import Any, TypedDict, Unpack, cast, get_type_hints
 
 
 class Options(TypedDict, total=False):
@@ -55,8 +49,7 @@ class Config(contextlib.ContextDecorator):
 
     @staticmethod
     def set_max_sampling_iterations(iterations: int) -> None:
-        """Set the maximum number of sampling iterations to use on
-        :meth:`Schema.sample`."""
+        """Set the maximum number of sampling iterations to use on :meth:`Schema.sample`."""
         Config.options["max_sampling_iterations"] = iterations
 
     @staticmethod

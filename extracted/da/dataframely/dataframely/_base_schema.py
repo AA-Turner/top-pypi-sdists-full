@@ -3,13 +3,12 @@
 
 from __future__ import annotations
 
-import sys
 import textwrap
 from abc import ABCMeta
 from collections.abc import Mapping
 from copy import copy
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 import polars as pl
 
@@ -17,11 +16,6 @@ from ._native import arrow_c_schema
 from ._rule import DtypeCastRule, Rule, RuleFactory
 from .columns import Column
 from .exc import ImplementationError
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 _COLUMN_ATTR = "__dataframely_columns__"
 _RULE_ATTR = "__dataframely_rules__"
@@ -279,8 +273,7 @@ class SchemaMeta(ABCMeta):
 
 
 class BaseSchema(metaclass=SchemaMeta):
-    """Internal utility abstraction to reference schemas without introducing cyclical
-    dependencies."""
+    """Internal utility abstraction to reference schemas without introducing cyclical dependencies."""
 
     @classmethod
     def column_names(cls) -> list[str]:

@@ -37,6 +37,7 @@ ListSubscriptionsPaginatorName = Literal["list_subscriptions"]
 PayloadFormatIndicatorType = Literal["UNSPECIFIED_BYTES", "UTF8_DATA"]
 IoTDataPlaneServiceName = Literal["iot-data"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

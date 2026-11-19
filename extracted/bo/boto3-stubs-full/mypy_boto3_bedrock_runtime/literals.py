@@ -218,6 +218,7 @@ TraceType = Literal["DISABLED", "ENABLED", "ENABLED_FULL"]
 VideoFormatType = Literal["flv", "mkv", "mov", "mp4", "mpeg", "mpg", "three_gp", "webm", "wmv"]
 BedrockRuntimeServiceName = Literal["bedrock-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

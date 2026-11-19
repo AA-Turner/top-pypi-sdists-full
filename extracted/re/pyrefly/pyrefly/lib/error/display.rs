@@ -7,23 +7,28 @@
 
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::function::FunctionKind;
+use pyrefly_util::display::DisplayWithCtx;
 
 use crate::error::context::ErrorContext;
 use crate::error::context::TypeCheckKind;
 use crate::types::display::TypeDisplayContext;
+use crate::types::env::TypeEnv;
 use crate::types::types::Type;
 
 impl ErrorContext {
-    pub fn format(&self) -> String {
+    pub fn format(&self, env: &dyn TypeEnv) -> String {
         match self {
             Self::BadContextManager(cm) => {
-                format!("Cannot use `{cm}` as a context manager")
+                format!("Cannot use `{}` as a context manager", cm.display_with(env))
             }
             Self::UnaryOp(op, target, _range) => {
-                format!("Unary `{op}` is not supported on `{target}`")
+                format!(
+                    "Unary `{op}` is not supported on `{}`",
+                    target.display_with(env)
+                )
             }
             Self::BinaryOp(op, left, right, _left_range, _right_range) => {
-                let ctx = TypeDisplayContext::new(&[left, right]);
+                let ctx = TypeDisplayContext::new(env, &[left, right]);
                 format!(
                     "`{}` is not supported between `{}` and `{}`",
                     op,
@@ -32,7 +37,7 @@ impl ErrorContext {
                 )
             }
             Self::InplaceBinaryOp(op, left, right, _left_range, _right_range) => {
-                let ctx = TypeDisplayContext::new(&[left, right]);
+                let ctx = TypeDisplayContext::new(env, &[left, right]);
                 format!(
                     "`{}=` is not supported between `{}` and `{}`",
                     op,
@@ -40,14 +45,19 @@ impl ErrorContext {
                     ctx.display(right)
                 )
             }
-            Self::Iteration(ty) => format!("Type `{ty}` is not iterable"),
-            Self::AsyncIteration(ty) => format!("Type `{ty}` is not an async iterable"),
-            Self::Await(ty) => format!("Type `{ty}` is not awaitable"),
-            Self::Index(ty) => format!("Cannot index into `{ty}`"),
-            Self::SetItem(ty) => format!("Cannot set item in `{ty}`"),
-            Self::DelItem(ty) => format!("Cannot delete item in `{ty}`"),
+            Self::Iteration(ty) => format!("Type `{}` is not iterable", ty.display_with(env)),
+            Self::AsyncIteration(ty) => {
+                format!("Type `{}` is not an async iterable", ty.display_with(env))
+            }
+            Self::Await(ty) => format!("Type `{}` is not awaitable", ty.display_with(env)),
+            Self::Index(ty) => format!("Cannot index into `{}`", ty.display_with(env)),
+            Self::SetItem(ty) => format!("Cannot set item in `{}`", ty.display_with(env)),
+            Self::DelItem(ty) => format!("Cannot delete item in `{}`", ty.display_with(env)),
             Self::MatchPositional(ty) => {
-                format!("Cannot match positional sub-patterns in `{ty}`")
+                format!(
+                    "Cannot match positional sub-patterns in `{}`",
+                    ty.display_with(env)
+                )
             }
             Self::ImportNotFound(import) => {
                 format!("Cannot find module `{import}`")
@@ -60,8 +70,14 @@ impl ErrorContext {
 impl TypeCheckKind {
     /// Note: `got` and `want` should be processed through `AnswersSolver::for_display` before calling this function
     /// otherwise printed type representations may be non-deterministic due to unsolved vars
-    pub fn format_error(&self, got: &Type, want: &Type, current_module: ModuleName) -> String {
-        let mut ctx = TypeDisplayContext::new(&[got, want]);
+    pub fn format_error(
+        &self,
+        env: &dyn TypeEnv,
+        got: &Type,
+        want: &Type,
+        current_module: ModuleName,
+    ) -> String {
+        let mut ctx = TypeDisplayContext::new(env, &[got, want]);
         match self {
             Self::MagicMethodReturn(cls, func) => {
                 ctx.add(cls);
@@ -112,7 +128,7 @@ impl TypeCheckKind {
                     ctx.display(got),
                     param_desc,
                     ctx.display(want),
-                    function_suffix(func_id.as_ref(), current_module),
+                    function_suffix(env, func_id.as_ref(), current_module),
                 )
             }
             Self::CallVarArgs(arg_is_unpacked, param, func_id) => {
@@ -131,7 +147,7 @@ impl TypeCheckKind {
                     ctx.display(got),
                     param_desc,
                     ctx.display(want),
-                    function_suffix(func_id.as_ref(), current_module),
+                    function_suffix(env, func_id.as_ref(), current_module),
                 )
             }
             Self::CallKwArgs(arg, param, func_id) => {
@@ -149,7 +165,7 @@ impl TypeCheckKind {
                     ctx.display(got),
                     param_desc,
                     ctx.display(want),
-                    function_suffix(func_id.as_ref(), current_module),
+                    function_suffix(env, func_id.as_ref(), current_module),
                 )
             }
             Self::CallUnpackKwArg(param, func_id) => format!(
@@ -157,7 +173,7 @@ impl TypeCheckKind {
                 ctx.display(got),
                 param,
                 ctx.display(want),
-                function_suffix(func_id.as_ref(), current_module),
+                function_suffix(env, func_id.as_ref(), current_module),
             ),
             Self::CallExtraItems(_, param, func_id) => {
                 let param_desc = match param {
@@ -169,7 +185,7 @@ impl TypeCheckKind {
                     ctx.display(got),
                     param_desc,
                     ctx.display(want),
-                    function_suffix(func_id.as_ref(), current_module),
+                    function_suffix(env, func_id.as_ref(), current_module),
                 )
             }
             Self::FunctionParameterDefault(param) => format!(
@@ -278,7 +294,9 @@ impl TypeCheckKind {
             }
             Self::OverloadInput(overload_sig, impl_sig) => {
                 format!(
-                    "Implementation signature `{impl_sig}` does not accept all arguments that overload signature `{overload_sig}` accepts"
+                    "Implementation signature `{}` does not accept all arguments that overload signature `{}` accepts",
+                    impl_sig.display_with(env),
+                    overload_sig.display_with(env),
                 )
             }
             Self::TypeVarSpecialization(name) => {
@@ -299,9 +317,13 @@ impl TypeCheckKind {
     }
 }
 
-pub fn function_suffix(func_kind: Option<&FunctionKind>, current_module: ModuleName) -> String {
+pub fn function_suffix(
+    env: &dyn TypeEnv,
+    func_kind: Option<&FunctionKind>,
+    current_module: ModuleName,
+) -> String {
     match func_kind {
-        Some(func) => format!(" in function `{}`", func.format(current_module)),
+        Some(func) => format!(" in function `{}`", func.format(env, current_module)),
         None => "".to_owned(),
     }
 }

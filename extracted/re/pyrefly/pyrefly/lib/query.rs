@@ -30,18 +30,18 @@ use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_types::class::Class;
 use pyrefly_types::class::ClassFields;
-use pyrefly_types::class::PrecomputedTParams;
 use pyrefly_types::function::FuncMetadata;
 use pyrefly_types::function::Function;
 use pyrefly_types::function::FunctionKind;
 use pyrefly_types::function::PropertyRole;
 use pyrefly_types::literal::Lit;
+use pyrefly_types::quantified::TypeVarLike;
 use pyrefly_types::type_alias::TypeAliasData;
 use pyrefly_types::type_var::Restriction;
-use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::Forallable;
 use pyrefly_types::types::Type;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::display::Fmt;
 use pyrefly_util::events::CategorizedEvents;
 use pyrefly_util::lined_buffer::LineNumber;
@@ -73,6 +73,7 @@ use ruff_text_size::TextSize;
 use serde::Serialize;
 use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
+use thiserror::Error;
 use vec1::Vec1;
 
 use crate::alt::answers::Answers;
@@ -95,8 +96,10 @@ use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionHandle;
+use crate::state::state::TransactionTypeEnv;
 use crate::types::display::LspDisplayMode;
 use crate::types::display::TypeDisplayContext;
+use crate::types::env::TypeEnv;
 
 mod type_table;
 pub use ruff_python_ast::Decorator as TypeQueryDecorator;
@@ -157,6 +160,11 @@ pub struct Query {
     files: Mutex<SmallSet<(ModuleName, ModulePath)>>,
     /// Cache for type resolution
     type_cache: TypeCache,
+    /// An empty in-memory module that `new` loads and `change_files` reloads, so that
+    /// `ad_hoc_solve` always finds answers for it. Queries resolve their types in a snippet module
+    /// and solve here; a solver reads each class from the module that defines it, so the answer
+    /// does not depend on which module hosts the solve.
+    host: Handle,
 }
 
 const CALLEE_KIND_FUNCTION: &str = "function";
@@ -182,6 +190,17 @@ pub struct Callee {
     pub class_name: Option<String>,
 }
 
+/// Diagnostics from invalid input or an unavailable name-query state.
+#[derive(Debug, Error)]
+pub enum ResolveTargetError {
+    #[error("{0}")]
+    InvalidExpression(String),
+    #[error("name query AST is unavailable")]
+    AstUnavailable,
+    #[error("name query answers are unavailable")]
+    AnswersUnavailable,
+}
+
 pub struct Attribute {
     pub name: String,
     pub kind: Option<String>,
@@ -201,9 +220,8 @@ pub struct TypeQueryTiming {
 /// already carries a value-shape property.
 ///
 /// These traits are emitted for value shapes such as `Type::Tuple`,
-/// `Type::TypedDict`, and `Type::PartialTypedDict`.
-/// They are not synthesized from class metadata, and therefore are not emitted
-/// for class/type-position shapes that would require metadata lookup.
+/// `Type::ClassType` naming a TypedDict, and `Type::PartialTypedDict`. They are
+/// emitted only for value shapes, not for class/type-position shapes.
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TypeShapeTrait {
@@ -269,16 +287,19 @@ fn bound_of_type_var_decl(ty: &Type) -> Option<(&QName, &Type)> {
     }
 }
 
-fn query_type_display_context<'a>(types: &[&'a Type]) -> TypeDisplayContext<'a> {
-    let mut ctx = TypeDisplayContext::new(types);
+fn query_type_display_context<'a>(
+    env: &'a dyn TypeEnv,
+    types: &[&'a Type],
+) -> TypeDisplayContext<'a> {
+    let mut ctx = TypeDisplayContext::new(env, types);
     ctx.always_display_module_name();
     ctx.always_display_expanded_unions();
     ctx.set_lsp_display_mode(LspDisplayMode::Query);
     ctx
 }
 
-fn type_to_string(ty: &Type) -> String {
-    let ctx = query_type_display_context(&[ty]);
+fn type_to_string(env: &dyn TypeEnv, ty: &Type) -> String {
+    let ctx = query_type_display_context(env, &[ty]);
     if is_static_method(ty) {
         format!("typing.StaticMethod[{}]", ctx.display(ty))
     } else if let Some(bound) = bound_of_type_var(ty) {
@@ -286,14 +307,14 @@ fn type_to_string(ty: &Type) -> String {
         format!(
             "Variable[{} (bound to {})]",
             ctx.display(ty),
-            type_to_string(bound)
+            type_to_string(env, bound)
         )
     } else if let Some((qname, bound)) = bound_of_type_var_decl(ty) {
         // pyre1 compatibility: return bound for type variable
         format!(
             "Variable[{} (bound to {})]",
             qname.id(),
-            type_to_string(bound)
+            type_to_string(env, bound)
         )
     } else {
         ctx.display(ty).to_string()
@@ -303,28 +324,32 @@ fn type_to_string(ty: &Type) -> String {
 struct TypeShapeContext<'a> {
     transaction: &'a Transaction<'a>,
     source_handle: &'a Handle,
+    type_env: TransactionTypeEnv<'a>,
 }
 
 impl TypeShapeContext<'_> {
+    /// A declared TypedDict instance is an ordinary `ClassType`, so the report layer has to
+    /// ask for the class's metadata to keep tagging it with the `TypedDict` shape trait.
+    pub(crate) fn is_typed_dict_class(&self, class: &Class) -> bool {
+        self.transaction
+            .ad_hoc_solve(self.source_handle, "query_is_typed_dict_class", |solver| {
+                solver.is_typed_dict_class(class)
+            })
+            .expect("the source handle is solved before a TypeShapeContext is built")
+    }
+
     fn declared_type_param_arity_for_class(&self, class: &Class) -> Option<usize> {
-        match class.precomputed_tparams() {
-            PrecomputedTParams::NotGeneric => None,
-            PrecomputedTParams::Precomputed(tparams) => nonzero_arity(tparams.len()),
-            // Legacy type variables, so the arity is only known once the
-            // `KeyTParams` binding has been solved.
-            PrecomputedTParams::FromBinding => {
-                let handle = Handle::new(
-                    class.module_name(),
-                    class.module_path().dupe(),
-                    self.source_handle.sys_info().dupe(),
-                );
-                let answers = self.transaction.get_answers(&handle)?;
-                let bindings = answers.bindings();
-                let idx =
-                    bindings.key_to_idx_hashed_opt(Hashed::new(&KeyTParams(class.index())))?;
-                nonzero_arity(answers.get_idx(idx)?.len())
-            }
-        }
+        // The arity is only known once the class's `KeyTParams` binding has been solved. A class
+        // without type parameters has no such binding.
+        let handle = Handle::new(
+            class.module_name(),
+            class.module_path().dupe(),
+            self.source_handle.sys_info().dupe(),
+        );
+        let answers = self.transaction.get_answers(&handle)?;
+        let bindings = answers.bindings();
+        let idx = bindings.key_to_idx_hashed_opt(Hashed::new(&KeyTParams(class.index())))?;
+        nonzero_arity(answers.get_idx(idx)?.len())
     }
 }
 
@@ -333,16 +358,16 @@ impl TypeShapeContext<'_> {
 /// the `ClassType`/`ClassDef` arms, and the module-qualified display string);
 /// the bare `Lit::Display` only emits the short class name. Shared with the
 /// type-table path in `query::type_table`.
-pub(crate) fn literal_value_shape_name(value: &Lit) -> String {
+pub(crate) fn literal_value_shape_name(env: &dyn TypeEnv, value: &Lit) -> String {
     match value {
         Lit::Enum(lit_enum) => {
             format!(
                 "{}.{}",
-                qname_to_string(lit_enum.class.qname()),
+                qname_to_string(lit_enum.class.qname(env)),
                 lit_enum.member
             )
         }
-        _ => value.to_string(),
+        _ => value.display_with(env).to_string(),
     }
 }
 
@@ -415,7 +440,7 @@ impl<'a> CalleesWithLocation<'a> {
         func_ty: &Type,
     ) -> Option<Vec<Callee>> {
         if let Type::ClassType(class) = &func_ty
-            && class.name() == "_lru_cache_wrapper"
+            && class.name(&self.transaction.type_env(&self.handle)) == "_lru_cache_wrapper"
             && let [def] = self
                 .transaction
                 .find_definition(
@@ -601,25 +626,29 @@ impl<'a> CalleesWithLocation<'a> {
     fn qname_to_string(n: &QName) -> String {
         format!("{}.{}", n.module_name(), n.id())
     }
-    fn class_name_from_def_kind(kind: &FunctionKind) -> String {
+    fn class_name_from_def_kind(env: &dyn TypeEnv, kind: &FunctionKind) -> String {
         if let Some(f) = kind.to_func_symbol()
             && let Some(cls) = f.cls.as_ref()
         {
-            format!("{}.{}", f.module.name(), cls.name())
+            format!("{}.{}", f.module.name(), cls.name(env))
         } else if let FunctionKind::CallbackProtocol(c) = kind {
-            Self::qname_to_string(c.qname())
+            Self::qname_to_string(c.qname(env))
         } else {
             panic!("class_name_from_def_kind - unsupported function kind: {kind:?}");
         }
     }
-    fn target_from_def_kind(kind: &FunctionKind, module_name_override: Option<&str>) -> String {
+    fn target_from_def_kind(
+        env: &dyn TypeEnv,
+        kind: &FunctionKind,
+        module_name_override: Option<&str>,
+    ) -> String {
         if let Some(f) = kind.to_func_symbol() {
             if let Some(module_name_override) = module_name_override {
                 format!("{module_name_override}.{}", f.name)
             } else {
                 match f.cls.as_ref() {
                     Some(cls) => {
-                        format!("{}.{}.{}", f.module.name(), cls.name(), f.name)
+                        format!("{}.{}.{}", f.module.name(), cls.name(env), f.name)
                     }
                     None => {
                         format!("{}.{}", f.module.name(), f.name)
@@ -629,9 +658,9 @@ impl<'a> CalleesWithLocation<'a> {
         } else {
             match kind {
                 FunctionKind::CallbackProtocol(cls) => {
-                    format!("{}.__call__", Self::qname_to_string(cls.qname()))
+                    format!("{}.__call__", Self::qname_to_string(cls.qname(env)))
                 }
-                x => x.format(ModuleName::builtins()),
+                x => x.format(env, ModuleName::builtins()),
             }
         }
     }
@@ -646,7 +675,7 @@ impl<'a> CalleesWithLocation<'a> {
                         .get_class_fields(c)
                         .is_some_and(|f| f.contains(&REPR))
                     {
-                        Some(format!("{}.{}.__repr__", c.module_name(), c.name()))
+                        Some(format!("{}.{}.__repr__", c.module_name(), c.name(solver)))
                     } else {
                         None
                     }
@@ -671,18 +700,19 @@ impl<'a> CalleesWithLocation<'a> {
         call_target: Option<&Expr>,
         call_arguments: Option<&Arguments>,
     ) -> Callee {
+        let env = &self.transaction.type_env(&self.handle);
         if metadata.flags.is_staticmethod {
             Callee {
                 kind: String::from(CALLEE_KIND_STATICMETHOD),
-                target: Self::target_from_def_kind(&metadata.kind, None),
-                class_name: Some(Self::class_name_from_def_kind(&metadata.kind)),
+                target: Self::target_from_def_kind(env, &metadata.kind, None),
+                class_name: Some(Self::class_name_from_def_kind(env, &metadata.kind)),
             }
         } else if metadata.flags.is_classmethod {
             Callee {
                 kind: String::from(CALLEE_KIND_CLASSMETHOD),
-                target: Self::target_from_def_kind(&metadata.kind, None),
+                target: Self::target_from_def_kind(env, &metadata.kind, None),
                 // TODO: use type of receiver
-                class_name: Some(Self::class_name_from_def_kind(&metadata.kind)),
+                class_name: Some(Self::class_name_from_def_kind(env, &metadata.kind)),
             }
         } else {
             // Check if this is a builtins function that needs special casing.
@@ -703,12 +733,16 @@ impl<'a> CalleesWithLocation<'a> {
 
             Callee {
                 kind,
-                target: Self::target_from_def_kind(&metadata.kind, None),
+                target: Self::target_from_def_kind(env, &metadata.kind, None),
                 class_name,
             }
         }
     }
-    fn target_from_bound_method_type(m: &BoundMethodType, method_of_typed_dict: bool) -> String {
+    fn target_from_bound_method_type(
+        env: &dyn TypeEnv,
+        m: &BoundMethodType,
+        method_of_typed_dict: bool,
+    ) -> String {
         let module_name_override = if method_of_typed_dict {
             Some("TypedDictionary")
         } else {
@@ -716,13 +750,13 @@ impl<'a> CalleesWithLocation<'a> {
         };
         match m {
             BoundMethodType::Function(f) => {
-                Self::target_from_def_kind(&f.metadata.kind, module_name_override)
+                Self::target_from_def_kind(env, &f.metadata.kind, module_name_override)
             }
             BoundMethodType::Forall(f) => {
-                Self::target_from_def_kind(&f.body.metadata.kind, module_name_override)
+                Self::target_from_def_kind(env, &f.body.metadata.kind, module_name_override)
             }
             BoundMethodType::Overload(f) => {
-                Self::target_from_def_kind(&f.metadata.kind, module_name_override)
+                Self::target_from_def_kind(env, &f.metadata.kind, module_name_override)
             }
         }
     }
@@ -751,17 +785,27 @@ impl<'a> CalleesWithLocation<'a> {
     fn class_info_for_qname(qname: &QName, is_typed_dict: bool) -> Vec<(String, bool)> {
         vec![(Self::qname_to_string(qname), is_typed_dict)]
     }
-    fn class_info_from_bound_obj(ty: &Type) -> Vec<(String, bool)> {
+    /// A declared TypedDict instance is an ordinary `ClassType`, so recovering the
+    /// TypedDict-ness that `target_from_bound_method_type` reports means asking for the
+    /// class's metadata. Only the instance case can be a TypedDict receiver: `SelfType`
+    /// and `ClassDef` never name one, because a TypedDict has no methods of its own.
+    fn class_info_from_bound_obj(&self, env: &dyn TypeEnv, ty: &Type) -> Vec<(String, bool)> {
         match ty {
-            Type::SelfType(c) => Self::class_info_for_qname(c.qname(), false),
+            Type::SelfType(c) => Self::class_info_for_qname(c.qname(env), false),
             // TODO: wrap in 'type'
-            Type::Type(t) => Self::class_info_from_bound_obj(t),
-            Type::ClassType(c) => Self::class_info_for_qname(c.qname(), false),
-            Type::ClassDef(c) => Self::class_info_for_qname(c.qname(), false),
-            Type::TypedDict(d) => match d {
-                TypedDict::TypedDict(inner) => Self::class_info_for_qname(inner.qname(), true),
-                TypedDict::Anonymous(_) => vec![],
-            },
+            Type::Type(t) => self.class_info_from_bound_obj(env, t),
+            Type::ClassType(c) => {
+                let is_typed_dict = self
+                    .transaction
+                    .ad_hoc_solve(&self.handle, "query_callee_is_typed_dict", |solver| {
+                        solver.is_typed_dict_class(c.class_object())
+                    })
+                    .expect("the queried handle is solved before callees are gathered");
+                Self::class_info_for_qname(c.qname(env), is_typed_dict)
+            }
+            Type::SpecializedClassDef(c) => Self::class_info_for_qname(c.qname(env), false),
+            Type::ClassDef(c) => Self::class_info_for_qname(c.qname(env), false),
+            Type::AnonymousTypedDict(_) => vec![],
             Type::Literal(lit) if matches!(lit.value, Lit::Str(_)) => {
                 vec![(String::from("builtins.str"), false)]
             }
@@ -776,12 +820,12 @@ impl<'a> CalleesWithLocation<'a> {
             }
             Type::Quantified(q) => match &q.restriction {
                 // for explicit bound - use name of the type used as bound
-                Restriction::Bound(b) => Self::class_info_from_bound_obj(b),
+                Restriction::Bound(b) => self.class_info_from_bound_obj(env, b),
                 // no bound - use name of the type variable (not very useful but not worse than status quo)
                 Restriction::Unrestricted => vec![(q.name().to_string(), false)],
                 Restriction::Constraints(tys) => tys
                     .iter()
-                    .flat_map(Self::class_info_from_bound_obj)
+                    .flat_map(|t| self.class_info_from_bound_obj(env, t))
                     .collect_vec(),
                 Restriction::ShapeExtension(extension) => extension
                     .upper_bound_class_names()
@@ -792,11 +836,11 @@ impl<'a> CalleesWithLocation<'a> {
             Type::Union(u) => u
                 .members
                 .iter()
-                .flat_map(Self::class_info_from_bound_obj)
+                .flat_map(|t| self.class_info_from_bound_obj(env, t))
                 .collect_vec(),
             Type::Intersect(intersection) => {
                 let (_members, fallback) = &**intersection;
-                Self::class_info_from_bound_obj(fallback)
+                self.class_info_from_bound_obj(env, fallback)
             }
             _ => panic!("unexpected type: {ty:?}"),
         }
@@ -815,7 +859,7 @@ impl<'a> CalleesWithLocation<'a> {
                     .chain(mro.ancestors(solver.stdlib).map(|x| x.class_object()))
                     .find_map(|c| callee_from_ancestor(&solver, c))
             });
-        let class_name = Self::qname_to_string(c.qname());
+        let class_name = Self::qname_to_string(c.qname(&self.transaction.type_env(&self.handle)));
         let target = if let Some(Some(t)) = call_target {
             t
         } else {
@@ -880,7 +924,10 @@ impl<'a> CalleesWithLocation<'a> {
         {
             // treat calls where targets are attribute access a.b and a is not a module
             // as method calls
-            Some(type_to_string(&ty))
+            Some(type_to_string(
+                &self.transaction.type_env(&self.handle),
+                &ty,
+            ))
         } else {
             None
         }
@@ -895,9 +942,9 @@ impl<'a> CalleesWithLocation<'a> {
                     .get_from_class(c, &KeyClassSynthesizedFields(c.index()))
                     .is_some_and(|f| f.get(&dunder::INIT).is_some());
             if has_init {
-                Some(format!("{}.{}.__init__", c.module_name(), c.name()))
+                Some(format!("{}.{}.__init__", c.module_name(), c.name(solver)))
             } else if class_fields.is_some_and(|f| f.contains(&dunder::NEW)) {
-                Some(format!("{}.{}.__new__", c.module_name(), c.name()))
+                Some(format!("{}.{}.__new__", c.module_name(), c.name(solver)))
             } else {
                 None
             }
@@ -913,18 +960,21 @@ impl<'a> CalleesWithLocation<'a> {
     }
     fn init_or_new_from_type(&self, ty: &Type, callee_range: TextRange) -> Vec<Callee> {
         match ty {
+            Type::SpecializedClassDef(_) => self.find_init_or_new(
+                self.transaction
+                    .get_stdlib(&self.handle)
+                    .generic_alias()
+                    .class_object(),
+            ),
             Type::SelfType(c) | Type::ClassType(c) => self.find_init_or_new(c.class_object()),
             Type::Quantified(q) => match &q.restriction {
-                Restriction::Bound(Type::ClassType(c)) => self.find_init_or_new(c.class_object()),
+                Restriction::Bound(bound) => self.init_or_new_from_type(bound, callee_range),
                 Restriction::Constraints(tys) => self.init_or_new_from_union(tys, callee_range),
                 Restriction::ShapeExtension(extension) => self.init_or_new_from_union(
                     &extension.upper_bound_members(&self.transaction.get_stdlib(&self.handle)),
                     callee_range,
                 ),
-                x => panic!(
-                    "unexpected restriction {}: {x:?}",
-                    self.module_info.display_range(callee_range)
-                ),
+                Restriction::Unrestricted => vec![],
             },
             Type::Union(u) => self.init_or_new_from_union(&u.members, callee_range),
             Type::Intersect(intersection) => {
@@ -932,13 +982,24 @@ impl<'a> CalleesWithLocation<'a> {
                 self.init_or_new_from_type(fallback, callee_range)
             }
             Type::Any(_) => vec![],
-            x => {
-                panic!(
-                    "unexpected type at [{}]: {x:?}",
-                    self.module_info.display_range(callee_range)
-                );
-            }
+            // Instantiating any other type, such as `type[None]`, has no `__init__` or
+            // `__new__` to report.
+            _ => vec![],
         }
+    }
+    fn callees_from_union(
+        &self,
+        tys: &[Type],
+        call_target: Option<&Expr>,
+        callee_range: TextRange,
+        call_arguments: Option<&Arguments>,
+    ) -> Vec<Callee> {
+        tys.iter()
+            .flat_map(|t| self.callee_from_type(t, call_target, callee_range, call_arguments))
+            .unique()
+            // return sorted by target
+            .sorted_by(|a, b| a.target.cmp(&b.target))
+            .collect_vec()
     }
     pub fn callee_from_type(
         &self,
@@ -959,39 +1020,37 @@ impl<'a> CalleesWithLocation<'a> {
                         self.callee_from_type(ty, call_target, callee_range, call_arguments)
                     })
                     .collect(),
-                x => panic!(
-                    "unexpected restriction {}: {x:?}",
-                    self.module_info.display_range(callee_range)
-                ),
+                Restriction::Constraints(tys) => {
+                    self.callees_from_union(tys, call_target, callee_range, call_arguments)
+                }
+                Restriction::Unrestricted => vec![],
             },
-            Type::Never(_) => vec![],
+            Type::Never(_) | Type::None => vec![],
             Type::Union(u) => {
-                // get callee for each type
-                u.members
-                    .iter()
-                    .flat_map(|t| {
-                        self.callee_from_type(t, call_target, callee_range, call_arguments)
+                self.callees_from_union(&u.members, call_target, callee_range, call_arguments)
+            }
+            Type::Intersect(intersection) => {
+                let (_members, fallback) = &**intersection;
+                self.callee_from_type(fallback, call_target, callee_range, call_arguments)
+            }
+            Type::BoundMethod(m) => {
+                let env = &self.transaction.type_env(&self.handle);
+                self.class_info_from_bound_obj(env, &m.obj)
+                    .into_iter()
+                    .map(|(class_name, class_is_typed_dict)| Callee {
+                        kind: Self::callee_method_kind_from_bound_method_type(&m.func),
+                        target: Self::target_from_bound_method_type(
+                            env,
+                            &m.func,
+                            class_is_typed_dict,
+                        ),
+                        class_name: Some(class_name),
                     })
                     .unique()
                     // return sorted by target
                     .sorted_by(|a, b| a.target.cmp(&b.target))
                     .collect_vec()
             }
-            Type::Intersect(intersection) => {
-                let (_members, fallback) = &**intersection;
-                self.callee_from_type(fallback, call_target, callee_range, call_arguments)
-            }
-            Type::BoundMethod(m) => Self::class_info_from_bound_obj(&m.obj)
-                .into_iter()
-                .map(|(class_name, class_is_typed_dict)| Callee {
-                    kind: Self::callee_method_kind_from_bound_method_type(&m.func),
-                    target: Self::target_from_bound_method_type(&m.func, class_is_typed_dict),
-                    class_name: Some(class_name),
-                })
-                .unique()
-                // return sorted by target
-                .sorted_by(|a, b| a.target.cmp(&b.target))
-                .collect_vec(),
 
             Type::Function(f) => {
                 vec![self.callee_from_function(f, call_target, call_arguments)]
@@ -1005,9 +1064,10 @@ impl<'a> CalleesWithLocation<'a> {
                 };
                 // assuming that overload represents function and method overloads
                 // are handled by BoundMethod case
+                let env = &self.transaction.type_env(&self.handle);
                 vec![Callee {
                     kind,
-                    target: Self::target_from_def_kind(&f.metadata.kind, None),
+                    target: Self::target_from_def_kind(env, &f.metadata.kind, None),
                     class_name,
                 }]
             }
@@ -1017,6 +1077,7 @@ impl<'a> CalleesWithLocation<'a> {
             Type::Annotated(_, _) => vec![],
 
             Type::ClassDef(cls) => self.find_init_or_new(cls),
+            Type::SpecializedClassDef(cls) => self.find_init_or_new(cls.class_object()),
             Type::Forall(v) => match &v.body {
                 Forallable::Function(func) => {
                     vec![self.callee_from_function(func, call_target, call_arguments)]
@@ -1033,7 +1094,7 @@ impl<'a> CalleesWithLocation<'a> {
                         .get_class_fields(c)
                         .is_some_and(|f| f.contains(&dunder::CALL))
                     {
-                        Some(format!("{}.{}.__call__", c.module_name(), c.name()))
+                        Some(format!("{}.{}.__call__", c.module_name(), c.name(solver)))
                     } else {
                         None
                     }
@@ -1047,10 +1108,9 @@ impl<'a> CalleesWithLocation<'a> {
                 }
                 TypeAliasData::Ref(_) => vec![],
             },
-            _ => panic!(
-                "unexpected type at [{}]: {ty:?}",
-                self.module_info.display_range(callee_range)
-            ),
+            // Any other type, such as a tuple, a `TypedDict` instance or a literal string, has
+            // no call target. Calling one is reported as `not-callable`, so there is no callee.
+            _ => vec![],
         }
     }
 }
@@ -1058,12 +1118,29 @@ impl<'a> CalleesWithLocation<'a> {
 impl Query {
     pub fn new(config_finder: ConfigFinder, thread_count: ThreadCount) -> Self {
         let state = State::new(config_finder, thread_count);
-        Self {
+        let sys_info = SysInfo::default();
+        let host_path = PathBuf::from("__pyrefly_query_host__.py");
+        let host = Handle::new(
+            ModuleName::from_str("__pyrefly_query_host__"),
+            ModulePath::memory(host_path.clone()),
+            sys_info.dupe(),
+        );
+        let mut transaction = state.new_committable_transaction(Require::Exports, None);
+        transaction.as_mut().set_memory(vec![(
+            host_path,
+            Some(Arc::new(FileContents::from_source(String::new()))),
+        )]);
+        state.commit_transaction(transaction, None);
+        let query = Self {
             state,
-            sys_info: SysInfo::default(),
+            sys_info,
             files: Mutex::new(SmallSet::new()),
             type_cache: TypeCache::new(),
-        }
+            host: host.dupe(),
+        };
+        // Registering the host as a file keeps it loaded across `change_files`.
+        query.add_files(vec![(host.module(), host.path().dupe())]);
+        query
     }
 
     fn make_handle(&self, name: ModuleName, path: ModulePath) -> Handle {
@@ -1149,7 +1226,10 @@ impl Query {
             })
             .last()?;
         let class_ty = transaction.get_type_at(&handle, cls.name.start());
-        fn get_kind_and_field_type(ty: &Type) -> (Option<String>, &Type) {
+        fn get_kind_and_field_type<'a>(
+            env: &dyn TypeEnv,
+            ty: &'a Type,
+        ) -> (Option<String>, &'a Type) {
             match ty {
                 Type::Function(f)
                     if f.metadata
@@ -1161,7 +1241,8 @@ impl Query {
                     (Some(String::from("property")), ty)
                 }
                 Type::ClassType(c)
-                    if (c.name() == "classproperty" || c.name() == "cached_classproperty")
+                    if (c.name(env) == "classproperty"
+                        || c.name(env) == "cached_classproperty")
                         && let Some(result_ty) = c.targs().as_slice().first() =>
                 {
                     (Some(String::from("property")), result_ty)
@@ -1171,6 +1252,7 @@ impl Query {
         }
         let answers = transaction.get_answers(&handle)?;
         let bindings = answers.bindings();
+        let type_env = transaction.type_env(&handle);
 
         if let Some(Type::ClassDef(cd)) = &class_ty {
             let class_fields = bindings
@@ -1188,7 +1270,10 @@ impl Query {
                         ClassFieldDefinition::DeclaredByAnnotation { annotation, .. } => {
                             Some(*annotation)
                         }
-                        ClassFieldDefinition::AssignedInBody { annotation, .. } => *annotation,
+                        ClassFieldDefinition::AssignedInBody { annotation, .. }
+                        | ClassFieldDefinition::DefinedWithoutAssign { annotation, .. } => {
+                            *annotation
+                        }
                         _ => None,
                     }
                     .and_then(|idx| answers.get_idx(idx))
@@ -1237,12 +1322,12 @@ impl Query {
                         _ => answers.get_idx(class_field_idx).map(|cf| cf.ty()),
                     };
                     let field_ty = field_ty?;
-                    let (kind, field_ty) = get_kind_and_field_type(&field_ty);
+                    let (kind, field_ty) = get_kind_and_field_type(&type_env, &field_ty);
 
                     Some(Attribute {
                         name: n.to_string(),
                         kind,
-                        annotation: type_to_string(field_ty),
+                        annotation: type_to_string(&type_env, field_ty),
                         is_final,
                     })
                 })
@@ -1370,6 +1455,7 @@ impl Query {
         let type_shape_context = TypeShapeContext {
             transaction: &transaction,
             source_handle: &handle,
+            type_env: transaction.type_env(&handle),
         };
         if let (Some(timing), Some(setup_start)) = (timing.as_deref_mut(), setup_start) {
             timing.setup = setup_start.elapsed();
@@ -1621,7 +1707,9 @@ impl Query {
         unreachable!("No type aliases in ast")
     }
 
-    /// Return `Err` if you can't resolve them to types, otherwise return `lt <: gt`.
+    /// Return `Err` if you can't resolve them to types. Otherwise return whether `lt` is a TypedDict
+    /// when `gt` is `TypedDictionary` or `NonTotalTypedDictionary`, and `lt <: gt` for any other
+    /// `gt`.
     pub fn is_subtype(
         &self,
         name: ModuleName,
@@ -1644,24 +1732,12 @@ impl Query {
         let need_gt = !is_typed_dict_request && cached_gt.is_none();
 
         // Fast path: everything is cached
-        if !need_lt && (!need_gt || is_typed_dict_request) {
-            let sub_ty = cached_lt.unwrap();
-            if is_typed_dict_request {
-                return Ok(matches!(
-                    sub_ty,
-                    Type::TypedDict(_) | Type::PartialTypedDict(_)
-                ));
-            } else {
-                let super_ty = cached_gt.unwrap();
-                let t = self.state.transaction();
-                let h = self.make_handle(name, ModulePath::filesystem(path));
-                let result = t
-                    .ad_hoc_solve(&h, "query_is_subset_eq", |solver| {
-                        solver.is_subset_eq(&sub_ty, &super_ty)
-                    })
-                    .unwrap_or(false);
-                return Ok(result);
-            }
+        if !need_lt && !need_gt {
+            return self.solve_is_subtype(
+                &self.state.transaction(),
+                &cached_lt.unwrap(),
+                cached_gt.as_ref(),
+            );
         }
 
         // Slow path: compute missing types
@@ -1706,31 +1782,37 @@ impl Query {
             (false, false) => unreachable!("handled by fast path"),
         };
 
-        // Compute final result
-        let result = if is_typed_dict_request {
-            matches!(sub_ty, Type::TypedDict(_) | Type::PartialTypedDict(_))
-        } else {
-            t.ad_hoc_solve(&h, "query_is_subset_eq", |solver| {
-                solver.is_subset_eq(&sub_ty, &super_ty_opt.unwrap())
-            })
-            .unwrap_or(false)
-        };
-
-        Ok(result)
+        self.solve_is_subtype(&t, &sub_ty, super_ty_opt.as_ref())
     }
 
+    /// Answer an `is_subtype` request from its types: whether `sub_ty` is a TypedDict when
+    /// `super_ty` is `None`, and whether `sub_ty <: super_ty` otherwise.
+    fn solve_is_subtype(
+        &self,
+        t: &Transaction,
+        sub_ty: &Type,
+        super_ty: Option<&Type>,
+    ) -> Result<bool, String> {
+        t.ad_hoc_solve(&self.host, "query_is_subtype", |solver| match super_ty {
+            Some(super_ty) => solver.is_subset_eq(sub_ty, super_ty),
+            None => solver.is_typed_dict(sub_ty),
+        })
+        .ok_or_else(|| "The query host module is not loaded".to_owned())
+    }
+
+    /// Resolve a qualified callable name, returning diagnostics for invalid expressions.
     pub fn resolve_target_from_qualified_name(
         &self,
         name: ModuleName,
         path: PathBuf,
         qualified_name: &str,
-    ) -> Option<Vec<Callee>> {
+    ) -> Result<Vec<Callee>, ResolveTargetError> {
         let mut t = self.state.transaction();
         let h = self.make_handle(name, ModulePath::memory(path.clone()));
         let snippet = format!("x = {qualified_name}");
-        // Check and type-check the snippet
-        self.check_snippet(&mut t, &h, path, &snippet).unwrap();
-        let ast = t.get_ast(&h).unwrap();
+        self.check_snippet(&mut t, &h, path, &snippet)
+            .map_err(ResolveTargetError::InvalidExpression)?;
+        let ast = t.get_ast(&h).ok_or(ResolveTargetError::AstUnavailable)?;
         fn find_expr(ast: &ModModule) -> Option<&Expr> {
             for stmt in &ast.body {
                 if let Stmt::Assign(assign) = stmt {
@@ -1739,13 +1821,14 @@ impl Query {
             }
             None
         }
-        let find_callees = CalleesWithLocation::new(self, t, h)?;
+        let find_callees =
+            CalleesWithLocation::new(self, t, h).ok_or(ResolveTargetError::AnswersUnavailable)?;
         let mut res = Vec::new();
         if let Some(expr) = find_expr(&ast) {
             find_callees.callee_from_text_range(expr.range(), Some(expr), |c| {
                 res.push(c);
             });
         }
-        Some(res)
+        Ok(res)
     }
 }

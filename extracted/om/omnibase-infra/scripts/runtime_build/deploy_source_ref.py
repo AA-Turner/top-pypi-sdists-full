@@ -189,6 +189,43 @@ def _git(repo_path: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def _refresh_origin_head(repo_path: Path) -> None:
+    """Re-read the remote's default branch into ``refs/remotes/origin/HEAD``.
+
+    OMN-20266: the symref is a local copy nothing else refreshed here, and the
+    remote-lane clone parity check reads it as the default branch. h105's still
+    named ``main`` after the remote default moved to ``dev``, so every omnimarket
+    lane placed there was refused with "checked out dev, not the default branch
+    main". ``git remote set-head origin --auto`` asks the remote over the git
+    transport; it moves a symref, so it runs through the ``ONEX_CANONICAL_CONVERGE``
+    door the canonical-clone ref guard keeps for ``pull-all.sh``. A refresh that
+    fails is reported and never fails the sync: the clone has already landed.
+    """
+    result = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={repo_path}",
+            "-C",
+            str(repo_path),
+            "remote",
+            "set-head",
+            "origin",
+            "--auto",
+        ],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "ONEX_CANONICAL_CONVERGE": "1"},
+        check=False,
+    )
+    if result.returncode != 0:
+        print(
+            f"reconcile: {repo_path.name}: origin/HEAD not refreshed "
+            f"(rc={result.returncode}): {result.stderr.strip()}",
+            file=sys.stderr,
+        )
+
+
 def _git_raw(repo_path: Path, *args: str) -> str:
     """Like :func:`_git` but returns stdout UNSTRIPPED.
 
@@ -390,23 +427,22 @@ def list_dev_tags(repo_path: Path) -> list[DevTag]:
     )
 
 
-def _follow_dev_tag(repo_path: Path, branch_ref: str, branch_sha: str) -> DevTag | None:
-    """The newest ``dev-*`` tag to build in place of ``branch_ref``, or ``None``.
+def _follow_dev_tag(repo_path: Path, branch_ref: str, branch_sha: str) -> DevTag:
+    """The newest ``dev-*`` tag to build in place of ``branch_ref``.
 
-    ``None`` when origin carries no ``dev-*`` tag yet, which is said on stderr:
-    the branch is then built, as before the tags existed. A newest tag whose
-    commit is not on ``branch_ref`` is refused, fetching once first in case the
-    tag was cut after this checkout's fetch.
+    A repository with no ``dev-*`` tag on origin is refused (OMN-17427 stage 0):
+    the branch head is not a dev-merge tag, and a build that quietly takes it
+    cannot be told apart afterwards from one that followed a tag. A newest tag
+    whose commit is not on ``branch_ref`` is refused too, fetching once first in
+    case the tag was cut after this checkout's fetch.
     """
     tags = list_dev_tags(repo_path)
     if not tags:
-        print(
-            f"RT-1: {repo_path.name} follows its dev tags but origin has no "
-            f"{DEV_TAG_REFSPEC} tag; building {branch_ref!r} -> {branch_sha[:12]} "
-            f"(OMN-19998)",
-            file=sys.stderr,
+        raise DeploySourceRefError(
+            f"{repo_path.name}: origin has no {DEV_TAG_REFSPEC} tag to build in place "
+            f"of {branch_ref!r} -> {branch_sha[:12]}; refusing a branch build (OMN-17427)",
+            CHECKOUT_FAILED,
         )
-        return None
     newest = tags[-1]
     if not _is_ancestor(repo_path, newest.sha, branch_sha):
         _git(repo_path, "fetch", "--prune", "--tags", "origin")
@@ -575,6 +611,7 @@ def clean_checkout(
     ref was asked for or is the fallback: in the lab, omnimarket deploys from
     the tag its dev branch cut, not from a release. An explicit tag or SHA is
     never replaced. The branch it stood in for is recorded in ``dev_tag_from``.
+    A repository with no dev tag on origin is refused (OMN-17427).
 
     ``worktree_root`` (OMN-20263) checks the ref out in a fresh detached
     clone-keyed worktree under ``worktree_root`` instead of in ``repo_path``, and the
@@ -646,16 +683,15 @@ def clean_checkout(
     dev_tag_from = ""
     if follow_dev_tag and effective_ref.startswith("origin/"):
         tag = _follow_dev_tag(repo_path, effective_ref, sha)
-        if tag is not None:
-            print(
-                f"RT-1: {repo_path.name} follows its newest dev tag: "
-                f"{effective_ref!r} -> {tag.name} ({tag.sha[:12]}, cut "
-                f"{tag.cut_at:%Y-%m-%dT%H:%M:%SZ}) (OMN-19998)",
-                file=sys.stderr,
-            )
-            dev_tag_from = effective_ref
-            effective_ref = tag.name
-            sha = tag.sha
+        print(
+            f"RT-1: {repo_path.name} follows its newest dev tag: "
+            f"{effective_ref!r} -> {tag.name} ({tag.sha[:12]}, cut "
+            f"{tag.cut_at:%Y-%m-%dT%H:%M:%SZ}) (OMN-19998)",
+            file=sys.stderr,
+        )
+        dev_tag_from = effective_ref
+        effective_ref = tag.name
+        sha = tag.sha
 
     ref = effective_ref
     tree = (
@@ -813,6 +849,9 @@ def reconcile_clone(
             f"reports {after_branch!r} -- refusing to report this repo as synced.",
             SYNC_NOT_CONVERGED,
         )
+
+    if fetch and "origin" in _git(repo_path, "remote").split():
+        _refresh_origin_head(repo_path)
 
     return RepoSyncResult(
         repo=repo_path.name,

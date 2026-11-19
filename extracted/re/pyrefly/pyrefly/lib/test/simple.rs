@@ -449,7 +449,7 @@ assert_type(f(1), int)
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2722
+// https://github.com/pyrefly-org/pyrefly/issues/2722
 testcase!(
     test_signature_diff_no_panic,
     r#"
@@ -819,7 +819,7 @@ x = f"abc{f(1)}def"  # E: `Literal[1]` is not assignable to parameter `x` with t
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2669
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2669
 testcase!(
     test_fstring_type_errors,
     r#"
@@ -828,6 +828,211 @@ arr = [1, 2, 3]
 a = f"{len(False)}"  # E: Protocol `Sized` requires attribute `__len__`
 b = f"{2 + 'Foo'}"  # E: `+` is not supported between `Literal[2]` and `Literal['Foo']`
 c = f"{arr['foo']}"  # E: Cannot index into `list[int]`
+"#,
+);
+
+testcase!(
+    test_checked_fstrings,
+    TestEnv::new().enable_invalid_format_spec_error(),
+    r#"
+from datetime import date
+
+f"{None:0>2}"  # E: doesn't support format specifiers
+f"{date(1, 1, 1):%}"
+f"{date(2024, 3, 5):%-d/%-m}"
+f"{'s':.2f}"  # E: Incompatible types in string interpolation
+f"{'s':c}"  # E: Incompatible types in string interpolation
+
+i = 1
+f"{i:1}"
+f"{i:.1f}"
+f"{i:c}"
+x = -0.0
+f"{x:z.1f}"
+s = "s"
+f"{s:1}"
+f"{s:.2}"
+dynamic_spec = ""
+f"{s:{dynamic_spec}}"
+f"{None!s:0>2}"
+
+class CustomFormat:
+    def __format__(self, format_spec: str) -> str:
+        return ""
+
+f"{CustomFormat():whatever}"
+"#,
+);
+
+testcase!(
+    test_checked_fstrings_custom_builtin_subclasses,
+    TestEnv::new().enable_invalid_format_spec_error(),
+    r#"
+class CustomInt(int):
+    def __format__(self, format_spec: str) -> str:
+        return "custom"
+
+class InheritedCustomInt(CustomInt):
+    pass
+
+class CustomStr(str):
+    def __format__(self, format_spec: str) -> str:
+        return "custom"
+
+class PlainInt(int):
+    pass
+
+class PlainStr(str):
+    pass
+
+class FormatMixin:
+    def __format__(self, format_spec: str) -> str:
+        return "custom"
+
+class ShadowedInt(int, FormatMixin):
+    pass
+
+class CustomBytes(bytes):
+    def __format__(self, format_spec: str) -> str:
+        return "custom"
+
+f"{CustomInt():custom}"
+f"{InheritedCustomInt():custom}"
+f"{CustomStr():.2f}"
+f"{CustomStr():c}"
+f"{PlainInt():custom}"  # E: Unrecognized format specification
+f"{PlainStr():.2f}"  # E: Incompatible types in string interpolation
+f"{CustomStr()!s:.2f}"  # E: Incompatible types in string interpolation
+f"{CustomInt()!r:custom}"  # E: Unrecognized format specification
+f"{ShadowedInt():custom}"  # E: Unrecognized format specification
+f"{CustomBytes():>10}"
+"#,
+);
+
+testcase!(
+    test_checked_fstrings_builtin_options,
+    TestEnv::new().enable_invalid_format_spec_error(),
+    r#"
+s = "s"
+f"{b'xy':>10}"  # E: doesn't support format specifiers
+f"{b'xy':s}"  # E: doesn't support format specifiers
+f"{b'xy'}"
+f"{b'xy':}"
+f"{b'xy'!s:>10}"
+f"{b'xy'!r:s}"
+f"{1:s}"  # E: Incompatible types in string interpolation
+f"{1.0:s}"  # E: Incompatible types in string interpolation
+f"{1j:s}"  # E: Incompatible types in string interpolation
+f"{s:+}"  # E: Numeric format flags are not allowed for strings
+f"{s:,}"  # E: Numeric format flags are not allowed for strings
+f"{s:_}"  # E: Numeric format flags are not allowed for strings
+f"{s:#}"  # E: Numeric format flags are not allowed for strings
+f"{s:z}"  # E: Numeric format flags are not allowed for strings
+f"{s:=10}"  # E: Numeric format flags are not allowed for strings
+f"{s:.2_}"  # E: Numeric format flags are not allowed for strings
+f"{1:z}"  # E: Negative zero coercion is not allowed for integer presentations
+f"{1:zd}"  # E: Negative zero coercion is not allowed for integer presentations
+f"{1:.2}"  # E: Precision is not allowed for integer presentations
+f"{1:.2d}"  # E: Precision is not allowed for integer presentations
+f"{1:._d}"  # E: Precision is not allowed for integer presentations
+f"{1:+c}"  # E: Sign and alternate form are not allowed
+f"{1:#c}"  # E: Sign and alternate form are not allowed
+f"{1:,c}"  # E: Grouping is not allowed
+f"{1:,n}"  # E: Grouping is not allowed
+f"{1.0:_n}"  # E: Grouping is not allowed
+f"{1:,x}"  # E: Comma grouping is not allowed
+f"{1j:%}"  # E: Incompatible types in string interpolation
+f"{1j:010}"  # E: Zero padding and `=` alignment are not allowed
+f"{1j:0>10}"  # E: Zero padding and `=` alignment are not allowed
+f"{1j:=10}"  # E: Zero padding and `=` alignment are not allowed
+f"{1:.f}"  # E: Unrecognized format specification
+f"{s:!r}"  # E: Unrecognized format specification
+
+f"{s:s}"
+f"{s:010}"
+f"{s:>10.2s}"
+f"{s:+>10}"
+f"{s:z>10}"
+f"{1:0=+#10_x}"
+f"{1:010c}"
+f"{1:z.2f}"
+f"{1:+.2%}"
+f"{1.0:0=+z#10,.2f}"
+f"{1.0:.2n}"
+f"{1.0:,.2_f}"
+f"{1.0:._f}"
+f"{1j:>+z#10,.2f}"
+f"{1j:x>010}"
+"#,
+);
+
+testcase!(
+    test_checked_fstrings_unknown_inheritance,
+    TestEnv::new().enable_invalid_format_spec_error(),
+    r#"
+from typing import Any
+
+def check(base: Any):
+    class Foo(base):
+        pass
+
+    class Child(Foo):
+        pass
+
+    class UnknownInt(int, base):
+        pass
+
+    f"{Foo():>10}"
+    f"{Child():>10}"
+    f"{UnknownInt():custom}"
+
+class A:
+    pass
+
+class B(A):
+    pass
+
+class C(A, B):  # E: nonlinearizable inheritance chain
+    pass
+
+class D(C):
+    pass
+
+f"{C():>10}"
+f"{D():>10}"
+"#,
+);
+
+testcase!(
+    test_checked_fstrings_default_policy,
+    TestEnv::one_with_path("third_party", "third_party.pyi", "class Scalar: ..."),
+    r#"
+from third_party import Scalar
+from typing import SupportsIndex
+
+def display(value: object, scalar: Scalar, index: SupportsIndex) -> None:
+    f"{value:>10}"
+    f"{scalar:.2f}"
+    f"{index:05d}"
+
+f"{None:>10}"
+f"{'x':.2f}"
+f"{1:r}"
+f"{1:.2d}"
+f"{len(False):d}"  # E: Protocol `Sized` requires attribute `__len__`
+"#,
+);
+
+testcase!(
+    test_checked_fstrings_rule_suppression,
+    TestEnv::new()
+        .enable_invalid_format_spec_error()
+        .enable_unused_ignore_errors(),
+    r#"
+f"{None:>10}"  # pyrefly: ignore[invalid-format-spec]
+f"{'x':.2f}"  # pyrefly: ignore[invalid-format-spec]
+f"{1:r}"  # pyrefly: ignore[invalid-format-spec]
+f"{1:.2d}"  # pyrefly: ignore[invalid-format-spec]
 "#,
 );
 
@@ -1169,13 +1374,32 @@ for a in A:  # E: Type `type[A]` is not iterable
 );
 
 testcase!(
-    bug = "Although A[int] is a generic alias and can be iterated over, type[A[int]] is a type and cannot be iterated over.",
+    test_specialized_class_def_union_display,
+    r#"
+from abc import ABC, abstractmethod
+from typing import reveal_type
+
+class C[T]: ...
+class D[T]: ...
+reveal_type([C[int], D[int]])  # E: revealed type: list[type[C[int]] | type[D[int]]]
+reveal_type([C, D])  # E: revealed type: list[type[C] | type[D]]
+
+class Shape[T](ABC):
+    @abstractmethod
+    def area(self) -> T: ...
+
+for constructor in [Shape[int], Shape[str]]:
+    constructor()  # E: Cannot instantiate `Shape`
+"#,
+);
+
+testcase!(
     test_getitem_cannot_iterate_generic_class,
     r#"
 class A[T]:
     def __getitem__(self, i: int) -> int: ...
 def f(x: type[A[int]]):
-    for a in x:  # Expect an error here
+    for a in x:  # E: Type `type[A[int]]` is not iterable
         pass
     "#,
 );
@@ -1588,6 +1812,16 @@ testcase!(
     "#,
 );
 
+// https://github.com/pyrefly-org/pyrefly/issues/5311
+testcase!(
+    test_syntax_error_walrus_in_pruned_branch,
+    r#"
+[)  # E: Parse # E: Parse # E: Parse
+f:=  # E: Parse
+if sys.platform == "w":  # E: Parse # E: Parse # E: Parse # E: Could not find name `sys`
+"#,
+);
+
 testcase!(
     test_syntax_error_empty_decorator_slice,
     r#"
@@ -1668,6 +1902,20 @@ f("test")
 );
 
 testcase!(
+    test_pyrereadonly_in_base_class_type_argument,
+    TestEnv::one("pyre_extensions", "class PyreReadOnly[T]: pass"),
+    r#"
+from pyre_extensions import PyreReadOnly
+from typing import assert_type
+class Box[T]:
+    def get(self) -> T: ...
+class C[R](Box[PyreReadOnly[R]]): ...
+def f(c: C[int]):
+    assert_type(c.get(), int)
+    "#,
+);
+
+testcase!(
     test_resolving_any_correctly,
     r#"
 import typing
@@ -1731,6 +1979,22 @@ assert_type(w, str)
 
 cast()  # E: `typing.cast` missing required argument `typ`  # E: `typing.cast` missing required argument `val`
 cast(1, 1)  # E: First argument to `typing.cast` must be a type
+    "#,
+);
+
+testcase!(
+    test_cast_string_in_augassign,
+    r#"
+from typing import cast
+
+lst = [1]
+lst[cast("int", 0)] += 1
+
+class C:
+    x: int = 0
+
+lst = [C()]
+lst[cast("int", 0)].x += 1
     "#,
 );
 
@@ -1952,7 +2216,7 @@ x: list[str] | int = ["a", *["b"]]
 testcase!(
     test_negative_subscript_bytes_no_panic,
     r#"
-# panic reported in https://github.com/facebook/pyrefly/issues/502
+# panic reported in https://github.com/pyrefly-org/pyrefly/issues/502
 b''[-1]  # E: Index `-1` out of range for bytes with 0 elements
 "#,
 );
@@ -2065,7 +2329,7 @@ assert_type(round(0.123456789), int)
 testcase!(
     test_aug_assign_star_no_panic,
     r#"
-# This used to panic: see https://github.com/facebook/pyrefly/issues/454
+# This used to panic: see https://github.com/pyrefly-org/pyrefly/issues/454
 *a += 0  # E: Parse error: Invalid augmented assignment target  # E: Could not find name `a`
     "#,
 );
@@ -2135,6 +2399,35 @@ def test(o: C):
 );
 
 testcase!(
+    test_dunder_bool_returning_never,
+    r#"
+from typing import Never
+
+class Foo:
+    def __bool__(self) -> Never:
+        raise TypeError
+
+if Foo(): ...  # E: The `__bool__` method of `Foo` returns `Never`, so it cannot be used as a boolean
+"#,
+);
+
+testcase!(
+    test_dunder_bool_returning_never_subclass_override,
+    r#"
+class Foo:
+    def __bool__(self):
+        raise TypeError
+
+class Bar(Foo):
+    def __bool__(self) -> bool:  # pyrefly: ignore[bad-override]
+        return True
+
+bar: Foo = Bar()
+if bar: ...
+"#,
+);
+
+testcase!(
     test_union_dunder_bool,
     r#"
 from typing import Literal
@@ -2152,7 +2445,7 @@ def f(ok: B | C, bad: B | D):
     if ok: ...
     if bad: ...  # E: The `__bool__` attribute of `D` has type `int`, which is not callable
 
-# Regression tests for https://github.com/facebook/pyrefly/issues/1364
+# Regression tests for https://github.com/pyrefly-org/pyrefly/issues/1364
 def g(ok: B | None, bad1: D | None, bad2: D | E):
     if ok: ...
     if bad1 is None: ...  # This is okay - we are not using a truthiness check
@@ -2239,7 +2532,7 @@ def check(f: T) -> T:
 
 #[test]
 fn test_panic_on_unicode() {
-    // This used to panic, see https://github.com/facebook/pyrefly/issues/501
+    // This used to panic, see https://github.com/pyrefly-org/pyrefly/issues/501
     let _ = testcase_for_macro(TestEnv::new(), "e\u{81}\n", file!(), line!());
     // We manually ignore the missing expectations, because adding `# E:` would change the test.
 }
@@ -2247,7 +2540,7 @@ fn test_panic_on_unicode() {
 testcase!(
     test_crash_on_invalid_walrus,
     r#"
-# Used to crash, https://github.com/facebook/pyrefly/issues/518
+# Used to crash, https://github.com/pyrefly-org/pyrefly/issues/518
 if"":=  # E: Assignment expression target must be an identifier # E: Expected an expression
 "#,
 );
@@ -2255,7 +2548,7 @@ if"":=  # E: Assignment expression target must be an identifier # E: Expected an
 testcase!(
     test_crash_on_invalid_attribute_walrus,
     r#"
-# Regression test for https://github.com/facebook/pyrefly/issues/1903
+# Regression test for https://github.com/pyrefly-org/pyrefly/issues/1903
 (:=).:  # E: Cannot annotate non-self attribute `:=.` # E: Parse error: Expected an expression # E: Parse error: Expected an expression # E: Parse error: Expected an identifier # E: Parse error: Expected an expression
 "#,
 );
@@ -2263,7 +2556,7 @@ testcase!(
 testcase!(
     test_crash_on_incomplete_named_walrus_attribute_annotation,
     r#"
-# Regression test for https://github.com/facebook/pyrefly/issues/3344
+# Regression test for https://github.com/pyrefly-org/pyrefly/issues/3344
 (a:=).:b  # E: Cannot annotate non-self attribute `a:=.` # E: Parse error: Expected an expression # E: Parse error: Expected an identifier # E: Could not find name `b`
 "#,
 );
@@ -2271,7 +2564,7 @@ testcase!(
 testcase!(
     test_crash_on_incomplete_walrus,
     r#"
-# Regression test for https://github.com/facebook/pyrefly/issues/2093
+# Regression test for https://github.com/pyrefly-org/pyrefly/issues/2093
 (:=  # E: Parse error: Expected an expression # E: Parse error: Expected an expression
 "#,
 );
@@ -2279,7 +2572,7 @@ testcase!(
 testcase!(
     test_crash_on_augassign_walrus_rhs,
     r#"
-# Regression test for https://github.com/facebook/pyrefly/issues/1991
+# Regression test for https://github.com/pyrefly-org/pyrefly/issues/1991
 1 += (c := 1)  # E: Parse error: Invalid augmented assignment target
 "#,
 );
@@ -2313,7 +2606,7 @@ def f(x): pass
 testcase!(
     test_invalid_type_as_string,
     r#"
-# Used to crash https://github.com/facebook/pyrefly/issues/517
+# Used to crash https://github.com/pyrefly-org/pyrefly/issues/517
 t: "õ" # E: Could not find name `õ`
 "#,
 );
@@ -2349,9 +2642,38 @@ async def run(engine: Engine) -> None:
 );
 
 testcase!(
+    bug = "`C` extends `Coroutine`, so each use of `make_c()` should report `unused-coroutine`",
+    test_unused_coroutine_extends_any,
+    r#"
+from typing import Any, Callable, Coroutine
+class C(Any, Coroutine[Any, Any, int]): ...
+class D(Any): ...
+async def f(make_c: Callable[[], C], make_d: Callable[[], D]) -> None:
+    make_c()
+    make_d()
+    if make_c():
+        pass
+    if make_d():
+        pass
+"#,
+);
+
+testcase!(
+    test_unused_coroutine_ignores_structural_match,
+    r#"
+import argparse
+async def f() -> int:
+    return 1
+async def main() -> None:
+    f()  # E: Result of async function call is unused. Did you forget to `await`?
+    argparse.Namespace()
+"#,
+);
+
+testcase!(
     test_loop_forever,
     r#"
-# Used to loop forever, https://github.com/facebook/pyrefly/issues/519
+# Used to loop forever, https://github.com/pyrefly-org/pyrefly/issues/519
 
 # Note: Removing any element makes this test pass.
 while True:
@@ -2368,7 +2690,7 @@ def func() -> int:
 testcase!(
     test_nested_self_init,
     r#"
-# From https://github.com/facebook/pyrefly/issues/444, this used to error
+# From https://github.com/pyrefly-org/pyrefly/issues/444, this used to error
 class MyException:
     def __init__(self) -> None:
         self.x = ""
@@ -2426,7 +2748,7 @@ def f(x: C):
 testcase!(
     test_just_def,
     r#"
-# Used to crash https://github.com/facebook/pyrefly/issues/620
+# Used to crash https://github.com/pyrefly-org/pyrefly/issues/620
 def # E: # E:
 "#,
 );
@@ -2465,7 +2787,7 @@ reveal_type(f) # E: revealed type: (x: int | Unknown = 1) -> int | Unknown
 testcase!(
     test_self_field_gets_lost,
     r#"
-# From https://github.com/facebook/pyrefly/issues/621
+# From https://github.com/pyrefly-org/pyrefly/issues/621
 from typing import assert_type
 
 class NameTable:
@@ -2594,7 +2916,7 @@ assert_type([a for a in [b for b in ["a", "b"]]], list[str])
 
 testcase!(
     test_incomplete_nested_list_comp,
-    r#"# Issue https://github.com/facebook/pyrefly/issues/455
+    r#"# Issue https://github.com/pyrefly-org/pyrefly/issues/455
 [a for [a for # E: Could # E: Parse # E: Could # E: Parse # E: Parse
 "#,
 );
@@ -2671,6 +2993,26 @@ class A:
     x: Annotated[ClassVar[int], 'also ok']
 Y = Annotated[ClassVar[int], 'wrong context']  # E: `ClassVar` is not allowed in this context
 Z = Annotated[0, 'not a type']  # E: Expected a type form, got instance of `Literal[0]`
+    "#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5429
+testcase!(
+    test_qualifier_subscript_as_runtime_value,
+    r#"
+from typing import Any, ClassVar, Final, assert_type
+from typing_extensions import NotRequired, ReadOnly, Required
+def mark_optional(hints: dict[str, Any]) -> dict[str, Any]:
+    return {key: NotRequired[hint] for key, hint in hints.items()}
+def f(hint: Any) -> None:
+    assert_type(NotRequired[hint], object)
+    assert_type(Required[int], object)
+    assert_type(ReadOnly[int], object)
+    assert_type(ClassVar[int], object)
+    assert_type(Final[int], object)
+    NotRequired[undefined]  # E: Could not find name `undefined`
+X = NotRequired[int]
+def g(x: X) -> None: ...  # E: Expected a type form, got instance of `object`
     "#,
 );
 
@@ -2835,7 +3177,7 @@ def f(x):
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2221
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2221
 testcase!(
     test_shutil_copyfileobj_with_urlopen,
     r#"
@@ -2846,7 +3188,7 @@ with request.urlopen("https://example.com") as remote, open("out.html", 'wb') as
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2866
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2866
 testcase!(
     test_reduce_gcd_return_type,
     r#"
@@ -2862,7 +3204,7 @@ def detect_indentation(values: list[int]) -> int:
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/3048
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3048
 testcase!(
     test_enumerate_reversed,
     r#"
@@ -2882,4 +3224,23 @@ def main(a: DataFrame) -> None:
     for i, s in enumerate(reversed(a)):
         func(s)
     "#,
+);
+
+testcase!(
+    test_reveal_type_qualified_names,
+    TestEnv::one("foo", "class Box[T]:\n    attr: object").enable_reveal_type_qualified_names(),
+    r#"
+from typing import reveal_type
+import datetime
+from foo import Box
+
+class Local: ...
+
+def f(b: Box[datetime.date], local: Local, xs: list[int]) -> None:
+    reveal_type(b)  # E: revealed type: foo.Box[datetime.date]
+    reveal_type(local)  # E: revealed type: main.Local
+    reveal_type(xs)  # E: revealed type: list[int]
+    if isinstance(b.attr, datetime.date):
+        reveal_type(b)  # E: revealed type: foo.Box[datetime.date] (_.attr: datetime.date)
+"#,
 );

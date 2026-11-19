@@ -1423,7 +1423,7 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha:  float in [0, 1], default 0.05
+        alpha:  float in [0, 1], optional
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1443,6 +1443,9 @@ class PopulationSummaryResults:
     def conf_int_point(self, *, alpha=None, tol=None):
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
+
+        An outcome/treatment interval is NaN if any sample mean or standard error is nonfinite,
+        or any standard error is nonpositive. Other intervals are unaffected.
 
         Parameters
         ----------
@@ -1508,6 +1511,8 @@ class PopulationSummaryResults:
         smry : Summary instance
             this holds the summary tables and text, which can be printed or
             converted to various output formats.
+            When prediction standard errors are unavailable, only point estimates
+            and their distribution are included.
         """
         return self._print(alpha=alpha, value=value, decimals=decimals,
                            tol=tol, output_names=output_names, treatment_names=treatment_names)
@@ -1530,6 +1535,7 @@ class PopulationSummaryResults:
 
         # 1. Uncertainty of Mean Point Estimate
         res1 = self._format_res(self.mean_point, decimals)
+        myheaders1 = ['mean_point']
         if self.pred_stderr is not None:
             res1 = np.hstack((res1,
                               self._format_res(self.stderr_mean, decimals),
@@ -1537,12 +1543,11 @@ class PopulationSummaryResults:
                               self._format_res(self.pvalue(value=value), decimals),
                               self._format_res(self.conf_int_mean(alpha=alpha)[0], decimals),
                               self._format_res(self.conf_int_mean(alpha=alpha)[1], decimals)))
+            myheaders1 += ['stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
         if treatment_names is None:
             treatment_names = ['T' + str(i) for i in range(self._d_t)]
         if output_names is None:
             output_names = ['Y' + str(i) for i in range(self.d_y)]
-
-        myheaders1 = ['mean_point', 'stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
 
         mystubs = self._get_stub_names(self.d_y, self._d_t, treatment_names, output_names)
         title1 = "Uncertainty of Mean Point Estimate"
@@ -1576,12 +1581,14 @@ class PopulationSummaryResults:
 
     def _mixture_ppf(self, alpha, mean, stderr, tol):
         """Get the confidence interval of mixture gaussian distribution."""
-        # if stderr is zero, ppf will return nans and the loop below would never terminate
-        # so bail out early; note that it might be possible to correct the algorithm for
-        # this scenario, but since scipy's cdf returns nan whenever scale is zero it won't
-        # be clean
-        if (np.any(stderr == 0)):
-            return np.full(shape(mean)[1:], np.nan)
+        # Invalid normal parameters prevent convergence. Exclude only the affected
+        # outcome/treatment columns from the solver.
+        invalid = np.any((stderr <= 0) | ~np.isfinite(stderr) | ~np.isfinite(mean), axis=0)
+        if np.any(invalid):
+            result = np.full(shape(mean)[1:], np.nan)
+            if not np.all(invalid):
+                result[~invalid] = self._mixture_ppf(alpha, mean[:, ~invalid], stderr[:, ~invalid], tol)
+            return result
         mix_ppf = scipy.stats.norm.ppf(alpha, loc=mean, scale=stderr)
         lower = np.min(mix_ppf, axis=0)
         upper = np.max(mix_ppf, axis=0)

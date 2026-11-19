@@ -21,7 +21,7 @@ from omnimarket.enums.enum_dod_acceptance_basis import EnumDodAcceptanceBasis
 from omnimarket.enums.enum_dod_verify_unresolved_cause import (
     EnumDodVerifyUnresolvedCause,
 )
-from omnimarket.nodes.node_dod_verify.models.model_criteria_drift import (
+from omnimarket.models.model_criteria_drift import (
     ModelCriteriaCheck,
 )
 from omnimarket.nodes.node_dod_verify.models.model_dod_acceptance_summary import (
@@ -39,7 +39,7 @@ from omnimarket.nodes.node_dod_verify.models.model_dod_verify_start_command impo
 from omnimarket.nodes.node_dod_verify.models.model_dod_verify_state import (
     EnumDodVerifyStatus,
     EnumEvidenceCheckStatus,
-    EnumOccRefRefreshOutcome,
+    EnumEvidenceUnverifiableCause,
     ModelDodVerifyState,
     ModelEvidenceCheckResult,
 )
@@ -50,10 +50,6 @@ from omnimarket.nodes.node_dod_verify.models.model_durable_evidence_gate import 
 from omnimarket.nodes.node_dod_verify.services.criteria_drift import (
     ProtocolDodTicketCriteriaReader,
     invalidate_drifted_results,
-)
-from omnimarket.nodes.node_dod_verify.services.evidence_collector import (
-    _ALLOW_STALE_OCC_REF_ENV,
-    _GIT_OP_TIMEOUT_ENV,
 )
 
 if TYPE_CHECKING:
@@ -85,6 +81,9 @@ def durable_gate_check_results(
         message = check.message
         if not check.passed and gate_run.ticket_read_detail:
             message = f"{message} (ticket unreadable: {gate_run.ticket_read_detail})"
+        read_fault = not check.passed and check.unresolved_cause is (
+            EnumDodVerifyUnresolvedCause.CHECK_RUN_READ_FAILED
+        )
         results.append(
             ModelEvidenceCheckResult(
                 evidence_id=f"durable_gate::{check.check.value}",
@@ -92,7 +91,14 @@ def durable_gate_check_results(
                 status=(
                     EnumEvidenceCheckStatus.VERIFIED
                     if check.passed
+                    else EnumEvidenceCheckStatus.SKIPPED
+                    if read_fault
                     else EnumEvidenceCheckStatus.FAILED
+                ),
+                unverifiable_cause=(
+                    EnumEvidenceUnverifiableCause.CHECK_RUN_READ_FAILED
+                    if read_fault
+                    else None
                 ),
                 message=message,
             )
@@ -169,20 +175,12 @@ class HandlerDodVerify:
         rather than starting after the slowest part of it.
         """
         started_at = datetime.now(tz=UTC)
-        occ_governance_ref: str | None = None
-        occ_refresh_outcome: EnumOccRefRefreshOutcome | None = None
-        occ_resolved_sha: str | None = None
         contract_subject: ModelDodContractSubject | None = None
         # OMN-17022: the first PR/repo lookup failure of this run, as a typed
         # cause. None on the caller-supplied ``evidence_results`` path, which
         # never performed a lookup at all.
         lookup_failure_cause: EnumDodVerifyUnresolvedCause | None = None
         lookup_failure_code: str | None = None
-        # OMN-17796: the run-wide sibling of the two above. Set when collect()
-        # refused on the OCC governance ref itself, which happens BEFORE the
-        # contract is loaded.
-        occ_ref_failure_cause: EnumDodVerifyUnresolvedCause | None = None
-        occ_ref_failure_code: str | None = None
         # OMN-20153: what the collector derived from the ticket contract's
         # accepted falsifiers. Stays None on the caller-supplied
         # ``evidence_results`` path and on a goal-scoped run, neither of which
@@ -211,59 +209,57 @@ class HandlerDodVerify:
         if evidence_results is None:
             assert execution_audience is not None
             collector = self._make_collector()
-            if command.goal_id is not None:
-                assert command.contract_schema_version is not None
-                evidence_results = collector.collect_inline(
-                    ticket_id=command.ticket_id,
-                    dod_evidence=command.dod_evidence,
-                    goal_id=command.goal_id,
-                    contract_schema_version=command.contract_schema_version,
-                    execution_audience=execution_audience,
+            # OMN-23198: the collector builds lock-exact environments for the
+            # run; whatever way the run ends they are removed here, so a lab
+            # host never accumulates them. ``getattr`` for the stub seam.
+            try:
+                if command.goal_id is not None:
+                    assert command.contract_schema_version is not None
+                    evidence_results = collector.collect_inline(
+                        ticket_id=command.ticket_id,
+                        dod_evidence=command.dod_evidence,
+                        goal_id=command.goal_id,
+                        contract_schema_version=command.contract_schema_version,
+                        execution_audience=execution_audience,
+                    )
+                else:
+                    evidence_results = collector.collect(
+                        ticket_id=command.ticket_id,
+                        contract_path=command.contract_path,
+                        execution_audience=execution_audience,
+                    )
+                # ``getattr`` because ``_make_collector`` is the documented seam a
+                # dozen suites replace with a stub; a stub that never derived
+                # anything reads as "not measured", never as "no checks".
+                acceptance_summary = getattr(collector, "acceptance_summary", None)
+                contract_subject = getattr(collector, "contract_subject", None)
+                # OMN-17022: read the same way — typed provenance the collector
+                # already holds, never a message string parsed back out.
+                lookup_failure_cause = collector.lookup_failure_cause
+                lookup_failure_code = collector.lookup_failure_code
+                # OMN-20886: the DurableEvidenceGate runs on the auto-resolved
+                # path, so its three pre-Done checks are checks of this verdict.
+                # ``getattr`` for the same stub seam as above: a stub that never
+                # resolved a contract runs no gate.
+                run_durable_gate = getattr(collector, "run_durable_gate", None)
+                gate_run = run_durable_gate() if callable(run_durable_gate) else None
+                if isinstance(gate_run, ModelDurableEvidenceGateRun):
+                    evidence_results = [
+                        *evidence_results,
+                        *durable_gate_check_results(gate_run),
+                    ]
+                # OMN-20858: the second ticket read, taken after the checks ran. A
+                # stub collector that never measured it, or one that hands back
+                # anything but the typed check, reads as "not measured".
+                finish_criteria = getattr(collector, "finish_criteria_check", None)
+                finished = finish_criteria() if callable(finish_criteria) else None
+                criteria_check = (
+                    finished if isinstance(finished, ModelCriteriaCheck) else None
                 )
-            else:
-                evidence_results = collector.collect(
-                    ticket_id=command.ticket_id,
-                    contract_path=command.contract_path,
-                    execution_audience=execution_audience,
-                )
-            # OMN-15454 AC2: provenance of the OCC ref actually read this run,
-            # not merely the ref requested. None when collect() never
-            # attempted OCC auto-resolution (an explicit contract_path).
-            if collector.occ_refresh_outcome is not None:
-                occ_governance_ref = collector.occ_governance_ref
-                occ_refresh_outcome = collector.occ_refresh_outcome
-                occ_resolved_sha = collector.occ_resolved_sha
-            # ``getattr`` because ``_make_collector`` is the documented seam a
-            # dozen suites replace with a stub; a stub that never derived
-            # anything reads as "not measured", never as "no checks".
-            acceptance_summary = getattr(collector, "acceptance_summary", None)
-            contract_subject = getattr(collector, "contract_subject", None)
-            # OMN-17022: read the same way — typed provenance the collector
-            # already holds, never a message string parsed back out.
-            lookup_failure_cause = collector.lookup_failure_cause
-            lookup_failure_code = collector.lookup_failure_code
-            # OMN-17796: read the same way, for the same reason.
-            occ_ref_failure_cause = collector.occ_ref_failure_cause
-            occ_ref_failure_code = collector.occ_ref_failure_code
-            # OMN-20886: the DurableEvidenceGate runs on the auto-resolved
-            # path, so its three pre-Done checks are checks of this verdict.
-            # ``getattr`` for the same stub seam as above: a stub that never
-            # resolved a contract runs no gate.
-            run_durable_gate = getattr(collector, "run_durable_gate", None)
-            gate_run = run_durable_gate() if callable(run_durable_gate) else None
-            if isinstance(gate_run, ModelDurableEvidenceGateRun):
-                evidence_results = [
-                    *evidence_results,
-                    *durable_gate_check_results(gate_run),
-                ]
-            # OMN-20858: the second ticket read, taken after the checks ran. A
-            # stub collector that never measured it, or one that hands back
-            # anything but the typed check, reads as "not measured".
-            finish_criteria = getattr(collector, "finish_criteria_check", None)
-            finished = finish_criteria() if callable(finish_criteria) else None
-            criteria_check = (
-                finished if isinstance(finished, ModelCriteriaCheck) else None
-            )
+            finally:
+                close_collector = getattr(collector, "close", None)
+                if callable(close_collector):
+                    close_collector()
 
         # OMN-20858: a pass that rests on a criterion the ticket no longer carries
         # in the text it was accepted against stops counting before anything is
@@ -300,6 +296,12 @@ class HandlerDodVerify:
         # blocked (the check was never proven).
         unverifiable = [
             r for r in executable_checks if r.unverifiable_cause is not None
+        ]
+        check_read_faults = [
+            r
+            for r in unverifiable
+            if r.unverifiable_cause
+            is EnumEvidenceUnverifiableCause.CHECK_RUN_READ_FAILED
         ]
         # OMN-15391: executed, exited 0, and its exit status cannot depend on
         # the product change — a bare ``gh pr view`` (green for every PR on
@@ -378,34 +380,21 @@ class HandlerDodVerify:
         # keeps the raw tally; only this comparison uses the narrowed one.
         verdict_bearing_skipped = skipped - unbindable_overlays
         unresolved_cause: EnumDodVerifyUnresolvedCause | None = None
-        if occ_ref_failure_cause is not None:
-            # OMN-17796. The OCC governance ref — the thing every contract in
-            # this corpus is READ FROM — could not be resolved, so ``collect()``
-            # returned before loading a contract at all. The old encoding sent
-            # this down the ``elif failed > 0`` arm and emitted
-            # ``FAILED / total_checks=1 / failed_count=1`` with no
-            # ``error_message``: a substantive red about a ticket the run never
-            # opened. Measured 2026-09-03, 12 of 36 runs, one identical
-            # ``verdict_content_sha256`` across six unrelated tickets.
-            #
-            # Deliberately NOT guarded by ``verified == 0``, unlike the
-            # per-item arm below. That guard exists so a binding failure
-            # discovered mid-run cannot steal a real red that ran beside it —
-            # a per-item concern. This cause is run-wide and antecedent: if the
-            # governance ref did not resolve, nothing produced under it is
-            # attributable to the ref the receipt names, INCLUDING a check that
-            # happened to pass. Firing unconditionally is therefore strictly
-            # stricter than the arm it replaces, not a relaxation of it.
-            overall = EnumDodVerifyStatus.UNRESOLVED
-            unresolved_cause = occ_ref_failure_cause
-        elif criteria_check is not None and criteria_check.unavailable_reason:
+        if criteria_check is not None and criteria_check.unavailable_reason:
             # OMN-20858. The contract is pinned to criteria, and the live ticket
             # that says whether those pins still hold could not be read. An
             # unreadable ticket is never an unchanged one: nothing the run
             # verified can be attributed to the criteria the ticket carries
-            # today, so it is run-wide and antecedent like the OCC ref above.
+            # today, so it is run-wide and antecedent.
             overall = EnumDodVerifyStatus.UNRESOLVED
             unresolved_cause = EnumDodVerifyUnresolvedCause.TICKET_UNAVAILABLE
+        elif check_read_faults and failed == 0:
+            # The durable gate re-reads checks after collection. That read can
+            # fault even when evidence already verified; it still cannot
+            # establish the newest check's conclusion or authorize closure.
+            overall = EnumDodVerifyStatus.UNRESOLVED
+            unresolved_cause = EnumDodVerifyUnresolvedCause.CHECK_RUN_READ_FAILED
+            lookup_failure_code = lookup_failure_code or check_read_faults[0].message
         elif lookup_failure_cause is not None and verified == 0:
             # OMN-17022 (off-rails A15). The run could not resolve the PR or
             # repo binding its checks are written against, and NOTHING verified.
@@ -587,28 +576,7 @@ class HandlerDodVerify:
             overall = EnumDodVerifyStatus.SKIPPED
 
         error_message: str | None = None
-        if occ_ref_failure_cause is not None:
-            # OMN-17796: its own remedy text, because OMN-17022's below is the
-            # WRONG instruction for this cause on both counts — it names the
-            # PR/repo binding, and it states that "a retry reproduces it
-            # exactly", which is true of a credential defect and false of a
-            # contention-driven git ceiling trip, where another attempt on a
-            # quieter host is precisely the right move.
-            error_message = (
-                f"VERIFICATION_UNRESOLVED: {occ_ref_failure_cause.value} — the "
-                f"OCC governance ref {occ_governance_ref} could not be "
-                f"resolved ({occ_ref_failure_code}), so no contract was loaded "
-                f"and 0 evidence checks for {command.ticket_id} were "
-                "evaluated. This is a fact about the verifier's host, not a "
-                "verdict about the ticket: the same refusal is produced for "
-                "every ticket on a host in this state. Remedy is to re-run "
-                "when the OCC clone is not under contention, or to raise the "
-                f"git-op ceiling with {_GIT_OP_TIMEOUT_ENV}; "
-                f"{_ALLOW_STALE_OCC_REF_ENV}=1 proceeds against the "
-                "main-tracking working tree instead, and marks every result "
-                "un-attributable."
-            )
-        elif unresolved_cause is EnumDodVerifyUnresolvedCause.TICKET_UNAVAILABLE:
+        if unresolved_cause is EnumDodVerifyUnresolvedCause.TICKET_UNAVAILABLE:
             error_message = (
                 f"VERIFICATION_UNRESOLVED: {unresolved_cause.value} — the live "
                 f"ticket {command.ticket_id} could not be read "
@@ -617,6 +585,14 @@ class HandlerDodVerify:
                 "compared with the criteria it carries now. This is a fact about "
                 "the verifier's reach to the ticket, not a verdict about the work: "
                 "no check verified under this run counts."
+            )
+        elif unresolved_cause is EnumDodVerifyUnresolvedCause.CHECK_RUN_READ_FAILED:
+            error_message = (
+                f"CHECK_RUN_READ_FAILED: the deciding merged PR's checks could "
+                f"not be read ({lookup_failure_code}). No check conclusion was "
+                "observed. Retry the read with bounded backoff; if it remains "
+                "unreadable, repair the gateway configuration or check-run access. "
+                "Closure stays blocked."
             )
         elif unresolved_cause is not None:
             # OMN-17022: a distinct, machine-checkable reason code, sitting
@@ -852,9 +828,7 @@ class HandlerDodVerify:
             ),
             criteria_drift=criteria_check.drift if criteria_check else (),
             criteria_amendment=(criteria_check.amendment if criteria_check else None),
-            occ_governance_ref=occ_governance_ref,
-            occ_refresh_outcome=occ_refresh_outcome,
-            occ_resolved_sha=occ_resolved_sha,
+            criteria_delegated=bool(criteria_check and criteria_check.delegated),
             unresolved_cause=unresolved_cause,
         )
 
@@ -924,9 +898,15 @@ class HandlerDodVerify:
                 state.acceptance_runnable_falsifier_count
             ),
             acceptance_unrunnable_labels=state.acceptance_unrunnable_labels,
+            dry_run=state.dry_run,
+            acceptance_self_accepted_bindings=state.acceptance_self_accepted_bindings,
+            acceptance_retired_bindings=state.acceptance_retired_bindings,
+            acceptance_refused_retirements=state.acceptance_refused_retirements,
+            acceptance_unbound_criteria=state.acceptance_unbound_criteria,
             criteria_revision=state.criteria_revision,
             criteria_drift=state.criteria_drift,
             criteria_amendment=state.criteria_amendment,
+            criteria_delegated=state.criteria_delegated,
             error_message=state.error_message,
             unresolved_cause=state.unresolved_cause,
         )

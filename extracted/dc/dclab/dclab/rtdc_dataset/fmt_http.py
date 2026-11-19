@@ -1,3 +1,4 @@
+"""Access .rtdc files via HTTP(S)"""
 import hashlib
 
 from ..http_utils import HTTPFile, REQUESTS_AVAILABLE, is_url_available
@@ -25,9 +26,9 @@ class RTDC_HTTP(RTDC_HDF5):
         url: str
             Full URL to an HDF5 file
         *args:
-            Arguments for `RTDCBase`
+            Arguments for :class:`.RTDC_HDF5` (the first one is `h5kwargs`)
         **kwargs:
-            Keyword arguments for `RTDCBase`
+            Keyword arguments for :class:`.RTDC_HDF5`
 
         Notes
         -----
@@ -42,16 +43,18 @@ class RTDC_HTTP(RTDC_HDF5):
         self._fhttp = HTTPFile(url)
 
         # Initialize the HDF5 dataset
-        super(RTDC_HTTP, self).__init__(
-            h5path=self._fhttp,
-            *args,
-            **kwargs)
+        super().__init__(self._fhttp, *args, **kwargs)
         # Override self.path with the actual HTTP URL
         #: URL to the file
         self.path = url
 
     @property
     def hash(self):
+        """Hash value based on the HTTP ETag of the file
+
+        If the server does not provide an ETag, the MD5 hash of the first
+        data chunk is used.
+        """
         if self._fhttp.etag is not None:
             # Set the HTTP ETag as the hash, it doesn't get
             # more unique than that!
@@ -61,17 +64,22 @@ class RTDC_HTTP(RTDC_HDF5):
             return hashlib.md5(self._fhttp.get_chunk(0)).hexdigest()
 
     def close(self):
-        super(RTDC_HTTP, self).close()
+        super().close()
         self._fhttp.close()
 
 
 class HTTPBasin(Basin):
+    """Basin for .rtdc files accessible via HTTP(S)
+
+    The `location` of the basin is the URL of an .rtdc file on a web
+    server that supports range requests (see :class:`.RTDC_HTTP`).
+    """
     basin_format = "http"
     basin_type = "remote"
 
     def __init__(self, *args, **kwargs):
         self._available_verified = None
-        super(HTTPBasin, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def _load_dataset(self, location, **kwargs):
         h5file = RTDC_HTTP(location, **kwargs)

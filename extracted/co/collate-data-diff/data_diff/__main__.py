@@ -15,7 +15,6 @@ from rich.logging import RichHandler
 from data_diff import Database, DbPath
 from data_diff.config import apply_config_from_file
 from data_diff.databases._connect import connect
-from data_diff.dbt import dbt_diff
 from data_diff.diff_tables import Algorithm, TableDiffer
 from data_diff.hashdiff_tables import HashDiffer, DEFAULT_BISECTION_THRESHOLD, DEFAULT_BISECTION_FACTOR
 from data_diff.joindiff_tables import TABLE_WRITE_LIMIT, JoinDiffer
@@ -322,6 +321,11 @@ def main(conf, run, **kw) -> None:
         if project_dir_override:
             project_dir_override = os.path.expanduser(project_dir_override)
         if kw["dbt"]:
+            try:
+                from data_diff.dbt import dbt_diff
+            except ImportError as e:
+                raise click.UsageError("--dbt needs dbt-core: pip install 'collate-data-diff[dbt]'") from e
+
             dbt_diff(
                 log_status_handler=log_handlers.get("log_status_handler"),
                 profiles_dir_override=profiles_dir_override,

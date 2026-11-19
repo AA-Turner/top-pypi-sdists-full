@@ -13,6 +13,8 @@ It derives, from rows already parsed:
 * ``cause_releases``: RELEASE rows with ``cause=<cause key>``;
 * ``cause_fixes``: the fix PRs an open cause CLAIM declares in a ``fix=`` cell;
 * ``lab_passes``: every head a lab proof PASS readback recorded for a PR;
+* ``review``: each PR's new-work mark, and the review verdicts an accepted reviewer lane recorded, each with the
+  findings its STATUS row lists (the finding cell grammar is on ``review_facts``);
 * ``drain_lane``: the live repo drain lane, the newest open ``repo-drains-*`` CLAIM whose lane wrote a
   row in the last 45 minutes.
 
@@ -28,13 +30,25 @@ from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from typing import Final
 
-from omnimarket.handlers.work_ledger_fixer_holds import fixer_hold_reasons
+from pydantic import ValidationError
+
+from omnimarket.handlers.work_ledger_fixer_holds import (
+    fixer_hold_reasons,
+    fixer_hold_released_prs,
+)
 from omnimarket.models.landing_decision import (
     ModelLandingCauseOwner,
     ModelLandingCauseRelease,
 )
+from omnimarket.models.model_landing_review import (
+    EnumReviewVerdict,
+    ModelLandingReviewFacts,
+    ModelLandingReviewFinding,
+    ModelLandingReviewVerdictRow,
+)
 from omnimarket.nodes.node_pr_landing_ledger_facts_compute.models.model_landing_ledger_facts import (
     ModelLandingCauseFix,
+    ModelLandingCauseOwnerSkipped,
     ModelLandingLedgerFacts,
     ModelLandingLedgerRow,
     ModelLandingLedgerRows,
@@ -59,6 +73,9 @@ CAUSE_KEY_RE: Final = re.compile(
     r"^cause:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+:[0-9a-f]{12}$"
 )
 FIX_TOKEN_RE: Final = re.compile(r"(?:OmniNode-ai/)?([A-Za-z0-9_.-]+)#(\d+)")
+PR_REF_RE: Final = re.compile(r"([A-Za-z0-9_.-]+)#(\d+)")
+REVIEW_HEAD_RE: Final = re.compile(r"[0-9a-f]{40}")
+FINDING_LINE_RE: Final = re.compile(r"([^:\s]+):(\d+):(.+)")
 # The pool readback writes ten-character heads (or a full SHA), including each member of a group.
 LAB_PASS_MEMBER_RE: Final = re.compile(
     r"(?:^| \+ )(?P<pr>[A-Za-z0-9_.-]+#\d+) head (?P<head>[0-9a-f]{10,40})(?= \+ | on )"
@@ -66,13 +83,70 @@ LAB_PASS_MEMBER_RE: Final = re.compile(
 LAB_PASS_PREFIX: Final[str] = "LAB PROOF PASS: "
 
 
+def unquote(value: str) -> str:
+    """``value`` as a quoted lane wrote it: one that opens with a straight quote ends at the matching quote, and what
+    follows is free text, not the value (``"a b" read the logs`` is ``a b``). A CLAIM wrote
+    ``cause="omnibase_infra:Hostile Review Thread Gate" read failing runs ...`` and the quote was taken as part of the
+    repository. A value whose quote never closes is kept as written."""
+    v = value.strip()
+    if v[:1] in ('"', "'"):
+        end = v.find(v[0], 1)
+        if end > 0:
+            return v[1:end].strip()
+    return v
+
+
 def cell(text: str, name: str) -> str:
-    """The value of the first pipe cell ``name=<value>`` on a row's first line, or ''."""
+    """The value of the first pipe cell ``name=<value>`` on a row's first line, or ''; a quoted value is its inner text."""
     for part in str(text).split("\n", 1)[0].split("|"):
         part = part.strip().strip("`")
         if part.startswith(name + "="):
-            return part[len(name) + 1 :].strip()
+            return unquote(part[len(name) + 1 :])
     return ""
+
+
+def cells(text: str, name: str) -> list[str]:
+    """Every value of the pipe cell ``name=<value>`` on a row's first line, in order; a quoted value is its inner text."""
+    out: list[str] = []
+    for part in str(text).split("\n", 1)[0].split("|"):
+        part = part.strip().strip("`")
+        if part.startswith(name + "="):
+            out.append(unquote(part[len(name) + 1 :]))
+    return out
+
+
+def parse_finding(value: str) -> ModelLandingReviewFinding | None:
+    """One ``finding=`` cell value as a finding, or None when it does not parse (see ``review_facts``)."""
+    kind, _, rest = value.partition(":")
+    rest = rest.strip()
+    if not rest:
+        return None
+    if kind == "check":
+        return ModelLandingReviewFinding(
+            summary=f"failing check {rest}", failing_check=rest
+        )
+    if kind == "other":
+        return ModelLandingReviewFinding(summary=rest)
+    if kind == "line":
+        match = FINDING_LINE_RE.fullmatch(rest)
+        if match is None or int(match[2]) < 1 or not match[3].strip():
+            return None
+        defect = match[3].strip()
+        return ModelLandingReviewFinding(
+            summary=f"{match[1]}:{match[2]} {defect}",
+            file=match[1],
+            line=int(match[2]),
+            defect=defect,
+        )
+    return None
+
+
+def row_findings(text: str) -> tuple[ModelLandingReviewFinding, ...]:
+    """The findings a STATUS row lists; none at all when any of its ``finding=`` cells does not parse."""
+    found = [parse_finding(v) for v in cells(text, "finding")]
+    if any(f is None for f in found):
+        return ()
+    return tuple(f for f in found if f is not None)
 
 
 @lru_cache(maxsize=65536)
@@ -181,9 +255,21 @@ def cause_owners(
     dispatchers: Iterable[str],
     now: datetime,
 ) -> list[ModelLandingCauseOwner]:
-    """The live lanes that own a shared cause. ``cause=`` is a cause key, or ``<repo>:<check>``."""
+    """The live lanes that own a shared cause. ``cause=`` is a cause key, or ``<repo>:<check>``. An owner the model
+    refuses is left out; ``split_cause_owners`` also reports it."""
+    return split_cause_owners(claims, last_row, dispatchers, now)[0]
+
+
+def split_cause_owners(
+    claims: Iterable[ModelLandingLedgerRow],
+    last_row: dict[str, str],
+    dispatchers: Iterable[str],
+    now: datetime,
+) -> tuple[list[ModelLandingCauseOwner], list[ModelLandingCauseOwnerSkipped]]:
+    """The cause owners, and the CLAIMs whose owner ``ModelLandingCauseOwner`` refuses (never raised: one malformed
+    CLAIM would otherwise stop the whole landing decision, 2026-10-30T11:32:03Z)."""
     skip = set(dispatchers)
-    out: list[dict[str, str | None]] = []
+    out: list[tuple[dict[str, str | None], str]] = []
     for c in claims:
         lane = str(c.lane or "")
         cause, check, repo = (
@@ -210,23 +296,36 @@ def cause_owners(
             repo, check = cause.split(":", 1)
         if not repo or not (key or check):
             continue
-        out.append(
-            {
-                "lane": lane,
-                "repo": _owner_repo(repo),
-                "check": check.strip() or None,
-                "cause": key,
-            }
-        )
+        owner = {
+            "lane": lane,
+            "repo": _owner_repo(repo),
+            "check": check.strip() or None,
+            "cause": key,
+        }
+        out.append((owner, c.ts))
     out.sort(
-        key=lambda o: (
-            o["lane"] or "",
-            o["repo"] or "",
-            o["check"] or "",
-            o["cause"] or "",
+        key=lambda item: (
+            item[0]["lane"] or "",
+            item[0]["repo"] or "",
+            item[0]["check"] or "",
+            item[0]["cause"] or "",
         )
     )
-    return [ModelLandingCauseOwner.model_validate(o) for o in out]
+    owners: list[ModelLandingCauseOwner] = []
+    skipped: list[ModelLandingCauseOwnerSkipped] = []
+    for o, claim_ts in out:
+        try:
+            owners.append(ModelLandingCauseOwner.model_validate(o))
+        except ValidationError as exc:
+            first = exc.errors()[0]
+            skipped.append(
+                ModelLandingCauseOwnerSkipped(
+                    lane=o["lane"] or "",
+                    claim=claim_ts,
+                    reason=f"{'.'.join(str(p) for p in first['loc'])}: {first['msg']} (input {first['input']!r})",
+                )
+            )
+    return owners, skipped
 
 
 def cause_fixes(claims: Iterable[ModelLandingLedgerRow]) -> list[ModelLandingCauseFix]:
@@ -287,6 +386,66 @@ def lab_passes(rows: Iterable[ModelLandingLedgerRow]) -> dict[str, tuple[str, ..
     return {short: tuple(sorted(heads)) for short, heads in sorted(out.items())}
 
 
+def review_facts(
+    rows: Iterable[ModelLandingLedgerRow],
+    now: datetime,
+    lane_prefixes: tuple[str, ...],
+    engines: tuple[str, ...],
+) -> dict[str, ModelLandingReviewFacts]:
+    """The review fact of each PR a STATUS row speaks of: the new-work marks any row gives, and the
+    verdicts the reviewer lanes record for a head. A verdict row from a lane that is not an accepted
+    reviewer (``lane_prefixes``), or names an engine outside ``engines``, is ignored.
+
+    A verdict row also carries the findings its STATUS row lists, as repeatable ``finding=`` pipe cells:
+
+    * ``finding=check:<name>``: a failing check by its name (blocking);
+    * ``finding=line:<file>:<n>:<defect>``: a cited code line, ``n`` at least 1, with its defect (blocking);
+    * ``finding=other:<text>``: any other finding, such as a request for ``installed=`` or ``observed=`` proof
+      (advisory).
+
+    A file holds no colon or space, and a defect or text holds no pipe (it would end the cell). A cell that does not
+    parse reads as no finding, and a row with any such cell carries no findings at all: its CHANGES_NEEDED verdict
+    then keeps holding, because no listed finding means nothing to pass on. The cells are written by the reviewer
+    lanes; this deriver only reads them."""
+    new_work: set[str] = set()
+    verdicts: dict[str, list[ModelLandingReviewVerdictRow]] = {}
+    for row in rows:
+        if row.rtype != "STATUS":
+            continue
+        stamp = _stamp(row.ts)
+        if stamp is None or stamp > now:
+            continue
+        ref = PR_REF_RE.fullmatch(cell(row.text, "pr").removeprefix(f"{OWNER}/"))
+        if ref is None:
+            continue
+        pr = f"{ref[1]}#{ref[2]}"
+        if cell(row.text, "work_kind") == "new_work":
+            new_work.add(pr)
+        head = cell(row.text, "head")
+        verdict = cell(row.text, "verdict").upper().replace("-", "_")
+        if (
+            cell(row.text, "review").lower() in engines
+            and row.lane is not None
+            and row.lane.startswith(lane_prefixes)
+            and REVIEW_HEAD_RE.fullmatch(head) is not None
+            and verdict in ("CLEAN", "CHANGES_NEEDED")
+        ):
+            verdicts.setdefault(pr, []).append(
+                ModelLandingReviewVerdictRow(
+                    head_sha=head,
+                    verdict=EnumReviewVerdict[verdict],
+                    at=stamp,
+                    findings=row_findings(row.text),
+                )
+            )
+    return {
+        pr: ModelLandingReviewFacts(
+            new_work=pr in new_work, verdicts=tuple(verdicts.get(pr, ()))
+        )
+        for pr in sorted(new_work | verdicts.keys())
+    }
+
+
 def live_drain_lane(
     claims: Iterable[ModelLandingLedgerRow], last_row: dict[str, str], now: datetime
 ) -> str:
@@ -316,13 +475,24 @@ def derive_ledger_facts(request: ModelLandingLedgerRows) -> ModelLandingLedgerFa
         for r in (*rows, *request.history_rows)
         if r.rtype == "RELEASE" and (s := _stamp(r.ts)) is not None and s <= now
     ]
+    owners, owners_skipped = split_cause_owners(
+        claims, last_row, dispatcher_lanes(rows), now
+    )
     return ModelLandingLedgerFacts(
         rows_read=len(rows),
         fixer_hold=tuple(fixer_holds(rows, now)),
-        cause_owners=tuple(cause_owners(claims, last_row, dispatcher_lanes(rows), now)),
+        fixer_hold_released_prs=tuple(fixer_hold_released_prs(rows, now, OWNER)),
+        cause_owners=tuple(owners),
+        cause_owners_skipped=tuple(owners_skipped),
         cause_releases=tuple(cause_releases(rows)),
         cause_fixes=tuple(cause_fixes(claims)),
         lab_passes=lab_passes(history),
+        review=review_facts(
+            (*request.history_rows, *rows),
+            now,
+            request.review_lane_prefixes,
+            request.review_engines,
+        ),
         drain_lane=live_drain_lane(claims, last_row, now),
     )
 
@@ -346,4 +516,6 @@ __all__: list[str] = [
     "last_rows",
     "live_drain_lane",
     "open_claims",
+    "review_facts",
+    "split_cause_owners",
 ]

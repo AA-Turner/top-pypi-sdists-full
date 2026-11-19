@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: camel-converter
-Version: 6.0.1
+Version: 6.0.2
 Summary: Converts a string from snake case to camel case or camel case to snake case
 Author-email: Paul Sanders <paul@paulsanders.dev>
 License: MIT License

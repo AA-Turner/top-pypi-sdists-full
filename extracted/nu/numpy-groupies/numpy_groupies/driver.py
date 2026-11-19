@@ -13,7 +13,7 @@ from typing import Any, cast
 import numpy as np
 import numpy.typing as npt
 
-from numpy_groupies.dtypes import check_dtype, is_temporal_input
+from numpy_groupies.dtypes import check_dtype, is_temporal_input, object_nan_mask
 from numpy_groupies.fills import (
     DEFAULT_FILL_VALUE,
     resolve_fill_value,
@@ -28,6 +28,7 @@ from numpy_groupies.registry import (
 )
 from numpy_groupies.typing import AFillValue, AResult, AScalar, AValue, RavelOrder
 from numpy_groupies.validation import (
+    check_fill_kind,
     check_fill_value,
     check_topk_input,
     check_topk_k,
@@ -102,7 +103,12 @@ def _drop_nans(
         return a, group_idx
     if "cum" in funcname:
         return a, group_idx
-    good = ~np.isnan(a)
+    if getattr(getattr(a, "dtype", None), "kind", None) == "O":
+        # numpy's isnan knows no object dtype: the question is asked of every
+        # value of the column
+        good = ~object_nan_mask(cast("npt.NDArray[np.object_]", a))
+    else:
+        good = ~np.isnan(a)
     if "len" not in funcname or len_counts_values:
         # a scalar a raised a branch above, only columns remain
         a = cast("npt.NDArray[np.generic]", a)[good]
@@ -188,6 +194,9 @@ def _aggregate_wrap(
         # the overflow guess needs the (nan-filtered) input length;
         # flat_size counts output groups and can be much smaller
         dtype = check_dtype(dtype, funcname, a, len(group_idx))
+        # the kind of a fill value is asked of the values and not of the
+        # answer: no count, no position and no tick of another kind is a date
+        check_fill_kind(fill_value, getattr(a, "dtype", None))
         fill_value = resolve_fill_value(funcname, fill_value, dtype)
         check_fill_value(fill_value, dtype, func=funcname)
         ret = op(group_idx, a, flat_size, fill_value=fill_value, dtype=dtype, **kwargs)

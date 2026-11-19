@@ -6,9 +6,10 @@
  */
 
 use pyrefly_python::dunder;
+use pyrefly_types::known_class::KnownClass;
 use pyrefly_types::typed_dict::AnonymousTypedDictInner;
-use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_types::typed_dict::TypedDictField;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr::EllipsisLiteral;
@@ -38,7 +39,9 @@ use crate::binding::pydantic::GE;
 use crate::binding::pydantic::GT;
 use crate::binding::pydantic::LE;
 use crate::binding::pydantic::LT;
+use crate::binding::pydantic::MODEL_CONSTRUCT;
 use crate::binding::pydantic::STRICT;
+use crate::binding::pydantic::VALIDATION_ALIAS;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::TypeCheckContext;
@@ -101,7 +104,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         }
                         all_fields.shift_remove(name);
                     }
-                    all_fields.insert(name.clone(), defining_class.clone());
+                    all_fields.insert(name.clone(), *defining_class);
                 }
             }
         }
@@ -123,7 +126,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     if relocate_redefined {
                         all_fields.shift_remove(name);
                     }
-                    all_fields.insert(name.clone(), cls.clone());
+                    all_fields.insert(name.clone(), *cls);
                 }
             }
         }
@@ -214,6 +217,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             );
             fields.insert(Name::new_static("__attrs_init__"), init_method);
         }
+        if metadata.is_pydantic_model()
+            && let Some(model_construct) =
+                self.get_pydantic_model_construct(cls, dataclass, &kw_only_by_class)
+        {
+            fields.insert(MODEL_CONSTRUCT, model_construct);
+        }
         let dataclass_fields_type = self.stdlib.dict(
             self.heap.mk_class_type(self.stdlib.str().clone()),
             self.heap.mk_any_implicit(),
@@ -223,7 +232,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             ClassSynthesizedField::new_classvar(self.heap.mk_class_type(dataclass_fields_type)),
         );
 
-        if dataclass.kws.order {
+        // Only the decorated class gets these methods at runtime. Subclasses that merely inherit
+        // the metadata inherit the methods, including any override defined in between.
+        if dataclass.kws.order && !dataclass.is_inherited {
             fields.extend(self.get_dataclass_rich_comparison_methods(cls));
         }
         if dataclass.kws.match_args {
@@ -241,7 +252,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             {
                 self.error(
                     errors,
-                    cls.range(),
+                    cls.range(self),
                     ErrorKind::BadClassDefinition,
                     "Cannot specify both `slots=True` and `__slots__`".to_owned(),
                 );
@@ -325,7 +336,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
         fields.insert(
             dunder::REPLACE,
-            self.get_dataclass_replace(cls, dataclass, &kw_only_by_class, errors),
+            self.get_dataclass_replace(cls, dataclass, &kw_only_by_class),
         );
         Some(ClassSynthesizedFields::new(fields))
     }
@@ -388,7 +399,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             })
             .collect::<Vec<_>>();
         if instance_returns.is_empty() {
-            get_ty.callable_return_type(self.heap)
+            get_ty.callable_return_type(self.heap, self)
         } else {
             Some(self.unions(instance_returns))
         }
@@ -401,15 +412,22 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     /// dataclass __init__ writes there, shadowing the class-level descriptor.
     ///
     /// Exception: a __get__ returning Self or the descriptor's own class is sound.
+    ///
+    /// Only the class's own fields are checked: a base class reports its fields in its own module.
     fn check_dataclass_non_data_descriptors(
         &self,
         cls: &Class,
         dataclass: &DataclassMetadata,
         errors: &ErrorCollector,
     ) {
+        let Some(class_fields) = self.get_class_fields(cls) else {
+            return;
+        };
         for name in dataclass.fields.keys() {
             if let DataclassMember::Field(field, _) = self.get_dataclass_member(cls, name)
-                && let Some((range, descriptor_cls)) = field.value.non_data_descriptor_info()
+                && field.defining_class == *cls
+                && let Some(descriptor_cls) = field.value.non_data_descriptor_info()
+                && let Some(range) = class_fields.field_decl_range(name)
             {
                 let get_return_ty = self.descriptor_instance_get_return_type(cls, &descriptor_cls);
 
@@ -419,7 +437,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     _ => {}
                 }
 
-                let cls = descriptor_cls.name();
+                let cls = descriptor_cls.name(self);
                 errors
                     .error_builder(
                         range,
@@ -441,15 +459,22 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     /// Reading the field returns the `__get__` return type, but setting the field
     /// expects the `__set__` value parameter type. For the default to be type-safe,
     /// the `__get__` return type must be assignable to the `__set__` value type.
+    ///
+    /// Only the class's own fields are checked: a base class reports its fields in its own module.
     fn check_dataclass_data_descriptor_defaults(
         &self,
         cls: &Class,
         dataclass: &DataclassMetadata,
         errors: &ErrorCollector,
     ) {
+        let Some(class_fields) = self.get_class_fields(cls) else {
+            return;
+        };
         for name in dataclass.fields.keys() {
             if let DataclassMember::Field(field, _) = self.get_dataclass_member(cls, name)
-                && let Some((range, descriptor_cls)) = field.value.data_descriptor_info()
+                && field.defining_class == *cls
+                && let Some(descriptor_cls) = field.value.data_descriptor_info()
+                && let Some(range) = class_fields.field_decl_range(name)
             {
                 let get_return_ty = self.descriptor_instance_get_return_type(cls, &descriptor_cls);
 
@@ -466,7 +491,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 if let (Some(get_ty), Some(set_ty)) = (get_return_ty, set_value_ty) {
                     // Check if the __get__ return type is assignable to the __set__ value type.
                     if !self.is_subset_eq(&get_ty, &set_ty) {
-                        let cls = descriptor_cls.name();
+                        let cls = descriptor_cls.name(self);
                         errors
                             .error_builder(
                                 range,
@@ -474,7 +499,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                 format!("Cannot set field `{name}` to data descriptor `{cls}` with inconsistent types"),
                             )
                             .with_detail(format!(
-                                "Return type `{get_ty}` of `{cls}.__get__` is not assignable to value type `{set_ty}` of `{cls}.__set__`"
+                                "Return type `{}` of `{cls}.__get__` is not assignable to value type `{}` of `{cls}.__set__`",
+                                get_ty.display_with(self),
+                                set_ty.display_with(self),
                             ))
                             .emit();
                     }
@@ -530,7 +557,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             Type::ClassType(cls) if is_valid_target(cls) => dataclasses.push(ty.clone()),
             _ => {
                 has_non_attrs_class = has_non_attrs_class
-                    || (kind.requires_attrs() && matches!(ty, Type::ClassType(_)));
+                    || (kind.requires_attrs()
+                        && matches!(ty, Type::ClassType(cls) if !self.is_typed_dict_class(cls.class_object())));
                 non_dataclasses.push(ty.clone());
             }
         });
@@ -650,9 +678,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         )
                     })
                     .collect();
-                return self.heap.mk_typed_dict(TypedDict::Anonymous(Box::new(
-                    AnonymousTypedDictInner { fields },
-                )));
+                return self
+                    .heap
+                    .mk_anonymous_typed_dict(AnonymousTypedDictInner { fields });
             }
         }
         self.freeform_call_infer(
@@ -672,7 +700,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         cls: &Class,
         dataclass_metadata: &DataclassMetadata,
         kw_only_by_class: &SmallMap<Class, SmallSet<Name>>,
-        errors: &ErrorCollector,
     ) -> ClassSynthesizedField {
         let mut params = vec![self.class_self_param(cls, true)];
 
@@ -699,7 +726,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     strict,
                     field_flags.converter_param.clone(),
                     &|t| t,
-                    errors,
                 ));
             }
             if let Some(alias) = &field_flags.init_by_alias {
@@ -711,7 +737,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     strict,
                     field_flags.converter_param.clone(),
                     &|t| t,
-                    errors,
                 ));
             }
         }
@@ -765,10 +790,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         "non-frozen"
                     };
 
-                    let ctx = ClassDisplayContext::new(&[cls, base]);
+                    let ctx = ClassDisplayContext::new(self, &[cls, base]);
                     self.error(
                         errors,
-                        cls.range(),
+                        cls.range(self),
                         ErrorKind::InvalidInheritance,
                         format!(
                             "Cannot inherit {} dataclass `{}` from {} dataclass `{}`",
@@ -797,16 +822,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let mut params = Vec::new();
         for (name, field, _) in self.iter_fields(cls, dataclass_metadata, true, &kw_only_by_class) {
             if field.is_init_var() {
-                params.push(self.as_param(
-                    &field,
-                    &name,
-                    false,
-                    false,
-                    true,
-                    None,
-                    &|ty| ty,
-                    errors,
-                ));
+                params.push(self.as_param(&field, &name, false, false, true, None, &|ty| ty));
             }
         }
         let want = self.heap.mk_callable_from(Callable::list(
@@ -849,6 +865,15 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
         let mut kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);
 
+        let effective_alias_keyword = if map.is_set(alias_keyword) {
+            alias_keyword
+        } else {
+            &DataclassFieldKeywords::ALIAS
+        };
+        let pydantic_unknown_validation_alias = alias_keyword == &VALIDATION_ALIAS
+            && ((map.is_set(effective_alias_keyword)
+                && map.get_string(effective_alias_keyword).is_none())
+                || args.keywords.iter().any(|kw| kw.arg.is_none()));
         let mut alias = if dataclass_metadata.init_defaults.init_by_alias {
             map.get_string(alias_keyword)
                 .or_else(|| map.get_string(&DataclassFieldKeywords::ALIAS))
@@ -882,8 +907,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let converter_param = self
             .attrs_converters_combinator_param(args, annotated_field_ty, errors)
             .or_else(|| {
+                // attrs treats `converter=None` as no converter.
                 map.0
                     .get(&DataclassFieldKeywords::CONVERTER)
+                    .filter(|converter| !converter.is_none())
                     .map(|converter| self.get_converter_param(converter, annotated_field_ty))
             });
         // Note that we intentionally don't try to fill in `default`, since we can't distinguish
@@ -916,6 +943,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             kw_only,
             init_by_name: dataclass_metadata.init_defaults.init_by_name || alias.is_none(),
             init_by_alias: alias,
+            pydantic_unknown_validation_alias,
+            pydantic_unchecked_metadata: false,
             lt,
             gt,
             ge,
@@ -924,6 +953,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             frozen,
             converter_param,
             attrs_setattr_frozen,
+            pydantic_has_custom_schema: false,
         }
     }
 
@@ -965,11 +995,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 }))
                 .unwrap(),
                 &overload.metadata,
-                None, // no shape_transform for dataclass constructors
                 None,
                 &args.args.map(CallArg::expr_maybe_starred),
                 &args.keywords.map(CallKeyword::new),
                 args.range,
+                errors,
                 errors,
                 errors,
                 None,
@@ -1030,6 +1060,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     pub(crate) fn constructor_to_callable_distributed(&self, ty: &Type) -> Option<Type> {
         let instance = match ty {
             Type::ClassDef(cls) => self.promote_silently(cls),
+            Type::SpecializedClassDef(cls) => Type::ClassType(cls.clone()),
             Type::Type(inner) => (**inner).clone(),
             _ => return None,
         };
@@ -1090,7 +1121,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             .freshen_class_targs(class_type.targs_mut(), self.uniques);
         let matched = self.is_subset_eq(&self.heap.mk_class_type(class_type.clone()), hint);
         self.solver()
-            .generalize_class_targs(class_type.targs_mut(), &SmallSet::new());
+            .generalize_class_targs(class_type.targs_mut(), &SmallSet::new(), self);
         self.solver()
             .finish_class_targs(class_type.targs_mut(), self.uniques);
         // Finalizing the fresh vars is required; its specialization errors are dropped because this
@@ -1113,11 +1144,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             forall.body.clone().as_type(),
             self.uniques,
         );
-        if let Some(ret) = instantiated.callable_return_type(self.heap) {
+        if let Some(ret) = instantiated.callable_return_type(self.heap, self) {
             self.is_subset_eq(&ret, hint);
         }
         let _ = self.finish_quantified(vs, self.solver().config.infer_with_first_use);
-        Some(self.solver().expand(instantiated))
+        Some(self.solver().expand(instantiated, self))
     }
 
     fn get_default(&self, map: &TypeMap) -> Option<Type> {
@@ -1133,13 +1164,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             constructor_callable
                 .as_ref()
                 .unwrap_or(factory)
-                .callable_return_type(self.heap)
+                .callable_return_type(self.heap, self)
                 .unwrap_or_else(|| self.heap.mk_any_implicit()),
         )
     }
 
     pub fn compute_kw_only_fields_by_class(&self, cls: &Class) -> SmallMap<Class, SmallSet<Name>> {
-        let is_kw_only_marker = |ty: &Type| matches!(ty, Type::ClassType(cls) if cls.has_qname("dataclasses", "KW_ONLY"));
+        let is_kw_only_marker =
+            |ty: &Type| matches!(ty, Type::ClassType(cls) if cls.is(KnownClass::DataclassesKwOnly));
 
         let compute_for_class = |target_cls: &Class| -> SmallSet<Name> {
             let mut kw_only_fields = SmallSet::new();
@@ -1166,14 +1198,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         };
 
         let mut result: SmallMap<Class, SmallSet<Name>> = SmallMap::new();
-        result.insert(cls.clone(), compute_for_class(cls));
+        result.insert(*cls, compute_for_class(cls));
 
         for ancestor in self.get_mro_for_class(cls).ancestors_no_object() {
             let ancestor_cls = ancestor.class_object();
             if ancestor_cls == cls {
                 continue;
             }
-            result.insert(ancestor_cls.clone(), compute_for_class(ancestor_cls));
+            result.insert(*ancestor_cls, compute_for_class(ancestor_cls));
         }
         result
     }
@@ -1331,7 +1363,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         if !reported_by_base {
                             self.error(
                                 errors,
-                                own_decl_range.unwrap_or_else(|| cls.range()),
+                                own_decl_range.unwrap_or_else(|| cls.range(self)),
                                 ErrorKind::BadClassDefinition,
                                 format!(
                                     "Dataclass field `{name}` without a default may not follow dataclass field with a default"
@@ -1347,16 +1379,18 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 // If this field has a `@field_validator(..., mode='before'|'plain')`, the init
                 // parameter accepts `Any` because the validator transforms arbitrary input.
                 let converter_param = if dataclass.pydantic_before_validator_fields.contains(&name)
+                    // A custom schema may accept input that is not of the declared
+                    // type, so only the `__init__` parameter is widened to `Any`. The
+                    // stored `converter_param` is left alone: attribute assignment and
+                    // `__replace__` also read it, and assignment must still enforce
+                    // the declared type.
+                    || field_flags.pydantic_has_custom_schema
                 {
                     Some(self.heap.mk_any_explicit())
+                } else if dataclass.is_pydantic_lax_field(&name, &field_flags) {
+                    converter_table.get(&field.ty()).cloned()
                 } else {
-                    field_flags.converter_param.clone().or_else(|| {
-                        if !strict {
-                            converter_table.get(&field.ty()).cloned()
-                        } else {
-                            None
-                        }
-                    })
+                    field_flags.converter_param.clone()
                 };
 
                 if field_flags.init_by_name {
@@ -1388,7 +1422,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         strict,
                         converter_param.clone(),
                         param_type_transform,
-                        errors,
                     ));
                 }
                 if let Some(alias) = &field_flags.init_by_alias {
@@ -1400,7 +1433,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         strict,
                         converter_param,
                         param_type_transform,
-                        errors,
                     ));
                 }
             }
@@ -1480,7 +1512,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         } else {
                             callable.clone()
                         },
-                        metadata: FuncMetadata::method(cls, name.clone()),
+                        metadata: FuncMetadata::method(self, cls, name.clone()),
                     })),
                 )
             })

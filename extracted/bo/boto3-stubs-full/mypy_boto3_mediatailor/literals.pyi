@@ -244,6 +244,7 @@ TrafficShapingTypeType = Literal["RETRIEVAL_WINDOW", "TPS"]
 TypeType = Literal["DASH", "HLS"]
 MediaTailorServiceName = Literal["mediatailor"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Implements virtual media attach/detach API for bare metal nodes.

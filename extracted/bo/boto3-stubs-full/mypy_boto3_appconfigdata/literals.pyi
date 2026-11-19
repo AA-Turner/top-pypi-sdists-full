@@ -25,6 +25,7 @@ __all__ = ("AppConfigDataServiceName", "RegionName", "ResourceServiceName", "Ser
 
 AppConfigDataServiceName = Literal["appconfigdata"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

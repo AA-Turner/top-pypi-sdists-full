@@ -10,7 +10,8 @@ import difflib
 import json
 import math
 import re
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
 from timeit import default_timer as timer
@@ -23,9 +24,11 @@ from docutils.statemachine import StringList
 from docutils.utils import get_source_line
 from sphinx.application import Sphinx
 from sphinx.util.docutils import SphinxDirective
+from sphinx.util.logging import suppress_logging
 
 from sphinx_needs import _read_watch
-from sphinx_needs._source_facets import SourceFacets, explained
+from sphinx_needs._id_facets import IdFacets, in_namespace, namespace_argument
+from sphinx_needs._source_facets import SourceFacets, explained, namespace_reads
 from sphinx_needs._wording import title_hint
 from sphinx_needs.config import _NEEDS_CONFIG, NeedsSphinxConfig
 from sphinx_needs.data import NeedsFilteredBaseType, NeedsMutable
@@ -727,7 +730,7 @@ def filter_needs_view(
     try:
         body = ast.parse(filter_string).body
     except Exception:
-        pass  # warning already emitted in filter_needs
+        pass  # one that is no Python expression is reported below
     else:
         if len(body) == 1 and isinstance((expr := body[0]), ast.Expr):
             needs, requires_eval = _analyze_and_apply_expr(needs, expr.value)
@@ -740,15 +743,21 @@ def filter_needs_view(
             f"Strict eval mode, but no simple filter found: {filter_string!r}"
         )
 
-    return filter_needs(
-        needs.values(),
-        config,
-        filter_string,
-        current_need,
-        location=location,
-        append_warning=append_warning,
-        origin_docname=origin_docname,
-    )
+    try:
+        return filter_needs(
+            needs.values(),
+            config,
+            filter_string,
+            current_need,
+            location=location,
+            append_warning=append_warning,
+            origin_docname=origin_docname,
+        )
+    except (SyntaxError, ValueError):
+        if (error := _python_expression_error(filter_string)) is None:
+            raise
+        _report_not_python(filter_string, error, location, append_warning)
+        return []
 
 
 def filter_needs_parts(
@@ -771,7 +780,7 @@ def filter_needs_parts(
     try:
         body = ast.parse(filter_string).body
     except Exception:
-        pass  # warning already emitted in filter_needs
+        pass  # one that is no Python expression is reported below
     else:
         if len(body) == 1 and isinstance((expr := body[0]), ast.Expr):
             needs, requires_eval = _analyze_and_apply_expr(needs, expr.value)
@@ -784,14 +793,55 @@ def filter_needs_parts(
             f"Strict eval mode, but no simple filter found: {filter_string!r}"
         )
 
-    return filter_needs_and_parts(
-        needs,
-        config,
-        filter_string,
-        current_need,
+    try:
+        return filter_needs_and_parts(
+            needs,
+            config,
+            filter_string,
+            current_need,
+            location=location,
+            append_warning=append_warning,
+            origin_docname=origin_docname,
+        )
+    except (SyntaxError, ValueError):
+        if (error := _python_expression_error(filter_string)) is None:
+            raise
+        _report_not_python(filter_string, error, location, append_warning)
+        return []
+
+
+def _python_expression_error(filter_string: str) -> SyntaxError | ValueError | None:
+    """Why *filter_string* is no Python expression, or ``None`` if it is one."""
+    try:
+        # the very compile the delegate runs, past the leading spaces and tabs ``eval``
+        # reads past
+        compile(filter_string.lstrip(" \t"), "<string>", "eval")
+    except (SyntaxError, ValueError) as error:
+        return error
+    return None
+
+
+def _report_not_python(
+    filter_string: str,
+    error: SyntaxError | ValueError,
+    location: tuple[str, int | None] | nodes.Node | None,
+    append_warning: str,
+) -> None:
+    """Report a filter string that is no Python expression, as one ``needs.filter``
+    warning: :func:`filter_needs_and_parts` compiles the string unguarded, and the
+    callers of :func:`filter_needs_view` and :func:`filter_needs_parts` -- the views,
+    ``need_count``, ``needuml``'s ``filter()``, ``needs_warnings``,
+    ``needs_builder_filter`` -- have no report of their own for it. The callers of
+    :func:`filter_needs_and_parts` and :func:`filter_needs` that do (``needextend``'s
+    filter form, ``copy(filter=...)``) still receive the error.
+    """
+    if append_warning:
+        append_warning = f" {append_warning}"
+    log_warning(
+        log,
+        f"Filter {filter_string!r} not valid. Error: {error}.{append_warning}",
+        "filter",
         location=location,
-        append_warning=append_warning,
-        origin_docname=origin_docname,
     )
 
 
@@ -863,7 +913,7 @@ def filter_needs_and_parts(
         finally:
             watch.active = False
     # before either tier, and before the loop: reported even where no need is given
-    _report_unknown_types(filter_string, config, location, append_warning)
+    _report_filter_text(filter_string, config, location, append_warning)
 
     # === Fast path: try compiled predicate to avoid eval() entirely ===
     compiled = compile_portable(filter_string)
@@ -903,7 +953,9 @@ def filter_needs_and_parts(
     found_needs_slow: list[_NeedOrPartT] = []
 
     # https://docs.python.org/3/library/functions.html?highlight=compile#compile
-    filter_compiled = compile(filter_string, "<string>", "eval")
+    # past the leading spaces and tabs, which ``eval`` reads past and ``compile`` does not
+    # (``unexpected indent``): the string selects here what it selects need by need
+    filter_compiled = compile(filter_string.lstrip(" \t"), "<string>", "eval")
     error_reported = False
     for filter_need in needs:
         try:
@@ -931,6 +983,25 @@ def filter_needs_and_parts(
                 error_reported = True
 
     return found_needs_slow
+
+
+def _report_filter_text(
+    filter_string: str,
+    config: NeedsSphinxConfig,
+    location: tuple[str, int | None] | nodes.Node | None = None,
+    append_warning: str = "",
+) -> None:
+    """Report what the text of a filter string shows, both reports together: a
+    ``c.is_a`` literal naming no need type (:func:`_report_unknown_types`) and a
+    namespace value read while ``needs_namespaced_ids`` is off
+    (:func:`_report_namespaced_ids_off`). Each is given once per build for the string,
+    where it is written (*location*) and the origin its caller appends
+    (*append_warning*). Every place that reports either calls this: the two filter
+    entries, and a place testing its filter need by need before it does, so that the
+    place is reported where no need is tested too.
+    """
+    _report_unknown_types(filter_string, config, location, append_warning)
+    _report_namespaced_ids_off(filter_string, config, location, append_warning)
 
 
 def _report_unknown_types(
@@ -976,6 +1047,71 @@ def _report_unknown_types(
             "filter_type",
             location=location,
         )
+
+
+#: what each namespace value is with ``needs_namespaced_ids`` off, by its name
+_NAMESPACED_IDS_OFF: dict[str, str] = {
+    "c.id.ns": "c.id.ns is empty for every need",
+    "c.id.local": "c.id.local is the whole id",
+    "c.in_namespace()": "c.in_namespace() is false for every need",
+}
+
+
+def _report_namespaced_ids_off(
+    filter_string: str,
+    config: NeedsSphinxConfig,
+    location: tuple[str, int | None] | nodes.Node | None = None,
+    append_warning: str = "",
+) -> None:
+    """Report a filter that reads a namespace value (``c.id.ns``, ``c.id.local``,
+    ``c.in_namespace()``) while ``needs_namespaced_ids`` is off: every id is plain then,
+    so the filter is answered, and what it reads means nothing.
+
+    Decided from the string's text (:func:`~sphinx_needs._source_facets.namespace_reads`),
+    before either tier and whether or not a need is tested; a string the text shows
+    refused is not reported here. Once per build for the string, where it is written and
+    the origin its caller appends, as :func:`_report_unknown_types` reports. The answer
+    is not touched. The switch is read first: with it on, the text is not read at all.
+    """
+    if config.namespaced_ids:
+        return
+    if not (names := namespace_reads(filter_string)):
+        return
+    where = get_source_line(location) if isinstance(location, nodes.Node) else location
+    reported = _NEEDS_CONFIG.build.namespaced_ids_off_reported
+    if (key := (filter_string, where, append_warning)) in reported:
+        return
+    reported.add(key)
+    said = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+    log_warning(
+        log,
+        f"The filter {filter_string!r} reads {said}, but namespaced ids are off for "
+        "this project: "
+        f"{'; '.join(_NAMESPACED_IDS_OFF[name] for name in names)}. Set "
+        "needs_namespaced_ids = True to read '::' in an id as a namespace separator, "
+        "or suppress needs.namespaced_ids_off."
+        + (f" {append_warning}" if append_warning else ""),
+        "namespaced_ids_off",
+        location=location,
+    )
+
+
+@contextmanager
+def quiet_filters() -> Generator[None]:
+    """Evaluate filters quietly: nothing is logged, and what is reported once per build
+    of a filter's text (a ``c.is_a`` literal naming no need type, a namespace value read
+    while ``needs_namespaced_ids`` is off) is left to the evaluation that reports it, so
+    a pre-pass (one ordering the dynamic functions) does not use the report up."""
+    build = _NEEDS_CONFIG.build
+    reported = (build.is_a_reported, build.namespaced_ids_off_reported)
+    kept = [set(keys) for keys in reported]
+    try:
+        with suppress_logging():
+            yield
+    finally:
+        for keys, before in zip(reported, kept, strict=True):
+            keys.clear()
+            keys.update(before)
 
 
 def _fast_path_context(
@@ -1106,11 +1242,15 @@ def filter_single_need(
     filter_compiled: CodeType | None = None,
     *,
     origin_docname: str | None = None,
+    location: tuple[str, int | None] | nodes.Node | None = None,
+    append_warning: str = "",
 ) -> bool:
     """Checks if a single need/need_part passes a filter_string.
 
-    A ``c.is_a`` literal naming no need type is reported once per build for the
-    string, which has no location or origin here.
+    A ``c.is_a`` literal naming no need type, and a namespace value read while
+    ``needs_namespaced_ids`` is off, are each reported once per build for the string
+    where it is written (*location*) and the origin its caller appends
+    (*append_warning*): once per string for a caller with neither (a constraint).
 
     :param need: the data for a single need
     :param config: NeedsSphinxConfig object
@@ -1119,6 +1259,8 @@ def filter_single_need(
     :param current_need: set the current_need in the filter context as this, otherwise the need itself
     :param filter_compiled: An already compiled filter_string to save time
     :param origin_docname: The origin docname that the filter was called from, if any
+    :param location: Where the filter is written, for what is reported of its text
+    :param append_warning: The origin a caller appends to what is reported of its text
 
     :return: True, if need passes the filter_string, else False
     :raises NeedsInvalidFilter: if the filter fails on the need, or is a constant
@@ -1126,7 +1268,7 @@ def filter_single_need(
     if _is_constant_filter(filter_string):
         raise NeedsInvalidFilter(_constant_filter_message(filter_string))
     # before either tier
-    _report_unknown_types(filter_string, config)
+    _report_filter_text(filter_string, config, location, append_warning)
     return _filter_single_need(
         need,
         config,
@@ -1136,6 +1278,62 @@ def filter_single_need(
         filter_compiled,
         origin_docname=origin_docname,
     )
+
+
+def _need_by_need(
+    filter_string: str,
+    config: NeedsSphinxConfig,
+    *,
+    location: tuple[str, int | None] | nodes.Node | None = None,
+    needs: Iterable[NeedItem | NeedPartItem] | None = None,
+    origin_docname: str | None = None,
+    append_warning: str | Callable[[NeedItem | NeedPartItem], str] = "",
+) -> Callable[[NeedItem | NeedPartItem], bool | None]:
+    """Test one filter, written at one place, need by need: :func:`filter_single_need`,
+    with a failing filter handled as a view's ``:filter:`` handles one.
+
+    The function returned answers whether a need passes the filter, or ``None`` where
+    the filter fails on it (it is no Python, it names what the need does not have, it
+    raises, or it is a constant), which reads as no match. The first failure is
+    reported as one ``needs.filter`` warning, at *location* and with *append_warning*
+    appended, as :func:`filter_needs_and_parts` reports it; a later one is not, so a
+    place reports its filter once however many needs it fails on, and the build goes
+    on. What the filter's text shows is reported at *location* (without
+    *append_warning*), as :func:`filter_single_need` reports it.
+
+    :param needs: All needs, for a filter that reads ``needs``.
+    :param origin_docname: The document the filter is written in, for ``c.this_doc()``.
+    :param append_warning: Appended to the report; a function is given the need the
+        filter failed on first, for a place with no location to name it.
+    """
+    reported = False
+
+    def test(need: NeedItem | NeedPartItem) -> bool | None:
+        nonlocal reported
+        try:
+            return filter_single_need(
+                need,
+                config,
+                filter_string,
+                needs,
+                origin_docname=origin_docname,
+                location=location,
+            )
+        except NeedsInvalidFilter as error:
+            if not reported:
+                reported = True
+                append = (
+                    append_warning(need) if callable(append_warning) else append_warning
+                )
+                log_warning(
+                    log,
+                    f"{error}" + (f" {append}" if append else ""),
+                    "filter",
+                    location=location,
+                )
+            return None
+
+    return test
 
 
 @measure_time("filtering", name="filter_single_need")
@@ -1261,6 +1459,22 @@ class NeedCheckContext:
         need's), each computed when it is read (:mod:`sphinx_needs._source_facets`)."""
         need = self._need
         return SourceFacets(need._need if isinstance(need, NeedPartItem) else need)
+
+    @property
+    def id(self) -> IdFacets:
+        """The facets of the need's id, ``c.id.ns`` and ``c.id.local`` (a part's are its
+        need's), as the need stored them when it was created
+        (:mod:`sphinx_needs._id_facets`)."""
+        need = self._need
+        return IdFacets(need._need if isinstance(need, NeedPartItem) else need)
+
+    def in_namespace(self, namespace: str, /) -> bool:
+        """Whether the need's namespace is *namespace* or below it, compared by
+        segments (a part's is its need's).
+
+        :raises ValueError: For an empty text, or one that is no namespace.
+        """
+        return in_namespace(self._need.id_ns_segments, namespace_argument(namespace))
 
     def is_a(self, name: str) -> bool:
         """Whether the need's type is *name*, or a type inheriting from it, transitively,

@@ -117,28 +117,13 @@ def test_the_launch_writes_no_tz(zone):
     defect: on Windows no value satisfies both the C runtime and ICU, so
     America/Phoenix gave the machine's zone in a Worker ([B334]). The engine
     now takes the zone from juggler.timezone.override in every realm. The
-    known-bad input is a session WITH a zone, the only case that wrote one;
-    the deprecated keyword still answers, warns, and writes nothing."""
-    with pytest.warns(DeprecationWarning, match="does nothing"):
-        env = build_launch_env({"juggler.timezone.override": zone},
-                               timezone=zone, base_env={})
+    known-bad input is a session WITH a zone, the only case that wrote one."""
+    env = build_launch_env({"juggler.timezone.override": zone}, base_env={})
     assert "TZ" not in env, "the launch wrote TZ: %r" % env.get("TZ")
     prefs = compose_session_prefs(generate_profile(seed=7), locale="en-US",
                                   timezone=zone).prefs
     assert prefs["juggler.timezone.override"] == zone, (
         "positive reality: the zone is declared, in the one place the engine reads")
-
-
-def test_tz_env_is_deprecated_and_does_nothing():
-    """B: the owner's decision for firefox-50 - `tz_env` stays one release,
-    deprecated and a no-op, then goes. The table it read is gone: Phoenix, the
-    row that existed because a wrong TZ moved a session's origin, comes back
-    unchanged."""
-    import invisible_core
-
-    with pytest.warns(DeprecationWarning, match="tz_env is deprecated"):
-        assert invisible_core.tz_env("America/Phoenix") == "America/Phoenix"
-    assert not hasattr(invisible_core, "IANA_TO_POSIX_TZ")
 
 
 def test_build_launch_env_applies_the_surface_env_over_a_cleared_slot():

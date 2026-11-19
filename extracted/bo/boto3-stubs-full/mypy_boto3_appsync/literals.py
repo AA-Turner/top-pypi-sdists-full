@@ -166,6 +166,7 @@ SourceApiAssociationStatusType = Literal[
 TypeDefinitionFormatType = Literal["JSON", "SDL"]
 AppSyncServiceName = Literal["appsync"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

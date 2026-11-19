@@ -32,6 +32,7 @@ class DomainArgs:
         The set of arguments for constructing a Domain resource.
 
         :param pulumi.Input[Sequence[pulumi.Input['DomainIdentityProvidersItem']]] identity_providers: The identity providers configured for the domain.
+        :param pulumi.Input['DomainIdentityProviderConfigurationArgs'] identity_provider_configuration: Identity provider configuration for the domain.
         :param pulumi.Input[_builtins.str] name: A name that identifies the domain.
         :param pulumi.Input[Sequence[pulumi.Input['_root_inputs.TagArgs']]] tags: An array of key-value pairs to apply to this resource.
         """
@@ -58,6 +59,9 @@ class DomainArgs:
     @_builtins.property
     @pulumi.getter(name="identityProviderConfiguration")
     def identity_provider_configuration(self) -> pulumi.Input[Optional['DomainIdentityProviderConfigurationArgs']]:
+        """
+        Identity provider configuration for the domain.
+        """
         return pulumi.get(self, "identity_provider_configuration")
 
     @identity_provider_configuration.setter
@@ -95,21 +99,20 @@ class Domain(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 identity_provider_configuration: pulumi.Input[Optional[Union['DomainIdentityProviderConfigurationArgs', 'DomainIdentityProviderConfigurationArgsDict']]] = None,
+                 identity_provider_configuration: pulumi.Input[Optional[Union['DomainIdentityProviderConfigurationArgs', 'DomainIdentityProviderConfigurationArgsDict', 'outputs.DomainIdentityProviderConfiguration']]] = None,
                  identity_providers: pulumi.Input[Optional[Sequence[pulumi.Input['DomainIdentityProvidersItem']]]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         """
-        The account-level boundary for CloudWatch Omni. A domain configures the
-        identity providers users sign in through and exposes the endpoint URLs used
-        to reach CloudWatch Omni. Spaces are created within a domain.
+        Resource Type definition for AWS::CloudWatch::Domain. A domain is the identity and access boundary for CloudWatch Omni. It configures the identity providers users sign in through and provides the sign-in URL for your team.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[Union['DomainIdentityProviderConfigurationArgs', 'DomainIdentityProviderConfigurationArgsDict', 'outputs.DomainIdentityProviderConfiguration']] identity_provider_configuration: Identity provider configuration for the domain.
         :param pulumi.Input[Sequence[pulumi.Input['DomainIdentityProvidersItem']]] identity_providers: The identity providers configured for the domain.
         :param pulumi.Input[_builtins.str] name: A name that identifies the domain.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]] tags: An array of key-value pairs to apply to this resource.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: An array of key-value pairs to apply to this resource.
         """
         ...
     @overload
@@ -118,9 +121,7 @@ class Domain(pulumi.CustomResource):
                  args: DomainArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        The account-level boundary for CloudWatch Omni. A domain configures the
-        identity providers users sign in through and exposes the endpoint URLs used
-        to reach CloudWatch Omni. Spaces are created within a domain.
+        Resource Type definition for AWS::CloudWatch::Domain. A domain is the identity and access boundary for CloudWatch Omni. It configures the identity providers users sign in through and provides the sign-in URL for your team.
 
         :param str resource_name: The name of the resource.
         :param DomainArgs args: The arguments to use to populate this resource's properties.
@@ -137,10 +138,10 @@ class Domain(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 identity_provider_configuration: pulumi.Input[Optional[Union['DomainIdentityProviderConfigurationArgs', 'DomainIdentityProviderConfigurationArgsDict']]] = None,
+                 identity_provider_configuration: pulumi.Input[Optional[Union['DomainIdentityProviderConfigurationArgs', 'DomainIdentityProviderConfigurationArgsDict', 'outputs.DomainIdentityProviderConfiguration']]] = None,
                  identity_providers: pulumi.Input[Optional[Sequence[pulumi.Input['DomainIdentityProvidersItem']]]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -202,11 +203,17 @@ class Domain(pulumi.CustomResource):
         __props__.__dict__["updated_at"] = None
         return Domain(resource_name, opts=opts, __props__=__props__)
 
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:cloudwatch:Domain', id, __props__, opts or pulumi.ResourceOptions())
+
     @_builtins.property
     @pulumi.getter
     def arn(self) -> pulumi.Output[_builtins.str]:
         """
-        The Amazon Resource Name (ARN) of the resource.
+        The Amazon Resource Name (ARN) of the domain.
         """
         return pulumi.get(self, "arn")
 
@@ -253,6 +260,9 @@ class Domain(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="identityProviderConfiguration")
     def identity_provider_configuration(self) -> pulumi.Output[Optional['outputs.DomainIdentityProviderConfiguration']]:
+        """
+        Identity provider configuration for the domain.
+        """
         return pulumi.get(self, "identity_provider_configuration")
 
     @_builtins.property

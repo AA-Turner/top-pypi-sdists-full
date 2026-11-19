@@ -108,6 +108,7 @@ from pydantic import ValidationError
 
 from omnibase_core.container import ModelONEXContainer
 from omnibase_core.enums.enum_event_bus_type import EnumEventBusType
+from omnibase_core.errors import OnexError
 from omnibase_core.protocols.event_bus import ProtocolEventBusPublisher
 from omnibase_core.protocols.event_bus.protocol_event_bus_subscriber import (
     ProtocolEventBusSubscriber,
@@ -142,10 +143,34 @@ from omnibase_infra.event_bus.event_bus_kafka import EventBusKafka
 from omnibase_infra.event_bus.kafka_auth import build_aiokafka_auth_kwargs_from_env
 from omnibase_infra.event_bus.models.config import ModelKafkaEventBusConfig
 from omnibase_infra.event_bus.models.model_event_message import ModelEventMessage
+from omnibase_infra.handlers import boot_readiness_checks
+from omnibase_infra.handlers.event_bus_recovering import EventBusRecovering
+from omnibase_infra.handlers.handler_package_announcer import (
+    build_registered_events,
+    run_boot_step0,
+)
+from omnibase_infra.handlers.handler_runtime_introspection_startup import (
+    HandlerRuntimeIntrospectionStartup as _Startup,
+)
+from omnibase_infra.handlers.handler_workspace_config_root_resolve import (
+    DEVELOPER_WORKSPACE_CONFIG_RELATIVE_PATH,
+    ENV_WORKSPACE_CONFIG_ROOT,
+    HandlerWorkspaceConfigRootResolve,
+)
 from omnibase_infra.models import ModelNodeIdentity
 from omnibase_infra.models.health.model_llm_endpoint_health_config import (
     ModelLlmEndpointHealthConfig,
 )
+from omnibase_infra.models.network_binding import load_network_binding_settings
+from omnibase_infra.models.node_announce.model_node_announcement_topic import (
+    ModelNodeAnnouncementTopic,
+)
+from omnibase_infra.models.node_announce.model_package_announce_result import (
+    ModelPackageAnnounceResult,
+)
+from omnibase_infra.models.runtime import ModelRuntimeNodeSelection
+from omnibase_infra.models.runtime_kernel_defaults import load_runtime_kernel_defaults
+from omnibase_infra.models.workspace import ModelWorkspaceConfigRootRequest
 from omnibase_infra.nodes.node_contract_registry_reducer.contract_registration_event_router import (
     ContractRegistrationEventRouter,
     ProtocolIntentEffect,
@@ -199,7 +224,10 @@ from omnibase_infra.runtime.protocol_domain_plugin import (
     ProtocolDomainPlugin,
     RegistryDomainPlugin,
 )
-from omnibase_infra.runtime.runtime_host_process import RuntimeHostProcess
+from omnibase_infra.runtime.runtime_host_process import (
+    RuntimeHostProcess,
+    prefetch_runtime_config,
+)
 from omnibase_infra.runtime.runtime_profile import (
     load_runtime_profile,
     resolve_runtime_profile_name,
@@ -246,7 +274,6 @@ except Exception:  # noqa: BLE001 — boundary: catch-all for resilience
     KERNEL_VERSION = "unknown"
 
 # Default configuration
-DEFAULT_CONTRACTS_DIR = "./contracts"
 DEFAULT_RUNTIME_CONFIG = "runtime/runtime_config.yaml"
 
 # OMN-17304: the SHIPPED tier-0 default runtime configuration — the
@@ -256,21 +283,9 @@ DEFAULT_RUNTIME_CONFIG = "runtime/runtime_config.yaml"
 # profile), never a hardcoded code fallback.
 TIER0_RUNTIME_CONFIG_RESOURCE = "tier0_runtime_config.yaml"
 
-# OMN-19193: where a workspace keeps its own tier-1 (self-hosted) runtime
-# contracts directory, relative to the owning config root; its
-# runtime/runtime_config.yaml is the working-tree fallback after the copy
-# materialized from origin/main (OMN-19212), once no bootstrap pointer or
-# developer lane binding is set. The product ships only this convention.
-# The VALUES (which transport, which lane) belong to the workspace that
-# declares them and are never shipped in this package: lab configuration is
-# not hardcoded in the product every customer runs (OMN-19184).
-WORKSPACE_RUNTIME_CONTRACTS_RELATIVE_PATH = Path("config") / "onex"
-
-# Bootstrap location for the workspace's tier-1 config owner.
-ENV_WORKSPACE_CONFIG_ROOT = "ONEX_WORKSPACE_CONFIG_ROOT"
-# OMN-20700: public lab-onboarding.sh phase 2 writes developer tier-1 config
-# here, relative to the workspace root.
-DEVELOPER_WORKSPACE_CONFIG_RELATIVE_PATH = Path(".onex") / "workspace-config"
+# Contracts directory and LLM endpoint variables the kernel uses by default,
+# declared in models/runtime_kernel_defaults/runtime_kernel_defaults.yaml.
+_DEFAULTS = load_runtime_kernel_defaults()
 
 # Environment variable name for contracts directory
 ENV_CONTRACTS_DIR = "ONEX_CONTRACTS_DIR"
@@ -292,10 +307,6 @@ _DEPRECATED_TOPIC_ENV_VARS: tuple[str, ...] = (
     "ONEX_INPUT_TOPIC",
     "ONEX_OUTPUT_TOPIC",
 )
-
-# Port validation constants
-MIN_PORT = 1
-MAX_PORT = 65535
 
 # Kafka broker allowlist validation
 # Patterns that are unconditionally rejected — they point at local or
@@ -392,96 +403,6 @@ def make_plugin_secret_resolver(
         return os.environ.get(name)
 
     return _resolve
-
-
-async def publish_contract_registrations(
-    *,
-    event_bus: ProtocolEventBusLike,
-    topic: str,
-    contracts: tuple[ModelDiscoveredContract, ...],
-    correlation_id: UUID,
-) -> int:
-    """Announce the contracts this runtime discovered to the contract registry.
-
-    The contract registry reducer consumes ``contract-registered`` and the
-    persistence effect writes ``public.contracts``; before OMN-21031 nothing in
-    the runtime published that event, so the registry stayed empty. Each event
-    is wrapped in the ``ModelEventEnvelope`` the kernel's contract router
-    parses (a bare event is rejected there) and published.
-
-    A contract whose file cannot be read, or whose publish fails, is logged and
-    skipped; boot continues and the next start re-announces every contract.
-
-    Returns:
-        The number of events published.
-    """
-    from omnibase_core.models.events import ModelContractRegisteredEvent
-    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
-    from omnibase_core.models.primitives.model_semver import ModelSemVer
-    from omnibase_infra.errors.error_contract_content_hash import (
-        ContractContentHashError,
-    )
-    from omnibase_infra.runtime.util_contract_content_hash import contract_content_hash
-
-    published = 0
-    skipped = 0
-    for contract in contracts:
-        try:
-            contract_yaml = contract.contract_path.read_text(encoding="utf-8")
-            content_hash = contract.contract_content_hash or contract_content_hash(
-                contract.contract_path, correlation_id=correlation_id
-            )
-        except (OSError, UnicodeDecodeError, ContractContentHashError) as exc:
-            logger.warning(
-                "Contract registration skipped for %s: %s (correlation_id=%s)",
-                contract.name,
-                type(exc).__name__,
-                correlation_id,
-            )
-            skipped += 1
-            continue
-        version = contract.contract_version
-        event = ModelContractRegisteredEvent(
-            node_name=contract.name,
-            node_version=ModelSemVer(
-                major=version.major, minor=version.minor, patch=version.patch
-            ),
-            contract_hash=content_hash,
-            contract_yaml=contract_yaml,
-            correlation_id=correlation_id,
-        )
-        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
-            payload=event.model_dump(mode="json"),
-            correlation_id=correlation_id,
-            event_type=event.event_type,
-            source_tool="onex-kernel-contract-registration",
-            tenant_id=None,
-        )
-        try:
-            await event_bus.publish_envelope(
-                envelope,
-                topic=topic,
-                key=event.node_name.encode("utf-8"),
-            )
-        except (InfraConnectionError, InfraTimeoutError, InfraUnavailableError):
-            logger.warning(
-                "Contract registration publish failed for %s (correlation_id=%s)",
-                event.node_name,
-                correlation_id,
-                exc_info=True,
-            )
-            skipped += 1
-            continue
-        published += 1
-    logger.info(
-        "Contract registrations published: %d of %d contracts, %d skipped "
-        "(correlation_id=%s)",
-        published,
-        len(contracts),
-        skipped,
-        correlation_id,
-    )
-    return published
 
 
 async def publish_triage_escalations(
@@ -650,6 +571,11 @@ def _load_node_graph_config() -> ModelRuntimeNodeGraphConfig:
     return ModelRuntimeNodeGraphConfig.from_contracts_dir(contracts_dir)
 
 
+def workspace_runtime_contracts_dir(config_root: Path) -> Path:
+    """Tier-1 runtime contracts under the owning config root (OMN-19193)."""
+    return config_root / "config" / "onex"
+
+
 def _get_contracts_dir() -> Path:
     """Get contracts directory from environment.
 
@@ -663,7 +589,7 @@ def _get_contracts_dir() -> Path:
     if onex_value:
         return Path(onex_value)
 
-    return Path(DEFAULT_CONTRACTS_DIR)
+    return Path(_DEFAULTS.default_contracts_dir)
 
 
 def _load_runtime_database_topology() -> ModelDeploymentTopology | None:
@@ -709,45 +635,35 @@ def resolve_topic_readiness_config() -> ModelTopicReadinessConfig:
         ModelTopicReadinessConfig,
     )
 
-    def _float_env(name: str, default: float) -> float:
-        raw = os.environ.get(name)
-        if raw is None or raw.strip() == "":
-            return default
+    def _env_number[T: (int, float)](name: str, default: T, cast: type[T]) -> T:
         try:
-            value = float(raw)
+            value = cast(os.environ.get(name) or default)
         except ValueError:
             return default
-        if value <= 0.0 or math.isnan(value) or math.isinf(value):
-            return default
-        return value
-
-    def _int_env(name: str, default: int) -> int:
-        raw = os.environ.get(name)
-        if raw is None or raw.strip() == "":
-            return default
-        try:
-            value = int(raw)
-        except ValueError:
-            return default
-        return value if value >= 1 else default
+        return value if value > 0 and math.isfinite(value) else default
 
     return ModelTopicReadinessConfig(
-        readiness_timeout_seconds=_float_env(
+        readiness_timeout_seconds=_env_number(
             "ONEX_TOPIC_READINESS_TIMEOUT_SECONDS",
             DEFAULT_READINESS_TIMEOUT_SECONDS,
+            float,
         ),
-        readiness_poll_interval_ms=_int_env(
+        readiness_poll_interval_ms=_env_number(
             "ONEX_TOPIC_READINESS_POLL_INTERVAL_MS",
             DEFAULT_READINESS_POLL_INTERVAL_MS,
+            int,
         ),
-        max_attempts=_int_env(
+        max_attempts=_env_number(
             "ONEX_TOPIC_READINESS_MAX_ATTEMPTS",
             DEFAULT_READINESS_MAX_ATTEMPTS,
+            int,
         ),
-        max_concurrent_contract_attach=_int_env(
+        max_concurrent_contract_attach=_env_number(
             "ONEX_MAX_CONCURRENT_CONTRACT_ATTACH",
             DEFAULT_MAX_CONCURRENT_CONTRACT_ATTACH,
+            int,
         ),
+        priority_contracts=boot_readiness_checks.parse_priority_contracts(os.environ),
     )
 
 
@@ -917,6 +833,12 @@ def _build_runtime_handler_dependencies(
             {
                 "HandlerPostgresRuntimeManifestInsert": {"pool": postgres_pool},
                 "HandlerBaselinesBatchCompute": {"pool": postgres_pool},
+                # OMN-19998: node_runtime_error_triage_effect declares db_pool
+                # required and its handler defaults it to None, so a map that
+                # omitted it wired the handler with no pool and every runtime
+                # error was logged "db_pool not configured" and dropped (1,291
+                # in 20 minutes on the dev lane).
+                "HandlerRuntimeErrorTriage": {"db_pool": postgres_pool},
             }
         )
 
@@ -1507,28 +1429,6 @@ class WorkspaceRuntimeConfigMissingError(ProtocolConfigurationError):
     """
 
 
-def workspace_runtime_config_root(workspace_root: Path) -> Path:
-    """Resolve the config owner, independently of the registry's state root.
-
-    ONEX_WORKSPACE_CONFIG_ROOT is a bootstrap location, never a transport
-    selector. Resolution order is a non-blank environment override, the sibling
-    ``../omnibase_internal`` if it is a directory, then ``.onex/workspace-config``
-    if it is a directory, otherwise the sibling path for the caller to refuse.
-    All results are resolved. A developer install never needs a private
-    repository (OMN-20700). There is no retiring-root read.
-    """
-    configured = os.environ.get(ENV_WORKSPACE_CONFIG_ROOT, "").strip()
-    if configured:
-        return Path(configured).resolve()
-    sibling = workspace_root / ".." / "omnibase_internal"
-    if sibling.is_dir():
-        return sibling.resolve()
-    developer = workspace_root / DEVELOPER_WORKSPACE_CONFIG_RELATIVE_PATH
-    if developer.is_dir():
-        return developer.resolve()
-    return sibling.resolve()
-
-
 def resolve_embedded_runtime_config(
     correlation_id: UUID | None = None,
     *,
@@ -1561,8 +1461,8 @@ def resolve_embedded_runtime_config(
        working-tree config under the owning config root
        answers (OMN-19193). This is the tier-1 overlay the OMN-17304 ruling
        composes on top of tier-0. The file belongs to the config owner, selected by
-       ``ONEX_WORKSPACE_CONFIG_ROOT``, the sibling operator repository, or the
-       developer workspace's ``.onex/workspace-config`` (OMN-20700),
+       ``ONEX_WORKSPACE_CONFIG_ROOT`` (the deployment's overlay or host installer
+       sets it) or the developer workspace's ``.onex/workspace-config`` (OMN-20700),
        never to this package. The retiring registry root is never read. A bound
        root with neither copy is REFUSED rather than
        answered with tier-0: binding a workspace root is a claim to be a
@@ -1626,6 +1526,10 @@ def resolve_embedded_runtime_config(
             HandlerWorkspaceRuntimeConfigMaterializer,
         )
 
+        root_resolver = HandlerWorkspaceConfigRootResolve()
+        config_root = root_resolver.handle(
+            ModelWorkspaceConfigRootRequest(workspace_root=workspace_root)
+        ).config_root
         copy = HandlerWorkspaceRuntimeConfigMaterializer().read(workspace_root)
         if copy is not None:
             config = load_runtime_config(
@@ -1633,7 +1537,7 @@ def resolve_embedded_runtime_config(
             )
             provenance = (
                 f"workspace tier-1 runtime config materialised from "
-                f"{SOURCE_REF}@{copy.sha} in {workspace_runtime_config_root(workspace_root)} "
+                f"{SOURCE_REF}@{copy.sha} in {config_root} "
                 f"at {copy.materialized_at.isoformat()} "
                 f"({copy.config_path})"
             )
@@ -1644,40 +1548,38 @@ def resolve_embedded_runtime_config(
                     f"the materialiser refreshes it on every default `onex delegate` run"
                 )
             return config, provenance
-        workspace_contracts = (
-            workspace_runtime_config_root(workspace_root)
-            / WORKSPACE_RUNTIME_CONTRACTS_RELATIVE_PATH
-        )
-        workspace_config = workspace_contracts / DEFAULT_RUNTIME_CONFIG
-        if workspace_config.is_file():
-            config = load_runtime_config(
-                workspace_contracts, correlation_id=correlation_id
-            )
-            return config, f"workspace tier-1 runtime config at {workspace_config}"
+        workspace_config: Path | None = None
+        if config_root is not None:
+            workspace_contracts = workspace_runtime_contracts_dir(config_root)
+            workspace_config = workspace_contracts / DEFAULT_RUNTIME_CONFIG
+            if workspace_config.is_file():
+                config = load_runtime_config(
+                    workspace_contracts, correlation_id=correlation_id
+                )
+                return config, f"workspace tier-1 runtime config at {workspace_config}"
         materialized_config = (
             workspace_root
             / MATERIALIZED_CONTRACTS_RELATIVE_PATH
             / DEFAULT_RUNTIME_CONFIG
         )
         missing_owner_details = ""
-        if not os.environ.get(ENV_WORKSPACE_CONFIG_ROOT, "").strip():
-            sibling = (workspace_root / ".." / "omnibase_internal").resolve()
+        if config_root is None:
             developer_config = (
-                workspace_root.resolve()
-                / DEVELOPER_WORKSPACE_CONFIG_RELATIVE_PATH
-                / WORKSPACE_RUNTIME_CONTRACTS_RELATIVE_PATH
+                workspace_runtime_contracts_dir(
+                    workspace_root.resolve() / DEVELOPER_WORKSPACE_CONFIG_RELATIVE_PATH
+                )
                 / DEFAULT_RUNTIME_CONFIG
             )
             missing_owner_details = (
-                f" {ENV_WORKSPACE_CONFIG_ROOT} is unset; the sibling operator "
-                f"repository path is {sibling} and the developer config path "
-                f"is {developer_config}."
+                f" {ENV_WORKSPACE_CONFIG_ROOT} is unset and no developer config "
+                f"exists at {developer_config}."
             )
         raise WorkspaceRuntimeConfigMissingError(
             f"workspace root {workspace_root} is bound but has no materialised "
             f"runtime config at {materialized_config} (the copy comes from "
             f"{SOURCE_REF} of the config owner) and declares no working-tree runtime "
-            f"config at {workspace_config}. A bound workspace root is a "
+            f"config at {workspace_config or 'a config root (none is declared)'}. "
+            f"A bound workspace root is a "
             f"registry workspace, and its transport comes from its own tier-1 "
             f"config; it is never answered with the shipped in-memory default, "
             f"which would strand the workspace's evidence in local storage "
@@ -1693,10 +1595,10 @@ def resolve_embedded_runtime_config(
             context=ModelInfraErrorContext(
                 transport_type=EnumInfraTransportType.RUNTIME,
                 operation="resolve_workspace_runtime_config",
-                target_name=str(workspace_config),
+                target_name=str(workspace_config or ENV_WORKSPACE_CONFIG_ROOT),
                 correlation_id=correlation_id or generate_correlation_id(),
             ),
-            config_path=str(workspace_config),
+            config_path=str(workspace_config or ""),
         )
     config = _load_tier0_runtime_config(
         correlation_id=correlation_id or generate_correlation_id(),
@@ -1865,6 +1767,7 @@ async def bootstrap() -> int:
     """
     # Lazy import to break circular dependency chain - see "Circular Import Note"
     # comment near line 98 for detailed explanation of the import cycle.
+    from omnibase_infra.handlers.mixin_shared_listener import HANDOVER_MOUNT
     from omnibase_infra.services.health_checker import (
         DEFAULT_HTTP_PORT,
         ServiceHealth,
@@ -1873,6 +1776,8 @@ async def bootstrap() -> int:
     # Initialize resources to None for cleanup guard in finally block
     runtime: RuntimeHostProcess | None = None
     health_server: ServiceHealth | None = None
+    # Retain the boot opt-in through shutdown, even if the mount disappears.
+    shared_listener_enabled = HANDOVER_MOUNT.is_dir()
     # Plugin system owns resource lifecycle (pools, publishers, dispatchers)
     plugin_registry: RegistryDomainPlugin | None = None
     registration_service: ServiceRegistration | None = None
@@ -1897,7 +1802,6 @@ async def bootstrap() -> int:
     wiring_health_checker: WiringHealthChecker | None = None
     wiring_health_task: asyncio.Task[None] | None = None
     not_ready_reconciliation_task: asyncio.Task[None] | None = None
-    triage_unsub: Callable[[], Awaitable[None]] | None = None
     build_loop_db_handler = None  # HandlerDb | None, assigned inside try block
     baselines_task: asyncio.Task[None] | None = None
     _baselines_pool = None  # asyncpg.Pool | None, assigned inside try block
@@ -2081,6 +1985,7 @@ async def bootstrap() -> int:
             "ONEX_ENVIRONMENT"
         )
         environment: str = _kafka_env_from_env or config.event_bus.environment
+        node_selection = ModelRuntimeNodeSelection.from_env()
         kafka_bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
         if not kafka_bootstrap_servers:
             logger.warning(
@@ -2146,6 +2051,25 @@ async def bootstrap() -> int:
                 circuit_breaker_threshold=config.event_bus.circuit_breaker_threshold,
             ),
         )
+        if isinstance(event_bus, EventBusKafka):
+            # Keep one injected identity across local fallback and Kafka recovery.
+            # Standalone Kafka clients retain their existing fail-fast policy.
+            local_bus = EventBusInmemory(
+                environment=environment,
+                group=config.consumer_group,
+                max_history=config.event_bus.max_history,
+                circuit_breaker_threshold=config.event_bus.circuit_breaker_threshold,
+            )
+            event_bus = EventBusRecovering(
+                config=event_bus.config,
+                recovery=config.event_bus.recovery,
+                local_bus=local_bus,
+                local_start=local_bus.start,
+                local_close=local_bus.close,
+                local_health_check=local_bus.health_check,
+                alarm_topic=config.input_topic,
+                consumer_group=config.consumer_group,
+            )
         event_bus_type = "kafka" if isinstance(event_bus, EventBusKafka) else "inmemory"
 
         # Start the bus and wire post-creation infrastructure
@@ -2153,7 +2077,7 @@ async def bootstrap() -> int:
             try:
                 await event_bus.start()
                 logger.debug(
-                    "EventBusKafka started successfully (correlation_id=%s)",
+                    "Runtime event bus started; recovery enabled (correlation_id=%s)",
                     correlation_id,
                 )
             except Exception as e:
@@ -2470,13 +2394,7 @@ async def bootstrap() -> int:
         if use_kafka:
             try:
                 _llm_endpoints: dict[str, str] = {}
-                for env_key, logical_name in [
-                    ("LLM_CODER_URL", "coder"),
-                    ("LLM_CODER_FAST_URL", "coder-fast"),
-                    ("LLM_EMBEDDING_URL", "embedding"),
-                    ("LLM_DEEPSEEK_R1_URL", "deepseek-r1"),
-                    ("LLM_SMALL_URL", "small"),
-                ]:
+                for env_key, logical_name in _DEFAULTS.llm_endpoint_names.items():
                     _url = os.environ.get(env_key, "").strip()
                     if _url:
                         _llm_endpoints[logical_name] = _url
@@ -2737,11 +2655,11 @@ async def bootstrap() -> int:
                         pool=_savings_correlation_pool,
                         publisher=_savings_publish,
                     )
-                    _savings_node_identity = ModelNodeIdentity(
-                        env=environment,
-                        service=config.name or "onex-kernel",
-                        node_name="node_savings_estimation_compute",
-                        version="v1",
+                    _savings_node_identity = node_selection.kernel_identity(
+                        environment,
+                        config.name,
+                        "node_savings_estimation_compute",
+                        "v1",
                     )
 
                     async def _savings_on_injection_message(
@@ -2880,6 +2798,32 @@ async def bootstrap() -> int:
                 )
                 runtime_health_monitor = None
 
+        # 3.9. Boot step 0 (OMN-21590): announce every installed package's
+        # contracts on an in-memory bus and build the node catalog BEFORE the
+        # container exists. Nothing here imports a handler or constructs a node,
+        # and the container below receives the catalog as an injected service;
+        # the runtime reads it instead of scanning entry points and pushing
+        # contracts to the registry. A failure degrades to the same catalog
+        # folded without a bus inside discover_contracts().
+        node_catalog_result: ModelPackageAnnounceResult | None = None
+        try:
+            node_catalog_result = await run_boot_step0(
+                workload=resolve_runtime_profile_name()
+            )
+            logger.info(
+                "Boot step 0: %d contracts announced, %d admitted (correlation_id=%s)",
+                len(node_catalog_result.announcements),
+                sum(1 for o in node_catalog_result.outcomes if o.accepted),
+                correlation_id,
+            )
+        except (TimeoutError, OSError, ValueError, RuntimeError, LookupError):
+            logger.warning(
+                "Boot step 0 failed; discovery will fold the catalog without a "
+                "bus (correlation_id=%s)",
+                correlation_id,
+                exc_info=True,
+            )
+
         # 4. Create and wire container for dependency injection
         container_start_time = time.time()
         container = ModelONEXContainer()
@@ -2945,6 +2889,21 @@ async def bootstrap() -> int:
                 "services": wire_summary["services"],
             },
         )
+
+        # 4.0. The container receives the node catalog step 0 built (OMN-21590).
+        if container.service_registry is not None and node_catalog_result is not None:
+            try:
+                await container.service_registry.register_instance(
+                    ModelPackageAnnounceResult,
+                    node_catalog_result,
+                )
+            except (OnexError, RuntimeError, ValueError, TypeError):
+                logger.warning(
+                    "Failed to register the node catalog in the container "
+                    "(correlation_id=%s)",
+                    correlation_id,
+                    exc_info=True,
+                )
 
         # 4.1. Register event bus in service registry under publisher and subscriber protocols.
         #
@@ -3200,11 +3159,8 @@ async def bootstrap() -> int:
         # Create typed node identity for plugin subscriptions (OMN-1602)
         plugin_node_identity: ModelNodeIdentity | None = None
         if config.name:
-            plugin_node_identity = ModelNodeIdentity(
-                env=environment,
-                service=config.name,
-                node_name=config.name,
-                version=config.contract_version or "v1",
+            plugin_node_identity = node_selection.kernel_identity(
+                environment, config.name, config.name, config.contract_version
             )
         else:
             # Graceful degradation (OMN-1992): config.name absence is logged
@@ -3599,6 +3555,73 @@ async def bootstrap() -> int:
                             exc_info=True,
                         )
 
+        # Prefetch configuration without constructing the runtime (OMN-9741/13768).
+        # Preserve its outcome for runtime startup.
+        config_prefetch_status = "pending"
+
+        # Start HTTP health server before auto-wiring and before long Kafka
+        # subscription work (OMN-21288): a contract-declared HTTP mount is served
+        # from this port while wiring is still running. At this
+        # point RuntimeHostProcess does not exist yet, so ServiceHealth serves
+        # startup liveness with runtime_attached=false. The runtime is
+        # constructed and attached immediately below (OMN-13768), still before the
+        # long-running Kafka subscription work further down.
+        http_port_str = os.getenv("ONEX_HTTP_PORT", str(DEFAULT_HTTP_PORT))
+        try:
+            http_port = int(http_port_str)
+            port_bounds = load_network_binding_settings()
+            if not port_bounds.tcp_port_min <= http_port <= port_bounds.tcp_port_max:
+                logger.warning(
+                    "ONEX_HTTP_PORT %d outside valid range %d-%d, using default %d (correlation_id=%s)",
+                    http_port,
+                    port_bounds.tcp_port_min,
+                    port_bounds.tcp_port_max,
+                    DEFAULT_HTTP_PORT,
+                    correlation_id,
+                )
+                http_port = DEFAULT_HTTP_PORT
+        except ValueError:
+            logger.warning(
+                "Invalid ONEX_HTTP_PORT value '%s', using default %d (correlation_id=%s)",
+                http_port_str,
+                DEFAULT_HTTP_PORT,
+                correlation_id,
+            )
+            http_port = DEFAULT_HTTP_PORT
+
+        health_server = ServiceHealth(
+            container=container,
+            port=http_port,
+            version=KERNEL_VERSION,
+        )
+        # OMN-15217: publish the runtime health monitor's verdict on /health.
+        # The monitor is started above (step 3) and owns the semantic view of
+        # runtime health — contract discovery errors, consumer-group coverage,
+        # topic coverage. Without this line that verdict never leaves the
+        # container logs and /health reports a DEGRADED runtime as healthy.
+        # When the monitor did not start (non-Kafka profiles, startup failure)
+        # the provider is left unset and the payload carries a null verdict.
+        if runtime_health_monitor is not None:
+            health_server.set_runtime_health_provider(
+                lambda: (
+                    runtime_health_monitor.latest_event
+                    if runtime_health_monitor is not None
+                    else None
+                )
+            )
+        health_start_time = time.time()
+        await health_server.start()
+        health_start_duration = time.time() - health_start_time
+        logger.debug(
+            "Health server started in %.3fs before auto-wiring (correlation_id=%s)",
+            health_start_duration,
+            correlation_id,
+            extra={
+                "duration_seconds": health_start_duration,
+                "port": http_port,
+            },
+        )
+
         # --- Auto-wiring: Contract discovery + handler wiring (OMN-7656) ---
         #
         # After explicit plugins register their handlers/dispatchers, auto-wiring
@@ -3622,14 +3645,22 @@ async def bootstrap() -> int:
             from omnibase_infra.runtime.auto_wiring import (
                 LifecycleHookExecutor,
                 discover_contracts,
+                drop_blank_secret_names,
+                env_secret_store_is_authoritative,
                 filter_manifest_for_runtime_profile,
+                gate_manifest_on_required_secrets,
+                required_secret_names,
+                resolve_present_secret_names,
                 subscribe_wired_contract_topics,
                 wire_from_manifest,
+            )
+            from omnibase_infra.secret_stores.adapter_env_secret_store import (
+                AdapterEnvSecretStore,
             )
 
             # 1. Discover all contracts from installed packages
             auto_wiring_start = time.time()
-            manifest = discover_contracts()
+            manifest = discover_contracts(node_catalog_result)
             auto_wiring_manifest_discovered = (
                 manifest  # OMN-11198: captured for introspection
             )
@@ -3648,16 +3679,15 @@ async def bootstrap() -> int:
                 },
             )
 
-            if manifest.total_discovered > 0:
-                # OMN-17985: was a RAW os.getenv read that never consulted the
-                # profile resolved at boot, so an unregistered value reached the
-                # ownership filter unvalidated and emptied the manifest.
-                runtime_profile = resolve_runtime_profile_name()
-                ownership_result = filter_manifest_for_runtime_profile(
-                    manifest=manifest,
-                    runtime_profile=runtime_profile,
-                )
-                manifest = ownership_result.manifest
+            # OMN-17985: use the validated boot profile. OMN-19513: validate
+            # exclusions even when discovery is empty, before any wiring begins.
+            runtime_profile = resolve_runtime_profile_name()
+            ownership_result = filter_manifest_for_runtime_profile(
+                manifest=manifest,
+                runtime_profile=runtime_profile,
+            )
+            manifest = ownership_result.manifest
+            if auto_wiring_manifest_discovered.total_discovered > 0:
                 if ownership_result.folded_profiles:
                     # OMN-17427: this runtime carries other roles' nodes too.
                     logger.info(
@@ -3686,6 +3716,44 @@ async def bootstrap() -> int:
                             ),
                         },
                     )
+
+                # Select profile/lane/nodes before probing required secrets.
+                # Infisical prefetch must finish before the env presence check;
+                # a failed best-effort prefetch never bypasses this gate.
+                if config.name and not env_secret_store_is_authoritative(
+                    kernel_profile.prefetch_policy,
+                    os.environ.get("INFISICAL_ADDR", ""),
+                ):
+                    # config.name is the runtime's service_name, so this is the
+                    # slug the runtime's own prefetch would use. No handler
+                    # registry exists yet: a "skipped" result (no inline
+                    # Infisical credentials) stays pending so the runtime retries
+                    # with a registry ProtocolSecretResolver; the gate below
+                    # then fails closed on the unpopulated environment.
+                    kernel_prefetch_status = await prefetch_runtime_config(
+                        container=container,
+                        service_slug=config.name,
+                        prefetch_policy=kernel_profile.prefetch_policy,
+                    )
+                    if kernel_prefetch_status != "skipped":
+                        config_prefetch_status = kernel_prefetch_status
+                manifest = gate_manifest_on_required_secrets(
+                    manifest,
+                    drop_blank_secret_names(
+                        await resolve_present_secret_names(
+                            AdapterEnvSecretStore().list_keys,
+                            required_secret_names(manifest),
+                        ),
+                        os.environ,
+                    ),
+                )
+                # OMN-21288: serve the contracts' declared HTTP mounts now, ahead
+                # of lifecycle hooks and handler wiring, so a mount answers while
+                # they run. A mount that cannot be built fails boot here.
+                health_server.attach_manifest(manifest)
+                # auto_wiring_manifest_discovered keeps the full discovery
+                # result: the cross-profile effect lookup below (OMN-14517)
+                # raises RuntimeHostError on cold boot when it is narrowed.
 
                 # 2. Collect topics already claimed by explicit plugins
                 #    by inspecting registered routes on the dispatch engine
@@ -3742,16 +3810,11 @@ async def bootstrap() -> int:
                     )
 
                 # 4. Filter manifest to exclude quarantined contracts
-                from omnibase_infra.runtime.auto_wiring.models import (
-                    ModelAutoWiringManifest,
-                )
-
                 filtered_contracts = tuple(
                     c for c in manifest.contracts if c.name not in quarantined_names
                 )
-                filtered_manifest = ModelAutoWiringManifest(
-                    contracts=filtered_contracts,
-                    errors=manifest.errors,
+                filtered_manifest = manifest.model_copy(
+                    update={"contracts": filtered_contracts}
                 )
                 auto_wiring_manifest_for_subscriptions = filtered_manifest
                 db_io_contracts = tuple(
@@ -4106,82 +4169,6 @@ async def bootstrap() -> int:
             correlation_id,
         )
 
-        # Start HTTP health server before long Kafka subscription work. At this
-        # point RuntimeHostProcess does not exist yet, so ServiceHealth serves
-        # startup liveness with runtime_attached=false. RuntimeHostProcess is
-        # created and attached immediately below (OMN-13768), still before the
-        # long-running Kafka subscription work further down.
-        http_port_str = os.getenv("ONEX_HTTP_PORT", str(DEFAULT_HTTP_PORT))
-        try:
-            http_port = int(http_port_str)
-            if not MIN_PORT <= http_port <= MAX_PORT:
-                logger.warning(
-                    "ONEX_HTTP_PORT %d outside valid range %d-%d, using default %d (correlation_id=%s)",
-                    http_port,
-                    MIN_PORT,
-                    MAX_PORT,
-                    DEFAULT_HTTP_PORT,
-                    correlation_id,
-                )
-                http_port = DEFAULT_HTTP_PORT
-        except ValueError:
-            logger.warning(
-                "Invalid ONEX_HTTP_PORT value '%s', using default %d (correlation_id=%s)",
-                http_port_str,
-                DEFAULT_HTTP_PORT,
-                correlation_id,
-            )
-            http_port = DEFAULT_HTTP_PORT
-
-        health_server = ServiceHealth(
-            container=container,
-            port=http_port,
-            version=KERNEL_VERSION,
-        )
-        # OMN-15217: publish the runtime health monitor's verdict on /health.
-        # The monitor is started above (step 3) and owns the semantic view of
-        # runtime health — contract discovery errors, consumer-group coverage,
-        # topic coverage. Without this line that verdict never leaves the
-        # container logs and /health reports a DEGRADED runtime as healthy.
-        # When the monitor did not start (non-Kafka profiles, startup failure)
-        # the provider is left unset and the payload carries a null verdict.
-        if runtime_health_monitor is not None:
-            health_server.set_runtime_health_provider(
-                lambda: (
-                    runtime_health_monitor.latest_event
-                    if runtime_health_monitor is not None
-                    else None
-                )
-            )
-        health_start_time = time.time()
-        await health_server.start()
-        health_start_duration = time.time() - health_start_time
-        logger.debug(
-            "Health server started in %.3fs before Kafka subscriptions (correlation_id=%s)",
-            health_start_duration,
-            correlation_id,
-            extra={
-                "duration_seconds": health_start_duration,
-                "port": http_port,
-                "runtime_attached": False,
-            },
-        )
-
-        # OMN-13768: RuntimeHostProcess is created, registered in the container,
-        # and attached to the health server HERE — before the long-running Kafka
-        # subscription work below (subscribe_wired_contract_topics/plugin consumer
-        # start/ContractRegistrationEventRouter wiring, which the module docstring
-        # notes "may take 10+ min"). Previously this block ran *after* that work,
-        # so ServiceHealth._runtime stayed None for the whole subscription window
-        # and GET /ready raised ProtocolConfigurationError [ONEX_CORE_041]
-        # ("RuntimeHostProcess not available") even though the auto-wired
-        # consumers below were already processing events. None of the
-        # RegistryProtocolBinding/RuntimeHostProcess construction inputs
-        # (container, event_bus, dispatch_engine, node_graph_config,
-        # kernel_profile, contracts_dir, auto_wiring_manifest_for_subscriptions)
-        # depend on the subscription work that used to precede this block, so
-        # the reorder is dependency-safe. See docs/handoffs/2026-07-01 write-up.
-
         # 5. Resolve RegistryProtocolBinding from container or create new instance
         # NOTE: Fallback to creating new instance is intentional degraded mode behavior.
         # The handler registry is optional for basic runtime operation - core event
@@ -4263,16 +4250,9 @@ async def bootstrap() -> int:
         # TRIGGER FOR SPLIT: Split when ServiceKernel supports registering multiple
         # node contracts under one service runtime.
         #
-        # Why both fields get the same value:
-        # - For services using simplified config with just 'name', there's no semantic
-        #   distinction between service and node - a single service hosts a single node
-        # - RuntimeHostProcess uses these to construct ModelNodeIdentity for Kafka
-        #   consumer group IDs and event routing
-        # - The introspection consumer group format is:
-        #   {env}.{service_name}.{node_name}.{purpose}.{version}
-        #   e.g., "local.my-service.my-service.introspection.v1"
-        # - When service_name == node_name, the format is intentionally redundant but
-        #   maintains consistency with multi-node deployments where they would differ
+        # RuntimeHostProcess builds its Kafka consumer group IDs from these:
+        # {env}.{service_name}.{node_name}.{purpose}.{version}. service_name carries
+        # the node selection (OMN-18087); a simple config has service == node.
         runtime_create_start_time = time.time()
         runtime_config_dict = cast("dict[str, object]", config.model_dump(mode="json"))
         if not config.name:
@@ -4284,7 +4264,7 @@ async def bootstrap() -> int:
             # runtime config, which in a container means the contracts
             # bind-mount resolved to a directory with no runtime_config.yaml
             # in it (an empty or wrongly-targeted ONEX_CONTRACTS_DIR). That is
-            # what happened on the .201 dev lane when a failed deploy's
+            # what happened on the lab dev lane host when a failed deploy's
             # rollback removed the deployed tree out from under the running
             # containers and Docker re-created the bind source empty.
             #
@@ -4305,50 +4285,55 @@ async def bootstrap() -> int:
                 ),
                 config_path=str(_runtime_config_path),
             )
-        runtime_config_dict["service_name"] = config.name
+        runtime_config_dict["service_name"] = node_selection.consumer_service(
+            config.name
+        )
         runtime_config_dict["node_name"] = config.name
 
-        # 6.1 Create introspection service (OMN-5609)
+        # 6.1 Create introspection service (OMN-5609, OMN-24496)
         # Wire contract data into introspection so published events include
         # metadata.description, event_bus topics, and contract_capabilities.
-        # Without this, RuntimeHostProcess receives introspection_service=None
-        # and silently skips all introspection publishing.
-        #
         # The registration orchestrator contract is used as the primary
         # contract source because it is the principal node in the kernel
         # and declares all subscribe/publish topics.
-        introspection_service = None
-        if config.name:
-            try:
-                from omnibase_infra.services.service_node_introspection import (
-                    ServiceNodeIntrospection,
-                )
+        #
+        # OMN-24496: The heartbeat is mandatory. A kernel runtime without a
+        # working introspection service would run silently without
+        # heartbeats, so there is no None fallback here:
+        # build_required_service REFUSES the startup with a typed
+        # RuntimeHeartbeatRequiredError (carrying a refusal counter) and the
+        # exception propagates — the runtime does not start. Nothing is
+        # announced for a runtime that does not heartbeat.
+        from omnibase_infra.services.service_node_introspection import (
+            ServiceNodeIntrospection,
+        )
 
-                # Use registration orchestrator contract (primary kernel node)
-                _registration_contract_dir = (
-                    Path(__file__).resolve().parent.parent
-                    / "nodes"
-                    / "node_registration_orchestrator"
-                )
-                introspection_service = ServiceNodeIntrospection.from_contract_dir(
-                    contracts_dir=_registration_contract_dir,
-                    event_bus=event_bus,
-                    node_name=config.name,
-                    environment=environment,
-                )
-                logger.info(
-                    "Introspection service created for node '%s' (correlation_id=%s)",
-                    config.name,
-                    correlation_id,
-                )
-            except Exception as intro_err:  # noqa: BLE001 — boundary: logs warning and degrades
-                logger.warning(
-                    "Failed to create introspection service, introspection "
-                    "will be disabled: %s (correlation_id=%s)",
-                    intro_err,
-                    correlation_id,
-                    extra={"error_type": type(intro_err).__name__},
-                )
+        # Use registration orchestrator contract (primary kernel node)
+        _registration_contract_dir = (
+            Path(__file__).resolve().parent.parent
+            / "nodes"
+            / "node_registration_orchestrator"
+        )
+
+        def _build_introspection_service() -> ServiceNodeIntrospection:
+            return ServiceNodeIntrospection.from_contract_dir(
+                contracts_dir=_registration_contract_dir,
+                event_bus=event_bus,
+                node_name=config.name or "",
+                environment=environment,
+            )
+
+        introspection_service = await _Startup().build_required_service(
+            runtime_name=config.name,
+            correlation_id=correlation_id,
+            build=_build_introspection_service,
+            event_bus=event_bus,
+        )
+        logger.info(
+            "Introspection service created for node '%s' (correlation_id=%s)",
+            config.name,
+            correlation_id,
+        )
 
         runtime = RuntimeHostProcess(
             container=container,
@@ -4373,11 +4358,13 @@ async def bootstrap() -> int:
             # cannot verify structural protocol conformance across mixin chains.
             # Why: Runtime wiring validates and narrows this payload shape before use.
             introspection_service=introspection_service,  # type: ignore[arg-type]
+            heartbeat_required=True,
             # OMN-6334: Pass contract-driven runtime config so RuntimeHostProcess
             # uses contract values instead of DEFAULT_* constants.
             runtime_node_graph_config=node_graph_config,
             # OMN-10587: Wire prefetch policy from runtime profile.
             prefetch_policy=kernel_profile.prefetch_policy,
+            config_prefetch_status=config_prefetch_status,
             # OMN-15418: Thread the same checked-in topology used by cold boot
             # into post-freeze Kafka contract materialization.
             deployment_topology=deployment_topology,
@@ -4393,6 +4380,8 @@ async def bootstrap() -> int:
                 "output_topic": config.output_topic,
             },
         )
+
+        # Register and attach the runtime before Kafka subscriptions (OMN-13768).
         if container.service_registry is not None:
             try:
                 await container.service_registry.register_instance(
@@ -4448,6 +4437,45 @@ async def bootstrap() -> int:
                 ),
             )
             health_server.attach_manifest(_introspection_manifest)
+
+        # --- Pass 2: Start consumers for ready plugins only ---
+        # OMN-18087: Pass 2 runs BEFORE the auto-wired interleave below. Plugin
+        # consumers (delegation among them) are a handful of topics; behind the
+        # interleave they waited for every auto-wired group join, and on the dev lane on
+        # 2026-10-28 delegation had no consumer for 37 minutes of that wait.
+        # ready_plugins is a subset of activated_plugins: only plugins that
+        # completed wire_handlers() successfully. This prevents starting
+        # consumers for plugins with no handlers/dispatchers wired.
+        for plugin in ready_plugins:
+            plugin_id = plugin.plugin_id
+            try:
+                consumer_result = await plugin.start_consumers(plugin_config)
+                if not consumer_result.success:
+                    logger.warning(
+                        "Plugin '%s' failed to start consumers: %s (correlation_id=%s)",
+                        plugin_id,
+                        consumer_result.get_error_message_or_default(
+                            consumer_result.message or "unknown"
+                        ),
+                        correlation_id,
+                    )
+                    continue
+                if consumer_result.unsubscribe_callbacks:
+                    plugin_unsubscribe_callbacks.extend(
+                        consumer_result.unsubscribe_callbacks
+                    )
+                logger.info(
+                    "Plugin '%s' consumers started (correlation_id=%s)",
+                    plugin_id,
+                    correlation_id,
+                )
+            except Exception:  # noqa: BLE001 — boundary: logs warning and degrades
+                logger.warning(
+                    "Plugin '%s' failed to start consumers (correlation_id=%s)",
+                    plugin_id,
+                    correlation_id,
+                    exc_info=True,
+                )
 
         # OMN-13768: the long-running Kafka subscription work (per-contract
         # boot interleave, plugin consumer start, ContractRegistrationEventRouter
@@ -4531,12 +4559,37 @@ async def bootstrap() -> int:
                 correlation_id,
             )
 
+            boot_readiness_checks.start_ready_bound_watch(
+                runtime.readiness_check, os.environ, plugin_unsubscribe_callbacks
+            )
             _attach_results: list[ModelContractAttachResult] = []
             # OMN-17372: the interleave reports the contracts it will NEVER
             # attempt, so the gate requires only what can actually report.
             # Without this the gate waits forever on a contract the interleave
             # filtered out, and /ready is 503 for the life of the process.
             _attach_exclusions: list[ModelContractAttachExclusion] = []
+            # OMN-18087: the runtime config contract declares which contracts
+            # join at boot. ``in_use`` joins only the contracts whose topics
+            # hold a record on the broker and starts each of the rest on its
+            # first request; the in-memory bus has no broker to ask, so it
+            # joins every contract as before.
+            from omnibase_infra.handlers.handler_kafka_topic_demand_source import (
+                HandlerKafkaTopicDemandSource,
+            )
+
+            _demand_source: HandlerKafkaTopicDemandSource | None = None
+            if config.boot_subscriptions.policy == "in_use" and isinstance(
+                event_bus, EventBusKafka
+            ):
+                _demand_source = HandlerKafkaTopicDemandSource(container)
+            logger.info(
+                "Boot subscription policy=%s demand_start=%s (OMN-18087, "
+                "correlation_id=%s)",
+                config.boot_subscriptions.policy,
+                _demand_source is not None,
+                correlation_id,
+            )
+            _demand_watch_stops: list[Callable[[], Awaitable[None]]] = []
             auto_wired_subscriptions = await subscribe_wired_contract_topics(
                 manifest=auto_wiring_manifest_for_subscriptions,
                 report=auto_wiring_report,
@@ -4550,6 +4603,12 @@ async def bootstrap() -> int:
                 exclusions_out=_attach_exclusions,
                 core_runtime_topics=core_runtime_topics,
                 core_runtime_owners=core_runtime_owners,
+                demand_source=_demand_source,
+                demand_watch_stops_out=_demand_watch_stops,
+            )
+            plugin_unsubscribe_callbacks.extend(_demand_watch_stops)
+            boot_readiness_checks.report_roster_partition(
+                auto_wiring_report.results, _attach_results, _attach_exclusions
             )
             _contract_attach_gate.exclude(tuple(_attach_exclusions))
             _contract_attach_gate.record(tuple(_attach_results))
@@ -4719,41 +4778,6 @@ async def bootstrap() -> int:
                     correlation_id,
                 )
 
-        # --- Pass 2: Start consumers for ready plugins only ---
-        # ready_plugins is a subset of activated_plugins: only plugins that
-        # completed wire_handlers() successfully. This prevents starting
-        # consumers for plugins with no handlers/dispatchers wired.
-        for plugin in ready_plugins:
-            plugin_id = plugin.plugin_id
-            try:
-                consumer_result = await plugin.start_consumers(plugin_config)
-                if not consumer_result.success:
-                    logger.warning(
-                        "Plugin '%s' failed to start consumers: %s (correlation_id=%s)",
-                        plugin_id,
-                        consumer_result.get_error_message_or_default(
-                            consumer_result.message or "unknown"
-                        ),
-                        correlation_id,
-                    )
-                    continue
-                if consumer_result.unsubscribe_callbacks:
-                    plugin_unsubscribe_callbacks.extend(
-                        consumer_result.unsubscribe_callbacks
-                    )
-                logger.info(
-                    "Plugin '%s' consumers started (correlation_id=%s)",
-                    plugin_id,
-                    correlation_id,
-                )
-            except Exception:  # noqa: BLE001 — boundary: logs warning and degrades
-                logger.warning(
-                    "Plugin '%s' failed to start consumers (correlation_id=%s)",
-                    plugin_id,
-                    correlation_id,
-                    exc_info=True,
-                )
-
         plugin_activation_duration = time.time() - plugin_activation_start
         logger.info(
             "Plugin activation completed in %.3fs: %d/%d plugins activated "
@@ -4856,6 +4880,8 @@ async def bootstrap() -> int:
             """Handle shutdown signal with correlation tracking."""
             nonlocal shutdown_reason
             shutdown_reason = f"signal:{sig.name}"
+            if health_server is not None and shared_listener_enabled:
+                health_server.mark_stopping()
             logger.info(
                 "Received %s, initiating graceful shutdown... (correlation_id=%s)",
                 sig.name,
@@ -5008,11 +5034,11 @@ async def bootstrap() -> int:
                 )
             else:
                 # Create typed node identity for contract registry subscriptions
-                contract_node_identity = ModelNodeIdentity(
-                    env=environment,
-                    service=config.name or "onex-kernel",
-                    node_name="contract-registry",
-                    version=config.contract_version or "v1",
+                contract_node_identity = node_selection.kernel_identity(
+                    environment,
+                    config.name,
+                    "contract-registry",
+                    config.contract_version,
                 )
 
                 # Subscribe to 3 contract lifecycle topics with same identity
@@ -5117,17 +5143,21 @@ async def bootstrap() -> int:
                     },
                 )
 
-                # OMN-21031: nothing published contract-registered, so these
-                # consumers (attached above, before this publish) idled and
-                # public.contracts stayed empty. Announce every contract the
-                # discovery pass found.
+                # OMN-21031 filled public.contracts by publishing one
+                # contract-registered record per contract. OMN-21590: the node
+                # catalog is the source now, so the router is fed the same events
+                # in process and a boot publishes nothing on that topic.
                 if auto_wiring_manifest_discovered is not None:
-                    await publish_contract_registrations(
-                        event_bus=event_bus,
-                        topic=contract_registered_topic,
-                        contracts=auto_wiring_manifest_discovered.contracts,
-                        correlation_id=correlation_id,
-                    )
+                    for registered_event in build_registered_events(
+                        auto_wiring_manifest_discovered.contracts, correlation_id
+                    ):
+                        await contract_router.register_announced(
+                            registered_event,
+                            correlation_id,
+                            topic=ModelNodeAnnouncementTopic.suffix_for(
+                                runtime_profile
+                            ),
+                        )
 
         # 9.6b. Start the lane's runtime tick producer (OMN-20590).
         # RuntimeScheduler (OMN-953) was never started by any runtime, so
@@ -5138,84 +5168,6 @@ async def bootstrap() -> int:
             event_bus,
             resolve_runtime_profile_name(),
         )
-
-        # 9.7. Start runtime error triage consumer (OMN-5655)
-        # Subscribes to runtime-error events and routes them to the
-        # HandlerRuntimeErrorTriage for first-match-wins triage processing.
-        # (triage_unsub pre-declared before try block)
-        if postgres_pool is not None and has_subscribe:
-            try:
-                from omnibase_infra.nodes.node_runtime_error_triage_effect.handlers.handler_runtime_error_triage import (
-                    HandlerRuntimeErrorTriage,
-                )
-                from omnibase_infra.runtime.event_bus_subcontract_wiring import (
-                    load_published_events_map,
-                )
-
-                triage_handler = HandlerRuntimeErrorTriage(db_pool=postgres_pool)
-                # The escalation topic comes from the node contract, never a literal.
-                triage_published_events = load_published_events_map(
-                    Path(inspect.getfile(HandlerRuntimeErrorTriage)).parents[1]
-                    / "contract.yaml",
-                    logger,
-                )
-
-                triage_topic_resolver = create_topic_resolver()
-                runtime_error_topic = triage_topic_resolver.resolve(
-                    SUFFIX_RUNTIME_ERROR,
-                    correlation_id=correlation_id,
-                )
-                triage_node_identity = ModelNodeIdentity(
-                    env=environment,
-                    service=config.name or "onex-kernel",
-                    node_name="runtime-error-triage",
-                    version="v1",
-                )
-
-                async def _triage_on_message(
-                    message: ModelEventMessage,
-                ) -> None:
-                    """Deserialize runtime error event and dispatch to triage handler."""
-                    import json as _json
-
-                    from omnibase_infra.models.health.model_runtime_error_event import (
-                        ModelRuntimeErrorEvent,
-                    )
-
-                    try:
-                        payload = _json.loads(message.value)
-                        event = ModelRuntimeErrorEvent.model_validate(payload)
-                        triage_output = await triage_handler.handle(event)
-                        await publish_triage_escalations(
-                            event_bus=event_bus,
-                            output=triage_output,
-                            topics_by_event=triage_published_events,
-                        )
-                    except Exception:  # noqa: BLE001 — boundary: consumer must not crash
-                        logger.warning(
-                            "Failed to process runtime error triage event",
-                            exc_info=True,
-                        )
-
-                triage_unsub = await event_bus.subscribe(
-                    topic=runtime_error_topic,
-                    node_identity=triage_node_identity,
-                    on_message=_triage_on_message,
-                    purpose=EnumConsumerGroupPurpose.CONSUME,
-                    required_for_readiness=False,
-                )
-
-                logger.info(
-                    "Runtime error triage consumer started (topic=%s, correlation_id=%s)",
-                    runtime_error_topic,
-                    correlation_id,
-                )
-            except Exception:  # noqa: BLE001 — boundary: triage is non-critical
-                logger.warning(
-                    "Failed to start runtime error triage consumer (correlation_id=%s)",
-                    correlation_id,
-                    exc_info=True,
-                )
 
         # Calculate total bootstrap time
         bootstrap_duration = time.time() - bootstrap_start_time
@@ -5381,6 +5333,10 @@ async def bootstrap() -> int:
             correlation_id,
         )
 
+        # OMN-22377 (A5): drain before readiness teardown, only when opted in.
+        if health_server is not None and shared_listener_enabled:
+            await health_server.drain_shared_listener()
+
         # Stop ServiceRuntimeHealthMonitor before tearing down runtime consumers.
         if runtime_health_monitor is not None:
             try:
@@ -5480,22 +5436,6 @@ async def bootstrap() -> int:
         contract_unsub_registered = None
         contract_unsub_deregistered = None
         contract_unsub_heartbeat = None
-
-        # Unsubscribe runtime error triage consumer (OMN-5655)
-        if triage_unsub is not None:
-            try:
-                await triage_unsub()
-                logger.debug(
-                    "Runtime error triage consumer stopped (correlation_id=%s)",
-                    correlation_id,
-                )
-            except Exception as unsub_error:  # noqa: BLE001 — boundary: logs warning and degrades
-                logger.warning(
-                    "Failed to stop runtime error triage consumer: %s (correlation_id=%s)",
-                    sanitize_error_message(unsub_error),
-                    correlation_id,
-                )
-            triage_unsub = None
 
         if build_loop_db_handler is not None:
             try:
@@ -5620,17 +5560,7 @@ async def bootstrap() -> int:
         # Stop health server (fast, non-blocking)
         if health_server is not None:
             try:
-                health_stop_start_time = time.time()
                 await health_server.stop()
-                health_stop_duration = time.time() - health_stop_start_time
-                logger.debug(
-                    "Health server stopped in %.3fs (correlation_id=%s)",
-                    health_stop_duration,
-                    correlation_id,
-                    extra={
-                        "duration_seconds": health_stop_duration,
-                    },
-                )
             except Exception as health_stop_error:  # noqa: BLE001 — boundary: logs warning and degrades
                 logger.warning(
                     "Failed to stop health server: %s (correlation_id=%s)",
@@ -5773,17 +5703,6 @@ async def bootstrap() -> int:
                         sanitize_error_message(cleanup_error),
                         correlation_id,
                     )
-
-        # Cleanup runtime error triage consumer (OMN-5655)
-        if triage_unsub is not None:
-            try:
-                await triage_unsub()
-            except Exception as cleanup_error:  # noqa: BLE001 — boundary: logs warning and degrades
-                logger.warning(
-                    "Failed to stop runtime error triage consumer during cleanup: %s (correlation_id=%s)",
-                    sanitize_error_message(cleanup_error),
-                    correlation_id,
-                )
 
         if build_loop_db_handler is not None:
             try:
@@ -6103,4 +6022,5 @@ __all__: list[str] = [
     "load_runtime_config",
     "main",
     "raise_nofile_soft_limit",
+    "workspace_runtime_contracts_dir",
 ]

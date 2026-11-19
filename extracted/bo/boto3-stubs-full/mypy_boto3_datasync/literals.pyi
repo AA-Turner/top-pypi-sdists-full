@@ -158,6 +158,7 @@ UidType = Literal["BOTH", "INT_VALUE", "NAME", "NONE"]
 VerifyModeType = Literal["NONE", "ONLY_FILES_TRANSFERRED", "POINT_IN_TIME_CONSISTENT"]
 DataSyncServiceName = Literal["datasync"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

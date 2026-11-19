@@ -81,6 +81,7 @@ SpeakerStatusType = Literal["ENROLLED", "EXPIRED", "OPTED_OUT", "PENDING"]
 StreamingStatusType = Literal["ENDED", "ONGOING", "PENDING_CONFIGURATION"]
 VoiceIDServiceName = Literal["voice-id"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -277,6 +277,7 @@ UploadTypeType = Literal[
 ]
 DeviceFarmServiceName = Literal["devicefarm"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

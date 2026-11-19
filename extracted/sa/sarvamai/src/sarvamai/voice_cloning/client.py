@@ -64,7 +64,7 @@ class VoiceCloningClient:
 
         Provide **exactly one** of:
         - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
-        - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
+        - `ref_audio` — a reference audio clip uploaded with this request (`ref_text` has been deprecated).
 
         Sending both returns `400`. A saved `voice_id` avoids re-uploading the clip on every call.
 
@@ -89,7 +89,7 @@ class VoiceCloningClient:
             See core.File for more documentation
 
         ref_text : typing.Optional[str]
-            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+            Deprecated. No longer needed, since the API transcribes `ref_audio` automatically.
 
         language_code : typing.Optional[VoiceCloningLanguage]
             BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning). Omit it to detect the language from `text`. Detection can be wrong on short or code-mixed text — pass this when pronunciation has to be exact. Romanized Indic and Urdu return 400; short Assamese without ৰ or ৱ is often detected as Bengali, so pass `as-IN`.
@@ -211,7 +211,7 @@ class VoiceCloningClient:
 
         Provide **exactly one** of:
         - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
-        - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
+        - `ref_audio` — a reference audio clip uploaded with this request (`ref_text` has been deprecated).
 
         Sending both returns `400`. `language_code` is optional — omit it to detect the language from `text`, or pass it when pronunciation has to be exact. The response is a binary audio stream (not JSON), so you can begin playback as soon as the first sentence is ready.
 
@@ -238,7 +238,7 @@ class VoiceCloningClient:
             See core.File for more documentation
 
         ref_text : typing.Optional[str]
-            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+            Deprecated. No longer needed, since the API transcribes `ref_audio` automatically.
 
         language_code : typing.Optional[VoiceCloningLanguage]
             BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning). Omit it to detect the language from `text`. Detection can be wrong on short or code-mixed text — pass this when pronunciation has to be exact. Romanized Indic and Urdu return 400; short Assamese without ৰ or ৱ is often detected as Bengali, so pass `as-IN`.
@@ -607,7 +607,7 @@ class AsyncVoiceCloningClient:
 
         Provide **exactly one** of:
         - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
-        - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
+        - `ref_audio` — a reference audio clip uploaded with this request (`ref_text` has been deprecated).
 
         Sending both returns `400`. A saved `voice_id` avoids re-uploading the clip on every call.
 
@@ -632,7 +632,7 @@ class AsyncVoiceCloningClient:
             See core.File for more documentation
 
         ref_text : typing.Optional[str]
-            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+            Deprecated. No longer needed, since the API transcribes `ref_audio` automatically.
 
         language_code : typing.Optional[VoiceCloningLanguage]
             BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning). Omit it to detect the language from `text`. Detection can be wrong on short or code-mixed text — pass this when pronunciation has to be exact. Romanized Indic and Urdu return 400; short Assamese without ৰ or ৱ is often detected as Bengali, so pass `as-IN`.
@@ -762,7 +762,7 @@ class AsyncVoiceCloningClient:
 
         Provide **exactly one** of:
         - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
-        - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
+        - `ref_audio` — a reference audio clip uploaded with this request (`ref_text` has been deprecated).
 
         Sending both returns `400`. `language_code` is optional — omit it to detect the language from `text`, or pass it when pronunciation has to be exact. The response is a binary audio stream (not JSON), so you can begin playback as soon as the first sentence is ready.
 
@@ -789,7 +789,7 @@ class AsyncVoiceCloningClient:
             See core.File for more documentation
 
         ref_text : typing.Optional[str]
-            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+            Deprecated. No longer needed, since the API transcribes `ref_audio` automatically.
 
         language_code : typing.Optional[VoiceCloningLanguage]
             BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning). Omit it to detect the language from `text`. Detection can be wrong on short or code-mixed text — pass this when pronunciation has to be exact. Romanized Indic and Urdu return 400; short Assamese without ৰ or ৱ is often detected as Bengali, so pass `as-IN`.

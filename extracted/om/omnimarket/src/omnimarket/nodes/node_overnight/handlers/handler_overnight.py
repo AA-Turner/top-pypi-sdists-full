@@ -1228,7 +1228,6 @@ def _dispatch_build_loop(
     from typing import cast
     from uuid import uuid4
 
-    from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
     from omnibase_core.protocols.event_bus.protocol_event_bus_publisher import (
         ProtocolEventBusPublisher,
     )
@@ -1239,9 +1238,12 @@ def _dispatch_build_loop(
     from omnimarket.nodes.node_build_loop_orchestrator.handlers.handler_build_loop_orchestrator import (
         HandlerBuildLoopOrchestrator,
     )
+    from omnimarket.nodes.node_overnight.container.container_inmemory import (
+        bind_event_bus,
+    )
 
     handler = HandlerBuildLoopOrchestrator(
-        event_bus=cast(ProtocolEventBusPublisher, EventBusInmemory())
+        event_bus=cast(ProtocolEventBusPublisher, bind_event_bus())
     )
     build_cmd = ModelLoopStartCommand(
         correlation_id=uuid4(),
@@ -1262,19 +1264,15 @@ def _dispatch_merge_sweep(
 ) -> tuple[bool, str | None]:
     """Dispatch merge sweep.
 
-    Requires a PR inventory (``list[ModelPRInfo]``) that must be collected
-    from GitHub before the sweep can classify anything. MVP passes an empty
-    list to prove the wiring; a follow-up ticket must add a PR-inventory
-    adapter before this produces real output.
+    An empty PR inventory yields the default ``nothing_to_merge`` result.
+    A follow-up ticket must add a PR-inventory adapter before this produces
+    real output.
     """
-    from omnimarket.nodes.node_merge_sweep_compute.handlers.handler_merge_sweep import (
-        ModelMergeSweepRequest,
-        NodeMergeSweep,
+    from omnimarket.models.merge_sweep.model_merge_sweep_result import (
+        ModelMergeSweepResult,
     )
 
-    handler = NodeMergeSweep()
-    request = ModelMergeSweepRequest(prs=[])
-    result = handler.handle(request)
+    result = ModelMergeSweepResult()
     logger.info("[OVERNIGHT] merge_sweep status: %s", result.status)
     return True, None
 

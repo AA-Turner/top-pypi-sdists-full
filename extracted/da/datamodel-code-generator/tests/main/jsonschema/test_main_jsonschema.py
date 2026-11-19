@@ -141,6 +141,7 @@ from tests.main.jsonschema.conftest import EXPECTED_JSON_SCHEMA_PATH, assert_fil
 if TYPE_CHECKING:
     from datamodel_code_generator.model.base import DataModelFieldBase
     from datamodel_code_generator.parser.base import Result
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaObject
     from datamodel_code_generator.reference import Reference
     from tests.main.conftest import InputFileTypeLiteral
 
@@ -3785,6 +3786,58 @@ def test_main_jsonschema_field_type_collision_runtime(
             f"{getattr(parsed.values.left, field_name).x}\n",
             DATA_PATH / "expected/payloads/field_type_collision_runtime/runtime.txt",
         )
+
+
+@pytest.mark.parametrize("output_model_type", ["pydantic_v2.BaseModel", "pydantic_v2.dataclass"])
+def test_main_jsonschema_field_named_like_type_beside_enum_named_base(
+    output_file: Path, output_model_type: str
+) -> None:
+    """Rename a field named like its type in a model whose base class name contains ``Enum`` but which is no enum.
+
+    ``Owner`` inherits the generated ``EnumerationBase`` and renames its field ``Pet`` as ``Shop`` does, so the module
+    imports.
+    """
+    input_path = JSON_SCHEMA_DATA_PATH / "field_named_like_type_beside_enum_named_base.json"
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=["--output-model-type", output_model_type, "--disable-timestamp"],
+    )
+    valid = {"owner": {"Pet": {"name": "a"}}, "shop": {"Pet": {"name": "b"}}, "Pet": {"name": "c"}}
+    invalid = {"owner": {"Pet": {"name": 1}}}
+    validator = Draft202012Validator(json.loads(input_path.read_text(encoding="utf-8")))
+    validator.validate(valid)
+    with pytest.raises(SchemaValidationError):
+        validator.validate(invalid)
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="field_named_like_type_beside_enum_named_base",
+        model_name="Store",
+        valid_json=json.dumps(valid),
+        invalid_json=json.dumps(invalid),
+        expected_error_type="string_type",
+        expected_attribute_path=("owner", "Pet_1", "name"),
+        expected_attribute_value="a",
+    )
+
+
+def test_main_jsonschema_field_named_like_type_beside_enum_named_custom_base(output_file: Path) -> None:
+    """Rename a field named like its type in a model whose custom base class name contains ``Enum``."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "field_named_like_type_beside_enum_named_base.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--base-class",
+            "mylib.EnumAwareModel",
+        ],
+    )
 
 
 def _annotation_type_names(annotation: Any) -> set[str]:
@@ -8996,6 +9049,32 @@ def test_main_unique_items_as_set_by_value(extra_args: list[str], expected_repr:
         invalid_json='{"codes": [], "colors": ["green"]}',
         expected_error_type="enum",
         expected_repr=expected_repr,
+    )
+
+
+def test_main_unique_items_as_set_by_value_inherited_fields(output_file: Path) -> None:
+    """Read the fields a frozen dataclass set item inherits nearest first, each model once, under by-value sets.
+
+    Row ``legacy-unique-sets-level-order``: ``Levels`` inherits ``x`` from ``B``, a direct base, and from ``Z``, the
+    base of ``A``; the fields are read nearest first, so ``x`` is ``B``'s string and ``levels`` is a set, where the
+    class takes ``Z``'s list (C3). ``Diamond`` reaches ``Y`` through ``P`` and ``Q`` and reads it once; its fields hash,
+    so ``diamond`` is a set.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "unique_items_by_value_inherited_fields.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "dataclasses.dataclass",
+            "--frozen-dataclasses",
+            "--use-unique-items-as-set",
+            "--use-unique-items-as-set-by-value",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
     )
 
 
@@ -16309,6 +16388,83 @@ def test_main_jsonschema_allof_unevaluated_closed_member(
             invalid_json=json.dumps(invalid),
             expected_error_type=expected_error_type,
         )
+
+
+def test_main_jsonschema_allof_unevaluated_closed_member_ref_siblings(output_file: Path) -> None:
+    """Test a closed allOf member ignores a dependentSchemas beside a ``$ref`` it evaluates, as it always has.
+
+    Without ``--read-ref-siblings-in-closed-allof-members`` the keywords beside that ``$ref`` are read only where the
+    member holds an applicator or a map keyword (row ``legacy-closing-ref-siblings-with-applicators``), so the member
+    still closes the model.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "allof_unevaluated_closed_member_ref_siblings.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin", "--disable-timestamp"],
+    )
+
+
+@pytest.mark.cli_doc(
+    options=["--read-ref-siblings-in-closed-allof-members"],
+    option_description="""Read every keyword beside a `$ref` that a closed allOf member evaluates.
+
+An allOf member with `unevaluatedProperties: false` closes the model where the schemas it evaluates name every
+property they evaluate. Without this option the keywords beside an allOf `$ref` of those schemas are read only where
+that `$ref` member holds an applicator (`allOf`, `anyOf`, `oneOf`, `if`), `patternProperties`, `additionalProperties`
+or `unevaluatedProperties`, as in 0.97.0: a `dependentSchemas` beside the `$ref`, which evaluates `owner` once `status`
+is present, is not read, so the model forbids extra keys and rejects `{"status": "x", "owner": "y"}`, which the schema
+accepts. With it they are read as the schema validators read them, wherever the schema version applies the keywords
+beside a `$ref`, so the member does not close the model and the payload validates.""",
+    input_schema="jsonschema/allof_unevaluated_closed_member_ref_siblings.json",
+    cli_args=["--read-ref-siblings-in-closed-allof-members"],
+    golden_output="main/jsonschema/main_jsonschema/read_ref_siblings_in_closed_allof_members[pydantic_v2.BaseModel].py",
+    comparison_output="main/jsonschema/main_jsonschema/allof_unevaluated_closed_member_ref_siblings.py",
+)
+@pytest.mark.parametrize(
+    "output_model_type",
+    [
+        "pydantic_v2.BaseModel",
+        "pydantic_v2.dataclass",
+        pytest.param(
+            "typing.TypedDict",
+            marks=pytest.mark.skipif(
+                sys.version_info < (3, 12), reason="pydantic reads a typing.TypedDict on Python 3.12 or later"
+            ),
+        ),
+    ],
+)
+def test_main_jsonschema_read_ref_siblings_in_closed_allof_members(output_file: Path, output_model_type: str) -> None:
+    """Test a dependentSchemas beside a ``$ref`` keeps a closed allOf member from closing the model, opt-in (#7087).
+
+    With ``--read-ref-siblings-in-closed-allof-members`` the member's ``$ref`` siblings are read as the schema
+    validators read them, so the payload whose ``owner`` the ``dependentSchemas`` evaluates validates, as it does
+    against the schema, and a ``status`` of the wrong type is rejected by both.
+    """
+    input_path = JSON_SCHEMA_DATA_PATH / "allof_unevaluated_closed_member_ref_siblings.json"
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *("--output-model-type", output_model_type, "--formatters", "builtin", "--disable-timestamp"),
+            *("--target-python-version", "3.10", "--read-ref-siblings-in-closed-allof-members"),
+        ],
+        force_exec_validation=True,
+    )
+    validator = Draft202012Validator(json.loads(input_path.read_text(encoding="utf-8")))
+    valid, invalid = {"status": "x", "owner": "y"}, {"status": 1, "owner": "y"}
+    validator.validate(valid)
+    with pytest.raises(SchemaValidationError):
+        validator.validate(invalid)
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=f"read_ref_siblings_in_closed_allof_members_{output_model_type.replace('.', '_')}",
+        model_name="Filters",
+        valid_json=json.dumps(valid),
+        invalid_json=json.dumps(invalid),
+        expected_error_type="string_type",
+    )
 
 
 def test_main_jsonschema_allof_closed_member_pattern(output_file: Path) -> None:
@@ -24276,6 +24432,22 @@ def test_main_jsonschema_collapse_root_models_empty_union(output_file: Path) -> 
     )
 
 
+@pytest.mark.parametrize("output_model_type", ["pydantic_v2.BaseModel", "typing.TypedDict"])
+def test_main_jsonschema_collapse_root_models_rule_categories(output_file: Path, output_model_type: str) -> None:
+    """Inline one root model into every field of the objects that merge the categories naming it (#7015).
+
+    Like ESLint's configuration schema: rule categories name the root model ``rule`` from each property, and two
+    ``rules`` objects merge every category with ``allOf``. Each field of the categories takes the inlined union, which
+    the ``rules`` model inherits.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "collapse_root_models_rule_categories.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--collapse-root-models", "--output-model-type", output_model_type],
+    )
+
+
 @pytest.mark.parametrize(
     "output_model_type",
     [
@@ -30078,7 +30250,17 @@ The `--generate-schema-validators` option emits schema-derived model validators
 for object constraints that cannot be represented as type hints alone, including
 minProperties/maxProperties on named object models, patternProperties on
 composed object models, required-only oneOf/anyOf groups, simple
-if/then/else required-property conditions, and uniqueItems array validation.
+if/then/else required-property conditions and the minimum, maximum,
+exclusiveMinimum and exclusiveMaximum that their then/else branches put on
+properties, uniqueItems array validation, and the JSON type of const and enum
+values: a boolean for a numeric value and a number for a boolean one, which
+Python's `True == 1` lets through, are rejected.
+The minContains (1 when absent) and maxContains of a contains are checked by
+counting the items the contains schema accepts, read as JSON Schema reads it,
+where that schema holds only type, const, enum, pattern, minLength, maxLength,
+minimum, maximum, exclusiveMinimum, exclusiveMaximum and multipleOf besides
+metadata; a contains with any other keyword (such as a `$ref`, `properties` or
+`format`) gets no count check.
 This feature is experimental and may change as JSON Schema coverage is expanded.
 
 With standard models and templates, required names absent from generated fields
@@ -35010,6 +35192,54 @@ def test_main_read_only_write_only_pattern_map_extras(
 
 
 @pytest.mark.parametrize(
+    ("output_model_type", "error_type"),
+    [
+        pytest.param("pydantic_v2.BaseModel", "extra_forbidden", id="pydantic_v2.BaseModel"),
+        pytest.param("pydantic_v2.dataclass", "unexpected_keyword_argument", id="pydantic_v2.dataclass"),
+    ],
+)
+@pytest.mark.parametrize("merge_option", ["--intersect-combined-schema-keywords", "--intersect-allof-keywords"])
+def test_main_read_only_write_only_closed_ref_beside_map_value(
+    output_file: Path, output_model_type: str, error_type: str, merge_option: str
+) -> None:
+    """Keep one class for a reference to a closed object beside a map value that names a readOnly model.
+
+    ``Holder`` is a $ref to ``Closed``, which admits no key, beside an additionalProperties naming the readOnly
+    ``Item``. The merge option intersects the two into a closed object whose builder types no value, so ``Holder``
+    keeps one class and the variants of the root model name it.
+    """
+    input_path = JSON_SCHEMA_DATA_PATH / "read_only_write_only_closed_ref_beside_map_value.json"
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=[
+            merge_option,
+            "--disable-timestamp",
+            "--output-model-type",
+            output_model_type,
+            "--read-only-write-only-model-type",
+            "request-response",
+        ],
+    )
+    valid = {"holder": {}, "count": 1}
+    invalid = {"holder": {"k": {"name": "n"}}}
+    validator = Draft202012Validator(json.loads(input_path.read_text(encoding="utf-8")))
+    validator.validate(valid)
+    with pytest.raises(SchemaValidationError):
+        validator.validate(invalid)
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="rw_closed_ref_beside_map_value",
+        model_name="ModelRequest",
+        valid_json=json.dumps(valid),
+        invalid_json=json.dumps(invalid),
+        expected_error_type=error_type,
+    )
+
+
+@pytest.mark.parametrize(
     "output_model_type", ["pydantic_v2.BaseModel", "dataclasses.dataclass", "typing.TypedDict", "msgspec.Struct"]
 )
 @pytest.mark.parametrize(
@@ -39174,6 +39404,36 @@ def test_conditional_json_equality(
 INLINE_ALLOF_SHARED_PAYLOADS = dict.fromkeys(("conditional", "count", "nested", "referenced"), "core")
 
 
+def test_schema_validators_inherit_runtime_base_through_plain_model(output_file: Path) -> None:
+    """Inherit the runtime validation base through a base that validates nothing itself.
+
+    ``Leaf`` and ``Parent`` each check an if/then rule; ``Middle``, between them, checks none. ``Leaf`` inherits the
+    runtime validation base through ``Middle`` and ``Parent``, so it lists only ``Middle`` and checks both rules.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "schema_validators_transitive_base.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--generate-schema-validators",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="schema_validators_transitive_base",
+        model_name="Leaf",
+        valid_json='{"mode": "a", "a-name": "n", "kind": "b", "b": "x"}',
+        invalid_json='{"mode": "a", "kind": "b", "b": "x"}',
+        expected_error_type="value_error",
+    )
+
+
 @pytest.mark.parametrize("formatter", ["builtin", "external"])
 @pytest.mark.parametrize("entrypoint", ["cli", "api"])
 @pytest.mark.parametrize(
@@ -39763,6 +40023,52 @@ def test_schema_graph_check_of_a_reader_that_writes_a_shared_schema(
     assert_output(str(parser.parse()))
     if flag == "report":
         assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+class _LoadedDocumentWriterParser(JsonSchemaParser):
+    """Writes a definition of the document being parsed when a reference loads: a reader that changes a loaded one."""
+
+    def _load_ref_schema_object(self, ref: str) -> Any:
+        self.raw_obj["$defs"]["Moved"]["description"] = "written"
+        return super()._load_ref_schema_object(ref)
+
+
+def test_schema_graph_check_of_a_reader_that_writes_a_loaded_document(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A reader that writes a document the loader read is reported: the check compares it with its first preparation.
+
+    The prepared tree shares the definitions without a `$ref` with the loaded document, so writing one writes both.
+    """
+    monkeypatch.setenv(CHECK_SCHEMA_GRAPH_ENV, "1")
+    parser = _LoadedDocumentWriterParser(
+        JSON_SCHEMA_DATA_PATH / "ref_edges" / "redirect.json", formatters=[Formatter.BUILTIN]
+    )
+    with pytest.raises(
+        Error, match=f"^{CHECK_SCHEMA_GRAPH_ENV}: loaded documents changed after their load: redirect.json$"
+    ):
+        parser.parse()
+
+
+class _PointerTargetWriterParser(JsonSchemaParser):
+    """Replaces the schema a reference loads in the document being parsed: a reader that writes a prepared tree."""
+
+    def _load_ref_schema_object(self, ref: str) -> JsonSchemaObject:
+        loaded = super()._load_ref_schema_object(ref)
+        self.raw_obj["properties"]["kept"] = {"type": "string"}
+        return loaded
+
+
+def test_schema_graph_check_of_a_reader_that_writes_a_pointer_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A value the record of a document keeps for a pointer is read anew at every ask: a written tree is reported."""
+    monkeypatch.setenv(CHECK_SCHEMA_GRAPH_ENV, "1")
+    parser = _PointerTargetWriterParser(
+        JSON_SCHEMA_DATA_PATH / "ref_edges" / "redirect.json", formatters=[Formatter.BUILTIN]
+    )
+    with pytest.raises(
+        Error,
+        match=f"^{CHECK_SCHEMA_GRAPH_ENV}: the value kept for redirect.json#/properties/kept differs from its "
+        "document$",
+    ):
+        parser.parse()
 
 
 class _NoOneOfMembersParser(JsonSchemaParser):

@@ -16,6 +16,7 @@ from .enums import (
     MediaType,
     ProviderFeature,
     ProviderIconVariant,
+    ProviderOffering,
     ProviderStage,
     ProviderTier,
     ProviderType,
@@ -164,11 +165,12 @@ class ProviderManifest(DataClassORJSONMixin):
     menu_actions: list[ProviderMenuAction] = field(default_factory=list)
     # mcp_tools: tools this provider offers to AI assistants through the MCP server
     mcp_tools: list[ProviderMCPTool] = field(default_factory=list)
-    # features: the features this provider offers whatever its config, known before it is
-    # loaded; the loaded provider may offer more (see ProviderInstance.supported_features)
-    features: set[ProviderFeature] = field(default_factory=set)
     # page: the page this provider serves, offered as an entry of its own in the main menu
     page: ProviderPage | None = None
+    # provides: optional metadata for discovery only, such as the Marketplace filters: the media
+    # types a music provider offers or the main features a plugin delivers, whatever its config,
+    # known before it is loaded
+    provides: set[ProviderOffering] = field(default_factory=set)
 
     @classmethod
     async def parse(cls, manifest_file: str) -> ProviderManifest:

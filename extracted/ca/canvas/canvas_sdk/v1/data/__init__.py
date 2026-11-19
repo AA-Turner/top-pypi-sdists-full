@@ -6,7 +6,11 @@ from .agent_run import (
     AgentRunSubject,
     AgentRunToolCall,
 )
-from .allergy_intolerance import AllergyIntolerance, AllergyIntoleranceCoding
+from .allergy_intolerance import (
+    AllergyIntolerance,
+    AllergyIntoleranceCoding,
+    AllergyIntoleranceReaction,
+)
 from .application import Application
 from .appointment import (
     Appointment,
@@ -15,6 +19,7 @@ from .appointment import (
     AppointmentMetadata,
 )
 from .assessment import Assessment
+from .authorization import Authorization, AuthorizationDiagnosisCode
 from .banner_alert import BannerAlert
 from .base import (
     MAX_BULK_SIZE,
@@ -60,7 +65,7 @@ from .coding_gap_event import (
 from .command import Command, CommandMetadata
 from .command_type_setting import CommandTypeSetting
 from .compound_medication import CompoundMedication
-from .condition import Condition, ConditionCoding
+from .condition import Condition, ConditionCategoryCoding, ConditionCoding
 from .coverage import Coverage, EligibilitySummary, Transactor, TransactorAddress, TransactorPhone
 from .custom_attribute import (
     AttributeHub,
@@ -69,8 +74,13 @@ from .custom_attribute import (
 )
 from .custom_command import CustomCommand
 from .detected_issue import DetectedIssue, DetectedIssueEvidence
-from .device import Device
-from .diagnostic_report import DiagnosticReport, DiagnosticReportStatus
+from .device import Device, DeviceCoding
+from .diagnostic_report import (
+    DiagnosticReport,
+    DiagnosticReportCategoryCoding,
+    DiagnosticReportCodeCoding,
+    DiagnosticReportStatus,
+)
 from .diagnostic_view import DiagnosticView
 from .discount import Discount
 from .django_content_type import ContentType
@@ -101,6 +111,7 @@ from .google_calendar import GoogleCalendar, GoogleCalendarBusyBlock, GoogleCale
 from .group import Group
 from .history_present_illness import HistoryOfPresentIllness
 from .imaging import (
+    ImagingCoding,
     ImagingOrder,
     ImagingOrderActionEvent,
     ImagingReport,
@@ -117,6 +128,7 @@ from .immunization import (
     ImmunizationStatement,
     ImmunizationStatementCoding,
 )
+from .inpatient import InpatientFacility, InpatientStay
 from .instruction import Instruction, InstructionCoding
 from .integration_task import (
     IntegrationTask,
@@ -132,6 +144,7 @@ from .lab import (
     LabOrderActionEvent,
     LabOrderReason,
     LabOrderReasonCondition,
+    LabOrderSpecimen,
     LabPartner,
     LabPartnerTest,
     LabPartnerTestQuestion,
@@ -146,8 +159,16 @@ from .lab import (
     LabTest,
     LabValue,
     LabValueCoding,
+    LabValuePerformer,
 )
-from .letter import Language, Letter, LetterActionEvent
+from .letter import (
+    Language,
+    Letter,
+    LetterActionEvent,
+    LetterLanguageTemplate,
+    LetterTemplate,
+    LetterTemplateType,
+)
 from .line_item_transaction import (
     LineItemTransfer,
     NewLineItemAdjustment,
@@ -175,6 +196,7 @@ from .observation import (
     ObservationCoding,
     ObservationComponent,
     ObservationComponentCoding,
+    ObservationComponentValueCoding,
     ObservationValueCoding,
 )
 from .organization import Organization, OrganizationAddress, OrganizationContactPoint
@@ -265,6 +287,13 @@ from .remove_past_medical_history_event import RemovePastMedicalHistoryEvent
 from .report import Report
 from .resolve_condition_event import ResolveConditionEvent
 from .service_provider import ServiceProvider
+from .service_request import (
+    ServiceRequest,
+    ServiceRequestCategoryCoding,
+    ServiceRequestCoding,
+    ServiceRequestReasonCondition,
+    ServiceRequestStatus,
+)
 from .snapshot import Snapshot, SnapshotImage
 from .specialty_report_template import (
     SpecialtyReportTemplate,
@@ -308,8 +337,11 @@ __all__ = __exports__ = (
     "AppointmentLabel",
     "AllergyIntolerance",
     "AllergyIntoleranceCoding",
+    "AllergyIntoleranceReaction",
     "AssessCodingGapEvent",
     "Assessment",
+    "Authorization",
+    "AuthorizationDiagnosisCode",
     "AttributeHub",
     "BannerAlert",
     "BasePosting",
@@ -352,6 +384,7 @@ __all__ = __exports__ = (
     "CommandTypeSetting",
     "CompoundMedication",
     "Condition",
+    "ConditionCategoryCoding",
     "ConditionCoding",
     "Coverage",
     "CustomAttribute",
@@ -366,7 +399,10 @@ __all__ = __exports__ = (
     "DetectedIssue",
     "DetectedIssueEvidence",
     "Device",
+    "DeviceCoding",
     "DiagnosticReport",
+    "DiagnosticReportCategoryCoding",
+    "DiagnosticReportCodeCoding",
     "DiagnosticReportStatus",
     "DiagnosticView",
     "Discount",
@@ -408,6 +444,7 @@ __all__ = __exports__ = (
     "GoogleCalendarConnection",
     "Group",
     "HistoryOfPresentIllness",
+    "ImagingCoding",
     "ImagingOrder",
     "ImagingOrderActionEvent",
     "ImagingReport",
@@ -421,6 +458,8 @@ __all__ = __exports__ = (
     "ImmunizationCoding",
     "ImmunizationStatement",
     "ImmunizationStatementCoding",
+    "InpatientFacility",
+    "InpatientStay",
     "InstallmentPlan",
     "Instruction",
     "InstructionCoding",
@@ -437,6 +476,7 @@ __all__ = __exports__ = (
     "LabOrderActionEvent",
     "LabOrderReason",
     "LabOrderReasonCondition",
+    "LabOrderSpecimen",
     "LabPartner",
     "LabPartnerTest",
     "LabPartnerTestQuestion",
@@ -447,6 +487,7 @@ __all__ = __exports__ = (
     "LabTest",
     "LabValue",
     "LabValueCoding",
+    "LabValuePerformer",
     "Language",
     "Letter",
     "LabReportTemplate",
@@ -454,6 +495,9 @@ __all__ = __exports__ = (
     "LabReportTemplateFieldOption",
     "LabReportTemplateQuerySet",
     "LetterActionEvent",
+    "LetterLanguageTemplate",
+    "LetterTemplate",
+    "LetterTemplateType",
     "LineItemTransfer",
     "MAX_BULK_SIZE",
     "MAX_FIELD_SIZE",
@@ -480,6 +524,7 @@ __all__ = __exports__ = (
     "ObservationCoding",
     "ObservationComponent",
     "ObservationComponentCoding",
+    "ObservationComponentValueCoding",
     "ObservationValueCoding",
     "Organization",
     "OrganizationAddress",
@@ -557,6 +602,11 @@ __all__ = __exports__ = (
     "ResponseOption",
     "ResponseOptionSet",
     "ServiceProvider",
+    "ServiceRequest",
+    "ServiceRequestCategoryCoding",
+    "ServiceRequestCoding",
+    "ServiceRequestReasonCondition",
+    "ServiceRequestStatus",
     "SpecialtyReportTemplate",
     "SpecialtyReportTemplateField",
     "SpecialtyReportTemplateFieldOption",

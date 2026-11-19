@@ -25,6 +25,7 @@ import numpy.typing as npt
 
 from numpy_groupies.functions import nan
 from numpy_groupies.npg_numba.compose import (
+    StateLayout,
     TickKernel,
     _fill_differs,
     build_custom_kernel,
@@ -665,6 +666,8 @@ def _median_mt_factory(
         fill_value: float,
         extra: Any,
         n_threads: int,
+        cache_limit: int = 0,
+        state_bytes: int = 8,
     ) -> npt.NDArray[np.number]:
         setup = _group_mt_setup(group_idx, a, size_arg, _NS_PER_VALUE_SELECT, n_threads)
         if setup is None:
@@ -740,6 +743,8 @@ def _tick_quantile_mt_factory(
         fill_value: int,
         extra: Any,
         n_threads: int,
+        cache_limit: int = 0,
+        state_bytes: int = 8,
     ) -> npt.NDArray[np.int64]:
         setup = _group_mt_setup(group_idx, a, size_arg, _NS_PER_VALUE_SELECT, n_threads)
         if setup is None:
@@ -843,6 +848,8 @@ def _quantile_mt_factory(
         fill_value: float,
         extra: Any,
         n_threads: int,
+        cache_limit: int = 0,
+        state_bytes: int = 8,
     ) -> npt.NDArray[np.number]:
         setup = _group_mt_setup(group_idx, a, size_arg, _NS_PER_VALUE_SELECT, n_threads)
         if setup is None:
@@ -1056,6 +1063,8 @@ def _sort_mt_factory(
         fill_value: float,
         reverse: bool,
         n_threads: int,
+        cache_limit: int = 0,
+        state_bytes: int = 8,
     ) -> npt.NDArray[np.number]:
         setup = _group_mt_setup(group_idx, a, size_arg, _NS_PER_VALUE_SORT, n_threads)
         if setup is None:
@@ -1276,6 +1285,8 @@ def _topk_mt_factory(
         fill_value: float,
         extra: Any,
         n_threads: int,
+        cache_limit: int = 0,
+        state_bytes: int = 8,
     ) -> npt.NDArray[np.number]:
         k, largest = extra
         setup = _group_mt_setup(group_idx, a, size_arg, _NS_PER_VALUE_TOPK, n_threads)
@@ -1509,6 +1520,8 @@ def _nunique_mt_factory(
         fill_value: float,
         extra: Any,
         n_threads: int,
+        cache_limit: int = 0,
+        state_bytes: int = 8,
     ) -> npt.NDArray[np.number]:
         setup = _group_mt_setup(group_idx, a, size_arg, _NS_PER_VALUE_NUNIQUE, n_threads)
         if setup is None:
@@ -1662,6 +1675,8 @@ def _mode_mt_factory(driver: Callable[..., npt.NDArray[np.number]]) -> Callable[
         fill_value: float,
         extra: Any,
         n_threads: int,
+        cache_limit: int = 0,
+        state_bytes: int = 8,
     ) -> npt.NDArray[np.number]:
         setup = _group_mt_setup(group_idx, a, size_arg, _NS_PER_VALUE_MODE, n_threads)
         if setup is None:
@@ -1696,6 +1711,13 @@ mode = build_custom_kernel(
     nans=False,
     doc="The most frequent value of every group - the smallest of the values that share the highest count",
 )
+
+
+def _trapezoid_state_bytes(layout: StateLayout) -> int:
+    """The bytes the state of the trapezoid holds per group: the sum in the
+    output dtype, the last value in the dtype of the input and the two flags
+    beside them."""
+    return layout.out_dtype.itemsize + layout.in_dtype.itemsize + 1 + 1
 
 
 class TrapezoidState(NamedTuple):
@@ -1758,4 +1780,5 @@ trapezoid = build_kernel(
     # the trapezoid kernel a few percent slower
     variant="dx",
     doc="Trapezoidal integration of the samples of every group",
+    state_bytes=_trapezoid_state_bytes,
 )

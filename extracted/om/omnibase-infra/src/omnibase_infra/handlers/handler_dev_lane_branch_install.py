@@ -31,8 +31,7 @@ The deploy agent runs ``apply`` after every dev job that verified the lane and
 on an idle tick (``check``, then ``apply`` under the lane lock when anything is missing), which also covers a recreate the agent did not do (a hand
 refresh, the settle worker's pin recreate, a rollback). An apply copies a file
 whose sha256 differs, restores its owner and mode, restarts a changed container
-once, then READS EVERY FILE BACK and compares its sha256. A record whose files do
-not read back is FAILED, never quiet.
+once, then READS EVERY FILE BACK and compares its sha256. A record that does not read back is FAILED, never quiet.
 
 RELEASE RULE: MERGED OR EXPIRED
 -------------------------------
@@ -126,6 +125,7 @@ from omnibase_infra.models.model_dev_lane_branch_install_records import (
 from omnibase_infra.models.model_dev_lane_branch_install_release import (
     ModelDevLaneBranchInstallRelease,
 )
+from omnibase_infra.models.operational_timeouts import TIMEOUTS
 
 logger = logging.getLogger(__name__)
 
@@ -146,10 +146,10 @@ RELEASED_FILE = "released.jsonl"
 STATUS_FILE = "status.json"
 CONTENT_DIRNAME = "content"
 
-DOCKER_TIMEOUT_SECONDS = 60.0
-RESTART_TIMEOUT_SECONDS = 240.0
-RESTART_WAIT_SECONDS = 240.0
-RESTART_POLL_SECONDS = 3.0
+DOCKER_TIMEOUT_SECONDS = TIMEOUTS.dev_lane_docker_seconds
+RESTART_TIMEOUT_SECONDS = TIMEOUTS.dev_lane_restart_seconds
+RESTART_WAIT_SECONDS = TIMEOUTS.dev_lane_restart_wait_seconds
+RESTART_POLL_SECONDS = TIMEOUTS.dev_lane_restart_poll_seconds
 
 EXIT_OK = 0
 EXIT_REFUSED = 3
@@ -607,14 +607,13 @@ class DevLaneContainerWriter:
         blob = self.blobs.path(f.sha256)
         if not blob.is_file() or sha256_of(blob) != f.sha256:
             return f"stored copy {f.sha256[:12]} is missing or corrupt"
-        owner_mode = "0:0 644"
         stat = self.cmd_ok(
             ["docker", "exec", "-u", "0", container, "stat", "-c", "%u:%g %a", f.path]
         )
-        if stat is not None and stat.stdout.strip():
-            owner_mode = stat.stdout.strip()
-        if self.cmd_ok(["docker", "cp", str(blob), f"{container}:{f.path}"]) is None:
-            return "docker cp failed"
+        owner_mode = (stat.stdout.strip() if stat is not None else "") or "0:0 644"
+        cp = ["docker", "cp", str(blob), f"{container}:{f.path}"]
+        if any(self.cmd_ok(a) is None for a in (*f.prepare_argv(container), cp)):
+            return "docker cp or the destination directory failed"
         owner, _, mode = owner_mode.partition(" ")
         if not (
             self.cmd_ok(

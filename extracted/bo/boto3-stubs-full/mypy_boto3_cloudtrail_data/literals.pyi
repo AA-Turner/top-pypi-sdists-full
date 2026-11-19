@@ -25,6 +25,7 @@ __all__ = ("CloudTrailDataServiceServiceName", "RegionName", "ResourceServiceNam
 
 CloudTrailDataServiceServiceName = Literal["cloudtrail-data"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

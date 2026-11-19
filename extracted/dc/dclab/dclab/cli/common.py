@@ -61,7 +61,7 @@ def assemble_warnings(w):
 
 
 def get_command_log(paths, custom_dict=None):
-    """Return a json dump of system parameters
+    """Return a json dump of system parameters as a list of lines
 
     Parameters
     ----------
@@ -71,6 +71,11 @@ def get_command_log(paths, custom_dict=None):
     custom_dict: dict
         additional user-defined entries; must contain simple
         Python objects (json.dumps must still work)
+
+    Returns
+    -------
+    dump: list of str
+        Lines of the indented JSON dump
     """
     if custom_dict is None:
         custom_dict = {}
@@ -171,30 +176,29 @@ def print_violation(string):
 
 
 def skip_empty_image_events(ds, initial=True, final=True):
-    """Set a manual filter to skip inital or final empty image events"""
-    if initial:
-        if (("image" in ds and ds.format == "tdms"
+    """Set a manual filter to skip initial or final empty image events"""
+    if initial and (
+            ("image" in ds and ds.format == "tdms"
              and ds.config["fmt_tdms"]["video frame offset"])
             or ("contour" in ds and np.all(ds["contour"][0] == 0))
-                or ("image" in ds and np.all(ds["image"][0] == 0))):
-            ds.filter.manual[0] = False
+            or ("image" in ds and np.all(ds["image"][0] == 0))):
+        ds.filter.manual[0] = False
+        ds.apply_filter()
+    # This is not easy to test, because we need a corrupt
+    # frame.
+    if final and "image" in ds:
+        idfin = len(ds) - 1
+        if ds.format == "tdms":
+            with warnings.catch_warnings(record=True) as wfin:
+                warnings.simplefilter(
+                    "always",
+                    fmt_tdms.event_image.CorruptFrameWarning)
+                _ = ds["image"][idfin]  # provoke a warning
+            for ww in wfin:
+                if ww.category == fmt_tdms.event_image.CorruptFrameWarning:
+                    ds.filter.manual[idfin] = False
+                    ds.apply_filter()
+                    break
+        elif np.all(ds["image"][idfin] == 0):
+            ds.filter.manual[idfin] = False
             ds.apply_filter()
-    if final:
-        # This is not easy to test, because we need a corrupt
-        # frame.
-        if "image" in ds:
-            idfin = len(ds) - 1
-            if ds.format == "tdms":
-                with warnings.catch_warnings(record=True) as wfin:
-                    warnings.simplefilter(
-                        "always",
-                        fmt_tdms.event_image.CorruptFrameWarning)
-                    _ = ds["image"][idfin]  # provoke a warning
-                for ww in wfin:
-                    if ww.category == fmt_tdms.event_image.CorruptFrameWarning:
-                        ds.filter.manual[idfin] = False
-                        ds.apply_filter()
-                        break
-            elif np.all(ds["image"][idfin] == 0):
-                ds.filter.manual[idfin] = False
-                ds.apply_filter()

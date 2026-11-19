@@ -3232,6 +3232,14 @@ class AssemblyTrademarkAttribute(System.Attribute):
 class Pointer(System.Object, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
 
+    @property
+    def pointer_type(self) -> typing.Type:
+        ...
+
+    @property
+    def value(self) -> typing.Any:
+        ...
+
     @staticmethod
     def box(ptr: typing.Any, type: typing.Type) -> System.Object:
         ...

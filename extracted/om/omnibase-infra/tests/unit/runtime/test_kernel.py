@@ -43,14 +43,13 @@ _SKIP_REASON = (
     "service_registry is None due to circular import bug in omnibase_core 0.6.2. "
     "Upgrade to omnibase_core >= 0.6.3 to run these tests."
 )
+from omnibase_infra.models.network_binding import load_network_binding_settings
 from omnibase_infra.protocols import ProtocolEventBusLike
 from omnibase_infra.runtime.models import ModelRuntimeConfig
 from omnibase_infra.runtime.service_kernel import (
     DEFAULT_GROUP_ID,
     DEFAULT_INPUT_TOPIC,
     DEFAULT_OUTPUT_TOPIC,
-    MAX_PORT,
-    MIN_PORT,
     bootstrap,
     configure_logging,
     load_runtime_config,
@@ -641,6 +640,67 @@ class TestBootstrap:
         mock_health_instance.start.assert_called_once()
         mock_health_instance.stop.assert_called_once()
 
+    @pytest.mark.parametrize("mounted", [False, True])
+    async def test_bootstrap_shared_listener_lifecycle_requires_mount(
+        self,
+        mock_wire_infrastructure: MagicMock,
+        mock_inmemory_runtime_config: MagicMock,
+        mock_runtime_host: MagicMock,
+        mock_event_bus: MagicMock,
+        mock_health_server: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        mounted: bool,
+    ) -> None:
+        """Only opted-in boots latch and drain, before the runtime stops."""
+        import asyncio
+        import signal
+
+        from omnibase_infra.handlers import mixin_shared_listener
+
+        mount = tmp_path / "handover"
+        if mounted:
+            mount.mkdir()
+        monkeypatch.setattr(mixin_shared_listener, "HANDOVER_MOUNT", mount)
+        health = mock_health_server.return_value
+
+        async def drain() -> None:
+            mock_runtime_host.return_value.stop.assert_not_called()
+            health.mark_stopping.assert_called_once()
+
+        # An unmounted provider retains its existing API: its new method is
+        # deliberately not an AsyncMock, so awaiting it would fail bootstrap.
+        if mounted:
+            health.drain_shared_listener = AsyncMock(side_effect=drain)
+
+        loop = asyncio.get_running_loop()
+        with (
+            patch.object(loop, "add_signal_handler") as register_signal,
+            patch("omnibase_infra.runtime.service_kernel.asyncio.Event") as event,
+        ):
+
+            async def shutdown() -> None:
+                handlers = [
+                    call.args[1]
+                    for call in register_signal.call_args_list
+                    if call.args[0] == signal.SIGTERM
+                ]
+                if not handlers:
+                    return  # Earlier boot steps also wait on asyncio.Event.
+                if mounted:
+                    mount.rmdir()  # Shutdown must retain the boot-time opt-in.
+                handlers[0](signal.SIGTERM)
+
+            event.return_value.wait = AsyncMock(side_effect=shutdown)
+            assert await bootstrap() == 0
+
+        if mounted:
+            health.mark_stopping.assert_called_once()
+            health.drain_shared_listener.assert_awaited_once()
+        else:
+            health.mark_stopping.assert_not_called()
+            health.drain_shared_listener.assert_not_called()
+
     async def test_bootstrap_returns_error_on_unexpected_exception(
         self,
         mock_wire_infrastructure: MagicMock,
@@ -912,6 +972,169 @@ class TestBootstrap:
 
         assert exit_code == 0
 
+    @pytest.mark.parametrize(
+        ("prefetched_value", "kernel_status"),
+        [
+            (None, "degraded_error"),
+            (None, "skipped"),
+            ("", "ok"),
+            ("   ", "ok"),
+            ("test-token", "ok"),
+        ],
+    )
+    async def test_required_secret_gate_after_infisical_prefetch(
+        self,
+        mock_wire_infrastructure: MagicMock,
+        mock_inmemory_runtime_config: MagicMock,
+        mock_runtime_host: MagicMock,
+        mock_event_bus: MagicMock,
+        mock_health_server: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        prefetched_value: str | None,
+        kernel_status: str,
+    ) -> None:
+        """A failed/empty prefetch cannot admit a secret-dependent contract.
+
+        A skipped kernel prefetch (no inline credentials) stays pending, so the
+        runtime retries with its handler registry's secret resolver.
+        """
+        from omnibase_infra.runtime.auto_wiring.handler_wiring import (
+            wire_from_manifest as real_wire_from_manifest,
+        )
+        from omnibase_infra.runtime.runtime_profile import load_runtime_profile
+
+        monkeypatch.setenv("INFISICAL_ADDR", "https://infisical.example")
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("ONEX_RUNTIME_NODE_SELECTION", raising=False)
+        monkeypatch.delenv("ONEX_RUNTIME_FOLDED_PROFILES", raising=False)
+        monkeypatch.setenv("RUNTIME_PROFILE", "main")
+        profile = load_runtime_profile().model_copy(
+            update={"prefetch_policy": "best_effort"}
+        )
+        source = self._never_wiring_manifest()
+        gated_name = source.contracts[0].name
+        manifest = source.model_copy(
+            update={
+                "contracts": (
+                    source.contracts[0].model_copy(
+                        update={"required_secrets": ("GITHUB_TOKEN",)}
+                    ),
+                    source.contracts[1],
+                )
+            }
+        )
+        order: list[str] = []
+
+        async def prefetch(**kwargs: object) -> str:
+            order.append("prefetch")
+            if prefetched_value is not None:
+                monkeypatch.setenv("GITHUB_TOKEN", prefetched_value)
+            return kernel_status
+
+        async def wire(**kwargs: object) -> ModelAutoWiringReport:
+            order.append("wire")
+            return await real_wire_from_manifest(**kwargs)
+
+        with (
+            patch(
+                "omnibase_infra.runtime.service_kernel.prefetch_runtime_config",
+                new=prefetch,
+            ),
+            patch(
+                "omnibase_infra.runtime.service_kernel.load_runtime_profile",
+                return_value=profile,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.wire_from_manifest",
+                side_effect=wire,
+            ) as wiring,
+            patch("omnibase_infra.runtime.service_kernel.asyncio.Event") as event,
+        ):
+            event.return_value.wait = AsyncMock(return_value=None)
+            assert await bootstrap() == 0
+
+        wired_manifest = wiring.call_args.kwargs["manifest"]
+        assert (gated_name in {c.name for c in wired_manifest.contracts}) is bool(
+            prefetched_value and prefetched_value.strip()
+        )
+        served_manifest = (
+            mock_health_server.return_value.attach_manifest.call_args.args[0]
+        )
+        skips = [
+            s for s in served_manifest.skips if s.reason == "required_secret_absent"
+        ]
+        if prefetched_value and prefetched_value.strip():
+            assert not skips
+        else:
+            assert len(skips) == 1
+            assert skips[0].membership[0].contract == gated_name
+            assert skips[0].membership[0].joined is False
+            assert skips[0].membership[0].token == "absent"
+        assert order == ["prefetch", "wire"]
+        assert mock_runtime_host.call_args.kwargs["config_prefetch_status"] == (
+            "pending" if kernel_status == "skipped" else kernel_status
+        )
+
+    @pytest.mark.parametrize("selection", ["profile", "node"])
+    async def test_required_secret_gate_ignores_excluded_contracts(
+        self,
+        mock_wire_infrastructure: MagicMock,
+        mock_inmemory_runtime_config: MagicMock,
+        mock_runtime_host: MagicMock,
+        mock_event_bus: MagicMock,
+        mock_health_server: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        selection: str,
+    ) -> None:
+        """Only selected nodes contribute required secrets or absence records."""
+        from omnibase_infra.runtime.auto_wiring import required_secret_names
+
+        monkeypatch.delenv("INFISICAL_ADDR", raising=False)
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.setenv("RUNTIME_PROFILE", "main")
+        monkeypatch.delenv("ONEX_RUNTIME_NODE_SELECTION", raising=False)
+        monkeypatch.delenv("ONEX_RUNTIME_FOLDED_PROFILES", raising=False)
+        source = self._never_wiring_manifest()
+        excluded = source.contracts[0].model_copy(
+            update={
+                "required_secrets": ("GITHUB_TOKEN",),
+                "runtime_profiles": ("effects",) if selection == "profile" else (),
+            }
+        )
+        selected = source.contracts[1]
+        if selection == "node":
+            monkeypatch.setenv("ONEX_RUNTIME_NODE_SELECTION", selected.name)
+        manifest = source.model_copy(update={"contracts": (excluded, selected)})
+        with (
+            patch(
+                "omnibase_infra.runtime.auto_wiring.discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.required_secret_names",
+                wraps=required_secret_names,
+            ) as names,
+            patch("omnibase_infra.runtime.service_kernel.asyncio.Event") as event,
+        ):
+            event.return_value.wait = AsyncMock(return_value=None)
+            assert await bootstrap() == 0
+
+        served_manifest = (
+            mock_health_server.return_value.attach_manifest.call_args.args[0]
+        )
+        assert not any(
+            s.reason == "required_secret_absent" for s in served_manifest.skips
+        )
+        assert "token=absent" not in caplog.text
+        assert "GITHUB_TOKEN" not in caplog.text
+        names.assert_called_once()
+        assert {c.name for c in names.call_args.args[0].contracts} == {selected.name}
+
     async def test_bootstrap_defers_auto_wiring_subscriptions_until_after_freeze(
         self,
         mock_wire_infrastructure: MagicMock,
@@ -995,6 +1218,209 @@ class TestBootstrap:
 
         assert exit_code == 0
         assert order == ["wire", "freeze", "subscribe"]
+
+    async def test_bootstrap_starts_plugin_consumers_before_auto_wired_joins(
+        self,
+        mock_wire_infrastructure: MagicMock,
+        mock_inmemory_runtime_config: MagicMock,
+        mock_runtime_host: MagicMock,
+        mock_event_bus: MagicMock,
+        mock_health_server: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """OMN-18087: plugin consumers (delegation's among them) join first.
+
+        Behind the auto-wired interleave they waited for every auto-wired
+        group join; on the dev lane on 2026-10-28 that left delegation without a
+        consumer for 37 minutes after a recreate.
+        """
+        from omnibase_infra.adapters.llm.plugin_llm import PluginLlm
+
+        # PluginLlm is the one plugin this harness activates on its own, and
+        # only when an LLM endpoint is configured; configure one so the test
+        # does not depend on the host's environment.
+        monkeypatch.setenv("LLM_CODER_URL", "http://127.0.0.1:9/v1")
+        from omnibase_infra.runtime.models.model_domain_plugin_config import (
+            ModelDomainPluginConfig,
+        )
+        from omnibase_infra.runtime.models.model_domain_plugin_result import (
+            ModelDomainPluginResult,
+        )
+
+        order: list[str] = []
+        manifest = ModelAutoWiringManifest(
+            contracts=(
+                ModelDiscoveredContract(
+                    name="node_registration_orchestrator",
+                    node_type="ORCHESTRATOR_GENERIC",
+                    contract_version=ModelContractVersion(major=1, minor=1, patch=0),
+                    contract_path=Path("/fake/contract.yaml"),
+                    entry_point_name="node_registration_orchestrator",
+                    package_name="omnibase_infra",
+                    event_bus=ModelEventBusWiring(
+                        subscribe_topics=("onex.evt.platform.node-introspection.v1",),
+                        publish_topics=(),
+                    ),
+                    handler_routing=None,
+                ),
+            ),
+            errors=(),
+        )
+        original_start_consumers = PluginLlm.start_consumers
+
+        async def record_plugin_consumers(
+            self: PluginLlm, config: ModelDomainPluginConfig
+        ) -> ModelDomainPluginResult:
+            order.append("plugin_consumers")
+            return await original_start_consumers(self, config)
+
+        async def fake_wire_from_manifest(**kwargs: object) -> ModelAutoWiringReport:
+            return ModelAutoWiringReport(
+                results=(
+                    ModelContractWiringResult(
+                        contract_name="node_registration_orchestrator",
+                        package_name="omnibase_infra",
+                        outcome=EnumWiringOutcome.WIRED,
+                    ),
+                ),
+                duplicates=(),
+            )
+
+        async def fake_subscribe_wired_contract_topics(
+            **kwargs: object,
+        ) -> dict[str, tuple[str, ...]]:
+            order.append("auto_wired_joins")
+            return {}
+
+        with (
+            patch(
+                "omnibase_infra.runtime.auto_wiring.discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.wire_from_manifest",
+                side_effect=fake_wire_from_manifest,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.subscribe_wired_contract_topics",
+                side_effect=fake_subscribe_wired_contract_topics,
+            ),
+            patch.object(PluginLlm, "start_consumers", new=record_plugin_consumers),
+            patch("omnibase_infra.runtime.service_kernel.asyncio.Event") as mock_event,
+        ):
+            event_instance = MagicMock()
+            event_instance.wait = AsyncMock(return_value=None)
+            mock_event.return_value = event_instance
+
+            exit_code = await bootstrap()
+
+        assert exit_code == 0
+        assert "plugin_consumers" in order
+        assert "auto_wired_joins" in order
+        assert order.index("plugin_consumers") < order.index("auto_wired_joins")
+
+    @pytest.mark.parametrize("selected", [False, True], ids=["main", "node-bound"])
+    async def test_bootstrap_hands_the_host_process_a_selection_scoped_service(
+        self,
+        mock_wire_infrastructure: MagicMock,
+        mock_inmemory_runtime_config: MagicMock,
+        mock_runtime_host: MagicMock,
+        mock_event_bus: MagicMock,
+        mock_health_server: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        selected: bool,
+    ) -> None:
+        """OMN-18087: a node-bound process joins no consumer group of the main runtime.
+
+        The writer and the main runtime read one ``runtime_config.yaml`` under one
+        ``KAFKA_INSTANCE_ID``; the service name the host process and the plugin
+        consumers derive their groups from is the only part that differs between
+        them. Runs ``bootstrap`` and reads what it handed to both.
+        """
+        from omnibase_infra.adapters.llm.plugin_llm import PluginLlm
+        from omnibase_infra.runtime.models.model_domain_plugin_config import (
+            ModelDomainPluginConfig,
+        )
+        from omnibase_infra.runtime.models.model_domain_plugin_result import (
+            ModelDomainPluginResult,
+        )
+
+        contract_name = "node_registration_orchestrator"
+        monkeypatch.setenv("LLM_CODER_URL", "http://127.0.0.1:9/v1")
+        monkeypatch.delenv("ONEX_RUNTIME_NODE_SELECTION", raising=False)
+        monkeypatch.delenv("ONEX_RUNTIME_NODE_EXCLUSION", raising=False)
+        if selected:
+            monkeypatch.setenv("ONEX_RUNTIME_NODE_SELECTION", contract_name)
+        manifest = ModelAutoWiringManifest(
+            contracts=(
+                ModelDiscoveredContract(
+                    name=contract_name,
+                    node_type="ORCHESTRATOR_GENERIC",
+                    contract_version=ModelContractVersion(major=1, minor=1, patch=0),
+                    contract_path=Path("/fake/contract.yaml"),
+                    entry_point_name=contract_name,
+                    package_name="omnibase_infra",
+                    event_bus=ModelEventBusWiring(
+                        subscribe_topics=("onex.evt.platform.node-introspection.v1",),
+                        publish_topics=(),
+                    ),
+                    handler_routing=None,
+                ),
+            ),
+            errors=(),
+        )
+        plugin_services: list[str] = []
+        original_start_consumers = PluginLlm.start_consumers
+
+        async def record_plugin_identity(
+            self: PluginLlm, config: ModelDomainPluginConfig
+        ) -> ModelDomainPluginResult:
+            assert config.node_identity is not None
+            plugin_services.append(config.node_identity.service)
+            return await original_start_consumers(self, config)
+
+        async def fake_wire_from_manifest(**kwargs: object) -> ModelAutoWiringReport:
+            return ModelAutoWiringReport(results=(), duplicates=())
+
+        async def fake_subscribe_wired_contract_topics(
+            **kwargs: object,
+        ) -> dict[str, tuple[str, ...]]:
+            return {}
+
+        with (
+            patch(
+                "omnibase_infra.runtime.auto_wiring.discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.wire_from_manifest",
+                side_effect=fake_wire_from_manifest,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.subscribe_wired_contract_topics",
+                side_effect=fake_subscribe_wired_contract_topics,
+            ),
+            patch.object(PluginLlm, "start_consumers", new=record_plugin_identity),
+            patch("omnibase_infra.runtime.service_kernel.asyncio.Event") as mock_event,
+        ):
+            event_instance = MagicMock()
+            event_instance.wait = AsyncMock(return_value=None)
+            mock_event.return_value = event_instance
+
+            exit_code = await bootstrap()
+
+        assert exit_code == 0
+        host_config = mock_runtime_host.call_args.kwargs["config"]
+        node_name = host_config["node_name"]
+        assert node_name
+        assert plugin_services, "the plugin consumers were never started"
+        if selected:
+            assert host_config["service_name"] != node_name
+            assert host_config["service_name"].startswith(node_name)
+            assert host_config["service_name"].endswith(contract_name)
+        else:
+            assert host_config["service_name"] == node_name
+        assert plugin_services == [host_config["service_name"]]
 
     async def test_bootstrap_fails_when_kafka_configured_without_bootstrap_servers(
         self,
@@ -1722,9 +2148,10 @@ class TestHttpPortValidation:
             yield mock_cls
 
     def test_port_constants_are_valid(self) -> None:
-        """Test that port validation constants are correctly defined."""
-        assert MIN_PORT == 1
-        assert MAX_PORT == 65535
+        """Test that the declared port bounds are the TCP port range."""
+        port_bounds = load_network_binding_settings()
+        assert port_bounds.tcp_port_min == 1
+        assert port_bounds.tcp_port_max == 65535
 
     async def test_bootstrap_rejects_port_zero(
         self,

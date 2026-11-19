@@ -644,20 +644,24 @@ class TagTypeDef(TypedDict):
 class CreateLoginProfileRequestLoginProfileCreateTypeDef(TypedDict):
     Password: NotRequired[str]
     PasswordResetRequired: NotRequired[bool]
+    MaxSigninSessionDuration: NotRequired[int]
 
 class CreateLoginProfileRequestTypeDef(TypedDict):
     UserName: NotRequired[str]
     Password: NotRequired[str]
     PasswordResetRequired: NotRequired[bool]
+    MaxSigninSessionDuration: NotRequired[int]
 
 class CreateLoginProfileRequestUserCreateLoginProfileTypeDef(TypedDict):
     Password: NotRequired[str]
     PasswordResetRequired: NotRequired[bool]
+    MaxSigninSessionDuration: NotRequired[int]
 
 class LoginProfileTypeDef(TypedDict):
     UserName: str
     CreateDate: datetime
     PasswordResetRequired: NotRequired[bool]
+    MaxSigninSessionDuration: NotRequired[int]
 
 class CreatePolicyVersionRequestPolicyCreateVersionTypeDef(TypedDict):
     PolicyDocument: str
@@ -1497,11 +1501,15 @@ class UpdateGroupRequestTypeDef(TypedDict):
 class UpdateLoginProfileRequestLoginProfileUpdateTypeDef(TypedDict):
     Password: NotRequired[str]
     PasswordResetRequired: NotRequired[bool]
+    MaxSigninSessionDuration: NotRequired[int]
+    ResetMaxSigninSessionDuration: NotRequired[bool]
 
 class UpdateLoginProfileRequestTypeDef(TypedDict):
     UserName: str
     Password: NotRequired[str]
     PasswordResetRequired: NotRequired[bool]
+    MaxSigninSessionDuration: NotRequired[int]
+    ResetMaxSigninSessionDuration: NotRequired[bool]
 
 class UpdateOpenIDConnectProviderThumbprintRequestTypeDef(TypedDict):
     OpenIDConnectProviderArn: str
@@ -1515,6 +1523,8 @@ class UpdateRoleRequestTypeDef(TypedDict):
     RoleName: str
     Description: NotRequired[str]
     MaxSessionDuration: NotRequired[int]
+    MaxSigninSessionDuration: NotRequired[int]
+    ResetMaxSigninSessionDuration: NotRequired[bool]
 
 class UpdateSAMLProviderRequestSamlProviderUpdateTypeDef(TypedDict):
     SAMLMetadataDocument: NotRequired[str]
@@ -1793,6 +1803,7 @@ class CreateRoleRequestServiceResourceCreateRoleTypeDef(TypedDict):
     Path: NotRequired[str]
     Description: NotRequired[str]
     MaxSessionDuration: NotRequired[int]
+    MaxSigninSessionDuration: NotRequired[int]
     PermissionsBoundary: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
@@ -1802,6 +1813,7 @@ class CreateRoleRequestTypeDef(TypedDict):
     Path: NotRequired[str]
     Description: NotRequired[str]
     MaxSessionDuration: NotRequired[int]
+    MaxSigninSessionDuration: NotRequired[int]
     PermissionsBoundary: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
@@ -2535,6 +2547,7 @@ class RoleTypeDef(TypedDict):
     AssumeRolePolicyDocument: NotRequired[PolicyDocumentTypeDef]
     Description: NotRequired[str]
     MaxSessionDuration: NotRequired[int]
+    MaxSigninSessionDuration: NotRequired[int]
     PermissionsBoundary: NotRequired[AttachedPermissionsBoundaryTypeDef]
     Tags: NotRequired[list[TagTypeDef]]
     RoleLastUsed: NotRequired[RoleLastUsedTypeDef]

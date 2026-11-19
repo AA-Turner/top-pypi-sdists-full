@@ -623,6 +623,10 @@ class DatasetRevision(Protocol):
         If the resolver instead appears in multiple stages of the plan, a mapping of the operation's ID to the replay data
         will be returned. If the resolver does not appear in the plan, an exception will be thrown.
 
+        Resolver replay supports Python resolvers only. Static resolvers (``static=True``) are compiled into the
+        query plan, so they have no stored inputs to replay, and passing one raises a ``ValueError``.
+        The offline query must have run with ``store_plan_stages=True`` and ``recompute_features=True``.
+
         Parameters
         ----------
         resolver
@@ -1468,6 +1472,10 @@ class Dataset(Protocol):
         If the resolver appears in only one stage of the plan, the resolver's replay data is returned directly.
         If the resolver instead appears in multiple stages of the plan, a mapping of the operation's ID to the replay data
         will be returned. If the resolver does not appear in the plan, an exception will be thrown.
+
+        Resolver replay supports Python resolvers only. Static resolvers (``static=True``) are compiled into the
+        query plan, so they have no stored inputs to replay, and passing one raises a ``ValueError``.
+        The offline query must have run with ``store_plan_stages=True`` and ``recompute_features=True``.
 
         Parameters
         ----------

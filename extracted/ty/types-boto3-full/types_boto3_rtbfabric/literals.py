@@ -142,6 +142,7 @@ RuleStatusType = Literal[
 ]
 RTBFabricServiceName = Literal["rtbfabric"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

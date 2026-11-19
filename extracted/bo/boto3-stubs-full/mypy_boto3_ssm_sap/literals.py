@@ -107,6 +107,7 @@ ReplicationModeType = Literal["ASYNC", "NONE", "PRIMARY", "SYNC", "SYNCMEM"]
 RuleResultStatusType = Literal["FAILED", "INFO", "PASSED", "UNKNOWN", "WARNING"]
 SsmSapServiceName = Literal["ssm-sap"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

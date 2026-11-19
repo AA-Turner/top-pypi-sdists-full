@@ -54,8 +54,7 @@ def with_perishable_basin():
 
         def __init__(self, *args, **kwargs):
             kwargs["perishable"] = self.set_perishable_record()
-            super(PerishableBasinExample,  # noqa: F821
-                  self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
         @staticmethod
         def check_expired(basin, expiration_time):
@@ -66,11 +65,13 @@ def with_perishable_basin():
             basin.set_perishable_record(time.monotonic() + extend_by)
 
         def set_perishable_record(self,
-                                  expiration_time=time.monotonic() + 60,
+                                  expiration_time=None,
                                   with_expiration=True,
                                   with_refresh=True,
                                   ):
             """Used in tests to set perishable"""
+            if expiration_time is None:
+                expiration_time = time.monotonic() + 60
             kwargs = {}
             if with_expiration:
                 kwargs["expiration_func"] = self.check_expired
@@ -231,6 +232,10 @@ def test_perish_basin_write_without_expiration_func_should_write_true(
         assert bndict["perishable"]
 
 
-def test_z_with_perishable_basin_fixture_does_not_leak(with_perishable_basin):
-    """Make sure we are not globally registering the test basin"""
-    "hdf5perish" not in get_basin_classes()
+def test_z_with_perishable_basin_fixture_does_not_leak():
+    """Make sure we are not globally registering the test basin
+
+    This test must not use the `with_perishable_basin` fixture. It runs
+    after the other tests in this module, which use the fixture.
+    """
+    assert "hdf5perish" not in get_basin_classes()

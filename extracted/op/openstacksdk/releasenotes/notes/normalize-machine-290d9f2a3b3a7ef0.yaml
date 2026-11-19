@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Fixes normalization of bare metal machines in the ``patch_machine`` call.

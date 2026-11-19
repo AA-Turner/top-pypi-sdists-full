@@ -89,6 +89,10 @@ from omnibase_infra.models.resilience import ModelCircuitBreakerConfig
 
 logger = logging.getLogger(__name__)
 
+# Pool type the registration reader borrows connections from; node packages
+# import this name so they never import the database driver themselves.
+type RegistrationProjectionPool = asyncpg.Pool
+
 
 class ProjectionReaderRegistration(MixinAsyncCircuitBreaker):
     """Registration projection reader implementation using asyncpg.
@@ -137,7 +141,7 @@ class ProjectionReaderRegistration(MixinAsyncCircuitBreaker):
         ...     print("Node is active")
     """
 
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(self, pool: RegistrationProjectionPool) -> None:
         """Initialize reader with connection pool.
 
         Args:
@@ -161,9 +165,8 @@ class ProjectionReaderRegistration(MixinAsyncCircuitBreaker):
             ModelRegistrationProjection instance
 
         Note:
-            JSON parse errors in capabilities are handled gracefully by returning
-            an empty ModelNodeCapabilities with a warning log. This ensures
-            projections remain readable even if capabilities data is malformed.
+            JSON parse errors in capabilities are handled gracefully: an empty
+            ModelNodeCapabilities and a warning log keep the projection readable.
         """
         # Parse capabilities from JSONB.
         # asyncpg typically returns JSONB as Python dicts, but connection
@@ -216,6 +219,8 @@ class ProjectionReaderRegistration(MixinAsyncCircuitBreaker):
             registered_at=row["registered_at"],
             updated_at=row["updated_at"],
             correlation_id=row["correlation_id"],
+            # .get: rows read before migration 117 have no runtime_entity_id key
+            runtime_entity_id=row.get("runtime_entity_id"),
         )
 
     async def get_entity_state(
@@ -271,10 +276,7 @@ class ProjectionReaderRegistration(MixinAsyncCircuitBreaker):
             async with self._circuit_breaker_lock:
                 await self._reset_circuit_breaker()
 
-            if row is None:
-                return None
-
-            return self._row_to_projection(row)
+            return self._row_to_projection(row) if row is not None else None
 
         except asyncpg.PostgresConnectionError as e:
             async with self._circuit_breaker_lock:
@@ -354,10 +356,7 @@ class ProjectionReaderRegistration(MixinAsyncCircuitBreaker):
             async with self._circuit_breaker_lock:
                 await self._reset_circuit_breaker()
 
-            if row is None:
-                return None
-
-            return EnumRegistrationState(row["current_state"])
+            return None if row is None else EnumRegistrationState(row["current_state"])
 
         except asyncpg.PostgresConnectionError as e:
             async with self._circuit_breaker_lock:

@@ -1711,6 +1711,7 @@ XavcSpatialAdaptiveQuantizationType = Literal["DISABLED", "ENABLED"]
 XavcTemporalAdaptiveQuantizationType = Literal["DISABLED", "ENABLED"]
 MediaConvertServiceName = Literal["mediaconvert"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

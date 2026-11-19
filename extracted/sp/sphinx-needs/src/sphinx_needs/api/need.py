@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import os
-import re
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from copy import copy, deepcopy
 from dataclasses import replace
 from pathlib import Path
@@ -19,6 +18,12 @@ from sphinx.application import Sphinx
 from sphinx.environment import BuildEnvironment
 
 from sphinx_needs._jinja import render_template_string
+from sphinx_needs._namespaced_ids import (
+    id_matched_by_patterns,
+    nor_local,
+    read_id,
+    unclean_id_message,
+)
 from sphinx_needs._need_source import (
     NeedSourceHop,
     NeedSourcePhysical,
@@ -83,19 +88,6 @@ _deprecated_kwargs = {
     "hide_status",
     "delete",
 }
-
-
-def _id_matched_by_patterns(need_id: str, /) -> str:
-    """The id :ref:`needs_id_regex` and a need type's ``id_regex`` are matched against:
-    the need's local id, as it is written in the need or generated, before any
-    namespace. While a need's id carries no namespace, that is the whole id.
-
-    The one place both patterns read the id from, so that they keep matching the local
-    id should an id ever carry more.
-
-    :param need_id: The id of the need being created.
-    """
-    return need_id
 
 
 def _warn_protocol_source(need_source: object, function: str) -> None:
@@ -164,7 +156,8 @@ def generate_need(
 
         It will also not validate that the ID is not already in use within the project.
 
-    :raises InvalidNeedException: If the data fails any validation issue.
+    :raises InvalidNeedException: If the data fails any validation issue, such as a
+        ``full_title`` that is not a string (type ``invalid_value``).
 
     ``kwargs`` can contain options defined in ``needs_fields`` and ``needs_links``.
     If an entry is found in ``kwargs``, which *is not* specified in the configuration or registered e.g. via
@@ -190,7 +183,7 @@ def generate_need(
     :param need_type: Name of the need type to create.
     :param title: String as title.
     :param full_title: This is given, if an auto-generated title was trimmed.
-        It is used to auto-generate the ID, if required.
+        It is used to auto-generate the ID, if required. A string.
     :param id: ID as string. If not given, an id will get generated.
     :param content: Content of the need
     :param status: Status as string.
@@ -294,6 +287,20 @@ def _legacy_source(
     )
 
 
+def _check_full_title(full_title: object) -> None:
+    """Refuse a ``full_title`` that is given but is not a string: it is the text a
+    generated id is hashed from (#2479).
+
+    :raises InvalidNeedException: (type ``invalid_value``) If ``full_title`` is neither
+        ``None`` nor a string.
+    """
+    if full_title is not None and not isinstance(full_title, str):
+        raise InvalidNeedException(
+            "invalid_value",
+            f"full_title must be a string, not {type(full_title).__name__}",
+        )
+
+
 def _generate_need(
     needs_config: NeedsSphinxConfig,
     needs_schema: FieldsSchema,
@@ -323,8 +330,10 @@ def _generate_need(
         keyword arguments, so that no field name meets a parameter (#2392).
     :raises InvalidNeedException: If the data fails any validation issue; (type
         ``invalid_kwargs``) if ``values`` names no field or link type of the need's
-        type.
+        type; (type ``invalid_value``) for a ``full_title`` that is not a string,
+        whether or not an ``id`` is given.
     """
+    _check_full_title(full_title)
     # location is used to provide source mapped warnings
     location = (
         (source.dict_repr["docname"], source.dict_repr["lineno"])
@@ -365,28 +374,30 @@ def _generate_need(
         if id is None
         else id
     )
+    # the need's namespace and local id, read here alone, for every route
+    id_namespace, id_local, _id_problem = read_id(need_id, needs_config.namespaced_ids)
     # a need from outside the project's sources (imported, external) is the source's
     # data: its id is not checked against ``needs_id_regex`` (a prefix may break any
     # pattern), and it keeps the values of its derived fields
     from_outside = bool(
         source.dict_repr["is_import"] or source.dict_repr["is_external"]
     )
-    #: what the patterns test: the need's local id
-    matched_id = _id_matched_by_patterns(need_id)
+    # the patterns accept the need's local id, or its whole id
     if (
         needs_config.id_regex
         and not from_outside
-        and not re.match(needs_config.id_regex, matched_id)
+        and not id_matched_by_patterns(needs_config.id_regex, need_id, id_local)
     ):
         raise InvalidNeedException(
             "invalid_id",
-            f"Given ID {need_id!r} does not match configured regex {needs_config.id_regex!r}",
+            f"Given ID {need_id!r} does not match configured regex "
+            f"{needs_config.id_regex!r}{nor_local(need_id, id_local)}",
         )
     # and the id_regex of its need type, and of each type that one inherits from
     for declared_by, pattern in (
         () if from_outside else needs_schema.id_patterns(need_type)
     ):
-        if not re.match(pattern, matched_id):
+        if not id_matched_by_patterns(pattern, need_id, id_local):
             inherited = (
                 ""
                 if declared_by == need_type
@@ -395,7 +406,7 @@ def _generate_need(
             raise InvalidNeedException(
                 "invalid_id",
                 f"Given ID {need_id!r} does not match the id_regex {pattern!r} of need "
-                f"type {declared_by!r}{inherited}",
+                f"type {declared_by!r}{inherited}{nor_local(need_id, id_local)}",
             )
 
     # Convert all schema-enabled core fields
@@ -678,6 +689,7 @@ def _generate_need(
             dynamic_fields=dynamic_fields,
             # one set for every need type, the schema's own (derived_names)
             derived=schema.derived_names,
+            _id_split=(id_namespace, id_local),
             _validate=False,
         )
     except ValueError as err:
@@ -730,6 +742,16 @@ def _generate_need(
 
         needs_info.set_content(content_info)
 
+    if _id_problem is not None and not from_outside:
+        # the project's own id (authored or generated) holds the separator but does not
+        # split cleanly: the need is kept, as a plain id. An imported or external one is
+        # the source's data, as for the id patterns
+        log_warning(
+            logger,
+            unclean_id_message(need_id, _id_problem),
+            "id_namespace",
+            location,
+        )
     return needs_info
 
 
@@ -902,7 +924,8 @@ def add_need(
     Instead, the need is referencing an external url.
     Used mostly for :ref:`needs_external_needs` to integrate and reference needs from external documentation.
 
-    :raises InvalidNeedException: If the need could not be added due to a validation issue;
+    :raises InvalidNeedException: If the need could not be added due to a validation issue,
+        such as a ``full_title`` that is not a string (type ``invalid_value``);
         also, before the need is recorded, if a ``MarkupContent``'s ``markup`` names no
         reStructuredText or MyST parser of the project.
 
@@ -926,7 +949,7 @@ def add_need(
     :param need_type: Name of the need type to create.
     :param title: String as title.
     :param full_title: This is given, if an auto-generated title was trimmed.
-        It is used to auto-generate the ID, if required.
+        It is used to auto-generate the ID, if required. A string.
     :param id: ID as string. If not given, an id will get generated.
     :param content: Content of the need, either as a ``str``
         or a ``StringList`` (a string with mapping to the source text), parsed by the
@@ -943,6 +966,11 @@ def add_need(
     :param status: Status as string.
     :param tags: A list of tags, or a comma separated string.
     :param constraints: Constraints as single, comma separated, string.
+    :param parts: The need's parts, keyed by part id. Kept as given only for an external
+        or a hidden need: a need on a page takes its parts from its content (its
+        :ref:`need_part` roles), a given part whose id the content marks takes the
+        content's text, and the given part ids the content does not mark are dropped,
+        with one ``needs.part`` warning per need naming them.
     :param constraints_passed: Contains bool describing if all constraints have passed
     :param hide: If True then the need is not rendered.
         ``None`` means that the value can be overriden by global defaults, else it is set to False.
@@ -973,7 +1001,7 @@ def add_need(
         )
         kwargs = {k: v for k, v in kwargs.items() if k not in _deprecated_kwargs}
 
-    _, need_nodes = _create_need(
+    need, need_nodes = _create_need(
         app,
         state,
         _legacy_source(
@@ -1012,6 +1040,16 @@ def add_need(
         sections=sections,
         external_css=external_css,
     )
+    # a need on a page takes its parts from its content, which replaces the given ones;
+    # an external or a hidden need keeps them, so it drops none
+    if parts and (dropped := sorted(parts.keys() - need["parts"].keys())):
+        log_warning(
+            logger,
+            f"Need {need['id']!r}: the parts {dropped} given to add_need are dropped: "
+            "a need on a page takes its parts from its content",
+            "part",
+            location=(need["docname"], need["lineno"]) if need["docname"] else None,
+        )
     return need_nodes
 
 
@@ -1097,7 +1135,7 @@ def create_need(
         else the suffix of the document the need is created in.
     :param jinja_content: If true, the content is rendered as a Jinja template first.
     :param full_title: The title before it was trimmed, if it was: the generated id is
-        derived from it.
+        derived from it. A string; any other value is refused.
     :param allow_type_coercion: If true, values are coerced to the type of their field
         where possible.
     :return: The need, as it is recorded in the project (the object, not a copy), and
@@ -1110,7 +1148,8 @@ def create_need(
         taken, a ``MarkupContent`` whose ``markup`` names no reStructuredText or MyST
         parser of the project, and any other validation the need fails, such as an
         unknown need type, a constraint not in :ref:`needs_constraints`, a template that
-        does not exist, or Jinja content that does not render; (type
+        does not exist, or Jinja content that does not render; (type ``invalid_value``)
+        for a ``full_title`` that is not a string, whether or not an ``id`` is given; (type
         ``invalid_kwargs``) for a name in ``fields`` or ``links`` the project does not
         declare, or one given in the wrong place: a link type in ``fields``, a field in
         ``links``, or one of this function's own arguments (``title``, ``content``, ...)
@@ -1371,8 +1410,9 @@ def _import_key_sets(
         *extra_names,
     }
     omitted = {
-        # legacy, unless the project declares a field of that name (#2392)
-        *({"full_title"} - extra_names),
+        # legacy, unless the project declares a field (#2392) or a link type (#2466)
+        # of that name
+        *({"full_title"} - extra_names - {*link_names}),
         *(k for k, v in NeedsCoreFields.items() if v.get(flag)),
         *(f"{x}_back" for x in link_names),
     }
@@ -1503,10 +1543,16 @@ def ingest_need_record(
     (the format sphinx-needs writes): ``type``, ``title``, ``id``, fields and links as
     authored, ``content``, ``doctype``, and so on. A record of a later format is not
     read by this function.
-    It is not modified. A legacy ``description`` is taken as the ``content`` when that is
-    empty; keys the project does not know are dropped and returned; keys that are
-    computed rather than imported (such as ``docname``, ``lineno``, ``full_title`` or
-    the ``<link>_back`` names) are dropped silently. The need is created from the rest
+    It is not modified. A legacy ``description`` is taken as the ``content`` when the
+    record has none (no ``content`` key: sphinx-needs before 4.0 wrote the content as
+    ``description``); a record with a ``content``, even an empty one, keeps its
+    ``description`` as the field or link of that name. A caller that builds records
+    sets ``content``, even ``""``, for a need without one, so that a ``description`` it
+    gives is not taken as the content. Keys the project does not know are dropped and
+    returned; keys that are
+    computed rather than imported (such as ``docname``, ``lineno`` or the ``<link>_back``
+    names) are dropped silently, and so is the legacy ``full_title``, unless the project
+    has a field or a link type of that name. The need is created from the rest
     through the same path as :func:`create_need`: ``type`` as its ``need_type``, and
     its fields and links as one mapping, so a record key named like an argument of
     that path is the field of its name.
@@ -1648,6 +1694,87 @@ def _reset_rst_titles(state: RSTState) -> Generator[None]:
     state.memo.section_level = surrounding_section_level
 
 
+# set on the document's settings for the duration of a restricted parse: a
+# ``needimport`` met there refuses to read (docutils' own switch can be off for a whole
+# project)
+_RESTRICTED_MARKER = "_sphinx_needs_import_restricted"
+
+
+@contextmanager
+def _restricted_parse(settings: Any) -> Generator[None]:
+    """docutils' ``file_insertion_enabled`` and ``raw_enabled`` off for the duration of
+    one parse, with this module's marker set, and all three put back as they were after
+    it, whatever happens inside."""
+    previous = (
+        getattr(settings, "file_insertion_enabled", True),
+        getattr(settings, "raw_enabled", True),
+    )
+    outer = getattr(settings, _RESTRICTED_MARKER, None)
+    settings.file_insertion_enabled = settings.raw_enabled = False
+    setattr(settings, _RESTRICTED_MARKER, True)
+    try:
+        yield
+    finally:
+        settings.file_insertion_enabled, settings.raw_enabled = previous
+        if outer is None:
+            delattr(settings, _RESTRICTED_MARKER)
+        else:
+            setattr(settings, _RESTRICTED_MARKER, outer)
+
+
+def _in_restricted_parse(settings: Any) -> bool:
+    """Whether an imported need's content is being parsed restricted."""
+    return bool(getattr(settings, _RESTRICTED_MARKER, False))
+
+
+# the raw nodes myst-parser itself makes for ordinary Markdown, as ``(format, text)``:
+# a hard line break and a task-list checkbox (disabled, or enabled by
+# ``myst_enable_checkboxes``, whose text differs between myst-parser 4 and 5); measured
+# with myst-parser 4.0.1 and 5.1.0. A restricted parse keeps them, matched exactly
+_CHECKBOX = '<input class="task-list-item-checkbox"{} type="checkbox">'
+_MYST_OWN_RAW = frozenset(
+    {
+        ("html", "<br />\n"),
+        ("latex", "\\\\\n"),
+        *(
+            ("html", _CHECKBOX.format(checked + enabled))
+            for checked in ("", ' checked="checked"')
+            for enabled in (' disabled="disabled"', "", " ")
+        ),
+    }
+)
+# strikethrough, which a restricted parse keeps only as a pair: an ``<s>`` with a later
+# ``</s>`` among the same parent's children, as myst-parser writes ``~~x~~``
+_S_OPEN, _S_CLOSE = ("html", "<s>"), ("html", "</s>")
+
+
+def _remove_raw(node: nodes.Element) -> int:
+    """Remove the raw nodes a restricted parse still made, but for myst-parser's own
+    output for ordinary Markdown: its HTML blocks and inline HTML never consult
+    ``raw_enabled``.
+
+    :return: How many were removed.
+    """
+    parents = {
+        id(r.parent): r.parent for r in node.findall(nodes.raw) if r.parent is not None
+    }
+    raws: list[nodes.raw] = []
+    for parent in parents.values():
+        opened: list[nodes.raw] = []
+        for raw in [c for c in parent.children if isinstance(c, nodes.raw)]:
+            key = (raw.get("format"), raw.astext())
+            if key == _S_OPEN:
+                opened.append(raw)
+            elif key == _S_CLOSE and opened:
+                opened.pop()
+            elif key not in _MYST_OWN_RAW:
+                raws.append(raw)
+        raws.extend(opened)
+    for raw in raws:
+        raw.parent.remove(raw)
+    return len(raws)
+
+
 def _host_content_anchor(
     state: RSTState, input_offset: int, host_source: str, need_line: int | None
 ) -> tuple[str, int]:
@@ -1778,15 +1905,28 @@ def _create_need_node(
 
     return_nodes: list[nodes.Node] = []
 
+    # an imported need's content, and the text its templates render (the record names
+    # the template, and a template renders the record's fields), are the source's data:
+    # parsed with docutils' file insertion and raw markup off when the project asks
+    restricted = (
+        data["is_import"] and NeedsSphinxConfig(env.config).import_restrict_content
+    )
+    removed = 0
+
     if pre_content := data.get("pre_content"):
         node = nodes.Element()
-        with _reset_rst_titles(state):
+        with (
+            _reset_rst_titles(state),
+            _restricted_parse(state.document.settings) if restricted else nullcontext(),
+        ):
             state.nested_parse(
                 StringList(pre_content.splitlines(), source=source),
                 _template_parse_offset(data),
                 node,
                 match_titles=True,
             )
+        if restricted:
+            removed += _remove_raw(node)
         return_nodes.extend(node.children)
 
     # Calculate target id, to be able to set a link back
@@ -1798,26 +1938,29 @@ def _create_need_node(
         content_offset = data["lineno_content"] - 1
     else:
         content_offset = _template_parse_offset(data)
-    if content_parser is not None:
-        _parse_declared_content(
-            data,
-            state,
-            content,
-            content_offset,
-            node_need,
-            parser=content_parser,
-            content_source=content_source,
-            host_source=str(source) if source else "",
-        )
-    elif isinstance(content, StringList):
-        state.nested_parse(content, content_offset, node_need, match_titles=False)
-    else:
-        state.nested_parse(
-            StringList(content.splitlines(), source=source),
-            content_offset,
-            node_need,
-            match_titles=False,
-        )
+    with _restricted_parse(state.document.settings) if restricted else nullcontext():
+        if content_parser is not None:
+            _parse_declared_content(
+                data,
+                state,
+                content,
+                content_offset,
+                node_need,
+                parser=content_parser,
+                content_source=content_source,
+                host_source=str(source) if source else "",
+            )
+        elif isinstance(content, StringList):
+            state.nested_parse(content, content_offset, node_need, match_titles=False)
+        else:
+            state.nested_parse(
+                StringList(content.splitlines(), source=source),
+                content_offset,
+                node_need,
+                match_titles=False,
+            )
+    if restricted:
+        removed += _remove_raw(node_need)
 
     # Extract plantuml diagrams and store needumls with keys in arch, e.g. need_info['arch']['diagram']
     arch = {}
@@ -1858,14 +2001,30 @@ def _create_need_node(
 
     if post_content := data.get("post_content"):
         node = nodes.Element()
-        with _reset_rst_titles(state):
+        with (
+            _reset_rst_titles(state),
+            _restricted_parse(state.document.settings) if restricted else nullcontext(),
+        ):
             state.nested_parse(
                 StringList(post_content.splitlines(), source=source),
                 _template_parse_offset(data),
                 node,
                 match_titles=True,
             )
+        if restricted:
+            removed += _remove_raw(node)
         return_nodes.extend(node.children)
+
+    if removed:
+        # one warning per imported need, a need written inside its content counted in
+        log_warning(
+            logger,
+            "Raw markup (an HTML block or inline HTML) removed from "
+            f"imported need {data['id']!r} ({removed} node(s)): "
+            "needs_import_restrict_content is on",
+            "import_restrict",
+            location=(data["docname"], data["lineno"]),
+        )
 
     return return_nodes
 
@@ -2073,11 +2232,13 @@ def generate_need_id(
     :param title: Title of the need.
     :param content: Content of the need, either as a ``str``
         or a ``StringList``, as :func:`create_need` takes it.
-    :param full_title: The untrimmed title, if ``title`` was trimmed.
+    :param full_title: The untrimmed title, if ``title`` was trimmed: a string.
     :return: The generated id.
     :raises InvalidNeedException: If ``need_type`` is not a configured need type
-        (type ``invalid_type``, as :func:`create_need` raises it).
+        (type ``invalid_type``), or ``full_title`` is not a string (type
+        ``invalid_value``), as :func:`create_need` raises it.
     """
+    _check_full_title(full_title)
     needs_config = NeedsSphinxConfig(app.config)
     return _generate_need_id(
         needs_config,

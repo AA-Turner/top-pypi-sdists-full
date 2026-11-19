@@ -16,10 +16,9 @@ See ``docs/commands/quickstart.md`` for the user-facing command reference.
 from __future__ import annotations
 
 import dataclasses
-import io
+import importlib.resources
 import os
 import pathlib
-import pkgutil
 import re
 import shutil
 import string
@@ -50,8 +49,9 @@ def run_quickstart(
     app_type: str,
     name: str,
     *,
-    python_version: typing.Optional[str] = None,
-    cwd: typing.Optional[pathlib.Path] = None,
+    python_version: str | None = None,
+    server_python_settings: typing.Callable[[], tuple[object, str] | None] | None = None,
+    cwd: pathlib.Path | None = None,
 ) -> pathlib.Path:
     """Scaffold a new Connect project of ``app_type`` named ``name``.
 
@@ -66,8 +66,8 @@ def run_quickstart(
         that begins with a specifier operator (e.g. ``>=3.11`` or
         ``>=3.11,<3.14``) is used verbatim. A bare version is padded to at
         most three segments: ``3.10`` -> ``==3.10.*`` (any 3.10.x) and
-        ``3.11.14`` -> ``==3.11.14`` (exact). Defaults to ``>=<major.minor>``
-        of the interpreter running ``rsconnect``.
+        ``3.11.14`` -> ``==3.11.14`` (exact).
+    :param server_python_settings: optional lazy server settings lookup.
     :param pathlib.Path cwd: override the working directory (testing hook);
         defaults to :func:`pathlib.Path.cwd`.
     """
@@ -94,13 +94,27 @@ def run_quickstart(
     # verbatim. A bare version is padded to at most three segments so the
     # ``.*`` wildcard appears only when a patch level is omitted: ``3.10`` ->
     # ``==3.10.*`` (any 3.10.x), ``3.11.14`` -> ``==3.11.14`` (exact).
-    # Without ``--python`` we track the running interpreter's ``major.minor``.
+    venv_python: str | None = None
     if python_version is None:
         requires_python = _REQUIRES_PYTHON
+        venv_python = sys.executable
+        source = "the Python interpreter running rsconnect"
+        settings = server_python_settings() if server_python_settings else None
+        if settings is not None:
+            data, server = settings
+            if server == "fallback" and data is None:
+                source = "the Python interpreter running rsconnect; server compatibility not checked"
+            else:
+                version = _newest_publishable_python(data)
+                requires_python = f">={version}"
+                venv_python = version
+                source = f"the Posit Connect server {server}"
     elif python_version[:1] in {"=", "<", ">", "!", "~"}:
         requires_python = python_version
+        source = "the --python override"
     else:
         requires_python = "==" + ".".join((python_version.split(".") + ["*"])[:3])
+        source = "the --python override"
 
     # Atomicity: after ``mkdir`` succeeds, any failure in the rest of the
     # pipeline must remove ``./<name>/`` so the user sees "all or nothing."
@@ -109,10 +123,7 @@ def run_quickstart(
     target.mkdir()
     try:
         _scaffold(target, name=name, spec=spec, requires_python=requires_python)
-        # Without ``--python``, build the venv on the running interpreter.
-        # Otherwise uv picks the newest Python matching ``requires-python``,
-        # which may be too new for some dependencies to have wheels yet.
-        _install_venv(target, python=sys.executable if python_version is None else None)
+        _install_venv(target, python=venv_python)
     except BaseException:
         shutil.rmtree(target, ignore_errors=True)
         raise
@@ -121,8 +132,32 @@ def run_quickstart(
     # BrokenPipeError when piping to ``head``) must not invalidate the
     # on-disk project. The README carries the same two commands, so the
     # user can recover them even if this echo fails.
-    _emit_summary(target, name=name, spec=spec)
+    _emit_summary(target, name=name, spec=spec, requires_python=requires_python, source=source)
     return target
+
+
+def _newest_publishable_python(settings: object) -> str:
+    installations = (
+        typing.cast(typing.Mapping[str, object], settings).get("installations") if isinstance(settings, dict) else None
+    )
+    versions: list[tuple[int, ...]] = []
+    if isinstance(installations, list):
+        for item in typing.cast(list[object], installations):
+            if not isinstance(item, dict):
+                continue
+            installation = typing.cast(typing.Mapping[str, object], item)
+            if installation.get("publishable") is not True:
+                continue
+            version = installation.get("version")
+            if isinstance(version, str) and re.fullmatch(r"[0-9]+\.[0-9]+(?:\.[0-9]+)?", version):
+                versions.append(tuple(int(part) for part in version.split(".")))
+    if not versions:
+        raise RSConnectException(
+            "The Connect server has no usable Python installation marked publishable for new content. "
+            "Check the server's Python configuration or use --python to bypass discovery."
+        )
+    selected = max(versions)
+    return f"{selected[0]}.{selected[1]}"
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +203,7 @@ def _require_cwd_writable(cwd: pathlib.Path) -> None:
 #
 # The registry is the single source of truth that ties together what each
 # supported mode produces: the canonical Connect ``app_mode`` written to
-# ``[tool.rsconnect]``, the entrypoint form, the local-run command
+# ``[tool.posit.connect]``, the entrypoint form, the local-run command
 # documented in the post-scaffold stdout and the README, the minimum
 # dependencies for the hello-world, and the source files the per-mode
 # template materializes.
@@ -188,7 +223,7 @@ class FileSpec:
         ``<name>/<name>/`` Python package layout.
     :param str template: path to the template body under
         ``rsconnect/quickstart/templates/``, loaded via
-        :func:`pkgutil.get_data`. Template files use the ``.tmpl`` suffix
+        :func:`importlib.resources.files`. Template files use the ``.tmpl`` suffix
         to signal "needs substitution before becoming a usable artifact"
         and to prevent accidental Python import of files that may not be
         valid source on their own. The single token ``{name}`` in the body
@@ -236,9 +271,9 @@ class TemplateSpec:
 
     pyproject_template: str
     readme_template: str
-    local_run_command: typing.Tuple[str, ...]
-    source_files: typing.Tuple[FileSpec, ...]
-    notes: typing.Tuple[str, ...] = ()
+    local_run_command: tuple[str, ...]
+    source_files: tuple[FileSpec, ...]
+    notes: tuple[str, ...] = ()
 
 
 # Registry key: the canonical :class:`AppMode` singleton. The CLI alias
@@ -314,7 +349,7 @@ _REGISTRY: typing.Mapping[AppMode, TemplateSpec] = {
 }
 
 
-def _supported_aliases() -> typing.Tuple[str, ...]:
+def _supported_aliases() -> tuple[str, ...]:
     """CLI aliases whose :class:`AppMode` has a quickstart template.
 
     Derived from :data:`AppModes._cli_aliases` and :data:`_REGISTRY`: an
@@ -383,25 +418,17 @@ def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec, requires_p
 
 
 def _load_template(path: str) -> str:
-    """Read a template file from the ``rsconnect.quickstart.templates`` package.
-
-    ``pkgutil.get_data`` is stdlib since Python 3.0 and works under wheel
-    install, unlike ``importlib.resources.files`` which is 3.9+. It returns
-    raw bytes, so we wrap the buffer in :class:`io.TextIOWrapper` to get the
-    same universal-newlines decoding as ``open(path, 'rt')``.
-    """
-    data = pkgutil.get_data("rsconnect.quickstart.templates", path)
-    if data is None:
-        raise RSConnectException(f"Template not found: {path}")
-    return io.TextIOWrapper(io.BytesIO(data), encoding="utf-8").read()
+    """Read a template file from the ``rsconnect.quickstart.templates`` package."""
+    try:
+        return importlib.resources.files("rsconnect.quickstart.templates").joinpath(path).read_text(encoding="utf-8")
+    except FileNotFoundError as err:
+        raise RSConnectException(f"Template not found: {path}") from err
 
 
 # ``requires-python`` is the single source of truth for the scaffold's Python
 # requirement: ``rsconnect deploy pyproject`` reads ``pyproject.toml``, so
 # emitting a separate ``.python-version`` pin would only duplicate this value.
-# The floor tracks the interpreter that ran ``rsconnect quickstart`` so the
-# scaffold matches the developer's working environment without committing the
-# project to any version older than what its author has actually used.
+# The running interpreter is the fallback when no server can be consulted.
 _REQUIRES_PYTHON = ">={}.{}".format(*sys.version_info[:2])
 
 _GITIGNORE_BODY = """\
@@ -417,7 +444,7 @@ rsconnect-python/
 def _render_pyproject(*, name: str, spec: TemplateSpec, requires_python: str) -> str:
     # The per-mode template owns the literal TOML, including ``app_mode``,
     # ``entrypoint`` and the dependency list. Only ``$name`` (project name)
-    # and ``$requires_python`` (from ``--python`` or the running interpreter)
+    # and ``$requires_python`` (selected for this scaffold)
     # vary at scaffold time.
     return string.Template(_load_template(spec.pyproject_template)).substitute(
         name=name, requires_python=requires_python
@@ -443,7 +470,7 @@ def _format_local_run(spec: TemplateSpec, *, name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _install_venv(target: pathlib.Path, python: typing.Optional[str] = None) -> None:
+def _install_venv(target: pathlib.Path, python: str | None = None) -> None:
     """Populate ``.venv/`` via ``uv venv`` + ``uv sync``.
 
     ``python`` is passed to ``uv venv --python``; when omitted, uv chooses an
@@ -479,7 +506,7 @@ def _install_venv(target: pathlib.Path, python: typing.Optional[str] = None) -> 
 # ---------------------------------------------------------------------------
 
 
-def _emit_summary(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
+def _emit_summary(target: pathlib.Path, *, name: str, spec: TemplateSpec, requires_python: str, source: str) -> None:
     """Print the confirmation, cd, local-run, deploy, and notes lines.
 
     Uses :func:`click.echo` for consistency with the rest of the CLI; the
@@ -487,6 +514,7 @@ def _emit_summary(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> Non
     :func:`_render_readme` so stdout and on-disk docs agree.
     """
     click.echo(f"\nProject {target.name}/ created.")
+    click.echo(f"Python requirement: {requires_python} (from {source})")
     click.echo(f"To get started:  cd {name}")
     click.echo(f"To run locally:  {_format_local_run(spec, name=name)}")
     click.echo("To deploy:       rsconnect deploy pyproject .")

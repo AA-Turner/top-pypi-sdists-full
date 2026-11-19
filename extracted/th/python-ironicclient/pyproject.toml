@@ -25,6 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Typing :: Typed",
 ]
 
@@ -84,6 +85,8 @@ baremetal_node_children_list = "ironicclient.osc.v1.baremetal_node:NodeChildrenL
 baremetal_node_console_disable = "ironicclient.osc.v1.baremetal_node:ConsoleDisableBaremetalNode"
 baremetal_node_console_enable = "ironicclient.osc.v1.baremetal_node:ConsoleEnableBaremetalNode"
 baremetal_node_console_show = "ironicclient.osc.v1.baremetal_node:ConsoleShowBaremetalNode"
+baremetal_node_console_url_open = "ironicclient.osc.v1.baremetal_node:ConsoleUrlOpenBaremetalNode"
+baremetal_node_console_url_show = "ironicclient.osc.v1.baremetal_node:ConsoleUrlShowBaremetalNode"
 baremetal_node_create = "ironicclient.osc.v1.baremetal_node:CreateBaremetalNode"
 baremetal_node_delete = "ironicclient.osc.v1.baremetal_node:DeleteBaremetalNode"
 baremetal_node_deploy = "ironicclient.osc.v1.baremetal_node:DeployBaremetalNode"
@@ -129,9 +132,11 @@ baremetal_port_list = "ironicclient.osc.v1.baremetal_port:ListBaremetalPort"
 baremetal_port_set = "ironicclient.osc.v1.baremetal_port:SetBaremetalPort"
 baremetal_port_show = "ironicclient.osc.v1.baremetal_port:ShowBaremetalPort"
 baremetal_port_unset = "ironicclient.osc.v1.baremetal_port:UnsetBaremetalPort"
+baremetal_port_group_add = "ironicclient.osc.v1.baremetal_portgroup:AddBaremetalPortGroup"
 baremetal_port_group_create = "ironicclient.osc.v1.baremetal_portgroup:CreateBaremetalPortGroup"
 baremetal_port_group_delete = "ironicclient.osc.v1.baremetal_portgroup:DeleteBaremetalPortGroup"
 baremetal_port_group_list = "ironicclient.osc.v1.baremetal_portgroup:ListBaremetalPortGroup"
+baremetal_port_group_remove = "ironicclient.osc.v1.baremetal_portgroup:RemoveBaremetalPortGroup"
 baremetal_port_group_set = "ironicclient.osc.v1.baremetal_portgroup:SetBaremetalPortGroup"
 baremetal_port_group_show = "ironicclient.osc.v1.baremetal_portgroup:ShowBaremetalPortGroup"
 baremetal_port_group_unset = "ironicclient.osc.v1.baremetal_portgroup:UnsetBaremetalPortGroup"

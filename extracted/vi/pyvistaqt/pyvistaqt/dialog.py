@@ -2,9 +2,9 @@
 
 from collections.abc import Callable
 import os
+from typing import TYPE_CHECKING
 from typing import Any
 
-import pyvista as pv
 from qtpy import QtCore
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QDialog
@@ -15,6 +15,9 @@ from qtpy.QtWidgets import QHBoxLayout
 from qtpy.QtWidgets import QSlider
 
 from .window import MainWindow
+
+if TYPE_CHECKING:
+    from .plotting import BackgroundPlotter
 
 
 class FileDialog(QFileDialog):
@@ -33,7 +36,7 @@ class FileDialog(QFileDialog):
         filefilter: list[str] | None = None,
         save_mode: bool = True,  # noqa: FBT001, FBT002
         show: bool = True,  # noqa: FBT001, FBT002
-        callback: Callable[[str], None] | None = None,
+        callback: Callable[[str], object] | None = None,
         directory: bool = False,  # noqa: FBT001, FBT002
     ) -> None:
         """Initialize the file dialog."""
@@ -101,7 +104,7 @@ class DoubleSlider(QSlider):
         """Return the value range of the slider."""
         return self._max_value - self._min_value
 
-    def value(self) -> float:  # ty: ignore[invalid-method-override]
+    def value(self) -> float:  # ty: ignore[incompatible-method-override]
         """Return the value of the slider (intentionally float, not int)."""
         return float(super().value()) / self._max_int * self._value_range + self._min_value
 
@@ -135,14 +138,20 @@ class RangeGroup(QHBoxLayout):
 
     def __init__(
         self,
-        parent: MainWindow,
+        parent: MainWindow,  # noqa: ARG002
         callback: Any,  # noqa: ANN401
         minimum: float = 0.0,
         maximum: float = 20.0,
         value: float = 1.0,
     ) -> None:
-        """Initialize the range widget."""
-        super().__init__(parent)
+        """
+        Initialize the range widget.
+
+        ``parent`` is unused (kept for backward compatibility): the layout is
+        adopted by the widget it is added to, and passing a widget that
+        already has a layout as the parent makes Qt warn.
+        """
+        super().__init__()
         self.slider = DoubleSlider(QtCore.Qt.Orientation.Horizontal)
         self.slider.setMinimum(minimum)
         self.slider.setMaximum(maximum)
@@ -190,10 +199,9 @@ class RangeGroup(QHBoxLayout):
 class ScaleAxesDialog(QDialog):
     """Dialog to control axes scaling."""
 
-    accepted = Signal(float)
     signal_close = Signal()
 
-    def __init__(self, parent: MainWindow, plotter: pv.Plotter, show: bool = True) -> None:  # noqa: FBT001, FBT002
+    def __init__(self, parent: MainWindow, plotter: "BackgroundPlotter", show: bool = True) -> None:  # noqa: FBT001, FBT002
         """Initialize the scaling dialog."""
         super().__init__(parent)
         self.setGeometry(300, 300, 50, 50)
@@ -221,7 +229,7 @@ class ScaleAxesDialog(QDialog):
         # pyvista wraps ``set_scale`` with functools, so ty sees the unbound
         # signature (first parameter typed ``BasePlotter``).
         self.plotter.set_scale(
-            self.x_slider_group.value,  # ty: ignore[invalid-argument-type]
+            self.x_slider_group.value,
             self.y_slider_group.value,
             self.z_slider_group.value,
         )

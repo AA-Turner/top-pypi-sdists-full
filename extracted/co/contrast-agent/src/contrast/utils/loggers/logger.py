@@ -346,6 +346,37 @@ class SecureSysLogHandler(stdlib_logging_handlers.SysLogHandler):
         if secure:
             ctx = ssl.create_default_context()
             self.socket = ctx.wrap_socket(self.socket, server_hostname=self.address[0])
+        self._pid = os.getpid()
+
+    def emit(self, record) -> None:
+        # Handler.handle holds the handler's lock around emit, so only one thread can
+        # reconnect.
+        if self._pid != os.getpid():
+            try:
+                self._reconnect_in_child()
+            except Exception:
+                self.handleError(record)
+                return
+        super().emit(record)
+
+    def _reconnect_in_child(self) -> None:
+        """
+        Give a forked child its own connection. The child inherits the parent's
+        socket, and writing to it would interleave the child's messages with the
+        parent's on the same TCP stream, or corrupt the parent's TLS session.
+
+        If connecting fails, the inherited socket is left in place (but unused), so
+        that the next emit tries again.
+        """
+        new_handler = SecureSysLogHandler(*self.config["args"], **self.config["kwargs"])
+        new_socket, new_handler.socket = new_handler.socket, None
+        new_handler.close()
+        if self.socket:
+            # Only closes the child's copy. This doesn't shut down the connection or
+            # send a TLS close_notify, so the parent's connection is unaffected.
+            self.socket.close()
+        self.socket = new_socket
+        self._pid = os.getpid()
 
     def format(self, record) -> str:
         # HACK: The SysLogHandler extension capabilities are based on
@@ -368,10 +399,11 @@ class SecureSysLogHandler(stdlib_logging_handlers.SysLogHandler):
         """
         Closes the socket.
 
-        Adds safety checks for before Python 3.10 to account for unset
+        Adds safety checks for before Python 3.11 to account for unset
         socket crash: https://github.com/python/cpython/issues/82961
         """
-        return super().close()
+        if sys.version_info >= (3, 11):
+            return super().close()
 
         self.acquire()
         try:

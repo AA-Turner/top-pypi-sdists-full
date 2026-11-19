@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: collate-sqlfluff
-Version: 3.5.3
+Version: 3.6.0
 Summary: The SQL Linter for Humans
 Author: open-metadata
 License: MIT License
@@ -62,7 +62,6 @@ Requires-Dist: colorama>=0.3
 Requires-Dist: diff-cover>=2.5.0
 Requires-Dist: Jinja2
 Requires-Dist: pathspec
-Requires-Dist: pytest
 Requires-Dist: pyyaml>=5.1
 Requires-Dist: regex
 Requires-Dist: tblib
@@ -175,12 +174,12 @@ We also have a VS Code extension:
 
 # Getting Started
 
-To get started, install the package and run `sqlfluff lint` or `sqlfluff fix`.
+To get started, install the package and run `collate-sqlfluff lint` or `collate-sqlfluff fix`.
 
 ```shell
-$ pip install sqlfluff
+$ pip install collate-sqlfluff
 $ echo "  SELECT a  +  b FROM tbl;  " > test.sql
-$ sqlfluff lint test.sql --dialect ansi
+$ collate-sqlfluff lint test.sql --dialect ansi
 == [test.sql] FAIL
 L:   1 | P:   1 | LT01 | Expected only single space before 'SELECT' keyword.
                        | Found '  '. [layout.spacing]

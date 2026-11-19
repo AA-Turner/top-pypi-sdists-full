@@ -62,6 +62,7 @@ SettablePolicyStateValuesType = Literal["DISABLED", "ENABLED"]
 StageValuesType = Literal["POST", "PRE"]
 DLMServiceName = Literal["dlm"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

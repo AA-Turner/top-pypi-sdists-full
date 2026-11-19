@@ -8,9 +8,16 @@ from docutils import nodes
 from sphinx.application import Sphinx
 from sphinx.builders import Builder
 
+from sphinx_needs._needsfile_v2a1 import (
+    FORMAT_2A1,
+    NeedsFile2a1,
+    json_format_version,
+    warn_on_write,
+)
 from sphinx_needs.config import NeedsSphinxConfig
 from sphinx_needs.data import SphinxNeedsData
 from sphinx_needs.logging import get_logger
+from sphinx_needs.need_item import NeedItem
 from sphinx_needs.needsfile import NeedsList
 
 LOGGER = get_logger(__name__)
@@ -56,6 +63,17 @@ class NeedsBuilder(Builder):
         data = SphinxNeedsData(self.env)
         needs = data.get_needs_view()
         needs_config = NeedsSphinxConfig(self.env.config)
+        if json_format_version(needs_config) == FORMAT_2A1:
+            # the draft: no versions, so no needs_file to accumulate them from
+            self._finish_2a1(
+                filter_needs_view(
+                    needs,
+                    needs_config,
+                    needs_config.builder_filter,
+                    append_warning="(from need_builder_filter)",
+                )
+            )
+            return
         version = getattr(self.env.config, "version", "unset")
         needs_list = NeedsList(self.env, self.outdir, self.srcdir)
 
@@ -93,6 +111,16 @@ class NeedsBuilder(Builder):
         else:
             LOGGER.info("Needs successfully exported")
 
+    def _finish_2a1(self, needs: Iterable[NeedItem]) -> None:
+        """Write ``needs.json`` in the draft format 2a1 (experimental)."""
+        warn_on_write(_app_of(self), self.env)
+        try:
+            NeedsFile2a1(self.env).write(needs, os.path.join(self.outdir, "needs.json"))
+        except Exception as e:
+            LOGGER.error(f"Error during writing json file: {e}")
+        else:
+            LOGGER.info("Needs successfully exported")
+
     def get_target_uri(self, docname: str, typ: str | None = None) -> str:
         # only needed if the write phase is run
         return ""
@@ -114,6 +142,12 @@ class NeedsBuilder(Builder):
         pass
 
 
+def _app_of(builder: Builder) -> Sphinx:
+    """The application of ``builder`` (``_app`` from Sphinx 8.1, ``app`` before)."""
+    app = getattr(builder, "_app", None)
+    return app if app is not None else builder.app
+
+
 def build_needs_json(app: Sphinx, exception: Exception | None) -> None:
     if exception is not None:
         # The build has failed: Sphinx re-raises its exception after this event,
@@ -132,6 +166,32 @@ def build_needs_json(app: Sphinx, exception: Exception | None) -> None:
 
     needs_builder = NeedsBuilder(app, env)
     needs_builder.finish()
+
+
+_FILE_NAME_ENCODED = frozenset('<>:"/\\|?*%') | {chr(code) for code in range(0x20)}
+"""The characters of a need id :func:`_id_file_name` writes as ``%XX``."""
+
+
+def _id_file_name(need_id: str) -> str:
+    """The name of the file the per-id builder writes a need to: ``<id>.json``.
+
+    This is the one place a need id becomes a file name. Each character a file name
+    cannot hold on some system -- ``<`` ``>`` ``:`` ``"`` ``/`` ``\\`` ``|`` ``?`` ``*``
+    and the C0 controls U+0000 to U+001F -- is written as ``%`` and the two upper-case
+    hex digits of its code point, and so is ``%`` itself, so that the name can be read
+    back and two ids never share one: ``nc::REQ_1`` is ``nc%3A%3AREQ_1.json``, ``50%``
+    is ``50%25.json``. Every other character is kept, so ``REQ_1`` is ``REQ_1.json``.
+
+    :param need_id: The id of the need.
+    :return: The file name, with its ``.json`` suffix.
+    """
+    return (
+        "".join(
+            f"%{ord(char):02X}" if char in _FILE_NAME_ENCODED else char
+            for char in need_id
+        )
+        + ".json"
+    )
 
 
 class NeedsIdBuilder(Builder):
@@ -180,14 +240,26 @@ class NeedsIdBuilder(Builder):
         needs_dir = os.path.join(self.outdir, needs_build_json_per_id_path)
         if not os.path.exists(needs_dir):
             os.makedirs(needs_dir, exist_ok=True)
+        if json_format_version(needs_config) == FORMAT_2A1:
+            # the draft: one document per need, ``needs: [record]``
+            warn_on_write(_app_of(self), self.env)
+            writer = NeedsFile2a1(self.env)
+            for need in filtered_needs:
+                try:
+                    writer.write(
+                        [need], os.path.join(needs_dir, _id_file_name(need["id"]))
+                    )
+                except Exception as e:
+                    LOGGER.error(f"Needs-ID Builder {need['id']} error: {e}")
+            LOGGER.info("Needs_id successfully exported")
+            return
         for need in filtered_needs:
             needs_list = NeedsList(self.env, self.outdir, self.srcdir, add_schema=False)
             needs_list.wipe_version(version)
             needs_list.add_need(version, need)
             id = need["id"]
             try:
-                file_name = f"{id}.json"
-                needs_list.write_json(file_name, needs_dir)
+                needs_list.write_json(_id_file_name(id), needs_dir)
             except Exception as e:
                 LOGGER.error(f"Needs-ID Builder {id} error: {e}")
         LOGGER.info("Needs_id successfully exported")

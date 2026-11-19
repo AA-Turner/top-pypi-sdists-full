@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 from collections import defaultdict
-from importlib import import_module
 
 from contrast.extensions import smart_setattr
 from contrast.utils import Namespace
@@ -169,17 +168,17 @@ def reverse_all_patches():
     an attribute via repatching.
     """
     for owner_name in module.patches_by_name.copy():
-        try:
-            owner = import_module(owner_name)
-        except ImportError:
+        # Only look up owners in modules that are currently loaded. Patches are tracked
+        # by owner id, so importing a module that isn't loaded creates a new object
+        # with no patches to reverse. Importing would also re-execute that module's
+        # code as a side effect, e.g. rebuilding an application that was deliberately
+        # unloaded.
+        owner = sys.modules.get(owner_name)
+        if owner is None:
             module_name, _, attr_name = owner_name.rpartition(".")
-            try:
-                owner = getattr(import_module(module_name), attr_name)
-            except AttributeError:
-                # If the patched object is dynamic, it won't be exposed
-                # from the module. Currently, we don't have a way to reverse
-                # these patches.
-                continue
+            # If the patched object is dynamic, it won't be exposed from the module.
+            # Currently, we don't have a way to reverse these patches.
+            owner = getattr(sys.modules.get(module_name), attr_name, None)
 
         reverse_patches_by_owner(owner)
 

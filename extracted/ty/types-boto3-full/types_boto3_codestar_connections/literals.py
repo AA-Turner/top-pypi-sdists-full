@@ -52,6 +52,7 @@ SyncConfigurationTypeType = Literal["CFN_STACK_SYNC"]
 TriggerResourceUpdateOnType = Literal["ANY_CHANGE", "FILE_CHANGE"]
 CodeStarconnectionsServiceName = Literal["codestar-connections"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

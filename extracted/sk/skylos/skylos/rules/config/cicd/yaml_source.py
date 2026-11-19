@@ -206,8 +206,64 @@ class YamlSource:
         self._expanded_sizes[node] = expanded_size
         return merged
 
+    def has_ambiguous_mappings(self) -> bool:
+        """Whether keys collide or depend on YAML merge behavior.
+
+        This is a proof check; parsing and source locations retain their
+        existing behavior even when a mapping is ambiguous.
+        """
+        return any(
+            any(key.tag == _MERGE_TAG for key, _value in pairs)
+            or len(pairs) != len(self._entries[node])
+            for node, pairs in self._pairs.items()
+        )
+
+    def has_literal_root_key(self, name: str) -> bool:
+        matches = [
+            index
+            for index, (key, _value) in enumerate(self._pairs[self._root])
+            if isinstance(key, ScalarNode) and key.value == name
+        ]
+        return (
+            len(matches) == 1
+            and (
+                self._root,
+                "key",
+                matches[0],
+            )
+            not in self._aliases
+        )
+
     def line_for_path(self, path: tuple[Any, ...], *, key: bool = True) -> int | None:
         """Return a one-based key/value line, or None when the path is absent."""
+        located = self._locate(path)
+        if located is None:
+            return None
+        if key:
+            return located[1]
+        return located[2]
+
+    def scalar_lines_for_path(self, path: tuple[Any, ...]) -> tuple[int, int] | None:
+        """Return the one-based lines of a scalar written at the path itself.
+
+        A value reached through an alias or a merge is written elsewhere, so
+        it has no lines of its own at this path.
+        """
+        located = self._locate(path)
+        if located is None:
+            return None
+        node, _, _, fallback_line = located
+        if fallback_line is not None or not isinstance(node, ScalarNode):
+            return None
+        first = node.start_mark.line
+        last = node.end_mark.line
+        if node.end_mark.column == 0 and last > first:
+            last -= 1
+        return first + 1, last + 1
+
+    def _locate(
+        self, path: tuple[Any, ...]
+    ) -> tuple[Node, int, int, int | None] | None:
         node = self._root
         key_line = value_line = node.start_mark.line + 1
         fallback_line = None
@@ -235,7 +291,7 @@ class YamlSource:
                 fallback_line = fallback_line or alias_line
             else:
                 return None
-        return key_line if key else value_line
+        return node, key_line, value_line, fallback_line
 
 
 def load_yaml_with_locations(

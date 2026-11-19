@@ -86,16 +86,20 @@ def add_arguments(p_eval: argparse.ArgumentParser, p_report: argparse.ArgumentPa
 
 
 def parse_value(text: str) -> int | float | bool | str:
-    """A parameter value as typed: true/false, an int, a float, else the text itself (the worker casts it to the
-    declared type and refuses what does not fit)."""
+    """A parameter value as typed: true/false, a number whose own text it is (`3`, `0.5`, `1e-05`), else the text
+    itself - `1.10`, `1e3` and `007` sent as typed, so a str parameter runs with what was typed and a number's is read
+    from it, where a number sent in their place ran as "1.1", "1000.0" and "7". The platform casts each to the declared
+    type and refuses what does not fit.
+"""
     low = text.strip().lower()
     if low in ("true", "false"):
         return low == "true"
     for cast in (int, float):
         try:
-            return cast(text)
+            number = cast(text)
         except ValueError:
-            pass
+            continue
+        return number if repr(number) == text.strip() else text
     return text
 
 
@@ -117,7 +121,8 @@ def parse_param(text: str) -> tuple[str, int | float | bool | str]:
 
 def parse_sweep(text: str) -> tuple[str, list]:
     name, value = parse_param(text)
-    values = [parse_value(v) for v in str(text.partition("=")[2]).split(",") if v.strip()]
+
+    values = [parse_value(v.strip()) for v in str(text.partition("=")[2]).split(",") if v.strip()]
     if len(values) < 2:
         raise ValueError(f"{text!r}: a sweep needs at least two values (NAME=V1,V2)")
     return name, values
@@ -241,7 +246,7 @@ _ESTIMATED = {"forward": "the policy's time for a batch", "network": "an act's n
 
 
 def fastest_line(fastest: dict | None, *, arms: int = 1) -> None:
-    """The fastest layout within the account's GPUs, as the platform worked it out (gateway eval/basis.py fastest) and
+    """The fastest layout within the account's GPUs, as the platform worked it out, and
     said as it is: the benchmark machines (and the worlds each runs, the platform's own), the policy machines, the GPUs
     of the limit, the time and the cost, and the flags that run it - beside what no measurement gave. Nothing where the
     platform sends none: a CPU benchmark, or an unmeasured one.
@@ -261,7 +266,7 @@ def fastest_line(fastest: dict | None, *, arms: int = 1) -> None:
 
 def parts_lines(parts: dict | None) -> None:
     """The estimate's cost by machine and by what it is billed for - GPU, CPU, memory - each the whole eval's, as the
-    platform worked it out (gateway eval/estimate.py burn_parts): a line for the policy machines and one for the
+    platform worked it out: a line for the policy machines and one for the
     benchmark machines - a part with nothing in it left out (a CPU machine has no GPU)."""
     for role, label in (("policy", "policy machines"), ("benchmark", "benchmark machines")):
         kinds = (parts or {}).get(role)
@@ -637,7 +642,7 @@ def print_status(snap: dict, *, echo: Callable[[str], Any] = print) -> None:
 
 def starting_said(snap: dict | None) -> str | None:
     """The platform's word on what an eval waits on before its first episode - a card, its machine's start, its benchmark's -
-    and about how long is left (gateway eval/machine_start.view), printed as it comes; None once an episode has begun.
+    and about how long is left, printed as it comes; None once an episode has begun.
     """
     starting = (snap or {}).get("starting")
     said = starting.get("sentence") if isinstance(starting, dict) else None
@@ -666,7 +671,7 @@ def start_said(timing: Any) -> str | None:
 
 def time_note(limit: dict | None, echo: Callable[[str], Any] = print) -> None:
     """The platform's word on an eval's time limit, when it has one: that its pace moved the limit on within its spend
-    cap, or that it will not finish by it (gateway runtime.time_view).
+    cap, or that it will not finish by it.
  
 """
     note = (limit or {}).get("note")
@@ -894,7 +899,7 @@ def print_report(report: Any, details: dict | None = None, *, earlier_cost: floa
     overall and per task — the platform names none of them — each with its n;
     and the time limit each arm ran with, beside the benchmark's own. A rerun's
     (`earlier_cost`: what the eval it completes cost) says both runs' cost: it covers both runs' episodes, and
-    "$2.0269" alone read as what all 500 had cost, where the eval it reran had cost $6.7830 more.
+    the rerun's cost alone read as what all its episodes had cost, where the eval it reran had cost more.
     """
     details = details or {}
     m = details.get("manifest") or {}

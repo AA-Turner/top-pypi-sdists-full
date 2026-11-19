@@ -74,6 +74,7 @@ SubscriptionStateType = Literal["ACTIVE", "INACTIVE"]
 UnitType = Literal["BITS", "BYTES", "PACKETS", "REQUESTS"]
 ShieldServiceName = Literal["shield"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

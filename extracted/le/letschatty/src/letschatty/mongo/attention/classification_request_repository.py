@@ -39,7 +39,7 @@ STORED_NAMES: Dict[str, str] = {
     "new_content": "contenido_nuevo", "last_result": "ultimo_resultado", "base_calls": "llamadas_base",
     "correcting": "corrigiendo", "reclassifications": "reclasificaciones",
     "general_inquiry_applied": "consulta_general_aplicada", "general_inquiry_at": "consulta_general_at",
-    "correction": "correccion",
+    "correction": "correccion", "to_identify": "por_identificar",
 }
 _FIELD_OF = {stored: field for field, stored in STORED_NAMES.items()}
 _READ_ORDER = "_mongo_read_order"

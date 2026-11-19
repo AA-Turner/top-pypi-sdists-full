@@ -19,12 +19,17 @@ A lane does GitHub work through this command and no ``gh`` verb:
 - **Other reads** (pr-review, pr-ticket, pr-threads, branch-protection, run-list,
   run-view, job-log, run-download, release-list) publish the gateway's typed request.
 - **PR authoring writes** (pr-create, pr-edit, pr-ready, pr-close, pr-comment,
-  pr-thread-reply, workflow-run, check-run-create) publish node_github_repo_write_effect's typed
+  pr-thread-reply, pr-thread-resolve, pr-review-post, pr-label, workflow-run,
+  check-run-create, commit-status-create, required-context-apply, variable-set, variable-get, runner-list, runner-remove,
+  runner-group-get)
+  publish node_github_repo_write_effect's typed
   request. Its guards apply: quota floor, expected head, idempotency, and the claim pr-close
-  needs. pr-edit, pr-ready and pr-close take the expected head from the
+  needs. pr-edit, pr-ready, pr-close, pr-review-post and pr-label take the expected head from the
   watcher state when ``--head-sha`` is not given. pr-close reads the claim the
   caller took from the caller's own claim registry and carries it on the
-  command: the effect runs elsewhere and cannot read that directory.
+  command: the effect runs elsewhere and cannot read that directory. The
+  runner verbs name the organization as the repo argument's owner part, and
+  the effect serves only the overlay's runner_removals entries.
 - **merge, arm, rerun, update-branch** have no node operation and are refused,
   naming the landing controller that does them.
 
@@ -35,9 +40,16 @@ answer, 69 the bus could not be opened, 75 no terminal event in time (the
 outcome is unknown: read before retrying; a write retried with the same
 idempotency key is not written twice).
 Gateway reads retry on no terminal or bus unavailability for up to three total
-attempts, pausing 20 seconds between attempts; writes make one attempt (OMN-21396).
-With ``--bus inmemory``, the selected contract is hosted in this process by
-the runtime dispatcher before the command is published.
+attempts, pausing 20 seconds between attempts (OMN-21396). Writes retry only when
+the broker reports no consumer, checking that evidence after each timeout;
+other unanswered writes and bus-open failures stop immediately (OMN-21646).
+With no ``--bus-lane``, ``--kafka-bootstrap`` or ``--bus inmemory``, the bus is
+the ``event_bus`` the node's contract overlay declares (OMN-22351). With
+``--bus inmemory``, or an overlay declaring ``type: inmemory``, the selected
+contract is hosted in this process by the runtime dispatcher before the command
+is published. A lane whose durable binding is degraded is refused with exit 69
+naming the bus login this host lacks; a source-control node is never hosted in
+process as a fallback, because it runs in the runtime that holds its credential.
 
 Registered in ``[project.entry-points."onex.cli"]``; the CLI discovers it over
 installed distributions.
@@ -83,17 +95,27 @@ from omnimarket.handlers.scm.handler_scm_local_state import (
     default_clone_path,
     default_watcher_state_path,
 )
+from omnimarket.handlers.scm.scm_duplicate_guard import (
+    duplicate_check_command,
+    refuse_or_continue,
+)
+from omnimarket.handlers.scm.scm_gateway_open_prs import GatewayOpenPrFactsSource
+from omnimarket.handlers.scm.scm_git_credential import git_credential_command
+from omnimarket.handlers.scm.scm_rerun_request import rerun_request_command
 from omnimarket.lab_work.cli import _with_bus_options
+from omnimarket.models.model_gateway_node_skew import plain_sentence, refused_fields
 from omnimarket.models.model_github_gateway_io import (
     EnumGithubGatewayOperation,
     ModelGithubGatewayRequest,
 )
+from omnimarket.models.model_pr_duplicate_guard import validate_replaces
 from omnimarket.models.scm import (
     EnumScmLocalRead,
     EnumScmNode,
     ModelScmAnswer,
     ModelScmLocalAnswer,
     ModelScmLocalReadRequest,
+    ModelScmLocalReadResult,
     ModelScmLocalVerb,
     ModelScmTerminal,
     ModelScmVerb,
@@ -106,10 +128,13 @@ from omnimarket.nodes.node_github_repo_write_effect.models.model_repo_write_io i
     ModelRepoWriteClaim,
     ModelRepoWriteRequest,
 )
+from omnimarket.nodes.node_lane_github_budget_effect import track_gateway_dispatch
 
 EXIT_FAILED: Final[int] = 1
 EXIT_USAGE: Final[int] = 2
 EXIT_LOCAL_UNANSWERED: Final[int] = 3
+EXIT_DUPLICATE: Final[int] = 4
+EXIT_REPLACES_REFUSED: Final[int] = 5
 EXIT_BUS_UNAVAILABLE: Final[int] = 69
 EXIT_NO_TERMINAL: Final[int] = 75
 READ_RETRY_PAUSE_S: Final[float] = 20.0
@@ -133,12 +158,53 @@ def _target(text: str, *, pr: bool) -> tuple[str, int | None]:
     return match["repo"], int(number) if number is not None else None
 
 
+def _target_optional_pr(text: str) -> tuple[str, int | None]:
+    """A repo target with or without a PR number (``OWNER/REPO`` or ``OWNER/REPO#N``)."""
+    match = _TARGET.match(text)
+    if match is None:
+        raise click.UsageError(
+            f"target {text!r} is not {_REPO_TARGET_HELP} or {_PR_TARGET_HELP}"
+        )
+    number = match["number"]
+    return match["repo"], int(number) if number is not None else None
+
+
 def _emit(answer: ModelScmAnswer, *, attempts: int | None = None) -> int:
     payload = answer.model_dump(mode="json")
     if attempts is not None:
         payload["attempts"] = attempts
     click.echo(json.dumps(payload, separators=(",", ":")))
     return EXIT_FAILED if answer.outcome == "failed" else 0
+
+
+def _write_has_no_consumer(exc: TimeoutError) -> bool:
+    """A write is republished only when the broker shows no consumer on its command topic.
+
+    A recreated effects runtime holds no consumer for the minutes it takes to
+    rejoin its group, so a write made then reaches nobody. The command carries
+    its idempotency key, so one republished to the rejoined consumer writes
+    once. A consumer that is present, or evidence that cannot be read, is not
+    that case: the first command may be running, and nothing is republished.
+    """
+    return (
+        isinstance(exc, ScmNoTerminalError)
+        and exc.evidence.reason == "no_consumer_for_topic"
+    )
+
+
+def _with_skew_reading(
+    spec: ModelScmVerb, payload: dict[str, JsonValue], result: dict[str, JsonValue]
+) -> dict[str, JsonValue]:
+    """Say plainly, on stderr and in the answer, that the node is older than this client."""
+    fields = refused_fields(payload)
+    if not fields:
+        return result
+    sentence = plain_sentence(f"onex scm {spec.verb}", fields)
+    click.echo(sentence, err=True)
+    return {
+        **result,
+        "node_older_than_client": {"refused_fields": list(fields), "message": sentence},
+    }
 
 
 def _call_bus(
@@ -148,23 +214,29 @@ def _call_bus(
     correlation_id: uuid.UUID,
     bus_opts: dict[str, object],
     timeout_s: float,
+    dispatch_receipt: Path | None = None,
 ) -> int:
     async def main() -> ModelScmTerminal:
         async with _open_bus({**bus_opts, "scm_node": spec.node}) as opened:
-            return await ScmBusCaller(opened).call(
+            return await ScmBusCaller(
+                track_gateway_dispatch(opened, dispatch_receipt)
+                if dispatch_receipt is not None
+                else opened,
+            ).call(
                 node=spec.node,
                 request=request,
                 correlation_id=correlation_id,
                 timeout_s=timeout_s,
             )
 
-    max_attempts = 3 if spec.node is EnumScmNode.GATEWAY else 1
+    max_attempts = 3
+    is_read = spec.node is EnumScmNode.GATEWAY
     attempt = 1
     while True:
         try:
             terminal = asyncio.run(main())
         except TimeoutError as exc:
-            if attempt == max_attempts:
+            if attempt == max_attempts or not (is_read or _write_has_no_consumer(exc)):
                 click.echo(
                     json.dumps(
                         {
@@ -185,7 +257,11 @@ def _call_bus(
         except (LabRunBusError, InfraConnectionError) as exc:
             # A broker that refuses this principal a topic (an ACL) lands here too.
             click.echo(f"bus: {exc}", err=True)
-            if attempt == max_attempts:
+            if (
+                attempt == max_attempts
+                or not is_read
+                or isinstance(exc, ScmBusRefusedError)
+            ):
                 return EXIT_BUS_UNAVAILABLE
         else:
             failed = (
@@ -194,6 +270,19 @@ def _call_bus(
                 or terminal.payload.get("status") == "failed"
             )
             result = terminal.payload.get("result", terminal.payload)
+            if failed and isinstance(result, dict):
+                result = _with_skew_reading(spec, terminal.payload, result)
+            if failed and refused_fields(terminal.payload) == ("fill_on_miss",):
+                # An older gateway does not know the flag, so the read is asked cache-only until it is redeployed (OMN-23378).
+                correlation_id = uuid.uuid4()
+                request = request.model_copy(
+                    update={
+                        "fill_on_miss": False,
+                        "cache_only": True,
+                        "correlation_id": correlation_id,
+                    }
+                )
+                continue
             return _emit(
                 ModelScmAnswer(
                     verb=spec.verb,
@@ -226,9 +315,17 @@ def _open_bus(
     names = tuple(inspect.signature(open_lab_run_bus).parameters)
     if names[:3] != ("bus", "lane", "kafka_bootstrap") or len(names) != 4:
         raise LabRunBusError(f"unexpected bus opener parameters: {names}")
-    values: tuple[object, ...] = (
+    node = bus_opts.get("scm_node")
+    bus, lane = _bus_selection(
         _bus_kind(bus_opts["bus"]),
         _optional_str(bus_opts["bus_lane"]),
+        _optional_str(bus_opts["kafka_bootstrap"]),
+        _optional_path(bus_opts["omnibase_path"]),
+        node if isinstance(node, EnumScmNode) else None,
+    )
+    values: tuple[object, ...] = (
+        bus,
+        lane,
         _optional_str(bus_opts["kafka_bootstrap"]),
         _optional_path(bus_opts["omnibase_path"]),
     )
@@ -236,7 +333,6 @@ def _open_bus(
         Callable[..., contextlib.AbstractAsyncContextManager[ProtocolLabRunBus]],
         open_lab_run_bus,
     )
-    node = bus_opts.get("scm_node")
     opened = opener(**dict(zip(names, values, strict=True)))
     if values[0] == "inmemory":
         from omnimarket.handlers.scm.scm_inprocess import open_scm_inprocess
@@ -252,6 +348,48 @@ def _open_bus(
     )
 
 
+class ScmBusRefusedError(LabRunBusError):
+    """A bus refusal no retry can change: no broker is declared, or the binding is degraded and a
+    source-control node is never hosted on this host (OMN-22351). Exit 69 at once, never retried."""
+
+
+def _bus_selection(
+    bus: BusKind,
+    lane: str | None,
+    kafka_bootstrap: str | None,
+    workspace_root: Path | None,
+    node: EnumScmNode | None,
+) -> tuple[BusKind, str | None]:
+    """The bus and lane this verb dials: the command line's, else the node's contract overlay (OMN-22351).
+
+    ``--bus-lane``, ``--kafka-bootstrap`` and ``--bus inmemory`` are explicit and win. With none of
+    them, ``event_bus`` of the node's overlay selects the bus: ``type: kafka`` and its lane, or
+    ``type: inmemory``. With no overlay declaration the shared-bus selection stays incomplete and the
+    opener refuses it, now naming the overlay it looked for.
+    """
+    if (
+        bus != "kafka"
+        or lane is not None
+        or kafka_bootstrap is not None
+        or node is None
+    ):
+        return bus, lane
+    from omnimarket.handlers.bus_binding.node_event_bus_overlay import (
+        resolve_node_event_bus,
+    )
+
+    declared, path = resolve_node_event_bus(node.value, workspace_root)
+    if declared is None:
+        raise ScmBusRefusedError(
+            f"{node.value} declares no event_bus in its contract overlay "
+            f"({path or '<workspace config root>/config/onex/overlays/' + node.value + '/overlay.yaml'}), "
+            "and no --bus-lane or --kafka-bootstrap was given, so this verb names no broker. "
+            "Declare `event_bus: {type: kafka, lane: <lane id>}` there (the broker address stays "
+            "in the lane declaration)."
+        )
+    return declared.type, declared.lane
+
+
 @contextlib.asynccontextmanager
 async def _open_scm_bound(
     durable: contextlib.AbstractAsyncContextManager[ProtocolLabRunBus],
@@ -259,10 +397,16 @@ async def _open_scm_bound(
     values: tuple[object, ...],
     node: EnumScmNode | None,
 ) -> AsyncIterator[ProtocolLabRunBus]:
-    """The durable bus, or the in-memory bus hosting this node when the lane overlay orders a fallback
-    and the durable bus fails its bounded health read (OMN-20275)."""
+    """The durable bus, or a refusal when the lane's binding is degraded (OMN-22351).
+
+    The lane declaration may order an in-memory fallback (OMN-20275) for the clients that can run
+    their node in process. The source-control nodes cannot: they run in the lane's runtime, which
+    holds the GitHub credential, and a copy hosted in this process would look the credential up on a
+    host that must never hold it (the credential_unavailable failures of every h106 lane). So a
+    degraded binding refuses with exit 69 naming the bus login this host lacks, before any command
+    is published.
+    """
     from omnimarket.handlers.bus_binding.select import open_bound_bus, positional_opener
-    from omnimarket.handlers.scm.scm_inprocess import open_scm_inprocess
 
     elsewhere = positional_opener(opener)
     used: list[bool] = []
@@ -285,15 +429,15 @@ async def _open_scm_bound(
         if not bound.decision.degraded:
             yield bound.bus
             return
-        if node is None:
-            raise LabRunBusError("the in-memory SCM fallback requires a node")
-
-        @contextlib.asynccontextmanager
-        async def borrowed() -> AsyncIterator[ProtocolLabRunBus]:
-            yield bound.bus
-
-        async with open_scm_inprocess(borrowed(), node) as hosted:
-            yield hosted
+        lane = bound.decision.lane
+        raise ScmBusRefusedError(
+            f"lane {lane!r} binding is {bound.decision.state.value} "
+            f"({bound.decision.reason or 'durable bus unavailable'}). "
+            f"onex scm never hosts {node.value if node else 'a source-control node'} on this host: "
+            "the node runs in the lane's runtime, which holds the GitHub credential. This host "
+            f"needs its own bus login on lane {lane!r} (issued by the lab principal issuer, stored "
+            f"with `onex auth lane-login --lane {lane}`) and the scm client grants its peers hold."
+        )
 
 
 def _bus_kind(value: object) -> BusKind:
@@ -316,6 +460,15 @@ def _body(body: str | None, body_file: str | None) -> str | None:
     with click.open_file(body_file, "r", encoding="utf-8") as source:
         text: str = source.read()
     return text
+
+
+def _replaces_given(raw: object) -> tuple[str, ...]:
+    """The ``--replaces`` values, each ``OWNER/REPO#N`` and each once, or a usage error naming the bad one."""
+    items = tuple(str(item) for item in raw) if isinstance(raw, (tuple, list)) else ()
+    try:
+        return validate_replaces(items)
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
 
 
 def _idempotency_key(operation: str, fields: dict[str, JsonValue]) -> str:
@@ -354,6 +507,9 @@ def verbs_command() -> None:
 
 # ------------------------------------------------------------------- reads
 
+# Reads that take a pull request or a branch: the target may or may not name a PR.
+_PR_OR_REPO_READS: Final[frozenset[str]] = frozenset({"code_scanning_alerts"})
+
 _PR_SCOPED_READS: Final[frozenset[str]] = frozenset(
     {
         "pr_text",
@@ -368,6 +524,15 @@ _PR_SCOPED_READS: Final[frozenset[str]] = frozenset(
 )
 
 
+def _lane_job_log_flag() -> str | None:
+    """The gateway contract's (or its overlay's) lane job-log flag; imported when asked."""
+    from omnimarket.nodes.node_github_repo_gateway_effect.handlers.handler_github_repo_gateway import (
+        lane_job_log_flag,
+    )
+
+    return lane_job_log_flag()
+
+
 def _read_command(spec: ModelScmVerb) -> click.Command:
     pr_scoped = spec.operation in _PR_SCOPED_READS
 
@@ -377,12 +542,14 @@ def _read_command(spec: ModelScmVerb) -> click.Command:
     @click.option("--job-id", type=int, default=None, help="job-log.")
     @click.option("--artifact-id", type=int, default=None, help="run-download.")
     @click.option(
-        "--branch", default=None, help="run-list, branch-protection, pr-heads."
+        "--branch",
+        default=None,
+        help="run-list, branch-protection, pr-heads, code-scanning-alerts.",
     )
     @click.option(
         "--head-sha",
         default=None,
-        help="run-list: runs of this head; pr-heads; commit-check-runs.",
+        help="run-list: runs of this head; pr-heads; commit-check-runs; commit-statuses.",
     )
     @click.option(
         "--check-name", default=None, help="commit-check-runs: runs of this name."
@@ -420,15 +587,21 @@ def _read_command(spec: ModelScmVerb) -> click.Command:
         help=f"The repository's canonical clone (default ${CLONE_ROOT_ENV}/<repo>).",
     )
     @click.option("--timeout-s", type=float, default=60.0, show_default=True)
+    @click.option("--dispatch-receipt", type=click.Path(path_type=Path), hidden=True)
     def command(
         target: str,
         source: str,
         watcher_state: str | None,
         clone: str | None,
         timeout_s: float,
+        dispatch_receipt: Path | None,
         **fields: object,
     ) -> None:
-        repo, number = _target(target, pr=pr_scoped)
+        repo, number = (
+            _target_optional_pr(target)
+            if spec.operation in _PR_OR_REPO_READS
+            else _target(target, pr=pr_scoped)
+        )
         bus_opts = {
             name: fields.pop(name)
             for name in ("omnibase_path", "bus", "bus_lane", "kafka_bootstrap")
@@ -468,6 +641,11 @@ def _read_command(spec: ModelScmVerb) -> click.Command:
         elif source == "local":
             raise click.UsageError(f"{spec.verb} has no local answer; use the bus")
         given = {name: value for name, value in fields.items() if value is not None}
+        if spec.verb == "job-log":
+            flag = _lane_job_log_flag()
+            if flag is not None:
+                # OMN-23378: the declared policy sets a lane's job-log read's flag.
+                given[flag] = True
         correlation_id = uuid.uuid4()
         try:
             request = ModelGithubGatewayRequest(
@@ -479,7 +657,17 @@ def _read_command(spec: ModelScmVerb) -> click.Command:
             )
         except ValidationError as exc:
             raise click.UsageError(str(exc)) from exc
-        sys.exit(_call_bus(spec, repo, request, correlation_id, bus_opts, timeout_s))
+        sys.exit(
+            _call_bus(
+                spec,
+                repo,
+                request,
+                correlation_id,
+                bus_opts,
+                timeout_s,
+                dispatch_receipt,
+            )
+        )
 
     return click.command(spec.verb, help=f"Replaces `{spec.replaces}`.")(command)
 
@@ -492,6 +680,7 @@ _LOCAL_OPTIONS: Final[dict[EnumScmLocalRead, tuple[str, ...]]] = {
     EnumScmLocalRead.FILE_CONTENTS: ("path", "ref", "max_bytes"),
     EnumScmLocalRead.COMMIT_VIEW: ("ref",),
     EnumScmLocalRead.COMMIT_CHECKS: ("sha",),
+    EnumScmLocalRead.RED_FACTS: (),
 }
 _LOCAL_OPTION_DECORATORS: Final[
     dict[str, Callable[[click.decorators.FC], click.decorators.FC]]
@@ -511,8 +700,26 @@ _LOCAL_OPTION_DECORATORS: Final[
 }
 
 
+def _local_read(request: ModelScmLocalReadRequest) -> ModelScmLocalReadResult:
+    """Answer one local read; red-facts reads the head from the CI read, then the record."""
+    if request.read is not EnumScmLocalRead.RED_FACTS:
+        return HandlerScmLocalState().handle(request)
+    # Imported here: the filler node's handlers import this package.
+    from omnimarket.nodes.node_job_log_filler_effect.handlers.adapter_red_facts import (
+        answer_red_facts_read,
+    )
+
+    checks = HandlerScmLocalState().handle(
+        request.model_copy(update={"read": EnumScmLocalRead.PR_CHECKS})
+    )
+    return answer_red_facts_read(request, checks)
+
+
 def _local_command(spec: ModelScmLocalVerb) -> click.Command:
-    pr_scoped = spec.read is EnumScmLocalRead.PR_COMMITS
+    pr_scoped = spec.read in (
+        EnumScmLocalRead.PR_COMMITS,
+        EnumScmLocalRead.RED_FACTS,
+    )
     ref_required = spec.read is EnumScmLocalRead.COMMIT_VIEW
 
     def command(
@@ -538,7 +745,7 @@ def _local_command(spec: ModelScmLocalVerb) -> click.Command:
             )
         except ValidationError as exc:
             raise click.UsageError(str(exc)) from exc
-        local = HandlerScmLocalState().handle(request)
+        local = _local_read(request)
         if not local.answered or local.source is None:
             click.echo(
                 f"local: {local.unanswered_reason} ({spec.verb} has no bus or "
@@ -580,13 +787,29 @@ def _local_command(spec: ModelScmLocalVerb) -> click.Command:
 
 # The options each write verb takes, beyond the target and the common ones.
 _WRITE_OPTIONS: Final[dict[str, tuple[str, ...]]] = {
-    "pr_create": ("head", "base", "title", "body", "body_file", "draft"),
+    "pr_create": ("head", "base", "title", "body", "body_file", "draft", "replaces"),
     "pr_edit": ("title", "body", "body_file", "base", "draft"),
     "pr_ready": (),
     "pr_close": ("run", "claims_dir"),
     "pr_comment": ("body", "body_file"),
     "pr_thread_reply": ("thread", "body", "body_file"),
+    "pr_thread_resolve": ("review_thread",),
+    "pr_label": ("add_label", "remove_label"),
+    "repo_variable_set": ("variable",),
+    "repo_variable_get": ("variable",),
+    "runner_list": (),
+    "runner_remove": ("runner",),
+    "runner_group_get": ("runner_group",),
+    "pr_review_post": ("body", "body_file"),
     "workflow_dispatch": ("workflow", "ref", "input"),
+    "commit_status_create": (
+        "commit_sha",
+        "status_context",
+        "status_state",
+        "status_target_url",
+        "status_description",
+    ),
+    "required_context_apply": ("protected_branch", "required_context"),
     "check_run_create": (
         "name",
         "status",
@@ -596,10 +819,21 @@ _WRITE_OPTIONS: Final[dict[str, tuple[str, ...]]] = {
     ),
 }
 _REPO_SCOPED_WRITES: Final[frozenset[str]] = frozenset(
-    {"pr_create", "workflow_dispatch", "check_run_create"}
+    {
+        "pr_create",
+        "workflow_dispatch",
+        "check_run_create",
+        "commit_status_create",
+        "required_context_apply",
+        "repo_variable_set",
+        "repo_variable_get",
+        "runner_list",
+        "runner_remove",
+        "runner_group_get",
+    }
 )
 _HEAD_FROM_WATCHER: Final[frozenset[str]] = frozenset(
-    {"pr_edit", "pr_ready", "pr_close"}
+    {"pr_edit", "pr_ready", "pr_close", "pr_review_post", "pr_label"}
 )
 
 _OPTION_DECORATORS: Final[
@@ -626,6 +860,44 @@ _OPTION_DECORATORS: Final[
             ]
         ),
     ),
+    "commit_sha": click.option(
+        "--sha", "commit_sha", required=True, help="The full commit sha to post on."
+    ),
+    "status_context": click.option(
+        "--context",
+        "status_context",
+        default="fable-review-gate",
+        show_default=True,
+        type=click.Choice(["fable-review-gate"]),
+    ),
+    "status_state": click.option(
+        "--state",
+        "status_state",
+        required=True,
+        type=click.Choice(["success", "failure"]),
+    ),
+    "status_target_url": click.option(
+        "--target-url",
+        "status_target_url",
+        required=True,
+        help="The link to the verdict.",
+    ),
+    "status_description": click.option(
+        "--description", "status_description", default=None
+    ),
+    "protected_branch": click.option(
+        "--branch",
+        "protected_branch",
+        required=True,
+        help="The branch whose protection gains the context.",
+    ),
+    "required_context": click.option(
+        "--required-context",
+        "required_context",
+        required=True,
+        help="The status-check context to require; it must be in the write node's "
+        "overlay required_contexts allowlist for the repository and branch.",
+    ),
     "output_title": click.option("--output-title", default=None),
     "output_summary": click.option("--output-summary", default=None),
     "head": click.option("--head", required=True, help="The PR's head branch."),
@@ -636,6 +908,14 @@ _OPTION_DECORATORS: Final[
         "--body-file", type=click.Path(dir_okay=False, allow_dash=True), default=None
     ),
     "draft": click.option("--draft/--no-draft", default=None),
+    "replaces": click.option(
+        "--replaces",
+        "replaces",
+        multiple=True,
+        metavar="OWNER/REPO#N",
+        help="A closed, unmerged pull request of this repository that this change replaces (repeatable). "
+        "The duplicate check reads its state itself and sets aside only the overlaps it alone introduced.",
+    ),
     "run": click.option(
         "--run",
         envvar="ONEX_RUN_ID",
@@ -650,6 +930,14 @@ _OPTION_DECORATORS: Final[
         "($ONEX_PR_CLAIMS_DIR, else $ONEX_STATE_DIR/pr-queue/claims). The claim "
         "is read here and sent on the command; the directory itself is not.",
     ),
+    "review_thread": click.option(
+        "--review-thread",
+        "review_thread_id",
+        required=True,
+        help="The GraphQL node id of the review thread (PRRT_...; "
+        "`onex scm pr-threads` lists them). Refused unless the thread has a "
+        "reply from the fixing lane.",
+    ),
     "thread": click.option(
         "--thread",
         "thread_comment_id",
@@ -663,7 +951,49 @@ _OPTION_DECORATORS: Final[
     "input": click.option(
         "--input", "inputs", multiple=True, help="KEY=VALUE, repeatable."
     ),
+    "variable": click.option(
+        "--variable",
+        "variable_name",
+        required=True,
+        help="The repository variable's name. It must be in the write node's "
+        "overlay allowlist; its value comes from the overlay's declared source, "
+        "never from this command line.",
+    ),
+    "runner": click.option(
+        "--runner",
+        "runner_name",
+        required=True,
+        help="The runner's registered name. The pair of the repository's "
+        "organization and this name must be in the write node's overlay "
+        "runner_removals, and the runner must be offline and idle before it "
+        "is deleted.",
+    ),
+    "runner_group": click.option(
+        "--group-id",
+        "runner_group_id",
+        required=True,
+        type=click.IntRange(min=1),
+        help="The runner group's id. The pair of the repository's organization "
+        "and this id must be in the write node's overlay runner_group_reads.",
+    ),
+    "add_label": click.option(
+        "--add", "add_labels", multiple=True, help="A label to add (repeatable)."
+    ),
+    "remove_label": click.option(
+        "--remove",
+        "remove_labels",
+        multiple=True,
+        help="A label to remove (repeatable).",
+    ),
 }
+
+
+def _labels_given(raw: object) -> list[JsonValue]:
+    """The labels a repeatable --add or --remove option gave, in the order given."""
+    given: list[JsonValue] = (
+        [str(label) for label in raw] if isinstance(raw, tuple) else []
+    )
+    return given
 
 
 def _carried_claim(
@@ -704,6 +1034,18 @@ def _carried_claim(
         return None
 
 
+def gateway_open_prs_source(
+    bus_opts: dict[str, object], timeout_s: float
+) -> GatewayOpenPrFactsSource:
+    """The duplicate-fix guard's read of the open pull requests on a host with no PR watcher state (OMN-22654).
+
+    It opens the bus only when the guard asks, which is only when the watcher state could not be read.
+    """
+    return GatewayOpenPrFactsSource(
+        open_bus=_open_bus, bus_opts=bus_opts, timeout_s=timeout_s
+    )
+
+
 def _write_command(spec: ModelScmVerb) -> click.Command:
     pr_scoped = spec.operation not in _REPO_SCOPED_WRITES
 
@@ -735,6 +1077,22 @@ def _write_command(spec: ModelScmVerb) -> click.Command:
             if not sep or not key:
                 raise click.UsageError(f"--input {item!r} is not KEY=VALUE")
             inputs[key] = value
+        replaces = _replaces_given(fields.pop("replaces", ()))
+        if spec.operation == EnumRepoWriteOperation.PR_CREATE:
+            # One fix, one pull request (OMN-17427): a duplicate or an unreadable check opens nothing.
+            refused = refuse_or_continue(
+                repo=repo,
+                head=str(fields["head"]),
+                base=_optional_str(fields.get("base")),
+                title=_optional_str(fields.get("title")),
+                body=body,
+                lane=lane,
+                watcher_state=watcher_state,
+                open_prs_source=gateway_open_prs_source(bus_opts, timeout_s),
+                replaces=replaces,
+            )
+            if refused is not None:
+                sys.exit(refused)
         run = fields.pop("run", None)
         claims_dir = fields.pop("claims_dir", None)
         claim = (
@@ -744,11 +1102,21 @@ def _write_command(spec: ModelScmVerb) -> click.Command:
             if spec.operation == EnumRepoWriteOperation.PR_CLOSE
             else None
         )
+        if spec.operation == EnumRepoWriteOperation.PR_LABEL:
+            add_labels = _labels_given(fields.pop("add_labels", ()))
+            remove_labels = _labels_given(fields.pop("remove_labels", ()))
+            if not add_labels and not remove_labels:
+                raise click.UsageError("give at least one of --add, --remove")
         given: dict[str, JsonValue] = {
             name: value
             for name, value in fields.items()
             if value is not None and isinstance(value, (str, bool, int))
         }
+        if spec.operation == EnumRepoWriteOperation.PR_LABEL:
+            if add_labels:
+                given["add_labels"] = add_labels
+            if remove_labels:
+                given["remove_labels"] = remove_labels
         if spec.operation == EnumRepoWriteOperation.CHECK_RUN_CREATE:
             given["head_sha"] = head_sha
             head_sha = None
@@ -760,6 +1128,8 @@ def _write_command(spec: ModelScmVerb) -> click.Command:
             given["body"] = body
         if run is not None:
             given["requested_by_run"] = str(run)
+        if replaces:
+            given["replaces"] = list(replaces)
         identity: dict[str, JsonValue] = {
             "repo": repo,
             "pr_number": number,
@@ -863,6 +1233,30 @@ def _refused_command(verb_name: str, handled_by: str) -> click.Command:
     return command
 
 
+def cached_job_log_command(
+    factory: Callable[[ModelScmVerb], click.Command],
+) -> click.Command:
+    command = factory(
+        ModelScmVerb(
+            verb="job-log-cached",
+            node=EnumScmNode.GATEWAY,
+            operation="job_log_tail",
+            replaces="host-shared completed job log",
+        )
+    )
+    callback = command.callback
+    assert callback is not None
+
+    def cached(**fields: object) -> object:
+        # Neither arguments nor environment can turn this verb into a live read.
+        fields["cache_only"] = True
+        return callback(**fields)
+
+    command.callback = cached
+    command.help = "A cached job's tail, window or step; a miss makes no GitHub call."
+    return command
+
+
 for _spec in SCM_VERBS:
     scm_group.add_command(
         _write_command(_spec)
@@ -871,15 +1265,22 @@ for _spec in SCM_VERBS:
     )
 for _local in SCM_LOCAL_VERBS:
     scm_group.add_command(_local_command(_local))
+scm_group.add_command(duplicate_check_command)
+# OMN-23830: any lane asks for one failed job to be re-run; the landing tick orchestrator answers.
+scm_group.add_command(rerun_request_command(_open_bus, _watcher_head))
+scm_group.add_command(git_credential_command)
+scm_group.add_command(cached_job_log_command(_read_command))
 for _refused in SCM_REFUSED_VERBS:
     scm_group.add_command(_refused_command(_refused.verb, _refused.handled_by))
 
 
 __all__: list[str] = [
     "EXIT_BUS_UNAVAILABLE",
+    "EXIT_DUPLICATE",
     "EXIT_FAILED",
     "EXIT_LOCAL_UNANSWERED",
     "EXIT_NO_TERMINAL",
+    "EXIT_REPLACES_REFUSED",
     "EXIT_USAGE",
     "scm_group",
 ]

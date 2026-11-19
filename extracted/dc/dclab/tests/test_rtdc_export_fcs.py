@@ -1,4 +1,3 @@
-import io
 from os.path import join
 import tempfile
 from unittest import mock
@@ -21,13 +20,13 @@ def test_fcs_export():
     f2 = join(edest, "test_unicode.fcs")
 
     ds.export.fcs(f1, keys, override=True)
-    ds.export.fcs(f2, [u"area_um", u"deform", u"time",
-                       u"frame", u"fl3_width"], override=True)
+    ds.export.fcs(f2, ["area_um", "deform", "time",
+                       "frame", "fl3_width"], override=True)
 
-    with io.open(f1, mode="rb") as fd:
+    with open(f1, mode="rb") as fd:
         a1 = fd.read()
 
-    with io.open(f2, mode="rb") as fd:
+    with open(f2, mode="rb") as fd:
         a2 = fd.read()
 
     assert a1 == a2
@@ -76,3 +75,14 @@ def test_fcs_not_filtered():
     edest = tempfile.mkdtemp()
     f1 = join(edest, "test.tsv")
     ds.export.fcs(f1, keys, filtered=False)
+
+
+def test_fcs_export_meta_data_not_modified(tmp_path):
+    """The `meta_data` dictionary of the caller must not be modified"""
+    pytest.importorskip("fcswrite")
+    keys = ["area_um", "deform"]
+    ddict = example_data_dict(size=222, keys=keys)
+    ds = dclab.new_dataset(ddict)
+    meta_data = {"sample": "test"}
+    ds.export.fcs(tmp_path / "test.fcs", keys, meta_data=meta_data)
+    assert meta_data == {"sample": "test"}

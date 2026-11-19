@@ -19,18 +19,22 @@ authors = [
 ]
 readme = "README.md"
 keywords = ["postgres", "task-queue"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "psycopg[pool]",
     "asgiref",
     "attrs",
-    "croniter",
+    # Older versions get daylight saving changes wrong for periodic tasks with tzinfo
+    "croniter>=6.1",
     "python-dateutil",
+    # Timezone data for periodic tasks with tzinfo, where the system has none
+    "tzdata",
     "typing-extensions",
     "packaging",
 ]
 
 [project.optional-dependencies]
+alembic = ["alembic"]
 django = ["django>=2.2"]
 sqlalchemy = ["sqlalchemy~=2.0"]
 aiopg = ["aiopg", "psycopg2-binary"]
@@ -53,12 +57,15 @@ release = ["dunamai"]
 lint_format = ["ruff", "django-upgrade"]
 pg_implem = ["aiopg", "sqlalchemy", "psycopg2-binary", "psycopg[binary,pool]"]
 test = [
+    "alembic",
+    "asyncpg",
     "pytest-asyncio",
     "pytest-benchmark",
     "pytest-cov",
     "pytest-django",
     "pytest-mock",
     "results",
+    "sqlalchemy[asyncio]",
 ]
 migration_test = ["nox", "httpx", "nox-uv"]
 docs = [
@@ -133,7 +140,7 @@ exclude_lines = [
 
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]

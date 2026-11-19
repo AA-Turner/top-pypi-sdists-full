@@ -1,1 +1,0 @@
-import{t as e}from"./WidgetLegacy-BMWTj4XA.js";export{e as default};

@@ -12,14 +12,20 @@ use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::annotation::Annotation;
+use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::Param;
+use pyrefly_types::callable::ParamList;
 use pyrefly_types::callable::Required;
 use pyrefly_types::function::FuncMetadata;
+use pyrefly_types::function::Function;
 use pyrefly_types::function::FunctionKind;
 use pyrefly_types::keywords::DataclassFieldKeywords;
+use pyrefly_types::known_class::KnownClass;
 use pyrefly_types::lit_int::LitInt;
 use pyrefly_types::literal::Lit;
+use pyrefly_util::gas::Gas;
 use ruff_python_ast::Expr;
+use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -29,6 +35,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::callable::ArgMap;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::alt::class::class_field::DataclassMember;
@@ -47,8 +54,11 @@ use crate::binding::binding::BindingTypeAlias;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::pydantic::EXTRA;
+use crate::binding::pydantic::FROM_ATTRIBUTES;
 use crate::binding::pydantic::FROZEN;
 use crate::binding::pydantic::FROZEN_DEFAULT;
+use crate::binding::pydantic::GET_PYDANTIC_CORE_SCHEMA;
+use crate::binding::pydantic::MODEL_CONSTRUCT;
 use crate::binding::pydantic::POPULATE_BY_NAME;
 use crate::binding::pydantic::PydanticConfigDict;
 use crate::binding::pydantic::ROOT;
@@ -57,7 +67,9 @@ use crate::binding::pydantic::STRICT_DEFAULT;
 use crate::binding::pydantic::STRICT_TYPES;
 use crate::binding::pydantic::VALIDATE_BY_ALIAS;
 use crate::binding::pydantic::VALIDATE_BY_NAME;
+use crate::binding::pydantic::VALIDATION_FLAGS;
 use crate::error::collector::ErrorCollector;
+use crate::solver::solver::ArgumentKey;
 use crate::types::class::Class;
 use crate::types::types::Type;
 
@@ -98,7 +110,8 @@ impl PydanticRangeConstraints {
 #[derive(Clone)]
 struct PydanticParamConstraint {
     field_name: Name,
-    constraints: PydanticRangeConstraints,
+    range: Option<PydanticRangeConstraints>,
+    lax_type: Option<Type>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -123,7 +136,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
         let mro = self.get_mro_for_class(class);
         for base_type in mro.ancestors_no_object() {
-            if base_type.has_qname(ModuleName::pydantic_root_model().as_str(), "RootModel") {
+            if base_type.is(KnownClass::PydanticRootModel) {
                 let targs = base_type.targs().as_slice();
                 if let Some(root_type) = targs.last().cloned() {
                     return Some((root_type, has_strict));
@@ -162,14 +175,73 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         ClassSynthesizedField::new(ty)
     }
 
+    /// Synthesizes BaseModel's typed signature or exposes an inherited nonstandard implementation.
+    pub fn get_pydantic_model_construct(
+        &self,
+        cls: &Class,
+        dataclass: &DataclassMetadata,
+        kw_only_by_class: &SmallMap<Class, SmallSet<Name>>,
+    ) -> Option<ClassSynthesizedField> {
+        let member =
+            self.get_non_synthesized_class_member_and_defining_class(cls, &MODEL_CONSTRUCT)?;
+        if member.defining_class == *cls {
+            return None;
+        }
+        if !member.defining_class.is(KnownClass::PydanticBaseModel) {
+            // An earlier synthesized base must not mask a real override later in the MRO.
+            let visible = self.get_class_member_ignoring_own_synthesized(cls, &MODEL_CONSTRUCT)?;
+            return (visible.value.as_ref() != member.value.as_ref()).then(|| {
+                ClassSynthesizedField {
+                    inner: member.value.into_owned().into(),
+                }
+            });
+        }
+        let fields_set_type = self.heap.mk_optional(
+            self.heap.mk_class_type(
+                self.stdlib
+                    .set(self.heap.mk_class_type(self.stdlib.str().clone())),
+            ),
+        );
+        let fields_set = Param::Pos(
+            Name::new_static("_fields_set"),
+            fields_set_type,
+            Required::Optional(None),
+        );
+        let self_type = self.heap.mk_self_type(self.as_class_type_unchecked(cls));
+        let mut params = vec![
+            Param::PosOnly(
+                Some(Name::new_static("cls")),
+                self.heap.mk_type_of(self_type.clone()),
+                Required::Required,
+            ),
+            fields_set,
+        ];
+        for (name, field, flags) in self.iter_fields(cls, dataclass, false, kw_only_by_class) {
+            let required = if flags.default.is_some() {
+                Required::Optional(None)
+            } else {
+                Required::Required
+            };
+            params.push(Param::KwOnly(name, field.ty(), required));
+        }
+        if dataclass.kws.extra {
+            params.push(Param::Kwargs(None, self.heap.mk_any_explicit()));
+        }
+        let mut metadata = FuncMetadata::method(self, cls, MODEL_CONSTRUCT);
+        metadata.flags.is_classmethod = true;
+        let ty = self.heap.mk_function(Function {
+            signature: Callable::list(ParamList::new(params), self_type),
+            metadata,
+        });
+        Some(ClassSynthesizedField::new(ty))
+    }
+
     pub fn get_pydantic_root_model_class_field_type(
         &self,
         cls: &Class,
         attr_name: &Name,
     ) -> Option<Type> {
-        if !cls.has_toplevel_qname(ModuleName::pydantic_root_model().as_str(), "RootModel")
-            || *attr_name != dunder::INIT
-        {
+        if !cls.is(KnownClass::PydanticRootModel) || *attr_name != dunder::INIT {
             return None;
         }
         let tparams = self.get_class_tparams(cls)?;
@@ -186,7 +258,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     pub fn is_pydantic_strict_metadata(&self, ty: &Type) -> bool {
         match ty {
-            Type::ClassType(cls) => cls.has_qname(ModuleName::pydantic_types().as_str(), "Strict"),
+            Type::ClassType(cls) => cls.is(KnownClass::PydanticStrict),
             _ => false,
         }
     }
@@ -289,7 +361,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 }
             }
             Type::ClassType(cls) => {
-                if cls.has_qname(ModuleName::pydantic_root_model().as_str(), "RootModel") {
+                if cls.is(KnownClass::PydanticRootModel) {
                     let targs = cls.targs().as_slice();
                     let root_type = targs
                         .last()
@@ -340,20 +412,18 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             decorator
                 .ty
                 .toplevel_func_metadata()
-                .is_some_and(&is_pydantic_dataclass_metadata)
+                .is_some_and(is_pydantic_dataclass_metadata)
                 || matches!(&decorator.ty, Type::KwCall(call)
                     if is_pydantic_dataclass_metadata(&call.func_metadata))
         });
 
-        let has_pydantic_base_model_base_class =
-            bases_with_metadata.iter().any(|(base_class_object, _)| {
-                base_class_object.has_toplevel_qname(ModuleName::pydantic().as_str(), "BaseModel")
-            });
+        let has_pydantic_base_model_base_class = bases_with_metadata
+            .iter()
+            .any(|(base_class_object, _)| base_class_object.is(KnownClass::PydanticBaseModel));
 
         let has_pydantic_base_settings_base_class =
             bases_with_metadata.iter().any(|(base_class_object, _)| {
-                base_class_object
-                    .has_toplevel_qname(ModuleName::pydantic_settings().as_str(), "BaseSettings")
+                base_class_object.is(KnownClass::PydanticSettingsBaseSettings)
             });
 
         // A pydantic *dataclass* is not a pydantic *model*, so an inherited `DataClass`
@@ -399,11 +469,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             return None;
         }
 
-        let has_pydantic_root_model_base_class =
-            bases_with_metadata.iter().any(|(base_class_object, _)| {
-                base_class_object
-                    .has_toplevel_qname(ModuleName::pydantic_root_model().as_str(), "RootModel")
-            });
+        let has_pydantic_root_model_base_class = bases_with_metadata
+            .iter()
+            .any(|(base_class_object, _)| base_class_object.is(KnownClass::PydanticRootModel));
 
         let has_base_settings_kind = bases_with_metadata.iter().any(|(_, metadata)| {
             matches!(
@@ -434,7 +502,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             validate_by_name,
             validate_by_alias,
             populate_by_name,
+            from_attributes,
             alias_generator,
+            validation_uncertain,
         } = pydantic_config_dict;
 
         // Note: class keywords take precedence over ConfigDict keywords.
@@ -478,6 +548,23 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let validation_flags = PydanticValidationFlags {
             validate_by_name: merged_validate_by_name,
             validate_by_alias: merged_validate_by_alias,
+            from_attributes: self.get_bool_config_value(
+                &FROM_ATTRIBUTES,
+                keywords,
+                *from_attributes,
+                bases_with_metadata,
+                |dm| dm.init_defaults.pydantic_validation_flags.from_attributes,
+                false,
+            ),
+            uncertain: *validation_uncertain
+                || bases_with_metadata.iter().any(|(_, metadata)| {
+                    metadata
+                        .dataclass_metadata()
+                        .is_some_and(|dm| dm.init_defaults.pydantic_validation_flags.uncertain)
+                })
+                || keywords.iter().any(|(name, value)| {
+                    VALIDATION_FLAGS.contains(name) && value.get_type().as_bool().is_none()
+                }),
         };
         let validation_alias_generator = alias_generator.clone().or_else(|| {
             self.find_inherited_keyword_value(bases_with_metadata, |dm| {
@@ -613,9 +700,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        // Note: the subset check here is too conservative when it comes to modeling runtime behavior
-        // we want to check if the bound_val is coercible to the annotation type at runtime.
-        // statically, this could be a challenge, which is why we go with this more conservative approach for now.
         for (bound_val, label) in [
             (&keywords.gt, "gt"),
             (&keywords.lt, "lt"),
@@ -623,20 +707,51 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             (&keywords.le, "le"),
         ] {
             let Some(val) = bound_val else { continue };
-            if !self.is_subset_eq(val, field_ty) {
+            if !self.is_pydantic_range_constraint_type_compatible(val, field_ty) {
                 self.error(
                     errors,
                     range,
                     ErrorKind::BadArgumentType,
                     format!(
                         "Pydantic `{label}` value has type `{}`, which is not assignable to field type `{}`",
-                        self.for_display(val.clone()),
-                        self.for_display(field_ty.clone())
+                        self.display(val.clone()),
+                        self.display(field_ty.clone())
                     ),
                 );
             }
         }
         self.check_pydantic_range_default(field_name, keywords, range, errors);
+    }
+
+    fn is_pydantic_range_constraint_type_compatible(&self, val: &Type, field_ty: &Type) -> bool {
+        if self.is_subset_eq(val, field_ty) {
+            return true;
+        }
+        let is_decimal =
+            |ty: &Type| matches!(ty, Type::ClassType(cls) if cls == self.stdlib.decimal());
+        let has_decimal = match field_ty {
+            Type::Union(union) => union.members.iter().any(is_decimal),
+            _ => is_decimal(field_ty),
+        };
+        has_decimal && self.is_pydantic_decimal_constraint_value(val)
+    }
+
+    /// Decimal bounds accept numeric subtypes, except bool. Numeric-string coercion is not modeled.
+    fn is_pydantic_decimal_constraint_value(&self, val: &Type) -> bool {
+        match val {
+            Type::Union(union) => union
+                .members
+                .iter()
+                .all(|member| self.is_pydantic_decimal_constraint_value(member)),
+            Type::Quantified(quantified) => {
+                self.is_pydantic_decimal_constraint_value(&quantified.upper_bound(self, self.heap))
+            }
+            _ => {
+                !self.is_subset_eq(val, &self.stdlib.bool().clone().to_type())
+                    && (self.is_subset_eq(val, &self.stdlib.float().clone().to_type())
+                        || self.is_subset_eq(val, &self.stdlib.decimal().clone().to_type()))
+            }
+        }
     }
 
     fn check_pydantic_range_default(
@@ -671,9 +786,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     ErrorKind::BadArgumentType,
                     format!(
                         "Default value `{}` violates Pydantic `{}` constraint `{}` for field `{}`",
-                        self.for_display(default_ty.clone()),
+                        self.display(default_ty.clone()),
                         label,
-                        self.for_display(constraint_ty.clone()),
+                        self.display(constraint_ty.clone()),
                         field_name
                     ),
                 );
@@ -694,6 +809,69 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
     }
 
+    /// Preserve uncertainty before annotation metadata is erased from field types.
+    fn pydantic_unchecked_annotation(&self, annotation: &Expr, gas: &mut Gas) -> bool {
+        if gas.stop() {
+            return true;
+        }
+        if !self
+            .get_annotated_metadata(
+                annotation,
+                TypeFormContext::ClassVarAnnotation,
+                &self.error_swallower(),
+            )
+            .is_empty()
+        {
+            return true;
+        }
+        match annotation {
+            Expr::Subscript(subscript) => {
+                self.pydantic_unchecked_annotation(&subscript.value, gas)
+                    || self.pydantic_unchecked_annotation(&subscript.slice, gas)
+            }
+            Expr::Tuple(tuple) => tuple
+                .elts
+                .iter()
+                .any(|item| self.pydantic_unchecked_annotation(item, gas)),
+            Expr::BinOp(binary) => {
+                self.pydantic_unchecked_annotation(&binary.left, gas)
+                    || self.pydantic_unchecked_annotation(&binary.right, gas)
+            }
+            Expr::Name(name) => {
+                let key = Key::BoundName(ShortIdentifier::expr_name(name));
+                if let Some(mut idx) = self.bindings().key_to_idx_hashed_opt(Hashed::new(&key)) {
+                    loop {
+                        if gas.stop() {
+                            return true;
+                        }
+                        match self.bindings().get(idx) {
+                            Binding::Forward(next)
+                            | Binding::PromoteForward(next)
+                            | Binding::ForwardToFirstUse(next) => idx = *next,
+                            Binding::TypeAlias(_)
+                            | Binding::NameAssign(_)
+                            | Binding::AnnotatedType(_, _) => return true,
+                            _ => break,
+                        }
+                    }
+                }
+                !matches!(
+                    self.expr_infer(annotation, &self.error_swallower()),
+                    Type::ClassDef(_)
+                )
+            }
+            Expr::Attribute(_) => !matches!(
+                self.expr_infer(annotation, &self.error_swallower()),
+                Type::ClassDef(_)
+            ),
+            Expr::NoneLiteral(_)
+            | Expr::NumberLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::EllipsisLiteral(_) => false,
+            _ => true,
+        }
+    }
+
     /// Extract Pydantic Field metadata from an annotation binding.
     /// This handles the Pydantic-specific pattern where fields can be declared as:
     /// `field: Annotated[some_type, Field(some_keyword=<value>)]`
@@ -707,13 +885,64 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         if !metadata.is_pydantic_model() {
             return None;
         }
-        if let BindingAnnotation::AnnotateExpr(_, annotation_expr, _) = self.bindings().get(annot) {
+        if let BindingAnnotation::AnnotateExpr(_, annotation_expr, _, _) =
+            self.bindings().get(annot)
+        {
             let mut keywords = None;
+            let ignore_errors = self.error_swallower();
             let metadata_items = self.get_annotated_metadata(
                 annotation_expr,
                 TypeFormContext::ClassVarAnnotation,
-                &self.error_swallower(),
+                &ignore_errors,
             );
+            let type_expr = match annotation_expr {
+                Expr::Subscript(subscript) if !metadata_items.is_empty() => {
+                    Ast::unpack_slice(&subscript.slice)
+                        .first()
+                        .unwrap_or(annotation_expr)
+                }
+                _ => annotation_expr,
+            };
+            let has_unchecked_metadata = self
+                .pydantic_unchecked_annotation(type_expr, &mut Gas::new(100))
+                || metadata_items.len() > 1
+                || metadata_items.iter().any(|item| {
+                    let Expr::Call(call) = item else {
+                        return true;
+                    };
+                    let func = self.expr_infer(&call.func, &ignore_errors);
+                    !func
+                        .callee_kind(self)
+                        .is_some_and(|kind| dm.kind.field_specifiers().contains(&kind))
+                });
+            // A metadata item whose `__get_pydantic_core_schema__` hook is defined outside
+            // Pydantic counts as a custom schema.
+            // We cannot know what such a hook does, so the field may accept values of any type.
+            //
+            // Hooks defined by Pydantic are skipped since they generally build on the declared
+            // type's own validation (for example, `UuidVersion` adds a constraint to it),
+            // so the accepted input type does not change.
+            // The exceptions are `BeforeValidator`, `PlainValidator` and `WrapValidator`,
+            // which receive the raw input and can therefore accept any value.
+            //
+            // Metadata that is not a class (such as `Any`) is excluded.
+            let has_custom_schema = metadata_items.iter().any(|metadata_item| {
+                let cls = match self.expr_infer(metadata_item, &ignore_errors) {
+                    Type::ClassType(cls) => *cls.class_object(),
+                    Type::ClassDef(cls) => cls,
+                    _ => return false,
+                };
+                self.get_class_member_with_defining_class(&cls, &GET_PYDANTIC_CORE_SCHEMA)
+                    .is_some_and(|member| {
+                        let owner = &member.defining_class;
+                        owner.module_name().first_component() != "pydantic"
+                            || matches!(
+                                owner.name(self).as_str(),
+                                "BeforeValidator" | "PlainValidator" | "WrapValidator"
+                            )
+                    })
+            });
+
             // Look through metadata items and find a Field(...) call, then extract its keywords
             for metadata_item in &metadata_items {
                 if let Expr::Call(call) = metadata_item
@@ -724,8 +953,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     break;
                 }
             }
-            let strict =
-                self.pydantic_strict_from_annotation(annotation_expr, &self.error_swallower());
+            if has_unchecked_metadata {
+                keywords
+                    .get_or_insert_with(DataclassFieldKeywords::new)
+                    .pydantic_unchecked_metadata = true;
+            }
+            let strict = self.pydantic_strict_from_annotation(annotation_expr, &ignore_errors);
             if let Some(strict) = strict
                 && keywords
                     .as_ref()
@@ -735,17 +968,25 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     .get_or_insert_with(DataclassFieldKeywords::new)
                     .strict = Some(strict);
             }
+
+            if has_custom_schema {
+                keywords
+                    .get_or_insert_with(DataclassFieldKeywords::new)
+                    .pydantic_has_custom_schema = true;
+            }
+
             return keywords;
         }
         None
     }
 
-    pub fn check_pydantic_argument_range_constraints(
+    pub fn check_pydantic_argument_constraints(
         &self,
         cls: &Class,
         dataclass: &DataclassMetadata,
         args: &[CallArg],
         keywords: &[CallKeyword],
+        argmap: &ArgMap,
         errors: &ErrorCollector,
     ) {
         let constraints = self.collect_pydantic_constraint_params(cls, dataclass);
@@ -753,18 +994,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             return;
         };
 
-        let infer_errors = self.error_swallower();
         for (index, arg) in args.iter().enumerate() {
             match arg {
-                CallArg::Arg(value) => {
-                    let value_ty = value.infer(self, &infer_errors);
-                    if let Some(info) = constraints.get(&PydanticParamKey::Position(index)) {
-                        self.emit_pydantic_argument_constraint(
-                            &value_ty,
-                            info,
-                            arg.range(),
-                            errors,
-                        );
+                CallArg::Arg(_) => {
+                    if let Some(info) = constraints.get(&PydanticParamKey::Position(index))
+                        && let Some(value_ty) =
+                            argmap.source_argument_type(ArgumentKey::Positional(index))
+                    {
+                        self.emit_pydantic_argument_constraint(value_ty, info, arg.range(), errors);
                     }
                 }
                 CallArg::Star(..) => {
@@ -774,15 +1011,210 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             }
         }
 
-        for kw in keywords {
+        for (index, kw) in keywords.iter().enumerate() {
             let Some(identifier) = kw.arg.as_ref() else {
                 continue;
             };
             let key = PydanticParamKey::Name(identifier.id.clone());
-            if let Some(info) = constraints.get(&key) {
-                let value_ty = kw.value.infer(self, &infer_errors);
-                self.emit_pydantic_argument_constraint(&value_ty, info, kw.range, errors);
+            if let Some(info) = constraints.get(&key)
+                && let Some(value_ty) = argmap.source_argument_type(ArgumentKey::Keyword(index))
+            {
+                self.emit_pydantic_argument_constraint(value_ty, info, kw.range, errors);
             }
+        }
+    }
+
+    /// Check literal input only when the call uses Pydantic's built-in implementation.
+    pub fn check_pydantic_model_validate_constraints(
+        &self,
+        callee: &Type,
+        args: &[Expr],
+        keywords: &[Keyword],
+        errors: &ErrorCollector,
+    ) {
+        let Some(meta) = callee.toplevel_func_metadata() else {
+            return;
+        };
+        if meta.kind.function_name().as_str() != "model_validate"
+            || !meta
+                .kind
+                .class()
+                .is_some_and(|cls| cls.is(KnownClass::PydanticBaseModel))
+        {
+            return;
+        }
+        let Type::BoundMethod(method) = callee else {
+            return;
+        };
+        let expected = match &method.obj {
+            Type::ClassDef(cls) => self.instantiate(cls),
+            Type::Type(ty) => (**ty).clone(),
+            _ => return,
+        };
+        let Some(obj) = args.first().or_else(|| {
+            keywords
+                .iter()
+                .find(|kw| kw.arg.as_ref().is_some_and(|arg| arg.id.as_str() == "obj"))
+                .map(|kw| &kw.value)
+        }) else {
+            return;
+        };
+        let mut validation = PydanticValidationFlags::default();
+        for keyword in keywords {
+            let Some(name) = &keyword.arg else {
+                // An unpacked keyword mapping can change either alias control.
+                return;
+            };
+            let option = match name.id.as_str() {
+                "by_alias" => &mut validation.validate_by_alias,
+                "by_name" => &mut validation.validate_by_name,
+                _ => continue,
+            };
+            *option = match &keyword.value {
+                Expr::BooleanLiteral(value) => Some(value.value),
+                Expr::NoneLiteral(_) => None,
+                _ => return,
+            };
+        }
+        self.check_pydantic_model_validate_input(
+            &expected,
+            obj,
+            &validation,
+            &mut Gas::new(100),
+            errors,
+        );
+    }
+
+    /// Walk inline dictionary and list input with a bounded number of recursive entries.
+    fn check_pydantic_model_validate_input(
+        &self,
+        expected: &Type,
+        actual: &Expr,
+        validation: &PydanticValidationFlags,
+        gas: &mut Gas,
+        errors: &ErrorCollector,
+    ) {
+        if gas.stop() {
+            return;
+        }
+        // Named containers can be mutated or escape without rebinding their names.
+        match expected {
+            // Annotated input can carry schema transformations that are not modeled here.
+            Type::Annotated(_, _) => {}
+            Type::ClassType(expected)
+                if expected.class_object() == self.stdlib.list_object()
+                    && let [expected] = expected.targs().as_slice()
+                    && let Expr::List(actual) = actual =>
+            {
+                for actual in &actual.elts {
+                    self.check_pydantic_model_validate_input(
+                        expected, actual, validation, gas, errors,
+                    );
+                }
+            }
+            Type::ClassType(expected) | Type::SelfType(expected)
+                if let Expr::Dict(actual) = actual =>
+            {
+                let cls = expected.class_object();
+                let metadata = self.get_metadata_for_class(cls);
+                let Some(dataclass) = metadata
+                    .dataclass_metadata()
+                    .filter(|_| metadata.is_pydantic_model())
+                else {
+                    return;
+                };
+                if dataclass.init_defaults.pydantic_validation_flags.uncertain
+                    || !self
+                        .get_non_synthesized_class_member_and_defining_class(cls, &dunder::INIT)
+                        .is_some_and(|member| {
+                            member.defining_class.is(KnownClass::PydanticBaseModel)
+                        })
+                {
+                    return;
+                }
+                if validation.validate_by_alias == Some(true)
+                    && !dataclass
+                        .init_defaults
+                        .pydantic_validation_flags
+                        .validate_by_alias()
+                {
+                    // Constructor metadata omits aliases disabled by model configuration.
+                    return;
+                }
+                let mut fields = SmallMap::new();
+                let mut unknown_keys = false;
+                for item in Ast::flatten_dict_items(&actual.items) {
+                    if let Some(key) = item.key.as_ref().and_then(Expr::as_string_literal_expr) {
+                        fields.insert(Name::new(key.value.to_str()), &item.value);
+                    } else {
+                        // An unknown key or spread can replace any earlier value.
+                        fields.clear();
+                        unknown_keys = true;
+                    }
+                }
+                let kw_only_by_class = self.compute_kw_only_fields_by_class(cls);
+                for (name, field, flags) in
+                    self.iter_fields(cls, dataclass, true, &kw_only_by_class)
+                {
+                    if flags.pydantic_unchecked_metadata
+                        || dataclass.pydantic_before_validator_fields.contains(&name)
+                        || dataclass.pydantic_validator_replaces_all_input()
+                    {
+                        continue;
+                    }
+                    if flags.pydantic_unknown_validation_alias
+                        && validation.validate_by_alias.unwrap_or(
+                            dataclass
+                                .init_defaults
+                                .pydantic_validation_flags
+                                .validate_by_alias(),
+                        )
+                    {
+                        continue;
+                    }
+                    let alias = flags
+                        .init_by_alias
+                        .as_ref()
+                        .filter(|_| validation.validate_by_alias.unwrap_or(true));
+                    let value = if let Some(value) = alias.and_then(|alias| fields.get(alias)) {
+                        Some(value)
+                    } else if alias.is_some() && unknown_keys {
+                        // A spread can supply an alias that takes precedence over the field name.
+                        None
+                    } else if validation.validate_by_name.unwrap_or(flags.init_by_name) {
+                        fields.get(&name)
+                    } else {
+                        None
+                    };
+                    let Some(value) = value else {
+                        continue;
+                    };
+                    if let Some(constraints) = PydanticRangeConstraints::from_keywords(&flags) {
+                        let value_ty = self.expr_infer(value, &self.error_swallower());
+                        if int_literal_from_type(&value_ty).is_some() {
+                            self.emit_pydantic_argument_constraint(
+                                &value_ty,
+                                &PydanticParamConstraint {
+                                    field_name: name,
+                                    range: Some(constraints),
+                                    lax_type: None,
+                                },
+                                value.range(),
+                                errors,
+                            );
+                        }
+                    }
+                    self.check_pydantic_model_validate_input(
+                        &field.ty(),
+                        value,
+                        validation,
+                        gas,
+                        errors,
+                    );
+                }
+            }
+            // Union alternatives need schema selection before a violation is certain.
+            _ => {}
         }
     }
 
@@ -794,18 +1226,23 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let mut constraints = SmallMap::new();
         let mut position = 0;
         let kw_only_by_class = self.compute_kw_only_fields_by_class(cls);
-        for (field_name, _field, keywords) in
+        for (field_name, field, keywords) in
             self.iter_fields(cls, dataclass, true, &kw_only_by_class)
         {
             if !keywords.init {
                 continue;
             }
-            let Some(constraint) = PydanticRangeConstraints::from_keywords(&keywords) else {
+            let range = PydanticRangeConstraints::from_keywords(&keywords);
+            let lax_type = dataclass
+                .is_pydantic_lax_field(&field_name, &keywords)
+                .then(|| field.ty());
+            if range.is_none() && lax_type.is_none() {
                 continue;
-            };
+            }
             let info = PydanticParamConstraint {
                 field_name: field_name.clone(),
-                constraints: constraint,
+                range,
+                lax_type,
             };
             if keywords.init_by_name {
                 constraints.insert(PydanticParamKey::Name(field_name), info.clone());
@@ -832,14 +1269,41 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
+        if let Type::Union(union) = value_ty {
+            for value_ty in union.members.iter() {
+                self.emit_pydantic_argument_constraint(value_ty, info, range, errors);
+            }
+            return;
+        }
+        // The signature checks input types. This check enforces value restrictions on literals.
+        if let Some(field_ty) = &info.lax_type
+            && matches!(value_ty, Type::Literal(_))
+            && self.is_subset_eq(value_ty, &self.expand_type_for_lax_mode(field_ty))
+            && !self.pydantic_lax_accepts_literal(field_ty, value_ty)
+        {
+            self.error(
+                errors,
+                range,
+                ErrorKind::BadArgumentType,
+                format!(
+                    "Argument value `{}` is not valid for Pydantic field `{}` with type `{}`",
+                    self.display(value_ty.clone()),
+                    info.field_name,
+                    self.display(field_ty.clone()),
+                ),
+            );
+        }
+        let Some(constraints) = &info.range else {
+            return;
+        };
         let Some(value_lit) = int_literal_from_type(value_ty) else {
             return;
         };
         let checks = [
-            ("gt", info.constraints.gt.as_ref()),
-            ("ge", info.constraints.ge.as_ref()),
-            ("lt", info.constraints.lt.as_ref()),
-            ("le", info.constraints.le.as_ref()),
+            ("gt", constraints.gt.as_ref()),
+            ("ge", constraints.ge.as_ref()),
+            ("lt", constraints.lt.as_ref()),
+            ("le", constraints.le.as_ref()),
         ];
         for (label, constraint_ty) in checks {
             let Some(constraint_ty) = constraint_ty else {
@@ -863,9 +1327,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     ErrorKind::BadArgumentType,
                     format!(
                         "Argument value `{}` violates Pydantic `{}` constraint `{}` for field `{}`",
-                        self.for_display(value_ty.clone()),
+                        self.display(value_ty.clone()),
                         label,
-                        self.for_display(constraint_ty.clone()),
+                        self.display(constraint_ty.clone()),
                         info.field_name
                     ),
                 );

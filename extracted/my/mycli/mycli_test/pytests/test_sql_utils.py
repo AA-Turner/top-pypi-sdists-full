@@ -354,6 +354,7 @@ def test_find_prev_keyword(sql, expected_keyword, expected_text):
         ('update test set x = 1', True),
         ('update test t set x = 1', True),
         ('update /* inline comment */ test set x = 1', True),
+        ('/* leading comment */ update test set x = 1', True),
         ('select 1', False),
         ('', False),
         ('update', False),
@@ -456,6 +457,11 @@ def test_is_destructive_update_with_where_clause_and_comment():
     assert is_destructive(["update"], sql) is False
 
 
+def test_is_destructive_update_with_where_clause_and_leading_comment():
+    sql = "/* leading comment */ UPDATE test SET x = 1 WHERE id = 1;"
+    assert is_destructive(["update"], sql) is False
+
+
 def test_is_destructive_checks_queries_after_safe_update():
     sql = "UPDATE test SET x = 1 WHERE id = 1;\ndrop database foo;"
     assert is_destructive(["update", "drop"], sql) is True
@@ -533,6 +539,12 @@ def test_is_dropping_database_skips_statements_without_enough_keywords():
         ('connect foo localhost root', True),
         ('drop table foo;', True),
         ('rename table foo to bar;', True),
+        ('/* note */ create table foo (id int);', True),
+        ('-- note\nalter table foo add column bar int;', True),
+        ('# note\ndrop table foo;', True),
+        ('select 1; /* note */ rename table foo to bar;', True),
+        ('/* note */ select 1;', False),
+        ('-- create table foo (id int)', False),
     ],
 )
 def test_need_completion_refresh(queries, expected):
@@ -559,6 +571,12 @@ def test_need_completion_refresh_ignores_queries_that_fail_to_split(monkeypatch)
         ('/connect foo localhost root', True),
         ('connect', False),
         ('connect foo localhost root', True),
+        ('/* note */ use foo;', True),
+        ('-- note\nuse foo;', True),
+        ('# note\n\\u foo;', True),
+        ('/* note */ \\r foo', True),
+        ('/* note */ connect', False),
+        ('/* note */ select 1;', False),
     ],
 )
 def test_need_completion_reset(queries, expected):

@@ -12,7 +12,7 @@ class VoiceCloningConfigureConnectionParams(typing_extensions.TypedDict):
     Pass **exactly one** of `voice_id` (saved voice) or `ref_audio` (base64 reference clip).
     `target_language_code` is optional: omit it to detect the language from the first
     buffered text, then that language stays locked until the next config.
-    Optional `ref_text` improves fidelity when using `ref_audio`.
+    `ref_text` has been deprecated.
     Sending both `voice_id` and `ref_audio` returns an error. Duration bounds, QC, and VAD
     are not accepted on this path.
     """

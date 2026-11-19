@@ -49,7 +49,7 @@ from uuid import uuid4
 
 import pytest
 
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
+from omnibase_core.nodes.node_done_write_receipt_gate_compute.handler_done_write_receipt_gate import (
     acceptance_criteria_items as _acceptance_criteria_items,
 )
 from omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.handlers.handler_evidence_autoclose_sweep import (
@@ -292,7 +292,7 @@ def _request(**overrides: object) -> ModelEvidenceAutocloseSweepRequest:
         "readback_max_attempts": 2,
     }
     payload.update(overrides)
-    return ModelEvidenceAutocloseSweepRequest(**payload)
+    return ModelEvidenceAutocloseSweepRequest(**{"demotion_window_hours": 0, **payload})
 
 
 # ---------------------------------------------------------------------------

@@ -273,11 +273,11 @@ class SeoKeywordIdeasInput(TypedDict, total=False):
     allowFallbacks: NotRequired[bool]
     """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     closelyVariants: NotRequired[bool]
-    """When true, generate only close variants of the seed keywords; when false (the default), generate a broader set of related ideas."""
+    """When true, match the seeds by phrase match instead of broad match (the default, false). Ideas still come from the categories of the seeds, so not every idea will contain the seed words. For ideas that contain the seed phrase use seo.keyword_suggestions with exactMatch set to true."""
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     keywords: Required[list[str]]
-    """Seed SEO keywords used to generate related keyword ideas."""
+    """Seed SEO keywords. Ideas are drawn from the product and service categories these seeds belong to, so results are broad and many ideas will not contain the seed words."""
     language: NotRequired[str]
     """Language code for SEO metrics. Default: en."""
     limit: NotRequired[int]
@@ -3977,7 +3977,11 @@ class SeoNamespace:
         """SEO Keyword Ideas
 
         Find AnyAPI SEO keyword ideas from seed terms with volume, CPC, competition,
-        difficulty, and intent as normalized JSON.
+        difficulty, and intent as normalized JSON. Ideas are broad: they come from
+        the product and service categories of the seeds, so many will not contain
+        the seed words. For ideas that contain the seed phrase use
+        seo.keyword_suggestions with exactMatch set to true; for Google's related
+        searches use seo.related_keywords.
 
         Price: $0.01496 per request plus $0.00016 per result (maximum $0.17496).
 
@@ -4544,7 +4548,11 @@ class AsyncSeoNamespace:
         """SEO Keyword Ideas
 
         Find AnyAPI SEO keyword ideas from seed terms with volume, CPC, competition,
-        difficulty, and intent as normalized JSON.
+        difficulty, and intent as normalized JSON. Ideas are broad: they come from
+        the product and service categories of the seeds, so many will not contain
+        the seed words. For ideas that contain the seed phrase use
+        seo.keyword_suggestions with exactMatch set to true; for Google's related
+        searches use seo.related_keywords.
 
         Price: $0.01496 per request plus $0.00016 per result (maximum $0.17496).
 

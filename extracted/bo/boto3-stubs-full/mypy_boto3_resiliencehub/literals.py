@@ -153,6 +153,7 @@ TestRiskType = Literal["High", "Medium", "Small"]
 TestTypeType = Literal["AZ", "Hardware", "Region", "Software"]
 ResilienceHubServiceName = Literal["resiliencehub"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

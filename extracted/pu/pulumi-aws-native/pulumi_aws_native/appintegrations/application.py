@@ -28,6 +28,7 @@ class ApplicationArgs:
                  namespace: pulumi.Input[_builtins.str],
                  application_config: pulumi.Input[Optional['ApplicationConfigArgs']] = None,
                  application_type: pulumi.Input[Optional['ApplicationType']] = None,
+                 auth_config: pulumi.Input[Optional['ApplicationAuthConfigArgs']] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  iframe_config: pulumi.Input[Optional['ApplicationIframeConfigArgs']] = None,
                  initialization_timeout: pulumi.Input[Optional[_builtins.int]] = None,
@@ -42,6 +43,7 @@ class ApplicationArgs:
         :param pulumi.Input[_builtins.str] namespace: The namespace of the application.
         :param pulumi.Input['ApplicationConfigArgs'] application_config: The application configuration. Cannot be used when IsService is true.
         :param pulumi.Input['ApplicationType'] application_type: The type of application
+        :param pulumi.Input['ApplicationAuthConfigArgs'] auth_config: The authentication configuration. Required when ApplicationType is A2A_SERVER.
         :param pulumi.Input[_builtins.str] description: The application description.
         :param pulumi.Input['ApplicationIframeConfigArgs'] iframe_config: The iframe configuration
         :param pulumi.Input[_builtins.int] initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
@@ -56,6 +58,8 @@ class ApplicationArgs:
             pulumi.set(__self__, "application_config", application_config)
         if application_type is not None:
             pulumi.set(__self__, "application_type", application_type)
+        if auth_config is not None:
+            pulumi.set(__self__, "auth_config", auth_config)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if iframe_config is not None:
@@ -118,6 +122,18 @@ class ApplicationArgs:
     @application_type.setter
     def application_type(self, value: pulumi.Input[Optional['ApplicationType']]):
         pulumi.set(self, "application_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="authConfig")
+    def auth_config(self) -> pulumi.Input[Optional['ApplicationAuthConfigArgs']]:
+        """
+        The authentication configuration. Required when ApplicationType is A2A_SERVER.
+        """
+        return pulumi.get(self, "auth_config")
+
+    @auth_config.setter
+    def auth_config(self, value: pulumi.Input[Optional['ApplicationAuthConfigArgs']]):
+        pulumi.set(self, "auth_config", value)
 
     @_builtins.property
     @pulumi.getter
@@ -210,34 +226,36 @@ class Application(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 application_config: pulumi.Input[Optional[Union['ApplicationConfigArgs', 'ApplicationConfigArgsDict']]] = None,
-                 application_source_config: pulumi.Input[Optional[Union['ApplicationSourceConfigPropertiesArgs', 'ApplicationSourceConfigPropertiesArgsDict']]] = None,
+                 application_config: pulumi.Input[Optional[Union['ApplicationConfigArgs', 'ApplicationConfigArgsDict', 'outputs.ApplicationConfig']]] = None,
+                 application_source_config: pulumi.Input[Optional[Union['ApplicationSourceConfigPropertiesArgs', 'ApplicationSourceConfigPropertiesArgsDict', 'outputs.ApplicationSourceConfigProperties']]] = None,
                  application_type: pulumi.Input[Optional['ApplicationType']] = None,
+                 auth_config: pulumi.Input[Optional[Union['ApplicationAuthConfigArgs', 'ApplicationAuthConfigArgsDict', 'outputs.ApplicationAuthConfig']]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
-                 iframe_config: pulumi.Input[Optional[Union['ApplicationIframeConfigArgs', 'ApplicationIframeConfigArgsDict']]] = None,
+                 iframe_config: pulumi.Input[Optional[Union['ApplicationIframeConfigArgs', 'ApplicationIframeConfigArgsDict', 'outputs.ApplicationIframeConfig']]] = None,
                  initialization_timeout: pulumi.Input[Optional[_builtins.int]] = None,
                  is_service: pulumi.Input[Optional[_builtins.bool]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  namespace: pulumi.Input[Optional[_builtins.str]] = None,
                  permissions: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         """
         Resource Type definition for AWS:AppIntegrations::Application
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['ApplicationConfigArgs', 'ApplicationConfigArgsDict']] application_config: The application configuration. Cannot be used when IsService is true.
-        :param pulumi.Input[Union['ApplicationSourceConfigPropertiesArgs', 'ApplicationSourceConfigPropertiesArgsDict']] application_source_config: Application source config
+        :param pulumi.Input[Union['ApplicationConfigArgs', 'ApplicationConfigArgsDict', 'outputs.ApplicationConfig']] application_config: The application configuration. Cannot be used when IsService is true.
+        :param pulumi.Input[Union['ApplicationSourceConfigPropertiesArgs', 'ApplicationSourceConfigPropertiesArgsDict', 'outputs.ApplicationSourceConfigProperties']] application_source_config: Application source config
         :param pulumi.Input['ApplicationType'] application_type: The type of application
+        :param pulumi.Input[Union['ApplicationAuthConfigArgs', 'ApplicationAuthConfigArgsDict', 'outputs.ApplicationAuthConfig']] auth_config: The authentication configuration. Required when ApplicationType is A2A_SERVER.
         :param pulumi.Input[_builtins.str] description: The application description.
-        :param pulumi.Input[Union['ApplicationIframeConfigArgs', 'ApplicationIframeConfigArgsDict']] iframe_config: The iframe configuration
+        :param pulumi.Input[Union['ApplicationIframeConfigArgs', 'ApplicationIframeConfigArgsDict', 'outputs.ApplicationIframeConfig']] iframe_config: The iframe configuration
         :param pulumi.Input[_builtins.int] initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
         :param pulumi.Input[_builtins.bool] is_service: Indicates if the application is a service
         :param pulumi.Input[_builtins.str] name: The name of the application.
         :param pulumi.Input[_builtins.str] namespace: The namespace of the application.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] permissions: The configuration of events or requests that the application has access to.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]] tags: The tags (keys and values) associated with the application.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: The tags (keys and values) associated with the application.
         """
         ...
     @overload
@@ -263,17 +281,18 @@ class Application(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 application_config: pulumi.Input[Optional[Union['ApplicationConfigArgs', 'ApplicationConfigArgsDict']]] = None,
-                 application_source_config: pulumi.Input[Optional[Union['ApplicationSourceConfigPropertiesArgs', 'ApplicationSourceConfigPropertiesArgsDict']]] = None,
+                 application_config: pulumi.Input[Optional[Union['ApplicationConfigArgs', 'ApplicationConfigArgsDict', 'outputs.ApplicationConfig']]] = None,
+                 application_source_config: pulumi.Input[Optional[Union['ApplicationSourceConfigPropertiesArgs', 'ApplicationSourceConfigPropertiesArgsDict', 'outputs.ApplicationSourceConfigProperties']]] = None,
                  application_type: pulumi.Input[Optional['ApplicationType']] = None,
+                 auth_config: pulumi.Input[Optional[Union['ApplicationAuthConfigArgs', 'ApplicationAuthConfigArgsDict', 'outputs.ApplicationAuthConfig']]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
-                 iframe_config: pulumi.Input[Optional[Union['ApplicationIframeConfigArgs', 'ApplicationIframeConfigArgsDict']]] = None,
+                 iframe_config: pulumi.Input[Optional[Union['ApplicationIframeConfigArgs', 'ApplicationIframeConfigArgsDict', 'outputs.ApplicationIframeConfig']]] = None,
                  initialization_timeout: pulumi.Input[Optional[_builtins.int]] = None,
                  is_service: pulumi.Input[Optional[_builtins.bool]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  namespace: pulumi.Input[Optional[_builtins.str]] = None,
                  permissions: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -288,6 +307,7 @@ class Application(pulumi.CustomResource):
                 raise TypeError("Missing required property 'application_source_config'")
             __props__.__dict__["application_source_config"] = application_source_config
             __props__.__dict__["application_type"] = application_type
+            __props__.__dict__["auth_config"] = auth_config
             __props__.__dict__["description"] = description
             __props__.__dict__["iframe_config"] = iframe_config
             __props__.__dict__["initialization_timeout"] = initialization_timeout
@@ -300,6 +320,8 @@ class Application(pulumi.CustomResource):
             __props__.__dict__["tags"] = tags
             __props__.__dict__["application_arn"] = None
             __props__.__dict__["aws_id"] = None
+            __props__.__dict__["last_modified_region"] = None
+            __props__.__dict__["last_modified_time"] = None
         super(Application, __self__).__init__(
             'aws-native:appintegrations:Application',
             resource_name,
@@ -326,16 +348,25 @@ class Application(pulumi.CustomResource):
         __props__.__dict__["application_config"] = None
         __props__.__dict__["application_source_config"] = None
         __props__.__dict__["application_type"] = None
+        __props__.__dict__["auth_config"] = None
         __props__.__dict__["aws_id"] = None
         __props__.__dict__["description"] = None
         __props__.__dict__["iframe_config"] = None
         __props__.__dict__["initialization_timeout"] = None
         __props__.__dict__["is_service"] = None
+        __props__.__dict__["last_modified_region"] = None
+        __props__.__dict__["last_modified_time"] = None
         __props__.__dict__["name"] = None
         __props__.__dict__["namespace"] = None
         __props__.__dict__["permissions"] = None
         __props__.__dict__["tags"] = None
         return Application(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:appintegrations:Application', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="applicationArn")
@@ -368,6 +399,14 @@ class Application(pulumi.CustomResource):
         The type of application
         """
         return pulumi.get(self, "application_type")
+
+    @_builtins.property
+    @pulumi.getter(name="authConfig")
+    def auth_config(self) -> pulumi.Output[Optional['outputs.ApplicationAuthConfig']]:
+        """
+        The authentication configuration. Required when ApplicationType is A2A_SERVER.
+        """
+        return pulumi.get(self, "auth_config")
 
     @_builtins.property
     @pulumi.getter(name="awsId")
@@ -408,6 +447,22 @@ class Application(pulumi.CustomResource):
         Indicates if the application is a service
         """
         return pulumi.get(self, "is_service")
+
+    @_builtins.property
+    @pulumi.getter(name="lastModifiedRegion")
+    def last_modified_region(self) -> pulumi.Output[_builtins.str]:
+        """
+        The region in which the application was last modified.
+        """
+        return pulumi.get(self, "last_modified_region")
+
+    @_builtins.property
+    @pulumi.getter(name="lastModifiedTime")
+    def last_modified_time(self) -> pulumi.Output[_builtins.str]:
+        """
+        The time when the application was last modified.
+        """
+        return pulumi.get(self, "last_modified_time")
 
     @_builtins.property
     @pulumi.getter

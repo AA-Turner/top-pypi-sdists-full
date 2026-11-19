@@ -18,7 +18,8 @@ class CompleteAiJsonBody:
     Attributes:
         system (str):
         user (str):
-        model (Union[Unset, CompleteAiJsonBodyModel]): defaults to the AI config's default model
+        model (Union[Unset, CompleteAiJsonBodyModel]): defaults to the AI config's default model. Must be enabled in the
+            AI settings, or be the default, metadata or code-completion model.
         max_tokens (Union[Unset, int]):
     """
 

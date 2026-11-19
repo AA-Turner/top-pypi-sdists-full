@@ -35,6 +35,7 @@ ListDomainsPaginatorName = Literal["list_domains"]
 SelectPaginatorName = Literal["select"]
 SimpleDBServiceName = Literal["sdb"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

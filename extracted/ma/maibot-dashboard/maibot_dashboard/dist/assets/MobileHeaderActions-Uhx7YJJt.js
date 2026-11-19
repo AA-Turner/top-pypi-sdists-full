@@ -1,0 +1,1 @@
+import{a as o}from"./index-DRiZw0ku.js";import{b as t}from"./mobile-nav-context-BrsvG6yX.js";function i({children:r}){const{headerActionsElement:e}=t();return e?o.createPortal(r,e):null}export{i as M};

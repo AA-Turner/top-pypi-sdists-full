@@ -31,13 +31,11 @@ class DictTraceEvent(collections.UserDict):
 
     @property
     def shape(self):
-        key0 = sorted(self.keys())[0]
+        key0 = min(self.keys())
         return len(self), len(self[key0]), len(self[key0][0])
 
 
 class RTDC_Dict(RTDCBase):
-    _local_basins_allowed = True
-
     def __init__(self, ddict, *args, **kwargs):
         """Dictionary-based RT-DC dataset
 
@@ -59,7 +57,12 @@ class RTDC_Dict(RTDCBase):
         """
         assert ddict
 
-        super(RTDC_Dict, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+
+        # The data are in memory on the user's computer, so local basins
+        # are allowed (must be set after `RTDCBase.__init__`, which sets
+        # this instance attribute to False).
+        self._local_basins_allowed = True
 
         t = time.localtime()
 
@@ -69,7 +72,7 @@ class RTDC_Dict(RTDCBase):
         ids = hashobj(ddict)
         self._ids = ids
         self.path = "none"
-        self.title = "{}_{:02d}_{:02d}/{}.dict".format(t[0], t[1], t[2], ids)
+        self.title = f"{t[0]}_{t[1]:02d}_{t[2]:02d}/{ids}.dict"
 
         # Populate events
         for feat in ddict:
@@ -86,14 +89,19 @@ class RTDC_Dict(RTDCBase):
                 else:
                     data = ddict[feat]
             else:
-                raise ValueError("Invalid feature name '{}'".format(feat))
+                raise ValueError(f"Invalid feature name '{feat}'")
             if isinstance(data, np.ndarray):
                 # Convert numpy array to read-only array
                 data = data.view()
                 data.setflags(write=False)
             self._events[feat] = data
 
-        event_count = len(ddict[list(ddict.keys())[0]])
+        # The length of "trace" is the number of trace channels.
+        others = [ft for ft in ddict if ft != "trace"]
+        if others:
+            event_count = len(ddict[others[0]])
+        else:
+            event_count = self._events["trace"].shape[1]
 
         self.config = Configuration()
         self.config["experiment"]["event count"] = event_count

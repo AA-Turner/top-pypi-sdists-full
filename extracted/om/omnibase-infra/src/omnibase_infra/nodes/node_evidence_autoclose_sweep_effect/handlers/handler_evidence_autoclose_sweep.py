@@ -168,44 +168,6 @@ from uuid import uuid4
 
 import httpx
 
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    CHECK_STATUS_VERIFIED,
-    MAX_UNCOVERED_LISTED,
-    check_binds_ac_key,
-    check_id_key,
-    check_proof_class_key,
-    check_status_key,
-    dod_verify_checks_key,
-    dod_verify_verdict_key,
-    verdict_is_all_verified,
-)
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    ac_binding_gap as _ac_binding_gap,
-)
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    as_int as _as_int,
-)
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    canonical_ac_label as _canonical_ac_label,
-)
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    check_records as _check_records,
-)
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    check_status as _check_status,
-)
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    criterion_is_state_shaped as _criterion_is_state_shaped,
-)
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    extract_dod_verify_verdict as _extract_dod_verify_verdict,
-)
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    has_verified_bound_check as _has_verified_bound_check,
-)
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    live_acceptance_criteria_items as _live_acceptance_criteria_items,
-)
 from omnibase_infra.adapters.project_tracker.linear_graphql_project_tracker_adapter import (
     AdapterLinearGraphQLProjectTracker,
 )
@@ -220,8 +182,10 @@ from omnibase_infra.handlers.done_write_receipt_guard import (
     reap_timed_out_process as _reap_timed_out_process,
 )
 from omnibase_infra.handlers.done_write_receipt_guard import (
+    resolve_done_write_receipt_gate,
     run_dod_verify_command,
 )
+from omnibase_infra.models.third_party_endpoints import load_third_party_endpoints
 from omnibase_infra.nodes.node_evidence_autoclose_sweep_effect import (
     offer_companion_sources,
 )
@@ -256,8 +220,16 @@ from omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.model_ac_b
     ModelAcBindingRow,
 )
 from omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.model_check_result_row import (
+    CHECK_STATUS_VERIFIED,
+    MAX_UNCOVERED_LISTED,
     MESSAGE_EXCERPT_MAX_CHARS,
     ModelCheckResultRow,
+    check_binds_ac_key,
+    check_id_key,
+    check_proof_class_key,
+    check_status_key,
+    dod_verify_checks_key,
+    dod_verify_verdict_key,
 )
 from omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.model_evidence_autoclose_outcome import (
     ModelEvidenceAutocloseOutcome,
@@ -271,10 +243,12 @@ from omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.model_evid
 from omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.model_in_progress_demotion_request import (
     ModelInProgressDemotionRequest,
 )
+from omnibase_infra.protocols.protocol_done_write_receipt_gate import (
+    ProtocolDoneWriteReceiptGate,
+)
 from omnibase_infra.utils.util_error_sanitization import sanitize_error_message
 
-# OMN-20368: the verdict field names are owned by the shared Done-write rule in
-# omnibase_core; the closer keeps its historical private names for them.
+# The sweep reads these verdict fields locally; the contract supplies gate behavior.
 _CHECK_STATUS_VERIFIED = CHECK_STATUS_VERIFIED
 _MAX_UNCOVERED_LISTED = MAX_UNCOVERED_LISTED
 _CHECK_BINDS_AC_KEY = check_binds_ac_key
@@ -356,7 +330,7 @@ _TITLE_EVIDENCE_RE = re.compile(r"evidence\((OMN-\d+)\)", re.IGNORECASE)
 # guidance is to request a new client credentials token at the start of each
 # run and use it only for that run, and a 30-day token copied into a secret
 # store is just a second long-lived key with worse properties.
-_LINEAR_OAUTH_TOKEN_URL = "https://api.linear.app/oauth/token"  # url-authority-ok: fixed public OAuth token endpoint, no ONEX routing authority
+_LINEAR_OAUTH_TOKEN_URL = load_third_party_endpoints().linear_oauth_token_url
 _LINEAR_API_KEY_ENV = "LINEAR_API_KEY"
 _LINEAR_CLOSER_CLIENT_ID_ENV = "LINEAR_CLOSER_CLIENT_ID"
 _LINEAR_CLOSER_CLIENT_SECRET_ENV = "LINEAR_CLOSER_CLIENT_SECRET"
@@ -479,6 +453,26 @@ query InProgressIssues($after: String, $since: DateTimeOrDuration!) {
         nodes { createdAt body }
       }
     }
+  }
+}
+"""
+
+# OMN-21731. The ticket-contract arm's census: the identifiers of the KEY'S OWN
+# open tickets. `isMe` is the collaborator fence: a ticket assigned to anyone
+# else is not in this list, so no arm built on it can offer, comment on or move
+# a collaborator's ticket.
+_OPEN_TICKETS_QUERY = """
+query OpenTickets($after: String) {
+  issues(
+    first: 250
+    after: $after
+    filter: {
+      assignee: { isMe: { eq: true } }
+      state: { type: { nin: ["completed", "canceled"] } }
+    }
+  ) {
+    pageInfo { hasNextPage endCursor }
+    nodes { identifier }
   }
 }
 """
@@ -647,6 +641,8 @@ _MAX_COMMENT_PAGES = 5
 # OMN-18489. 50 issues a page; the census has been 360 and a leg that cannot
 # read the whole of it must refuse rather than demote on a fragment.
 _MAX_IN_PROGRESS_PAGES = 20
+# OMN-21731. 250 per page: 40 pages is 10,000 open tickets, ~4x today's census.
+_MAX_OPEN_TICKET_PAGES = 40
 
 # OMN-16106, class (c). Signals that a dod_verify check failed because the LIVE
 # SURFACE it reads was unreachable, rather than because the behaviour it
@@ -1484,6 +1480,8 @@ def _ac_coverage_gap(
     verified_count: int,
     coverage_verified_count: int,
     coverage_non_probative_count: int,
+    *,
+    gate: ProtocolDoneWriteReceiptGate | None = None,
 ) -> tuple[str, tuple[str, ...]]:
     """Decide whether ``description`` carries criteria dod_verify did not cover.
 
@@ -1578,6 +1576,7 @@ def _ac_coverage_gap(
     population is argued where the population is computed:
     :func:`_coverage_corpus_counts`.
     """
+    gate = gate if gate is not None else resolve_done_write_receipt_gate()
     if not description.strip():
         return "", ()
 
@@ -1597,7 +1596,7 @@ def _ac_coverage_gap(
             unchecked,
         )
 
-    items = tuple(_live_acceptance_criteria_items(description))
+    items = tuple(gate.live_acceptance_criteria_items(description))
     if not items:
         return "", ()
     if len(items) > verified_count:
@@ -1663,7 +1662,10 @@ def _ac_coverage_gap(
 
 
 def _coverage_corpus_counts(
-    verdict: dict[str, object], description: str
+    verdict: dict[str, object],
+    description: str,
+    *,
+    gate: ProtocolDoneWriteReceiptGate | None = None,
 ) -> tuple[int, int]:
     """``(verified, non_probative)`` over the checks that CLAIM to cover this ticket.
 
@@ -1727,11 +1729,12 @@ def _coverage_corpus_counts(
     an unlabelled criterion first), and holding is the safe direction for the
     day it is not.
     """
+    gate = gate if gate is not None else resolve_done_write_receipt_gate()
     labels = {
         label
         for label in (
-            _canonical_ac_label(item)
-            for item in _live_acceptance_criteria_items(description)
+            gate.canonical_ac_label(item)
+            for item in gate.live_acceptance_criteria_items(description)
         )
         if label
     }
@@ -1749,7 +1752,7 @@ def _coverage_corpus_counts(
         raw = entry.get(_CHECK_BINDS_AC_KEY)
         if not isinstance(raw, list):
             continue
-        declared = {_canonical_ac_label(str(item)) for item in raw}
+        declared = {gate.canonical_ac_label(str(item)) for item in raw}
         if not declared & labels:
             continue
         status = str(entry.get(_CHECK_STATUS_KEY) or "").strip().lower()
@@ -1779,7 +1782,9 @@ def _coverage_corpus_counts(
 # set earns its way in one phrase at a time, and the veto wins ties.
 
 
-def _every_criterion_is_state_shaped(description: str) -> bool:
+def _every_criterion_is_state_shaped(
+    description: str, *, gate: ProtocolDoneWriteReceiptGate | None = None
+) -> bool:
     """True when a body parses at least one criterion and ALL are state-shaped.
 
     A body with no parseable criteria returns False. The closer cannot say
@@ -1788,10 +1793,11 @@ def _every_criterion_is_state_shaped(description: str) -> bool:
     conjunct later, and this returning True would have let it past the
     behaviour conjunct on a body nobody can check.
     """
-    items = _live_acceptance_criteria_items(description)
+    gate = gate if gate is not None else resolve_done_write_receipt_gate()
+    items = gate.live_acceptance_criteria_items(description)
     if not items:
         return False
-    return all(_criterion_is_state_shaped(item) for item in items)
+    return all(gate.criterion_is_state_shaped(item) for item in items)
 
 
 def _format_ac_binding_table(rows: tuple[ModelAcBindingRow, ...]) -> str:
@@ -1920,7 +1926,9 @@ _SWEEP_COMMENT_MARKER_PREFIX = "onex-autoclose-sweep"
 _SWEEP_COMMENT_MARKER_VERSION = "v1"
 
 
-def _live_surface_unavailable(verdict: dict[str, object]) -> tuple[str, str]:
+def _live_surface_unavailable(
+    verdict: dict[str, object], *, gate: ProtocolDoneWriteReceiptGate | None = None
+) -> tuple[str, str]:
     """The first failed check whose message names an unreachable live surface.
 
     Returns ``(evidence_id, matched signal)``, or ``("", "")`` when no failed
@@ -1936,8 +1944,9 @@ def _live_surface_unavailable(verdict: dict[str, object]) -> tuple[str, str]:
     per-check records have carried that message all along; the closer simply
     never looked at them, reading only the counters beside them.
     """
-    for check in _check_records(verdict):
-        status = _check_status(check)
+    gate = gate if gate is not None else resolve_done_write_receipt_gate()
+    for check in gate.check_records(verdict):
+        status = gate.check_status(check)
         eligible = status == _CHECK_STATUS_FAILED or (
             status == _CHECK_STATUS_SKIPPED
             and check.get(_CHECK_UNVERIFIABLE_CAUSE_KEY) is not None
@@ -1964,7 +1973,7 @@ def _check_id(check: dict[str, object]) -> str:
 
 
 def _check_result_rows(
-    verdict: dict[str, object],
+    verdict: dict[str, object], *, gate: ProtocolDoneWriteReceiptGate | None = None
 ) -> tuple[ModelCheckResultRow, ...]:
     """Every check on this verdict, as the record the outcome carries.
 
@@ -1981,15 +1990,16 @@ def _check_result_rows(
     disagreement it is, because re-deriving the counters here would quietly
     make this function part of the flip predicate.
     """
+    gate = gate if gate is not None else resolve_done_write_receipt_gate()
     return tuple(
         ModelCheckResultRow(
             evidence_check=_check_id(check),
-            status=EnumAcBindingCheckStatus.from_verdict(_check_status(check)),
+            status=EnumAcBindingCheckStatus.from_verdict(gate.check_status(check)),
             proof_class=str(check.get(_CHECK_PROOF_CLASS_KEY) or ""),
             binds_ac=_declared_labels(check),
             message_excerpt=_excerpt(str(check.get(_CHECK_MESSAGE_KEY) or "")),
         )
-        for check in _check_records(verdict)
+        for check in gate.check_records(verdict)
     )
 
 
@@ -2046,7 +2056,9 @@ def _format_failing_checks(rows: tuple[ModelCheckResultRow, ...]) -> str:
     )
 
 
-def _live_check_not_executed(verdict: dict[str, object]) -> tuple[str, str]:
+def _live_check_not_executed(
+    verdict: dict[str, object], *, gate: ProtocolDoneWriteReceiptGate | None = None
+) -> tuple[str, str]:
     """The first check the run never executed.
 
     Returns ``(evidence_id, why)``, or ``("", "")`` when every check ran.
@@ -2079,8 +2091,9 @@ def _live_check_not_executed(verdict: dict[str, object]) -> tuple[str, str]:
     probative value. ``superseded`` does not count either: a later item in
     the same contract carries that verdict (OMN-15382).
     """
-    for check in _check_records(verdict):
-        status = _check_status(check)
+    gate = gate if gate is not None else resolve_done_write_receipt_gate()
+    for check in gate.check_records(verdict):
+        status = gate.check_status(check)
         if check.get(_CHECK_UNBINDABLE_OVERLAY_KEY) is True:
             return _check_id(check), "unbindable derived overlay (never executed)"
         if status != _CHECK_STATUS_SKIPPED:
@@ -2092,14 +2105,17 @@ def _live_check_not_executed(verdict: dict[str, object]) -> tuple[str, str]:
     return "", ""
 
 
-def _skipped_verdict_reason(verdict: dict[str, object]) -> str:
+def _skipped_verdict_reason(
+    verdict: dict[str, object], *, gate: ProtocolDoneWriteReceiptGate | None = None
+) -> str:
     """Preserve the verifier's reason without judging a skipped run's evidence."""
+    gate = gate if gate is not None else resolve_done_write_receipt_gate()
     reasons: list[str] = []
     error = verdict.get("error_message")
     if isinstance(error, str) and error.strip():
         reasons.append(error.strip())
-    for check in _check_records(verdict):
-        if _check_status(check) != _CHECK_STATUS_SKIPPED:
+    for check in gate.check_records(verdict):
+        if gate.check_status(check) != _CHECK_STATUS_SKIPPED:
             continue
         details = [
             str(check[key]).strip()
@@ -2113,7 +2129,9 @@ def _skipped_verdict_reason(verdict: dict[str, object]) -> str:
     return "; ".join(reasons) or "no reason supplied by dod_verify"
 
 
-def _withheld_check_ids(verdict: dict[str, object]) -> tuple[str, ...]:
+def _withheld_check_ids(
+    verdict: dict[str, object], *, gate: ProtocolDoneWriteReceiptGate | None = None
+) -> tuple[str, ...]:
     """Every check that is standing between this ticket and a Done flip.
 
     Sorted and de-duplicated, so it is a SET and not a transcript: check
@@ -2126,12 +2144,13 @@ def _withheld_check_ids(verdict: dict[str, object]) -> tuple[str, ...]:
     skipped, non-probative — is a check the flip predicate is still waiting
     on, whichever of those three it happens to be graded as this rotation.
     """
+    gate = gate if gate is not None else resolve_done_write_receipt_gate()
     return tuple(
         sorted(
             {
                 _check_id(check)
-                for check in _check_records(verdict)
-                if _check_status(check)
+                for check in gate.check_records(verdict)
+                if gate.check_status(check)
                 not in (_CHECK_STATUS_VERIFIED, _CHECK_STATUS_SUPERSEDED)
             }
         )
@@ -2145,6 +2164,7 @@ def _gap_fingerprint_parts(
     verified_count: int,
     failed_count: int,
     non_probative_count: int,
+    gate: ProtocolDoneWriteReceiptGate | None = None,
 ) -> tuple[str, ...]:
     """The identity of a gap statement: contract version + withheld check set.
 
@@ -2172,7 +2192,8 @@ def _gap_fingerprint_parts(
     that ticket identical, which trades a duplicate-on-regrade for a silence
     the reader cannot distinguish from agreement.
     """
-    withheld = _withheld_check_ids(verdict)
+    gate = gate if gate is not None else resolve_done_write_receipt_gate()
+    withheld = _withheld_check_ids(verdict, gate=gate)
     if withheld:
         return (_GAP_FINGERPRINT_CONTRACT_VERSION, "withheld", *withheld)
     return (
@@ -2733,6 +2754,42 @@ class _LinearClient:
             "pages; a partial census is not read as the whole."
         )
 
+    async def fetch_open_ticket_ids(self) -> tuple[frozenset[str] | None, str]:
+        """Identifiers of the key's own tickets that are not completed or canceled.
+
+        OMN-21731. ``(None, error)`` on any failed page, a malformed connection
+        or a cursor the connection did not supply: a partial census would rank
+        a partial pool and read as the whole. Hitting the page cap is a failure
+        for the same reason.
+        """
+        found: set[str] = set()
+        cursor: str | None = None
+        for _ in range(_MAX_OPEN_TICKET_PAGES):
+            data = await self._query(_OPEN_TICKETS_QUERY, {"after": cursor})
+            if data is None:
+                detail = f" ({self.last_error})" if self.last_error else ""
+                return None, f"Failed to fetch open tickets from Linear.{detail}"
+            connection = data.get("issues")
+            nodes = connection.get("nodes") if isinstance(connection, dict) else None
+            if not isinstance(connection, dict) or not isinstance(nodes, list):
+                return None, "Malformed issues connection in Linear response."
+            for node in nodes:
+                identifier = node.get("identifier") if isinstance(node, dict) else None
+                if isinstance(identifier, str) and identifier:
+                    found.add(identifier.strip().upper())
+            page_info = connection.get("pageInfo")
+            page_info = page_info if isinstance(page_info, dict) else {}
+            if not page_info.get("hasNextPage"):
+                return frozenset(found), ""
+            end_cursor = page_info.get("endCursor")
+            if not isinstance(end_cursor, str) or not end_cursor:
+                return None, "Linear returned no cursor for the next issues page."
+            cursor = end_cursor
+        return None, (
+            f"The open-ticket census is longer than {_MAX_OPEN_TICKET_PAGES} "
+            "pages; a partial census is not read as the whole."
+        )
+
     async def update_issue_state(self, issue_id: str, state_id: str) -> bool:
         """Flip an issue to the given workflow state. False on any failure."""
         data = await self._query(
@@ -2882,6 +2939,8 @@ class HandlerEvidenceAutocloseSweep:
         run_dod_verify_command: TypeRunDodVerifyCommand | None = None,
         run_git_command: offer_companion_sources.TypeRunGit | None = None,
         run_gateway_command: offer_companion_sources.TypeRunGateway | None = None,
+        *,
+        gate: ProtocolDoneWriteReceiptGate | None = None,
     ) -> None:
         # ``autoclose_disabled`` mirrors GitHubTransport's env-fallback-in-
         # __init__ precedent: read at construction time, override injectable
@@ -2892,6 +2951,7 @@ class HandlerEvidenceAutocloseSweep:
         # it is contract-exposed as request.gh_timeout_seconds and threaded
         # through at each call site, the same pattern already used for
         # request.dod_verify_timeout_seconds below. See OMN-16106.
+        self._gate = gate if gate is not None else resolve_done_write_receipt_gate()
         self._linear = linear_client if linear_client is not None else _LinearClient()
         self._autoclose_disabled_ctor = (
             autoclose_disabled
@@ -3105,7 +3165,10 @@ class HandlerEvidenceAutocloseSweep:
         if not merged:
             return None, ""
         merged.sort(
-            key=lambda pr: (str(pr.get("merged_at") or ""), _as_int(pr.get("number"))),
+            key=lambda pr: (
+                str(pr.get("merged_at") or ""),
+                self._gate.as_int(pr.get("number")),
+            ),
             reverse=True,
         )
         return merged[0], ""
@@ -3202,6 +3265,111 @@ class HandlerEvidenceAutocloseSweep:
             "updated_at": str(contract["merged_at"]),
             "files": [f"contracts/{wanted}.yaml"],
         }, ""
+
+    async def _contract_arm_candidates(
+        self,
+        request: ModelEvidenceAutocloseSweepRequest,
+        now: datetime,
+        excluded: set[str],
+    ) -> tuple[
+        list[tuple[dict[str, object], str]],
+        int,
+        list[ModelEvidenceAutocloseOutcome],
+    ]:
+        """The ticket-contract arm (OMN-21731): ``(candidates, pool_size, outcomes)``.
+
+        Windows over merged PRs never reach a ticket whose PR merged longer ago.
+        This arm enumerates TICKETS: the key's own open tickets (the Linear
+        census, ``isMe``) that hold a ``contracts/<ticket>.yaml`` on a clone's
+        default branch, ranked by number, a bounded slice of which rotates on
+        ``backfill_rotation_minutes``. Each ticket's newest merged PR is then
+        resolved from the clones exactly as an offer is, and only a real merged
+        PR is a candidate: a contract with no PR naming it has nothing to bind
+        a verdict to, and is recorded rather than dropped.
+
+        Every refusal that matters is upstream of the write and unchanged: the
+        candidates join the same per-ticket pipeline as the window arms. A
+        census that cannot be read yields one ERROR_LINEAR_API outcome and no
+        candidates, and the other arms still run.
+        """
+        width = request.contract_enumeration_max_candidates
+        if width <= 0 or not request.clone_root:
+            return [], 0, []
+        root = Path(request.clone_root)
+        holders = offer_companion_sources.list_contract_tickets(
+            root, "onex_change_control", self._run_git
+        )
+        if not holders:
+            return [], 0, []
+        open_ids, census_error = await self._linear.fetch_open_ticket_ids()
+        if open_ids is None:
+            return (
+                [],
+                0,
+                [
+                    ModelEvidenceAutocloseOutcome(
+                        decision=EnumEvidenceAutocloseDecision.ERROR_LINEAR_API,
+                        reason=(
+                            "The ticket-contract arm could not read the open-ticket "
+                            f"census: {census_error} It offered nothing this run; "
+                            "the forward and backfill arms were not affected."
+                        ),
+                        enumeration_arm=EnumEvidenceAutocloseArm.CONTRACT,
+                    )
+                ],
+            )
+        pool = sorted(
+            (
+                ticket
+                for ticket in holders
+                if ticket in open_ids and ticket not in excluded
+            ),
+            key=lambda ticket: int(ticket.split("-", 1)[1]),
+        )
+        selected = _rotating_slice(
+            pool, width, _rotation_tick(now, request.backfill_rotation_minutes)
+        )
+        owner = request.evidence_repo.split("/", 1)[0]
+        window_cutoff = (
+            now - timedelta(hours=request.backfill_lookback_hours)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        resolved: list[tuple[dict[str, object], str]] = []
+        outcomes: list[ModelEvidenceAutocloseOutcome] = []
+        for ticket in selected:
+            best: dict[str, object] | None = None
+            for clone in sorted(root.iterdir()):
+                if clone.name == "onex_change_control" or not (clone / ".git").exists():
+                    continue
+                repo = f"{owner}/{clone.name}"
+                for found in self._local_offer_candidates(repo, ticket, request):
+                    if best is None or (
+                        str(found.get("merged_at") or ""),
+                        self._gate.as_int(found.get("number")),
+                    ) > (
+                        str(best.get("merged_at") or ""),
+                        self._gate.as_int(best.get("number")),
+                    ):
+                        best = {**found, _EVIDENCE_REPO_KEY: repo}
+            if best is None or self._gate.as_int(best.get("number")) <= 0:
+                outcomes.append(
+                    ModelEvidenceAutocloseOutcome(
+                        ticket_id=ticket,
+                        decision=EnumEvidenceAutocloseDecision.SKIPPED_NO_OFFER_COMPANION,
+                        reason=(
+                            f"{ticket} is open and holds a contract on a default "
+                            "branch, but no merged pull request in the clones this "
+                            "run holds names it, so there is nothing to bind a "
+                            "verdict to. Recorded rather than dropped."
+                        ),
+                        enumeration_arm=EnumEvidenceAutocloseArm.CONTRACT,
+                    )
+                )
+                continue
+            if str(best.get("merged_at") or "") >= window_cutoff:
+                # Inside the backfill window: that arm rotates over it.
+                continue
+            resolved.append((best, ticket))
+        return resolved, len(pool), outcomes
 
     async def _fetch_pr_files(
         self, repo: str, number: int, gh_timeout_seconds: int
@@ -3343,6 +3511,8 @@ class HandlerEvidenceAutocloseSweep:
         backfill_slice: list[dict[str, object]] = []
         backfill_error = ""
         candidates: list[tuple[dict[str, object], EnumEvidenceAutocloseArm]] = []
+        contract_pool_size = 0
+        contract_selected = 0
         # PR number -> the ticket the CALLER nominated it for. Empty for every
         # window-arm candidate, because no caller nominated those.
         offer_bindings: dict[int, str] = {}
@@ -3432,7 +3602,9 @@ class HandlerEvidenceAutocloseSweep:
                         )
                     )
                     continue
-                offer_bindings[_as_int(companion.get("number"))] = offered_ticket
+                offer_bindings[self._gate.as_int(companion.get("number"))] = (
+                    offered_ticket
+                )
                 candidates.append((companion, EnumEvidenceAutocloseArm.OFFER))
         else:
             companions, enum_error = await self._fetch_merged_companions(
@@ -3460,7 +3632,7 @@ class HandlerEvidenceAutocloseSweep:
             # OMN-17342. The second arm. Off unless asked for, and when it is
             # off every line below reduces to exactly the single-arm run: an
             # empty slice, an empty pool, both counters 0.
-            forward_numbers = {_as_int(pr.get("number")) for pr in companions}
+            forward_numbers = {self._gate.as_int(pr.get("number")) for pr in companions}
             if request.backfill_lookback_hours > 0:
                 backfill_since_iso = (
                     now - timedelta(hours=request.backfill_lookback_hours)
@@ -3481,7 +3653,7 @@ class HandlerEvidenceAutocloseSweep:
                 backfill_pool = [
                     pr
                     for pr in wider
-                    if _as_int(pr.get("number")) not in forward_numbers
+                    if self._gate.as_int(pr.get("number")) not in forward_numbers
                 ]
                 # Oldest first, then by number. Deterministic so a retry inside
                 # the same rotation period re-examines the same slice, and
@@ -3490,7 +3662,7 @@ class HandlerEvidenceAutocloseSweep:
                 backfill_pool.sort(
                     key=lambda pr: (
                         str(pr.get("merged_at") or ""),
-                        _as_int(pr.get("number")),
+                        self._gate.as_int(pr.get("number")),
                     )
                 )
                 backfill_slice = _rotating_slice(
@@ -3538,8 +3710,39 @@ class HandlerEvidenceAutocloseSweep:
                 + [(pr, EnumEvidenceAutocloseArm.BACKFILL) for pr in backfill_slice]
             )
 
+            # OMN-21731. The ticket-contract arm, last: the window arms keep the
+            # freshest verdict for a ticket they both reach (`seen_tickets`).
+            # Its candidates are registered as nominations, so the same
+            # changed-file guard that protects an offer refuses a companion
+            # whose files bind a different ticket. A PR number two tickets
+            # resolve to is dropped for both: the binding would be a guess.
+            (
+                contract_resolved,
+                contract_pool_size,
+                contract_outcomes,
+            ) = await self._contract_arm_candidates(
+                request, now, _excluded_tickets(request)
+            )
+            outcomes.extend(contract_outcomes)
+            claimed_numbers: dict[int, str] = {}
+            ambiguous_numbers: set[int] = set()
+            for contract_pr, contract_ticket in contract_resolved:
+                number_key = self._gate.as_int(contract_pr.get("number"))
+                if number_key in claimed_numbers and (
+                    claimed_numbers[number_key] != contract_ticket
+                ):
+                    ambiguous_numbers.add(number_key)
+                claimed_numbers[number_key] = contract_ticket
+            for contract_pr, contract_ticket in contract_resolved:
+                number_key = self._gate.as_int(contract_pr.get("number"))
+                if number_key in ambiguous_numbers or number_key in offer_bindings:
+                    continue
+                offer_bindings[number_key] = contract_ticket
+                contract_selected += 1
+                candidates.append((contract_pr, EnumEvidenceAutocloseArm.CONTRACT))
+
         for pr, arm in candidates:
-            number = _as_int(pr.get("number"))
+            number = self._gate.as_int(pr.get("number"))
             url = str(pr.get("html_url") or "")
             title = str(pr.get("title") or "")
 
@@ -3937,6 +4140,16 @@ class HandlerEvidenceAutocloseSweep:
             )
         )
 
+        enumeration_errors: list[str] = []
+        if backfill_error:
+            enumeration_errors.append(
+                f"Backfill enumeration failed: {backfill_error}. The forward "
+                "window's decisions below are unaffected and complete; this "
+                "run made no coverage claim about the backfill pool."
+            )
+        if in_progress_demotion is not None and not in_progress_demotion.success:
+            enumeration_errors.append(in_progress_demotion.error_message)
+
         return ModelEvidenceAutocloseSweepResult(
             correlation_id=correlation_id,
             # OMN-17658. `dry_run` answers "could this run have written?", so a
@@ -3959,21 +4172,18 @@ class HandlerEvidenceAutocloseSweep:
             # blast radius larger than the coverage it buys. `success=False`
             # plus the message is what makes the partial coverage legible —
             # this run's backfill claim is void, its forward claim is not.
-            success=not backfill_error,
-            error_message=(
-                f"Backfill enumeration failed: {backfill_error}. The forward "
-                "window's decisions below are unaffected and complete; this "
-                "run made no coverage claim about the backfill pool."
-                if backfill_error
-                else ""
-            ),
+            success=not enumeration_errors,
+            error_message=" ".join(enumeration_errors),
             # OMN-16106 Item 1. In offer mode `companions` and `backfill_slice`
             # are both empty by construction -- no window was enumerated -- so
             # this counts the directly-resolved offers instead. A receipt that
             # reported 0 companions scanned on a run that adjudicated three
             # nominated tickets would understate exactly what the run did.
             companions_scanned=(
-                len(companions) + len(product_prs) + len(backfill_slice)
+                len(companions)
+                + len(product_prs)
+                + len(backfill_slice)
+                + contract_selected
                 if not offered
                 else sum(
                     1
@@ -3983,6 +4193,8 @@ class HandlerEvidenceAutocloseSweep:
             ),
             backfill_pool_size=len(backfill_pool),
             backfill_candidates_selected=len(backfill_slice),
+            contract_pool_size=contract_pool_size,
+            contract_candidates_selected=contract_selected,
             bindings_extracted=bindings_extracted,
             tickets_flipped=flipped,
             tickets_gap_posted=gap_posted,
@@ -4802,7 +5014,7 @@ class HandlerEvidenceAutocloseSweep:
         # verdict — so "the sweep could not read it" is never confusable with
         # "the ticket is not proven". Absent counts still fail closed: nothing
         # is coerced to 0 and nothing unread is ever counted as proof.
-        verdict, verdict_refusal = _extract_dod_verify_verdict(dod_result)
+        verdict, verdict_refusal = self._gate.extract_dod_verify_verdict(dod_result)
         if verdict is not None and product_ref is not None and product_pr is not None:
             sha = str(product_pr.get("merge_commit_sha") or "")
             # A missing identity cannot borrow a receipt from another commit.
@@ -4841,7 +5053,9 @@ class HandlerEvidenceAutocloseSweep:
                             ("failed_count", failed_lab),
                             (_DOD_VERIFY_BEHAVIOR_KEY, verified_lab),
                         ):
-                            verdict[key] = _as_int(verdict.get(key)) + increment
+                            verdict[key] = (
+                                self._gate.as_int(verdict.get(key)) + increment
+                            )
                         if failed_lab:
                             verdict["status"] = (
                                 "failed"
@@ -4853,7 +5067,7 @@ class HandlerEvidenceAutocloseSweep:
             # moment the verdict parses and ahead of every branch that reads
             # it. `_process_ticket` attaches them to whatever this method
             # returns, so no decision path can forget to carry them.
-            rows_out.extend(_check_result_rows(verdict))
+            rows_out.extend(_check_result_rows(verdict, gate=self._gate))
         if verdict is None:
             decision = (
                 EnumEvidenceAutocloseDecision.ERROR_VERIFY_UNPARSEABLE
@@ -4868,10 +5082,12 @@ class HandlerEvidenceAutocloseSweep:
                 reason=f"dod_verify exit_code={exit_code}: {verdict_refusal}",
             )
 
-        total_checks = _as_int(verdict.get("total_checks"))
-        verified_count = _as_int(verdict.get("verified_count"))
-        failed_count = _as_int(verdict.get("failed_count"))
-        non_probative_count = _as_int(verdict.get(_DOD_VERIFY_NON_PROBATIVE_KEY))
+        total_checks = self._gate.as_int(verdict.get("total_checks"))
+        verified_count = self._gate.as_int(verdict.get("verified_count"))
+        failed_count = self._gate.as_int(verdict.get("failed_count"))
+        non_probative_count = self._gate.as_int(
+            verdict.get(_DOD_VERIFY_NON_PROBATIVE_KEY)
+        )
         verify_status = str(verdict.get("status") or "").strip().lower()
         # OMN-16905: read the behaviour count HERE, with every other counter,
         # not inside the `all_verified` branch below. It is only the flip
@@ -4893,7 +5109,9 @@ class HandlerEvidenceAutocloseSweep:
         #
         # Absent key stays 0 and is handled as ERROR_VERIFY_UNPARSEABLE below
         # (OMN-15911) — this line never infers a value the verifier did not give.
-        behavior_proving_count = _as_int(verdict.get(_DOD_VERIFY_BEHAVIOR_KEY))
+        behavior_proving_count = self._gate.as_int(
+            verdict.get(_DOD_VERIFY_BEHAVIOR_KEY)
+        )
 
         # OMN-20520: partial proofs do not turn a skipped verifier run into an
         # evidence verdict. Report its reason and leave the ticket untouched.
@@ -4903,7 +5121,7 @@ class HandlerEvidenceAutocloseSweep:
                 companion_pr_number=companion_pr_number,
                 companion_pr_url=companion_pr_url,
                 decision=EnumEvidenceAutocloseDecision.SKIPPED_DOD_VERIFY,
-                reason=f"dod_verify skipped: {_skipped_verdict_reason(verdict)}",
+                reason=f"dod_verify skipped: {_skipped_verdict_reason(verdict, gate=self._gate)}",
                 dod_verify_total_checks=total_checks,
                 dod_verify_verified_count=verified_count,
                 dod_verify_failed_count=failed_count,
@@ -4935,7 +5153,7 @@ class HandlerEvidenceAutocloseSweep:
         #   * the equality itself     — a `skipped` check is neither verified
         #     nor non-probative, so it still breaks it. A check that never ran
         #     proves nothing.
-        all_verified = verdict_is_all_verified(verdict)
+        all_verified = self._gate.verdict_is_all_verified(verdict)
 
         if all_verified:
             # OMN-15911: green is necessary, not sufficient — and the FIRST
@@ -4974,7 +5192,9 @@ class HandlerEvidenceAutocloseSweep:
             # the ticket's criteria, not about its counters.
             description_raw = issue.get("description")
             description = description_raw if isinstance(description_raw, str) else ""
-            readback_proving_count = _as_int(verdict.get(_DOD_VERIFY_READBACK_KEY))
+            readback_proving_count = self._gate.as_int(
+                verdict.get(_DOD_VERIFY_READBACK_KEY)
+            )
             # The ruling's admission, and its exact bound. A readback releases
             # this conjunct only when EVERY parsed criterion asserts live
             # state. One behaviour-shaped criterion, or a body whose criteria
@@ -4983,7 +5203,7 @@ class HandlerEvidenceAutocloseSweep:
             # average.
             readback_releases_the_conjunct = (
                 readback_proving_count > 0
-                and _every_criterion_is_state_shaped(description)
+                and _every_criterion_is_state_shaped(description, gate=self._gate)
             )
             if behavior_proving_count <= 0 and not readback_releases_the_conjunct:
                 return await self._behavior_proof_outcome(
@@ -5022,7 +5242,7 @@ class HandlerEvidenceAutocloseSweep:
                 ac_binding_reason,
                 ac_binding_unbound,
                 ac_binding_rows,
-            ) = _ac_binding_gap(description, verdict, ticket_id)
+            ) = self._gate.ac_binding_gap(description, verdict, ticket_id)
             if ac_binding_reason:
                 return await self._ac_binding_outcome(
                     ticket_id=ticket_id,
@@ -5059,13 +5279,14 @@ class HandlerEvidenceAutocloseSweep:
             # the comment render, below and in `_ac_coverage_outcome` — a
             # receipt that hid the 22 would be less honest, not more.
             coverage_verified, coverage_non_probative = _coverage_corpus_counts(
-                verdict, description
+                verdict, description, gate=self._gate
             )
             ac_gap_reason, uncovered = _ac_coverage_gap(
                 description,
                 verified_count,
                 coverage_verified,
                 coverage_non_probative,
+                gate=self._gate,
             )
             if ac_gap_reason:
                 return await self._ac_coverage_outcome(
@@ -5579,7 +5800,7 @@ class HandlerEvidenceAutocloseSweep:
                             + "\n\nAn ordering that cannot be resolved holds."
                         ),
                     )
-                if postdating and _has_verified_bound_check(verdict):
+                if postdating and self._gate.has_verified_bound_check(verdict):
                     post_revert_release = (
                         "released_post_revert_evidence: this ticket was moved "
                         f"back out of a completed state at {revert_at}, and "
@@ -6138,7 +6359,7 @@ class HandlerEvidenceAutocloseSweep:
         # Placed HERE, after every flip path has already returned, so the hold
         # is structurally unreachable from a write. That is the invariant, not
         # the signal list.
-        held_check, held_signal = _live_surface_unavailable(verdict)
+        held_check, held_signal = _live_surface_unavailable(verdict, gate=self._gate)
         if held_check:
             return ModelEvidenceAutocloseOutcome(
                 ticket_id=ticket_id,
@@ -6186,7 +6407,7 @@ class HandlerEvidenceAutocloseSweep:
         # has already returned, so the hold is structurally unreachable from a
         # write. That placement is the invariant, not the classifier.
         if behavior_proving_count == 0 and failed_count == 0:
-            unrun_check, unrun_why = _live_check_not_executed(verdict)
+            unrun_check, unrun_why = _live_check_not_executed(verdict, gate=self._gate)
             if unrun_check:
                 return ModelEvidenceAutocloseOutcome(
                     ticket_id=ticket_id,
@@ -6254,6 +6475,7 @@ class HandlerEvidenceAutocloseSweep:
                 verified_count=verified_count,
                 failed_count=failed_count,
                 non_probative_count=non_probative_count,
+                gate=self._gate,
             ),
         )
         return await self._emit_gap_comment(
@@ -6272,6 +6494,6 @@ class HandlerEvidenceAutocloseSweep:
                 # twice what the three were and could not answer. The section
                 # is empty when nothing failed, so a hold with no failures
                 # does not grow a heading claiming one.
-                + _format_failing_checks(_check_result_rows(verdict))
+                + _format_failing_checks(_check_result_rows(verdict, gate=self._gate))
             ),
         )

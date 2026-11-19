@@ -85,6 +85,7 @@ __all__ = (
     "ActorMessageTypeDef",
     "ActorOutputTypeDef",
     "ActorTypeDef",
+    "ActorUnionTypeDef",
     "AddArtifactInputTypeDef",
     "AddArtifactOutputTypeDef",
     "AgentSpaceSummaryTypeDef",
@@ -370,6 +371,8 @@ __all__ = (
     "ReportFiltersTypeDef",
     "ReportFiltersUnionTypeDef",
     "ResponseMetadataTypeDef",
+    "ResumePentestJobInputTypeDef",
+    "ResumePentestJobOutputTypeDef",
     "ScopeChangeTypeDef",
     "ScopeResultTypeDef",
     "SecurityRequirementArtifactTypeDef",
@@ -1161,6 +1164,7 @@ class PentestJobSummaryTypeDef(TypedDict):
     updatedAt: NotRequired[datetime]
     jobType: NotRequired[JobTypeType]
     reportUrl: NotRequired[str]
+    version: NotRequired[str]
 
 class ListPentestsInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -1360,6 +1364,7 @@ class StopCodeReviewJobInputTypeDef(TypedDict):
 class StopPentestJobInputTypeDef(TypedDict):
     agentSpaceId: str
     pentestJobId: str
+    pause: NotRequired[bool]
 
 class StopThreatModelJobInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -1608,6 +1613,16 @@ class ListActorMessagesOutputTypeDef(TypedDict):
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
     tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ResumePentestJobOutputTypeDef(TypedDict):
+    title: str
+    status: JobStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    pentestId: str
+    pentestJobId: str
+    version: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartCodeReviewJobOutputTypeDef(TypedDict):
@@ -2233,6 +2248,7 @@ class UpdateAgentSpaceOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 AWSResourcesUnionTypeDef = Union[AWSResourcesTypeDef, AWSResourcesOutputTypeDef]
+ActorUnionTypeDef = Union[ActorTypeDef, ActorOutputTypeDef]
 
 class ImportSourceTypeDef(TypedDict):
     documents: NotRequired[Sequence[SecurityRequirementArtifactTypeDef]]
@@ -2440,6 +2456,7 @@ class PentestJobTypeDef(TypedDict):
     scopeChanges: NotRequired[list[ScopeChangeTypeDef]]
     cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
     testScope: NotRequired[TestScopeTypeDef]
+    version: NotRequired[str]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2719,6 +2736,15 @@ class BatchGetPentestJobsOutputTypeDef(TypedDict):
     pentestJobs: list[PentestJobTypeDef]
     notFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ResumePentestJobInputTypeDef(TypedDict):
+    agentSpaceId: NotRequired[str]
+    pentestJobId: NotRequired[str]
+    actors: NotRequired[Sequence[ActorUnionTypeDef]]
+    networkTrafficConfig: NotRequired[NetworkTrafficConfigUnionTypeDef]
+    vpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    maxTaskHours: NotRequired[float]
+    copyConfigFromPentest: NotRequired[bool]
 
 class ProviderResourceCapabilitiesOutputTypeDef(TypedDict):
     github: NotRequired[GitHubResourceCapabilitiesOutputTypeDef]

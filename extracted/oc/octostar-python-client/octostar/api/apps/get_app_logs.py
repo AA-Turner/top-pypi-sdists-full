@@ -6,6 +6,7 @@ from warnings import warn
 
 import httpx
 
+from ..._http_log import log_error_response
 from ...client import Client, get_default_client
 from ...types import Response, UNSET, Unset
 from ... import errors
@@ -109,11 +110,7 @@ def sync_detailed(
     )
 
     response = httpx.request(verify=client.verify_ssl, **kwargs)
-    if response.is_error:
-        print(
-            f"{response.status_code} Error: {response.text} for request",
-            str(kwargs),
-        )
+    log_error_response(response)
     return _build_response(client=client, response=response)
 
 

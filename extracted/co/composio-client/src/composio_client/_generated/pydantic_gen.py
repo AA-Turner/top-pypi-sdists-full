@@ -1055,6 +1055,33 @@ class GetV31SessionConfigsQuery(BaseModel):
     cursor: Optional[str] = Field(default=None, description="Opaque cursor from the previous page.")
     limit: Optional[Annotated[int, Field(gt=0, le=100)]] = Field(default=20, description="Maximum number of configs to return, from 1 to 100.")
     archived: Optional[bool] = Field(default=False, description="Return archived configs when true. Defaults to active configs only.")
+    include_archived: Optional[bool] = Field(default=False, description="List active and archived configs together when true. Cannot be combined with archived=true.")
+    include_summary: Optional[bool] = Field(default=False, description="Add each config's description and access summary when true.")
+
+
+class GetV31SessionConfigsItemsToolkitScopeMode(str, Enum):
+    """How the toolkit list defines the effective scope."""
+
+    ALL = "all"
+    SELECTED = "selected"
+    ALL_EXCEPT = "all_except"
+
+
+class GetV31SessionConfigsItemsToolkitScope(BaseModel):
+    """Compact toolkit scope for list rendering."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+    mode: GetV31SessionConfigsItemsToolkitScopeMode = Field(..., description="How the toolkit list defines the effective scope.")
+    toolkits: list[str] = Field(..., description="Selected or excluded toolkit slugs for this scope.")
+
+
+class GetV31SessionConfigsItemsDefaultAccess(str, Enum):
+    """Default access level applied across the toolkit scope."""
+
+    FULL = "full"
+    READ_ONLY = "read_only"
+    NON_DESTRUCTIVE = "non_destructive"
+    CUSTOM = "custom"
 
 
 class GetV31SessionConfigsItems(BaseModel):
@@ -1064,13 +1091,17 @@ class GetV31SessionConfigsItems(BaseModel):
     archived: bool = Field(..., description="Whether the config is archived.")
     created_at: datetime = Field(..., description="Creation time in ISO 8601.")
     updated_at: datetime = Field(..., description="Last update time in ISO 8601.")
+    description: Optional[str] = Field(default=None, description="Optional description of when the config should be used.")
+    toolkit_scope: Optional[GetV31SessionConfigsItemsToolkitScope] = Field(default=None, description="Compact toolkit scope for list rendering.")
+    default_access: Optional[GetV31SessionConfigsItemsDefaultAccess] = Field(default=None, description="Default access level applied across the toolkit scope.")
+    exception_count: Optional[Annotated[int, Field(ge=0)]] = Field(default=None, description="Number of toolkit-specific access overrides.")
 
 
 class GetV31SessionConfigsResponse(BaseModel):
     """Session configs listed."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
-    items: list[GetV31SessionConfigsItems] = Field(..., description="Config summaries. Retrieve a config by ID for its description and access policy.")
+    items: list[GetV31SessionConfigsItems] = Field(..., description="Configs, newest updated first. Set include_summary=true for descriptions and access summaries, or retrieve a config by ID for its full access policy.")
     next_cursor: Optional[str] = Field(default=None, description="Opaque cursor for the next page, or null when there are no more results.")
 
 
@@ -2891,7 +2922,7 @@ class PatchV31CustomToolkitsBySlugBody(BaseModel):
     name: Optional[Annotated[str, Field(min_length=1, max_length=200)]] = Field(default=None, description="Display name of the toolkit")
     logo_file: Optional[PatchV31CustomToolkitsBySlugLogoFile] = Field(default=None, description="Square PNG or JPEG logo, 256-1024px, max 3MB. Omit to keep the current logo.")
     api_key_field: Optional[PatchV31CustomToolkitsBySlugApiKeyField] = Field(default=None, description="Label and help text for the API key input on the connect page. API_KEY toolkits only.")
-    user_id: Optional[Annotated[str, Field(min_length=1, max_length=256)]] = Field(default=None, description="The user the toolkit is private to. Required to update a private toolkit when the project has 2FA enabled; optional for a toolkit shared with all users. Ignored when 2FA is disabled.")
+    user_id: Optional[Annotated[str, Field(min_length=1, max_length=256)]] = Field(default=None, description="The user the toolkit is private to. Required for API-key callers updating a private toolkit when the project has 2FA enabled; optional for a toolkit shared with all users. Ignored when 2FA is disabled.")
 
 
 class PatchV31CustomToolkitsBySlugPath(BaseModel):
@@ -5866,7 +5897,7 @@ class PostV31ToolRouterSessionBySessionIdExecuteBody(BaseModel):
 
 class PostV31ToolRouterSessionBySessionIdExecutePath(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
-    session_id: Optional[str] = Field(default=None, description="The unique identifier of the tool router session. Required for public API endpoints, optional for internal endpoints where it is injected by middleware.")
+    session_id: Optional[str] = Field(default=None, description="The unique identifier of the tool router session.")
 
 
 class PostV31ToolRouterSessionBySessionIdExecuteResponse(RootModel[Union[ExecuteCompleted, ExecuteFailed, ExecuteBlocked, ExecuteRequiresUserInput]]):
@@ -5938,7 +5969,7 @@ class PostV31ToolRouterSessionBySessionIdExecuteMetaBody(BaseModel):
 
 class PostV31ToolRouterSessionBySessionIdExecuteMetaPath(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
-    session_id: Optional[str] = Field(default=None, description="The unique identifier of the tool router session. Required for public API endpoints, optional for internal endpoints where it is injected by middleware.")
+    session_id: Optional[str] = Field(default=None, description="The unique identifier of the tool router session.")
 
 
 class PostV31ToolRouterSessionBySessionIdExecuteMetaResponse(RootModel[Union[ExecuteCompleted, ExecuteFailed, ExecuteBlocked, ExecuteRequiresUserInput]]):
@@ -6301,6 +6332,7 @@ class GetV31AuthConfigsItems(BaseModel):
     name: str = Field(..., description="The display name of the authentication configuration")
     auth_scheme: Optional[GetV31AuthConfigsItemsAuthScheme] = Field(default=None, description="The authentication scheme used (e.g., OAuth2, API Key, etc.)")
     is_composio_managed: Optional[bool] = Field(default=None, description="Whether this authentication configuration is managed by Composio or the user")
+    managed_app_id: Optional[str] = Field(default=None, description="The Composio-managed app this auth config uses, as composio_managed_auth[].managed_app_id from GET /api/v3/toolkits/{toolkit_slug}. Null when the auth config is not linked to a managed app. Use is_composio_managed to tell managed from custom.")
     credentials: Optional[dict[str, object]] = Field(default=None, description="The authentication credentials (tokens, keys, etc.) - may be partially hidden for security")
     proxy_config: Optional[GetV31AuthConfigsItemsProxyConfig] = None
     status: GetV31AuthConfigsItemsStatus = Field(..., description="Current status of the authentication configuration")
@@ -6348,6 +6380,7 @@ class PostV31AuthConfigsAuthConfig(BaseModel):
     id: str = Field(..., description="The auth config id of the toolkit (must be a valid auth config id)")
     auth_scheme: str = Field(..., description="The authentication mode of the toolkit")
     is_composio_managed: bool = Field(..., description="Whether the auth config is managed by Composio")
+    managed_app_id: Optional[str] = Field(default=None, description="The Composio-managed app this auth config uses, as composio_managed_auth[].managed_app_id from GET /api/v3/toolkits/{toolkit_slug}. Null when the auth config is not linked to a managed app. Use is_composio_managed to tell managed from custom.")
     restrict_to_following_tools: Optional[list[str]] = Field(default="", description="The tools that the user can use with the auth config. DEPRECATED: use [Get required scopes](https://docs.composio.dev/reference/api-reference/toolkits/recommendToolkitScopes) to resolve the scopes for the tools you need, then pass those scopes in `credentials.scopes`.", deprecated=True)
 
 
@@ -6466,6 +6499,7 @@ class GetV31AuthConfigsByNanoidResponse(BaseModel):
     name: str = Field(..., description="The display name of the authentication configuration")
     auth_scheme: Optional[GetV31AuthConfigsByNanoidAuthScheme] = Field(default=None, description="The authentication scheme used (e.g., OAuth2, API Key, etc.)")
     is_composio_managed: Optional[bool] = Field(default=None, description="Whether this authentication configuration is managed by Composio or the user")
+    managed_app_id: Optional[str] = Field(default=None, description="The Composio-managed app this auth config uses, as composio_managed_auth[].managed_app_id from GET /api/v3/toolkits/{toolkit_slug}. Null when the auth config is not linked to a managed app. Use is_composio_managed to tell managed from custom.")
     credentials: Optional[dict[str, object]] = Field(default=None, description="The authentication credentials (tokens, keys, etc.) - may be partially hidden for security")
     proxy_config: Optional[GetV31AuthConfigsByNanoidProxyConfig] = None
     status: GetV31AuthConfigsByNanoidStatus = Field(..., description="Current status of the authentication configuration")
@@ -6479,6 +6513,7 @@ class GetV31AuthConfigsByNanoidResponse(BaseModel):
     shared_credentials: Optional[dict[str, object]] = Field(default=None, description="Shared credentials that will be inherited by all connected accounts using this auth config. DEPRECATED: use `shared_connection_fields` instead. It takes the same value and behaves the same way.", deprecated=True)
     shared_connection_fields: Optional[dict[str, object]] = Field(default=None, description="Connection field values inherited by every connected account created under this auth config. Same value as shared_credentials; secret values are redacted.")
     is_enabled_for_tool_router: Optional[bool] = Field(default=None, description="Whether this auth config is enabled for tool router")
+    keyring_routed: bool = Field(..., description="[EXPERIMENTAL] Whether the auth config is bound to a keyring encryption key, customer-hosted or Composio-operated.")
 
 
 class PatchV31AuthConfigsByNanoidBody(RootModel[Union[CustomAuthConfigUpdate, DefaultAuthConfigUpdate]]):
@@ -6547,11 +6582,11 @@ class PostV31CliCreateSessionScope_(str, Enum):
 
 
 class PostV31CliCreateSessionResponse(BaseModel):
-    """CLI session created successfully with a unique ID and temporary authentication code"""
+    """CLI session created successfully with a unique ID and temporary display code"""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
     id: str = Field(..., description="Unique identifier for the CLI session. UUID v4 format used for tracking and retrieval.")
-    code: str = Field(..., description="The 6-character hexadecimal code used for CLI login")
+    code: str = Field(..., description="The 6-character hexadecimal display code")
     expires_at: str = Field(..., alias="expiresAt", description="The ISO timestamp when the session expires")
     status: PostV31CliCreateSessionStatus = Field(..., description="The current status of the session")
     scope: PostV31CliCreateSessionScope_ = Field(..., description="The key scope for this session")
@@ -6602,7 +6637,7 @@ class PostV31CliCodactFailuresResponse(BaseModel):
 
 class GetV31CliGetSessionQuery(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
-    id: str = Field(..., description="The CLI session ID or code to check")
+    id: UUID = Field(..., description="The CLI session ID (UUID) to check")
 
 
 class GetV31CliGetSessionStatus(str, Enum):
@@ -6630,8 +6665,8 @@ class GetV31CliGetSessionResponse(BaseModel):
     """CLI session retrieved successfully. Returns full session details including linked account information if available."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
-    id: str = Field(..., description="The CLI session ID, or the code for a lookup by code")
-    code: str = Field(..., description="The 6-character hexadecimal code used for CLI login")
+    id: str = Field(..., description="The CLI session ID")
+    code: str = Field(..., description="The 6-character hexadecimal display code")
     status: GetV31CliGetSessionStatus = Field(..., description="The current status of the session")
     expires_at: str = Field(..., alias="expiresAt", description="The ISO timestamp when the session expires")
     account: Optional[GetV31CliGetSessionAccount] = Field(default=None, description='Information about the linked account, if any. Null if the session status is "pending".')
@@ -25312,7 +25347,7 @@ class PostV31ToolRouterSessionBySessionIdProxyExecuteBody(BaseModel):
 
 class PostV31ToolRouterSessionBySessionIdProxyExecutePath(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
-    session_id: Optional[str] = Field(default=None, description="The unique identifier of the tool router session. Required for public API endpoints, optional for internal endpoints where it is injected by middleware.")
+    session_id: Optional[str] = Field(default=None, description="The unique identifier of the tool router session.")
 
 
 class PostV31ToolRouterSessionBySessionIdProxyExecuteResponse(RootModel[Union[ProxyExecuteCompleted, ProxyExecuteBlocked, ExecuteRequiresUserInput]]):

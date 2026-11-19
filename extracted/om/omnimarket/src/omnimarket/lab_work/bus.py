@@ -11,9 +11,12 @@
   unreadable command goes to the failure terminal).
 * :class:`LabWorkCaller` runs wherever the lane runs (``onex lab-work run``).
   It reads the pool's advertisements for one window, places the unit with the
-  pure :func:`omnimarket.lab_work.placement.place`, publishes it, and resolves
+  node handler :class:`omnimarket.nodes.node_lab_placement_compute.handlers.HandlerLabPoolPlace`, publishes it, and resolves
   it from the terminal whose ``parent_envelope_id`` is the command's own
-  ``envelope_id``.
+  ``envelope_id``. It reads with no consumer group (the node contract's
+  ``caller_subscription.mode``): a caller is a one-shot reader, and a group per
+  call left about 15,400 Empty groups on the CI bus, whose offsets log the
+  broker could not replay in its memory budget (OMN-21764).
 
 Topics come from the node's ``contract.yaml`` and nowhere else. The transport
 is the same bus the focused test run uses (``open_lab_run_bus``).
@@ -29,10 +32,9 @@ import logging
 import time
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib import resources
-from typing import Any, Protocol
+from typing import Any, Literal
 
 import yaml
 from omnibase_core.event_bus.util_consumer_group import derive_service_group_id
@@ -44,13 +46,9 @@ from omnimarket.delegated_test_loop.lab_run_bus import (
     ProtocolLabRunBus,
     event_type_for,
 )
-from omnimarket.lab_work.placement import (
-    DEFAULT_MAX_LOAD_PER_CORE,
-    DEFAULT_MIN_FREE_BYTES,
-    EnumPlacementDecision,
-    ModelPlacement,
-    place,
-)
+from omnimarket.models.model_lab_work_held_unit import ModelLabWorkHeldUnit
+from omnimarket.nodes.node_lab_placement_compute import handlers, models
+from omnimarket.nodes.node_lab_work_unit_effect.handlers import HostAdvertiser
 from omnimarket.nodes.node_lab_work_unit_effect.models import (
     EnumLabWorkUnitStatus,
     ModelHostCapacityAdvertisement,
@@ -58,6 +56,11 @@ from omnimarket.nodes.node_lab_work_unit_effect.models import (
     ModelLabWorkUnitReceipt,
     ModelLabWorkUnitRequest,
     WorkKind,
+)
+from omnimarket.nodes.node_lab_work_unit_effect.protocols import require_ungrouped
+from omnimarket.protocols.protocol_lab_work_handlers import (
+    ProtocolAdvertiseHandler,
+    ProtocolWorkHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,17 +86,6 @@ DEFAULT_TOOLS = (
 )
 
 
-@dataclass
-class _HeldUnit:
-    """A unit one worker holds, with the clock it has been held on."""
-
-    unit_id: str
-    started: float
-    limit_seconds: float
-    last_logged: float
-    past_limit_logged: bool = False
-
-
 class ModelLabWorkTopics(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -102,6 +94,9 @@ class ModelLabWorkTopics(BaseModel):
     failure: str
     capacity: str
     cadence_seconds: int
+    #: How the caller reads the capacity and terminal topics. Only ``ungrouped``
+    #: exists: the caller joins no consumer group, so it leaves none behind.
+    caller_subscription_mode: Literal["ungrouped"]
 
 
 class ModelLabWorkCommandFailure(BaseModel):
@@ -116,21 +111,9 @@ class ModelLabWorkCommandFailure(BaseModel):
     kind: WorkKind = "other"
     duration_seconds: float = 0.0
     error_message: str = Field(default="", max_length=2000)
-
-
-class ProtocolWorkHandler(Protocol):
-    @property
-    def host_name(self) -> str: ...
-
-    async def handle(
-        self, request: ModelLabWorkUnitRequest
-    ) -> ModelLabWorkUnitReceipt: ...
-
-
-class ProtocolAdvertiseHandler(Protocol):
-    def handle(
-        self, request: ModelHostCapacityProbeRequest
-    ) -> ModelHostCapacityAdvertisement: ...
+    #: The command envelope's own correlation id, echoed so a caller that put
+    #: its run's id on the command can match the terminal to the run.
+    correlation_id: str = ""
 
 
 def load_lab_work_topics(node: str = LAB_WORK_NODE) -> ModelLabWorkTopics:
@@ -149,6 +132,7 @@ def load_lab_work_topics(node: str = LAB_WORK_NODE) -> ModelLabWorkTopics:
         failure=dispatch["terminal_events"]["failure"],
         capacity=capacity["capacity_topic"],
         cadence_seconds=int(capacity["cadence_seconds"]),
+        caller_subscription_mode=contract["caller_subscription"]["mode"],
     )
 
 
@@ -219,10 +203,11 @@ class LabWorkHost:
         self._progress_seconds = progress_seconds
         self._check_seconds = check_seconds
         self._clock = clock
+        self.advertiser = HostAdvertiser(self._host)
         self._queue: asyncio.Queue[ProtocolBusMessage] = asyncio.Queue()
         self._tasks: list[asyncio.Task[None]] = []
         self._beat_task: asyncio.Task[None] | None = None
-        self._held: dict[int, _HeldUnit] = {}
+        self._held: dict[int, ModelLabWorkHeldUnit] = {}
         self._unsubscribe: Callable[[], Awaitable[None]] | None = None
         self.running = 0
         self.processed = 0
@@ -246,6 +231,7 @@ class LabWorkHost:
             self._tasks.append(asyncio.create_task(self._worker(index)))
         self._tasks.append(asyncio.create_task(self._watch()))
         if advertise:
+            self.advertiser.arm()
             self._beat_task = asyncio.create_task(self._beat())
             self._tasks.append(self._beat_task)
         self._unsubscribe = await _subscribe(
@@ -289,15 +275,9 @@ class LabWorkHost:
                 "lab-work host %s: capacity unreadable, nothing published", self._host
             )
             return None
-        envelope = ModelEventEnvelope[dict[str, object]](
-            payload=ad.model_dump(mode="json"),
-            correlation_id=uuid.uuid4(),
-            event_type=event_type_for(self._topics.capacity),
+        self.advertised += await self.advertiser.publish(
+            self._bus, self._topics.capacity, ad
         )
-        await self._bus.publish(
-            self._topics.capacity, self._host.encode("utf-8"), _bytes(envelope)
-        )
-        self.advertised += 1
         return ad
 
     async def _beat(self) -> None:
@@ -353,6 +333,9 @@ class LabWorkHost:
                 )
                 held.last_logged = now
                 held.past_limit_logged = past_limit
+        if self.advertiser.silent() and not self.stuck.is_set():
+            self.stuck_unit = "<capacity advertiser>"
+            self.stuck.set()  # serve leaves non-zero on it; the log line names the silence
 
     async def _enqueue(self, message: ProtocolBusMessage) -> None:
         self._queue.put_nowait(message)
@@ -362,7 +345,7 @@ class LabWorkHost:
             message = await self._queue.get()
             now = self._clock()
             # Until the command is read, the host's own age limit bounds the hold.
-            self._held[index] = _HeldUnit(
+            self._held[index] = ModelLabWorkHeldUnit(
                 "<unread command>", now, float(self._max_age), now
             )
             try:
@@ -389,10 +372,16 @@ class LabWorkHost:
         if isinstance(payload, dict) and payload.get("target_host") != self._host:
             return  # another host's unit: seen by every host, run by its own
         command_id = _uuid_or_none(raw.get("envelope_id"))
+        correlation_id = _uuid_or_none(raw.get("correlation_id"))
         try:
             request = ModelLabWorkUnitRequest.model_validate(payload)
         except ValidationError as exc:
-            await self._publish_failure(command_id, "", f"not a lab work unit: {exc}")
+            await self._publish_failure(
+                command_id,
+                "",
+                f"not a lab work unit: {exc}",
+                correlation_id=correlation_id,
+            )
             return
         age = self._age(raw)
         if age is not None and age > self._max_age:
@@ -407,7 +396,7 @@ class LabWorkHost:
         self.running += 1
         started = time.monotonic()
         now = self._clock()
-        self._held[index] = _HeldUnit(
+        self._held[index] = ModelLabWorkHeldUnit(
             request.work_unit_id, now, float(request.timeout_seconds), now
         )
         try:
@@ -422,6 +411,7 @@ class LabWorkHost:
                 f"{type(exc).__name__}: {exc}",
                 request=request,
                 duration_seconds=time.monotonic() - started,
+                correlation_id=correlation_id,
             )
             return
         finally:
@@ -431,7 +421,7 @@ class LabWorkHost:
             payload=receipt.model_copy(
                 update={"lane": request.lane, "kind": request.kind}
             ).model_dump(mode="json"),
-            correlation_id=_uuid_or_none(raw.get("correlation_id")) or uuid.uuid4(),
+            correlation_id=correlation_id or uuid.uuid4(),
             parent_envelope_id=command_id,
             event_type=event_type_for(self._topics.success),
         )
@@ -459,8 +449,10 @@ class LabWorkHost:
         *,
         request: ModelLabWorkUnitRequest | None = None,
         duration_seconds: float = 0.0,
+        correlation_id: uuid.UUID | None = None,
     ) -> None:
         failure = ModelLabWorkCommandFailure(
+            correlation_id=str(correlation_id) if correlation_id else "",
             work_unit_id=work_unit_id,
             host=self._host,
             error_message=message[:2000],
@@ -472,7 +464,7 @@ class LabWorkHost:
         )
         envelope = ModelEventEnvelope[dict[str, object]](
             payload=failure.model_dump(mode="json"),
-            correlation_id=uuid.uuid4(),
+            correlation_id=correlation_id or uuid.uuid4(),
             parent_envelope_id=command_id,
             event_type=event_type_for(self._topics.failure),
         )
@@ -493,12 +485,11 @@ class LabWorkCaller:
         topics: ModelLabWorkTopics | None = None,
         wait_slack_seconds: int = 300,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
+        placer: handlers.HandlerLabPoolPlace | None = None,
     ) -> None:
-        self._bus = bus
+        self._bus = require_ungrouped(bus)
+        self._placer = placer or handlers.HandlerLabPoolPlace()
         self._topics = topics or load_lab_work_topics()
-        suffix = uuid.uuid4().hex[:12]
-        base = derive_service_group_id("lab_work_client", service=GROUP_SERVICE)
-        self._group = f"{base}.{suffix}"
         self._slack = wait_slack_seconds
         self._now = now
         self._ads: list[ModelHostCapacityAdvertisement] = []
@@ -512,28 +503,16 @@ class LabWorkCaller:
         return self._topics
 
     async def start(self) -> None:
-        self._unsubscribes.append(
-            await _subscribe(
-                self._bus,
-                self._topics.capacity,
-                self._on_ad,
-                f"{self._group}.cap",
-                "latest",
-            )
-        )
-        for topic in (self._topics.success, self._topics.failure):
-            self._unsubscribes.append(
-                await _subscribe(
-                    # latest: the caller collects advertisements for a window before it
-                    # sends, so its terminal subscriptions are assigned before any
-                    # receipt of its own can be published.
-                    self._bus,
-                    topic,
-                    self._terminal(topic),
-                    f"{self._group}.t",
-                    "latest",
-                )
-            )
+        # No consumer group (the contract's caller_subscription.mode): the read
+        # starts at the log end, and the bus returns only once every partition
+        # has a position, so the terminal reads are in place before any receipt
+        # of this caller's own can be published.
+        topics, subscribe = self._topics, self._bus.subscribe_ungrouped
+        self._unsubscribes += [
+            await subscribe(topics.capacity, self._on_ad),
+            await subscribe(topics.success, self._terminal(topics.success)),
+            await subscribe(topics.failure, self._terminal(topics.failure)),
+        ]
 
     async def stop(self) -> None:
         for unsubscribe in self._unsubscribes:
@@ -566,19 +545,24 @@ class LabWorkCaller:
     def place(
         self,
         *,
-        max_load_per_core: float = DEFAULT_MAX_LOAD_PER_CORE,
-        min_free_bytes: int = DEFAULT_MIN_FREE_BYTES,
+        max_load_per_core: float = models.DEFAULT_MAX_LOAD_PER_CORE,
+        min_free_bytes: int = models.DEFAULT_MIN_FREE_BYTES,
         need_tools: tuple[str, ...] = (),
         only_host: str | None = None,
-    ) -> ModelPlacement:
-        return place(
-            self._ads,
+        repo: str = "",
+        kind: str = "other",
+    ) -> models.ModelPlacement:
+        request = models.ModelLabPoolPlaceRequest(
+            advertisements=tuple(self._ads),
             evaluated_at=self._now(),
+            repo=repo,
+            kind=kind,
             max_load_per_core=max_load_per_core,
             min_free_bytes=min_free_bytes,
             need_tools=need_tools,
             only_host=only_host,
         )
+        return self._placer.handle(request)
 
     def _terminal(self, topic: str) -> Callable[[ProtocolBusMessage], Awaitable[None]]:
         async def on_message(message: ProtocolBusMessage) -> None:
@@ -598,8 +582,11 @@ class LabWorkCaller:
     async def dispatch(
         self, request: ModelLabWorkUnitRequest
     ) -> ModelLabWorkUnitReceipt:
+        # exclude_none: an unset optional field (code_draft on an ordinary unit) stays off the wire, so a pool host still
+        # running a request model from before the field existed (extra="forbid") accepts the unit. OMN-19998: h106 and h201
+        # refused every J2 canary unit with "code_draft: Extra inputs are not permitted" while the caller sent null.
         envelope = ModelEventEnvelope[dict[str, object]](
-            payload=request.model_dump(mode="json"),
+            payload=request.model_dump(mode="json", exclude_none=True),
             correlation_id=uuid.uuid4(),
             event_type=event_type_for(self._topics.command),
         )
@@ -658,7 +645,6 @@ __all__ = [
     "DEFAULT_PROGRESS_SECONDS",
     "DEFAULT_TOOLS",
     "LAB_WORK_NODE",
-    "EnumPlacementDecision",
     "LabWorkCaller",
     "LabWorkHost",
     "ModelLabWorkCommandFailure",

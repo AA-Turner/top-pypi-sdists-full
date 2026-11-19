@@ -32,14 +32,14 @@ from .prefs import (
     humanize_prefs,
     translate_profile_to_prefs,
 )
-from .download import ensure_binary, ensure_geoip_mmdb
+from .download import ensure_binary
+from ._geoip_db import ensure_geoip_mmdb
 from ._geo import (
     GeoTimezoneError,
     SessionGeo,
     discover_egress_ip,
     ip_to_timezone,
     prepare_session_geo,
-    resolve_session_timezone,
 )
 from ._locale import SessionLocale, decide_session_locale
 from ._cookies import persona_cookies
@@ -53,7 +53,7 @@ from .constants import BINARY_VERSION, FIREFOX_UPSTREAM_VERSION
 # surface match what it actually promises - `seal` has no underscore, so it
 # reads as public, and nothing in __all__ said so.
 from .seal import EngineMismatch, active_seal, verify_engine
-from .launch import tz_env, LaunchPlan, build_launch_env, build_launch_plan, write_user_js
+from .launch import LaunchPlan, build_launch_env, build_launch_plan, write_user_js
 # The host network a session declares to the engine (both env builders call it).
 from ._webrtc_network import network_to_declare
 
@@ -108,7 +108,6 @@ __all__ = [
     "ensure_binary",
     "ensure_geoip_mmdb",
     # geo / timezone / language: ONE decision, read by every consumer
-    "resolve_session_timezone",
     "prepare_session_geo",
     "SessionGeo",
     "SessionLocale",
@@ -131,7 +130,6 @@ __all__ = [
     "LaunchPlan",
     "build_launch_env",
     "network_to_declare",
-    "tz_env",
     "EngineMismatch",
     "active_seal",
     "verify_engine",

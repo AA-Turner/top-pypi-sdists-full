@@ -565,6 +565,25 @@ class ContraToContraToContra_WithTA(
 "#,
 );
 
+// The error is at the base it is about. A `Generic[...]` base is not a base type, so it must not
+// shift the bases after it.
+testcase!(
+    test_variance_enforcement_in_base_after_generic,
+    r#"
+from typing import TypeVar, Generic
+
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+
+class Inv(Generic[T]): ...
+
+class C(
+    Generic[T_co],
+    Inv[T_co],  # E: Type variable `T_co` is covariant but is used in invariant position
+): ...
+"#,
+);
+
 testcase!(
     test_protocols_variance_conformance,
     r#"
@@ -602,6 +621,90 @@ T_co = TypeVar("T_co", covariant=True)
 
 class Foo(Generic[T_co]):
     def f(self, x: T_co) -> None: ...  # E: Type variable `T_co` is covariant but is used in contravariant position
+"#,
+);
+
+testcase!(
+    test_shallow_receiver_not_checked,
+    r#"
+from typing import TypeVar, Generic
+T_co = TypeVar("T_co", covariant=True)
+
+class Foo(Generic[T_co]):
+    def f(self: T_co) -> None: ...
+"#,
+);
+
+testcase!(
+    test_constrained_typevar_protocol_variance_mismatch,
+    r#"
+from typing import Protocol, TypeVar
+
+T = TypeVar("T", str, bytes)
+
+class Foo(Protocol[T]):  # E: could be covariant
+    def value(self) -> T: ...
+
+class Bar(Protocol[T]):  # E: could be contravariant
+    def consume(self, x: T) -> None: ...
+"#,
+);
+
+testcase!(
+    test_mixed_typevar_protocol_variance_mismatch,
+    r#"
+from typing import Protocol, TypeVar
+
+T = TypeVar("T", str, bytes)
+B = TypeVar("B", bound=float)
+U = TypeVar("U")
+
+# Eligible siblings force the diagnostic loop to run, but only those siblings warn.
+class Producer(Protocol[T, B]):  # E: `T` in class `Producer` is declared as invariant, but could be covariant  # E: `B` in class `Producer` is declared as invariant, but could be covariant
+    def value(self) -> tuple[T, B]: ...
+
+class Consumer(Protocol[T, B]):  # E: `T` in class `Consumer` is declared as invariant, but could be contravariant  # E: `B` in class `Consumer` is declared as invariant, but could be contravariant
+    def consume(self, x: T, y: B) -> None: ...
+
+class UnconstrainedProducer(Protocol[T, U]):  # E: `T` in class `UnconstrainedProducer` is declared as invariant, but could be covariant  # E: `U` in class `UnconstrainedProducer` is declared as invariant, but could be covariant
+    def value(self) -> tuple[T, U]: ...
+"#,
+);
+
+testcase!(
+    test_constrained_typevar_protocol_declared_variance,
+    r#"
+from typing import Protocol, TypeVar
+
+T = TypeVar("T", int, float)
+T_co = TypeVar("T_co", int, float, covariant=True)
+T_contra = TypeVar("T_contra", int, float, contravariant=True)
+
+class InvariantProducer(Protocol[T]):  # E: could be covariant
+    def value(self) -> T: ...
+
+class Producer(Protocol[T_co]):
+    def value(self) -> T_co: ...
+
+class Consumer(Protocol[T_contra]):
+    def consume(self, x: T_contra) -> None: ...
+
+# Overlapping constraints make declared variance observable in subtyping.
+def check(
+    p_inv: InvariantProducer[int],
+    p_int: Producer[int],
+    p_float: Producer[float],
+    c_int: Consumer[int],
+    c_float: Consumer[float],
+) -> None:
+    invariant_bad: InvariantProducer[float] = p_inv  # E: `InvariantProducer[int]` is not assignable to `InvariantProducer[float]`
+    producer_ok: Producer[float] = p_int
+    producer_bad: Producer[int] = p_float  # E: `Producer[float]` is not assignable to `Producer[int]`
+    consumer_ok: Consumer[int] = c_float
+    consumer_bad: Consumer[float] = c_int  # E: `Consumer[int]` is not assignable to `Consumer[float]`
+
+class InvalidProducer(Protocol[T_contra]):
+    def value(self) -> T_contra: ...  # E: Type variable `T_contra` is contravariant but is used in covariant position
 "#,
 );
 
@@ -849,7 +952,7 @@ def foo(x: A[int]) -> A[int | str]:
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1343
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1343
 testcase!(
     test_covariant_typevar_in_contravariant_position,
     r#"

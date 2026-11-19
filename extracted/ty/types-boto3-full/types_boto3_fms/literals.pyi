@@ -164,6 +164,7 @@ ViolationReasonType = Literal[
 ]
 FMSServiceName = Literal["fms"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

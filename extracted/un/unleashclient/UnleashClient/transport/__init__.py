@@ -1,0 +1,107 @@
+"""
+HTTP layer under the Unleash client: sends one request and returns the
+response.
+"""
+
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Mapping, Optional, Protocol, runtime_checkable
+
+from UnleashClient.utils import LOGGER
+
+
+class Method(str, Enum):
+    GET = "GET"
+    POST = "POST"
+
+    __str__ = str.__str__
+
+
+@dataclass(frozen=True, kw_only=True)
+class Request:
+    """
+    HTTP request.
+
+    :param method: HTTP method.
+    :param url: Absolute url, without the query string.
+    :param headers: Headers to send.
+    :param params: Query string parameters.
+    :param body: Request body, or None to send none.
+    """
+
+    method: Method
+    url: str
+    headers: Mapping[str, str]
+    params: Mapping[str, str] = field(default_factory=dict)
+    body: Optional[bytes] = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class Response:
+    """
+    HTTP response. Every status is a response, not an error: deciding what
+    a status means is the API client's job.
+
+    :param status: HTTP status code.
+    :param headers: Response headers. A plain ``dict`` is fine: the SDK looks
+                    names up case-insensitively.
+    :param body: Raw response body.
+    """
+
+    status: int
+    headers: Mapping[str, str]
+    body: bytes
+
+
+@runtime_checkable
+class Transport(Protocol):
+    """
+    Sends requests for the sync client.
+
+    ``request.headers`` include the API key: don't log them.
+    """
+
+    def execute(self, request: Request) -> Response:
+        """
+        Implementations must send ``request`` once and return the response,
+        regardless of its status code. They must not retry: the SDK retries
+        feature fetches itself.
+
+        Implementations must not raise when a response was received, even for
+        an error status. They raise only if no response was received, for
+        example due to a connection error or timeout.
+        """
+
+
+@runtime_checkable
+class AsyncTransport(Protocol):
+    """
+    Sends requests for the async client.
+
+    ``request.headers`` include the API key: don't log them.
+    """
+
+    async def execute(self, request: Request) -> Response:
+        """
+        Implementations must send ``request`` once and return the response,
+        regardless of its status code. They must not retry: the SDK retries
+        feature fetches itself.
+
+        Implementations must not raise when a response was received, even for
+        an error status. They raise only if no response was received, for
+        example due to a connection error or timeout.
+        """
+
+
+def _check_authorization(headers: Mapping[str, str], api_key: Optional[str]) -> None:
+    if not any(name.lower() == "authorization" for name in headers):
+        return
+    if not api_key:
+        raise ValueError(
+            "Pass the API key as api_key to the client, "
+            "not as an Authorization header to the transport."
+        )
+    LOGGER.warning(
+        "Ignoring the Authorization header passed to the transport: the client "
+        "sends api_key instead."
+    )

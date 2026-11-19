@@ -80,14 +80,17 @@ _ENVIRONMENT_PREFIXES: tuple[str, ...] = (
 
 # SQL statement for topic upsert with JSONB array merge.
 # Uses ON CONFLICT to handle existing topic+direction combinations.
+# Keep this text pure SQL: a Python-style # comment inside the string is a
+# PostgreSQL syntax error. $3 is cast to text everywhere it is used because the
+# server cannot infer one type for it from jsonb_build_array and the ? operator.
 # The JSONB containment operator (?) checks if contract_id already exists in array.
 # If not present, appends to array; otherwise keeps existing array unchanged.
-SQL_UPSERT_TOPIC = """  # onex-topic-allow: pending contract auto-wiring
+SQL_UPSERT_TOPIC = """
 INSERT INTO topics (topic_suffix, direction, contract_ids, first_seen_at, last_seen_at, is_active)
-VALUES ($1, $2, jsonb_build_array($3), $4, $5, TRUE)
+VALUES ($1, $2, jsonb_build_array($3::text), $4, $5, TRUE)
 ON CONFLICT (topic_suffix, direction) DO UPDATE SET
     contract_ids = CASE
-        WHEN NOT topics.contract_ids ? $3
+        WHEN NOT topics.contract_ids ? $3::text
         THEN topics.contract_ids || to_jsonb($3::text)
         ELSE topics.contract_ids
     END,
@@ -154,7 +157,7 @@ class HandlerPostgresTopicUpdate(MixinPostgresOpExecutor):
         >>> import asyncpg
         >>> pool = await asyncpg.create_pool(dsn="...")
         >>> handler = HandlerPostgresTopicUpdate(pool)
-        >>> result = await handler.handle(payload, correlation_id)
+        >>> result = await handler.handle(payload)
         >>> result.success
         True
 
@@ -186,8 +189,7 @@ class HandlerPostgresTopicUpdate(MixinPostgresOpExecutor):
 
     async def handle(
         self,
-        payload: ModelPayloadUpdateTopic,
-        correlation_id: UUID,
+        request: ModelPayloadUpdateTopic,
     ) -> ModelBackendResult:
         """Execute PostgreSQL topic routing table update.
 
@@ -197,9 +199,8 @@ class HandlerPostgresTopicUpdate(MixinPostgresOpExecutor):
         - Parameterized SQL for injection prevention
 
         Args:
-            payload: Update topic payload containing topic_suffix, direction,
+            request: Update topic request containing topic_suffix, direction,
                 contract_id, and last_seen_at timestamp.
-            correlation_id: Request correlation ID for distributed tracing.
 
         Returns:
             ModelBackendResult with:
@@ -214,20 +215,21 @@ class HandlerPostgresTopicUpdate(MixinPostgresOpExecutor):
             Topic suffixes are normalized before storage - environment
             prefixes like "{env}." or "dev." are stripped.
         """
+        correlation_id = request.correlation_id
         # Normalize topic suffix by stripping environment prefix
-        normalized_topic = normalize_topic_for_storage(payload.topic_suffix)
+        normalized_topic = normalize_topic_for_storage(request.topic_suffix)
 
         return await self._execute_postgres_op(
             op_error_code=EnumPostgresErrorCode.TOPIC_UPDATE_ERROR,
             correlation_id=correlation_id,
             log_context={
                 "topic_suffix": normalized_topic,
-                "original_topic": payload.topic_suffix,
-                "direction": payload.direction,
-                "contract_id": payload.contract_id,
+                "original_topic": request.topic_suffix,
+                "direction": request.direction,
+                "contract_id": request.contract_id,
             },
             fn=lambda: self._execute_topic_update(
-                payload, normalized_topic, correlation_id
+                request, normalized_topic, correlation_id
             ),
         )
 

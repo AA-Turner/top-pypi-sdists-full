@@ -10,7 +10,7 @@ Everything that caches the company has forgotten it by then.
 """
 from __future__ import annotations
 
-from typing import List, Optional, Protocol, Sequence
+from typing import Any, Dict, List, Optional, Protocol, Sequence
 
 from ...models.company.empresa import EmpresaModel
 
@@ -87,6 +87,12 @@ class CompanyRepository(Protocol):
 
     async def save_resolved_waba(self, company: EmpresaModel, *, only_if_phone: str) -> EmpresaModel:
         """The WABA, if the company still has the number it was resolved from: `CompanyChangedMeanwhile` otherwise."""
+        ...
+
+    async def release_number(self, company: EmpresaModel, record: Dict[str, Any]) -> EmpresaModel:
+        """Disconnecting its default account lets go of the company's number (`company` as it was, with it): number and
+        token cleared, the display back to the «no number» placeholder and `record` in `disconnected_whatsapp_number`, if
+        the company still has that number: `CompanyChangedMeanwhile` otherwise. The routing keys of that number go too."""
         ...
 
     async def save_meta_profile(self, company: EmpresaModel, fields: Sequence[str], *,

@@ -32,6 +32,8 @@ from pathlib import Path
 
 import pytest
 
+from omnibase_core.validators.no_unguarded_git_subprocess import scrub_git_location_env
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEPLOY_SOURCE_REF = REPO_ROOT / "scripts" / "runtime_build" / "deploy_source_ref.py"
 RECONCILE_SCRIPT = (
@@ -41,12 +43,12 @@ STAGE_SCRIPT = REPO_ROOT / "scripts" / "runtime_build" / "stage_workspace.sh"
 
 _DIST_NAME = {
     "omnibase_core": "omnibase-core",
-    "omnibase_compat": "omnibase-compat",
     "omnimarket": "omnimarket",
     "omnibase_infra": "omnibase-infra",
     "omnibase_spi": "omnibase-spi",
+    "omniintelligence": "omninode-intelligence",
 }
-_STAGED_SIBLINGS = ("omnibase_core", "omnibase_compat", "omnimarket")
+_STAGED_SIBLINGS = ("omnibase_core", "omnimarket", "omniintelligence")
 _PIN_VERSION = "9.9.9"
 
 
@@ -56,7 +58,7 @@ def _git(repo: Path, *args: str) -> str:
         check=True,
         capture_output=True,
         text=True,
-        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        env={**scrub_git_location_env(os.environ), "GIT_TERMINAL_PROMPT": "0"},
     )
     return result.stdout.strip()
 
@@ -70,6 +72,12 @@ def _make_origin(path: Path, dist: str) -> Path:
     (path / "pyproject.toml").write_text(
         f"[project]\nname = '{dist}'\nversion = '{_PIN_VERSION}'\n", encoding="utf-8"
     )
+    if dist == "omnimarket":
+        # OMN-21279: stage_workspace.sh copies the delegation routing ladder out
+        # of the staged omnimarket tree into the build context.
+        ladder = path / "src" / "omnimarket" / "configs"
+        ladder.mkdir(parents=True, exist_ok=True)
+        (ladder / "routing_tiers.yaml").write_text("tiers: []\n", encoding="utf-8")
     _git(path, "add", "-A")
     _git(path, "commit", "-q", "-m", "init")
     return path
@@ -88,6 +96,7 @@ def _clone(origin: Path, dest: Path) -> Path:
         check=True,
         capture_output=True,
         text=True,
+        env=scrub_git_location_env(os.environ),
     )
     _git(dest, "config", "user.email", "t@t.t")
     _git(dest, "config", "user.name", "t")
@@ -161,6 +170,7 @@ def test_bare_clone_fetch_succeeds_while_head_never_moves(tmp_path: Path) -> Non
         capture_output=True,
         text=True,
         check=False,
+        env=scrub_git_location_env(os.environ),
     )
     assert fetch.returncode == 0, fetch.stderr
 
@@ -169,6 +179,7 @@ def test_bare_clone_fetch_succeeds_while_head_never_moves(tmp_path: Path) -> Non
         capture_output=True,
         text=True,
         check=False,
+        env=scrub_git_location_env(os.environ),
     )
     assert checkout.returncode != 0
 
@@ -412,7 +423,6 @@ def test_reconcile_wrapper_runs_end_to_end_over_the_manifest(tmp_path: Path) -> 
         "omnibase_infra",
         "omnibase_core",
         "omnibase_spi",
-        "omnibase_compat",
         "omnimarket",
     )
     origins, omni_home = _make_deploy_tree(tmp_path, manifest_repos)
@@ -446,7 +456,8 @@ def test_reconcile_wrapper_runs_end_to_end_over_the_manifest(tmp_path: Path) -> 
 def _write_consumer_lock(omni_home: Path) -> None:
     blocks = [
         f'[[package]]\nname = "{dist}"\nversion = "{_PIN_VERSION}"\n'
-        for dist in _DIST_NAME.values()
+        for repo, dist in _DIST_NAME.items()
+        if repo != "omniintelligence"  # no lock pins it (OMN-22153)
     ]
     market = omni_home / "omnimarket"
     (market / "uv.lock").write_text("\n".join(blocks), encoding="utf-8")
@@ -459,10 +470,10 @@ def _stage_omni_home(tmp_path: Path) -> Path:
     omni_home.mkdir(parents=True, exist_ok=True)
     for repo in (
         "omnibase_core",
-        "omnibase_compat",
         "omnimarket",
         "omnibase_infra",
         "omnibase_spi",
+        "omniintelligence",
     ):
         _make_origin(omni_home / repo, _DIST_NAME[repo])
     _write_consumer_lock(omni_home)

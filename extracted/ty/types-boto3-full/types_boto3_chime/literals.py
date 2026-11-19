@@ -101,6 +101,7 @@ RoomMembershipRoleType = Literal["Administrator", "Member"]
 UserTypeType = Literal["PrivateUser", "SharedDevice"]
 ChimeServiceName = Literal["chime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

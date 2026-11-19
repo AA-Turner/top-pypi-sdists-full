@@ -117,6 +117,7 @@ TransactionTypeType = Literal["READ_AND_WRITE", "READ_ONLY"]
 VerificationStatusType = Literal["NOT_VERIFIED", "VERIFICATION_FAILED", "VERIFIED"]
 LakeFormationServiceName = Literal["lakeformation"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

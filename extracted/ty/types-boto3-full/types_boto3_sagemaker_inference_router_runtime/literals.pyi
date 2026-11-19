@@ -25,6 +25,7 @@ __all__ = ("ResourceServiceName", "SageMakerInferenceRouterRuntimeServiceName", 
 
 SageMakerInferenceRouterRuntimeServiceName = Literal["sagemaker-inference-router-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

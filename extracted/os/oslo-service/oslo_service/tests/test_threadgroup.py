@@ -17,9 +17,10 @@
 Unit Tests for thread groups
 """
 
+import os
+import threading
 import time
-
-from eventlet import event
+import unittest
 
 from oslotest import base as test_base
 
@@ -28,6 +29,7 @@ from oslo_service import threadgroup
 
 class ThreadGroupTestCase(test_base.BaseTestCase):
     """Test cases for thread group."""
+
     def setUp(self):
         super().setUp()
         self.tg = threadgroup.ThreadGroup()
@@ -37,10 +39,12 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
 
         def foo(*args, **kwargs):
             pass
+
         initial_delay = 1
         periodic_interval_max = 2
-        self.tg.add_dynamic_timer(foo, initial_delay, periodic_interval_max,
-                                  'arg', kwarg='kwarg')
+        self.tg.add_dynamic_timer(
+            foo, initial_delay, periodic_interval_max, 'arg', kwarg='kwarg'
+        )
 
         self.assertEqual(1, len(self.tg.timers))
 
@@ -53,10 +57,14 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
         def foo(*args, **kwargs):
             pass
 
-        self.tg.add_dynamic_timer_args(foo, ['arg'], {'kwarg': 'kwarg'},
-                                       initial_delay=1,
-                                       periodic_interval_max=2,
-                                       stop_on_exception=False)
+        self.tg.add_dynamic_timer_args(
+            foo,
+            ['arg'],
+            {'kwarg': 'kwarg'},
+            initial_delay=1,
+            periodic_interval_max=2,
+            stop_on_exception=False,
+        )
 
         self.assertEqual(1, len(self.tg.timers))
 
@@ -69,8 +77,7 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
         def foo(*args, **kwargs):
             pass
 
-        self.tg.add_timer(1, foo, 1,
-                          'arg', kwarg='kwarg')
+        self.tg.add_timer(1, foo, 1, 'arg', kwarg='kwarg')
 
         self.assertEqual(1, len(self.tg.timers))
 
@@ -83,8 +90,14 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
         def foo(*args, **kwargs):
             pass
 
-        self.tg.add_timer_args(1, foo, ['arg'], {'kwarg': 'kwarg'},
-                               initial_delay=1, stop_on_exception=False)
+        self.tg.add_timer_args(
+            1,
+            foo,
+            ['arg'],
+            {'kwarg': 'kwarg'},
+            initial_delay=1,
+            stop_on_exception=False,
+        )
 
         self.assertEqual(1, len(self.tg.timers))
 
@@ -93,7 +106,12 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
         self.assertEqual(('arg',), timer.args)
         self.assertEqual({'kwarg': 'kwarg'}, timer.kw)
 
-    def test_stop_current_thread(self):
+    @unittest.skipIf(
+        os.environ.get('OSLO_SERVICE_SKIP_EVENTLET'),
+        "skipping eventlet tests",
+    )
+    def test_stop_current_thread_eventlet(self):
+        from eventlet import event
 
         stop_event = event.Event()
         quit_event = event.Event()
@@ -112,10 +130,31 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
         self.assertEqual(1, len(self.tg.threads))
         quit_event.send('quit_event')
 
+    def test_stop_current_thread_threading(self):
+        stop_event = threading.Event()
+        quit_event = threading.Event()
+
+        def stop_self(*args, **kwargs):
+            if args[0] == 1:
+                time.sleep(1)
+                self.tg.stop()
+                stop_event.set()
+            quit_event.wait()
+
+        for i in range(0, 4):
+            self.tg.add_thread(stop_self, i, kwargs='kwargs')
+
+        self.assertTrue(
+            stop_event.wait(timeout=5), "stop_self thread never called stop()"
+        )
+        self.assertEqual(1, len(self.tg.threads))
+        quit_event.set()
+
     def test_stop_immediately(self):
 
         def foo(*args, **kwargs):
             time.sleep(1)
+
         start_time = time.time()
         self.tg.add_thread(foo, 'arg', kwarg='kwarg')
         time.sleep(0)
@@ -130,6 +169,7 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
 
         def foo(*args, **kwargs):
             time.sleep(1)
+
         start_time = time.time()
         self.tg.add_thread(foo, 'arg', kwarg='kwarg')
         self.tg.stop(True)
@@ -139,10 +179,16 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
         self.assertTrue(end_time - start_time >= 1)
         self.assertEqual(0, len(self.tg.timers))
 
+    @unittest.skipIf(
+        os.environ.get('OSLO_SERVICE_SKIP_EVENTLET'),
+        'Cancelling an unstarted greenlet requires eventlet; native threads '
+        'start immediately and cannot be cancelled.',
+    )
     def test_cancel_early(self):
 
         def foo(*args, **kwargs):
             time.sleep(1)
+
         self.tg.add_thread(foo, 'arg', kwarg='kwarg')
         self.tg.cancel()
 
@@ -152,16 +198,23 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
 
         def foo(*args, **kwargs):
             time.sleep(0.3)
+
         self.tg.add_thread(foo, 'arg', kwarg='kwarg')
         time.sleep(0)
         self.tg.cancel()
 
         self.assertEqual(1, len(self.tg.threads))
 
+    @unittest.skipIf(
+        os.environ.get('OSLO_SERVICE_SKIP_EVENTLET'),
+        'Forcibly killing a running greenlet requires eventlet; native '
+        'threads cannot be killed.',
+    )
     def test_cancel_timeout(self):
 
         def foo(*args, **kwargs):
             time.sleep(0.3)
+
         self.tg.add_thread(foo, 'arg', kwarg='kwarg')
         time.sleep(0)
         self.tg.cancel(timeout=0.2, wait_time=0.1)
@@ -172,6 +225,7 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
 
         def foo(*args, **kwargs):
             pass
+
         self.tg.add_timer('1234', foo)
         self.assertEqual(1, len(self.tg.timers))
         self.tg.stop_timers()
@@ -194,10 +248,12 @@ class ThreadGroupTestCase(test_base.BaseTestCase):
 
         def foo(*args, **kwargs):
             pass
+
         initial_delay = 1
         periodic_interval_max = 2
-        timer = self.tg.add_dynamic_timer(foo, initial_delay,
-                                          periodic_interval_max)
+        timer = self.tg.add_dynamic_timer(
+            foo, initial_delay, periodic_interval_max
+        )
 
         self.assertEqual(1, len(self.tg.timers))
         self.assertTrue(timer._running)

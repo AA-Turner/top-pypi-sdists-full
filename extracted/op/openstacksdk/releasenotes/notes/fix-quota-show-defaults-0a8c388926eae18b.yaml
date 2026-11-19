@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fixed issue with ``quota show --default`` command by
-    correcting the API URL.

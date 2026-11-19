@@ -90,6 +90,8 @@ from . import gpu
 
 if TYPE_CHECKING:
     from .network.link import Link
+    from .network.lines import Lines
+    from .engine.serve import serve
 from ._core.reporting import INGEST_PATH, Reporter, connect_record, latency_record, run_record
 from .errors import (
     AuthError,
@@ -118,6 +120,8 @@ from .errors import (
 
 __all__ = [
     "connect",
+
+    "serve",
 
 
     "teleop",
@@ -233,13 +237,19 @@ def connect(
     base_url: str | None = None,
     timeout_s: float | None = None,
     startup_timeout_s: float | None = None,
+    token: str | None = None,
+    follow: str | None = None,
     on_warming: Callable[[float, float], None] | None = None,
     on_queue: Callable[[Any, Any, float, Any], None] | None = None,
     on_stale: Callable[[Stale], None] | None = None,
     on_resume: Callable[[Stale], None] | None = None,
     teleop: Any = None,
     hold: Any = None,
-) -> Policy | TeleopHandle | Link | tuple[Policy | TeleopHandle, ...]:
+    lines: list[str] | dict[str, str] | None = None,
+    jpeg: bool | None = None,
+    compress: bool | None = None,
+    first_timeout: float | None = None,
+) -> Policy | TeleopHandle | Link | Lines | tuple[Policy | TeleopHandle, ...]:
     """
     Open a connection to one policy, or to several at once - or to teleop, alone or among them - or to a policy server
     of your own, by its address.
@@ -257,7 +267,8 @@ def connect(
                 straight to it with the network components on it (sequence_ai.network.connect) and nothing of the
                 platform in between - no key, no robot, nothing billed. What comes back is a sequence_ai.network.Link,
                 with the same two calls, observe() and act(). An address is given alone, and of the options below
-                only timeout_s applies to it.
+                only timeout_s, token, follow, lines, jpeg, compress and first_timeout apply to it: api_key, your
+                General Sequences key, is never sent to it.
     *more       more names to connect to in the same call, each also on the robot's list: `connect("pick_user",
                 "place_user", "teleop")`. One name returns one handle, as before; several return a tuple of handles in
                 that order, each policy its own connection on its own worker (each billed, so connect only the ones you
@@ -265,6 +276,15 @@ def connect(
     policy      gone: connecting through a planner is no more. Planning is a `@seq.plan` method of the policy itself, so
                 a robot connects to its policy by its name alone; passing it raises InvalidRequest (PLANNERS_GONE).
     api_key     defaults to $SEQUENCES_API_KEY
+    token       a policy server of your own's token (serve(token=...)), sent with each request to its address; only
+                to an address, and only as given here: nothing reads it from the environment
+    follow      this robot's follow token for a GPU of the platform's at that address (`seq gpu follow-token ID
+                --robot NAME`), default $SEQUENCES_FOLLOW_TOKEN; only to an address. Before the robot first reaches
+                the GPU, its own address is let into the GPU's allow list (sequence_ai.gpu.follow, from the address
+                its packets to the GPU go out from), waited for up to 30 s: a robot whose network changed its address
+                is let in again as it starts. With lines=, each line is let in, its follow going out by that line. It
+                goes to the platform's gateway alone, never to the GPU; where it cannot be done, a warning says why
+                and the robot connects as the list stands.
     base_url    defaults to $SEQUENCES_BASE_URL, then the platform's gateway
     timeout_s   how long one request waits for its answer, in seconds. Unset, an act waits as long as the deployment
                 allows one - the platform's, 300 s unless its check measured slower acts - and 10 s more, so
@@ -305,6 +325,17 @@ def connect(
                 played: by default the model's last answer with nothing in it, its keys kept - each array cut to no
                 steps, each list empty, each dict's values emptied alike, any other value (a string, a number) None -
                 {} before one.
+    lines       for a policy server of your own: two or more of this robot's network interfaces, one uplink each
+                (lines=["eth0", "wwan0"]: a Starlink terminal's and a cellular modem's, say), or {interface: address}
+                where the server has another address by each (lines={"eth0": url_v6, "wwan0": url_v4}). Every act is
+                packed once, sent on each line, and the first answer is used; serve() runs it once; with follow=, each
+                line's address is let into the GPU's allow list. What comes back is a sequence_ai.network.Lines, with
+                Link's calls (sequence_ai.network.lines).
+    jpeg, compress, first_timeout
+                for a policy server of your own, as sequence_ai.network.connect takes them: jpeg=False sends pictures
+                as arrays and compress=False sends arrays as they are, whatever the server reads (True: as JPEG, and
+                compressed, whatever it says); first_timeout is how long the first act waits for its answer, 120 s
+                unset. Given with a policy's name, InvalidRequest: the platform's connection has its own.
 
     With "teleop" among the names (it needs sequence-ai[teleop], Python 3.11 or later: pip install
     'sequence-ai[teleop]'), a person can watch and drive this robot from a console holding its key
@@ -343,7 +374,22 @@ def connect(
     if policy is not None:
         raise InvalidRequest(PLANNERS_GONE)
     if "://" in model:
-        return _own_server(model, more, timeout_s)
+        return _own_server(model, more, timeout_s, token, follow=follow, base_url=base_url, lines=lines, jpeg=jpeg,
+                           compress=compress, first_timeout=first_timeout)
+    for given, name in ((jpeg, "jpeg"), (compress, "compress"), (first_timeout, "first_timeout")):
+        if given is not None:
+            raise InvalidRequest(f"{name}= is for a policy server of your own, given by its address (connect("
+                                 f"'http://<gpu>:8000', {name}=...)); {model!r} is a name, and the platform's "
+                                 "connection sets its own")
+    if lines is not None:
+        raise InvalidRequest("lines= sends each act over each of the robot's uplinks to a policy server of your own, "
+                             f"given by its address (connect('http://<gpu>:8000', lines=[...])); {model!r} is a name")
+    if token is not None:
+        raise InvalidRequest("token= is a policy server of your own's, given with its address: connect("
+                             "\"http://your-gpu:8000\", token=...); a policy reached by its name takes api_key")
+    if follow is not None:
+        raise InvalidRequest("follow= is a robot's follow token for a GPU at an address: connect(\"http://ADDRESS:8000\", "
+                             "follow=...); a policy reached by its name needs none")
     names = (model, *more)
     drives = _teleop_link.NAME in names
     if hold is not None and not drives:
@@ -371,13 +417,121 @@ def connect(
     return handles[0] if not more else tuple(handles)
 
 
-def _own_server(url: str, more: tuple, timeout_s: float | None) -> Link:
+def _own_server(url: str, more: tuple, timeout_s: float | None, token: str | None = None, *,
+                follow: str | None = None, base_url: str | None = None,
+                lines: list[str] | dict[str, str] | None = None, jpeg: bool | None = None,
+                compress: bool | None = None, first_timeout: float | None = None) -> Link | Lines:
     """connect()'s way to a policy server of your own: its address in place of a policy's name, the network components
-    on one connection to it (sequence_ai.network.connect), and nothing of the platform asked or told."""
+    on one connection to it (sequence_ai.network.connect), and nothing of the platform asked or told: `token`, given,
+    is sent to it (serve(token=...)), never an api_key - a script whose address is changed to another's server would
+    hand that server the account's key. Its follow token (`follow`, else $SEQUENCES_FOLLOW_TOKEN), where it has one, goes
+    to the platform's gateway alone, before the connection: the robot's own address let into the GPU's allow list
+    (_followed). With `lines`, network interfaces, one connection by each (sequence_ai.network.lines): every act sent
+    on each, the first answer used, and each line let in by a follow of its own.
+
+
+"""
     if more:
         raise InvalidRequest(f"a policy server of your own is connected to alone: connect({url!r}) takes no other name")
     from .network import link as _link
-    return _link.connect(url) if timeout_s is None else _link.connect(url, timeout=timeout_s)
+    from .gpu import FOLLOW_ENV
+
+    follow = (follow or os.environ.get(FOLLOW_ENV) or "").strip() or None
+    if follow:
+        _followed(follow, url, base_url, lines)
+
+    options = {key: value for key, value in (("timeout", timeout_s), ("jpeg", jpeg), ("compress", compress),
+                                             ("first_timeout", first_timeout)) if value is not None}
+    if follow:
+
+        options["on_unreachable"] = _Refollow(follow, url, base_url, lines)
+    return _link.connect(url, token=token, lines=lines, **options)
+
+
+FOLLOW_WAIT_S = 30.0
+
+
+def _followed(token: str, url: str, base_url: str | None, lines: list[str] | dict[str, str] | None = None) -> None:
+    """The robot's own address let into the allow list of the GPU at `url` (sequence_ai.gpu.follow, from the address its
+    packets to `url` go out from), asked again until the GPU says it applied it or FOLLOW_WAIT_S is up. With `lines`
+    (connect's: a list of interfaces, or {interface: address}), each line's own, its follow going out by that line, the
+    first line's first. Never raises: what stopped one is said as a warning, and the robot connects as the list stands -
+    its address may be on it already, and the connection says whether it is. A platform whose answer names no line
+    keeps one address a robot, so one line's follow would take another's place: the first line let in stops it there,
+    and a warning names the lines left out."""
+    import time
+
+    from ._core.warn import warn
+
+    by = (dict(lines) if isinstance(lines, dict) else dict.fromkeys(lines)) if lines else {None: None}
+    until = time.monotonic() + FOLLOW_WAIT_S
+    for line, address in by.items():
+        out = _follow_line(token, address or url, base_url, line, until)
+        if line is not None and out is not None and "line" not in out:
+            left = [str(n) for n in by if n != line]
+            warn(f"this robot was let into its GPU's allow list by {line} alone ({out.get('range')}): the platform "
+                 f"keeps one address a robot, so {', '.join(left)} {'reaches' if len(left) == 1 else 'reach'} the "
+                 "GPU only from an address on its allow list (seq gpu allow)")
+            return
+
+
+REFOLLOW_EVERY_S = 30.0
+
+
+class _Refollow:
+    """connect()'s `on_unreachable` for a robot with a follow token (sequence_ai.network.link.Link): the line whose link
+    could not reach the GPU - `link.bind`, None for a robot's one - follows again (_follow_line), and its act is asked
+    once more where the GPU says it applied the list that follow made: the robot's address moved (a prefix renumbered,
+    a cellular line's address changed), or its entry was lost (a machine's rules started over) - one follow puts either
+    right. False, and the link's own error stands, where the follow could not be done, and for a line that followed
+    within REFOLLOW_EVERY_S: a server that is down, its list right all along, costs the platform one follow and the
+    robot one ask more each REFOLLOW_EVERY_S, no more. Never raises.
+"""
+
+    def __init__(self, token: str, url: str, base_url: str | None, lines) -> None:
+        import threading
+
+        self._token, self._url, self._base_url = token, url, base_url
+        self._to = dict(lines) if isinstance(lines, dict) else {}
+        self._at: dict = {}
+        self._lock = threading.Lock()
+
+    def __call__(self, link: Any) -> bool:
+        import time
+
+        line = getattr(link, "bind", None)
+        now = time.monotonic()
+        with self._lock:
+            if now - self._at.get(line, float("-inf")) < REFOLLOW_EVERY_S:
+                return False
+            self._at[line] = now
+        out = _follow_line(self._token, self._to.get(line) or self._url, self._base_url, line, now + FOLLOW_WAIT_S)
+        return out is not None and bool(out.get("applied"))
+
+
+def _follow_line(token: str, to: str, base_url: str | None, line: str | None, until: float) -> dict | None:
+    """One line's follow (`line` None: the robot's one), asked again until the GPU says it applied it or `until` passes;
+    its last answer, or None where it was stopped, said as a warning. A line's first ask waits 10 s at least, though
+    the lines before it took the wait: where it is let in from is kept even before the GPU says it applied it."""
+    import time
+
+    from . import gpu as _gpu
+    from ._core.warn import warn
+
+    least = 10.0
+    while True:
+        try:
+            out = _gpu.follow(token, to=to, base_url=base_url, timeout_s=max(least, until - time.monotonic()),
+                              **({"line": line} if line else {}))
+        except SequencesError as exc:
+            by = f" by {line}" if line else ""
+            warn(f"this robot's address{by} was not let into its GPU's allow list ({exc}): connecting as the list "
+                 "stands")
+            return None
+        if out.get("applied") or until - time.monotonic() < 2.0:
+            return out
+        least = 1.0
+        time.sleep(1.0)
 
 
 def teleop(policy: Any = None, *, key: str | None = None, operator: str | None = None, base_url: str | None = None,
@@ -535,7 +689,11 @@ def _connect(model: str, *, api_key: str | None, base_url: str | None, timeout_s
 
 
 def __getattr__(name: str) -> Any:
-    """`sequence_ai.planner(...)` and `sequence_ai.Planner` are gone with planners: they say so (PLANNERS_GONE)."""
+    """`sequence_ai.serve` is imported when first used, so a robot that only connects loads none of the server; and
+    `sequence_ai.planner(...)` and `sequence_ai.Planner` are gone with planners: they say so (PLANNERS_GONE)."""
+    if name == "serve":
+        from .engine.serve import serve
+        return serve
     if name in ("planner", "Planner"):
         raise AttributeError(PLANNERS_GONE)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

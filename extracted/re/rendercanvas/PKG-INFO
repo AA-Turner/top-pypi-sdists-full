@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rendercanvas
-Version: 3.0.0
+Version: 3.0.1
 Summary: One canvas API, multiple backends
 Keywords: canvas,rendering,graphics,wgpu,qt,wx,glfw,jupyter
 Author: Almar Klein, Korijn van Golen

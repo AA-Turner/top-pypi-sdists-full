@@ -147,6 +147,7 @@ SubsidiaryAuthorizationSortByType = Literal[
 SubsidiaryAuthorizationStatusStringType = Literal["Active", "Draft", "Restricted"]
 MarketplaceCatalogServiceName = Literal["marketplace-catalog"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

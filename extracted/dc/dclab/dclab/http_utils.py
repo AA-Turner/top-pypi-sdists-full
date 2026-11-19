@@ -70,14 +70,14 @@ class HTTPFile(io.IOBase):
         Parameters
         ----------
         url: str
-            Path to the URL
+            URL of the file
         chunk_size: int
             Download chunk size. The entire file is split up into
             equally-sized (and thus indexable) chunks.
 
         Notes
         -----
-        Caching is done with dclab's :func:`.umbrella_cache`.
+        Caching is done with dclab's :class:`.umbrella_cache`.
         """
         self.url = url
         self._chunk_size = chunk_size
@@ -107,7 +107,7 @@ class HTTPFile(io.IOBase):
 
     @property
     def chunk_size(self) -> int:
-        """The chunk size of the HTTPfile in bytes"""
+        """The chunk size of the HTTPFile in bytes"""
         return self._chunk_size
 
     @property
@@ -128,7 +128,7 @@ class HTTPFile(io.IOBase):
         the super class.
         """
         self.session.close()
-        super(HTTPFile, self).close()
+        super().close()
 
     def download_range(self, start, stop) -> bytes:
         """Download bytes given by the range (`start`, `stop`)
@@ -163,7 +163,8 @@ class HTTPFile(io.IOBase):
     def get_chunk(self, index: int) -> bytes:
         """Return the cache chunk defined by `index`
 
-        If the chunk is not in `self.cache`, it is downloaded.
+        If the chunk is not cached (see :class:`.umbrella_cache`), it is
+        downloaded.
         """
         start = index*self._chunk_size
         stop = min((index + 1) * self._chunk_size, self.length)
@@ -171,11 +172,13 @@ class HTTPFile(io.IOBase):
 
     def read(self, size: int = -1, /) -> bytes:
         """Cache-supported read operation (file object)"""
-        data = self.read_range(self._pos, self._pos + size)
-        if size > 0:
-            self._pos += size
+        if size is None or size < 0:
+            # read until the end of the file
+            stop = self.length
         else:
-            self._pos = self.length
+            stop = self._pos + size
+        data = self.read_range(self._pos, stop)
+        self._pos += len(data)
         return data
 
     def read_range(self, start, stop) -> bytes:
@@ -247,11 +250,9 @@ class ResoluteRequestsSessionCache:
 
     def __getstate__(self):
         """Returns None, so sessions are not pickled into subprocesses"""
-        pass
 
     def __setstate__(self, state):
         """Does nothing (see `__getstate__`)"""
-        pass
 
     def get_session(self, url: str):
         """Return a requests session for the specified URL
@@ -272,8 +273,7 @@ class ResoluteRequestsSession(requests.Session):
         kwargs.setdefault("timeout", 0.5)
         for ii in range(100):
             try:
-                resp = super(ResoluteRequestsSession,
-                             self).get(*args, **kwargs)
+                resp = super().get(*args, **kwargs)
             except (requests.exceptions.ConnectionError,
                     requests.exceptions.ReadTimeout,
                     requests.exceptions.ConnectTimeout,
@@ -305,7 +305,8 @@ def is_url_available(url: str, ret_reason=False):
     available: bool
         whether the URL is available
     reason: str
-        reason for the URL not being available is `available` is False
+        reason for the URL not being available if `available` is False;
+        only returned if `ret_reason` is True
     """
     avail = False
     reason = "none"
@@ -332,7 +333,6 @@ def is_url_available(url: str, ret_reason=False):
                         reason = req.reason.lower()
                 except OSError:
                     reason = "oserror"
-                    pass
     else:
         reason = "invalid"
     if ret_reason:
@@ -341,7 +341,7 @@ def is_url_available(url: str, ret_reason=False):
         return avail
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def is_http_url(string):
     """Check whether `string` is a valid URL using regexp"""
     if not isinstance(string, str):

@@ -31,7 +31,7 @@ class TripadvisorReviewsInput(TypedDict, total=False):
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     languages: NotRequired[list[str]]
-    """Only return reviews originally written in these ISO 639-1 languages (e.g. ["en", "es"]); omit for all languages. Reviews are never translated. Each page is filtered after it is fetched, so a page can hold fewer than `limit` reviews, or none, while nextCursor still leads to more."""
+    """Only return reviews originally written in these ISO 639-1 languages (e.g. ["en", "es"]); omit for all languages. Reviews filtered this way are never translated; without the filter, see `language` in the result. Each page is filtered after it is fetched, so a page can hold fewer than `limit` reviews, or none, while nextCursor still leads to more."""
     limit: NotRequired[int]
     """Reviews per page (1-20, default 20). Sources that page return one page of up to `limit` reviews, newest first, with a nextCursor for the next page; sources that cannot page return up to `limit` reviews in one call with no nextCursor. Range: 1 to 20."""
     preferLatencyUnderMs: NotRequired[int]

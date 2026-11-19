@@ -9,14 +9,13 @@ authors = [
     {name = "OpenStack", email = "openstack-discuss@lists.openstack.org"},
 ]
 readme = {file = "README.rst", content-type = "text/x-rst"}
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 dynamic = ["version", "dependencies"]
 requires-python = ">=3.11"
 classifiers = [
     "Environment :: OpenStack",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -24,16 +23,43 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 
 [project.urls]
 Homepage = "https://docs.openstack.org/oslo.vmware"
 Repository = "https://opendev.org/openstack/oslo.vmware"
 
-[tool.setuptools]
-packages = [
+[tool.setuptools.packages.find]
+include = ["oslo_vmware*"]
+
+[tool.coverage.run]
+source = [
     "oslo_vmware"
 ]
+branch = true
+parallel = true
+omit = [
+    "oslo_vmware/tests/*"
+]
 
-[tool.bandit]
-exclude_dirs = ["tests"]
+[tool.coverage.report]
+ignore_errors = true
+show_missing = true
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.format]
+quote-style = "preserve"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["E", "F", "G", "LOG", "S", "UP"]
+external = ["H"]
+ignore = [
+    "S101",  # asserts are only used for type narrowing
+]
+
+[tool.ruff.lint.per-file-ignores]
+"oslo_vmware/tests/*" = ["S"]

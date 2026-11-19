@@ -109,17 +109,19 @@ def test_checked_in_ground_truth_builds_blind_plan_without_duplicate_arms():
     plan = build_plan(MANIFEST_PATH)
 
     assert plan["network_used"] is False
-    assert plan["case_count"] == 98
-    assert plan["request_count"] == 104
-    assert plan["ground_truth_count"] == 466
-    assert plan["decision_count"] == 506
+    assert plan["case_count"] == 151
+    assert plan["request_count"] == 157
+    assert plan["ground_truth_count"] == 769
+    assert plan["decision_count"] == 809
     assert plan["neutralization_status_counts"] == {
         "applied": 6,
-        "skipped": 21,
-        "not_applicable": 71,
+        "skipped": 30,
+        "not_applicable": 115,
     }
-    assert plan["unused_count"] == 149
-    assert plan["used_count"] == 317
+    # The source review corrected two unloaded JS files and an unreachable
+    # Python backend from used to unused; the 769-label denominator is intact.
+    assert plan["unused_count"] == 300
+    assert plan["used_count"] == 469
     assert plan["model"] == "jev-1.13.0"
     assert plan["endpoint"] == JEV_ENDPOINT
 

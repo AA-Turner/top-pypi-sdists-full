@@ -59,6 +59,7 @@ ZonalAutoshiftStatusType = Literal["DISABLED", "ENABLED"]
 ZonalShiftStatusType = Literal["ACTIVE", "CANCELED", "EXPIRED"]
 ARCZonalShiftServiceName = Literal["arc-zonal-shift"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

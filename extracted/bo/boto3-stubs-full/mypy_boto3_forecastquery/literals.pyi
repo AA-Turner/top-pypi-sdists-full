@@ -25,6 +25,7 @@ __all__ = ("ForecastQueryServiceServiceName", "RegionName", "ResourceServiceName
 
 ForecastQueryServiceServiceName = Literal["forecastquery"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

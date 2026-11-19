@@ -61,7 +61,8 @@
 #                   need more than that.
 #
 # Secrets:
-#   (none — contracts are in the caller's repository)
+#   (none — contracts are in the caller's repository; hosted CI holds no Linear
+#   key, so the gate declares and passes none, OMN-23775)
 
 name: receipt-gate
 
@@ -1062,7 +1063,27 @@ jobs:
               find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) -exec cp {} "${apt_dir}/sources.list.d/" \; 2>/dev/null || true
               codename="$(. /etc/os-release && echo "${VERSION_CODENAME}")"
               if ! {
-                curl -fsSL --retry 3 https://www.postgresql.org/media/keys/ACCC4CF8.asc -o "${apt_dir}/pgdg.asc" &&
+                # OMN-24318: plain --retry skips error 55 (SSL EOF) and 56
+                # (connection reset), so one dropped connection failed the
+                # whole dod-verify job; retry every error, as ci.yml does for
+                # its release download.
+                #
+                # Retrying every error was not enough. The key came from
+                # www.postgresql.org, the website, while the packages below
+                # already come from apt.postgresql.org, the package mirror.
+                # Under concurrent CI load the website drops the TLS read and,
+                # with no bound on a single attempt, each try hung about 90
+                # seconds, so --retry-max-time 180 bought two attempts and no
+                # more: 182 seconds and exactly two curl 56 errors, measured on
+                # omninode_infra#2062 on 2026-11-16. Take the key from the
+                # mirror, bound every attempt so the budget buys many tries,
+                # and fall back to the website only when the mirror is
+                # unreachable. Both serve the same 4812-byte key, sha256
+                # 0144068502a1eddd2a0280ede10ef607d1ec592ce819940991203941564e8e76.
+                { curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 120 --connect-timeout 10 --max-time 30 https://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc -o "${apt_dir}/pgdg.asc" || curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 120 --connect-timeout 10 --max-time 30 https://www.postgresql.org/media/keys/ACCC4CF8.asc -o "${apt_dir}/pgdg.asc"; } &&
+                # A 200 carrying an error page would otherwise surface later as
+                # an apt unsigned-repository refusal.
+                grep -q 'BEGIN PGP PUBLIC KEY BLOCK' "${apt_dir}/pgdg.asc" &&
                 { { cat /etc/apt/sources.list 2>/dev/null || true; } &&
                   echo "deb [signed-by=${apt_dir}/pgdg.asc] https://apt.postgresql.org/pub/repos/apt ${codename}-pgdg main"
                 } > "${apt_dir}/sources.list" &&
@@ -1650,6 +1671,10 @@ jobs:
           export OMNI_HOME="$GITHUB_WORKSPACE/.dod-verify/head_home"
           head_tree="$OMNI_HOME/$REPO_SHORT"
           cd "$head_tree"
+          # OMN-25336: callers pin this gate and the omnimarket verifier separately, and a verifier
+          # older than OMN-23771 exits 2 on --full-contract-path. The flag is passed only when the
+          # installed verifier lists it in its own usage text, probed per ticket below, whatever version a
+          # caller installs.
           while IFS= read -r ticket; do
             contract="$head_tree/contracts/$ticket.yaml"
             if [ ! -f "$contract" ]; then
@@ -1666,8 +1691,22 @@ jobs:
             fi
             result="$RUNNER_TEMP/dod/head-$ticket.json"
             rc=0
+            # OMN-23775: the unscoped head contract rides beside the scoped copy, so the
+            # standard-form checks read the whole contract the scoped copy trims.
+            help_rc=0
+            verifier_help="$("$DOD_VERIFY_PY" -m omnimarket.nodes.node_dod_verify --help 2>&1)" || help_rc=$?
+            if [ "$help_rc" -ne 0 ]; then
+              echo "::warning::$ticket: the verifier's --help exited $help_rc; --full-contract-path is not passed"
+            fi
+            full_contract_args=()
+            if grep -q -e '--full-contract-path' <<< "$verifier_help"; then
+              full_contract_args=(--full-contract-path "$contract")
+            else
+              echo "::notice::$ticket: the installed verifier does not list --full-contract-path; verifying without it"
+            fi
             "$DOD_VERIFY_PY" -m omnimarket.nodes.node_dod_verify \
-              --ticket-id "$ticket" --contract-path "$scoped" --execution-audience hosted \
+              --ticket-id "$ticket" --contract-path "$scoped" ${full_contract_args[@]+"${full_contract_args[@]}"} \
+              --execution-audience hosted \
               --output-path "$RUNNER_TEMP/dod/head-$ticket.receipt.json" > "$result" || rc=$?
             # --output-path adds this non-JSON line after the pretty JSON document.
             sed -i '/^Receipt written to: /d' "$result"

@@ -19,6 +19,7 @@ import datetime
 import textwrap
 
 from osc_lib.command import command
+from oslo_serialization import jsonutils
 from oslo_utils import timeutils
 
 
@@ -51,6 +52,8 @@ class MistralFormatter(metaclass=abc.ABCMeta):
 
 
 class MistralLister(command.Lister, metaclass=abc.ABCMeta):
+    supports_all_projects = False
+
     @abc.abstractmethod
     def _get_format_function(self):
         raise NotImplementedError
@@ -94,6 +97,13 @@ class MistralLister(command.Lister, metaclass=abc.ABCMeta):
             action='append',
             help='Filters. Can be repeated.'
         )
+
+        if self.supports_all_projects:
+            parser.add_argument(
+                '--all-projects',
+                action='store_true',
+                help='List resources of all projects (admin only).'
+            )
 
         return parser
 
@@ -165,6 +175,26 @@ class MistralExecutionLister(MistralLister, metaclass=abc.ABCMeta):
             return f()
 
 
+def with_output(format_function):
+    def _format(instance=None):
+        columns, data = format_function(instance)
+
+        if instance is None:
+            return (
+                list(columns) + ['Output'],
+                tuple(tuple(row) + ('',) for row in data)
+            )
+
+        output = getattr(instance, 'output', None)
+
+        if output is not None and not isinstance(output, str):
+            output = jsonutils.dumps(output)
+
+        return columns, tuple(data) + (output or '<none>',)
+
+    return _format
+
+
 def cut(string, length=25):
     if string and len(string) > length:
         return "%s..." % string[:length]
@@ -190,6 +220,9 @@ def get_filters(parsed_args):
                 raise ValueError('Invalid filter: %s' % f)
 
             filters[arr[0]] = arr[1]
+
+    if getattr(parsed_args, 'all_projects', False):
+        filters['all_projects'] = True
 
     return filters
 

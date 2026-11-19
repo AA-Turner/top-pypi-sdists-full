@@ -221,13 +221,14 @@ def yolo_args(tokens: list[str], *extra: str) -> dict:
 def resolve_project(client: Platform, project: str | None) -> tuple[str, str]:
     """Return the owner and slug of an existing project, creating the private cloud-training default.
 
-    project= names the same Platform project as in local training: an existing username before the first slash selects
-    that workspace, and the remaining path joins with dashes.
+    project= names the same Platform project as in local training: a local path names it by its last folder, an existing
+    username before the first slash selects that workspace, and the remaining path joins with dashes.
     """
-    from ultralytics.utils.callbacks.platform import slugify
+    from ultralytics.utils.callbacks.platform import _get_project_name, slugify
 
     owner = client.account.summary()["username"]
-    prefix, slash, path = str(project).partition("/")
+    named = _get_project_name(types.SimpleNamespace(args=types.SimpleNamespace(project=project, name=None)))[0]
+    prefix, slash, path = named.partition("/")
     slug = slugify(path.replace("/", "-") if slash else prefix) if project else "cloud-training"
     if not slug:
         raise ValueError(f"project= has no project name: {project}")
@@ -486,6 +487,8 @@ def cloud_train(client: Platform, tokens: list[str]) -> int:
     cfg = get_cfg(DEFAULT_CFG_DICT | args | {"mode": "train"})  # validate local-only arguments before the paid job
     gpu_type, project, name = args.pop("gpu_type", NOT_GIVEN), args.pop("project", None), args.pop("name", None)
     watch, capture = args.pop("watch", False), args.pop("capture_dataset_version", NOT_GIVEN)
+    if gpu_type is not NOT_GIVEN:  # before any upload or resource that a rejected start would leave behind
+        parse({"gpu_type": str(gpu_type)}, {"gpu_type": describe(client.training.start)["gpu_type"]})
     for key in ("device", "exist_ok", "save_dir"):  # local-only arguments; the worker assigns its own GPU
         args.pop(key, None)
     if "cache" in args and not isinstance(args["cache"], str):
@@ -701,6 +704,9 @@ def cloud_export(client: Platform, tokens: list[str]) -> int:
     model, project, export_id = args.pop("model", "yolo26n.pt"), args.pop("project", None), args.pop("export_id", None)
     if export_id is not None and not model.startswith("ul://"):
         raise ValueError("export_id= requires the model URI printed by the original export")
+    gpu_type, fmt = args.pop("gpu_type", NOT_GIVEN), args.pop("format", "torchscript")
+    if gpu_type is not NOT_GIVEN:  # before any upload or clone that a rejected export would leave behind
+        parse({"gpu_type": str(gpu_type)}, {"gpu_type": describe(client.exports.create)["gpu_type"]})
     hosted = platform_model(client, model)
     directory = Path(args.get("save_dir") or project or (Path(model).parent if not hosted else "."))
     uri = hosted or upload_model(client, model, *resolve_project(client, project))
@@ -710,7 +716,6 @@ def cloud_export(client: Platform, tokens: list[str]) -> int:
         uri = f"ul://{clone['owner']}/{clone['project']}/{clone['model']}"
         print(f"Model: {uri}")
     owner, project, model = uri[5:].split("/")
-    gpu_type, fmt = args.pop("gpu_type", NOT_GIVEN), args.pop("format", "torchscript")
     ignored = args.keys() & {"save", "plots", "workers", "cache"}
     if ignored:
         print(f"Warning: cloud export ignores local options: {', '.join(sorted(ignored))}.", file=sys.stderr)

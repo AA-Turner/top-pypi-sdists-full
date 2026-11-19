@@ -75,27 +75,60 @@ databases:
             schema: public
           - object_type: TABLE
             objects:
+              - floor_integration_rows
+              - gate_store_reservations
+            privileges:
+              - DELETE
+              - SELECT
+            schema: omninode_internal
+          - object_type: TABLE
+            objects:
               - alert_channel_liveness_verdicts
               - automation_alarm_episodes
               - automation_liveness_state
               - automation_run_history
               - board_probe_results
+              - brief_quality_vs_outcome
               - ci_attempt_outcome
               - claude_agent_spans
               - claude_hook_events
+              - compaction_activations
+              - compaction_current_context
+              - compaction_receipts
               - consumer_flow_windows
               - delegate_skill_command_claims
+              - delegation_budget_readings
+              - delegation_lab_job_outbox
+              - delegation_lab_jobs
               - demo_readiness_latest
               - dod_verify_runs
+              - done_items
+              - floor_integration_rows
+              - gate_store_reservations
+              - gate_store_safety
+              - gate_store_state
+              - gate_store_steps
               - gateway_link_health
+              - goal_trace_events
+              - goal_traces
+              - host_disk_class
+              - host_disk_volume
               - lab_container_memory_window
               - lab_job_state
               - lab_job_transitions
               - lab_lane_health
               - lab_proof_receipts
+              - lane_drift_and_stalls
+              - ledger_line_citation
               - live_events
               - log_entries
+              - merge_override_open_findings
+              - merge_override_pending
+              - merge_override_receipts
+              - merge_override_verdicts
               - open_obligations
+              - orchestration_style_outcomes
+              - overlay_store
               - pr_landing_state
               - pr_landing_transitions
               - pr_state
@@ -107,11 +140,15 @@ databases:
               - savings_injection_signals
               - savings_validator_catch_signals
               - session_content
+              - subagent_waste
               - topic_activity
               - topic_produce_windows
               - work_events
+              - work_ledger_latest
               - work_ledger_rows
+              - work_ledger_seq_conflicts
               - work_ledger_state
+              - work_outcome_units
               - worktree_reconcile_hosts
             privileges:
               - INSERT
@@ -252,11 +289,18 @@ databases:
             schema: public
           - object_type: TABLE
             objects:
+              - agent_actions
+              - agent_detection_failures
+              - agent_execution_logs
               - agent_routing_decisions
+              - agent_status_events
+              - agent_transformation_events
               - capability_scores
+              - context_audit_events
               - context_roi_scores
               - delegation_budget_applied_events
               - delegation_budget_state
+              - delegation_capability_cells
               - delegation_dispositions
               - delegation_eval_item_verdicts
               - delegation_eval_items
@@ -267,20 +311,30 @@ databases:
               - delegation_routing_tenant_overlay
               - delegation_shadow_comparisons
               - dep_health_findings
+              - eval_item_scores
+              - eval_item_traces
+              - eval_run_closes
+              - eval_run_rates
+              - experiment_arm_results
               - hook_events
               - instruction_eval_aggregate_snapshots
               - llm_cost_aggregates
+              - local_alerts
               - local_environment
+              - local_identity
               - metering_summary
               - pattern_learning_artifacts
               - projection_delegation_inference_response_text
               - provider_quota_state
+              - router_performance_metrics
               - run_trace
               - savings_estimates
               - skill_execution_snapshots
+              - skill_executions
               - tenant_inference_credentials
               - usage_by_model_day
               - usage_by_model_day_calls
+              - view_seam_readings
             privileges:
               - INSERT
               - SELECT
@@ -289,6 +343,7 @@ databases:
           - object_type: TABLE
             objects:
               - projection_cost_savings_overview
+              - projection_delegation_daily
               - projection_delegation_model_routing
               - projection_delegation_quality_gate
               - projection_delegation_savings
@@ -371,7 +426,11 @@ databases:
             schema: public
           - object_type: TABLE
             objects:
+              - branch_deploy_state
+              - code_eval_trial_state
               - delegation_workflow_state
+              - floor_fill_state
+              - infra_routing_decisions
               - pr_landing_workflow_state
               - session_phase_state
             privileges:
@@ -438,5 +497,5 @@ source:
   profile_catalog_path: src/omnibase_infra/topology/application_database_profiles.yaml
   profile_catalog_sha256: 690ada1927fc31465fd1d80435e82c96394fa05d49bd433e30242ea014fa740f
   repository: OmniNode-ai/omnibase_infra
-  sha256: 01033034d38effe514b9511dc32318476e5f7bbd8e3f8470834e8ef41311c7fc
+  sha256: 704a1616be52cff1c0f63cfcef5d92bd5a3680a991de4a0316ad17e1bbd70ecc
 topology_instance: local

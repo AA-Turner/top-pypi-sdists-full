@@ -376,6 +376,8 @@ access_request:
   org_id: wildcard
 access_request_decision:
   org_id: wildcard
-# write: approve your own access request while on shift
+# write: approve your own access request while on shift.
+# tier is the level of access the request asks for: inspect, config or sensitive.
 staff_break_glass:
   org_id: wildcard
+  tier: wildcard

@@ -51,6 +51,7 @@ __all__ = (
     "ConfigureTagsForOrganizationResponseTypeDef",
     "ConfigureTagsRequestTypeDef",
     "ConfigureTagsResponseTypeDef",
+    "ConfigureTagsTagKeyTypeDef",
     "DateTimeRangeTypeDef",
     "DescribeAffectedAccountsForOrganizationRequestPaginateTypeDef",
     "DescribeAffectedAccountsForOrganizationRequestTypeDef",
@@ -161,12 +162,16 @@ class AffectedEntityTypeDef(TypedDict):
     statusCode: NotRequired[EntityStatusCodeType]
     resourceTags: NotRequired[dict[str, str]]
     accountTags: NotRequired[dict[str, str]]
-    tags: NotRequired[dict[str, str]]
     entityMetadata: NotRequired[dict[str, str]]
 
 class TagKeyForOrganizationTypeDef(TypedDict):
+    key: str
+    enabledForEventBridge: NotRequired[bool]
+
+class OrganizationTagKeyTypeDef(TypedDict):
     key: NotRequired[str]
     enabledForEventBridge: NotRequired[bool]
+    status: NotRequired[TagKeyStatusType]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -174,6 +179,10 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class ConfigureTagsTagKeyTypeDef(TypedDict):
+    key: str
+    enabledForEventBridge: NotRequired[bool]
 
 class ResourceTagKeyTypeDef(TypedDict):
     key: NotRequired[str]
@@ -279,11 +288,6 @@ class EventTypeDef(TypedDict):
 class ServiceLifecycleFilterTypeDef(TypedDict):
     service: NotRequired[str]
 
-class OrganizationTagKeyTypeDef(TypedDict):
-    key: NotRequired[str]
-    enabledForEventBridge: NotRequired[bool]
-    status: NotRequired[TagKeyStatusType]
-
 class DescribeTagsForOrganizationFilterTypeDef(TypedDict):
     tagTypes: NotRequired[Sequence[OrganizationTagTypeType]]
 
@@ -330,7 +334,7 @@ class ConfigureTagsForOrganizationRequestTypeDef(TypedDict):
     tagKeys: Sequence[TagKeyForOrganizationTypeDef]
 
 class ConfigureTagsForOrganizationResponseTypeDef(TypedDict):
-    configuredTagKeys: list[TagKeyForOrganizationTypeDef]
+    configuredTagKeys: list[OrganizationTagKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeAffectedAccountsForOrganizationResponseTypeDef(TypedDict):
@@ -347,6 +351,10 @@ class DescribeAffectedEntitiesResponseTypeDef(TypedDict):
 
 class DescribeHealthServiceStatusForOrganizationResponseTypeDef(TypedDict):
     healthServiceAccessStatusForOrganization: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeTagKeysForOrganizationResponseTypeDef(TypedDict):
+    keys: list[OrganizationTagKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTagsOnboardingStatusForOrganizationResponseTypeDef(TypedDict):
@@ -366,7 +374,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ConfigureTagsRequestTypeDef(TypedDict):
-    tagKeys: Sequence[ResourceTagKeyTypeDef]
+    tagKeys: Sequence[ConfigureTagsTagKeyTypeDef]
 
 class ConfigureTagsResponseTypeDef(TypedDict):
     configuredTagKeys: list[ResourceTagKeyTypeDef]
@@ -491,11 +499,6 @@ DescribeServiceLifecycleRequestTypeDef = TypedDict(
         "maxResults": NotRequired[int],
     },
 )
-
-class DescribeTagKeysForOrganizationResponseTypeDef(TypedDict):
-    keys: list[OrganizationTagKeyTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
 DescribeTagsForOrganizationRequestPaginateTypeDef = TypedDict(
     "DescribeTagsForOrganizationRequestPaginateTypeDef",
     {

@@ -13,7 +13,6 @@ import json
 import os
 import re
 import shlex
-import sys
 import tarfile
 import time
 import typing
@@ -24,35 +23,21 @@ from typing import (
     IO,
     TYPE_CHECKING,
     Any,
-    Callable,
-    List,
     Literal,
-    Mapping,
     NamedTuple,
-    Optional,
+    NotRequired,
+    ParamSpec,
+    TypedDict,
     TypeVar,
-    Union,
     cast,
     overload,
 )
+from collections.abc import Callable, Mapping
 from urllib import parse
 from urllib.parse import urlencode, urlparse
 from warnings import warn
 
 import click
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
-# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
-# they should both come from the same typing module.
-# https://peps.python.org/pep-0655/#usage-in-python-3-11
-if sys.version_info >= (3, 11):
-    from typing import NotRequired, TypedDict
-else:
-    from typing_extensions import NotRequired, TypedDict
 
 from . import connect_cloud, validation
 from .bundle import _default_title, _find_manifest_member
@@ -251,14 +236,14 @@ class ConnectCloudServer(AbstractRemoteServer):
     def __init__(
         self,
         account_name: str,
-        access_token: Optional[str] = None,
-        refresh_token: Optional[str] = None,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        url: Optional[str] = None,
-        server_name: Optional[str] = None,
-        account_id: Optional[str] = None,
-        oauth_client_id: Optional[str] = None,
+        access_token: str | None = None,
+        refresh_token: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        url: str | None = None,
+        server_name: str | None = None,
+        account_id: str | None = None,
+        oauth_client_id: str | None = None,
     ):
         # Accepts the bare "connect.posit.cloud" a user types for --server, the
         # same way ShinyappsServer accepts "shinyapps.io".
@@ -298,13 +283,13 @@ class RSConnectServer(AbstractRemoteServer):
     def __init__(
         self,
         url: str,
-        api_key: Optional[str],
+        api_key: str | None,
         insecure: bool = False,
-        ca_data: Optional[str | bytes] = None,
-        bootstrap_jwt: Optional[str] = None,
-        oauth_access_token: Optional[str] = None,
-        oauth_client_id: Optional[str] = None,
-        server_name: Optional[str] = None,
+        ca_data: str | bytes | None = None,
+        bootstrap_jwt: str | None = None,
+        oauth_access_token: str | None = None,
+        oauth_client_id: str | None = None,
+        server_name: str | None = None,
     ):
         super().__init__(url, "Posit Connect")
         self.api_key = api_key
@@ -331,10 +316,10 @@ class SPCSConnectServer(AbstractRemoteServer):
     def __init__(
         self,
         url: str,
-        api_key: Optional[str],
-        snowflake_connection_name: Optional[str],
+        api_key: str | None,
+        snowflake_connection_name: str | None,
         insecure: bool = False,
-        ca_data: Optional[str | bytes] = None,
+        ca_data: str | bytes | None = None,
     ):
         super().__init__(url, "Posit Connect (SPCS)")
         self.snowflake_connection_name = snowflake_connection_name
@@ -453,7 +438,7 @@ class SPCSConnectServer(AbstractRemoteServer):
             raise RSConnectException(f"Failed to exchange Snowflake token: {str(e)}") from e
 
 
-TargetableServer = typing.Union[ShinyappsServer, RSConnectServer, SPCSConnectServer, ConnectCloudServer]
+TargetableServer = ShinyappsServer | RSConnectServer | SPCSConnectServer | ConnectCloudServer
 
 
 class S3Server(AbstractRemoteServer):
@@ -472,7 +457,7 @@ class RSConnectClientDeployResult(TypedDict):
     title: str | None
 
 
-def server_supports_git_metadata(server_version: Optional[str]) -> bool:
+def server_supports_git_metadata(server_version: str | None) -> bool:
     """
     Check if the server version supports git metadata in bundle uploads.
 
@@ -502,7 +487,7 @@ _RENDERED_APP_MODES = {
 }
 
 
-def server_supports_draft_deploy(server_version: Optional[str]) -> bool:
+def server_supports_draft_deploy(server_version: str | None) -> bool:
     """
     Check if the server supports deploying a bundle as a draft and activating it
     separately, i.e. the ``activate`` field on the content deploy/build endpoints.
@@ -526,7 +511,7 @@ def server_supports_draft_deploy(server_version: Optional[str]) -> bool:
 
 
 class RSConnectClient(BearerTokenHTTPServer):
-    def __init__(self, server: Union[RSConnectServer, SPCSConnectServer], cookies: Optional[CookieJar] = None):
+    def __init__(self, server: RSConnectServer | SPCSConnectServer, cookies: CookieJar | None = None):
         if cookies is None:
             cookies = server.cookie_jar
         super().__init__(
@@ -596,16 +581,16 @@ class RSConnectClient(BearerTokenHTTPServer):
         )
 
     def me(self) -> UserRecord:
-        response = cast(Union[UserRecord, HTTPResponse], self.get("v1/user"))
+        response = cast(UserRecord | HTTPResponse, self.get("v1/user"))
         response = self._server.handle_bad_response(response)
         return response
 
     def bootstrap(self) -> BootstrapOutputDTO | HTTPResponse:
-        response = cast(Union[BootstrapOutputDTO, HTTPResponse], self.post("v1/bootstrap"))
+        response = cast(BootstrapOutputDTO | HTTPResponse, self.post("v1/bootstrap"))
         # Connect versions before 2024.05.0 only provide the experimental endpoint. The server version
         # is not exposed to unauthenticated requests, so fall back based on the 404 instead.
         if isinstance(response, HTTPResponse) and response.status == 404:
-            response = cast(Union[BootstrapOutputDTO, HTTPResponse], self.post("v1/experimental/bootstrap"))
+            response = cast(BootstrapOutputDTO | HTTPResponse, self.post("v1/experimental/bootstrap"))
         # TODO: The place where bootstrap() is called expects a JSON object if the response is successfule, and a
         # HTTPResponse if it is not; then it handles the error. This is different from the other methods, and probably
         # should be changed in the future. For this to work, we will _not_ call .handle_bad_response() here at present.
@@ -613,7 +598,7 @@ class RSConnectClient(BearerTokenHTTPServer):
         return response
 
     def server_settings(self) -> ServerSettings:
-        response = cast(Union[ServerSettings, HTTPResponse], self.get("server_settings"))
+        response = cast(ServerSettings | HTTPResponse, self.get("server_settings"))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -636,14 +621,14 @@ class RSConnectClient(BearerTokenHTTPServer):
         return self.server_settings().get("version", "")
 
     def python_settings(self) -> PyInfo:
-        response = cast(Union[PyInfo, HTTPResponse], self.get("v1/server_settings/python"))
+        response = cast(PyInfo | HTTPResponse, self.get("v1/server_settings/python"))
         response = self._server.handle_bad_response(response)
         return response
 
     def nodejs_settings(self) -> dict[str, Any]:
         """Return Node.js availability and publishability information."""
         response = self.get("v1/server_settings/nodejs")
-        return cast(typing.Dict[str, Any], self._server.handle_bad_response(response))
+        return cast(dict[str, Any], self._server.handle_bad_response(response))
 
     def add_environment_vars(self, content_guid: str, env_vars: list[tuple[str, str]]):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
@@ -652,7 +637,7 @@ class RSConnectClient(BearerTokenHTTPServer):
     def is_failed_response(self, response: HTTPResponse | JsonData) -> bool:
         return isinstance(response, HTTPResponse) and response.status is not None and response.status >= 500
 
-    def access_content(self, content_guid: str, bundle_id: Optional[str] = None) -> None:
+    def access_content(self, content_guid: str, bundle_id: str | None = None) -> None:
         method = "GET"
         base = dirname(self._url.path).rstrip("/")  # strip "__api__" and any trailing slash
         # Access a specific (e.g. draft, not-yet-activated) bundle's preview URL when a
@@ -689,23 +674,23 @@ class RSConnectClient(BearerTokenHTTPServer):
         response = self._server.handle_bad_response(response, is_httpresponse=True)
         return response
 
-    def content_list(self, filters: Optional[Mapping[str, JsonData]] = None) -> list[ContentItemV1]:
-        response = cast(Union[List[ContentItemV1], HTTPResponse], self.get("v1/content", query_params=filters))
+    def content_list(self, filters: Mapping[str, JsonData] | None = None) -> list[ContentItemV1]:
+        response = cast(list[ContentItemV1] | HTTPResponse, self.get("v1/content", query_params=filters))
         response = self._server.handle_bad_response(response)
         return response
 
     def content_get(self, content_guid: str) -> ContentItemV1:
-        response = cast(Union[ContentItemV1, HTTPResponse], self.get(f"v1/content/{content_guid}"))
+        response = cast(ContentItemV1 | HTTPResponse, self.get(f"v1/content/{content_guid}"))
         response = self._server.handle_bad_response(response)
         return response
 
     def content_create(self, name: str) -> ContentItemV1:
-        response = cast(Union[ContentItemV1, HTTPResponse], self.post("v1/content", body={"name": name}))
+        response = cast(ContentItemV1 | HTTPResponse, self.post("v1/content", body={"name": name}))
         response = self._server.handle_bad_response(response)
         return response
 
     def upload_bundle(
-        self, content_guid: str, tarball: typing.IO[bytes], metadata: Optional[dict[str, str]] = None
+        self, content_guid: str, tarball: typing.IO[bytes], metadata: dict[str, str] | None = None
     ) -> BundleMetadata:
         """
         Upload a bundle to the server.
@@ -724,24 +709,22 @@ class RSConnectClient(BearerTokenHTTPServer):
             }
             body, content_type = create_multipart_form_data(fields)
             response = cast(
-                Union[BundleMetadata, HTTPResponse],
+                BundleMetadata | HTTPResponse,
                 self.post(f"v1/content/{content_guid}/bundles", body=body, headers={"Content-Type": content_type}),
             )
         else:
             response = cast(
-                Union[BundleMetadata, HTTPResponse], self.post(f"v1/content/{content_guid}/bundles", body=tarball)
+                BundleMetadata | HTTPResponse, self.post(f"v1/content/{content_guid}/bundles", body=tarball)
             )
         response = self._server.handle_bad_response(response)
         return response
 
     def content_update(self, content_guid: str, updates: Mapping[str, str | None]) -> ContentItemV1:
-        response = cast(Union[ContentItemV1, HTTPResponse], self.patch(f"v1/content/{content_guid}", body=updates))
+        response = cast(ContentItemV1 | HTTPResponse, self.patch(f"v1/content/{content_guid}", body=updates))
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_build(
-        self, content_guid: str, bundle_id: Optional[str] = None, activate: bool = True
-    ) -> BuildOutputDTO:
+    def content_build(self, content_guid: str, bundle_id: str | None = None, activate: bool = True) -> BuildOutputDTO:
         body: dict[str, str | bool | None] = {"bundle_id": bundle_id}
         if not activate:
             # The default behavior is to activate the app after building.
@@ -749,15 +732,13 @@ class RSConnectClient(BearerTokenHTTPServer):
             # That way we can keep the API backwards compatible.
             body["activate"] = False
         response = cast(
-            Union[BuildOutputDTO, HTTPResponse],
+            BuildOutputDTO | HTTPResponse,
             self.post(f"v1/content/{content_guid}/build", body=body),
         )
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_deploy(
-        self, content_guid: str, bundle_id: Optional[str] = None, activate: bool = True
-    ) -> BuildOutputDTO:
+    def content_deploy(self, content_guid: str, bundle_id: str | None = None, activate: bool = True) -> BuildOutputDTO:
         body: dict[str, str | bool | None] = {"bundle_id": bundle_id}
         if not activate:
             # The default behavior is to activate the app after deploying.
@@ -765,13 +746,13 @@ class RSConnectClient(BearerTokenHTTPServer):
             # That way we can keep the API backwards compatible.
             body["activate"] = False
         response = cast(
-            Union[BuildOutputDTO, HTTPResponse],
+            BuildOutputDTO | HTTPResponse,
             self.post(f"v1/content/{content_guid}/deploy", body=body),
         )
         response = self._server.handle_bad_response(response)
         return response
 
-    def get_repository(self, content_guid: str) -> Optional[RepositoryInfo]:
+    def get_repository(self, content_guid: str) -> RepositoryInfo | None:
         """Get git repository configuration for a content item.
 
         :param content_guid: The GUID of the content item
@@ -809,7 +790,7 @@ class RSConnectClient(BearerTokenHTTPServer):
             "polling": polling,
         }
         response = cast(
-            Union[RepositoryInfo, HTTPResponse],
+            RepositoryInfo | HTTPResponse,
             self.put("v1/content/%s/repository" % content_guid, body=body),
         )
         response = self._server.handle_bad_response(response)
@@ -818,10 +799,10 @@ class RSConnectClient(BearerTokenHTTPServer):
     def update_repository(
         self,
         content_guid: str,
-        repository: Optional[str] = None,
-        branch: Optional[str] = None,
-        directory: Optional[str] = None,
-        polling: Optional[bool] = None,
+        repository: str | None = None,
+        branch: str | None = None,
+        directory: str | None = None,
+        polling: bool | None = None,
     ) -> RepositoryInfo:
         """Partially update git repository configuration for a content item.
 
@@ -845,7 +826,7 @@ class RSConnectClient(BearerTokenHTTPServer):
             body["polling"] = polling
 
         response = cast(
-            Union[RepositoryInfo, HTTPResponse],
+            RepositoryInfo | HTTPResponse,
             self.patch("v1/content/%s/repository" % content_guid, body=body),
         )
         response = self._server.handle_bad_response(response)
@@ -863,9 +844,9 @@ class RSConnectClient(BearerTokenHTTPServer):
     def create_bundle_from_repository(
         self,
         content_guid: str,
-        repository: Optional[str] = None,
-        ref: Optional[str] = None,
-        directory: Optional[str] = None,
+        repository: str | None = None,
+        ref: str | None = None,
+        directory: str | None = None,
     ) -> RepositoryBundleOutput:
         """Create a bundle from a git repository location.
 
@@ -888,7 +869,7 @@ class RSConnectClient(BearerTokenHTTPServer):
             body["directory"] = directory
 
         response = cast(
-            Union[RepositoryBundleOutput, HTTPResponse],
+            RepositoryBundleOutput | HTTPResponse,
             self.post("v1/content/%s/repository/bundle" % content_guid, body=body),
         )
         response = self._server.handle_bad_response(response)
@@ -896,13 +877,13 @@ class RSConnectClient(BearerTokenHTTPServer):
 
     def deploy_git(
         self,
-        app_id: Optional[str],
+        app_id: str | None,
         name: str,
         repository: str,
         branch: str,
         subdirectory: str,
-        title: Optional[str],
-        env_vars: Optional[dict[str, str]],
+        title: str | None,
+        env_vars: dict[str, str] | None,
         polling: bool = True,
         activate: bool = True,
     ) -> RSConnectClientDeployResult:
@@ -992,32 +973,32 @@ class RSConnectClient(BearerTokenHTTPServer):
         )
 
     def system_caches_runtime_list(self) -> list[ListEntryOutputDTO]:
-        response = cast(Union[List[ListEntryOutputDTO], HTTPResponse], self.get("v1/system/caches/runtime"))
+        response = cast(list[ListEntryOutputDTO] | HTTPResponse, self.get("v1/system/caches/runtime"))
         response = self._server.handle_bad_response(response)
         return response
 
     def system_caches_runtime_delete(self, target: DeleteInputDTO) -> DeleteOutputDTO:
-        response = cast(Union[DeleteOutputDTO, HTTPResponse], self.delete("v1/system/caches/runtime", body=target))
+        response = cast(DeleteOutputDTO | HTTPResponse, self.delete("v1/system/caches/runtime", body=target))
         response = self._server.handle_bad_response(response)
         return response
 
     def environment_list(self) -> list[EnvironmentV1]:
-        response = cast(Union[List[EnvironmentV1], HTTPResponse], self.get("v1/environments"))
+        response = cast(list[EnvironmentV1] | HTTPResponse, self.get("v1/environments"))
         response = self._server.handle_bad_response(response)
         return response
 
     def environment_get(self, guid: str) -> EnvironmentV1:
-        response = cast(Union[EnvironmentV1, HTTPResponse], self.get(f"v1/environments/{guid}"))
+        response = cast(EnvironmentV1 | HTTPResponse, self.get(f"v1/environments/{guid}"))
         response = self._server.handle_bad_response(response)
         return response
 
     def environment_create(self, body: EnvironmentCreateInput) -> EnvironmentV1:
-        response = cast(Union[EnvironmentV1, HTTPResponse], self.post("v1/environments", body=body))
+        response = cast(EnvironmentV1 | HTTPResponse, self.post("v1/environments", body=body))
         response = self._server.handle_bad_response(response)
         return response
 
     def environment_update(self, guid: str, body: EnvironmentUpdateInput) -> EnvironmentV1:
-        response = cast(Union[EnvironmentV1, HTTPResponse], self.put(f"v1/environments/{guid}", body=body))
+        response = cast(EnvironmentV1 | HTTPResponse, self.put(f"v1/environments/{guid}", body=body))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1027,7 +1008,7 @@ class RSConnectClient(BearerTokenHTTPServer):
 
     def environment_permission_list(self, env_guid: str) -> list[EnvironmentPermissionV1]:
         response = cast(
-            Union[List[EnvironmentPermissionV1], HTTPResponse],
+            list[EnvironmentPermissionV1] | HTTPResponse,
             self.get(f"v1/environments/{env_guid}/permissions"),
         )
         response = self._server.handle_bad_response(response)
@@ -1035,7 +1016,7 @@ class RSConnectClient(BearerTokenHTTPServer):
 
     def environment_permission_add(self, env_guid: str, body: EnvironmentPermissionInput) -> EnvironmentPermissionV1:
         response = cast(
-            Union[EnvironmentPermissionV1, HTTPResponse],
+            EnvironmentPermissionV1 | HTTPResponse,
             self.post(f"v1/environments/{env_guid}/permissions", body=body),
         )
         response = self._server.handle_bad_response(response)
@@ -1049,22 +1030,22 @@ class RSConnectClient(BearerTokenHTTPServer):
         self._server.handle_bad_response(response, is_httpresponse=True)
 
     def oauth_integration_list(self) -> list[OAuthIntegration]:
-        response = cast(Union[List[OAuthIntegration], HTTPResponse], self.get("v1/oauth/integrations"))
+        response = cast(list[OAuthIntegration] | HTTPResponse, self.get("v1/oauth/integrations"))
         response = self._server.handle_bad_response(response)
         return response
 
     def oauth_integration_get(self, guid: str) -> OAuthIntegration:
-        response = cast(Union[OAuthIntegration, HTTPResponse], self.get(f"v1/oauth/integrations/{guid}"))
+        response = cast(OAuthIntegration | HTTPResponse, self.get(f"v1/oauth/integrations/{guid}"))
         response = self._server.handle_bad_response(response)
         return response
 
     def oauth_integration_create(self, body: OAuthIntegrationInput) -> OAuthIntegration:
-        response = cast(Union[OAuthIntegration, HTTPResponse], self.post("v1/oauth/integrations", body=body))
+        response = cast(OAuthIntegration | HTTPResponse, self.post("v1/oauth/integrations", body=body))
         response = self._server.handle_bad_response(response)
         return response
 
     def oauth_integration_update(self, guid: str, body: OAuthIntegrationUpdate) -> OAuthIntegration:
-        response = cast(Union[OAuthIntegration, HTTPResponse], self.patch(f"v1/oauth/integrations/{guid}", body=body))
+        response = cast(OAuthIntegration | HTTPResponse, self.patch(f"v1/oauth/integrations/{guid}", body=body))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1073,20 +1054,20 @@ class RSConnectClient(BearerTokenHTTPServer):
         self._server.handle_bad_response(response, is_httpresponse=True)
 
     def oauth_template_list(self) -> list[OAuthTemplate]:
-        response = cast(Union[List[OAuthTemplate], HTTPResponse], self.get("v1/oauth/templates"))
+        response = cast(list[OAuthTemplate] | HTTPResponse, self.get("v1/oauth/templates"))
         response = self._server.handle_bad_response(response)
         return response
 
     def oauth_template_get(self, key: str) -> OAuthTemplate:
-        response = cast(Union[OAuthTemplate, HTTPResponse], self.get(f"v1/oauth/templates/{key}"))
+        response = cast(OAuthTemplate | HTTPResponse, self.get(f"v1/oauth/templates/{key}"))
         response = self._server.handle_bad_response(response)
         return response
 
     def task_get(
         self,
         task_id: str,
-        first: Optional[int] = None,
-        wait: Optional[int] = None,
+        first: int | None = None,
+        wait: int | None = None,
     ) -> TaskStatusV1:
         params = None
         if first is not None or wait is not None:
@@ -1095,7 +1076,7 @@ class RSConnectClient(BearerTokenHTTPServer):
                 params["first"] = first
             if wait is not None:
                 params["wait"] = wait
-        response = cast(Union[TaskStatusV1, HTTPResponse], self.get(f"v1/tasks/{task_id}", query_params=params))
+        response = cast(TaskStatusV1 | HTTPResponse, self.get(f"v1/tasks/{task_id}", query_params=params))
         response = self._server.handle_bad_response(response)
 
         # compatibility with rsconnect-jupyter
@@ -1106,14 +1087,14 @@ class RSConnectClient(BearerTokenHTTPServer):
 
     def deploy(
         self,
-        app_id: Optional[str],
-        app_name: Optional[str],
-        app_title: Optional[str],
+        app_id: str | None,
+        app_name: str | None,
+        app_title: str | None,
         title_is_default: bool,
         tarball: IO[bytes],
-        env_vars: Optional[dict[str, str]] = None,
+        env_vars: dict[str, str] | None = None,
         activate: bool = True,
-        metadata: Optional[dict[str, str]] = None,
+        metadata: dict[str, str] | None = None,
     ) -> RSConnectClientDeployResult:
         if app_id is None:
             if app_name is None:
@@ -1172,7 +1153,7 @@ class RSConnectClient(BearerTokenHTTPServer):
     def wait_for_task(
         self,
         task_id: str,
-        log_callback: Optional[Callable[[str], None]],
+        log_callback: Callable[[str], None] | None,
         abort_func: Callable[[], bool] = lambda: False,
         timeout: int = get_task_timeout(),
         poll_wait: int = 1,
@@ -1241,9 +1222,9 @@ class RecordTarget(NamedTuple):
 
     name: str
     # An account id or legacy name, resolved against Connect Cloud before deploy.
-    record_account: Optional[str]
+    record_account: str | None
     # The saved credential's account name, when the record key matches it.
-    saved_account: Optional[str]
+    saved_account: str | None
     # Reported only after the current options accept the inferred target.
     description: str
 
@@ -1294,42 +1275,42 @@ def _is_shinyapps_record(record: AppMetadata) -> bool:
 class RSConnectExecutor:
     def __init__(
         self,
-        ctx: Optional[click.Context] = None,
-        name: Optional[str] = None,
-        url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        snowflake_connection_name: Optional[str] = None,
+        ctx: click.Context | None = None,
+        name: str | None = None,
+        url: str | None = None,
+        api_key: str | None = None,
+        snowflake_connection_name: str | None = None,
         insecure: bool = False,
-        cacert: Optional[str] = None,
-        ca_data: Optional[str | bytes] = None,
-        cookies: Optional[CookieJar] = None,
-        account: Optional[str] = None,
-        token: Optional[str] = None,
-        secret: Optional[str] = None,
+        cacert: str | None = None,
+        ca_data: str | bytes | None = None,
+        cookies: CookieJar | None = None,
+        account: str | None = None,
+        token: str | None = None,
+        secret: str | None = None,
         timeout: int = 30,
-        logger: Optional[logging.Logger] = console_logger,
+        logger: logging.Logger | None = console_logger,
         *,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
         use_connect_cloud: bool = False,
-        path: Optional[str] = None,
-        server: Optional[str] = None,
-        exclude: Optional[tuple[str, ...]] = None,
-        new: Optional[bool] = None,
-        app_id: Optional[str] = None,
-        title: Optional[str] = None,
-        title_is_default: Optional[bool] = None,
-        visibility: Optional[str] = None,
-        disable_env_management: Optional[bool] = None,
-        env_vars: Optional[dict[str, str]] = None,
-        metadata: Optional[dict[str, str]] = None,
-        repository: Optional[str] = None,
-        branch: Optional[str] = None,
-        subdirectory: Optional[str] = None,
+        path: str | None = None,
+        server: str | None = None,
+        exclude: tuple[str, ...] | None = None,
+        new: bool | None = None,
+        app_id: str | None = None,
+        title: str | None = None,
+        title_is_default: bool | None = None,
+        visibility: str | None = None,
+        disable_env_management: bool | None = None,
+        env_vars: dict[str, str] | None = None,
+        metadata: dict[str, str] | None = None,
+        repository: str | None = None,
+        branch: str | None = None,
+        subdirectory: str | None = None,
         polling: bool = True,
-        quarto_inputs: Optional[List[str]] = None,
-        infer_target: Optional[bool] = None,
-        app_store: Optional[AppStore] = None,
+        quarto_inputs: list[str] | None = None,
+        infer_target: bool | None = None,
+        app_store: AppStore | None = None,
     ) -> None:
         self.remote_server: TargetableServer
         self.client: RSConnectClient | PositClient | ConnectCloudClient
@@ -1379,7 +1360,7 @@ class RSConnectExecutor:
         self.logger: logging.Logger | None = logger
         self.ctx = ctx
         # Connect Cloud account state carried from inference through validation.
-        self.record_account: Optional[str] = None
+        self.record_account: str | None = None
         self.record_account_named: bool = False
         self.setup_remote_server(
             ctx=ctx,
@@ -1408,27 +1389,27 @@ class RSConnectExecutor:
     def fromConnectServer(
         cls,
         connect_server: RSConnectServer,
-        ctx: Optional[click.Context] = None,
-        cookies: Optional[CookieJar] = None,
-        account: Optional[str] = None,
-        token: Optional[str] = None,
-        secret: Optional[str] = None,
+        ctx: click.Context | None = None,
+        cookies: CookieJar | None = None,
+        account: str | None = None,
+        token: str | None = None,
+        secret: str | None = None,
         timeout: int = 30,
-        logger: Optional[logging.Logger] = console_logger,
+        logger: logging.Logger | None = console_logger,
         *,
-        path: Optional[str] = None,
-        server: Optional[str] = None,
-        exclude: Optional[tuple[str, ...]] = None,
-        new: Optional[bool] = None,
-        app_id: Optional[str] = None,
-        title: Optional[str] = None,
-        visibility: Optional[str] = None,
-        disable_env_management: Optional[bool] = None,
-        env_vars: Optional[dict[str, str]] = None,
-        metadata: Optional[dict[str, str]] = None,
-        repository: Optional[str] = None,
-        branch: Optional[str] = None,
-        subdirectory: Optional[str] = None,
+        path: str | None = None,
+        server: str | None = None,
+        exclude: tuple[str, ...] | None = None,
+        new: bool | None = None,
+        app_id: str | None = None,
+        title: str | None = None,
+        visibility: str | None = None,
+        disable_env_management: bool | None = None,
+        env_vars: dict[str, str] | None = None,
+        metadata: dict[str, str] | None = None,
+        repository: str | None = None,
+        branch: str | None = None,
+        subdirectory: str | None = None,
         polling: bool = True,
     ):
         return cls(
@@ -1519,7 +1500,7 @@ class RSConnectExecutor:
 
     def _target_from_deployment_record(
         self, store: ServerStore
-    ) -> tuple[Optional[RecordTarget], Optional[RSConnectException]]:
+    ) -> tuple[RecordTarget | None, RSConnectException | None]:
         """Infer a target from the directory's sole deployment record.
 
         Returns either a target or the reason existing history cannot be used.
@@ -1588,19 +1569,19 @@ class RSConnectExecutor:
 
     def setup_remote_server(
         self,
-        ctx: Optional[click.Context],
-        name: Optional[str] = None,
-        url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        snowflake_connection_name: Optional[str] = None,
+        ctx: click.Context | None,
+        name: str | None = None,
+        url: str | None = None,
+        api_key: str | None = None,
+        snowflake_connection_name: str | None = None,
         insecure: bool = False,
-        cacert: Optional[str] = None,
-        ca_data: Optional[str | bytes] = None,
-        account_name: Optional[str] = None,
-        token: Optional[str] = None,
-        secret: Optional[str] = None,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
+        cacert: str | None = None,
+        ca_data: str | bytes | None = None,
+        account_name: str | None = None,
+        token: str | None = None,
+        secret: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
         use_connect_cloud: bool = False,
         infer_target: bool = False,
     ):
@@ -1963,7 +1944,7 @@ for shinyapps.io. See command help for further details."
                 "Pass -s/--server or -n/--name to deploy elsewhere." % inferred_description
             )
 
-    def setup_client(self, cookies: Optional[CookieJar] = None):
+    def setup_client(self, cookies: CookieJar | None = None):
         if isinstance(self.remote_server, RSConnectServer):
             self.client = RSConnectClient(self.remote_server, cookies)
         elif isinstance(self.remote_server, SPCSConnectServer):
@@ -2096,7 +2077,7 @@ for shinyapps.io. See command help for further details."
                 result = client.get_current_user()
                 result = server.handle_bad_response(result)
             except RSConnectException as exc:
-                raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
+                raise RSConnectException(f"Failed to verify with {server.remote_name} ({exc}).")
 
     @cls_logged("Making bundle ...")
     def make_bundle(
@@ -2115,7 +2096,7 @@ for shinyapps.io. See command help for further details."
 
         try:
             self.bundle = func(*args, **kwargs)
-        except IOError as error:
+        except OSError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
                 error.args[1],
@@ -2165,7 +2146,7 @@ for shinyapps.io. See command help for further details."
         finally:
             self.bundle.seek(position)
 
-    def python_version_for_connect_cloud(self) -> Optional[str]:
+    def python_version_for_connect_cloud(self) -> str | None:
         """The MAJOR.MINOR Python version to ask Connect Cloud for, or None.
 
         None means the request omits the field: a redeploy keeps the version already
@@ -2176,8 +2157,8 @@ for shinyapps.io. See command help for further details."
         environment: dict[str, Any] = manifest.get("environment") or {}
         requirement: dict[str, Any] = environment.get("python") or {}
         interpreter: dict[str, Any] = manifest.get("python") or {}
-        requires: Optional[str] = requirement.get("requires")
-        local_version: Optional[str] = interpreter.get("version")
+        requires: str | None = requirement.get("requires")
+        local_version: str | None = interpreter.get("version")
         return connect_cloud.resolve_python_version(requires, local_version)
 
     def primary_file_for_connect_cloud(self) -> str:
@@ -2478,7 +2459,7 @@ for shinyapps.io. See command help for further details."
             return "%s#%s" % (self.remote_server.url, account)
         return self.remote_server.url
 
-    def record_server_key_fallback(self) -> Optional[str]:
+    def record_server_key_fallback(self) -> str | None:
         """The name-keyed record location, for records written before an account id was
         known. Consulted on reads when the id-keyed lookup finds nothing; writes always
         use record_server_key, which migrates the record."""
@@ -2516,7 +2497,7 @@ for shinyapps.io. See command help for further details."
             ):
                 self.app_store.remove(fallback_key)
 
-    def migration_source_record(self, from_server: Optional[str] = None) -> Optional[AppMetadata]:
+    def migration_source_record(self, from_server: str | None = None) -> AppMetadata | None:
         """The deployment record being migrated away from, if there is one.
 
         Supplies the title and app mode for the new record, and is removed only
@@ -2564,7 +2545,7 @@ for shinyapps.io. See command help for further details."
     def migrate_to_connect_cloud(
         self,
         content_id: str,
-        from_server: Optional[str] = None,
+        from_server: str | None = None,
         overwrite: bool = False,
     ) -> AppMetadata:
         """Point this content's local deployment record at existing Posit Connect Cloud content.
@@ -2888,7 +2869,7 @@ for shinyapps.io. See command help for further details."
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
         return result
 
-    def verify_api_key(self, server: Optional[RSConnectServer] = None):
+    def verify_api_key(self, server: RSConnectServer | None = None):
         """
         Verify that an API Key may be used to authenticate with the given Posit Connect server.
         """
@@ -2995,7 +2976,7 @@ for shinyapps.io. See command help for further details."
             print("Dry run finished")
             return result, None
         else:
-            (_, task) = self.client.wait_for_task(result["task_id"], connect_logger.info, raise_on_error=False)
+            (_, task) = self.client.wait_for_task(result["task_id"], connect_logger.info)
             return result, task
 
 
@@ -3128,7 +3109,7 @@ class PositClient(HTTPServer):
     def get_extra_headers(self, url: str, method: str, body: str | bytes):
         canonical_request_method = method.upper()
         canonical_request_path = parse.urlparse(url).path
-        canonical_request_date = datetime.datetime.now(datetime.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
+        canonical_request_date = datetime.datetime.now(datetime.UTC).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
         # get request checksum
         md5 = hashlib.md5()
@@ -3151,7 +3132,7 @@ class PositClient(HTTPServer):
         }
 
     def get_application(self, application_id: str):
-        response = cast(Union[PositClientApp, HTTPResponse], self.get(f"/v1/applications/{application_id}"))
+        response = cast(PositClientApp | HTTPResponse, self.get(f"/v1/applications/{application_id}"))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -3169,18 +3150,18 @@ class PositClient(HTTPServer):
             "name": application_name,
             "template": "shiny",
         }
-        response = cast(Union[PositClientApp, HTTPResponse], self.post("/v1/applications/", body=application_data))
+        response = cast(PositClientApp | HTTPResponse, self.post("/v1/applications/", body=application_data))
         response = self._server.handle_bad_response(response)
         return response
 
     def get_accounts(self) -> PositClientAccountSearchResults:
-        response = cast(Union[PositClientAccountSearchResults, HTTPResponse], self.get("/v1/accounts/"))
+        response = cast(PositClientAccountSearchResults | HTTPResponse, self.get("/v1/accounts/"))
         response = self._server.handle_bad_response(response)
         return response
 
     def _get_applications_like_name_page(self, name: str, offset: int) -> PositClientAppSearchResults:
         response = cast(
-            Union[PositClientAppSearchResults, HTTPResponse],
+            PositClientAppSearchResults | HTTPResponse,
             self.get(f"/v1/applications?filter=name:like:{name}&offset={offset}&count=100&use_advanced_filters=true"),
         )
         response = self._server.handle_bad_response(response)
@@ -3195,7 +3176,7 @@ class PositClient(HTTPServer):
             "content_length": content_length,
             "checksum": checksum,
         }
-        response = cast(Union[PositClientBundle, HTTPResponse], self.post("/v1/bundles", body=bundle_data))
+        response = cast(PositClientBundle | HTTPResponse, self.post("/v1/bundles", body=bundle_data))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -3206,7 +3187,7 @@ class PositClient(HTTPServer):
 
     def deploy_application(self, bundle_id: str, app_id: str) -> PositClientDeployTask:
         response = cast(
-            Union[PositClientDeployTask, HTTPResponse],
+            PositClientDeployTask | HTTPResponse,
             self.post(f"/v1/applications/{app_id}/deploy", body={"bundle": bundle_id, "rebuild": False}),
         )
         response = self._server.handle_bad_response(response)
@@ -3214,7 +3195,7 @@ class PositClient(HTTPServer):
 
     def get_task(self, task_id: str) -> PositClientDeployTask:
         response = cast(
-            Union[PositClientDeployTask, HTTPResponse],
+            PositClientDeployTask | HTTPResponse,
             self.get(f"/v1/tasks/{task_id}", query_params={"legacy": "true"}),
         )
         response = self._server.handle_bad_response(response)
@@ -3222,7 +3203,7 @@ class PositClient(HTTPServer):
 
     def get_shinyapps_build_task(self, parent_task_id: str) -> PositClientShinyappsBuildTaskSearchResults:
         response = cast(
-            Union[PositClientShinyappsBuildTaskSearchResults, HTTPResponse],
+            PositClientShinyappsBuildTaskSearchResults | HTTPResponse,
             self.get(
                 "/v1/tasks",
                 query_params={
@@ -3314,7 +3295,7 @@ class ConnectCloudAccount(TypedDict):
     id: str
     name: str
     permissions: NotRequired[list[str]]
-    role: NotRequired[Optional[str]]
+    role: NotRequired[str | None]
     sso_enabled: NotRequired[bool]
 
 
@@ -3326,12 +3307,12 @@ class ConnectCloudAccountSearchResults(TypedDict):
 class ConnectCloudRevision(TypedDict):
     id: str
     content_id: NotRequired[str]
-    python_version: NotRequired[Optional[str]]
+    python_version: NotRequired[str | None]
     status: NotRequired[str]
     source_bundle_upload_url: NotRequired[str]
-    publish_result: NotRequired[Optional[str]]
-    publish_error_details: NotRequired[Optional[str]]
-    publish_log_channel: NotRequired[Optional[str]]
+    publish_result: NotRequired[str | None]
+    publish_error_details: NotRequired[str | None]
+    publish_log_channel: NotRequired[str | None]
 
 
 class ConnectCloudContent(TypedDict):
@@ -3339,8 +3320,8 @@ class ConnectCloudContent(TypedDict):
     account_id: NotRequired[str]
     title: NotRequired[str]
     state: NotRequired[str]
-    next_revision: NotRequired[Optional[ConnectCloudRevision]]
-    current_revision: NotRequired[Optional[ConnectCloudRevision]]
+    next_revision: NotRequired[ConnectCloudRevision | None]
+    current_revision: NotRequired[ConnectCloudRevision | None]
 
 
 class ConnectCloudLogEntry(TypedDict):
@@ -3497,7 +3478,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             parts.append("--client-id <id> --client-secret <secret>")
         return " ".join(parts)
 
-    def _persist_tokens(self, access_token: Optional[str], refresh_token: Optional[str]) -> None:
+    def _persist_tokens(self, access_token: str | None, refresh_token: str | None) -> None:
         """Write the tokens back to the saved credential, or clear them when both are None.
 
         Prefers the system keyring, falling back to the tokens' fields in
@@ -3574,7 +3555,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         offset = 0
         for _ in range(_CONNECT_CLOUD_MAX_ACCOUNT_PAGES):
             response = cast(
-                Union[ConnectCloudAccountSearchResults, HTTPResponse],
+                ConnectCloudAccountSearchResults | HTTPResponse,
                 self.get(
                     "/accounts",
                     query_params={
@@ -3679,7 +3660,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         return _CONNECT_CLOUD_PUBLISH_PERMISSION in permissions
 
     @staticmethod
-    def _sso_blocked_error(server: ConnectCloudServer, account: ConnectCloudAccount) -> Optional[RSConnectException]:
+    def _sso_blocked_error(server: ConnectCloudServer, account: ConnectCloudAccount) -> RSConnectException | None:
         """The error for client credentials that SSO keeps from publishing to this account, if that is
         why the account cannot be published to.
 
@@ -3702,7 +3683,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         )
 
     def get_content(self, content_id: str) -> ConnectCloudContent:
-        response = cast(Union[ConnectCloudContent, HTTPResponse], self.get(f"/contents/{content_id}"))
+        response = cast(ConnectCloudContent | HTTPResponse, self.get(f"/contents/{content_id}"))
         content = self._server.handle_bad_response(response)
         if content.get("state") == "deleted":
             # The API reports deleted content as a normal 200. Surface it the way
@@ -3720,9 +3701,9 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         content_type: str,
         app_mode: str,
         primary_file: str,
-        secrets: Optional[list[dict[str, str]]] = None,
-        access: Optional[str] = None,
-        python_version: Optional[str] = None,
+        secrets: list[dict[str, str]] | None = None,
+        access: str | None = None,
+        python_version: str | None = None,
     ) -> ConnectCloudContent:
         """Create content to upload a bundle into.
 
@@ -3749,7 +3730,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         }
         if access is not None:
             body["access"] = access
-        response = cast(Union[ConnectCloudContent, HTTPResponse], self.post("/contents", body=body))
+        response = cast(ConnectCloudContent | HTTPResponse, self.post("/contents", body=body))
         return self._server.handle_bad_response(response)
 
     def update_content(
@@ -3758,11 +3739,11 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         primary_file: str,
         app_mode: str,
         content_type: str,
-        secrets: Optional[list[dict[str, str]]] = None,
+        secrets: list[dict[str, str]] | None = None,
         new_bundle: bool = True,
-        title: Optional[str] = None,
-        access: Optional[str] = None,
-        python_version: Optional[str] = None,
+        title: str | None = None,
+        access: str | None = None,
+        python_version: str | None = None,
     ) -> ConnectCloudContent:
         """Update content, optionally minting a fresh revision to upload into.
 
@@ -3797,7 +3778,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             body["access"] = access
         query_params: dict[str, JsonData] = {"new_bundle": "true"} if new_bundle else {}
         response = cast(
-            Union[ConnectCloudContent, HTTPResponse],
+            ConnectCloudContent | HTTPResponse,
             self.patch(f"/contents/{content_id}", query_params=query_params, body=body),
         )
         return self._server.handle_bad_response(response)
@@ -3807,7 +3788,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         return self._server.handle_bad_response(response, is_httpresponse=True)
 
     def get_revision(self, revision_id: str) -> ConnectCloudRevision:
-        response = cast(Union[ConnectCloudRevision, HTTPResponse], self.get(f"/revisions/{revision_id}"))
+        response = cast(ConnectCloudRevision | HTTPResponse, self.get(f"/revisions/{revision_id}"))
         return self._server.handle_bad_response(response)
 
     def authorize_log_channel(self, channel: str) -> str:
@@ -3817,7 +3798,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             "resource_id": channel,
             "permission": "revision.logs:read",
         }
-        response = cast(Union[ConnectCloudAuthorization, HTTPResponse], self.post("/authorization", body=body))
+        response = cast(ConnectCloudAuthorization | HTTPResponse, self.post("/authorization", body=body))
         data = self._server.handle_bad_response(response)
         token = data.get("token")
         if not token:
@@ -3879,11 +3860,11 @@ class ShinyappsService:
 
     def prepare_deploy(
         self,
-        app_id: Optional[str],
+        app_id: str | None,
         app_name: str,
         bundle_size: int,
         bundle_hash: str,
-        visibility: Optional[str],
+        visibility: str | None,
     ):
         accounts = self._posit_client.get_accounts()
         accounts = self._server.handle_bad_response(accounts)
@@ -3937,7 +3918,7 @@ class ShinyappsService:
 
 
 class ConnectCloudDeployResult:
-    def __init__(self, content_id: str, revision_id: str, upload_url: Optional[str], app_url: str, title: str):
+    def __init__(self, content_id: str, revision_id: str, upload_url: str | None, app_url: str, title: str):
         self.content_id = content_id
         self.revision_id = revision_id
         self.upload_url = upload_url
@@ -3973,17 +3954,17 @@ class ConnectCloudService:
 
     def prepare_deploy(
         self,
-        app_id: Optional[str],
+        app_id: str | None,
         app_name: str,
         title: str,
         app_mode: AppMode,
         primary_file: str,
-        env_vars: Optional[dict[str, str]] = None,
+        env_vars: dict[str, str] | None = None,
         upload: bool = True,
         update_title: bool = False,
         app_id_is_explicit: bool = False,
-        visibility: Optional[str] = None,
-        python_version: Optional[str] = None,
+        visibility: str | None = None,
+        python_version: str | None = None,
     ) -> ConnectCloudDeployResult:
         """Create or fetch the content item and get a revision to upload into.
 
@@ -4010,7 +3991,7 @@ class ConnectCloudService:
         # replaces the whole collection, matching the R client.
         secrets = [{"name": name, "value": value} for name, value in env_vars.items()] if env_vars else None
 
-        content: Optional[ConnectCloudContent] = None
+        content: ConnectCloudContent | None = None
         if app_id:
             try:
                 content = self._client.get_content(app_id)
@@ -4097,7 +4078,7 @@ class ConnectCloudService:
         account = self._client.get_account_by_name(self._server.account_name)
         return account["id"]
 
-    def account_for_id(self, account_id: str) -> Optional[ConnectCloudAccount]:
+    def account_for_id(self, account_id: str) -> ConnectCloudAccount | None:
         """The account with this id, among those the caller has a role on.
 
         None means the account is not one of them, which for content the caller is
@@ -4108,7 +4089,7 @@ class ConnectCloudService:
                 return account
         return None
 
-    def account_name_for_id(self, account_id: str) -> Optional[str]:
+    def account_name_for_id(self, account_id: str) -> str | None:
         """The name of the account with this id, or None if the caller has no role on it."""
         account = self.account_for_id(account_id)
         return account["name"] if account else None
@@ -4123,13 +4104,13 @@ class ConnectCloudService:
         """
         return ConnectCloudClient._can_publish(account)
 
-    def sso_blocked_error(self, account: ConnectCloudAccount) -> Optional[RSConnectException]:
+    def sso_blocked_error(self, account: ConnectCloudAccount) -> RSConnectException | None:
         """The error get_account_by_name raises when SSO keeps client credentials from
         publishing to this account, or None when that is not why publishing is refused.
         """
         return ConnectCloudClient._sso_blocked_error(self._server, account)
 
-    def content_url(self, content_id: str, account_id: Optional[str]) -> str:
+    def content_url(self, content_id: str, account_id: str | None) -> str:
         """Build the browsable URL for a content item.
 
         The API returns only an account id, so the owning account has to be
@@ -4153,19 +4134,19 @@ class ConnectCloudService:
             raise RSConnectException("Posit Connect Cloud did not provide a bundle upload URL.")
         self._client.upload_bundle(result.upload_url, contents)
 
-    def do_deploy(self, result: ConnectCloudDeployResult, timeout: Optional[int] = None) -> None:
+    def do_deploy(self, result: ConnectCloudDeployResult, timeout: int | None = None) -> None:
         """Publish the uploaded revision and wait for it to finish."""
         self._client.publish(result.content_id)
         self.wait_for_publish(result.revision_id, timeout=timeout)
 
-    def wait_for_publish(self, revision_id: str, timeout: Optional[int] = None) -> ConnectCloudRevision:
+    def wait_for_publish(self, revision_id: str, timeout: int | None = None) -> ConnectCloudRevision:
         """Poll a revision until it reports a publish result.
 
         Unlike the R client this has a timeout, and tolerates states it does not
         recognize rather than failing on them.
         """
         deadline = None if timeout is None else time.time() + timeout
-        last_status: Optional[str] = None
+        last_status: str | None = None
 
         while True:
             revision = self._client.get_revision(revision_id)
@@ -4214,7 +4195,7 @@ class ConnectCloudService:
             timestamp = entry.get("timestamp")
             if timestamp:
                 # Connect Cloud reports microseconds since the epoch.
-                stamp = datetime.datetime.fromtimestamp(timestamp / 1e6, datetime.timezone.utc)
+                stamp = datetime.datetime.fromtimestamp(timestamp / 1e6, datetime.UTC)
                 logger.error("%s %s" % (stamp.isoformat(), message))
             else:
                 logger.error(message)
@@ -4240,7 +4221,7 @@ def verify_server(connect_server: RSConnectServer):
         raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
 
 
-def verify_api_key_response(client: RSConnectClient) -> Optional[UserRecord]:
+def verify_api_key_response(client: RSConnectClient) -> UserRecord | None:
     """
     Issue GET v1/user and interpret the response for the purpose of API key verification.
 
@@ -4286,7 +4267,7 @@ def verify_api_key(connect_server: RSConnectServer) -> str:
     return user["username"] if user else ""
 
 
-def get_python_info(connect_server: Union[RSConnectServer, SPCSConnectServer]):
+def get_python_info(connect_server: RSConnectServer | SPCSConnectServer):
     """
     Return information about versions of Python that are installed on the indicated
     Connect server.
@@ -4306,10 +4287,10 @@ def get_posit_app_info(server: PositServer, app_id: str):
 
 
 def emit_task_log(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     app_id: str,
     task_id: str,
-    log_callback: Optional[Callable[[str], None]],
+    log_callback: Callable[[str], None] | None,
     abort_func: Callable[[], bool] = lambda: False,
     timeout: int = get_task_timeout(),
     poll_wait: int = 1,

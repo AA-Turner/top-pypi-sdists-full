@@ -2392,6 +2392,7 @@ class LoginProfile(ServiceResource):
     user_name: str
     create_date: datetime
     password_reset_required: bool
+    max_signin_session_duration: int
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -2425,7 +2426,8 @@ class LoginProfile(ServiceResource):
 
     def update(self, **kwargs: Unpack[UpdateLoginProfileRequestLoginProfileUpdateTypeDef]) -> None:
         """
-        Changes the password for the specified IAM user.
+        Changes the password or the maximum sign-in session duration for the specified
+        IAM user.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/loginprofile/update.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/service_resource/#loginprofileupdate-method)
@@ -2703,6 +2705,7 @@ class Role(ServiceResource):
     assume_role_policy_document: PolicyDocumentTypeDef
     description: str
     max_session_duration: int
+    max_signin_session_duration: int
     permissions_boundary: AttachedPermissionsBoundaryTypeDef
     tags: list[TagTypeDef]
     role_last_used: RoleLastUsedTypeDef

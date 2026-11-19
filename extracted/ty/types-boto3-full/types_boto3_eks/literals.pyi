@@ -397,6 +397,7 @@ VersionStatusType = Literal["EXTENDED_SUPPORT", "STANDARD_SUPPORT", "UNSUPPORTED
 WarmPoolStateType = Literal["HIBERNATED", "RUNNING", "STOPPED"]
 EKSServiceName = Literal["eks"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

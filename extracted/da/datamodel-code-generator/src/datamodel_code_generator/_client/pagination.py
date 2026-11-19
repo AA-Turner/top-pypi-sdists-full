@@ -26,8 +26,8 @@ from datamodel_code_generator._runtime.client.retry import body_replay_safe
 from datamodel_code_generator._runtime.model_codecs.errors import ParameterEncodingError
 from datamodel_code_generator._runtime.model_codecs.media import media_kind
 from datamodel_code_generator._runtime.model_codecs.parameters import parameter_key, path_text
-from datamodel_code_generator._target_contract import GeneratedSymbolType, GenericType, UnionType, label
-from datamodel_code_generator._target_types import admits_none, container_slot, sole_present
+from datamodel_code_generator._target_contract import GenericType, UnionType, label
+from datamodel_code_generator._target_types import admits_none, container_slot
 from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
@@ -227,9 +227,8 @@ class _Pages(HelperPlanner):
 
         The positions of the package's security schemes, with the credential headers, are where no helper writes.
         """
-        super().__init__(protocols, plan, request)
+        super().__init__(protocols, plan, request, facts)
         self.secret_headers, self.secret_queries = secret_names(plan.security_schemes)
-        self.facts = facts
         self.codecs = codecs
 
     def _walk(self, value: TypeView, pointer: str) -> _Reached | Literal["absent", "unsupported"]:
@@ -254,7 +253,8 @@ class _Pages(HelperPlanner):
                     kind,
                     field.name,
                     none=admits_none(facts.plain(field.type))
-                    or (not field.required and not struct and not field.missing),
+                    or (not field.required and not struct and not field.missing)
+                    or field.annotation_null,
                     unset=struct and not field.required,
                     missing=field.missing,
                 )
@@ -271,7 +271,9 @@ class _Pages(HelperPlanner):
         if value is None or isinstance(reached := self._walk(value, pointer), str):
             return "absent" if pointer else None
         return (
-            self.facts.json_types(value) if (facts := _field_facts(reached)) is None else self.facts.field_types(facts)
+            self.facts.tables.json_kinds(value, "schema")
+            if (facts := _field_facts(reached)) is None
+            else self.facts.field_types(facts)
         )
 
     def reached(  # noqa: PLR0913, PLR0917
@@ -308,19 +310,9 @@ class _Pages(HelperPlanner):
 
         A root model also reads as its root, as the model of a schema that only refers to another one does.
         """
-        read = self.present(expected)
-        if (
-            isinstance(read, GeneratedSymbolType)
-            and self.facts.symbols[read.symbol].kind == "root"
-            and (root := self.facts.root(read.symbol)) is not None
-        ):
-            return read, self.present(root)
-        return (read,)
-
-    def present(self, value: TypeView) -> TypeView:
-        """Return a type without None, through its aliases."""
-        value = self.facts.plain(value)
-        return value if (member := sole_present(value)) is None else self.facts.plain(member)
+        read = self.facts.present(expected)
+        facts = self.facts.tables.wrapped(read)
+        return (read,) if facts is None else (read, self.facts.present(facts.type))
 
     def single(
         self, spec: OperationSpec, at: str, what: str
@@ -352,7 +344,7 @@ class _Pages(HelperPlanner):
         """
         if (expected := self.schema_type(reference, direction)) == "missing":
             message = missing_schema(helper, noun, reference)
-        elif value is None or expected is None or self.present(value) not in self.read_as(expected):
+        elif value is None or expected is None or self.facts.present(value) not in self.read_as(expected):
             message = f"The {noun} {stable_repr(reference.pointer)} of {stable_repr(helper.name)} is not {mismatch}"
         else:
             return None
@@ -465,7 +457,11 @@ class _Pages(HelperPlanner):
                     return _problem("E_CONFIG_VALUE", "config", at, message, spec)
                 types = frozenset({"array" if read["occurrence"] == "all" else "string"})
                 if what in _EVIDENCE:
-                    types = None if (use := uses[key]) is None or use.type is None else self.facts.json_types(use.type)
+                    types = (
+                        None
+                        if (use := uses[key]) is None or use.type is None
+                        else self.facts.tables.json_kinds(use.type, "schema")
+                    )
         return types
 
     def accepted(
@@ -823,18 +819,11 @@ def _page_use(successes: list[ResponseSpec]) -> TypeUseBinding | None:
     return None if len(successes) != 1 or successes[0].bodyless else successes[0].json_use
 
 
-def plan_pagination(
-    protocols: Protocols | None,
-    plan: ClientPlan,
-    facts: ModelFacts,
-    codecs: Container[TypeUseId],
-    request: TargetRequest,
-) -> tuple[tuple[PaginationSpec, ...], dict[str, list[Diagnostic]]]:
+def plan_pagination(pages: _Pages | None) -> tuple[tuple[PaginationSpec, ...], dict[str, list[Diagnostic]]]:
     """Plan every enabled pagination helper, returning the planned ones and each checked helper's problems.
 
-    Helpers of other kinds have planners of their own.
+    Helpers of other kinds have planners of their own, which share the checks of `pages`.
     """
-    if protocols is None:
+    if pages is None:
         return (), {}
-    pages = _Pages(protocols, plan, facts, codecs, request)
     return pages.each(("pagination",), pages.helper)

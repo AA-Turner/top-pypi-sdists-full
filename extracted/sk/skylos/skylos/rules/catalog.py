@@ -34,6 +34,10 @@ _RULES = (
         "SKY-U006", "Unused parameter", "dead_code", finding_type="review"
     ),
     RuleCatalogEntry(
+        "SKY-U007", "Unused TypeScript enum member", "dead_code", "LOW",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
         "SKY-UC001", "Unreachable Python code", "dead_code", finding_type="defect"
     ),
     RuleCatalogEntry(
@@ -223,6 +227,13 @@ _RULES = (
         finding_type="review",
     ),
     RuleCatalogEntry(
+        "SKY-SCA-NEW001",
+        "Dependency name is new or barely used on its registry",
+        "dependency",
+        "MEDIUM",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
         "SKY-SCA-UPG001",
         "Dependency upgrade adds install-time or import-time code",
         "dependency",
@@ -305,6 +316,18 @@ _RULES = (
         "Discarded async Array.map result",
         "quality",
         "HIGH",
+        finding_type="defect",
+    ),
+    RuleCatalogEntry(
+        "SKY-Q408", "Undeclared npm dependency", "quality", "MEDIUM",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-Q409", "Unlisted npm script binary", "quality", "MEDIUM",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-Q410", "Discarded local async result", "quality", "MEDIUM",
         finding_type="defect",
     ),
     RuleCatalogEntry("SKY-Q501", "God class", "quality", finding_type="advice"),
@@ -465,6 +488,22 @@ _RULES = (
         "quality",
         "LOW",
         finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-L044", "Test runs no project code", "quality", "LOW", finding_type="review"
+    ),
+    RuleCatalogEntry(
+        "SKY-L045",
+        "Test assertion always true",
+        "quality",
+        "LOW",
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-L046", "Test result never checked", "quality", "LOW", finding_type="review"
+    ),
+    RuleCatalogEntry(
+        "SKY-L047", "Duplicate test", "quality", "LOW", finding_type="review"
     ),
     RuleCatalogEntry(
         "SKY-P401", "Potential unbounded read", "quality", finding_type="advice"
@@ -1400,6 +1439,22 @@ _RULES = (
         finding_type="review",
     ),
     RuleCatalogEntry(
+        "SKY-D378",
+        "Incomplete path traversal defence",
+        "security",
+        "MEDIUM",
+        aliases=("weak path sanitizer", "dot-dot filter bypass"),
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D379",
+        "Catastrophic regex backtracking",
+        "security",
+        "MEDIUM",
+        aliases=("ReDoS", "regex denial of service"),
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
         "SKY-D510", "Prototype pollution", "security", "HIGH", finding_type="review"
     ),
     RuleCatalogEntry(
@@ -1944,6 +1999,8 @@ _SECURITY_RULE_CWES = {
     "SKY-D347": ("CWE-306",),
     "SKY-D348": ("CWE-377",),
     "SKY-D349": ("CWE-1336",),
+    "SKY-D378": ("CWE-22",),
+    "SKY-D379": ("CWE-1333",),
     "SKY-SC001": ("CWE-862",),
 }
 

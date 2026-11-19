@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 2.31.0
+Version: 2.31.1
 Summary: Rich MySQL terminal client with autocompletion, syntax highlighting, and dataframes
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
@@ -49,7 +49,7 @@ Requires-Dist: markupsafe~=3.0.4
 Requires-Dist: yaspin~=3.5.1
 Provides-Extra: llm
 Requires-Dist: llm~=0.37.1; extra == "llm"
-Requires-Dist: setuptools==84.*; extra == "llm"
+Requires-Dist: setuptools~=84.2.1; extra == "llm"
 Requires-Dist: pip~=26.3; extra == "llm"
 Provides-Extra: dataframe
 Requires-Dist: polars~=2.1.0; extra == "dataframe"
@@ -65,7 +65,9 @@ Requires-Dist: pexpect~=4.9.0; extra == "dev"
 Requires-Dist: pytest~=9.2.0; extra == "dev"
 Requires-Dist: pytest-cov~=7.1.0; extra == "dev"
 Requires-Dist: pytest-random-order~=1.2.0; extra == "dev"
-Requires-Dist: tox~=4.67.1; extra == "dev"
+Requires-Dist: tox~=4.67.13; extra == "dev"
+Requires-Dist: virtualenv~=21.14.9; extra == "dev"
+Requires-Dist: filelock~=4.2.1; extra == "dev"
 Requires-Dist: pdbpp~=0.12.1; extra == "dev"
 Requires-Dist: ruff~=0.17.3; extra == "dev"
 Dynamic: license-file

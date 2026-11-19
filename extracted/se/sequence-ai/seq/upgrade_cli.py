@@ -122,8 +122,8 @@ def _price_line(price: dict | None, kind: str) -> str | None:
     """The upgrade's price, before → after - None when it does not change. A policy's is one worker's an hour, its CPU
     and memory at the rates it is billed at; a benchmark's one machine's card and the CPU and memory it asks for, which
     an eval bills at least - more when its machines use more (the platform's plan prices the request alone).
-    WHY: libero-10's dry run said "$0.9849/h → $0.9849/h, one worker" - the same price, a word of policies, and none of
-    its eval machines' $1.13-1.16/h, their CPU and memory as used.
+    WHY: a benchmark's dry run once said "$1.00/h → $1.00/h, one worker" - the same price, a word of policies, and none
+    of its eval machines' higher price, their CPU and memory as used.
  
 """
     price = price or {}

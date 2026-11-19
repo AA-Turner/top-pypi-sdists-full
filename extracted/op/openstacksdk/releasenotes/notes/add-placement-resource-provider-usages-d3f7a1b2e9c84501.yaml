@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Add support for retrieving resource usages via the
-    ``fetch_resource_provider_usages`` method on the Placement proxy and
-    the ``fetch_usages`` method on the ``ResourceProvider`` resource class.

@@ -22,10 +22,10 @@ import logging
 from typing import Any
 from typing import TYPE_CHECKING
 
-from . import exceptions
+from oslo_service.backend import exceptions
 
 if TYPE_CHECKING:
-    from .base import BaseBackend
+    from oslo_service.backend.base import BaseBackend
 
 LOG = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ __all__ = [
     "BackendType",
     "register_backend_default_hook",
     "get_backend_type",
-    "get_backend"
+    "get_backend",
 ]
 
 
@@ -99,26 +99,38 @@ def init_backend(type_: BackendType) -> None:
         return  # already initialized with same value; no-op
 
     backend_name = type_.value
-    LOG.info(f"Loading backend: {backend_name}")
+    LOG.info("Loading backend: %s", backend_name)
+
+    module_name = f"oslo_service.backend._{backend_name}"
+    try:
+        module = importlib.import_module(module_name)
+    except ModuleNotFoundError as exc:
+        if exc.name == module_name:
+            LOG.error("Backend module %s not found.", module_name)
+            raise ValueError(f"Unknown backend: {backend_name!r}") from exc
+        if exc.name is None:
+            raise
+        raise ImportError(
+            f"Cannot initialize {backend_name!r} backend: "
+            f"required module {exc.name!r} is not installed. "
+            f"Install the dependencies for the {backend_name!r} backend."
+        ) from exc
 
     try:
-        module_name = f"oslo_service.backend._{backend_name}"
-        module = importlib.import_module(module_name)
         backend_class = getattr(module, f"{backend_name.capitalize()}Backend")
+    except AttributeError as exc:
+        LOG.error("Backend class not found in module %s.", module_name)
+        raise ImportError(
+            f"Backend class not found in module {module_name}"
+        ) from exc
 
-        new_backend: BaseBackend
-        _cached_backend = new_backend = backend_class()
+    new_backend: BaseBackend = backend_class()
+    new_components = new_backend.get_service_components()
 
-    except ModuleNotFoundError:
-        LOG.error(f"Backend module {module_name} not found.")
-        raise ValueError(f"Unknown backend: {backend_name!r}")
-    except AttributeError:
-        LOG.error(f"Backend class not found in module {module_name}.")
-        raise ImportError(f"Backend class not found in module {module_name}")
-
+    _cached_backend = new_backend
     _cached_backend_type = type_
-    _cached_components = new_backend.get_service_components()
-    LOG.info(f"Backend {type_.value!r} successfully loaded and cached.")
+    _cached_components = new_components
+    LOG.info("Backend %r successfully loaded and cached.", type_.value)
 
 
 def get_backend() -> BaseBackend:
@@ -130,11 +142,12 @@ def get_backend() -> BaseBackend:
         if _backend_hook is not None:
             try:
                 type_ = _backend_hook()
-                LOG.info(f"Backend hook selected: {type_.value}")
+                LOG.info("Backend hook selected: %s", type_.value)
             except Exception:
                 LOG.exception(
                     "Backend hook raised an exception."
-                    " Falling back to default.")
+                    " Falling back to default."
+                )
 
         init_backend(type_)
 

@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fixed an issue where importing openstacksdk changed the behavior of
-    ``yaml.load`` globally.

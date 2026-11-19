@@ -1,48 +1,48 @@
 Metadata-Version: 2.4
 Name: zope.sqlalchemy
-Version: 4.1
+Version: 4.2
 Summary: Minimal Zope/SQLAlchemy transaction integration
-Home-page: https://github.com/zopefoundation/zope.sqlalchemy
-Author: Laurence Rowe
-Author-email: laurence@lrowe.co.uk
-License: ZPL-2.1
-Keywords: zope zope3 sqlalchemy
+Author-email: Laurence Rowe <laurence@lrowe.co.uk>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Source, https://github.com/zopefoundation/zope.sqlalchemy
+Project-URL: Issues, https://github.com/zopefoundation/zope.sqlalchemy/issues
+Project-URL: Changelog, https://raw.githubusercontent.com/zopefoundation/zope.sqlalchemy/master/CHANGES.rst
+Keywords: zope,zope3,sqlalchemy
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pyramid
 Classifier: Framework :: Zope :: 3
 Classifier: Framework :: Zope :: 5
+Classifier: Framework :: Zope :: 6
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: packaging
-Requires-Dist: SQLAlchemy!=1.4.0,!=1.4.1,!=1.4.2,!=1.4.3,!=1.4.4,!=1.4.5,!=1.4.6,!=2.0.32,!=2.0.33,!=2.0.34,!=2.0.35,>=1.2
+Requires-Dist: SQLAlchemy!=2.0.32,!=2.0.33,!=2.0.34,!=2.0.35,>=1.4.7
 Requires-Dist: transaction>=1.6.0
 Requires-Dist: zope.interface>=3.6.0
 Provides-Extra: test
+Requires-Dist: packaging; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+
+|Build status|_
+
+.. |Build status| image:: https://github.com/zopefoundation/zope.sqlalchemy/actions/workflows/tests.yml/badge.svg
+.. _Build status: https://github.com/zopefoundation/zope.sqlalchemy/actions/workflows/tests.yml
+
+
+See src/zope/sqlalchemy/README.rst
 
 ***************
 zope.sqlalchemy
@@ -315,9 +315,21 @@ Development version
 
 `GIT version <https://github.com/zopefoundation/zope.sqlalchemy>`_
 
-
 Changes
 =======
+
+4.2 (2026-11-19)
+----------------
+
+* Add support for Python 3.15.
+
+* Drop support for Python 3.10.
+
+* Add support for SQLAlchemy 2.1.
+
+* Drop support for SQLAlchemy < 1.4.
+
+* Move package metadata from setup.py to pyproject.toml.
 
 4.1 (2025-11-25)
 ----------------

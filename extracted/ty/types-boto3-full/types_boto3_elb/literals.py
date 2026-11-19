@@ -44,6 +44,7 @@ InstanceDeregisteredWaiterName = Literal["instance_deregistered"]
 InstanceInServiceWaiterName = Literal["instance_in_service"]
 ElasticLoadBalancingServiceName = Literal["elb"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

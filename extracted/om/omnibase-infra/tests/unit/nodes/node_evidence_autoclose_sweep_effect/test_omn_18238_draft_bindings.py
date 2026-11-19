@@ -37,10 +37,10 @@ from uuid import uuid4
 
 import pytest
 
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
+from omnibase_core.nodes.node_done_write_receipt_gate_compute.handler_done_write_receipt_gate import (
     ac_binding_gap as _ac_binding_gap,
 )
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
+from omnibase_core.nodes.node_done_write_receipt_gate_compute.handler_done_write_receipt_gate import (
     declared_ac_bindings as _declared_ac_bindings,
 )
 from omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.handlers.handler_evidence_autoclose_sweep import (
@@ -320,7 +320,11 @@ def _dod_fake(receipt: dict[str, object]):
 
 def _request() -> ModelEvidenceAutocloseSweepRequest:
     return ModelEvidenceAutocloseSweepRequest(
-        correlation_id=uuid4(), evidence_repo=_OCC_REPO, lookback_hours=24, apply=True
+        demotion_window_hours=0,
+        correlation_id=uuid4(),
+        evidence_repo=_OCC_REPO,
+        lookback_hours=24,
+        apply=True,
     )
 
 

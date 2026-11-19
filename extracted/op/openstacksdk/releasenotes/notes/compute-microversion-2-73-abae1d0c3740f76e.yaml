@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add support for Compute API microversion 2.73, which allows admins to
-    specify a reason when locking a server.

@@ -14,15 +14,15 @@ export default [
   },
   {
     path: '/dbt-osmosis/docs',
-    component: ComponentCreator('/dbt-osmosis/docs', '5e2'),
+    component: ComponentCreator('/dbt-osmosis/docs', 'c28'),
     routes: [
       {
         path: '/dbt-osmosis/docs',
-        component: ComponentCreator('/dbt-osmosis/docs', '7ff'),
+        component: ComponentCreator('/dbt-osmosis/docs', 'e78'),
         routes: [
           {
             path: '/dbt-osmosis/docs',
-            component: ComponentCreator('/dbt-osmosis/docs', 'acc'),
+            component: ComponentCreator('/dbt-osmosis/docs', 'dc9'),
             routes: [
               {
                 path: '/dbt-osmosis/docs/explanation/',
@@ -75,6 +75,12 @@ export default [
               {
                 path: '/dbt-osmosis/docs/reference/',
                 component: ComponentCreator('/dbt-osmosis/docs/reference/', 'f8e'),
+                exact: true,
+                sidebar: "docs"
+              },
+              {
+                path: '/dbt-osmosis/docs/reference/artifacts',
+                component: ComponentCreator('/dbt-osmosis/docs/reference/artifacts', 'c71'),
                 exact: true,
                 sidebar: "docs"
               },

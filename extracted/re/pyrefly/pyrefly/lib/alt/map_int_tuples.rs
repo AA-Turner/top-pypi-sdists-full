@@ -15,6 +15,7 @@
 use pyrefly_types::callable::Param;
 use pyrefly_types::equality::TypeEq;
 use pyrefly_types::equality::TypeEqCtx;
+use pyrefly_types::known_class::KnownClass;
 use pyrefly_types::map_int_tuples::MapIntTuplesInterpretation;
 use pyrefly_types::map_int_tuples::TypeLambda;
 use pyrefly_types::map_int_tuples::map_int_tuples_mapper_binder;
@@ -23,8 +24,8 @@ use pyrefly_types::tuple::Tuple;
 use pyrefly_types::type_level_dsl::TypeLevelDslCall;
 use pyrefly_types::types::TParams;
 use pyrefly_types::types::Type;
+use pyrefly_util::display::DisplayWithCtx;
 use ruff_python_ast::Expr;
-use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
@@ -33,6 +34,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::answers_solver::TypeCheckOptions;
 use crate::alt::solve::Iterable;
 use crate::alt::solve::TypeFormContext;
+use crate::binding::binding::TypeLevelLambdaParameter;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -53,7 +55,7 @@ pub(crate) fn map_int_tuples_parameter_pattern(
     ty: &Type,
 ) -> Option<MapIntTuplesParameterPattern<'_>> {
     let ty = match ty {
-        Type::Unpack(inner) => inner.as_ref(),
+        Type::Unpack(inner, _) => inner.as_ref(),
         ty => ty,
     };
     let Type::TypeLevelDslCall(call) = ty else {
@@ -102,14 +104,21 @@ fn approximate_map_int_tuples_pattern_view(mut ty: Type) -> Type {
 }
 
 impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
-    pub(crate) fn resolve_map_int_tuples_mapper_parameter(&self, name: &Identifier) -> Type {
-        let binder = map_int_tuples_mapper_binder(self.module().name(), name);
+    pub(crate) fn resolve_map_int_tuples_mapper_parameter(
+        &self,
+        parameter: &TypeLevelLambdaParameter,
+    ) -> Type {
+        let binder = map_int_tuples_mapper_binder(
+            self.module().name(),
+            &parameter.identifier.id,
+            parameter.id.0,
+        );
         self.heap.mk_type_of(binder.to_type(self.heap))
     }
 
     /// Whether this class is the experimental `shape_extensions.MapIntTuples` operation.
     pub(crate) fn is_map_int_tuples_class(&self, cls: &Class) -> bool {
-        cls.has_toplevel_qname("shape_extensions", "MapIntTuples")
+        cls.is(KnownClass::ShapeExtensionsMapIntTuples)
     }
 
     /// Whether this type is the unsubscripted runtime shim for experimental `MapIntTuples`.
@@ -167,8 +176,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             return None;
         }
 
-        let name = parameter.name();
-        if !self.bindings().is_type_level_lambda_parameter(name) {
+        let Some(parameter) = self
+            .bindings()
+            .type_level_lambda_parameter(parameter.name())
+        else {
             self.error(
                 errors,
                 mapper.range(),
@@ -177,12 +188,16 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     .to_owned(),
             );
             return None;
-        }
+        };
         // A mapper is a type-level callable, so its body is its return position. This permits
         // shape-DSL calls in the body without making them legal in the enclosing annotation.
         let context = TypeFormContext::TypeLevelLambdaReturn(&type_form_context);
         Some(TypeLambda::new(
-            map_int_tuples_mapper_binder(self.module().name(), name),
+            map_int_tuples_mapper_binder(
+                self.module().name(),
+                &parameter.identifier.id,
+                parameter.id.0,
+            ),
             self.expr_untype(&lambda.body, context, errors),
         ))
     }
@@ -228,7 +243,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     ErrorKind::InvalidAnnotation,
                     format!(
                         "Source argument to `MapIntTuples` must be an `IntTuples` value, got `{}`",
-                        self.for_display(source_type)
+                        self.display(source_type)
                     ),
                 );
                 return fallback();
@@ -241,14 +256,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         if source_is_deferred {
             return Type::TypeLevelDslCall(Box::new(call));
         }
-        match call.evaluate() {
+        match call.evaluate(self) {
             Ok(mut mapped) => {
-                for error in mapped.finalize_type_level_dsl_at_boundary() {
+                for error in mapped.finalize_type_level_dsl_at_boundary(self) {
                     self.error(
                         errors,
                         mapper_range,
                         ErrorKind::InvalidAnnotation,
-                        error.to_string(),
+                        error.display_with(self).to_string(),
                     );
                 }
                 mapped
@@ -258,7 +273,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     errors,
                     source.range(),
                     ErrorKind::InvalidAnnotation,
-                    error.to_string(),
+                    error.display_with(self).to_string(),
                 );
                 fallback()
             }
@@ -289,7 +304,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         type_form_context: TypeFormContext<'_>,
     ) -> bool {
         type_form_context == TypeFormContext::ParameterArgsAnnotation
-            && matches!(ty, Type::Unpack(inner)
+            && matches!(ty, Type::Unpack(inner, _)
                 if matches!(inner.as_ref(), Type::TypeLevelDslCall(call)
                     if call.as_map_int_tuples().is_some()))
     }
@@ -304,11 +319,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         match type_form_context {
             TypeFormContext::ParameterAnnotation => self.make_map_int_tuples_parameter_pattern(ty),
             TypeFormContext::ParameterArgsAnnotation => {
-                let Type::Unpack(inner) = ty else {
+                let Type::Unpack(inner, kind) = ty else {
                     return ty;
                 };
                 self.heap
-                    .mk_unpack(self.make_map_int_tuples_parameter_pattern(*inner))
+                    .mk_unpack(self.make_map_int_tuples_parameter_pattern(*inner), kind)
             }
             _ => ty,
         }
@@ -320,7 +335,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     pub(crate) fn map_int_tuples_parameter_body_type(&self, ty: Type) -> Type {
         let (call, unpacked) = match &ty {
             Type::TypeLevelDslCall(call) => (call, false),
-            Type::Unpack(inner) => {
+            Type::Unpack(inner, _) => {
                 let Type::TypeLevelDslCall(call) = inner.as_ref() else {
                     return ty;
                 };
@@ -388,7 +403,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             .is_subset_eq(actual, &target, self.type_order(), None)
             .is_ok();
         let finished = self.finish_quantified(handle, false).is_ok();
-        let candidate = self.solver().expand(Type::Var(var));
+        let candidate = self.solver().expand(Type::Var(var), self);
         self.solver().restore_vars(snapshot);
         debug_assert!(
             !self.solver().var_is_quantified(var),
@@ -674,7 +689,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         members
                             .iter()
                             .cloned()
-                            .map(|ty| ty.promote_implicit_literals(self.stdlib))
+                            .map(|ty| ty.promote(self.stdlib))
                             .collect(),
                     );
                     (
@@ -736,8 +751,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 ErrorKind::BadArgumentType,
                 format!(
                     "Shapes `{}` recovered from this argument are not assignable to the `MapIntTuples` source `{}`",
-                    self.for_display(source),
-                    self.for_display(map_source.clone()),
+                    self.display(source),
+                    self.display(map_source.clone()),
                 ),
                 context,
             );

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rebound
-Version: 5.2.2
+Version: 5.2.3
 Summary: An open-source multi-purpose N-body code
 Author-email: Hanno Rein <hanno@hanno-rein.de>
 License-Expression: GPL-3.0-only
@@ -17,7 +17,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
 
-[![Version](https://img.shields.io/badge/rebound-v5.2.2-green.svg?style=flat)](https://rebound.hanno-rein.de)
+[![Version](https://img.shields.io/badge/rebound-v5.2.3-green.svg?style=flat)](https://rebound.hanno-rein.de)
 [![PyPI](https://badge.fury.io/py/rebound.svg)](https://badge.fury.io/py/rebound)
 [![GPL](https://img.shields.io/badge/license-GPL-green.svg?style=flat)](https://github.com/hannorein/rebound/blob/main/LICENSE)
 [![Docs](https://img.shields.io/badge/Documentation-green.svg?style=flat)](https://rebound.hanno-rein.de/)

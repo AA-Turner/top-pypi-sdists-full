@@ -1,15 +1,38 @@
+"""Estimation of bin widths and contour spacings for KDE computations"""
 import warnings
 
 import numpy as np
 from scipy.stats import skew
 
 
-class KernelDensityEstimationForEmtpyArrayWarning(UserWarning):
+class KernelDensityEstimationForEmptyArrayWarning(UserWarning):
     """Used when user attempts to compute KDE for an empty array"""
+
+
+def __getattr__(name):
+    """Provide deprecated aliases for renamed objects"""
+    if name == "KernelDensityEstimationForEmtpyArrayWarning":
+        warnings.warn("`KernelDensityEstimationForEmtpyArrayWarning` is "
+                      "deprecated; please use "
+                      "`KernelDensityEstimationForEmptyArrayWarning`",
+                      DeprecationWarning,
+                      stacklevel=2)
+        return KernelDensityEstimationForEmptyArrayWarning
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def bin_num_doane(a):
     """Compute number of bins based on Doane's formula
+
+    Parameters
+    ----------
+    a: 1d ndarray
+        Input data; nan and inf values are ignored
+
+    Returns
+    -------
+    num: int
+        Number of bins
 
     Notes
     -----
@@ -32,6 +55,16 @@ def bin_num_doane(a):
 
 def bin_width_doane(a):
     """Compute contour spacing based on Doane's formula
+
+    Parameters
+    ----------
+    a: 1d ndarray
+        Input data; nan and inf values are ignored
+
+    Returns
+    -------
+    width: float
+        Bin width (1 for empty input)
 
     References
     ----------
@@ -57,7 +90,7 @@ def bin_width_doane(a):
     else:
         warnings.warn(
             "KDE encountered an empty array",
-            KernelDensityEstimationForEmtpyArrayWarning,
+            KernelDensityEstimationForEmptyArrayWarning,
         )
         acc = 1
     return acc
@@ -65,6 +98,16 @@ def bin_width_doane(a):
 
 def bin_width_doane_div5(a):
     """Compute contour spacing based on Doane's formula divided by five
+
+    Parameters
+    ----------
+    a: 1d ndarray
+        Input data; nan and inf values are ignored
+
+    Returns
+    -------
+    width: float
+        Bin width
 
     See Also
     --------
@@ -80,12 +123,22 @@ def bin_width_percentile(a):
     The spacing then computes to the difference between those
     two percentiles divided by 23.
 
+    Parameters
+    ----------
+    a: 1d ndarray
+        Input data; nan and inf values are ignored
+
+    Returns
+    -------
+    width: float
+        Bin width (1 for empty input)
+
     Notes
     -----
     The Freedman–Diaconis rule uses the interquartile range and
     normalizes to the third root of len(a). Such things do not
     work very well for RT-DC data, because len(a) is huge. Here
-    we use just the top and bottom 10th percentiles with a fixed
+    we use just the 10th and the 90th percentiles with a fixed
     normalization.
     """
     bad = np.isnan(a) | np.isinf(a)
@@ -93,7 +146,7 @@ def bin_width_percentile(a):
     if not data.size:
         warnings.warn(
             "KDE encountered an empty array",
-            KernelDensityEstimationForEmtpyArrayWarning,
+            KernelDensityEstimationForEmptyArrayWarning,
         )
         acc = 1
     else:

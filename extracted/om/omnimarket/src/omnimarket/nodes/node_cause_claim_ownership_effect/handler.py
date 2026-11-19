@@ -373,6 +373,10 @@ def emit_near_misses(
     from omnimarket.nodes.node_exception_queue_effect import handler as exceptions
     from omnimarket.nodes.node_exception_queue_effect import models as exception_models
 
+    from .container.container_cause_claim_ownership_effect import (
+        build_handler_exception_emit,
+    )
+
     claims = live_cause_claims(
         qs, Path(request.registry_root), request.now, request.ledger
     )
@@ -404,7 +408,7 @@ def emit_near_misses(
                     raise ValueError(
                         "plugin_repo is not set; supply the repos overlay's plugin_source"
                     )
-                done = exceptions.HandlerExceptionEmit().handle(
+                done = build_handler_exception_emit().handle(
                     exception_models.ModelExceptionEmitRequest(
                         state_dir=request.exception_dir or exceptions.state_dir(),
                         row=row,
@@ -492,6 +496,23 @@ def load_queue_status(path: Path) -> Any:
     return module
 
 
+def landing_open_records(
+    watcher_state: Mapping[str, Any] | None,
+) -> dict[str, dict[str, Any]]:
+    """Return the open PRs the tick's repo-status verdict counts: OPEN, not a draft, not held-excluded.
+
+    A shared red's members are the PRs it judged (OMN-19998).
+    """
+    return {
+        key: rec
+        for key, rec in ((watcher_state or {}).get("prs") or {}).items()
+        if isinstance(rec, dict)
+        and (rec.get("facts") or {}).get("state") == "OPEN"
+        and not (rec.get("facts") or {}).get("draft")
+        and rec.get("cls") != "held-excluded"
+    }
+
+
 class HandlerCauseClaimOwnership:
     """Turn the tick's MISSING repo-status line of a shared red a live cause CLAIM owns into a NOTE naming the lane.
 
@@ -518,11 +539,7 @@ class HandlerCauseClaimOwnership:
             if not request.registry_root:
                 raise RuntimeError("ONEX_REGISTRY_ROOT is not set")
             qs = load_queue_status(request.queue_status)
-            records = {
-                k: v
-                for k, v in ((request.watcher_state or {}).get("prs") or {}).items()
-                if isinstance(v, dict) and (v.get("facts") or {}).get("state") == "OPEN"
-            }
+            records = landing_open_records(request.watcher_state)
             local = types.SimpleNamespace(
                 open_records=lambda: records, raw=request.watcher_state
             )

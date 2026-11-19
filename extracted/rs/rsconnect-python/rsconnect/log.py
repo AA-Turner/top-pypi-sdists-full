@@ -8,13 +8,8 @@ import json
 import logging
 import sys
 from functools import partial, wraps
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Protocol, TypeVar
-
-if sys.version_info >= (3, 10):
-    from typing import Concatenate, ParamSpec
-else:
-    from typing_extensions import Concatenate, ParamSpec
-
+from typing import TYPE_CHECKING, Any, Concatenate, Literal, ParamSpec, Protocol, TypeVar
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from collections.abc import MutableMapping
@@ -31,7 +26,7 @@ VERBOSE = int((logging.INFO + logging.DEBUG) / 2)
 logging.addLevelName(VERBOSE, "VERBOSE")
 
 
-class LogOutputFormat(object):
+class LogOutputFormat:
     TEXT = "text"
     JSON = "json"
     DEFAULT = TEXT
@@ -48,7 +43,7 @@ class JsonLogFormatter(logging.Formatter):
     @param str datefmt: Key: strftime format string
     """
 
-    def __init__(self, fmt_dict: Optional[dict[str, str]] = None, datefmt: str = _DATE_FORMAT):
+    def __init__(self, fmt_dict: dict[str, str] | None = None, datefmt: str = _DATE_FORMAT):
         self.fmt_dict = (
             fmt_dict if fmt_dict is not None else {"timestamp": "asctime", "level": "levelname", "message": "message"}
         )
@@ -94,18 +89,12 @@ class JsonLogFormatter(logging.Formatter):
         return json.dumps(message_dict, default=str)
 
 
-# This is a workaround for LoggerAdapter not being generic in Python<=3.10.
-# See also:
-# https://github.com/python/typeshed/issues/7855#issuecomment-1128857842
-if sys.version_info >= (3, 11):
-    _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
-else:
-    _LoggerAdapter = logging.LoggerAdapter
+_LoggerAdapter = logging.LoggerAdapter[logging.Logger]
 
 
 class RSLogger(_LoggerAdapter):
     def __init__(self):
-        super(RSLogger, self).__init__(logging.getLogger("rsconnect"), {})
+        super().__init__(logging.getLogger("rsconnect"), {})
         self._in_feedback = False
         self._have_feedback_output = False
         self._log_format = LogOutputFormat.DEFAULT
@@ -135,7 +124,7 @@ class RSLogger(_LoggerAdapter):
                 h.setFormatter(logging.Formatter("[%(levelname)s] %(asctime)s %(message)s", datefmt=_DATE_FORMAT))
 
     def process(self, msg: str, kwargs: MutableMapping[str, Any]):
-        msg, kwargs = super(RSLogger, self).process(msg, kwargs)
+        msg, kwargs = super().process(msg, kwargs)
         if self._in_feedback and self.is_debugging():
             if not self._have_feedback_output:
                 print()
@@ -211,7 +200,7 @@ def logged(logger: logging.Logger, label: str):
             try:
                 result = f(*args, **kw)
             except Exception as exc:
-                logger.error(" \t[ERROR]: {}\n".format(str(exc)))
+                logger.error(f" \t[ERROR]: {str(exc)}\n")
                 raise
             logger.debug(" \t[OK]\n")
             return result

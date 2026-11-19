@@ -210,6 +210,7 @@ VectorDistanceFunctionType = Literal["COSINE", "DOT_PRODUCT", "EUCLIDEAN"]
 WitnessStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
 DynamoDBServiceName = Literal["dynamodb"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

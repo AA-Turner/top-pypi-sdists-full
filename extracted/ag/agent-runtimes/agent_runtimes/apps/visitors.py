@@ -362,8 +362,15 @@ def forget_turns() -> None:
     TURNS.forget()
 
 
-def admit_turn(visitor: str, started_at: str, *, now: Optional[float] = None) -> str:
-    """Why a visitor's next turn is refused, or ``""`` — and the turn is then taken."""
+def admit_turn(
+    visitor: str, started_at: str, *, now: Optional[float] = None, take: bool = True
+) -> str:
+    """Why a visitor's next turn is refused, or ``""`` — and the turn is then taken.
+
+    ``take``: false for a run that only carries what the page's tools
+    answered (`page_tools`): the session's minutes are checked, no turn is
+    taken.
+    """
     minutes = session_minutes()
     started = datetime.fromisoformat(started_at)
     if started.tzinfo is None:
@@ -374,6 +381,8 @@ def admit_turn(visitor: str, started_at: str, *, now: Optional[float] = None) ->
             f"This conversation without an account has had its {minutes} minutes: "
             "start a new one, or sign in to keep going."
         )
+    if not take:
+        return ""
     taken, limit = TURNS.take(visitor)
     if not taken:
         return (
@@ -713,6 +722,9 @@ async def ensure_address_agent(app_key: str) -> str:
             "deployment_uid": str(deployment.get("uid") or ""),
             "version": int(deployment.get("version") or 0),
             "visitor_app": app_key,
+            # Whose deployment it is, as ai-agents said it: a demo of the
+            # account that keeps the demo books reaches them (`battle_books`).
+            "owner_uid": str(deployment.get("account_uid") or ""),
         }
         held = (agent_routes._agentspecs.get(name) or {}).get("app_instance") or {}
         if held and all(held.get(key) == value for key, value in instance.items()):

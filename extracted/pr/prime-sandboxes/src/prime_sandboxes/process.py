@@ -5,16 +5,22 @@ import contextlib
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
-from typing import Literal
+from typing import Literal, cast
 
 from connectrpc.client import ConnectClient
+from connectrpc.code import Code
 from connectrpc.errors import ConnectError
 from google.protobuf.message import Message
 from pyqwest import HTTPTransport
 
 from ._connectrpc import raise_if_cancelled
 from .core import APIError
-from .rpc_command_session import is_recoverable_stream_fault, parse_command_session_start_event
+from .exceptions import ProcessOutputLostError
+from .rpc_command_session import (
+    _CommandSessionStartResponseLike,
+    is_recoverable_stream_fault,
+    parse_command_session_start_event,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +36,10 @@ _STREAM_RECONNECT_RESET_SECONDS = 120
 
 _WriteStdin = Callable[[bytes], Awaitable[None]]
 _SendSignal = Callable[[Literal["terminate", "kill"]], Awaitable[None]]
-# The argument is whether a StartEvent has been observed yet; the callee picks
-# between retrying Start (create-or-attach) and Connect-ing to the session.
-_Reconnect = Callable[[bool], AsyncIterator[Message]]
+_ReleaseTransport = Callable[[], None]
+# Arguments are whether Start was observed and the last queued output sequence;
+# the callee retries Start (create-or-attach) or resumes the existing session.
+_Reconnect = Callable[[bool, int], AsyncIterator[Message]]
 
 
 class _AsyncProcessStream(AsyncIterator[bytes]):
@@ -85,16 +92,28 @@ class AsyncSandboxProcess:
         send_signal: _SendSignal,
         transport: HTTPTransport | None = None,
         reconnect: _Reconnect | None = None,
+        release_transport: _ReleaseTransport | None = None,
+        session_uuid: str | None = None,
     ) -> None:
         self.stdout = _AsyncProcessStream()
         self.stderr = _AsyncProcessStream()
         self._stream_client = stream_client
         self._stream = stream
         self._transport = transport
+        self._release_transport = release_transport
         self._write_stdin = write_stdin
         self._send_process_signal = send_signal
         self._reconnect = reconnect
+        self.session_uuid = session_uuid
+        """The sandboxd session of this process, for another client to attach to it
+        (``AsyncSandboxClient.attach_process``)."""
+        self._detaching = False
         self._remote_exited = False
+        self._output_sequence = 0
+        self._output_replay: bool | None = None
+        self._interrupted = False
+        self._observed_pid: int | None = None
+        self._output_recovery_failed = False
         self._signals_sent: set[Literal["terminate", "kill"]] = set()
         self._closed = False
         self._close_lock = asyncio.Lock()
@@ -118,11 +137,28 @@ class AsyncSandboxProcess:
         send_signal: _SendSignal,
         transport: HTTPTransport | None = None,
         reconnect: _Reconnect | None = None,
+        release_transport: _ReleaseTransport | None = None,
+        session_uuid: str | None = None,
+        attached: bool = False,
     ) -> "AsyncSandboxProcess":
-        process = cls(stream_client, stream, write_stdin, send_signal, transport, reconnect)
+        """``attached`` streams a process that outlives this handle (``attach_process``):
+        a failed or cancelled attach detaches from it instead of stopping it."""
+        process = cls(
+            stream_client,
+            stream,
+            write_stdin,
+            send_signal,
+            transport,
+            reconnect,
+            release_transport,
+            session_uuid,
+        )
         try:
             await asyncio.shield(process._started)
         except asyncio.CancelledError:
+            if attached:
+                await process.detach()
+                raise
             # The Start RPC may already have created the remote process even if
             # its first event has not reached us. Briefly retain the stream so a
             # reported PID can be signalled instead of leaking on cancellation.
@@ -131,7 +167,7 @@ class AsyncSandboxProcess:
             await process.aclose()
             raise
         except BaseException:
-            await process.aclose()
+            await (process.detach() if attached else process.aclose())
             raise
         return process
 
@@ -187,7 +223,9 @@ class AsyncSandboxProcess:
                 and not self._started.cancelled()
                 and self._started.exception() is None
             )
-            if started and not self._remote_exited:
+            if (
+                started or self._observed_pid is not None or self._output_recovery_failed
+            ) and not self._remote_exited:
                 if "kill" in self._signals_sent:
                     await self._wait_for_exit_event()
                 else:
@@ -221,7 +259,30 @@ class AsyncSandboxProcess:
             await self._close_transport()
             self._closed = True
 
+    async def detach(self) -> None:
+        """Release this handle's stream and transport and leave the process running,
+        for a client to attach to it later (``AsyncSandboxClient.attach_process``).
+        Unlike ``aclose()``, it sends no signal."""
+        async with self._close_lock:
+            if self._closed:
+                return
+            # The cancelled stream surfaces as a dropped stream, which the pump would
+            # otherwise re-attach.
+            self._detaching = True
+            if not self._pump_task.done():
+                self._pump_task.cancel()
+            with contextlib.suppress(BaseException):
+                await self._pump_task
+            if not self._exit.done():
+                self._exit.set_exception(APIError("Process detached before its exit was observed"))
+            await self._stream_client.close()
+            await self._close_transport()
+            self._closed = True
+
     async def _close_transport(self) -> None:
+        release, self._release_transport = self._release_transport, None
+        if release is not None:
+            release()
         transport, self._transport = self._transport, None
         if transport is not None:
             with contextlib.suppress(Exception):
@@ -243,9 +304,14 @@ class AsyncSandboxProcess:
 
     def _can_reconnect(self, reconnects: int, error: BaseException | None) -> bool:
         """Whether the stream fault is recoverable and reconnect budget remains."""
-        if self._reconnect is None or self._remote_exited or reconnects >= _STREAM_MAX_RECONNECTS:
+        if (
+            self._reconnect is None
+            or self._remote_exited
+            or self._detaching
+            or reconnects >= _STREAM_MAX_RECONNECTS
+        ):
             return False
-        return is_recoverable_stream_fault(error)
+        return not isinstance(error, ProcessOutputLostError) and is_recoverable_stream_fault(error)
 
     async def _aclose_stream(self) -> None:
         close = getattr(self._stream, "aclose", None)
@@ -270,11 +336,41 @@ class AsyncSandboxProcess:
         )
         await self._aclose_stream()
         await asyncio.sleep(delay)
-        # Re-attachment — a retried Start before the pid was seen, Connect after —
-        # never replays output emitted while detached. Both arms re-announce the
-        # StartEvent and replay the retained EndEvent of a session that exited
-        # within sandboxd's retention window, so a missed exit is still observed.
-        self._stream = reconnect(self._started.done())
+        self._stream = reconnect(self._started.done(), self._output_sequence)
+
+    def _accept_output_event(self, response: Message) -> bool:
+        """Validate replay metadata before exposing any bytes or a successful exit."""
+        event = cast(_CommandSessionStartResponseLike, response).event
+        kind = event.WhichOneof("event")
+        if kind == "start":
+            pid = int(event.start.pid)
+            if self._observed_pid is not None and self._observed_pid != pid:
+                raise ProcessOutputLostError("Process identity changed while reconnecting")
+            self._observed_pid = pid
+            supported = event.start.output_replay
+            if (self._interrupted or self._output_replay is True) and not supported:
+                raise ProcessOutputLostError(
+                    "Process stream interrupted, but sandboxd does not support output replay; "
+                    "complete output cannot be guaranteed"
+                )
+            self._output_replay = supported
+        elif kind == "data" and self._output_replay:
+            sequence = event.data.sequence
+            if sequence == 0 or sequence > self._output_sequence + 1:
+                raise ProcessOutputLostError(
+                    f"Process output gap: expected sequence {self._output_sequence + 1}, "
+                    f"received {sequence}"
+                )
+            if sequence <= self._output_sequence:
+                return False
+            self._output_sequence = sequence
+        elif kind == "end" and self._output_replay:
+            if event.end.output_sequence != self._output_sequence:
+                raise ProcessOutputLostError(
+                    f"Process exited with missing output: received sequence "
+                    f"{self._output_sequence}, final sequence {event.end.output_sequence}"
+                )
+        return True
 
     async def _pump(self) -> None:
         ended = False
@@ -285,6 +381,8 @@ class AsyncSandboxProcess:
                 error: BaseException | None = None
                 try:
                     async for response in self._stream:
+                        if not self._accept_output_event(response):
+                            continue
                         event = parse_command_session_start_event(response)
                         if event is None:
                             continue
@@ -292,18 +390,18 @@ class AsyncSandboxProcess:
                         if kind == "start":
                             # A re-attached stream re-announces the pid; keep the first.
                             if not self._started.done():
-                                self._started.set_result(value)
+                                self._started.set_result(cast(int, value))
                         elif kind == "stdout":
-                            self.stdout.feed(value)
+                            self.stdout.feed(cast(bytes, value))
                         elif kind == "stderr":
-                            self.stderr.feed(value)
+                            self.stderr.feed(cast(bytes, value))
                         elif kind == "end":
                             ended = True
                             self._remote_exited = True
                             if not self._started.done():
                                 raise APIError("Process ended before reporting its PID")
                             if not self._exit.done():
-                                self._exit.set_result(value)
+                                self._exit.set_result(cast(int, value))
                             break
                 except asyncio.CancelledError:
                     raise
@@ -322,6 +420,12 @@ class AsyncSandboxProcess:
                         raise error
                     raise APIError("Process stream ended without an exit event")
 
+                self._interrupted = True
+                if self._output_replay is False:
+                    raise ProcessOutputLostError(
+                        "Process stream interrupted, but sandboxd does not support output replay; "
+                        "complete output cannot be guaranteed"
+                    ) from error
                 reconnects += 1
                 last_reconnect = time.monotonic()
                 await self._reconnect_stream(reconnects, error)
@@ -329,11 +433,22 @@ class AsyncSandboxProcess:
             raise
         except BaseException as error:
             raise_if_cancelled(error)
-            if isinstance(error, ConnectError):
+            if isinstance(error, ConnectError) and error.code in (
+                Code.OUT_OF_RANGE,
+                Code.DATA_LOSS,
+            ):
+                error = ProcessOutputLostError(
+                    f"Process output replay unavailable: {error.message}"
+                )
+            elif isinstance(error, ConnectError):
                 error = APIError(f"process stream RPC failed ({error.code.value}): {error.message}")
+            # Replay can fail before the first PID is delivered. The session
+            # may still be running remotely, so aclose must signal it by UUID.
+            if isinstance(error, ProcessOutputLostError):
+                self._output_recovery_failed = True
             if not self._started.done():
                 self._started.set_exception(error)
-            elif not self._exit.done():
+            if not self._exit.done():
                 self._exit.set_exception(error)
                 self.stdout.fail(error)
                 self.stderr.fail(error)

@@ -72,6 +72,7 @@ SafetyLeverStatusInputType = Literal["disengaged", "engaged"]
 SafetyLeverStatusType = Literal["disengaged", "engaged", "engaging"]
 FISServiceName = Literal["fis"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

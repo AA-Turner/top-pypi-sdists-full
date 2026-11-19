@@ -108,7 +108,7 @@ def core_reinstall_hint() -> str:
 # "zoom.stealth"). A stock build carries neither in any.
 # validate_release.py requires 4/4 before publishing; the runtime tolerates a
 # drop to 2/4 so a partial juggler restructure cannot brick every user at once.
-# The paths are the same in both layouts: inside omni.ja (win, macOS) and loose
+# The paths are the same in both layouts: inside omni.ja (win) and loose
 # under the tree root (linux), which is why one tuple serves both.
 JUGGLER_ENTRIES = (
     "modules/juggler/protocol/PageHandler.js",
@@ -127,7 +127,6 @@ JUGGLER_MIN_MARKED = 2
 DEFAULT_ENTRY_REL = {
     "win32": "firefox.exe",
     "linux": "firefox",
-    "darwin": "Firefox.app/Contents/MacOS/firefox",
 }
 
 
@@ -453,7 +452,7 @@ class EngineIdentity:
     juggler_present: bool
     marked_entries: int
     notes: Tuple[str, ...]
-    # "omni.ja" (win/macOS packaged tree), "loose" (the Linux archives, which
+    # "omni.ja" (win packaged tree), "loose" (the Linux archives, which
     # ship modules/juggler/ unpacked and no omni.ja), or "none".
     juggler_layout: str = "none"
 
@@ -461,16 +460,11 @@ class EngineIdentity:
 def resource_root(entry: "str | os.PathLike[str]") -> Path:
     """Directory holding application.ini / platform.ini / omni.ja for `entry`.
 
-    Flat next to the executable on win32 and linux; Contents/Resources on
-    darwin (browser/installer/Makefile.in sets RESPATH to the Resources dir
-    only for cocoa). Derived from the executable we were handed, so it works
-    for an arbitrary binary_path= tree, not just our cache layout.
+    Flat next to the executable on win32 and linux. Derived from the executable
+    we were handed, so it works for an arbitrary binary_path= tree, not just
+    our cache layout.
     """
-    p = Path(entry)
-    parent = p.parent
-    if parent.name == "MacOS" and (parent.parent / "Resources").is_dir():
-        return parent.parent / "Resources"
-    return parent
+    return Path(entry).parent
 
 
 def _parse_ini(path: Path) -> Dict[str, Dict[str, str]]:
@@ -504,8 +498,6 @@ def _platform_key_for_entry(entry: Path) -> Optional[str]:
     p = Path(entry)
     if p.suffix.lower() == ".exe":
         return "win32"
-    if p.parent.name == "MacOS" and p.parent.parent.name == "Contents":
-        return "darwin"
     if p.name == "firefox":
         return "linux"
     return None
@@ -514,7 +506,7 @@ def _platform_key_for_entry(entry: Path) -> Optional[str]:
 def _read_juggler_provenance(root: Path) -> Tuple[str, bool, int, list]:
     """(layout, juggler_present, marked_entries, notes) for a tree.
 
-    Two shipped layouts, one marker semantic. Windows and macOS pack the juggler
+    Two shipped layouts, one marker semantic. Windows packs the juggler
     into omni.ja; the Linux archives ship it loose under the tree root and carry
     no omni.ja at all. Either way the answer is "how many of the four known
     entries carry a stealth marker", and no absence is ever a pass.

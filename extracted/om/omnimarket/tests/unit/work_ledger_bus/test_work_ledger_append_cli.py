@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import pytest
 from click.testing import CliRunner
-from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
+from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
 
 from omnimarket.delegated_test_loop import lane_bus
 from omnimarket.delegated_test_loop.lab_run_bus import ProtocolLabRunBus
@@ -374,10 +374,11 @@ def test_broker_attributed_cli_request_round_trips_through_host_and_local_append
     assert receipt["status"] == "accepted"
     assert receipt["principal"] == "operator"
     assert receipt["ledger_lines"] == [2]
-    assert (
-        ledger.read_text()
-        == "# Ledger\n" + rows.replace(" | req=", " | principal=operator | req=") + "\n"
+    # The append host stamps the requesting host's bus cell after the request cell (OMN-24205).
+    stamped = rows.replace(" | req=", " | principal=operator | req=").replace(
+        f" | req={request_id} | ", f" | req={request_id} | via=bus:test-host | "
     )
+    assert ledger.read_text() == "# Ledger\n" + stamped + "\n"
     before = ledger.read_bytes()
     second = CliRunner().invoke(work_ledger_group, argv, input=rows)
     assert second.exit_code == 0, second.output
@@ -525,8 +526,14 @@ def test_serve_resolves_writer_list_and_optional_operator(
     monkeypatch.delenv("ONEX_WORK_LEDGER_OPERATOR_PRINCIPAL")
     identities: list[tuple[tuple[str, ...], str | None]] = []
 
-    def handler(*args: object, **kwargs: object) -> HandlerWorkLedgerAppendEffect:
-        identities.append((kwargs["writer_principals"], kwargs["operator_principal"]))
+    def handler(
+        runner: object,
+        ledger: Path,
+        host_name: str,
+        writer_principals: tuple[str, ...],
+        operator_principal: str | None,
+    ) -> HandlerWorkLedgerAppendEffect:
+        identities.append((writer_principals, operator_principal))
         return HandlerWorkLedgerAppendEffect()
 
     class UnavailableBus:
@@ -539,7 +546,7 @@ def test_serve_resolves_writer_list_and_optional_operator(
     def unavailable(**kwargs: object) -> UnavailableBus:
         return UnavailableBus()
 
-    monkeypatch.setattr(cli, "HandlerWorkLedgerAppendEffect", handler)
+    monkeypatch.setattr(cli, "local_serve_handler", handler)
     monkeypatch.setattr(cli, "open_lab_run_bus", unavailable)
     result = CliRunner().invoke(
         work_ledger_group,
@@ -556,3 +563,76 @@ def test_serve_resolves_writer_list_and_optional_operator(
     )
     assert result.exit_code == 69, result.output
     assert identities == [(expected, None)]
+
+
+def test_append_retry_of_a_pending_row_keeps_its_first_request_id(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """OMN-20275: exit 75 leaves the row unanswered; the retry mints a new id and stamp, the serve sees the first."""
+    sent: list[ModelWorkLedgerAppendRequest] = []
+    answers = iter(["pending", "accepted", "accepted"])
+
+    @contextlib.asynccontextmanager
+    async def open_bus(**_: object) -> AsyncIterator[ProtocolLabRunBus]:
+        yield EventBusInmemory(environment="local", group="cli-test")
+
+    class Caller:
+        def __init__(self, bus: ProtocolLabRunBus, *, principal: str) -> None:
+            pass
+
+        async def append(
+            self, request: ModelWorkLedgerAppendRequest, *, timeout_s: float
+        ) -> ModelWorkLedgerAppendReceipt:
+            sent.append(request)
+            status = next(answers)
+            if status == "pending":
+                raise TimeoutError
+            return ModelWorkLedgerAppendReceipt(
+                request_id=request.request_id,
+                status=EnumWorkLedgerAppendStatus(status),
+                exit_code=0,
+                message="",
+                ledger_lines=[12],
+                ledger_host="ledger",
+                duration_ms=10,
+            )
+
+        async def stop(self) -> None:
+            pass
+
+    monkeypatch.setattr(cli, "open_lab_run_bus", open_bus)
+    monkeypatch.setattr(cli, "bound_lane_principal", lambda: "lane-principal")
+    monkeypatch.setattr(cli, "WorkLedgerAppendCaller", Caller)
+
+    def invoke(stamp: str) -> tuple[int, dict[str, object]]:
+        request_id = uuid4()
+        result = CliRunner().invoke(
+            cli.work_ledger_group,
+            [
+                "append",
+                "--bus-lane",
+                "declared",
+                "--lane",
+                "writer",
+                "--host",
+                "lab-host",
+                "--request-id",
+                str(request_id),
+                "--omnibase-path",
+                str(tmp_path),
+                "--kafka-bootstrap",
+                "broker",
+            ],
+            input=f"{stamp} | STATUS | lane=writer | req={request_id} | same words\n",
+        )
+        return result.exit_code, json.loads(result.stdout)
+
+    first_code, first = invoke("2026-10-01T12:00:00Z")
+    retry_code, retry = invoke("2026-10-01T12:01:40Z")
+    assert (first_code, retry_code) == (75, 0)
+    assert retry["request_id"] == first["request_id"] == str(sent[0].request_id)
+    assert sent[1].request_id == sent[0].request_id
+    assert sent[1].rows == sent[0].rows
+    # Answered: the same words later are a new row under a new id.
+    _, later = invoke("2026-10-01T12:05:00Z")
+    assert later["request_id"] != first["request_id"]

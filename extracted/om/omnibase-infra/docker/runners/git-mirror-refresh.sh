@@ -44,7 +44,6 @@ MIRROR_REPOS=(
     omniclaude
     omniweb
     omnimemory
-    omnibase_compat
     knowledge_base
     # OMN-20597: about 99% of self-hosted checkout minutes on 2026-10-04/05
     # (2,048 of ~2,075 over 17 h, 551 checkouts, p50 158 s, max 1831 s) were
@@ -94,7 +93,7 @@ apply_mirror_serving_config() {
 # WHY THIS IS HERE AND NOT IN A RUNBOOK. The clone branch below sets
 # `gc.auto 0` with the comment "`git gc` is run explicitly by the runbook",
 # and the runbook it defers to -- docs/runbooks/c2-git-mirror-egress-rollout.md,
-# also the `Documentation=` target of omninode-git-mirror-daemon.service --
+# which the git-mirror units' Documentation= lines named until OMN-21288 --
 # has never existed in this repository. So nothing has ever repacked these
 # mirrors, and "the runbook does it" read as coverage for four months. A
 # mechanism that exists only as a reference to an absent document is not a

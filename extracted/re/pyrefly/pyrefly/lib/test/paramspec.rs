@@ -487,7 +487,7 @@ def run[**P, R](func: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
             return func(*args,**kwargs)
         except Exception:
             pass
-    raise NotImplementedError("Unreachable")
+    raise NotImplementedError("Unreachable")  # E: This code is unreachable
   "#,
 );
 
@@ -850,7 +850,7 @@ call_with_retry(compute, 3, 1, "hello")
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/3054
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3054
 testcase!(
     test_paramspec_forwarding_with_overloaded_callable,
     r#"
@@ -948,7 +948,7 @@ service(nonexistent_param=True)  # E: Missing argument `service_name` # E: Unexp
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/3706
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3706
 testcase!(
     test_concatenate_paramspec_tail_in_class_targ,
     r#"
@@ -962,7 +962,7 @@ reveal_type(A[int]().transform())  # E: revealed type: A[[int, int]]
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/3828
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3828
 testcase!(
     test_concatenate_paramspec_tail_in_class_param,
     r#"
@@ -1062,4 +1062,12 @@ g: A[...] = A()
 reveal_type(add_int(g))   # E: revealed type: A[Concatenate[int, ...]]
 reveal_type(drop_int(g))  # E: revealed type: A[@_]
 "#,
+);
+
+testcase!(
+    test_illegal_posargs,
+    r#"
+from typing import ParamSpec
+P = ParamSpec("P", int, str)  # E: Unexpected positional argument  # E: Unexpected positional argument
+    "#,
 );

@@ -71,6 +71,7 @@ TravelModeType = Literal["Transit", "Truck"]
 VariantType = Literal["Default"]
 LocationServiceMapsV2ServiceName = Literal["geo-maps"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -536,6 +536,20 @@ class TestLang(util.TestCase):
         self.assert_selector(markup, "[id]:lang('')", ['1', '2', '3', '4'], flags=util.HTML | util.NOCACHE)
         self.assert_selector(markup, "[id]:lang('*')", [], flags=util.HTML | util.NOCACHE)
 
+    def test_language_in_header_of_each_root(self):
+        """Test that each top level element of a fragment uses the language in its own header."""
+
+        markup = """
+        <html><head><meta http-equiv="content-language" content="en"></head><body><p id="1"></p></body></html>
+        <html><head><meta http-equiv="content-language" content="fr"></head><body><p id="2"></p></body></html>
+        <html><head></head><body><p id="3"></p></body></html>
+        <html><head><meta http-equiv="content-language" content="en"></head><body><p id="4"></p></body></html>
+        """
+
+        self.assert_selector(markup, "p:lang(en)", ['1', '4'], flags=util.PYHTML | util.NOCACHE)
+        self.assert_selector(markup, "p:lang(fr)", ['2'], flags=util.PYHTML | util.NOCACHE)
+        self.assert_selector(markup, "p:lang('')", ['3'], flags=util.PYHTML | util.NOCACHE)
+
     def test_deeply_nested_language(self):
         """Test that each ancestor is checked once for the language of a deeply nested document."""
 
@@ -549,6 +563,35 @@ class TestLang(util.TestCase):
         with mock.patch.object(sv.css_match.CSSMatch, "get_parent", autospec=True, side_effect=get_parent) as patched:
             self.assertEqual(len(sv.select("li:lang(en)", soup)), 0)
         self.assertLessEqual(patched.call_count, 2 * n)
+
+    def test_long_inherited_language(self):
+        """Test that a language shared by many elements is checked and matched once per `:lang()`."""
+
+        import soupsieve as sv
+        from bs4 import BeautifulSoup
+        from unittest import mock
+
+        n = 32
+        tag = 'en-' + '-'.join(['abcdefgh'] * n)
+        filter_lang = sv.css_match.CSSMatch.extended_language_filter
+        for lang, valid in ((tag, True), (tag + '!', False)):
+            soup = BeautifulSoup(f'<html lang="{lang}"><body>' + '<p>x</p>' * n, 'html.parser')
+            for selector, matches, ranges in (
+                ('p:lang(en)', n if valid else 0, 1),
+                ('p:not(:lang(en))', 0 if valid else n, 1),
+                ('p:lang("*-x", fr)', 0, 2)
+            ):
+                # Matching a language doesn't depend on the tree, so it is cached even with `NOCACHE`.
+                for flags in (0, sv.NOCACHE):
+                    with mock.patch.object(
+                        sv.css_match, 'RE_LANG_TAG', wraps=sv.css_match.RE_LANG_TAG
+                    ) as re_lang_tag, mock.patch.object(
+                        sv.css_match.CSSMatch, 'extended_language_filter', autospec=True, side_effect=filter_lang
+                    ) as patched:
+                        self.assertEqual(len(sv.select(selector, soup, flags=flags)), matches)
+                    # The tag is checked once, and each range matched once.
+                    self.assertLessEqual(re_lang_tag.fullmatch.call_count, 1)
+                    self.assertLessEqual(patched.call_count, ranges if valid else 0)
 
     def test_language_ill_formed_tag(self):
         """Test that an element whose language tag is not well-formed matches no language range."""

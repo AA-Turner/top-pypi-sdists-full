@@ -1,6 +1,5 @@
 """Class for efficiently handling contour data"""
 import numbers
-import sys
 import warnings
 
 import numpy as np
@@ -14,7 +13,7 @@ class ContourVerificationWarning(UserWarning):
     pass
 
 
-class ContourColumn(object):
+class ContourColumn:
     def __init__(self, rtdc_dataset):
         """A wrapper for ContourData that takes into account event offsets
 
@@ -26,10 +25,7 @@ class ContourColumn(object):
         if fname is None:
             self.identifier = None
         else:
-            if sys.version_info[0] == 2:
-                self.identifier = str(fname).decode("utf-8")
-            else:
-                self.identifier = str(fname)
+            self.identifier = str(fname)
         if fname is not None:
             self._contour_data = ContourData(fname)
             self._initialized = False
@@ -64,8 +60,8 @@ class ContourColumn(object):
         if not isinstance(idx, numbers.Integral):
             raise NotImplementedError(
                 "The RTDC_TDMS data handler does not support indexing with "
-                "anything else than scalar integers. Please convert your data "
-                "to the .rtdc file format!")
+                "anything other than scalar integers. Please convert your "
+                "data to the .rtdc file format!")
 
         if not self._initialized:
             self.determine_offset()
@@ -122,8 +118,8 @@ class ContourColumn(object):
             cdata = self._contour_data[idnew]
             frame_c = self._contour_data.get_frame(idnew)
             warnings.warn(
-                "Couldn't verify contour {} in {}".format(idx, self.identifier)
-                + " (frame index {})!".format(frame_c),
+                f"Couldn't verify contour {idx} in {self.identifier}"
+                f" (frame index {frame_c})!",
                 ContourVerificationWarning
             )
         return cdata
@@ -167,7 +163,7 @@ class ContourColumn(object):
         elif np.allclose(fref, f1, rtol=0):
             self.event_offset = 1
         else:
-            msg = "Contour data has unknown offset (frame {})!".format(fref)
+            msg = f"Contour data has unknown offset (frame {fref})!"
             raise ContourIndexingError(msg)
         self._initialized = True
 
@@ -201,11 +197,11 @@ class ContourColumn(object):
         return cfile
 
 
-class ContourData(object):
+class ContourData:
     def __init__(self, fname):
-        """Access an MX_contour.txt as a dictionary
+        """Access an MX_contours.txt file as a list
 
-        Initialize this class with a *_contour.txt file.
+        Initialize this class with a *_contours.txt file.
         The individual contours can be accessed like a
         list (enumerated from 0 on).
         """

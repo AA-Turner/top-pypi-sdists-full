@@ -85,7 +85,7 @@ def test_fail_too_few_dataset():
     rlme4.add_dataset(datasets[1], "treatment", 1)
 
     with pytest.raises(ValueError, match="Linear mixed effects models"
-                                         + " require repeated measurements"):
+                                         " require repeated measurements"):
         rlme4.fit()
 
 
@@ -115,8 +115,8 @@ def test_get_r_version():
                    reason="https://github.com/astamm/nloptr/issues/115")
 def test_glmer_basic_larger():
     """Original values in a generalized linear mixed model"""
-    groups = ['treatment', 'control', 'treatment', 'control',
-              'treatment', 'control', 'treatment', 'control']
+    groups = ["treatment", "control", "treatment", "control",
+              "treatment", "control", "treatment", "control"]
     repetitions = [1, 1, 2, 2, 3, 3, 4, 4]
     datasets = standard_datasets(set_region=False)
 
@@ -125,8 +125,8 @@ def test_glmer_basic_larger():
         rlme4.add_dataset(datasets[ii], groups[ii], repetitions[ii])
 
     res = rlme4.fit()
-    assert np.allclose(res["fixed effects intercept"], 15.083832084641697)
-    assert np.allclose(res["anova p-value"], 0.00365675950677214)
+    assert np.allclose(res["fixed effects intercept"], 15.02186)
+    assert np.allclose(res["anova p-value"], 0.001471875)
     assert not rlme4.is_differential()
     assert res["model converged"]
 
@@ -135,26 +135,28 @@ def test_glmer_basic_larger():
                    reason="https://github.com/astamm/nloptr/issues/115")
 def test_glmer_differential():
     """Differential Deformation in a generalized linear mixed model"""
-    groups = ['control', 'control', 'control', 'control', 'treatment',
-              'treatment', 'treatment', 'treatment']
+    groups = ["control", "control", "control", "control", "treatment",
+              "treatment", "treatment", "treatment"]
     repetitions = [1, 1, 2, 2, 1, 1, 2, 2]
     datasets = standard_datasets()
-    rlme4 = Rlme4(model="glmer+loglink", feature="deform")
+    # Fitting the glmer model to 4 x 1000 bootstrapped medians takes
+    # about 10 minutes on Linux and much longer on Windows (lme4 2.1).
+    rlme4 = Rlme4(model="glmer+loglink", feature="deform", bs_iter=100)
     for ii in range(len(datasets)):
         rlme4.add_dataset(datasets[ii], groups[ii], repetitions[ii])
 
     res = rlme4.fit()
-    assert np.allclose(res["fixed effects intercept"], 93.55789706339498)
+    assert np.allclose(res["fixed effects intercept"], 93.81713)
     assert rlme4.is_differential()
     assert rlme4.model == "glmer+loglink"
-    assert np.allclose(res["anova p-value"], 0.000556063024310929)
+    assert np.allclose(res["anova p-value"], 0.0001264353)
     assert res["model converged"]
 
 
 @pytest.mark.xfail(IS_ON_GITHUB_WINDOWS,
                    reason="https://github.com/astamm/nloptr/issues/115")
 def test_lmer_basic():
-    groups = ['control', 'treatment', 'control', 'treatment']
+    groups = ["control", "treatment", "control", "treatment"]
     repetitions = [1, 1, 2, 2]
     features = [
         [100, 99, 80, 120, 140, 150, 100, 100, 110, 111, 140, 145],
@@ -194,7 +196,7 @@ def test_lmer_basic():
 @pytest.mark.xfail(IS_ON_GITHUB_WINDOWS,
                    reason="https://github.com/astamm/nloptr/issues/115")
 def test_lmer_basic_filtering():
-    groups = ['control', 'treatment', 'control', 'treatment']
+    groups = ["control", "treatment", "control", "treatment"]
     repetitions = [1, 1, 2, 2]
     features = [
         [100, 99, 80, 120, 140, 150, 100, 100, 110, 111, 140, 145],
@@ -238,8 +240,8 @@ def test_lmer_basic_larger():
     measurements are Treatments. This does not use differential
     deformation.
     """
-    groups = ['treatment', 'control', 'treatment', 'control',
-              'treatment', 'control', 'treatment', 'control']
+    groups = ["treatment", "control", "treatment", "control",
+              "treatment", "control", "treatment", "control"]
     repetitions = [1, 1, 2, 2, 3, 3, 4, 4]
     datasets = standard_datasets(set_region=False)
 
@@ -257,7 +259,7 @@ def test_lmer_basic_larger():
 @pytest.mark.xfail(IS_ON_GITHUB_WINDOWS,
                    reason="https://github.com/astamm/nloptr/issues/115")
 def test_lmer_basic_nan():
-    groups = ['control', 'treatment', 'control', 'treatment']
+    groups = ["control", "treatment", "control", "treatment"]
     repetitions = [1, 1, 2, 2]
     features = [
         [100, np.inf, 80, np.nan, 140, 150, 100, 100, 110, 111, 140, 145],
@@ -286,10 +288,31 @@ def test_lmer_basic_nan():
 
 @pytest.mark.xfail(IS_ON_GITHUB_WINDOWS,
                    reason="https://github.com/astamm/nloptr/issues/115")
+def test_lmer_messages_singular_fit():
+    """lme4 convergence messages must be passed on to the results"""
+    groups = ["control", "treatment", "control", "treatment"]
+    repetitions = [1, 1, 2, 2]
+    # Identical data for both repetitions: The variance of the random
+    # effects is zero, which results in a singular fit.
+    feat_control = [100, 99, 80, 120, 140, 150, 100, 100, 110, 111]
+    feat_treatment = [115, 110, 90, 110, 145, 155, 110, 120, 115, 120]
+    features = [feat_control, feat_treatment, feat_control, feat_treatment]
+    rlme4 = Rlme4(model="lmer", feature="deform")
+    for ii, ff in enumerate(features):
+        ds = dclab.new_dataset({"deform": ff})
+        ds.config["setup"]["chip region"] = "channel"
+        rlme4.add_dataset(ds, groups[ii], repetitions[ii])
+
+    res = rlme4.fit()
+    assert "singular" in res["lme4 messages"]
+
+
+@pytest.mark.xfail(IS_ON_GITHUB_WINDOWS,
+                   reason="https://github.com/astamm/nloptr/issues/115")
 def test_lmer_differential():
     """Differential Deformation in a linear mixed model"""
-    groups = ['control', 'control', 'control', 'control', 'treatment',
-              'treatment', 'treatment', 'treatment']
+    groups = ["control", "control", "control", "control", "treatment",
+              "treatment", "treatment", "treatment"]
     repetitions = [1, 1, 2, 2, 1, 1, 2, 2]
     datasets = standard_datasets()
     rlme4 = Rlme4(model="lmer", feature="deform")

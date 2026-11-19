@@ -13,6 +13,9 @@ from omnimarket.events.pr_state import ModelPrStateEmitRequest
 from omnimarket.models.pr_handoff.model_pr_handoff_requested import (
     ModelPrHandoffRequested,
 )
+from omnimarket.models.pr_handoff.model_pr_handoff_review_status import (
+    ModelPrHandoffReviewStatus,
+)
 
 
 class ModelPrHandoffDecisionRequest(BaseModel):
@@ -23,9 +26,13 @@ class ModelPrHandoffDecisionRequest(BaseModel):
     live ledger HOLD rows that name the PR or the requesting lane. ``now`` is
     the evaluating message's time: the compute reads no clock.
     ``landing_scope`` is the repositories the landing controller lands, as the
-    caller read them from its landing-scope overlay. None means the scope was
-    not read and the decision is the one made without it; an empty tuple means
-    nothing is landed. The model carries no repository name.
+    caller read them from its ``landing_scope`` overlay. None means the scope
+    was not supplied and the request is refused scope-unread; an empty tuple
+    is a valid scope that lands nothing. ``landing_scope_problem`` explains
+    why the caller could not read the overlay. The model carries no repository
+    name. ``review_status`` is the fable-review-gate commit statuses the caller read for the PR: absent, the
+    handoff is decided as before; present with new_work true, the live head needs a success status or the handoff
+    is refused review_status_missing, review_status_failing or review_status_other_head.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -34,6 +41,8 @@ class ModelPrHandoffDecisionRequest(BaseModel):
     observation: ModelPrStateEmitRequest | None = None
     ledger_holds: tuple[str, ...] = Field(default=())
     landing_scope: tuple[str, ...] | None = None
+    landing_scope_problem: str | None = None
+    review_status: ModelPrHandoffReviewStatus | None = None
     now: Annotated[datetime, AwareDatetime]
 
 

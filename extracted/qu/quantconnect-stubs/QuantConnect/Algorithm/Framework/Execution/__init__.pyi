@@ -1,6 +1,7 @@
 from typing import overload
 from enum import IntEnum
 import abc
+import datetime
 import typing
 
 import QuantConnect
@@ -73,6 +74,24 @@ class ExecutionModel(QuantConnect.Python.BasePythonWrapper[QuantConnect_Algorith
         :param algorithm: The algorithm instance
         :param targets: The portfolio targets just emitted by the portfolio construction model.
         These are always just the new/updated targets and not a complete set of targets
+        """
+        ...
+
+    @staticmethod
+    def is_consolidator_receiving_data(algorithm: QuantConnect.Algorithm.QCAlgorithm, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta]) -> bool:
+        """
+        Determines whether the consolidator is still attached to one of the symbol's live subscriptions.
+        A security removed while it still had a position loses its data subscription later, without another
+        removal notification, and the security keeps a removed subscription while another universe still selects it,
+        so a cached consolidator can stop receiving data while the security's own subscriptions still hold it
+        
+        
+        This Class is protected.
+        
+        :param algorithm: The algorithm instance
+        :param symbol: The symbol the consolidator was registered for
+        :param consolidator: The consolidator to look for
+        :returns: True if a live subscription of the symbol holds the consolidator.
         """
         ...
 

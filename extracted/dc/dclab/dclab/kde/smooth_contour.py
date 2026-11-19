@@ -1,3 +1,4 @@
+"""Determination of KDE grid spacings that yield smooth contour lines"""
 from __future__ import annotations
 
 import threading
@@ -52,7 +53,7 @@ def find_smooth_contour_spacing(
     Returns
     -------
     result:
-        Distionary containing the iteration result:
+        Dictionary containing the iteration result:
 
             - *total iterations*: iterations performed
             - *success*: whether the smoothing succeeded
@@ -99,13 +100,20 @@ def find_smooth_contour_spacing(
     }
 
     corners_found = False
-    for _ in range(max_iter):  # hard-limit is 15 iterations
-        corners_found = False
-
+    for ii in range(max_iter):  # hard-limit is 15 iterations
         if abort_event is not None and abort_event.is_set():
             results["reason"] = "abort event"
             break
 
+        if ii > 0:
+            # The contours computed with the previous spacing were not
+            # smooth enough. Halve the spacing here (and not at the end
+            # of the previous iteration), so that the spacing returned
+            # is always the last one that was evaluated.
+            xacc /= 2
+            yacc /= 2
+
+        corners_found = False
         results["total iterations"] += 1
 
         # maximum difference of opening angle from 180° [rad]
@@ -118,7 +126,7 @@ def find_smooth_contour_spacing(
                 break
             # Compute the contour for the highest percentile of the plot.
             contours = kdi.get_contour_lines(
-                quantiles=[[np.max(quantiles)]],
+                quantiles=[np.max(quantiles)],
                 xax=xax,
                 yax=yax,
                 xacc=xacc,
@@ -131,33 +139,48 @@ def find_smooth_contour_spacing(
                 # No contour for this dataset (e.g. all events filtered).
                 continue
             num_contours += 1
-            cc = contours[0][0]
-            angles = compute_contour_opening_angles(
-                contour=cc,
-                xrange=xrange,
-                yrange=yrange,
-                xscale=xscale,
-                yscale=yscale)
+            # There may be several contours for the highest percentile
+            # (e.g. for multiple populations). All of them must be smooth.
+            for cc in contours[0]:
+                angles = compute_contour_opening_angles(
+                    contour=cc,
+                    xrange=xrange,
+                    yrange=yrange,
+                    xscale=xscale,
+                    yscale=yscale)
+                # The opening angle is undefined (NaN) e.g. for duplicate
+                # contour points. Ignore these points.
+                valid = ~np.isnan(angles)
 
-            if (np.allclose(np.abs(angles[0]), np.pi / 2, atol=0.001, rtol=0)
-                    and np.all(angles[1:6] == 0)):
-                # We have probably encountered a contour at the boundary
-                # of the plot. This is ok.
-                corners = np.abs((np.abs(angles) - np.pi / 2)) < 0.001
-                dphi = np.max(np.abs(angles[~corners]))
-                corners_found = True
-            else:
-                dphi = np.max(np.abs(angles))
+                if (np.allclose(np.abs(angles[0]), np.pi / 2,
+                                atol=0.001, rtol=0)
+                        and np.all(angles[1:6] == 0)):
+                    # We have probably encountered a contour at the
+                    # boundary of the plot. This is ok.
+                    corners = np.abs(np.abs(angles) - np.pi / 2) < 0.001
+                    valid &= ~corners
+                    corners_found = True
 
-            max_dphi = max(max_dphi, dphi)
-            max_length = min(max_length, len(cc))
-        else:
-            results["reason"] = "maximum iterations reached"
-            results["success"] = False
-            if not num_contours:
-                # There is no contour we could smooth.
-                results["reason"] = "no contour found"
-                break
+                if np.any(valid):
+                    dphi = np.max(np.abs(angles[valid]))
+                else:
+                    # We cannot tell whether this contour is smooth.
+                    dphi = np.inf
+
+                max_dphi = max(max_dphi, dphi)
+                max_length = min(max_length, len(cc))
+
+        if abort_event is not None and abort_event.is_set():
+            # Aborted while iterating over the datasets; the contours
+            # of the remaining datasets were not checked.
+            results["reason"] = "abort event"
+            break
+        elif not num_contours:
+            # There is no contour we could smooth.
+            results["reason"] = "no contour found"
+            break
+
+        results["reason"] = "maximum iterations reached"
 
         if max_dphi < np.deg2rad(23):
             # A contour is considered smooth when the maximum angle between
@@ -169,9 +192,6 @@ def find_smooth_contour_spacing(
             results["reason"] = "maximum contour length reached"
             results["success"] = True
             break
-        else:
-            xacc /= 2
-            yacc /= 2
 
     results["corners found"] = corners_found
     results["spacing x"] = xacc
@@ -183,20 +203,39 @@ def compute_contour_opening_angles(contour, xrange, yrange, xscale, yscale):
     """For each point of the contour, compute the opening angle
 
     This takes the visible plot area into account.
+
+    Parameters
+    ----------
+    contour: ndarray
+        Contour coordinates of shape (N, 2) (closed automatically)
+    xrange, yrange: tuple of float
+        Visible plot range used for normalizing the contour
+    xscale, yscale: str
+        "linear" or "log" scale of the plot axes
+
+    Returns
+    -------
+    opang: 1d ndarray
+        For each contour point, the angle [rad] between the line
+        segments to its neighbors, folded into [-π/2, π/2] such that
+        a straight line yields 0 (nan for duplicate points)
     """
     cc = np.array(contour, copy=True)
     if not np.all(cc[0] == cc[-1]):
         cc = np.resize(cc, (len(contour)+1, 2))
-    # Normalize contour
-    cc[:, 0] = (cc[:, 0] - xrange[0]) / (xrange[1] - xrange[0])
-    cc[:, 1] = (cc[:, 1] - yrange[0]) / (yrange[1] - yrange[0])
-    # apply scale
+    # Apply scale (before normalization, so that the contour is
+    # normalized to the visible plot area on a log scale)
     assert xscale in ["log", "linear"]
     if xscale == "log":
         cc[:, 0] = np.log10(cc[:, 0])
+        xrange = np.log10(xrange)
     assert yscale in ["log", "linear"]
     if yscale == "log":
         cc[:, 1] = np.log10(cc[:, 1])
+        yrange = np.log10(yrange)
+    # Normalize contour
+    cc[:, 0] = (cc[:, 0] - xrange[0]) / (xrange[1] - xrange[0])
+    cc[:, 1] = (cc[:, 1] - yrange[0]) / (yrange[1] - yrange[0])
     opang = np.zeros(len(cc)-1, dtype=float)
     for jj, c0 in enumerate(cc[:-1]):  # we have a closed contour
         cl = cc[:-1][jj - 1]

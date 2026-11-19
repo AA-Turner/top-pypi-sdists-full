@@ -244,6 +244,7 @@ UplinkCountType = Literal[
 UplinkGbpsType = Literal["UPLINK_100G", "UPLINK_10G", "UPLINK_1G", "UPLINK_40G"]
 OutpostsServiceName = Literal["outposts"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

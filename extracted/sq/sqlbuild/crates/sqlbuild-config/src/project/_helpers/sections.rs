@@ -15,13 +15,14 @@ use crate::project::_helpers::values::{int_below, python_equal};
 use crate::project::constants::{
     ALLOW_MISSING_SECRETS_KEY, ALLOW_WAREHOUSE_ROUND_TRIPS_KEY, DEFAULT_TEST_TIMEOUT,
     DEFAULT_UNIT_TEST_MAX_REAL_MODELS, DELTA_COMPILE_KEY, DISABLED_VALUE,
-    IGNORE_AUDIT_FAILURES_KEY, SCENARIO_TIMEOUT_KEY, TEST_TIMEOUT_KEY,
+    IGNORE_AUDIT_FAILURES_KEY, RECORD_RUN_HOST_KEY, SCENARIO_TIMEOUT_KEY, TEST_TIMEOUT_KEY,
     UNIT_TEST_MAX_REAL_MODELS_KEY,
 };
 use crate::project::constants::{
     AUDIT_SEVERITIES, CHECK_DECLARED_COLUMNS_KEY, COLLECTION_RENDERINGS, COLUMN_CONTRACT_MODES,
     CONCURRENCY_KEY, DBT_DEFER_CLONE_KEY, DBT_KEYS, DBT_REMOVED_KEYS, DBT_REUSE_KEYS,
-    DEFAULT_IN_USE_WINDOW, DEFAULT_QUERY_ARTIFACT_TTL, FUTURE_CURSOR_ACTIONS,
+    DEFAULT_HEARTBEAT_GRACE_SECONDS, DEFAULT_IN_USE_WINDOW, DEFAULT_QUERY_ARTIFACT_TTL,
+    DYNAMIC_KEYS, FUTURE_CURSOR_ACTIONS, HEARTBEAT_INTERVAL_SECONDS,
     LEGACY_COLUMN_CONTRACT_MODE_KEY, LEGACY_CONCURRENCY_KEY, LEGACY_SQL_VALIDATION_KEY,
     LOCAL_DBT_KEYS, MAX_BATCHES_KEY, MICROBATCH_LIMIT_ACTIONS, OLD_NAME_VIEWS_KEY,
     QUERY_CHANGE_TRACKING_KEY, REQUIRE_SQL_ANALYSIS_KEY, REVIEW_DOWNSTREAM_POLICIES, REVIEW_KEYS,
@@ -35,7 +36,9 @@ use crate::project::constants::{
     MIN_SYNC_INTERVAL_SECONDS, SYNC_INTERVAL_HELP, SYNC_INTERVAL_OFF,
 };
 use crate::project::errors::ConfigFailure;
-use crate::project::models::{Built, ChangesConfig, ConfigFile, ControlConfig, ReviewConfig};
+use crate::project::models::{
+    Built, ChangesConfig, ConfigFile, ControlConfig, DynamicConfig, ReviewConfig,
+};
 use crate::project::types::{Entries, Fields, Loaded};
 use sqlbuild_core::constants::ZERO_DAY_DURATION;
 
@@ -302,6 +305,14 @@ pub(crate) fn load_settings(payload: Option<&ConfigValue>, file: ConfigFile) -> 
                 mapping,
                 IGNORE_AUDIT_FAILURES_KEY,
                 false,
+            )?)),
+        ),
+        (
+            RECORD_RUN_HOST_KEY,
+            Built::Value(ConfigValue::Bool(optional_bool(
+                mapping,
+                RECORD_RUN_HOST_KEY,
+                true,
             )?)),
         ),
     ];
@@ -616,6 +627,50 @@ pub(crate) fn sync_interval(text: &str) -> Result<u64, &'static str> {
         return Err(SYNC_INTERVAL_HELP);
     }
     Ok(seconds)
+}
+
+/// `[dynamic]`: how long a silent pausing build keeps its dynamic models paused.
+pub(crate) fn load_dynamic(
+    payload: Option<&ConfigValue>,
+    file: ConfigFile,
+) -> Loaded<DynamicConfig> {
+    let mapping = coerce_mapping(payload, place(file, "dynamic"))?;
+    validate_allowed_keys(mapping, &DYNAMIC_KEYS, place(file, "dynamic"))?;
+    let heartbeat_grace_seconds: u64 = match get(mapping, "heartbeat_grace") {
+        None => DEFAULT_HEARTBEAT_GRACE_SECONDS,
+        Some(ConfigValue::String(text)) => match fixed_duration_seconds(text, false) {
+            Ok(Some(seconds)) => seconds.parse().map_err(|_| grace_failure(file))?,
+            Ok(None) | Err(_) => return Err(grace_failure(file)),
+        },
+        Some(_) => return Err(grace_failure(file)),
+    };
+    if heartbeat_grace_seconds <= HEARTBEAT_INTERVAL_SECONDS {
+        return Err(ConfigFailure::at(
+            file,
+            "dynamic.heartbeat_grace must be longer than 1m: a build writes a heartbeat every minute, so a shorter grace expires builds that are still running",
+        ));
+    }
+    let allow_ignore_grace: bool = match get(mapping, "allow_ignore_grace") {
+        None => false,
+        Some(ConfigValue::Bool(flag)) => *flag,
+        Some(_) => {
+            return Err(ConfigFailure::at(
+                file,
+                "dynamic.allow_ignore_grace must be true or false",
+            ));
+        }
+    };
+    Ok(DynamicConfig {
+        heartbeat_grace_seconds,
+        allow_ignore_grace,
+    })
+}
+
+fn grace_failure(file: ConfigFile) -> ConfigFailure {
+    ConfigFailure::at(
+        file,
+        "dynamic.heartbeat_grace must be a fixed duration such as 30m or 2h",
+    )
 }
 
 /// `[control]`: where a signed-in build asks for a sync, and how often a location syncs anyway.

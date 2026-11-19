@@ -27,6 +27,7 @@ import numpy as np
 from numpy_groupies import npg_numpy, npg_purepy
 from numpy_groupies.benchmarks import _ufunc
 from numpy_groupies.dtypes import TEMPORAL_KINDS
+from numpy_groupies.npg_numba import mt as npg_mt
 from numpy_groupies.registry import (
     funcs_collecting,
 )
@@ -284,6 +285,19 @@ def temporal_benchmark_data(size=5e5, seed=100, groups=1000, *, kind):
     assert 0.15 < nat_share < 0.25, f"{nat_share * 100:3f}% NaT"
     return a, nana, group_idx
 
+
+# the cases of the table of the thread counts: the values and the groups of
+# every case, and the state of the kernel grows with the groups - the case
+# that decides is the one whose state no longer fits the cache, and the one
+# beside it, whose state still does
+MT_CASES = (
+    (10_000_000, 1_000),
+    (10_000_000, 10_000),
+    (10_000_000, 100_000),
+    (10_000_000, 1_000_000),
+    (100_000_000, 1_000_000),
+    (100_000_000, 10_000_000),
+)
 
 # the sizes of the temporaries the participants ask for are of this order (an
 # arange over the input, the cast of the weights of bincount), so the ladder
@@ -619,9 +633,9 @@ def select_temporal_funcs(names: str | None) -> dict[str, tuple[Any, ...]]:
     }
 
 
-def benchmark(implementations, repeat=5, size=5e5, seed=100, raise_errors=False, runs=1, funcs=None):
+def benchmark(implementations, repeat=5, size=5e5, seed=100, groups=1000, raise_errors=False, runs=1, funcs=None):
     _warm_up_allocator()
-    a, nana, group_idx = benchmark_data(size=size, seed=seed)
+    a, nana, group_idx = benchmark_data(size=size, seed=seed, groups=groups)
     # the data as it is now: the participants must not write into it, and the
     # snapshot is the one they are compared against after every function
     snapshot = _byte_snapshot(group_idx, a, nana)
@@ -708,7 +722,103 @@ def sort_benchmark(implementations, *, repeat=5, size=5e5, seed=100, raise_error
         print(_versions_line(implementations))
 
 
-def temporal_benchmark(implementations, *, repeat=5, size=5e5, seed=100, raise_errors=False, runs=1, funcs=None):
+def _mt_label(n_values: int, n_groups: int) -> str:
+    """The label of a case of the table of the thread counts: the values and
+    the groups, each in the unit that fits it."""
+    return f"{_mt_scaled(n_values)} x {_mt_scaled(n_groups)}"
+
+
+def _mt_scaled(number: int) -> str:
+    """A number in the unit that fits it - thousands, or millions."""
+    if number >= 1_000_000:
+        return f"{number // 1_000_000}M"
+    if number >= 1_000:
+        return f"{number // 1_000}K"
+    return str(number)
+
+
+def mt_thread_counts(max_threads: int) -> tuple[int, ...]:
+    """The thread counts of the table: one, then the powers of two, and the
+    last one the pool has.
+
+    The powers of two, because the interesting counts are the ones that
+    double the work per thread; the last one, because the pool of the
+    machine is what a call can use at all.
+    """
+    counts = [1]
+    threads = 2
+    while threads < max_threads:
+        counts.append(threads)
+        threads *= 2
+    if max_threads > 1:
+        counts.append(max_threads)
+    return tuple(counts)
+
+
+def _mt_case(
+    aggregate: Any, n_values: int, n_groups: int, counts: tuple[int, ...], *, repeat: int, seed: int
+) -> list[float]:
+    """The times of one case of the table of the thread counts.
+
+    The data of the case lives here and nowhere else: the cases run one
+    after the other, and the data of the largest of them does not fit beside
+    the data of the next one.
+    """
+    rnd = np.random.RandomState(seed=seed)
+    group_idx = rnd.randint(0, n_groups, n_values)
+    a = rnd.random_sample(n_values)
+    a[a > 0.8] = 0
+    cells = []
+    for threads in counts:
+        numba.set_num_threads(threads)
+        # the threads are forced: the table measures what a number of threads
+        # does, and not what the model of the cost decides about it
+        with npg_mt.forced_threads(threads):
+            # an untimed call first: the threads of the pool wake up in the
+            # first one, and that would be measured instead of the work
+            aggregate(group_idx, a, func="sum")
+            timer = timeit.Timer(lambda: aggregate(group_idx, a, func="sum"))
+            best = min(timer.repeat(repeat=repeat, number=1))
+        cells.append(best * 1000)
+    return cells
+
+
+def mt_benchmark(aggregate: Any, *, repeat: int = 5, seed: int = 100, max_threads: int | None = None) -> None:
+    """The table of the thread counts: the sum of every case over the counts.
+
+    The sum is the kernel the table is about - it scatters every value into
+    the state of its group, and the state is what the parallel path holds
+    once per thread.  The cases run from a state that fits the cache of the
+    machine many times over to one that does not fit it at all, and the
+    columns are the thread counts: the time of a call is the time of the
+    work plus the traffic of the states of the threads beside it.
+    """
+    _warm_up_allocator()
+    if max_threads is None:
+        max_threads = numba.get_num_threads()
+    counts = mt_thread_counts(max_threads)
+    columns = [(f"T={threads}", None) for threads in counts]
+    labels = [_mt_label(n_values, n_groups) for n_values, n_groups in MT_CASES]
+    # the label column is as wide as its longest content - the labels of the
+    # cases, not only the head of the column
+    label_width = max(len("case"), *(len(label) for label in labels))
+    print(*_table_rule("case", columns, label_width), sep="\n", flush=True)
+
+    for (n_values, n_groups), label in zip(MT_CASES, labels):
+        cells = _mt_case(aggregate, n_values, n_groups, counts, repeat=repeat, seed=seed)
+        numba.set_num_threads(max_threads)
+        print(_table_row(label, cells, label_width), flush=True)
+        gc.collect()
+
+    print(
+        f"*{platform.system()}({platform.machine()}), Python {sys.version.split()[0]}, "
+        f"Numpy {np.version.version}, Numba {numba.__version__} ({max_threads} threads max)*"
+    )
+
+
+def temporal_benchmark(
+    implementations, *, repeat=5, size=5e5, seed=100, groups=1000, raise_errors=False, runs=1, funcs=None
+):
     """Measure the temporal functions of ``TEMPORAL_TABLE``, one block of rows
     per dtype: the datetime64 questions on the ticks of the year 2020, the
     timedelta64 ones on the durations below a millisecond - ``funcs`` narrows
@@ -732,7 +842,7 @@ def temporal_benchmark(implementations, *, repeat=5, size=5e5, seed=100, raise_e
 
     rows = []
     for dtype, kind, kind_funcs in selections:
-        a, nana, group_idx = temporal_benchmark_data(size=size, seed=seed, kind=kind)
+        a, nana, group_idx = temporal_benchmark_data(size=size, seed=seed, groups=groups, kind=kind)
         snapshot = _byte_snapshot(group_idx, a, nana)
         tables = []
         for run in range(runs):
@@ -843,6 +953,14 @@ nothing, the whole array being the core of the kernel.""",
         help=f"measure 'sort' only, over the group counts {'-'.join(str(g) for g in SORT_GROUPS)} instead of the full table",
     )
     parser.add_argument(
+        "--mt",
+        action="store_true",
+        help=(
+            "measure the table of the thread counts: the sum over the cases of the grid, one column "
+            "per thread count (one, the powers of two, and the pool of the machine)"
+        ),
+    )
+    parser.add_argument(
         "--temporal",
         action="store_true",
         help="measure the functions that take datetime64 and timedelta64 values only, on nanosecond data of "
@@ -868,6 +986,12 @@ nothing, the whole array being the core of the kernel.""",
     )
     parser.add_argument("--size", type=float, default=5e5, help="number of values in the benchmark data (default: 5e5)")
     parser.add_argument(
+        "--groups",
+        type=float,
+        default=1000,
+        help="number of groups in the benchmark data (default: 1000) - the sort benchmark sweeps its own group counts",
+    )
+    parser.add_argument(
         "--threads",
         type=int,
         default=0,
@@ -889,6 +1013,8 @@ nothing, the whole array being the core of the kernel.""",
             setattr(args, COLUMN_ARGUMENTS.get(column, column), True)
     if args.sort and args.temporal:
         parser.error("choose one of --sort and --temporal - each replaces the numeric table on its own")
+    if args.mt and (args.sort or args.temporal):
+        parser.error("choose one of --mt, --sort and --temporal - each replaces the numeric table on its own")
     if args.sort:
         # the sort is measured on its own, over the group counts
         sort_benchmark(
@@ -899,11 +1025,17 @@ nothing, the whole array being the core of the kernel.""",
             runs=max(1, args.runs),
         )
         return
+    if args.mt:
+        if npg_numba is None:
+            raise SystemExit("this benchmark needs the numba package installed")
+        mt_benchmark(npg_numba.aggregate, repeat=args.repeat)
+        return
     if args.temporal:
         temporal_benchmark(
             _build_implementations(args),
             repeat=args.repeat,
             size=args.size,
+            groups=args.groups,
             raise_errors=args.raise_errors,
             runs=max(1, args.runs),
             funcs=args.funcs,
@@ -913,6 +1045,7 @@ nothing, the whole array being the core of the kernel.""",
         _build_implementations(args),
         repeat=args.repeat,
         size=args.size,
+        groups=args.groups,
         raise_errors=args.raise_errors,
         runs=max(1, args.runs),
         funcs=select_funcs(args.funcs),

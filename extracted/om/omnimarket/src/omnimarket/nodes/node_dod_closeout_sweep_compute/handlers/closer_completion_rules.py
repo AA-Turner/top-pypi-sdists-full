@@ -10,14 +10,16 @@ are one history, so a run key counts once, even after a replay.
 
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from omnimarket.nodes.node_dod_closeout_sweep_compute.models.model_dod_closeout_sweep import (
+from omnimarket.models.dod_closeout_sweep import (
     EnumCloserHealth,
     ModelDodCloseoutZeroFlipAlert,
+    ModelDodCloseoutZeroFlipReading,
     ModelRunSummary,
 )
 
@@ -29,6 +31,27 @@ _ROW = re.compile(
 )
 _FIELD = re.compile(r"^(?P<key>[A-Za-z][A-Za-z0-9_-]*)=(?P<value>.*)$", re.DOTALL)
 _REFUSED_BINDING = re.compile(r"binding refused \(([^)]+)\)")
+# Most unmet-criterion reasons are unique prose that never adds up across tickets;
+# the class of the rule that wrote the reason is what the ledger counts (OMN-19998).
+# Ordered: the first pattern that matches the start of the reason wins.
+REASON_CLASSES = (
+    (re.compile(r"no check authored"), "no-check-authored"),
+    (re.compile(r"binding rejected by the acceptor"), "binding-rejected-by-acceptor"),
+    (
+        re.compile(r"binding was not accepted by a lane other than its author"),
+        "binding-self-accepted",
+    ),
+    (
+        re.compile(r"dod_verify did not verify the bound check"),
+        "bound-check-not-verified",
+    ),
+    (re.compile(r"dod_verify did not run"), "verify-not-run"),
+    (re.compile(r"no contract:"), "no-contract"),
+    (re.compile(r"waiting on"), "waiting-on-condition"),
+)
+# The one line every unverified run shares; its class carries the error code, else the
+# status, so the shared line no longer outvotes every unique reason by repeating itself.
+_DOD_VERIFY = re.compile(r"verify_status=(\S+)(?: error=(\S+))?")
 
 
 @dataclass(frozen=True)
@@ -113,6 +136,27 @@ def cell(value: str) -> str:
     return " ".join(value.replace("|", "/").split())
 
 
+def reason_class(reason: str) -> str:
+    """The class an unmet criterion's reason counts under (OMN-19998).
+
+    A refused binding keeps its refusal class, the first REASON_CLASSES pattern that
+    matches the start of the reason names its class and the shared verify line carries
+    the verifier's error code or status. Unknown prose keeps today's behaviour: its
+    ledger-safe cell.
+    """
+    stripped = reason.strip()
+    refused = _REFUSED_BINDING.match(stripped)
+    if refused:
+        return f"binding-refused:{refused[1]}"
+    for pattern, token in REASON_CLASSES:
+        if pattern.match(stripped):
+            return token
+    verify = _DOD_VERIFY.match(stripped)
+    if verify:
+        return f"dod-verify:{verify[2] or verify[1]}"
+    return cell(reason)
+
+
 def top_reason(summary: ModelRunSummary) -> str:
     """Count unmet criteria; use refusal classes rather than variable binder prose.
 
@@ -122,8 +166,7 @@ def top_reason(summary: ModelRunSummary) -> str:
     counts: Counter[str] = Counter()
     for ticket in summary.open:
         for unmet in ticket.unmet:
-            match = _REFUSED_BINDING.match(unmet.reason)
-            counts[f"binding-refused:{match[1]}" if match else cell(unmet.reason)] += 1
+            counts[reason_class(unmet.reason)] += 1
     if not counts:
         counts.update(f"binding-refused:{r.refused}" for r in summary.refused_bindings)
     if counts:
@@ -135,6 +178,69 @@ def top_reason(summary: ModelRunSummary) -> str:
     if summary.deferred_count:
         return "candidate-budget"
     return "no-candidates" if not summary.selected else "no-applied-flip"
+
+
+def held_reason_counts(summary: ModelRunSummary) -> dict[str, int]:
+    """Why the run's tickets did not flip, counted by class (OMN-20718).
+
+    Unmet criteria and refused bindings by refusal class (the same classes top_reason votes
+    over), then each refused done-flip, each ticket held for an amendment and each ticket
+    behind the candidate budget. Reads the run summary only.
+    """
+    counts: Counter[str] = Counter()
+    for ticket in summary.open:
+        for unmet in ticket.unmet:
+            counts[reason_class(unmet.reason)] += 1
+    if not counts:
+        counts.update(f"binding-refused:{r.refused}" for r in summary.refused_bindings)
+    if summary.flip_refused:
+        counts["done-flip-refused"] += len(summary.flip_refused)
+    if summary.held_for_amendment:
+        counts["held-for-amendment"] += len(summary.held_for_amendment)
+    if summary.deferred_count:
+        counts["candidate-budget"] += summary.deferred_count
+    return dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
+
+
+def zero_flip_reading(
+    summary: ModelRunSummary, stamp: str
+) -> ModelDodCloseoutZeroFlipReading | None:
+    """The typed reading of a run that closed zero tickets; None for a run that flipped one.
+
+    A dry run (apply false) flips nothing by design and reads as no zero-flip. The reading
+    never decides whether a ticket may close: that stays with the acceptor and dod_verify.
+    """
+    if summary.flipped or not summary.apply:
+        return None
+    candidates = sum(
+        1 for sources in summary.candidate_sources.values() if "merged" in sources
+    )
+    return ModelDodCloseoutZeroFlipReading(
+        lane=LANE,
+        run_key=summary.run_key,
+        observed_at=stamp,
+        candidate_count=candidates,
+        selected_count=len(summary.selected),
+        open_count=len(summary.open),
+        held_count=len(summary.held_for_amendment),
+        deferred_count=summary.deferred_count,
+        reason_counts=held_reason_counts(summary),
+        top_reason=cell(top_reason(summary)),
+    )
+
+
+def zero_flip_row(reading: ModelDodCloseoutZeroFlipReading) -> str:
+    """The alarm row of a zero-flip reading: a STATUS row, the run exits 0 (OMN-20718)."""
+    counts = cell(json.dumps(reading.reason_counts, sort_keys=True))
+    return (
+        f"{reading.observed_at} | STATUS | lane={reading.lane} | run={reading.run_key} | "
+        f"actor=launchd:{reading.lane} | ticket=OMN-20655 | state=zero-flip-reading | "
+        f"exit={reading.exit_code} | candidates={reading.candidate_count} | "
+        f"selected={reading.selected_count} | open={reading.open_count} | "
+        f"held={reading.held_count} | deferred={reading.deferred_count} | "
+        f"top_reason={reading.top_reason} | held_reasons={counts} | "
+        "this run closed no ticket: a working closer, not a failed run"
+    )
 
 
 def completion_rows(
@@ -155,6 +261,9 @@ def completion_rows(
     common = f"lane={LANE} | run={run} | actor=launchd:{LANE}"
     health = f"zero_flip_streak={length} | top_deferral_reason={reason}"
     rows: list[str] = []
+    reading = zero_flip_reading(summary, stamp)
+    if reading is not None:
+        rows.append(zero_flip_row(reading))
     friction = "none"
     if length >= threshold:
         friction = f"{stamp} lane={LANE}"

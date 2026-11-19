@@ -14,7 +14,6 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -32,10 +31,12 @@ from pydantic import (
 )
 
 from omnimarket.config.settings import Settings
-from omnimarket.projection.dlq import (
-    build_dlq_envelope,
-    correlation_id_from_payload,
-)
+from omnimarket.handlers.projection_dlq_source import build_envelope_with_source
+from omnimarket.handlers.runtime_delivery_host import KeptPools
+from omnimarket.models.model_message_meta import MessageMeta as MessageMeta
+from omnimarket.models.model_projection_request import ModelProjectionRequest
+from omnimarket.models.model_projection_stats import ProjectionStats
+from omnimarket.projection.dlq import correlation_id_from_payload
 from omnimarket.projection.envelope import unwrap_envelope
 from omnimarket.projection.models import ProjectionTableConfig
 from omnimarket.projection.snapshot_publisher import (
@@ -168,35 +169,6 @@ class _ProjectionHealthRequestHandler(http.server.BaseHTTPRequestHandler):
         # structured logger (module-level `logger`) is authoritative for
         # this process's diagnostics.
         return
-
-
-@dataclass
-class MessageMeta:
-    """Kafka message coordinates for deterministic dedup.
-
-    ``topic`` defaults to "" so the many pre-existing positional/keyword
-    call sites across handler test suites that predate OMN-15800 round 3
-    keep constructing valid instances; every live consumption path
-    (``BaseProjectionRunner._handle_message`` and each node's ``handle()``
-    RuntimeLocal shim) populates it for real. It is the authoritative
-    source-ordering coordinate (with partition/offset) consumed by
-    ``publish_snapshot_delta`` -- see CodeRabbit discussion r3745850632.
-    """
-
-    partition: int
-    offset: int
-    fallback_id: str
-    topic: str = ""
-
-
-@dataclass
-class ProjectionStats:
-    """In-memory projection stats."""
-
-    events_projected: int = 0
-    errors_count: int = 0
-    last_projected_at: datetime | None = None
-    topic_stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
 
 class ModelProjectionRuntimeBinding(BaseModel):
@@ -517,6 +489,11 @@ class BaseProjectionRunner(ABC):
         self._standalone_db_tables: tuple[dict[str, Any], ...] = ()
         self._standalone_bindings: Any | None = None
         self._db_by_binding: dict[str, AsyncpgAdapter] = {}
+        self._kept_pools = KeptPools(
+            lambda: self._connect_standalone_databases(),
+            lambda: self._close_standalone_databases(),
+            lambda: self._stop_producer(),
+        )
         self._stats = ProjectionStats()
         self._running = False
         self._schema_faults: dict[
@@ -542,22 +519,17 @@ class BaseProjectionRunner(ABC):
     async def project_runtime_event(
         self, topic: str, data: dict[str, Any], meta: MessageMeta
     ) -> bool:
-        """Apply one runtime delivery with topology-bound, loop-scoped resources.
+        """Apply one runtime delivery with topology-bound resources kept open.
 
-        No Kafka consumer is started. The existing per-binding resolver gives
-        each declared table its workload identity, including writers spanning
-        tenant and internal schemas. A fresh runner belongs to each delivery;
-        neither a pool nor a producer may survive the loop that used it.
+        No Kafka consumer is started. The per-binding resolver gives each
+        declared table its workload identity. The pools open on the first
+        delivery and stay on the caller's loop (OMN-23196, see KeptPools).
         """
         self._standalone_db_tables = tuple(self._contract["db_io"]["db_tables"])
-        try:
-            await self._connect_standalone_databases()
-            return await self.project_event(topic, data, meta)
-        finally:
-            try:
-                await self._stop_producer()
-            finally:
-                await self._close_standalone_databases()
+        return await self._kept_pools.project(self.project_event, topic, data, meta)
+
+    async def close_runtime_resources(self) -> None:
+        await self._kept_pools.close()
 
     def _start_health_server_if_configured(self) -> None:
         """Start the readiness/liveness HTTP server iff configured.
@@ -612,6 +584,21 @@ class BaseProjectionRunner(ABC):
         Returns True if projection succeeded, False if DB unavailable.
         """
         ...
+
+    def handle(self, input_data: Any) -> Any:
+        # The runtime's projection arm calls handle(dict) and reads rows_upserted from
+        # the result. A handle annotated with a concrete model would be wired onto the
+        # typed dispatch arm instead (omnibase_infra OMN-16767) and stop receiving
+        # _db, _partition and _offset, so the dict is accepted here, once, and every
+        # runner implements project_request over the typed request. The signature is
+        # Any so a runner that is already canonical (a typed handle of its own) still
+        # overrides it.
+        return self.project_request(ModelProjectionRequest.from_injected(input_data))
+
+    def project_request(self, request: ModelProjectionRequest) -> dict[str, Any]:
+        # A runner the runtime dispatches in-process overrides this; a standalone runner
+        # owns its consume loop and is never handed a delivery.
+        raise NotImplementedError(type(self).__name__)
 
     @property
     def poison_dlq_topics(self) -> list[str]:
@@ -677,9 +664,9 @@ class BaseProjectionRunner(ABC):
         from omnibase_infra.runtime.auto_wiring.standalone_projection_bindings import (
             resolve_standalone_projection_bindings,
         )
-        from omnibase_infra.topology import load_topology_profile
 
         from omnimarket.adapters.asyncpg_adapter import AsyncpgAdapter
+        from omnimarket.handlers.delivery_cache import load_topology_profile_cached
 
         declarations = tuple(
             ModelDbTableDeclaration.model_validate(raw)
@@ -687,7 +674,7 @@ class BaseProjectionRunner(ABC):
         )
         resolved = resolve_standalone_projection_bindings(
             declarations,
-            load_topology_profile(profile),
+            load_topology_profile_cached(profile),
             secret_resolver=await build_topology_secret_resolver(None),
         )
         pools: dict[str, AsyncpgAdapter] = {}
@@ -832,15 +819,22 @@ class BaseProjectionRunner(ABC):
         if self._publish_fn is not None:
             return self._publish_fn
 
-        producer = await self._ensure_producer()
-        if producer is None:
+        if await self._ensure_producer() is None:
             return None
 
+        # OMN-23325: the callable is NOT cached and does not close over a
+        # producer. The runtime host stops the producer after every delivery
+        # (KeptPools), so a cached closure would publish through a stopped
+        # producer -- ``ProducerClosed`` on every delivery after the first.
+        # Each call resolves the live producer, building a fresh one when the
+        # last was stopped, so a callable a handler held across a stop still
+        # publishes.
         async def _publish(topic: str, value: bytes) -> None:
-            await producer.send_and_wait(topic, value)
+            if (live := await self._ensure_producer()) is None:
+                raise RuntimeError("no Kafka producer available to publish")
+            await live.send_and_wait(topic, value)
 
-        self._publish_fn = _publish
-        return self._publish_fn
+        return _publish
 
     async def publish_snapshot_delta(
         self,
@@ -1272,7 +1266,8 @@ class BaseProjectionRunner(ABC):
             )
             return False
         correlation_id = correlation_id_from_payload(data, fallback=meta.fallback_id)
-        envelope = build_dlq_envelope(
+        envelope = build_envelope_with_source(
+            meta,
             original_message=data,
             failure_reason=f"poison projection error: {err}",
             handler=type(self).__name__,

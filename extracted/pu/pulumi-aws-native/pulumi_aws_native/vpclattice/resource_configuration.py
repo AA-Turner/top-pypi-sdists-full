@@ -51,8 +51,8 @@ class ResourceConfigurationArgs:
         :param pulumi.Input[_builtins.str] domain_verification_id: The domain verification ID.
         :param pulumi.Input[_builtins.str] group_domain: (GROUP) The group domain for a group resource configuration. Any domains that you create for the child resource are subdomains of the group domain. Child resources inherit the verification status of the domain.
         :param pulumi.Input[_builtins.str] name: The name of the resource configuration.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] port_ranges: (SINGLE, GROUP, CHILD) The TCP port ranges that a consumer can use to access a resource configuration (for example: 1-65535). You can separate port ranges using commas (for example: 1,2,22-30).
-        :param pulumi.Input['ResourceConfigurationProtocolType'] protocol_type: (SINGLE, GROUP) The protocol accepted by the resource configuration.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] port_ranges: The port ranges the resource configuration listens on, as single ports or ranges (for example, 80 or 1001-2000). Applies to SINGLE, GROUP, CHILD, and CIDR resource configurations. For a CIDR resource configuration with ProtocolType TCP_UDP, these ranges cover both TCP and UDP traffic, so include port 53 to carry DNS to the network segment.
+        :param pulumi.Input['ResourceConfigurationProtocolType'] protocol_type: The protocol the resource configuration accepts. SINGLE and GROUP resource configurations support TCP. CIDR resource configurations support TCP and TCP_UDP; use TCP_UDP to carry UDP traffic such as DNS on port 53.
         :param pulumi.Input['ResourceConfigurationAuthType'] resource_configuration_auth_type: The auth type for the resource configuration.
         :param pulumi.Input[Union['ResourceConfigurationDefinition0PropertiesArgs', 'ResourceConfigurationDefinition1PropertiesArgs', 'ResourceConfigurationDefinition2PropertiesArgs', 'ResourceConfigurationDefinition3PropertiesArgs']] resource_configuration_definition: Identifies the resource configuration in one of the following ways:
                
@@ -170,7 +170,7 @@ class ResourceConfigurationArgs:
     @pulumi.getter(name="portRanges")
     def port_ranges(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        (SINGLE, GROUP, CHILD) The TCP port ranges that a consumer can use to access a resource configuration (for example: 1-65535). You can separate port ranges using commas (for example: 1,2,22-30).
+        The port ranges the resource configuration listens on, as single ports or ranges (for example, 80 or 1001-2000). Applies to SINGLE, GROUP, CHILD, and CIDR resource configurations. For a CIDR resource configuration with ProtocolType TCP_UDP, these ranges cover both TCP and UDP traffic, so include port 53 to carry DNS to the network segment.
         """
         return pulumi.get(self, "port_ranges")
 
@@ -182,7 +182,7 @@ class ResourceConfigurationArgs:
     @pulumi.getter(name="protocolType")
     def protocol_type(self) -> pulumi.Input[Optional['ResourceConfigurationProtocolType']]:
         """
-        (SINGLE, GROUP) The protocol accepted by the resource configuration.
+        The protocol the resource configuration accepts. SINGLE and GROUP resource configurations support TCP. CIDR resource configurations support TCP and TCP_UDP; use TCP_UDP to carry UDP traffic such as DNS on port 53.
         """
         return pulumi.get(self, "protocol_type")
 
@@ -269,11 +269,11 @@ class ResourceConfiguration(pulumi.CustomResource):
                  port_ranges: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  protocol_type: pulumi.Input[Optional['ResourceConfigurationProtocolType']] = None,
                  resource_configuration_auth_type: pulumi.Input[Optional['ResourceConfigurationAuthType']] = None,
-                 resource_configuration_definition: pulumi.Input[Optional[Union[Union['ResourceConfigurationDefinition0PropertiesArgs', 'ResourceConfigurationDefinition0PropertiesArgsDict'], Union['ResourceConfigurationDefinition1PropertiesArgs', 'ResourceConfigurationDefinition1PropertiesArgsDict'], Union['ResourceConfigurationDefinition2PropertiesArgs', 'ResourceConfigurationDefinition2PropertiesArgsDict'], Union['ResourceConfigurationDefinition3PropertiesArgs', 'ResourceConfigurationDefinition3PropertiesArgsDict']]]] = None,
+                 resource_configuration_definition: pulumi.Input[Optional[Union[Union['ResourceConfigurationDefinition0PropertiesArgs', 'ResourceConfigurationDefinition0PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition0Properties'], Union['ResourceConfigurationDefinition1PropertiesArgs', 'ResourceConfigurationDefinition1PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition1Properties'], Union['ResourceConfigurationDefinition2PropertiesArgs', 'ResourceConfigurationDefinition2PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition2Properties'], Union['ResourceConfigurationDefinition3PropertiesArgs', 'ResourceConfigurationDefinition3PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition3Properties']]]] = None,
                  resource_configuration_group_id: pulumi.Input[Optional[_builtins.str]] = None,
                  resource_configuration_type: pulumi.Input[Optional['ResourceConfigurationType']] = None,
                  resource_gateway_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         """
         VpcLattice ResourceConfiguration CFN resource
@@ -285,10 +285,10 @@ class ResourceConfiguration(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] domain_verification_id: The domain verification ID.
         :param pulumi.Input[_builtins.str] group_domain: (GROUP) The group domain for a group resource configuration. Any domains that you create for the child resource are subdomains of the group domain. Child resources inherit the verification status of the domain.
         :param pulumi.Input[_builtins.str] name: The name of the resource configuration.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] port_ranges: (SINGLE, GROUP, CHILD) The TCP port ranges that a consumer can use to access a resource configuration (for example: 1-65535). You can separate port ranges using commas (for example: 1,2,22-30).
-        :param pulumi.Input['ResourceConfigurationProtocolType'] protocol_type: (SINGLE, GROUP) The protocol accepted by the resource configuration.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] port_ranges: The port ranges the resource configuration listens on, as single ports or ranges (for example, 80 or 1001-2000). Applies to SINGLE, GROUP, CHILD, and CIDR resource configurations. For a CIDR resource configuration with ProtocolType TCP_UDP, these ranges cover both TCP and UDP traffic, so include port 53 to carry DNS to the network segment.
+        :param pulumi.Input['ResourceConfigurationProtocolType'] protocol_type: The protocol the resource configuration accepts. SINGLE and GROUP resource configurations support TCP. CIDR resource configurations support TCP and TCP_UDP; use TCP_UDP to carry UDP traffic such as DNS on port 53.
         :param pulumi.Input['ResourceConfigurationAuthType'] resource_configuration_auth_type: The auth type for the resource configuration.
-        :param pulumi.Input[Union[Union['ResourceConfigurationDefinition0PropertiesArgs', 'ResourceConfigurationDefinition0PropertiesArgsDict'], Union['ResourceConfigurationDefinition1PropertiesArgs', 'ResourceConfigurationDefinition1PropertiesArgsDict'], Union['ResourceConfigurationDefinition2PropertiesArgs', 'ResourceConfigurationDefinition2PropertiesArgsDict'], Union['ResourceConfigurationDefinition3PropertiesArgs', 'ResourceConfigurationDefinition3PropertiesArgsDict']]] resource_configuration_definition: Identifies the resource configuration in one of the following ways:
+        :param pulumi.Input[Union[Union['ResourceConfigurationDefinition0PropertiesArgs', 'ResourceConfigurationDefinition0PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition0Properties'], Union['ResourceConfigurationDefinition1PropertiesArgs', 'ResourceConfigurationDefinition1PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition1Properties'], Union['ResourceConfigurationDefinition2PropertiesArgs', 'ResourceConfigurationDefinition2PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition2Properties'], Union['ResourceConfigurationDefinition3PropertiesArgs', 'ResourceConfigurationDefinition3PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition3Properties']]] resource_configuration_definition: Identifies the resource configuration in one of the following ways:
                
                - *Amazon Resource Name (ARN)* - Supported resource-types that are provisioned by AWS services, such as RDS databases, can be identified by their ARN.
                - *Domain name* - Any domain name that is publicly resolvable.
@@ -301,7 +301,7 @@ class ResourceConfiguration(pulumi.CustomResource):
                - *CHILD* - A single resource that is part of a group resource configuration.
                - *ARN* - An AWS resource.
         :param pulumi.Input[_builtins.str] resource_gateway_id: The ID of the resource gateway.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]] tags: The tags for the resource configuration.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: The tags for the resource configuration.
         """
         ...
     @overload
@@ -335,11 +335,11 @@ class ResourceConfiguration(pulumi.CustomResource):
                  port_ranges: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  protocol_type: pulumi.Input[Optional['ResourceConfigurationProtocolType']] = None,
                  resource_configuration_auth_type: pulumi.Input[Optional['ResourceConfigurationAuthType']] = None,
-                 resource_configuration_definition: pulumi.Input[Optional[Union[Union['ResourceConfigurationDefinition0PropertiesArgs', 'ResourceConfigurationDefinition0PropertiesArgsDict'], Union['ResourceConfigurationDefinition1PropertiesArgs', 'ResourceConfigurationDefinition1PropertiesArgsDict'], Union['ResourceConfigurationDefinition2PropertiesArgs', 'ResourceConfigurationDefinition2PropertiesArgsDict'], Union['ResourceConfigurationDefinition3PropertiesArgs', 'ResourceConfigurationDefinition3PropertiesArgsDict']]]] = None,
+                 resource_configuration_definition: pulumi.Input[Optional[Union[Union['ResourceConfigurationDefinition0PropertiesArgs', 'ResourceConfigurationDefinition0PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition0Properties'], Union['ResourceConfigurationDefinition1PropertiesArgs', 'ResourceConfigurationDefinition1PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition1Properties'], Union['ResourceConfigurationDefinition2PropertiesArgs', 'ResourceConfigurationDefinition2PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition2Properties'], Union['ResourceConfigurationDefinition3PropertiesArgs', 'ResourceConfigurationDefinition3PropertiesArgsDict', 'outputs.ResourceConfigurationDefinition3Properties']]]] = None,
                  resource_configuration_group_id: pulumi.Input[Optional[_builtins.str]] = None,
                  resource_configuration_type: pulumi.Input[Optional['ResourceConfigurationType']] = None,
                  resource_gateway_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -407,6 +407,12 @@ class ResourceConfiguration(pulumi.CustomResource):
         __props__.__dict__["tags"] = None
         return ResourceConfiguration(resource_name, opts=opts, __props__=__props__)
 
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:vpclattice:ResourceConfiguration', id, __props__, opts or pulumi.ResourceOptions())
+
     @_builtins.property
     @pulumi.getter(name="allowAssociationToSharableServiceNetwork")
     def allow_association_to_sharable_service_network(self) -> pulumi.Output[Optional[_builtins.bool]]:
@@ -467,7 +473,7 @@ class ResourceConfiguration(pulumi.CustomResource):
     @pulumi.getter(name="portRanges")
     def port_ranges(self) -> pulumi.Output[Optional[Sequence[_builtins.str]]]:
         """
-        (SINGLE, GROUP, CHILD) The TCP port ranges that a consumer can use to access a resource configuration (for example: 1-65535). You can separate port ranges using commas (for example: 1,2,22-30).
+        The port ranges the resource configuration listens on, as single ports or ranges (for example, 80 or 1001-2000). Applies to SINGLE, GROUP, CHILD, and CIDR resource configurations. For a CIDR resource configuration with ProtocolType TCP_UDP, these ranges cover both TCP and UDP traffic, so include port 53 to carry DNS to the network segment.
         """
         return pulumi.get(self, "port_ranges")
 
@@ -475,7 +481,7 @@ class ResourceConfiguration(pulumi.CustomResource):
     @pulumi.getter(name="protocolType")
     def protocol_type(self) -> pulumi.Output[Optional['ResourceConfigurationProtocolType']]:
         """
-        (SINGLE, GROUP) The protocol accepted by the resource configuration.
+        The protocol the resource configuration accepts. SINGLE and GROUP resource configurations support TCP. CIDR resource configurations support TCP and TCP_UDP; use TCP_UDP to carry UDP traffic such as DNS on port 53.
         """
         return pulumi.get(self, "protocol_type")
 
@@ -489,7 +495,7 @@ class ResourceConfiguration(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="resourceConfigurationDefinition")
-    def resource_configuration_definition(self) -> pulumi.Output[Optional[Any]]:
+    def resource_configuration_definition(self) -> pulumi.Output[Optional[Union['outputs.ResourceConfigurationDefinition0Properties', 'outputs.ResourceConfigurationDefinition1Properties', 'outputs.ResourceConfigurationDefinition2Properties', 'outputs.ResourceConfigurationDefinition3Properties']]]:
         """
         Identifies the resource configuration in one of the following ways:
 

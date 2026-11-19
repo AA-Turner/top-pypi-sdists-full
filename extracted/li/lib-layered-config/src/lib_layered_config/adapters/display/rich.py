@@ -265,8 +265,8 @@ def display_config(
 def _known_format(output_format: OutputFormat) -> OutputFormat:
     """Return *output_format* as an :class:`OutputFormat`, refusing any other value.
 
-    An untyped caller can pass the format's text; a value that names no format used to fall
-    through to the human view, so a typo printed the wrong format instead of failing.
+    An untyped caller can pass the format's text. A value that names no format is refused so a
+    typo fails instead of falling through to the human view.
     """
     try:
         return OutputFormat(output_format)
@@ -302,10 +302,12 @@ def _display_human(
     if section and redacted_value is _ABSENT:
         raise ValueError(f"Section '{section}' not found")
     con = console or _build_console()
+    # soft_wrap on every print, a caller's console included: Rich otherwise breaks each line at the
+    # console width (80 on a pipe), and a broken comment or string no longer reads back as TOML.
     # The note is a str printed with a print-level style, which also styles its line ending and is
-    # highlighted when the console highlights: printed on its own, as before, so its bytes stay the same.
-    con.print(_OUTPUT_HEADER, style="bright_red")
-    con.print()
+    # highlighted when the console highlights, so it is printed on its own to keep those bytes.
+    con.print(_OUTPUT_HEADER, style="bright_red", soft_wrap=True)
+    con.print(soft_wrap=True)
     view = _View(config, profile)
 
     if not section:
@@ -316,7 +318,7 @@ def _display_human(
         key_path = tuple(section.split("."))
         _print_entry(view, label=toml_path(key_path), key_path=key_path, value=redacted_value, indent=False)
     if view.lines:
-        con.print(Text("\n").join(view.lines))
+        con.print(Text("\n").join(view.lines), soft_wrap=True)
 
 
 __all__ = [

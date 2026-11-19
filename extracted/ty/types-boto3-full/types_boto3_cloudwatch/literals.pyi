@@ -136,6 +136,7 @@ StatisticType = Literal["Average", "Maximum", "Minimum", "SampleCount", "Sum"]
 StatusCodeType = Literal["Complete", "Forbidden", "InternalError", "PartialData"]
 CloudWatchServiceName = Literal["cloudwatch"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -104,6 +104,7 @@ SpotAllocationStrategyType = Literal[
 ]
 ParallelComputingServiceServiceName = Literal["pcs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

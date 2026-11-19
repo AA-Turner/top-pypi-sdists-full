@@ -63,6 +63,7 @@ ProfanityType = Literal["MASK"]
 TerminologyDataFormatType = Literal["CSV", "TMX", "TSV"]
 TranslateServiceName = Literal["translate"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -275,6 +275,7 @@ WarningCodeType = Literal["QUERY_LANGUAGE_INVALID_SYNTAX"]
 WebCrawlerModeType = Literal["EVERYTHING", "HOST_ONLY", "SUBDOMAINS"]
 KendraServiceName = Literal["kendra"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

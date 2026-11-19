@@ -215,6 +215,34 @@ def mark_spoken(body: Any) -> None:
     hear(spoken_of(forwarded.get("voice")) if isinstance(forwarded, dict) else None)
 
 
+def header_of_run(body: Any) -> str:
+    """
+    What a run is told of its chat's title bar: the sentences of the options
+    its drop-downs are on (``forwardedProps.loop.header``).
+
+    Parameters
+    ----------
+    body : Any
+        The run's JSON body.
+
+    Returns
+    -------
+    str
+        The sentences, a line each; empty when the run names none.
+
+    Raises
+    ------
+    ValueError
+        When it names a header, a drop-down or an option the catalogue does
+        not have.
+    """
+    from ..apps.header import header_instructions  # noqa: PLC0415
+
+    forwarded = body.get("forwardedProps") if isinstance(body, dict) else None
+    loop = forwarded.get("loop") if isinstance(forwarded, dict) else None
+    return header_instructions(loop.get("header") if isinstance(loop, dict) else None)
+
+
 @contextmanager
 def run_instructions(instructions: str | None) -> Iterator[None]:
     """Tell the runs started inside this block ``instructions`` besides their agent's."""
@@ -390,6 +418,8 @@ class AGUITransport(BaseTransport):
                 builtin_tools_from_request: list[str] | None = None
                 skills_from_request: list[str] | None = None
                 identities_from_request: list[dict[str, Any]] | None = None
+                header_told = ""
+                body: Any = None
                 metric_user_id: str | None = None
                 metric_user_provider: str | None = None
                 metric_user_jwt_token = extract_jwt_token(
@@ -413,7 +443,18 @@ class AGUITransport(BaseTransport):
                         # A message said and heard by the client: marked
                         # spoken for the run and the record.
                         mark_spoken(body)
-                    model = body.get("model")
+                    # What the chat's title bar says: the option each of its
+                    # drop-downs is on, told to the agent for this run
+                    # (`forwardedProps.loop.header`; a session of an
+                    # application has told it already and sends no `loop`).
+                    try:
+                        header_told = header_of_run(body)
+                    except ValueError as refused:
+                        from starlette.responses import JSONResponse
+
+                        return JSONResponse({"detail": str(refused)}, status_code=422)
+                    # An empty model is none: the agent's own.
+                    model = body.get("model") or None
                     if model:
                         logger.info(f"AG-UI using model from request body: {model}")
 
@@ -516,6 +557,15 @@ class AGUITransport(BaseTransport):
                 # naming the application it serves — never handed to
                 # pydantic-ai as a bare string it would call directly (a
                 # hosted page's agent called Bedrock with no region).
+                # A model the agent does not offer is refused before
+                # anything runs (`offered.run_model_refusal`).
+                from ..models.offered import run_model_refusal
+
+                not_offered = run_model_refusal(transport_self._agent_id, model)
+                if not_offered:
+                    from starlette.responses import JSONResponse
+
+                    return JSONResponse({"detail": not_offered}, status_code=400)
                 run_model: Any = model
                 if isinstance(model, str) and model:
                     from ..models.models import RequestModelRefused, model_of_request
@@ -715,6 +765,14 @@ class AGUITransport(BaseTransport):
                 # entire request duration via contextvars.
                 set_request_identities(identities_from_request)
                 set_request_user_jwt(metric_user_jwt_token)
+                # The run's frontend tools, which the page runs: a visitor
+                # calls them as anybody does (`apps.page_tools`). Set for the
+                # whole request, as the identities are.
+                from ..apps.page_tools import tool_names_of, use_run_frontend_tools
+
+                use_run_frontend_tools(
+                    tool_names_of(body.get("tools") if isinstance(body, dict) else [])
+                )
                 logger.debug("[AG-UI] Set request identities for streaming")
                 logger.info(
                     "[AG-UI] Prompt metrics identity context: user_id=%s provider=%s identities=%s",
@@ -779,7 +837,9 @@ class AGUITransport(BaseTransport):
                     logger.info("[AG-UI] Passing 0 toolsets to agent run (empty list)")
 
                 try:
-                    told = _run_instructions.get()
+                    told = "\n\n".join(
+                        part for part in (_run_instructions.get(), header_told) if part
+                    )
                     response = await AGUIAdapter.dispatch_request(
                         request,
                         agent=pydantic_agent,

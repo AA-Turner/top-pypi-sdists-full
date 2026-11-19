@@ -53,6 +53,7 @@ NotificationRuleStatusType = Literal["DISABLED", "ENABLED"]
 TargetStatusType = Literal["ACTIVE", "DEACTIVATED", "INACTIVE", "PENDING", "UNREACHABLE"]
 CodeStarNotificationsServiceName = Literal["codestar-notifications"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

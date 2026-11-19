@@ -99,6 +99,7 @@ SelfManagedKafkaStartPositionType = Literal["LATEST", "TRIM_HORIZON"]
 TimeFieldTypeType = Literal["EPOCH", "TIMESTAMP_FORMAT"]
 EventBridgePipesServiceName = Literal["pipes"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

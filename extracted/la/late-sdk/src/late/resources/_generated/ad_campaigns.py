@@ -1000,6 +1000,7 @@ class AdCampaignsResource:
         daily_level: str | None = "campaign",
         compare: str | None = None,
         results: bool | None = None,
+        model: str | None = "last_click",
         depth: str | None = "ad",
     ) -> dict[str, Any]:
         """Get campaign tree"""
@@ -1026,6 +1027,7 @@ class AdCampaignsResource:
                 "dailyLevel": daily_level,
                 "compare": compare,
                 "results": results,
+                "model": model,
                 "depth": depth,
             }
         )
@@ -1696,6 +1698,7 @@ class AdCampaignsResource:
         catalog_intro_cards: list[dict[str, Any]] | None = None,
         multi_advertiser: str | None = None,
         ai_disclosure: str | None = None,
+        website_only: bool | None = None,
         retry_on_server_error: bool | None = None,
         validate_only: bool | None = None,
         budget_amount: float | None = None,
@@ -1822,6 +1825,7 @@ class AdCampaignsResource:
                 "catalogIntroCards": catalog_intro_cards,
                 "multiAdvertiser": multi_advertiser,
                 "aiDisclosure": ai_disclosure,
+                "websiteOnly": website_only,
                 "retryOnServerError": retry_on_server_error,
                 "validateOnly": validate_only,
                 "budgetAmount": budget_amount,
@@ -2871,6 +2875,7 @@ class AdCampaignsResource:
         daily_level: str | None = "campaign",
         compare: str | None = None,
         results: bool | None = None,
+        model: str | None = "last_click",
         depth: str | None = "ad",
     ) -> dict[str, Any]:
         """Get campaign tree (async)"""
@@ -2897,6 +2902,7 @@ class AdCampaignsResource:
                 "dailyLevel": daily_level,
                 "compare": compare,
                 "results": results,
+                "model": model,
                 "depth": depth,
             }
         )
@@ -3575,6 +3581,7 @@ class AdCampaignsResource:
         catalog_intro_cards: list[dict[str, Any]] | None = None,
         multi_advertiser: str | None = None,
         ai_disclosure: str | None = None,
+        website_only: bool | None = None,
         retry_on_server_error: bool | None = None,
         validate_only: bool | None = None,
         budget_amount: float | None = None,
@@ -3701,6 +3708,7 @@ class AdCampaignsResource:
                 "catalogIntroCards": catalog_intro_cards,
                 "multiAdvertiser": multi_advertiser,
                 "aiDisclosure": ai_disclosure,
+                "websiteOnly": website_only,
                 "retryOnServerError": retry_on_server_error,
                 "validateOnly": validate_only,
                 "budgetAmount": budget_amount,

@@ -40,6 +40,7 @@ RecordsFormatTypeType = Literal["JSON", "NONE"]
 TypeHintType = Literal["DATE", "DECIMAL", "JSON", "TIME", "TIMESTAMP", "UUID"]
 RDSDataServiceServiceName = Literal["rds-data"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

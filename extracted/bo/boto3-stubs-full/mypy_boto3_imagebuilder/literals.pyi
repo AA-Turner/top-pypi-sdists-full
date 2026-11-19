@@ -191,6 +191,7 @@ WorkflowStepExecutionStatusType = Literal[
 WorkflowTypeType = Literal["BUILD", "DISTRIBUTION", "TEST"]
 ImagebuilderServiceName = Literal["imagebuilder"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

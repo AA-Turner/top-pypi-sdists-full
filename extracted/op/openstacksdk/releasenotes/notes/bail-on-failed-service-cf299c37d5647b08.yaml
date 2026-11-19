@@ -1,6 +1,0 @@
----
-upgrade:
-  - |
-    When a known service cannot be resolved to a supported version,
-    an exception is now thrown instead of just returning a blank
-    Proxy object. This allows returning sane errors to users.

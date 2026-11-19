@@ -143,6 +143,9 @@ class YamlRefactorContext:
     """Tracks which YAML files were actually written to disk (for external formatter integration)."""
     _disk_mutation_count: int = field(default=0, init=False, repr=False)
     """Counts actual on-disk mutations so callers can distinguish dry-run from real writes."""
+    lineage_compilation_manifest: object | None = field(default=None, init=False, repr=False)
+    lineage_compilation_attempts: set[str] = field(default_factory=set, init=False, repr=False)
+    """Attempts per loaded manifest, guarded by project.manifest_mutex; reset after reload."""
     _catalog: CatalogResults | None = field(default=None, init=False)
     _closed: bool = field(default=False, init=False, repr=False)
     """Track whether the context has been closed to prevent double-cleanup."""
@@ -382,6 +385,12 @@ class YamlRefactorContext:
 
     def __post_init__(self) -> None:
         logger.debug(":green_book: Running post-init for YamlRefactorContext.")
+        if self.settings.catalog_path:
+            from dbt_osmosis.core.catalog_operations import _load_catalog
+
+            # Validate explicit input before any source bootstrap or YAML restructuring.
+            # Do not call read_catalog here: its optional generation can query the warehouse.
+            self._catalog = _load_catalog(self.settings)
         if EMPTY_STRING not in self.placeholders:
             self.placeholders = (EMPTY_STRING, *self.placeholders)
         for setting, val in self.yaml_settings.items():

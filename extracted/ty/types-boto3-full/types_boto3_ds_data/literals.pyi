@@ -50,6 +50,7 @@ SearchUsersPaginatorName = Literal["search_users"]
 UpdateTypeType = Literal["ADD", "REMOVE", "REPLACE"]
 DirectoryServiceDataServiceName = Literal["ds-data"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

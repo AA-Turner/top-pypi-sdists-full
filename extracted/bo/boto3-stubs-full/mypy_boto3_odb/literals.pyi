@@ -292,6 +292,7 @@ WalletPasswordSourceType = Literal["API_REQUEST_PARAMETER", "CUSTOMER_MANAGED_AW
 WalletTypeType = Literal["INSTANCE", "REGIONAL"]
 OdbServiceName = Literal["odb"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

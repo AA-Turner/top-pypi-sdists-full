@@ -617,8 +617,9 @@ impl Rule for MD013LineLength {
                     config.bracket_display_math = enabled;
                 }
                 if let Some(front_matter) = obj
-                    .get("front_matter")
+                    .get("frontmatter")
                     .or_else(|| obj.get("front-matter"))
+                    .or_else(|| obj.get("front_matter"))
                     .and_then(serde_json::Value::as_bool)
                 {
                     config.front_matter = front_matter;
@@ -1094,13 +1095,18 @@ impl Rule for MD013LineLength {
                 // by the lines its byte range covers: when one of them is disabled
                 // the fix is withheld and the warning stays, which keeps an
                 // over-long enabled line reported. The range is end-exclusive, so
-                // the line starting where it ends is not one of them.
+                // the line starting where it ends is not one of them. A line
+                // that a line-scoped directive exempts from another rule counts
+                // too: rewrapping would move its text off the line the
+                // directive covers and the other rule would report it again.
                 let fix_rewrites_disabled_line = pw.fix.as_ref().is_some_and(|fix| {
                     let first_line = ctx.line_number_at_offset(fix.range.start);
                     let last_byte = fix.range.end.saturating_sub(1).max(fix.range.start);
                     let last_line = ctx.line_number_at_offset(last_byte);
-                    (first_line..=last_line)
-                        .any(|line_number| ctx.inline_config().is_rule_disabled(self.name(), line_number))
+                    (first_line..=last_line).any(|line_number| {
+                        ctx.inline_config().is_rule_disabled(self.name(), line_number)
+                            || ctx.inline_config().has_line_scoped_disable(line_number)
+                    })
                 });
                 if fix_rewrites_disabled_line {
                     pw.fix = None;
@@ -1173,6 +1179,8 @@ impl Rule for MD013LineLength {
             "semantic_link_understanding".to_string(),
             "ignore-link-urls".to_string(),
         );
+        aliases.insert("front-matter".to_string(), "frontmatter".to_string());
+        aliases.insert("front_matter".to_string(), "frontmatter".to_string());
         Some(aliases)
     }
 
@@ -4740,8 +4748,7 @@ impl MD013LineLength {
                 paragraph_lines
                     .iter()
                     .find(|l| !l.trim().is_empty())
-                    .map(|l| l[..min_len].to_string())
-                    .unwrap_or_default()
+                    .map_or_default(|l| l[..min_len].to_string())
             } else {
                 String::new()
             };

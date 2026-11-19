@@ -5,8 +5,6 @@ Three property classes per Research R2:
 - Axis independence: perturbing one axis input never changes the others.
 - Env wins: when a per-axis env var and a config value both exist, env wins.
 
-Reference: specs/042-auth-architecture-redesign/research.md R2.
-
 Implementation note: Each Hypothesis example builds its own ConfigManager
 in a fresh tmp dir to avoid state leak between examples (the function-scoped
 ``tmp_path`` fixture is reused across examples within one test function).
@@ -37,7 +35,7 @@ workspace_ids = st.integers(min_value=1, max_value=2**31 - 1)
 def _isolated_home(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[None]:
-    """Isolate ``$HOME`` so the resolver doesn't pick up the dev's real bridge."""
+    """Isolate ``$HOME`` so no example reads the developer's real home directory."""
     with tempfile.TemporaryDirectory() as tmp:
         monkeypatch.setenv("HOME", tmp)
         yield

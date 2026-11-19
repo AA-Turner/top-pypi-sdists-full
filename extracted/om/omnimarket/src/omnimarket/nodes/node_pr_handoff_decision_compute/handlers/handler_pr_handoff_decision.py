@@ -9,8 +9,9 @@ evaluating time, all handed in. It reads no clock, no file and no network.
 The rules are pr-handoff's handoff_row.sh readiness rules, in its order, with
 these changes that are the point of this node:
 
-* a repository outside the landing scope the caller supplied is refused first,
-  without waiting for an observation, with a refusal ledger row for the caller;
+* an absent, unreadable or invalid landing scope is refused first; a repository
+  outside a valid scope is refused with a refusal ledger row for the caller,
+  without waiting for an observation;
 * the PR comes from the watcher's observation the orchestrator holds, never
   from a copy of the watcher's state file on the requesting host, so a PR the
   lane just opened is waited for instead of refused (exit 5 before);
@@ -29,7 +30,9 @@ from datetime import datetime, timedelta
 from typing import Literal
 
 from omnimarket.events.pr_state import EnumPrState, ModelPrStateEmitRequest
+from omnimarket.handlers.review_status_reading import read_head_review_status
 from omnimarket.merge_control.hold_marker import evaluate_merge_hold
+from omnimarket.models.model_review_status import EnumReviewStatusVerdict
 from omnimarket.models.pr_handoff import (
     EnumPrHandoffErrorCode,
     EnumPrHandoffLabProofSource,
@@ -87,6 +90,14 @@ def invalid_request_reason(request: ModelPrHandoffRequested) -> str | None:
             "'delegated=0 delegation_reason=<why>' or 'delegation=na:<reason>'"
         )
     return None
+
+
+#: The refusal each non-pass review-gate status reading earns: missing, failing or on another head.
+_REVIEW_STATUS_REFUSAL: dict[EnumReviewStatusVerdict, EnumPrHandoffErrorCode] = {
+    EnumReviewStatusVerdict.MISSING: EnumPrHandoffErrorCode.REVIEW_STATUS_MISSING,
+    EnumReviewStatusVerdict.FAILING: EnumPrHandoffErrorCode.REVIEW_STATUS_FAILING,
+    EnumReviewStatusVerdict.OTHER_HEAD: EnumPrHandoffErrorCode.REVIEW_STATUS_OTHER_HEAD,
+}
 
 
 def _observed_at(observation: ModelPrStateEmitRequest) -> datetime:
@@ -249,10 +260,27 @@ def decide_handoff(
 ) -> ModelPrHandoffDecision:
     """The verdict for one evaluation of one handoff request."""
     request = decision_request.request
-    if (
-        decision_request.landing_scope is not None
-        and request.repo not in decision_request.landing_scope
-    ):
+    scope = decision_request.landing_scope
+    problem = decision_request.landing_scope_problem
+    if problem is not None:
+        return _refuse(
+            EnumPrHandoffErrorCode.SCOPE_UNREAD,
+            f"landing_scope is unreadable: {problem}",
+            None,
+        )
+    if scope is None:
+        return _refuse(
+            EnumPrHandoffErrorCode.SCOPE_UNREAD,
+            "landing_scope is absent",
+            None,
+        )
+    if any(not repo.strip() or repo != repo.strip() for repo in scope):
+        return _refuse(
+            EnumPrHandoffErrorCode.SCOPE_UNREAD,
+            "landing_scope is invalid: entries must be non-blank and have no surrounding whitespace",
+            None,
+        )
+    if request.repo not in scope:
         return _refuse(
             EnumPrHandoffErrorCode.REPO_OUT_OF_LANDING_SCOPE,
             f"{request.repo} is outside the landing scope the caller supplied",
@@ -336,6 +364,15 @@ def decide_handoff(
     lab_problem = _lab_proof_problem(request, observation)
     if lab_problem is not None:
         return _refuse(EnumPrHandoffErrorCode.MISSING_LAB_PROOF, lab_problem, head)
+    review = decision_request.review_status
+    if review is not None and review.new_work:
+        reading = read_head_review_status(review.statuses, head)
+        if reading.verdict is not EnumReviewStatusVerdict.PASS:
+            return _refuse(
+                _REVIEW_STATUS_REFUSAL[reading.verdict],
+                f"new-work PR: {reading.detail}",
+                head,
+            )
     msg_id, rows = _rows(request, observation, ticket, source, decision_request.now)
     return ModelPrHandoffDecision(
         verdict=EnumPrHandoffVerdict.READY,

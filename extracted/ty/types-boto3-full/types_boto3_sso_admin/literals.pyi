@@ -138,6 +138,7 @@ TrustedTokenIssuerTypeType = Literal["OIDC_JWT"]
 UserBackgroundSessionApplicationStatusType = Literal["DISABLED", "ENABLED"]
 SSOAdminServiceName = Literal["sso-admin"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

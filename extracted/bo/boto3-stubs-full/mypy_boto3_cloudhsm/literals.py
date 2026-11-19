@@ -49,6 +49,7 @@ ListLunaClientsPaginatorName = Literal["list_luna_clients"]
 SubscriptionTypeType = Literal["PRODUCTION"]
 CloudHSMServiceName = Literal["cloudhsm"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -2120,7 +2120,8 @@ class IAMClient(BaseClient):
         self, **kwargs: Unpack[UpdateLoginProfileRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Changes the password for the specified IAM user.
+        Changes the password or the maximum sign-in session duration for the specified
+        IAM user.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/update_login_profile.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#update_login_profile)
@@ -2139,7 +2140,8 @@ class IAMClient(BaseClient):
 
     def update_role(self, **kwargs: Unpack[UpdateRoleRequestTypeDef]) -> dict[str, Any]:
         """
-        Updates the description or maximum session duration setting of a role.
+        Updates the description, maximum session duration, or maximum sign-in session
+        duration of a role.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/update_role.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#update_role)

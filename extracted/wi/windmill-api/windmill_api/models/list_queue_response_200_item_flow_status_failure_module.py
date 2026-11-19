@@ -59,6 +59,8 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
         iterator (Union[Unset, ListQueueResponse200ItemFlowStatusFailureModuleIterator]):
         flow_jobs (Union[Unset, List[str]]):
         flow_jobs_success (Union[Unset, List[bool]]):
+        flow_jobs_labels (Union[Unset, List[Optional[str]]]): For a for-loop step whose iteration_label is set, each
+            iteration's label, aligned with flow_jobs. An entry is null when its label evaluated to nothing
         flow_jobs_duration (Union[Unset, ListQueueResponse200ItemFlowStatusFailureModuleFlowJobsDuration]):
         branch_chosen (Union[Unset, ListQueueResponse200ItemFlowStatusFailureModuleBranchChosen]):
         branchall (Union[Unset, ListQueueResponse200ItemFlowStatusFailureModuleBranchall]):
@@ -84,6 +86,7 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
     iterator: Union[Unset, "ListQueueResponse200ItemFlowStatusFailureModuleIterator"] = UNSET
     flow_jobs: Union[Unset, List[str]] = UNSET
     flow_jobs_success: Union[Unset, List[bool]] = UNSET
+    flow_jobs_labels: Union[Unset, List[Optional[str]]] = UNSET
     flow_jobs_duration: Union[Unset, "ListQueueResponse200ItemFlowStatusFailureModuleFlowJobsDuration"] = UNSET
     branch_chosen: Union[Unset, "ListQueueResponse200ItemFlowStatusFailureModuleBranchChosen"] = UNSET
     branchall: Union[Unset, "ListQueueResponse200ItemFlowStatusFailureModuleBranchall"] = UNSET
@@ -141,6 +144,10 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
         flow_jobs_success: Union[Unset, List[bool]] = UNSET
         if not isinstance(self.flow_jobs_success, Unset):
             flow_jobs_success = self.flow_jobs_success
+
+        flow_jobs_labels: Union[Unset, List[Optional[str]]] = UNSET
+        if not isinstance(self.flow_jobs_labels, Unset):
+            flow_jobs_labels = self.flow_jobs_labels
 
         flow_jobs_duration: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.flow_jobs_duration, Unset):
@@ -230,6 +237,8 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
             field_dict["flow_jobs"] = flow_jobs
         if flow_jobs_success is not UNSET:
             field_dict["flow_jobs_success"] = flow_jobs_success
+        if flow_jobs_labels is not UNSET:
+            field_dict["flow_jobs_labels"] = flow_jobs_labels
         if flow_jobs_duration is not UNSET:
             field_dict["flow_jobs_duration"] = flow_jobs_duration
         if branch_chosen is not UNSET:
@@ -308,6 +317,8 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
         flow_jobs = cast(List[str], d.pop("flow_jobs", UNSET))
 
         flow_jobs_success = cast(List[bool], d.pop("flow_jobs_success", UNSET))
+
+        flow_jobs_labels = cast(List[Optional[str]], d.pop("flow_jobs_labels", UNSET))
 
         _flow_jobs_duration = d.pop("flow_jobs_duration", UNSET)
         flow_jobs_duration: Union[Unset, ListQueueResponse200ItemFlowStatusFailureModuleFlowJobsDuration]
@@ -432,6 +443,7 @@ class ListQueueResponse200ItemFlowStatusFailureModule:
             iterator=iterator,
             flow_jobs=flow_jobs,
             flow_jobs_success=flow_jobs_success,
+            flow_jobs_labels=flow_jobs_labels,
             flow_jobs_duration=flow_jobs_duration,
             branch_chosen=branch_chosen,
             branchall=branchall,

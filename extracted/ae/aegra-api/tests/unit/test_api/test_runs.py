@@ -9,7 +9,6 @@ from fastapi import HTTPException
 from redis import RedisError
 
 from aegra_api.api.runs import (
-    _apply_create_run_auth,
     _request_run_interruption,
     create_run,
     get_run,
@@ -21,6 +20,7 @@ from aegra_api.core.orm import Assistant as AssistantORM
 from aegra_api.core.orm import Run as RunORM
 from aegra_api.core.orm import Thread as ThreadORM
 from aegra_api.models import Run, RunCreate, RunStatus, User
+from aegra_api.services.run_preparation import _apply_create_run_auth
 
 
 class TestRunsEndpoints:
@@ -303,7 +303,9 @@ class TestRunsEndpoints:
                 mock_session,
             )
 
-            mock_reconcile.assert_awaited_once_with(mock_session, run_id, thread_id, user_id=mock_user.identity)
+            mock_reconcile.assert_awaited_once_with(
+                mock_session, run_id, thread_id, user_id=mock_user.identity, webhook_job=None
+            )
             mock_interrupt.assert_called_once_with(run_id)
             mock_session.execute.assert_not_awaited()
             mock_session.commit.assert_not_awaited()
@@ -381,6 +383,7 @@ class TestRunsEndpoints:
             run_orm.run_id,
             run_orm.thread_id,
             user_id=run_orm.user_id,
+            webhook_job=None,
         )
         mock_cancel.assert_awaited_once_with(run_orm.run_id, emit_end_event=False)
         mock_signal.assert_awaited_once_with(run_orm.run_id)
@@ -566,7 +569,7 @@ class TestApplyCreateRunAuth:
             value["config"] = {"injected_via_value": True}
             return {}
 
-        with patch("aegra_api.api.runs.handle_event", new_callable=AsyncMock, side_effect=_handler):
+        with patch("aegra_api.services.run_preparation.handle_event", new_callable=AsyncMock, side_effect=_handler):
             await _apply_create_run_auth(mock_user, "t", request)
 
         assert request.config == {"original": "kept"}
@@ -580,7 +583,7 @@ class TestApplyCreateRunAuth:
             value["config"] = {"injected_via_value": True}
             return None
 
-        with patch("aegra_api.api.runs.handle_event", new_callable=AsyncMock, side_effect=_handler):
+        with patch("aegra_api.services.run_preparation.handle_event", new_callable=AsyncMock, side_effect=_handler):
             await _apply_create_run_auth(mock_user, "t", request)
 
         assert request.config == {"original": "kept", "injected_via_value": True}
@@ -591,7 +594,7 @@ class TestApplyCreateRunAuth:
         request = RunCreate(assistant_id="a", input={}, config={"original": "kept"})
 
         with patch(
-            "aegra_api.api.runs.handle_event",
+            "aegra_api.services.run_preparation.handle_event",
             new_callable=AsyncMock,
             return_value={"config": {"injected": True}, "context": {"injected_ctx": 2}},
         ):

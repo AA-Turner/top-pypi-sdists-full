@@ -81,6 +81,22 @@ def test_filter_min_max_reset():
     assert np.sum(ds.filter.all) == 8472
 
 
+def test_filter_min_max_removed():
+    """Removing the min/max keys from the configuration removes the filter"""
+    ddict = example_data_dict(size=8472, keys=["area_um", "deform"])
+    ds = new_dataset(ddict)
+    amin, amax = ds["area_um"].min(), ds["area_um"].max()
+    ds.config["filtering"]["area_um min"] = (amax + amin) / 2
+    ds.config["filtering"]["area_um max"] = amax
+    ds.apply_filter()
+    assert np.sum(ds.filter.all) == 4256
+
+    ds.config["filtering"].pop("area_um min")
+    ds.config["filtering"].pop("area_um max")
+    ds.apply_filter()
+    assert np.sum(ds.filter.all) == 8472
+
+
 @pytest.mark.parametrize("method", ["apply_filter",
                                     "get_downsampled_scatter",
                                     "polygon_filter_add",
@@ -192,6 +208,27 @@ def test_polygon_filter_reset():
 
     ds.reset_filter()
     assert np.sum(ds.filter.all) == 8472
+    ds.apply_filter()
+    assert np.sum(ds.filter.all) == 8472
+
+
+def test_polygon_filter_removed_instance():
+    """Removing the filter and its instance must not break `apply_filter`"""
+    ddict = example_data_dict(size=8472, keys=["area_um", "deform"])
+    ds = new_dataset(ddict)
+    amin, amax = ds["area_um"].min(), ds["area_um"].max()
+    dmin, dmax = ds["deform"].min(), ds["deform"].max()
+    pf = dclab.PolygonFilter(axes=["area_um", "deform"],
+                             points=[[amin, dmin],
+                                     [(amax + amin) / 2, dmin],
+                                     [(amax + amin) / 2, dmax],
+                                     ])
+    ds.polygon_filter_add(pf)
+    ds.apply_filter()
+    assert np.sum(ds.filter.all) == 2138
+
+    ds.polygon_filter_rm(pf)
+    PolygonFilter.remove(pf.unique_id)
     ds.apply_filter()
     assert np.sum(ds.filter.all) == 8472
 

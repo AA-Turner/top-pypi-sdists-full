@@ -69,6 +69,7 @@ StateType = Literal["ACTIVE", "ARCHIVED"]
 StatusType = Literal["FAILED", "RUNNING", "SUCCESSFUL"]
 DetectiveServiceName = Literal["detective"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

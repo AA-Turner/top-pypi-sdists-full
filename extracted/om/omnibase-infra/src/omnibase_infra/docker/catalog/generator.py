@@ -22,6 +22,9 @@ from omnibase_core.models.core.model_deployment_topology_service import (
 # Compose YAML values are heterogeneous dicts. We use dict[str, object]
 # instead of dict[str, Any] to satisfy the ONEX Any-type ban.
 from omnibase_infra.docker.catalog.enum_infra_layer import EnumInfraLayer
+from omnibase_infra.docker.catalog.model_optional_directory_bind_mount import (
+    ModelOptionalDirectoryBindMount,
+)
 from omnibase_infra.docker.catalog.resolver import (
     DEFAULT_PROJECT,
     CatalogResolver,
@@ -35,6 +38,9 @@ from omnibase_infra.models.docker.model_rendered_bundle import ModelRenderedBund
 
 _RUNTIME_IMAGE_BUILD_SERVICE = "omninode-runtime"
 _RUNTIME_IMAGE = "runtime:latest"
+# OMN-21279: omnimarket's docker/Dockerfile.runtime builds this FROM this repo's
+# runtime image. It is project-scoped but never receives an infra build stanza.
+_MARKET_RUNTIME_IMAGE = "omnimarket-runtime:latest"
 _DEFAULT_NETWORK = "omnibase-infra-network"
 
 
@@ -112,21 +118,9 @@ def _reject_redaction_placeholder(service: str, env: Mapping[str, str]) -> None:
         )
 
 
-# Compose default for an optional directory bind mount whose source variable is
-# unset. It must be a DIRECTORY: a file fallback such as ``/dev/null`` is
-# invalid for a directory target, which is the OMN-13248 defect that made the
-# mount conditional in the first place. Docker creates a missing bind source
-# directory, so this resolves to an empty, read-only directory on any host --
-# the same outcome the container saw when the mount was omitted, and the
-# coding-agent handler still fails closed on absent credentials.
-_ABSENT_OPTIONAL_BIND_SOURCE = "/var/lib/omninode/optional-bind-source-absent"
-
-
 def _render_optional_directory_bind_mount(
     *,
-    source_env: str,
-    container_path: str,
-    read_only: bool,
+    mount: ModelOptionalDirectoryBindMount,
     environment: Mapping[str, str],
 ) -> str:
     """Render an optional directory mount from the catalog declaration alone.
@@ -153,6 +147,7 @@ def _render_optional_directory_bind_mount(
     render time, so an explicitly set but unusable value fails closed here
     rather than at container start.
     """
+    source_env = mount.source_env
     raw_source = environment.get(source_env)
     if raw_source is not None and raw_source.strip():
         if raw_source != raw_source.strip():
@@ -163,8 +158,8 @@ def _render_optional_directory_bind_mount(
                 f"{source_env} must point to an existing absolute directory"
             )
 
-    mode = ":ro" if read_only else ""
-    return f"${{{source_env}:-{_ABSENT_OPTIONAL_BIND_SOURCE}}}:{container_path}{mode}"
+    mode = ":ro" if mount.read_only else ""
+    return f"${{{source_env}:-{mount.absent_source}}}:{mount.container_path}{mode}"
 
 
 def _runtime_image_build(project: str = DEFAULT_PROJECT) -> dict[str, object]:
@@ -199,7 +194,10 @@ def _runtime_image_build(project: str = DEFAULT_PROJECT) -> dict[str, object]:
 
 
 def generate_compose(
-    resolved: ResolvedStack, *, environment: Mapping[str, str] | None = None
+    resolved: ResolvedStack,
+    *,
+    environment: Mapping[str, str] | None = None,
+    composed_image: str | None = None,
 ) -> dict[str, object]:
     """Generate a docker-compose dict from a resolved stack."""
     configured_environment = environment or {}
@@ -213,11 +211,19 @@ def generate_compose(
 
         # Image. The locally built runtime image is project-scoped so a second
         # project's build never retags the image another project runs.
-        if manifest.image == _RUNTIME_IMAGE:
-            svc["image"] = _scoped(project, manifest.image)
+        if manifest.image in {_RUNTIME_IMAGE, _MARKET_RUNTIME_IMAGE}:
+            svc["image"] = (
+                composed_image
+                if composed_image is not None
+                else _scoped(project, manifest.image)
+            )
         else:
             svc["image"] = manifest.image
-        if name == _RUNTIME_IMAGE_BUILD_SERVICE and manifest.image == _RUNTIME_IMAGE:
+        if (
+            composed_image is None
+            and name == _RUNTIME_IMAGE_BUILD_SERVICE
+            and manifest.image == _RUNTIME_IMAGE
+        ):
             svc["build"] = _runtime_image_build(project)
 
         # Container name. A non-default project names every container after
@@ -290,9 +296,7 @@ def generate_compose(
         for mount in manifest.optional_directory_bind_mounts:
             volumes.append(
                 _render_optional_directory_bind_mount(
-                    source_env=mount.source_env,
-                    container_path=mount.container_path,
-                    read_only=mount.read_only,
+                    mount=mount,
                     environment=configured_environment,
                 )
             )
@@ -415,6 +419,23 @@ def generate_compose(
     return compose
 
 
+def containers_on_image(compose: dict[str, object], image: str) -> list[str]:
+    """Return sorted container names for services rendered on ``image``."""
+    raw_services = compose.get("services")
+    if not isinstance(raw_services, Mapping):
+        return []
+    services: Mapping[object, object] = raw_services
+    names: list[str] = []
+    for raw_service in services.values():
+        if not isinstance(raw_service, Mapping):
+            continue
+        service: Mapping[object, object] = raw_service
+        container_name = service.get("container_name")
+        if service.get("image") == image and isinstance(container_name, str):
+            names.append(container_name)
+    return sorted(names)
+
+
 # ---------------------------------------------------------------------------
 # Public bundle renderer (OMN-19972)
 #
@@ -459,6 +480,7 @@ def write_compose(
     catalog_dir: Path,
     output_path: Path,
     environment: Mapping[str, str],
+    composed_image: str | None = None,
 ) -> ResolvedStack:
     """Resolve ``bundles``, refuse a host-port clash, and write the compose file.
 
@@ -475,7 +497,9 @@ def write_compose(
             "Cannot render: duplicate host ports in the resolved stack: "
             + "; ".join(clash.messages())
         )
-    compose = generate_compose(resolved, environment=environment)
+    compose = generate_compose(
+        resolved, environment=environment, composed_image=composed_image
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         yaml.dump(compose, f, default_flow_style=False, sort_keys=False)

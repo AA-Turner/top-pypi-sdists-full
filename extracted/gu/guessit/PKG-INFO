@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: guessit
-Version: 4.5.2
+Version: 4.5.3
 Summary: GuessIt - a library for guessing information from video filenames.
 Project-URL: Homepage, https://guessit-io.github.io/guessit
 Project-URL: Repository, https://github.com/guessit-io/guessit
@@ -105,6 +105,14 @@ GuessIt is licensed under the [LGPLv3 license](http://www.gnu.org/licenses/lgpl.
 # CHANGELOG
 
 <!-- version list -->
+
+## v4.5.3 (2026-11-18)
+
+### Bug Fixes
+
+- **title**: Keep every dot of an abbreviation that starts the title
+  ([`9d5a412`](https://github.com/guessit-io/guessit/commit/9d5a412d79e80f9ade5681434f0c8f95b3a996f9))
+
 
 ## v4.5.2 (2026-11-17)
 

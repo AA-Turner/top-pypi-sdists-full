@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: PyOTP
-Version: 2.12.0
+Version: 2.12.1
 Summary: Python One Time Password Library
 Project-URL: Homepage, https://github.com/pyauth/pyotp
 Project-URL: Documentation, https://github.com/pyauth/pyotp
@@ -234,6 +234,32 @@ Now run the following and compare the output:
     totp = pyotp.TOTP("JBSWY3DPEHPK3PXPJBSWY3DP")
     print("Current OTP:", totp.now())
 
+Adjusting the minimum seed length
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+`RFC 4226, section 4 <https://www.rfc-editor.org/rfc/rfc4226#section-4>`_ requires a minimum seed length of 128 bits
+and recommends 160 bits. `NIST SP 800-63B-4, section 3.1.4.1
+<https://pages.nist.gov/800-63-4/sp800-63b/authenticators/#sf-otp>`_ requires the secret key and its algorithm to
+provide at least 112 bits of security strength. By default, PyOTP checks that secret inputs are at least 112 bits
+long after Base32 decoding. To specify a different minimum seed length, subclass ``pyotp.TOTP`` or ``pyotp.HOTP``
+and adjust the ``min_secret_length_bits`` class variable inherited from ``pyotp.OTP``:
+
+.. code:: python
+
+    import pyotp
+
+    class TOTP128(pyotp.TOTP):
+        min_secret_length_bits = 128
+
+    class HOTP128(pyotp.HOTP):
+        min_secret_length_bits = 128
+
+    secret = pyotp.random_base32()
+    totp = TOTP128(secret)
+    hotp = HOTP128(secret)
+
+The minimum applies when constructing an instance and whenever its secret is decoded to generate or verify an OTP.
+
 Third-party contributions
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 The following third-party contributions are not described by a standard, not officially supported, and provided for
@@ -263,17 +289,6 @@ For new applications:
 Versioning
 ~~~~~~~~~~
 This package follows the `Semantic Versioning 2.0.0 <http://semver.org/>`_ standard. To control changes, it is
-recommended that application developers pin the package version and manage it using `pip-tools
-<https://github.com/jazzband/pip-tools>`_ or similar. For library developers, pinning the major version is
+recommended that application developers pin the package version and manage it using `uv
+<https://github.com/astral-sh/uv>`_ or similar. For library developers, pinning the major version is
 recommended.
-
-.. image:: https://github.com/pyauth/pyotp/workflows/Python%20package/badge.svg
-        :target: https://github.com/pyauth/pyotp/actions
-.. image:: https://img.shields.io/codecov/c/github/pyauth/pyotp/master.svg
-        :target: https://codecov.io/github/pyauth/pyotp?branch=master
-.. image:: https://img.shields.io/pypi/v/pyotp.svg
-        :target: https://pypi.python.org/pypi/pyotp
-.. image:: https://img.shields.io/pypi/l/pyotp.svg
-        :target: https://pypi.python.org/pypi/pyotp
-.. image:: https://readthedocs.org/projects/pyotp/badge/?version=latest
-        :target: https://pyotp.readthedocs.io/

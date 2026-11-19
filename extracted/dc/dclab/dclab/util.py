@@ -24,7 +24,7 @@ class file_monitoring_lru_cache:
     must accept `path` as its first argument. Caching is
     done with an `lru_cache`. In addition to the full path
     and the other arguments to the decorated function, the
-    size and the modification time of `path` is used as a
+    size and the modification time of `path` are used as a
     key for the decorator.
     If the path does not exist, no caching is done.
 
@@ -47,9 +47,9 @@ class file_monitoring_lru_cache:
             if full_path.exists():
                 path_stat = full_path.stat()
                 return cached_wrapper(
+                    full_path,
+                    (path_stat.st_mtime_ns, path_stat.st_size),
                     *args,
-                    path=full_path,
-                    path_stats=(path_stat.st_mtime_ns, path_stat.st_size),
                     **kwargs)
             else:
                 # `func` will most-likely raise an exception
@@ -83,7 +83,7 @@ class LazyLoader:
 @file_monitoring_lru_cache(maxsize=100)
 def hashfile(fname, blocksize=65536, count=0, constructor=hashlib.md5,
              hasher_class=None):
-    """Compute md5 hex-hash of a file
+    """Compute the hex-hash of a file (MD5 by default)
 
     Parameters
     ----------
@@ -91,23 +91,34 @@ def hashfile(fname, blocksize=65536, count=0, constructor=hashlib.md5,
         path to the file
     blocksize: int
         block size in bytes read from the file
-        (set to `0` to hash the entire file)
+        (`0` is equivalent to `count=0`)
     count: int
-        number of blocks read from the file
+        number of blocks read from the file (set to `0`, the default,
+        to hash the entire file)
     hasher_class: callable
-        deprecated, see use `constructor` instead
+        deprecated, use `constructor` instead
     constructor: callable
         hash algorithm constructor
+
+    Returns
+    -------
+    hexdigest: str
     """
     if hasher_class is not None:
         warnings.warn("The `hasher_class` argument is deprecated, please use "
-                      "`constructor` instead.")
+                      "`constructor` instead.",
+                      DeprecationWarning)
         constructor = hasher_class
 
     path = pathlib.Path(fname)
 
+    if blocksize == 0:
+        # Hash the entire file (`fd.read(0)` would not read anything).
+        blocksize = 65536
+        count = 0
+
     hasher = constructor()
-    with path.open('rb') as fd:
+    with path.open("rb") as fd:
         buf = fd.read(blocksize)
         ii = 0
         while len(buf) > 0:
@@ -130,7 +141,7 @@ def obj2bytes(obj):
     Note that there is no guarantee that the bytes representation
     returned is reproducible across sessions. This is currently the
     case when an :class:`.RTDCBase` instance is passed. There is no
-    opinion on wether/how this should be changed.
+    opinion on whether/how this should be changed.
     """
     if isinstance(obj, str):
         return obj.encode("utf-8")

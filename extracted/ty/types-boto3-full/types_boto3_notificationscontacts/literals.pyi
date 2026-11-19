@@ -34,6 +34,7 @@ EmailContactStatusType = Literal["active", "inactive"]
 ListEmailContactsPaginatorName = Literal["list_email_contacts"]
 UserNotificationsContactsServiceName = Literal["notificationscontacts"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

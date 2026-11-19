@@ -24,6 +24,7 @@ from typing import Union
 from .literals import (
     CancellationStatusType,
     CompressionTypeType,
+    DeviceStatusReasonCodeType,
     DeviceStatusType,
     DeviceTypeType,
     ExperimentalCapabilitiesEnablementTypeType,
@@ -62,6 +63,7 @@ __all__ = (
     "DeleteSpendingLimitRequestTypeDef",
     "DeviceConfigTypeDef",
     "DeviceQueueInfoTypeDef",
+    "DeviceStatusReasonTypeDef",
     "DeviceSummaryTypeDef",
     "ExperimentalCapabilitiesTypeDef",
     "GetDeviceRequestTypeDef",
@@ -195,6 +197,13 @@ class DeviceQueueInfoTypeDef(TypedDict):
     queue: QueueNameType
     queueSize: str
     queuePriority: NotRequired[QueuePriorityType]
+
+
+class DeviceStatusReasonTypeDef(TypedDict):
+    reason: DeviceStatusReasonCodeType
+    updatedAt: datetime
+    startedAt: NotRequired[datetime]
+    estimatedEndAt: NotRequired[datetime]
 
 
 class DeviceSummaryTypeDef(TypedDict):
@@ -381,6 +390,7 @@ class GetDeviceResponseTypeDef(TypedDict):
     providerName: str
     deviceType: DeviceTypeType
     deviceStatus: DeviceStatusType
+    deviceStatusReason: DeviceStatusReasonTypeDef
     deviceCapabilities: str
     deviceQueueInfo: list[DeviceQueueInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

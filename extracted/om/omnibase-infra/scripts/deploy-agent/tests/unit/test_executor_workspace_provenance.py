@@ -125,6 +125,43 @@ def test_stage_workspace_called_for_workspace_mode(
     assert omni_home == "/data/omninode/omni_home"
 
 
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        ({"omnimarket": "dev-20261013120000-aaaaaaaaaaaa"}, ["sibling_tags"]),
+        ({}, []),
+    ],
+)
+def test_compose_build_hands_the_commands_sibling_tags_to_staging(
+    monkeypatch: pytest.MonkeyPatch, tags: dict[str, str], expected: list[str]
+) -> None:
+    """OMN-21485: the staging call carries sibling_tags only when a command named some."""
+    monkeypatch.setenv("OMNI_HOME", "/srv/registry_root")
+    executor = DeployExecutor()
+    executor.sibling_tags = tags
+    seen: list[dict[str, object]] = []
+
+    def fake_stage(
+        repo_dir: str, registry: str, deploy_ref: str = "", fallback: str = "", **kw
+    ) -> dict[str, str]:
+        seen.append(kw)
+        return {}
+
+    monkeypatch.setattr("deploy_agent.executor._run", lambda cmd, timeout, **k: _ok())
+    monkeypatch.setattr(DeployExecutor, "_stage_workspace", staticmethod(fake_stage))
+
+    executor._compose_build(
+        Scope.RUNTIME,
+        "abc1234",
+        _noop_phase_update,
+        build_source=BuildSource.WORKSPACE,
+    )
+
+    assert list(seen[0]) == expected
+    if tags:
+        assert seen[0]["sibling_tags"] == tags
+
+
 def test_stage_workspace_not_called_for_release_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -270,7 +307,8 @@ def test_provenance_script_passes_with_valid_local_installs(
 ) -> None:
     """Provenance script writes manifest and exits 0 when all packages are local installs."""
     sibling_dir = tmp_path / "workspace" / "sibling-repos"
-    for repo in ("omnibase_compat", "omnimarket"):
+    staged = ("omnibase_core", "omnibase_spi")
+    for repo in staged:
         repo_dir = sibling_dir / repo
         repo_dir.mkdir(parents=True)
         (repo_dir / "pyproject.toml").write_text(
@@ -306,7 +344,7 @@ def test_provenance_script_passes_with_valid_local_installs(
     (tmp_path / "direct_url.json").write_text(
         json.dumps(
             {
-                "url": f"file://{sibling_dir}/omnibase_compat",
+                "url": f"file://{sibling_dir}/omnibase_core",
                 "dir_info": {"editable": False},
             }
         ),
@@ -331,7 +369,7 @@ def test_provenance_script_passes_with_valid_local_installs(
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["build_source"] == "workspace"
     assert "proofs" in manifest
-    assert len(manifest["proofs"]) == len(["omnibase_compat", "omnimarket"])
+    assert len(manifest["proofs"]) == len(staged)
     for proof in manifest["proofs"]:
         assert "workspace_digest" in proof
         assert len(proof["workspace_digest"]) == 64  # SHA-256 hex
@@ -474,9 +512,8 @@ source = { editable = "." }
 
 
 def _stage_siblings(sibling_dir: Path) -> None:
-    """Create the three workspace siblings (compat, occ, omnimarket) at lock pin."""
+    """Create the two workspace siblings (occ, omnimarket) at lock pin."""
     for repo, version in (
-        ("omnibase_compat", "0.5.1"),
         ("onex_change_control", "0.9.0"),
         ("omnimarket", "0.4.3"),
     ):
@@ -510,9 +547,8 @@ def test_provenance_emits_pin_comparison_block(tmp_path: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert "pin_comparison" in manifest
     by_pkg = {e["package"]: e for e in manifest["pin_comparison"]}
-    # omnibase-compat staged at exactly the lock pin.
-    assert by_pkg["omnibase-compat"]["status"] == "exact"
-    assert by_pkg["omnibase-compat"]["match"] is True
+    # A retired package in the fixture lock is excluded from staged-sibling comparisons.
+    assert "omnibase-compat" not in by_pkg
     # The host infra self-check appears only when omnibase-infra is installed in
     # the running venv (always true in the build image; not in the deploy-agent
     # venv). When present it must carry the lock-pinned expected version.

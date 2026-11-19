@@ -26,6 +26,10 @@ node_version:
   patch: 0
 # Node type
 node_type: "EFFECT_GENERIC"
+# Only node_archetype: the check-no-io-outside-effects hook keys its I/O rule on
+# it, and EFFECT_GENERIC above is not a value that hook recognizes.
+descriptor:
+  node_archetype: effect
 # Description
 description: >
   Effect node for contract registry persistence. Routes intents from ContractRegistryReducer to PostgreSQL handlers for contract and topic management. Supports upsert, update, deactivate, and cleanup operations with circuit breaker protection and retry policies.
@@ -94,6 +98,11 @@ output_model:
 # │  └─────────────────────────────────────────────────────────────┘       │
 # │                                                                        │
 # └────────────────────────────────────────────────────────────────────────┘
+#
+# Handler Call Shape (OMN-21536):
+#   Each handler exposes handle(request: <input_model>) -> ModelBackendResult.
+#   The routed payload is the single request argument and carries the
+#   correlation_id; handlers read it from the payload.
 #
 # Handler Responsibility:
 #   Each handler manages its own retry logic using the retry_policy defined

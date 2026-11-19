@@ -53,6 +53,7 @@ import typing_inspect  # type: ignore
 
 from crosshair import smt
 from crosshair.abcstring import AbcString
+from crosshair.copyext import CopyMode, deepcopyext, memoize_copy
 from crosshair.core import (
     SymbolicFactory,
     deep_realize,
@@ -85,8 +86,8 @@ from crosshair.simplestructs import (
 )
 from crosshair.statespace import (
     HeapRef,
-    SnapshotRef,
     StateSpace,
+    SymbolicHeap,
     VerificationStatus,
     context_statespace,
     optional_context_statespace,
@@ -215,7 +216,7 @@ _NONHEAP_PYTYPES = set([int, float, bool, NoneType, complex])
 
 # TODO: isn't this pretty close to isinstance(typ, AtomicSymbolicValue)?
 def pytype_uses_heap(typ: Type) -> bool:
-    return not (typ in _NONHEAP_PYTYPES)
+    return typ not in _NONHEAP_PYTYPES
 
 
 def typeable_value(val: object) -> object:
@@ -274,10 +275,13 @@ def invoke_dunder(obj: object, method_name: str, *args, **kwargs):
 
 
 class SymbolicValue(CrossHairValue):
+    # A type comment, because a class annotation would be visible on instances
+    # via __annotations__ (e.g. to typing.get_type_hints):
+    heap = None  # type: Optional[SymbolicHeap]
+
     def __init__(self, smtvar: Union[str, smt.ExprRef], typ: Type):
         if is_tracing():
             raise CrossHairInternal
-        self.snapshot = SnapshotRef(-1)
         self.python_type = typ
         if type(smtvar) is str:
             self.var: Any = self.__init_var__(typ, smtvar)
@@ -290,8 +294,10 @@ class SymbolicValue(CrossHairValue):
 
     def __deepcopy__(self, memo):
         result = copy.copy(self)
-        result.snapshot = context_statespace().current_snapshot()
-        memo[id(self)] = result
+        if self.heap is not None:
+            with NoTracing():
+                memoize_copy(self, result, memo)
+                result.heap = deepcopyext(self.heap, CopyMode.BEST_EFFORT, memo)
         return result
 
     def __bool__(self):
@@ -352,6 +358,9 @@ class AtomicSymbolicValue(SymbolicValue):
 
     def __ch_is_deeply_immutable__(self) -> bool:
         return True
+
+    def __deepcopy__(self, memo):
+        return self
 
     @classmethod
     def _ch_smt_sort(cls) -> smt.SortRef:
@@ -472,7 +481,10 @@ class ModelingDirector:
 
 @assert_tracing(False)
 def smt_to_ch_value(
-    space: StateSpace, snapshot: SnapshotRef, smt_val: smt.ExprRef, pytype: type
+    space: StateSpace,
+    heap: Optional[SymbolicHeap],
+    smt_val: smt.ExprRef,
+    pytype: type,
 ) -> object:
     def proxy_generator(typ: Type) -> object:
         return proxy_for_type(
@@ -483,7 +495,9 @@ def smt_to_ch_value(
         pytype = realize(pytype)
 
     if smt_val.sort() == HeapRef:
-        return space.find_key_in_heap(smt_val, pytype, proxy_generator, snapshot)
+        if heap is None:
+            raise CrossHairInternal("HeapRef value without a heap")
+        return space.find_key_in_heap(smt_val, pytype, proxy_generator, heap)
     ch_type = space.extra(ModelingDirector).choose(pytype)
     return ch_type(smt_val, pytype)
 
@@ -572,9 +586,7 @@ def numeric_binop_internal(op: BinFn, a: Number, b: Number):
             _BIN_OPS[(op, a_type, b_type)] = _MISSING
     if binfn is _MISSING:
         return NotImplemented
-    with (
-        ResumedTracing()
-    ):  # TODO: <-- can we instead selectively resume? Am I only doing this to satisfy the binop tracing check?
+    with ResumedTracing():  # TODO: <-- can we instead selectively resume? Am I only doing this to satisfy the binop tracing check?
         return binfn(op, a, b)
 
 
@@ -1503,9 +1515,9 @@ class SymbolicInt(SymbolicIntable, AtomicSymbolicValue):
         with NoTracing():
             space = context_statespace()
             ret = space.find_model_value(self.var)
-            assert (
-                type(ret) is int
-            ), f"SymbolicInt with wrong SMT var type ({type(ret)})"
+            assert type(ret) is int, (
+                f"SymbolicInt with wrong SMT var type ({type(ret)})"
+            )
             return ret
 
     def __bool__(self):
@@ -1850,9 +1862,9 @@ _SMT_ONE_HALF = smt.real_val("1/2")
 
 class RealBasedSymbolicFloat(SymbolicFloat):
     def __init__(self, smtvar: Union[str, smt.ExprRef], typ: Type = float):
-        assert (
-            typ is float
-        ), f"RealBasedSymbolicFloat with unexpected python type ({type(typ)})"
+        assert typ is float, (
+            f"RealBasedSymbolicFloat with unexpected python type ({type(typ)})"
+        )
         context_statespace().cap_result_at_unknown()
         SymbolicValue.__init__(self, smtvar, typ)
 
@@ -1952,6 +1964,7 @@ class SymbolicDictOrSet(SymbolicValue):
         else:
             self.ch_key_type = None
             self.smt_key_sort = HeapRef
+            self.heap = space.heap
         SymbolicValue.__init__(self, smtvar, typ)
         space.add(self._len() >= 0)
 
@@ -1987,6 +2000,7 @@ class SymbolicDict(SymbolicDictOrSet, collections.abc.Mapping):
         else:
             self.ch_val_type = None
             self.smt_val_sort = HeapRef
+            self.heap = space.heap
         SymbolicDictOrSet.__init__(self, smtvar, typ)
         arr_var = self._arr()
         len_var = self._len()
@@ -2092,7 +2106,7 @@ class SymbolicDict(SymbolicDictOrSet, collections.abc.Mapping):
                 raise IgnoreAttempt("SymbolicDict in inconsistent state")
             return smt_to_ch_value(
                 context_statespace(),
-                self.snapshot,
+                self.heap,
                 smt.apply(self.val_accessor, possibly_missing),
                 self.val_pytype,
             )
@@ -2133,7 +2147,7 @@ class SymbolicDict(SymbolicDictOrSet, collections.abc.Mapping):
                 else:
                     space.add(smt.eq(k, iter_cache[idx]))
                 idx += 1
-                yieldval = smt_to_ch_value(space, self.snapshot, k, self.key_pytype)
+                yieldval = smt_to_ch_value(space, self.heap, k, self.key_pytype)
                 with ResumedTracing():
                     yield yieldval
                 arr_var = remaining
@@ -2307,7 +2321,7 @@ class SymbolicFrozenSet(SymbolicDictOrSet, FrozenSetBase):
                     space.add(smt.eq(k, iter_cache[idx]))
 
                 idx += 1
-                ch_value = smt_to_ch_value(space, self.snapshot, k, self.key_pytype)
+                ch_value = smt_to_ch_value(space, self.heap, k, self.key_pytype)
                 with ResumedTracing():
                     if keys_on_heap:
                         # need to confirm that we do not yield two keys that are __eq__
@@ -2479,6 +2493,7 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
         else:
             self.ch_item_type = None
             self.item_smt_sort = HeapRef
+            self.heap = space.heap
 
         SymbolicValue.__init__(self, smtvar, typ)
         self._len_int = SymbolicBoundedInt(self._len(), int, minimum=0)
@@ -2590,7 +2605,7 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
             while idx < len_int:
                 val = smt_to_ch_value(
                     space,
-                    self.snapshot,
+                    self.heap,
                     smt.select(arr_var, smt.int_val(idx)),
                     self.val_pytype,
                 )
@@ -2651,9 +2666,7 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
                 smt_result = smt.select(
                     self._arr(), force_to_smt_sort(idx_or_pair, SymbolicInt)
                 )
-                return smt_to_ch_value(
-                    space, self.snapshot, smt_result, self.val_pytype
-                )
+                return smt_to_ch_value(space, self.heap, smt_result, self.val_pytype)
 
     def index(
         self,
@@ -2859,10 +2872,9 @@ _EAGER_OBJECT_SUBTYPES = with_uniform_probabilities([int, str])
 
 
 class SymbolicType(AtomicSymbolicValue, SymbolicValue, Untracable):
-    _realization: Optional[Type] = None
-
     def __init__(self, smtvar: Union[str, smt.ExprRef], typ):
         assert not is_tracing()
+        self._realization: Optional[Type] = None
         space = context_statespace()
         assert origin_of(typ) is type
         self.pytype_cap = object
@@ -3024,6 +3036,12 @@ def symbolic_obj_binop(symbolic_obj: "SymbolicObject", other, op):
     return op(obj_with_known_type, other)
 
 
+def _new_object_of_type(pytype: type, varname: str) -> object:
+    if pytype is object:
+        return object()
+    return proxy_for_type(pytype, varname, allow_subtypes=False)
+
+
 class SymbolicObject(ObjectProxy, CrossHairValue, Untracable):
     """
     An object with an unknown type.
@@ -3042,10 +3060,14 @@ class SymbolicObject(ObjectProxy, CrossHairValue, Untracable):
         object.__setattr__(self, "_typ", SymbolicType(smtvar + "_type", Type[typ]))
         object.__setattr__(self, "_space", context_statespace())
         object.__setattr__(self, "_varname", smtvar)
+        # Once copied, all copies realize to copies of one shared, unmutated value
+        # (created on first realization), each in its own heap:
+        object.__setattr__(self, "_unmutated", [])
+        object.__setattr__(self, "_heap", None)
 
     @assert_tracing(False)
     def _realize(self):
-        object.__getattribute__(self, "_space")
+        space = object.__getattribute__(self, "_space")
         varname = object.__getattribute__(self, "_varname")
 
         pytype = realize(object.__getattribute__(self, "_typ"))
@@ -3053,9 +3075,13 @@ class SymbolicObject(ObjectProxy, CrossHairValue, Untracable):
             "materializing the type of symbolic", varname, "to be", pytype, ch_stack()
         )
         object.__setattr__(self, "_typ", pytype)
-        if pytype is object:
-            return object()
-        return proxy_for_type(pytype, varname, allow_subtypes=False)
+        heap = object.__getattribute__(self, "_heap")
+        if heap is None:
+            return _new_object_of_type(pytype, varname)
+        unmutated = object.__getattribute__(self, "_unmutated")
+        if not unmutated:
+            unmutated.append(_new_object_of_type(pytype, varname))
+        return space.copy_into_heap(unmutated[0], heap)
 
     def __ch_realize__(self):
         return realize(self._wrapped())
@@ -3064,20 +3090,29 @@ class SymbolicObject(ObjectProxy, CrossHairValue, Untracable):
         try:
             inner = object.__getattribute__(self, "_inner")
         except AttributeError:
-            # CrossHair will deepcopy for mutation checking.
-            # That's usually bad for LazyObjects, which want to defer their
-            # realization, so we simply don't do mutation checking for these
-            # kinds of values right now.
-            # TODO: we should do something else here; realizing the type doesn't
-            # seem THAT terrible?
-            result = self
+            with NoTracing():
+                heap = object.__getattribute__(self, "_heap")
+                if heap is None:
+                    heap = object.__getattribute__(self, "_space").heap
+                    object.__setattr__(self, "_heap", heap)
+                result = object.__new__(SymbolicObject)
+                memoize_copy(self, result, memo)
+                for attr in ("_typ", "_space", "_varname", "_unmutated"):
+                    object.__setattr__(
+                        result, attr, object.__getattribute__(self, attr)
+                    )
+                heap_copy = deepcopyext(heap, CopyMode.BEST_EFFORT, memo)
+                object.__setattr__(result, "_heap", heap_copy)
         else:
-            result = copy.deepcopy(inner)
-        memo[id(self)] = result
+            result = copy.deepcopy(inner, memo)
+            memo[id(self)] = result
         return result
 
     def __ch_pytype__(self):
         return object.__getattribute__(self, "_typ")
+
+    def __ch_is_deeply_immutable__(self) -> bool:
+        return False
 
     @property
     def __class__(self):
@@ -3111,7 +3146,6 @@ class SymbolicObject(ObjectProxy, CrossHairValue, Untracable):
 
 class SymbolicCallable:
     __closure__ = None
-    __annotations__: dict = {}
 
     def __init__(self, values: Union[list, SymbolicList]):
         """
@@ -3135,6 +3169,7 @@ class SymbolicCallable:
             assert has_values
         self.values = values
         self.idx = 0
+        self.__annotations__ = {}
 
     def __copy__(self):
         with ResumedTracing():
@@ -3494,6 +3529,9 @@ class AnySymbolicStr(AbcString):
 
     def __ch_is_deeply_immutable__(self) -> bool:
         return True
+
+    def __deepcopy__(self, memo):
+        return self
 
     def __ch_pytype__(self):
         return str
@@ -4408,6 +4446,9 @@ class SymbolicBytes(BytesLike):
             inner = buffer_to_byte_seq(inner)
         self.inner = inner
 
+    def __deepcopy__(self, memo):
+        return self
+
     def _smt_for_unification(self, other_value: Any) -> Optional[smt.ExprRef]:
         """See :func:`~crosshair.core.smt_for_unification`.
 
@@ -4810,7 +4851,7 @@ def make_concrete_or_symbolic(typ: type):
             debug(
                 f"Prematurely realizing",
                 pytype,
-                f"value (~{1.-symbolic_probability:.1%} chance)",
+                f"value (~{1.0 - symbolic_probability:.1%} chance)",
             )
             ret = realize(ret)
         return ret
@@ -5579,7 +5620,10 @@ def make_registrations():
             p(Optional[int], "_step"),
         ),
     )
-    register_type(NoReturn, make_raiser(IgnoreAttempt, "Attempted to short circuit a NoReturn function"))  # type: ignore
+    register_type(
+        NoReturn,
+        make_raiser(IgnoreAttempt, "Attempted to short circuit a NoReturn function"),
+    )  # type: ignore
 
     # AsyncContextManager, lambda p: p(contextlib.AbstractAsyncContextManager),
     # AsyncGenerator: ,

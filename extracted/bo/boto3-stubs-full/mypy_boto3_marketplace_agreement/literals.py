@@ -165,6 +165,7 @@ TaxEstimationType = Literal["DISABLED", "ENABLED"]
 TimingType = Literal["BILLING_PERIOD", "NOT_APPLICABLE", "ON_ACCEPTANCE", "SCHEDULED"]
 AgreementServiceServiceName = Literal["marketplace-agreement"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

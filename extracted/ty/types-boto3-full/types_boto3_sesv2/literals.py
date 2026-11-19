@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_sesv2.literals import AttachmentContentDispositionType
+    from types_boto3_sesv2.literals import AccountSharedPoolDeliveryModeType
 
-    data: AttachmentContentDispositionType = "ATTACHMENT"
+    data: AccountSharedPoolDeliveryModeType = "GLOBAL"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "AccountSharedPoolDeliveryModeType",
     "AttachmentContentDispositionType",
     "AttachmentContentTransferEncodingType",
     "BehaviorOnMxFailureType",
@@ -81,6 +82,7 @@ __all__ = (
     "ScalingModeType",
     "SendingStatusType",
     "ServiceName",
+    "SharedPoolDeliveryModeType",
     "SignatureFormatType",
     "StatusType",
     "SubscriptionStatusType",
@@ -95,6 +97,7 @@ __all__ = (
 )
 
 
+AccountSharedPoolDeliveryModeType = Literal["GLOBAL", "REGIONAL"]
 AttachmentContentDispositionType = Literal["ATTACHMENT", "INLINE"]
 AttachmentContentTransferEncodingType = Literal["BASE64", "QUOTED_PRINTABLE", "SEVEN_BIT"]
 BehaviorOnMxFailureType = Literal["REJECT_MESSAGE", "USE_DEFAULT_VALUE"]
@@ -225,6 +228,7 @@ ResourceTypeType = Literal["CONFIGURATION_SET", "EMAIL_IDENTITY", "EMAIL_TEMPLAT
 ReviewStatusType = Literal["DENIED", "FAILED", "GRANTED", "PENDING"]
 ScalingModeType = Literal["MANAGED", "STANDARD"]
 SendingStatusType = Literal["DISABLED", "ENABLED", "REINSTATED"]
+SharedPoolDeliveryModeType = Literal["ACCOUNT", "GLOBAL", "REGIONAL"]
 SignatureFormatType = Literal["DETACHED"]
 StatusType = Literal["CREATING", "DELETING", "FAILED", "READY"]
 SubscriptionStatusType = Literal["OPT_IN", "OPT_OUT"]
@@ -249,6 +253,7 @@ VerificationStatusType = Literal["FAILED", "NOT_STARTED", "PENDING", "SUCCESS", 
 WarmupStatusType = Literal["DONE", "IN_PROGRESS", "NOT_APPLICABLE"]
 SESV2ServiceName = Literal["sesv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

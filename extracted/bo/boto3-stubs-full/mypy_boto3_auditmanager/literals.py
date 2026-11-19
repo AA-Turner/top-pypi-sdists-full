@@ -120,6 +120,7 @@ SourceTypeType = Literal[
 ]
 AuditManagerServiceName = Literal["auditmanager"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

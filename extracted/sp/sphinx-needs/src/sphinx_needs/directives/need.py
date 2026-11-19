@@ -9,6 +9,8 @@ from sphinx.application import Sphinx
 from sphinx.environment import BuildEnvironment
 from sphinx.util.docutils import SphinxDirective
 
+from sphinx_needs._directive_name import need_type_of
+from sphinx_needs._namespaced_ids import LocalIdHints, reset_local_id_hints
 from sphinx_needs._need_source import (
     enclosing_need,
     placement_semantic,
@@ -107,8 +109,10 @@ class NeedDirective(SphinxDirective):
     @measure_time("need")
     def run(self) -> Sequence[nodes.Node]:
         needs_schema = SphinxNeedsData(self.env).get_schema()
-        # the options of a need of this type (the directive's name)
-        type_schema = needs_schema.for_type(self.name)
+        # the options of a need of this type (the directive's name, ``need:``-qualified
+        # or bare: the qualified one keeps its name, which locates a MyST fence)
+        need_type = need_type_of(self.name)
+        type_schema = needs_schema.for_type(need_type)
         link_keys = set(type_schema.iter_link_field_names())
         extra_keys = set(type_schema.iter_extra_field_names())
 
@@ -233,7 +237,7 @@ class NeedDirective(SphinxDirective):
                 self.env.app,
                 self.state,
                 source,
-                self.name,
+                need_type,
                 title,
                 full_title=full_title,
                 id=id,
@@ -376,7 +380,12 @@ def post_process_needs_data(app: Sphinx) -> None:
         )
         # the link fields, then the back links (build_backlinks), then the other fields
         resolve_functions(app, needs, needs_config)
-        check_links(needs, needs_config, needs_schema)
+        check_links(
+            needs,
+            needs_config,
+            needs_schema,
+            hints=reset_local_id_hints(app, needs),
+        )
         # last, so the dynamic functions read the links in the order written
         for need in needs.values():
             need.sort_links()
@@ -601,7 +610,11 @@ def build_backlinks(
 
 
 def check_links(
-    needs: NeedsMutable, config: NeedsSphinxConfig, schema: FieldsSchema
+    needs: NeedsMutable,
+    config: NeedsSphinxConfig,
+    schema: FieldsSchema,
+    *,
+    hints: LocalIdHints | None = None,
 ) -> None:
     """Assess the target types and the link conditions, and report the links to
     unknown needs.
@@ -612,8 +625,11 @@ def check_links(
     conditions, then its dead links. The target types are checked whether or not the
     schema validation runs; a link failing both its target types and its condition is
     reported for each. A union's links are its members': it reports neither a condition
-    nor a dead link of its own.
+    nor a dead link of its own. A dead link to a bare id that exactly one need has as
+    its local id, in a namespace, says which (``hints``; made here when not given).
     """
+    if hints is None:
+        hints = LocalIdHints(needs)
     #: need type -> link type -> its target types, as the type declares them: read
     #: once per need type, not per link
     target_types: dict[str, dict[str, LinkTargetTypes]] = {}
@@ -641,6 +657,9 @@ def check_links(
                         linked_need,
                         config,
                         need_link.condition,
+                        # where the link is written, as its other findings are
+                        location=_link_location(need),
+                        append_warning=_link_origin(need),
                     ):
                         _emit_link_warning(
                             need,
@@ -661,7 +680,11 @@ def check_links(
 
         if need["has_forbidden_dead_links"] and config.report_dead_links:
             for link_type, need_link in _dead_links(need, needs, unions):
-                message = f"Need '{need.id}' has unknown outgoing link '{need_link.to_filter_string()}' in field '{link_type}'"
+                message = (
+                    f"Need '{need.id}' has unknown outgoing link "
+                    f"'{need_link.to_filter_string()}' in field '{link_type}'"
+                    f"{hints.hint(need_link.id, need_link.part)}"
+                )
                 _emit_link_warning(need, message, "link_outgoing")
 
 
@@ -724,6 +747,22 @@ _EXTERNAL_SUBTYPES: Final[dict[WarningSubTypes, WarningSubTypes]] = {
     "link_outgoing": "external_link_outgoing",
     "link_target_type": "external_link_target_type",
 }
+
+
+def _link_location(need: NeedItem) -> tuple[str, int | None] | None:
+    """Where a warning for a link of *need* is located: the need, or none for an
+    external need (whose warnings name its URL instead)."""
+    if need["is_external"] or (docname := need["docname"]) is None:
+        return None
+    return (docname, need["lineno"])
+
+
+def _link_origin(need: NeedItem) -> str:
+    """What a warning for a link of an external need names it by (it has no location
+    here); nothing for any other need."""
+    if need["is_external"]:
+        return f"(from the external need {need['id']!r}: {need['external_url']})"
+    return ""
 
 
 def _emit_link_warning(need: NeedItem, message: str, subtype: WarningSubTypes) -> None:

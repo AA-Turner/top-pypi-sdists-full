@@ -28,8 +28,15 @@ from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from omnimarket.models.model_andon_ledger_holds import (
+    ModelAndonLedgerHoldsRequest,
+    ModelAndonLedgerHoldsResult,
+)
+from omnimarket.nodes.node_lab_placement_compute.handlers.handler_lab_lane_priority import (
+    priority_class_args,
+)
 from omnimarket.nodes.node_lane_model_policy_compute.handlers.handler_lane_model_policy import (
     require_lane_model,
 )
@@ -46,7 +53,18 @@ from .models import (
     ModelExceptionResolveRequest,
     ModelExceptionResolveResult,
     ModelExceptionRow,
+    ModelOpenStopsRequest,
+    ModelOpenStopsResult,
+    ModelStopEventRequest,
+    ModelStopEventResult,
 )
+
+if TYPE_CHECKING:
+    from omnibase_core.models.contracts.subcontracts.model_fsm_subcontract import (
+        ModelFSMSubcontract,
+    )
+
+    from omnimarket.models.stop_gate import ModelAndonStopConfig
 
 QUEUE_FILE = "exception-queue.jsonl"
 MECHANIZE_FILE = "exception-queue.mechanize.json"
@@ -85,6 +103,16 @@ def _read_queue(state_dir: Path) -> tuple[list[dict[str, Any]], list[dict[str, A
             row = json.loads(line)
             if "resolves" in row:
                 opened = [r for r in opened if r["id"] != row["resolves"]]
+            elif "stop_update" in row:
+                for held in rows:
+                    if held["id"] == row["stop_update"]:
+                        held["stop"] = row["stop"]
+            elif "stop_refused" in row:
+                continue
+            elif "emit_receipt" in row:
+                for held in rows:
+                    if held["id"] == row["emit_receipt"]:
+                        held.setdefault("idempotency_keys", []).append(row["key"])
             else:
                 rows.append(row)
                 opened.append(row)
@@ -114,11 +142,13 @@ def _brief(
     model: str,
 ) -> Path:
     cls = request.row.cls
+    repo = next((r["repo"] for r in reversed(rows) if r.get("repo")), "")
     lines = [
         f"# Lane {lane}: mechanize exception class {cls} ({TICKET})",
         f"ROUTE: model={model} effort=high",
         f"Parent: {request.parent or 'orchestrator'}. Ticket: {TICKET}. "
-        f"Repo: {next((r['repo'] for r in reversed(rows) if r.get('repo')), '') or 'the class names it'}.",
+        f"Repo: {repo or 'the class names it'}.",
+        *([f"Opens PR in: {repo}"] if repo else []),
         'Authority: Operator 2026-10-18 ~22:30Z: "need to make the process as mechanical as possible, '
         'where you only have to rule on the exceptions instead of the rule."',
         "(6) SECOND OCCURRENCE BECOMES CODE",
@@ -173,8 +203,7 @@ def _mechanize(request: ModelExceptionEmitRequest, rows: list[dict[str, Any]]) -
             model,
             "--effort",
             "high",
-            "--priority-class",
-            "process-fix",
+            *priority_class_args(request.ticket_text),
         ]
         if repo:
             command.extend(["--repo", repo])
@@ -214,7 +243,40 @@ def _mechanize(request: ModelExceptionEmitRequest, rows: list[dict[str, Any]]) -
     return f"sent:{lane}" if sent else f"unsent:{detail}"
 
 
+def _contract() -> tuple[ModelFSMSubcontract, ModelAndonStopConfig]:
+    from omnimarket.handlers.rules_stop_gate import load_andon_stop_contract
+
+    return load_andon_stop_contract()
+
+
+def _resolve_contract(
+    fsm: ModelFSMSubcontract | None, config: ModelAndonStopConfig | None
+) -> tuple[ModelFSMSubcontract, ModelAndonStopConfig]:
+    """The injected machine and config, else the packaged reducer contract's."""
+    if fsm is not None and config is not None:
+        return fsm, config
+    loaded_fsm, loaded_config = _contract()
+    return (fsm or loaded_fsm), (config or loaded_config)
+
+
+def _parse_time(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
 class HandlerExceptionEmit:
+    """Queue one row. A row whose class is in the stop registry of the reducer's contract also opens a stop, and
+    only a caller of the contract's opening role may; any other class opens a failure record and no stop."""
+
+    def __init__(
+        self,
+        *,
+        fsm: ModelFSMSubcontract | None = None,
+        config: ModelAndonStopConfig | None = None,
+    ) -> None:
+        self._fsm = fsm
+        self._config = config
+
     def handle(self, request: ModelExceptionEmitRequest) -> ModelExceptionEmitResult:
         row = request.row
         invalid = [
@@ -228,23 +290,254 @@ class HandlerExceptionEmit:
             return ModelExceptionEmitResult(
                 "refused", "", 0, "", "Invalid fields: " + ", ".join(invalid)
             )
+        fsm, config = _resolve_contract(self._fsm, self._config)
+        stop_class = config.stop_class(row.cls)
         with _locked(request.state_dir):
             rows, opened = _read_queue(request.state_dir)
             same_class = [r for r in rows if r["cls"] == row.cls]
+            if request.idempotency_key:
+                prior = next(
+                    (
+                        r
+                        for r in rows
+                        if request.idempotency_key in r.get("idempotency_keys", [])
+                    ),
+                    None,
+                )
+                if prior is not None:
+                    return ModelExceptionEmitResult(
+                        "repeat",
+                        prior["id"],
+                        len(same_class),
+                        "",
+                        "idempotency_replay",
+                        f"repeat:{prior['id']}"
+                        if prior.get("stop")
+                        else "none:class_not_registered",
+                    )
             existing = next(
                 (r for r in opened if r["cls"] == row.cls and r["key"] == row.key), None
             )
+            stop_note = "none:class_not_registered"
             if existing is not None:
                 status, row_id = "repeat", existing["id"]
+                if request.idempotency_key:
+                    _append(
+                        request.state_dir,
+                        {"emit_receipt": row_id, "key": request.idempotency_key},
+                    )
+                if stop_class is not None:
+                    stop_note = f"repeat:{row_id}"
             else:
                 row_id = f"{request.now}-{row.cls}-{hashlib.sha1(row.key.encode('utf-8')).hexdigest()[:8]}"
                 stored = {"id": row_id, "at": request.now, **asdict(row)}
+                if request.idempotency_key:
+                    stored["idempotency_keys"] = [request.idempotency_key]
+                if stop_class is not None:
+                    from omnimarket.models.stop_gate import (
+                        OPEN_ROLE_KEY,
+                        ModelStopRecord,
+                        ModelStopScope,
+                    )
+
+                    expected = config.writer_roles[OPEN_ROLE_KEY].value
+                    if request.role != expected:
+                        reason = f"role_not_allowed:{request.role or 'none'}"
+                        _append(
+                            request.state_dir,
+                            {
+                                "stop_refused": row_id,
+                                "at": request.now,
+                                "event": OPEN_ROLE_KEY,
+                                "role": request.role,
+                                "reason": reason,
+                            },
+                        )
+                        return ModelExceptionEmitResult(
+                            "refused",
+                            "",
+                            0,
+                            "",
+                            f"A stop opens only from role {expected}: {reason}",
+                        )
+                    record = ModelStopRecord(
+                        id=row_id,
+                        cls=row.cls,
+                        scope=ModelStopScope(
+                            kind=stop_class.scope_key_kind, key=row.key
+                        ),
+                        state=fsm.initial_state,
+                        stopped_at=_parse_time(request.now),
+                        readback_command=row.readback_command,
+                    )
+                    stored["stop"] = record.model_dump(mode="json")
+                    stop_note = f"opened:{row_id}"
                 _append(request.state_dir, stored)
                 same_class.append(stored)
                 status = "appended"
             occurrence = len(same_class)
             mechanize = _mechanize(request, same_class) if occurrence >= 2 else ""
-            return ModelExceptionEmitResult(status, row_id, occurrence, mechanize, "")
+            return ModelExceptionEmitResult(
+                status, row_id, occurrence, mechanize, "", stop_note
+            )
+
+
+class HandlerStopEvent:
+    """Persist one writer's event to one stop: the role check and the transition are the reducer's rule, the
+    append, the decision rows and the closing of a finished stop are the queue's. A refusal is recorded."""
+
+    def __init__(
+        self,
+        *,
+        fsm: ModelFSMSubcontract | None = None,
+        config: ModelAndonStopConfig | None = None,
+    ) -> None:
+        self._fsm = fsm
+        self._config = config
+
+    def handle(self, request: ModelStopEventRequest) -> ModelStopEventResult:
+        from omnimarket.handlers.rules_stop_gate import fold_stop_event
+        from omnimarket.models.stop_gate import (
+            EnumFoldStatus,
+            ModelStopRecord,
+        )
+
+        fsm, config = _resolve_contract(self._fsm, self._config)
+        event = request.event
+        with _locked(request.state_dir):
+            _, opened = _read_queue(request.state_dir)
+            held = next(
+                (r for r in opened if r["id"] == event.stop_id and r.get("stop")), None
+            )
+
+            def refuse(
+                reason: str, stop: ModelStopRecord | None
+            ) -> ModelStopEventResult:
+                _append(
+                    request.state_dir,
+                    {
+                        "stop_refused": event.stop_id,
+                        "at": request.now,
+                        "event": event.kind.value,
+                        "role": event.role,
+                        "reason": reason,
+                    },
+                )
+                return ModelStopEventResult(
+                    "refused",
+                    reason,
+                    stop,
+                    0,
+                    f"REFUSED stop:{event.stop_id} event={event.kind.value} reason={reason}",
+                )
+
+            if held is None:
+                return refuse("unknown_stop", None)
+            record = ModelStopRecord.model_validate(held["stop"])
+            folded = fold_stop_event(record, event, fsm, config)
+            if folded.status is EnumFoldStatus.REFUSED:
+                return refuse(folded.reason, record)
+            _append(
+                request.state_dir,
+                {
+                    "stop_update": event.stop_id,
+                    "at": request.now,
+                    "event": event.kind.value,
+                    "trigger": folded.trigger,
+                    "stop": folded.stop.model_dump(mode="json"),
+                },
+            )
+            decisions = folded.actions.count("emit_decision_row")
+            for _ in range(decisions):
+                key = (
+                    f"{event.stop_id}:{folded.trigger}:{folded.stop.state}"
+                    f":{folded.stop.lease_replacements_used}:{folded.stop.replacements_extended}"
+                )
+                _append(
+                    request.state_dir,
+                    {
+                        "id": f"{request.now}-andon-stop-decision-{hashlib.sha1(key.encode('utf-8')).hexdigest()[:8]}",
+                        "at": request.now,
+                        "cls": "andon-stop-decision",
+                        "key": key,
+                        "source": "node_andon_stop_reducer",
+                        "evidence": folded.line,
+                        "tried": f"folded {event.kind.value} from role {event.role} through the stop machine",
+                        "proposed_fix": f"rule on stop {event.stop_id} ({record.cls} {record.scope.kind}:{record.scope.key})",
+                        "decision": True,
+                        "ticket": held.get("ticket", ""),
+                        "repo": held.get("repo", ""),
+                        "readback_command": "",
+                    },
+                )
+            if folded.stop.state in fsm.terminal_states:
+                _append(
+                    request.state_dir,
+                    {
+                        "resolves": event.stop_id,
+                        "at": request.now,
+                        "by": "node_andon_stop_reducer",
+                        "how": folded.stop.state,
+                    },
+                )
+            return ModelStopEventResult(
+                "applied", "", folded.stop, decisions, folded.line
+            )
+
+
+class HandlerOpenStops:
+    """The stops not yet cleared or declared false, and the recorded refusals, for ``stop_gate`` and the read."""
+
+    def __init__(self, *, ledger_path: Path | None = None) -> None:
+        self._ledger_path = ledger_path
+
+    def handle(self, request: ModelOpenStopsRequest) -> ModelOpenStopsResult:
+        from omnimarket.models.stop_gate import ModelStopRecord
+
+        reports: tuple[str, ...] = ()
+        ledger_path = request.ledger_path or self._ledger_path
+        if ledger_path is not None:
+            from omnimarket.models.model_andon_ledger_holds import (
+                ModelAndonLedgerHoldsRequest,
+            )
+
+            from .container.container_exception_queue_effect import (
+                create_handler_andon_ledger_holds,
+            )
+
+            reports = (
+                create_handler_andon_ledger_holds()
+                .handle(
+                    ModelAndonLedgerHoldsRequest(
+                        state_dir=request.state_dir,
+                        ledger_path=ledger_path,
+                        now=request.now
+                        if request.now is not None
+                        else datetime.now(UTC),
+                    )
+                )
+                .reports
+            )
+        with _locked(request.state_dir):
+            _, opened = _read_queue(request.state_dir)
+            path = request.state_dir / QUEUE_FILE
+            lines = (
+                path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+            )
+        refusals = tuple(
+            json.loads(line)
+            for line in lines
+            if line.strip() and '"stop_refused"' in line
+        )
+        return ModelOpenStopsResult(
+            tuple(
+                ModelStopRecord.model_validate(r["stop"])
+                for r in opened
+                if r.get("stop")
+            ),
+            refusals,
+            reports,
+        )
 
 
 class HandlerExceptionQueue:
@@ -327,13 +620,22 @@ class HandlerExceptionQueueRead:
     orchestrator to drain, and classes seen twice with no mechanize lane sent. An unreadable queue is a line, never a
     crash of the read."""
 
+    def __init__(self, queue: HandlerExceptionQueue | None = None) -> None:
+        if queue is None:
+            from .container.container_exception_queue_effect import (
+                create_handler_exception_queue,
+            )
+
+            queue = create_handler_exception_queue()
+        self._queue = queue
+
     def handle(
         self, request: ModelExceptionQueueReadRequest
     ) -> ModelExceptionQueueRead:
         where = request.state_dir or state_dir()
         try:
             op, orch = (
-                HandlerExceptionQueue().handle(ModelExceptionQueueRequest(where, a))
+                self._queue.handle(ModelExceptionQueueRequest(where, a))
                 for a in AUDIENCES
             )
         except (OSError, ValueError, KeyError) as exc:
@@ -380,6 +682,24 @@ class HandlerExceptionCli:
     """``queue_status.py --exception emit|list|resolve``: parse, run the handler, print, and return the exit code.
     The runner is ``ONEX_EXCEPTION_RUNNER`` when set; ``--no-dispatch`` starts none."""
 
+    def __init__(
+        self,
+        emit: HandlerExceptionEmit | None = None,
+        queue: HandlerExceptionQueue | None = None,
+        resolve: HandlerExceptionResolve | None = None,
+    ) -> None:
+        from .container.container_exception_queue_effect import (
+            create_handler_exception_emit,
+            create_handler_exception_queue,
+            create_handler_exception_resolve,
+        )
+
+        self._emit = emit if emit is not None else create_handler_exception_emit()
+        self._queue = queue if queue is not None else create_handler_exception_queue()
+        self._resolve = (
+            resolve if resolve is not None else create_handler_exception_resolve()
+        )
+
     def handle(self, request: ModelExceptionCliRequest) -> ModelExceptionCliResult:
         ap = argparse.ArgumentParser(prog=CLI, allow_abbrev=False)
         ap.add_argument("verb", choices=("emit", "list", "resolve"))
@@ -396,9 +716,17 @@ class HandlerExceptionCli:
             "--id",
             "--by",
             "--how",
+            "--role",
+            "--readback-command",
         ):
             ap.add_argument(flag, default="")
         ap.add_argument("--parent")
+        ap.add_argument(
+            "--ticket-text-file",
+            type=Path,
+            default=None,
+            help="the mechanize ticket's text; its Class line sets the lane's --priority-class",
+        )
         ap.add_argument("--decision", action="store_true")
         ap.add_argument("--no-dispatch", action="store_true")
         ap.add_argument("--audience", choices=AUDIENCES, default="orchestrator")
@@ -426,9 +754,28 @@ class HandlerExceptionCli:
                 args.decision,
                 args.ticket,
                 args.repo,
+                args.readback_command,
             )
-            result = HandlerExceptionEmit().handle(
-                ModelExceptionEmitRequest(where, row, now, runner, args.parent)
+            try:
+                ticket_text = (
+                    args.ticket_text_file.read_text(encoding="utf-8")
+                    if args.ticket_text_file
+                    else ""
+                )
+            except OSError as exc:
+                return ModelExceptionCliResult(
+                    2, f"EXCEPTION-QUEUE refused: --ticket-text-file: {exc}"
+                )
+            result = self._emit.handle(
+                ModelExceptionEmitRequest(
+                    where,
+                    row,
+                    now,
+                    runner,
+                    args.parent,
+                    args.role,
+                    ticket_text=ticket_text,
+                )
             )
             detail = f" | {result.detail}" if result.detail else ""
             out = (
@@ -437,7 +784,7 @@ class HandlerExceptionCli:
             )
             code = 3 if result.status == "refused" else 0
         elif args.verb == "list":
-            listed = HandlerExceptionQueue().handle(
+            listed = self._queue.handle(
                 ModelExceptionQueueRequest(where, args.audience)
             )
             label = "decision" if args.audience == "operator" else "open"
@@ -449,7 +796,7 @@ class HandlerExceptionCli:
             )
             code = 0
         else:
-            done = HandlerExceptionResolve().handle(
+            done = self._resolve.handle(
                 ModelExceptionResolveRequest(where, args.id, args.by, args.how, now)
             )
             out, code = (
@@ -458,3 +805,53 @@ class HandlerExceptionCli:
             )
         sys.stdout.write(out + "\n")
         return ModelExceptionCliResult(code, out)
+
+
+class HandlerExceptionQueueDispatch:
+    """Dispatch the exception queue's typed requests to its bound handlers."""
+
+    def handle(
+        self,
+        request: ModelExceptionEmitRequest
+        | ModelExceptionQueueRequest
+        | ModelExceptionResolveRequest
+        | ModelExceptionQueueReadRequest
+        | ModelStopEventRequest
+        | ModelOpenStopsRequest
+        | ModelAndonLedgerHoldsRequest,
+    ) -> (
+        ModelExceptionEmitResult
+        | ModelExceptionQueueResult
+        | ModelExceptionResolveResult
+        | ModelExceptionQueueRead
+        | ModelStopEventResult
+        | ModelOpenStopsResult
+        | ModelAndonLedgerHoldsResult
+    ):
+        from .container.container_exception_queue_effect import (
+            create_handler_andon_ledger_holds,
+            create_handler_exception_emit,
+            create_handler_exception_queue,
+            create_handler_exception_queue_read,
+            create_handler_exception_resolve,
+            create_handler_open_stops,
+            create_handler_stop_event,
+        )
+
+        if isinstance(request, ModelExceptionEmitRequest):
+            return create_handler_exception_emit().handle(request)
+        if isinstance(request, ModelExceptionQueueRequest):
+            return create_handler_exception_queue().handle(request)
+        if isinstance(request, ModelExceptionQueueReadRequest):
+            return create_handler_exception_queue_read().handle(request)
+        if isinstance(request, ModelExceptionResolveRequest):
+            return create_handler_exception_resolve().handle(request)
+        if isinstance(request, ModelStopEventRequest):
+            return create_handler_stop_event().handle(request)
+        if isinstance(request, ModelOpenStopsRequest):
+            return create_handler_open_stops().handle(request)
+        if isinstance(request, ModelAndonLedgerHoldsRequest):
+            return create_handler_andon_ledger_holds().handle(request)
+        raise TypeError(
+            f"Unsupported exception queue request: {type(request).__name__}"
+        )

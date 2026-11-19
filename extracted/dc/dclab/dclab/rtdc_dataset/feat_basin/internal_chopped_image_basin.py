@@ -35,10 +35,11 @@ class InternalH5DatasetChoppedImageBasin(Basin):
 
         The basin data are organized in a group with an `index` dataset and
         multiple chunked datasets of different shapes for the image data.
-        The `index` dataset contains the information how to read and position
-        each event image in the event's frame. Multiple events per frame are
-        supported. The other datasets, enumerated with "0", "1", etc. contain
-        the event images sorted to optimize shape and chunking for storage.
+        The `index` dataset contains the information on how to read and
+        position each event image in the event's frame. Multiple events per
+        frame are supported. The other datasets, enumerated with "0", "1",
+        etc. contain the event images sorted to optimize shape and chunking
+        for storage.
         """
         super().__init__(*args, **kwargs)
         if self.mapping != "same":
@@ -155,12 +156,11 @@ class InternalImageChoppedFeatureProxy(np.lib.mixins.NDArrayOperatorsMixin):
         if isinstance(index, numbers.Integral):
             return self._get_image_frame(index)
         elif isinstance(index, (slice, range, np.ndarray, list)):
-            if isinstance(index, slice):
-                indices = np.arange(self.chopper_index.shape[0])
-                indices = indices[index]
-            else:
-                # range, or indexing array
-                indices = index
+            if isinstance(index, range):
+                index = np.asarray(index, dtype=int)
+            # Let numpy convert slices, indexing arrays, and boolean
+            # masks to the actual event indices.
+            indices = np.arange(self.chopper_index.shape[0])[index]
             data = np.zeros((len(indices),) + self.roi_shape, dtype=self.dtype)
             for ii, idx in enumerate(indices):
                 data[ii] = self._get_image_frame(idx)

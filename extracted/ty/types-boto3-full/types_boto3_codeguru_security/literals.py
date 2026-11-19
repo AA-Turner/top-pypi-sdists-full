@@ -56,6 +56,7 @@ SeverityType = Literal["Critical", "High", "Info", "Low", "Medium"]
 StatusType = Literal["All", "Closed", "Open"]
 CodeGuruSecurityServiceName = Literal["codeguru-security"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

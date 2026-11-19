@@ -135,10 +135,8 @@ class TiktokFollowersInput(TypedDict, total=False):
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
-    requireFields: NotRequired[
-        list[Literal["likeCount", "nextCursor", "secUid", "videoCount"]]
-    ]
-    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `videoCount` or `secUid`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a follower that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
+    requireFields: NotRequired[list[Literal["secUid"]]]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `secUid`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a follower that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
@@ -184,14 +182,7 @@ class TiktokHashtagVideosInput(TypedDict, total=False):
     requireFields: NotRequired[
         list[
             Literal[
-                "commentCount",
-                "likeCount",
-                "nextCursor",
-                "playCount",
-                "shareCount",
-                "soundAuthor",
-                "soundClipId",
-                "soundTitle",
+                "commentCount", "likeCount", "nextCursor", "playCount", "shareCount"
             ]
         ]
     ]
@@ -356,19 +347,9 @@ class TiktokProfileVideosInput(TypedDict, total=False):
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     requireFields: NotRequired[
-        list[
-            Literal[
-                "authorFollowers",
-                "authorVerified",
-                "locationName",
-                "nextCursor",
-                "paidPartnership",
-                "soundAuthor",
-                "soundTitle",
-            ]
-        ]
+        list[Literal["authorFollowers", "authorVerified", "locationName"]]
     ]
-    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `nextCursor`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a video that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `locationName`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a video that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
@@ -386,10 +367,8 @@ class TiktokSearchHashtagInput(TypedDict, total=False):
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     query: Required[str]
     """Hashtag or keyword to search for (without the leading #)."""
-    requireFields: NotRequired[
-        list[Literal["locationName", "soundAuthor", "soundTitle"]]
-    ]
-    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `soundTitle` or `locationName`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a video that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
+    requireFields: NotRequired[list[Literal["locationName"]]]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `locationName`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a video that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge. On a paginated walk it applies to the first page only; later pages stay with the source that page chose, at the price it was quoted."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
@@ -412,17 +391,7 @@ class TiktokSearchKeywordInput(TypedDict, total=False):
     requireCursor: NotRequired[bool]
     """Deprecated: name `nextCursor` in `requireFields` instead, which is the field this flag is translated into. It stays accepted so callers that already send it keep working. Sending it routes you to a source that returns a pagination cursor, which can raise your price when the cheapest source cannot page."""
     requireFields: NotRequired[
-        list[
-            Literal[
-                "authorFollowers",
-                "authorVerified",
-                "locationName",
-                "nextCursor",
-                "paidPartnership",
-                "soundAuthor",
-                "soundTitle",
-            ]
-        ]
+        list[Literal["authorFollowers", "authorVerified", "locationName", "nextCursor"]]
     ]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `nextCursor`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a record that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     sortBy: NotRequired[Literal["relevance", "most-liked", "date-posted"]]
@@ -492,16 +461,7 @@ class TiktokSearchTopInput(TypedDict, total=False):
     region: NotRequired[str]
     """2-letter country code for the proxy location (e.g. US, GB, FR)."""
     requireFields: NotRequired[
-        list[
-            Literal[
-                "authorFollowers",
-                "contentType",
-                "nextCursor",
-                "soundAuthor",
-                "soundClipId",
-                "soundTitle",
-            ]
-        ]
+        list[Literal["authorFollowers", "contentType", "nextCursor", "soundClipId"]]
     ]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `soundClipId` or `nextCursor`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a record that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     sortBy: NotRequired[Literal["relevance", "most-liked", "date-posted"]]
@@ -563,8 +523,6 @@ class TiktokSongVideosInput(TypedDict, total=False):
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
-    requireFields: NotRequired[list[Literal["nextCursor"]]]
-    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `nextCursor`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a record that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
@@ -651,7 +609,7 @@ class TiktokTrendingHashtagsInput(TypedDict, total=False):
     ]
     """Restrict the ranking to one industry. Omit for the all-industries board."""
     limit: NotRequired[int]
-    """Maximum number of ranked hashtags to return, from 1 through 100 (default 3). TikTok publishes only the top 3 hashtags per board to anonymous callers, so 1 through 3 is served by the cheapest source; a higher limit routes to a dearer source that reads the full ranking. Range: 1 to 100. Default: 3."""
+    """Maximum number of ranked hashtags to return, from 1 through 100 (default 3), counted from the top of the board. Range: 1 to 100. Default: 3."""
     period: NotRequired[int]
     """Lookback window in days that the ranking and the popularity curve cover (default 7). Default: 7."""
     preferLatencyUnderMs: NotRequired[int]
@@ -3299,7 +3257,7 @@ class TiktokNamespace:
         Search TikTok's public Ads Library by keyword or advertiser (advertiser,
         title, audience band, run dates, library link, and video).
 
-        Price: $0.0008 per request.
+        Price: $0.0012 per request.
 
         Example:
             res = client.tiktok.ad_library_search(query="spotify")
@@ -3667,7 +3625,7 @@ class TiktokNamespace:
         Fetch a TikTok creator's public profile (followers, likes, bio,
         verification) by handle.
 
-        Price: $0.0004 per request.
+        Price: $0.00039 per request.
 
         Example:
             res = client.tiktok.profile(handle="zachking")
@@ -4210,11 +4168,9 @@ class TiktokNamespace:
         Rank TikTok's trending hashtags for one country and industry, with each
         hashtag's daily popularity curve, post count, video views, and leading
         creators. Ranks 15 industry categories, or omit industry for the
-        all-industries board. TikTok publishes only the top 3 hashtags per board to
-        anonymous callers, so limit 1-3 is served cheaply; a limit above 3 routes to
-        a dearer authenticated source that returns the full ranking. Covers 27
-        markets: AE, AR, AU, BR, CA, CO, DE, EG, ES, FR, GB, ID, IL, IT, JP, KR, MX,
-        MY, PH, SA, SG, TH, TR, TW, US, VN, ZA.
+        all-industries board. Returns up to the top 100 hashtags of a board in one
+        call. Covers 27 markets: AE, AR, AU, BR, CA, CO, DE, EG, ES, FR, GB, ID, IL,
+        IT, JP, KR, MX, MY, PH, SA, SG, TH, TR, TW, US, VN, ZA.
 
         Price: $0.0012 per request.
 
@@ -4432,7 +4388,7 @@ class AsyncTiktokNamespace:
         Search TikTok's public Ads Library by keyword or advertiser (advertiser,
         title, audience band, run dates, library link, and video).
 
-        Price: $0.0008 per request.
+        Price: $0.0012 per request.
 
         Example:
             res = client.tiktok.ad_library_search(query="spotify")
@@ -4800,7 +4756,7 @@ class AsyncTiktokNamespace:
         Fetch a TikTok creator's public profile (followers, likes, bio,
         verification) by handle.
 
-        Price: $0.0004 per request.
+        Price: $0.00039 per request.
 
         Example:
             res = client.tiktok.profile(handle="zachking")
@@ -5343,11 +5299,9 @@ class AsyncTiktokNamespace:
         Rank TikTok's trending hashtags for one country and industry, with each
         hashtag's daily popularity curve, post count, video views, and leading
         creators. Ranks 15 industry categories, or omit industry for the
-        all-industries board. TikTok publishes only the top 3 hashtags per board to
-        anonymous callers, so limit 1-3 is served cheaply; a limit above 3 routes to
-        a dearer authenticated source that returns the full ranking. Covers 27
-        markets: AE, AR, AU, BR, CA, CO, DE, EG, ES, FR, GB, ID, IL, IT, JP, KR, MX,
-        MY, PH, SA, SG, TH, TR, TW, US, VN, ZA.
+        all-industries board. Returns up to the top 100 hashtags of a board in one
+        call. Covers 27 markets: AE, AR, AU, BR, CA, CO, DE, EG, ES, FR, GB, ID, IL,
+        IT, JP, KR, MX, MY, PH, SA, SG, TH, TR, TW, US, VN, ZA.
 
         Price: $0.0012 per request.
 

@@ -112,6 +112,7 @@ StatusReasonType = Literal[
 VisualTypeType = Literal["BAR", "LINE", "STACK"]
 BillingandCostManagementDashboardsServiceName = Literal["bcm-dashboards"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

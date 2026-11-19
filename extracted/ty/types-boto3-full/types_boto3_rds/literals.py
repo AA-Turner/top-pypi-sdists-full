@@ -291,6 +291,7 @@ UpgradeRolloutOrderType = Literal["first", "last", "second"]
 WriteForwardingStatusType = Literal["disabled", "disabling", "enabled", "enabling", "unknown"]
 RDSServiceName = Literal["rds"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

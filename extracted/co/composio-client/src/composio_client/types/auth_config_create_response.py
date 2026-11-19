@@ -19,6 +19,7 @@ class AuthConfig(BaseModel):
     "Whether the auth config is managed by Composio"
     restrict_to_following_tools: Optional[list[str]] = None
     "The tools that the user can use with the auth config"
+    managed_app_id: str | None = None
 
 
 class Toolkit(BaseModel):

@@ -1,0 +1,70 @@
+# Test fixture overlay of node_delegation_code_budget_compute (the shape of overlays/node_delegation_code_budget_compute/overlay.yaml
+# in the overlays repository; the values here belong to the tests, not to the lab).
+class_budgets_s:
+  code_generation: 480
+  test: 480
+  code_review: 600
+  reasoning: 300
+  complex_reasoning: 300
+  agent_delegation: 180
+  brief_drafting: 180
+  context_compaction: 180
+  context_selection: 180
+  document: 180
+  documentation: 180
+  escalation: 180
+  evidence_comment: 180
+  extraction_proposer: 180
+  planning: 180
+  refactor: 180
+  research: 180
+  review: 180
+  summarization: 180
+  tail_summary: 180
+  validator_generation: 180
+sizing_margin: 1.5
+round_up_to_s: 60
+min_completed_samples: 3
+ceiling_s: 600
+input_ceilings:
+  local-coder:
+    code_generation: 8169
+    refactor: 65536
+    validator_generation: 65536
+    test: 65536
+    code_review: 65536
+    research: 65536
+    reasoning: 65536
+    complex_reasoning: 65536
+    planning: 65536
+    review: 65536
+    document: 65536
+    escalation: 65536
+    evidence_comment: 65536
+    documentation: 65536
+    summarization: 65536
+    brief_drafting: 65536
+    extraction_proposer: 65536
+    tail_summary: 65536
+    context_selection: 65536
+    context_compaction: 65536
+  local-heavy-reasoning:
+    code_generation: 32000
+    research: 8192
+    reasoning: 8192
+    complex_reasoning: 8192
+    planning: 8192
+    review: 8192
+    document: 8192
+    escalation: 8192
+    evidence_comment: 8192
+    documentation: 8192
+    summarization: 8192
+    brief_drafting: 8192
+    extraction_proposer: 8192
+    tail_summary: 8192
+    context_selection: 8192
+    context_compaction: 8192
+  fixture-backend:
+    code_generation: 1000
+    test: 2000

@@ -112,11 +112,6 @@ def _row_of_tag(tag: str) -> Optional[str]:
     return lang if lang in LOCALE_KLID else None
 
 
-def _klid_of_tag(tag: str) -> Optional[str]:
-    row = _row_of_tag(tag)
-    return LOCALE_KLID[row] if row else None
-
-
 def _row_for(languages, region: Optional[str]) -> Optional[str]:
     """The row of Microsoft's table a session's keyboard comes from (see
     `layout_for`), or None for the US keyboard nothing named."""

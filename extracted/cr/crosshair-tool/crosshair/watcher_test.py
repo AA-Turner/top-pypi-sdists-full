@@ -26,36 +26,46 @@ def rewind_modules():
             del sys.modules[name]
 
 
-BUGGY_FOO = {"foo.py": """
+BUGGY_FOO = {
+    "foo.py": """
 def foofn(x: int) -> int:
   ''' post: _ == x '''
   print("this print does not confuse the watcher")
   return x + 1
-"""}
+"""
+}
 
-CORRECT_FOO = {"foo.py": """
+CORRECT_FOO = {
+    "foo.py": """
 def foofn(x: int) -> int:
   ''' post: _ == 1 + x '''
   return x + 1
-"""}
+"""
+}
 
-BAD_SYNTAX_FOO = {"foo.py": """
+BAD_SYNTAX_FOO = {
+    "foo.py": """
 def foofn(x: int) -> int:
   ''' post: _ == x '''
   return $ x + 1
-"""}
+"""
+}
 
-CHATTY_FOO = {"foo.py": """
+CHATTY_FOO = {
+    "foo.py": """
 from subprocess import Popen
 def foofn(x: int) -> int:
   ''' post: _ == x '''
   Popen(['echo', 'hello']).communicate()
   return x
-"""}
+"""
+}
 
-EMPTY_BAR = {"bar.py": """
+EMPTY_BAR = {
+    "bar.py": """
 # Nothing here
-"""}
+"""
+}
 
 
 def test_added_file(tmp_path: Path):
@@ -131,3 +141,46 @@ def test_auditwall_unblock(unblock: str, expected_state: MessageType, tmp_path: 
     results = list(watcher.run_iteration())
     assert len(results) == 1
     assert [m.state for m in results[0][1]] == [expected_state]
+
+
+class LateResultPool:
+    """Each worker finishes just after a get_result() call times out."""
+
+    def __init__(self):
+        self.running = []
+        self.results = []
+
+    def submit(self, item):
+        self.running.append((item[0], Counter(), []))
+
+    def garden_workers(self):
+        pass
+
+    def is_working(self):
+        return bool(self.running)
+
+    def has_result(self):
+        return bool(self.results)
+
+    def get_result(self, timeout):
+        if self.results:
+            return self.results.pop()
+        self.results.extend(self.running)
+        self.running.clear()
+        return None
+
+    def terminate(self):
+        pass
+
+
+class LateResultWatcher(Watcher):
+    def startpool(self):
+        return LateResultPool()
+
+
+def test_result_from_finished_worker_is_not_dropped(tmp_path: Path):
+    simplefs(tmp_path, CORRECT_FOO)
+    watcher = LateResultWatcher([tmp_path])
+    assert watcher.check_changed()
+    watcher._next_file_check = time.time() + 1_000
+    assert list(watcher.run_iteration()) == [(Counter(), [])]

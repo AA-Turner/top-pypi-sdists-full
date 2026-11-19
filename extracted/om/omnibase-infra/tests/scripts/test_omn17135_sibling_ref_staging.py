@@ -8,7 +8,7 @@ The CI path (``runtime-rebuild-trigger.yml`` -> ``scripts/trigger_rebuild_on_mer
 constrains ``git_ref`` to a lowercase hex commit SHA **of omnibase_infra**. The
 deploy agent exports that verbatim as ``DEPLOY_REF``, and RT-1 (OMN-14438) then
 clean-checks-out EVERY sibling at it. An omnibase_infra SHA cannot exist in
-omnibase_core / omnibase_compat / omnimarket, so RT-1 exits 3 and the staging
+any staged sibling, so RT-1 exits 3 and the staging
 script exits 4 -- ``ERROR: omnibase_core: cannot resolve ref '<infra sha>'``.
 Job ``a5b200d5`` died this way 13 seconds after acceptance on 2026-09-09, which
 is why rule 24(a)'s automatic lab pass has never once worked through CI.
@@ -41,14 +41,14 @@ STAGE_SCRIPT = REPO_ROOT / "scripts" / "runtime_build" / "stage_workspace.sh"
 
 # The repos RT-1 clean-checks-out (stage_workspace.sh SIBLING_REPOS) plus the
 # ones the lock-pin preflight resolves out of SIBLING_CLONE_MANIFEST.
-_STAGED_SIBLINGS = ("omnibase_core", "omnibase_compat", "omnimarket")
+_STAGED_SIBLINGS = ("omnibase_core", "omnimarket", "omniintelligence")
 _DIST_NAME = {
     "omnibase_core": "omnibase-core",
-    "omnibase_compat": "omnibase-compat",
     "onex_change_control": "onex-change-control",
     "omnimarket": "omnimarket",
     "omnibase_infra": "omnibase-infra",
     "omnibase_spi": "omnibase-spi",
+    "omniintelligence": "omninode-intelligence",
 }
 _PIN_VERSION = "9.9.9"
 
@@ -72,6 +72,12 @@ def _init_repo(path: Path, dist: str) -> None:
     (path / "pyproject.toml").write_text(
         f"[project]\nname = '{dist}'\nversion = '{_PIN_VERSION}'\n", encoding="utf-8"
     )
+    if dist == "omnimarket":
+        # OMN-21279: stage_workspace.sh copies the delegation routing ladder out
+        # of the staged omnimarket tree into the build context.
+        ladder = path / "src" / "omnimarket" / "configs"
+        ladder.mkdir(parents=True)
+        (ladder / "routing_tiers.yaml").write_text("tiers: []\n", encoding="utf-8")
     _git(path, "add", "-A")
     _git(path, "commit", "-q", "-m", "init")
 
@@ -86,7 +92,8 @@ def _advance_dev(path: Path) -> str:
 def _write_consumer_lock(omni_home: Path) -> None:
     blocks = [
         f'[[package]]\nname = "{dist}"\nversion = "{_PIN_VERSION}"\n'
-        for dist in _DIST_NAME.values()
+        for repo, dist in _DIST_NAME.items()
+        if repo != "omniintelligence"  # no lock pins it (OMN-22153)
     ]
     market = omni_home / "omnimarket"
     (market / "uv.lock").write_text("\n".join(blocks), encoding="utf-8")

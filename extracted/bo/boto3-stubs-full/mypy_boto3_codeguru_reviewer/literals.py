@@ -78,6 +78,7 @@ TypeType = Literal["PullRequest", "RepositoryAnalysis"]
 VendorNameType = Literal["GitHub", "GitLab", "NativeS3"]
 CodeGuruReviewerServiceName = Literal["codeguru-reviewer"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

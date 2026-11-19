@@ -8,6 +8,10 @@ import json
 import tomllib
 from pathlib import Path
 
+from packaging.version import Version
+
+from scripts.ci.check_sibling_compatible_range import violations
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -19,10 +23,9 @@ def _declared_pins() -> dict[str, str]:
     verbatim, so a substring assertion is satisfied by prose and keeps passing
     after the pin it names has moved (OMN-18918).
 
-    ``[tool.uv] override-dependencies`` wins over ``[project.dependencies]``,
-    as it does for uv. Since OMN-19655 omnibase-core is published as a range
-    and pinned exactly only in the override, which is what ``uv.lock`` and the
-    runtime image carry.
+    Compat retains an exact release pin. Core and SPI publish ranges (core
+    resolves solely from its dev-merge tag; its lock identity is checked
+    separately below, OMN-17427), so neither appears here (OMN-22360).
     """
 
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -95,21 +98,31 @@ def test_release_backmerge_preserves_proven_runtime_core_pin() -> None:
     omnimarket dev declares; spi stays 0.23.5.
     OMN-21110 refresh: spi 0.23.5 -> 0.23.7, the floor omnimarket needs for
     ProtocolContextSource; core stays 0.47.46.
+    OMN-22359 refresh: spi 0.23.7 -> 0.23.12, the newest published release.
+    OMN-13902 refresh: the lock moves to spi 0.23.14; the check is the range floor.
     """
 
     uv_lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     pins = _declared_pins()
 
-    # The proven runtime pins the published PyPI releases (exact versions).
+    # Core uses a dev-merge tag; SPI is a range (OMN-22360) the lock resolves
+    # to the newest published release.
     locked = tomllib.loads(uv_lock)
     core_packages = [p for p in locked["package"] if p["name"] == "omnibase-core"]
     assert len(core_packages) == 1
     core = core_packages[0]
-    assert pins["omnibase-core"] == core["version"]
-    assert tuple(int(part) for part in core["version"].split(".")) >= (0, 47, 44)
-    assert core["source"] == {"registry": "https://pypi.org/simple"}
-    assert pins["omnibase-spi"] == "0.23.7"
+    assert violations(tomllib.loads(pyproject), "omnibase-core") == []
+    assert Version(core["version"]) >= Version("0.47.44")
+    assert "git" in core["source"]
+    assert "omnibase-spi" not in pins
+    spi_packages = [p for p in locked["package"] if p["name"] == "omnibase-spi"]
+    assert len(spi_packages) == 1
+    assert tuple(int(part) for part in spi_packages[0]["version"].split(".")) >= (
+        0,
+        23,
+        12,
+    )
 
     # The retired git-rev overrides must be gone from both manifest and lock:
     # the OMN-13762 core rev and the OMN-12549 seam core/spi revs.

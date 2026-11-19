@@ -101,6 +101,7 @@ SessionStatusType = Literal["APPROVED", "CANCELLED", "CREATING", "FAILED", "PEND
 UpdateActionType = Literal["SYNCHRONIZE_MFA_DEVICES"]
 MultipartyApprovalServiceName = Literal["mpa"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

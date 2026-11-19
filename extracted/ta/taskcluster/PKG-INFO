@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: taskcluster
-Version: 116.1.0
+Version: 117.0.0
 Summary: Python client for Taskcluster
 Project-URL: Homepage, https://github.com/taskcluster/taskcluster
 Project-URL: Repository, https://github.com/taskcluster/taskcluster
@@ -14,14 +14,13 @@ Keywords: api,client,taskcluster
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: aiohttp>=3.7.4
 Requires-Dist: async-timeout>=2.0.0
 Requires-Dist: mohawk>=0.3.4

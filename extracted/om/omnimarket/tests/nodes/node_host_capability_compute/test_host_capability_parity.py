@@ -108,10 +108,7 @@ class Host:
             elif found:
                 (self.bin / tool).symlink_to(found)
         self.venv_python = root / "venv-python"
-        self.answers(
-            delegation="missing llm.openrouter.api_key-is-absent-from-the-secret-store",
-            scm="ok subscribed:t",
-        )
+        self.answers(scm="ok subscribed:t")
 
     def stub(self, name: str, body: str, where: Path | None = None) -> Path:
         path = (where or self.stubs) / name
@@ -119,10 +116,10 @@ class Host:
         path.chmod(path.stat().st_mode | stat.S_IXUSR)
         return path
 
-    def answers(self, *, delegation: str, scm: str) -> None:
+    def answers(self, *, scm: str) -> None:
         self.stub(
             "venv-python",
-            f'case "$3" in delegation-key) echo "{delegation}";; scm-pr-create) echo "{scm}";; esac\n',
+            f'case "$3" in scm-pr-create) echo "{scm}";; esac\n',
             self.venv_python.parent,
         )
 
@@ -132,11 +129,8 @@ class Host:
         )
         (self.home / ".gitconfig").write_text(f'[credential]\n\thelper = "{helper}"\n')
 
-    def run(
-        self, peers: tuple[str, ...] | list[str] = (), *, refresh: bool = True
-    ) -> dict[str, tuple[str, str]]:
+    def run(self, *, refresh: bool = True) -> dict[str, tuple[str, str]]:
         script = cap.capability_probe_sh(
-            peers,
             bound=PROBE_BOUND_SH,
             path_export='export PATH="$HOME/.local/bin:$PATH"',
             registry_roots=[str(self.home)],
@@ -170,10 +164,10 @@ class Host:
                         and not p.name.endswith(".tmp")
                     ]
                 )
-                < 4
+                < 2
             ):
                 time.sleep(0.1)
-            return self.run(peers, refresh=False)
+            return self.run(refresh=False)
         lines = [
             line.split(None, 3)
             for line in done.stdout.splitlines()
@@ -182,8 +176,6 @@ class Host:
         assert [p[1] for p in lines] == [
             "scm-pr-create",
             "git-workflow-push",
-            "delegation-key",
-            "lab-ssh",
             "shellcheck",
         ], done.stdout
         return {p[1]: (p[2], p[3] if len(p) > 3 else "") for p in lines}
@@ -200,21 +192,9 @@ def test_probe_reads_shellcheck_on_the_lane_path(box: Host) -> None:
     assert box.run()["shellcheck"] == ("ok", str(shellcheck))
 
 
-def test_probe_reads_the_delegation_key_and_pr_create_through_the_dispatch_venv(
-    box: Host,
-) -> None:
-    read = box.run()
-    assert read["delegation-key"] == (
-        "missing",
-        "llm.openrouter.api_key-is-absent-from-the-secret-store",
-    )
-    assert read["scm-pr-create"] == ("ok", "subscribed:t")
-
-
 def test_probe_without_a_dispatch_venv_reads_unknown(box: Host) -> None:
     box.venv_python.unlink()
     read = box.run()
-    assert read["delegation-key"] == ("unknown", "no-dispatch-venv")
     assert read["scm-pr-create"] == ("unknown", "no-dispatch-venv")
 
 
@@ -245,44 +225,51 @@ def test_probe_reads_the_workflow_scope_of_the_git_credential_and_never_puts_it_
     assert box.run()["git-workflow-push"][0] == "missing"
 
 
-def test_probe_reads_an_ssh_route_to_each_peer(box: Host) -> None:
-    assert box.run()["lab-ssh"] == ("unknown", "no-peers-named")
-    box.stub("ssh", 'case "$*" in *good-peer*) exit 0;; *) exit 255;; esac\n')
-    assert box.run(["good-peer", "bad-peer", "not a host"])["lab-ssh"] == (
-        "missing",
-        "no-ssh-route-to:bad-peer",
-    )
-    assert box.run(["good-peer"])["lab-ssh"] == ("ok", "reached:good-peer")
-    assert box.run(["good-peer", "user@good-peer-2"])["lab-ssh"] == (
-        "ok",
-        "reached:good-peer,user@good-peer-2",
-    )
-
-
-def test_probe_prints_unread_before_the_first_refresh_and_never_waits_on_it(
-    box: Host,
+def test_probe_prints_no_delegation_key_line_and_a_host_without_the_key_is_never_refused(
+    tmp_path: Path,
 ) -> None:
-    box.stub("ssh", "sleep 5\n")
-    started = time.monotonic()
-    read = box.run(["slow-peer"], refresh=False)
-    assert time.monotonic() - started < 4
-    assert read["lab-ssh"] == ("unknown", "not-read")
-    assert read["shellcheck"][0] == "missing"
+    script = cap.capability_probe_sh(
+        bound=PROBE_BOUND_SH,
+        path_export='export PATH="$HOME/.local/bin:$PATH"',
+        registry_roots=[str(tmp_path)],
+    )
+    assert "PARITY-CAP delegation-key" not in script
+    assert not hasattr(cap, "DELEGATION_KEY")
+    # a probe line naming delegation-key is parsed by nothing, so even a unit whose needs name it is never refused for it
+    capabilities = cap.parse_capability_lines(
+        "PARITY-CAP scm-pr-create ok subscribed:t\n"
+        "PARITY-CAP delegation-key missing llm.openrouter.api_key-is-absent\n"
+    )
+    assert [c.name for c in capabilities] == ["scm-pr-create"]
+    assert cap.capability_failures(capabilities, frozenset({"delegation-key"})) == []
+
+
+def test_probe_prints_no_lab_ssh_line_the_node_owns_it(tmp_path: Path) -> None:
+    script = cap.capability_probe_sh(
+        bound=PROBE_BOUND_SH,
+        path_export='export PATH="$HOME/.local/bin:$PATH"',
+        registry_roots=[str(tmp_path)],
+    )
+    assert "PARITY-CAP lab-ssh" not in script
+    assert "cap_ssh" not in script
+    # node_lab_ssh_probe_compute renders the lab-ssh line from the host table; the host table parses it here
+    capabilities = cap.parse_capability_lines("PARITY-CAP lab-ssh ok reached:good-peer")
+    assert [(c.name, c.verdict, c.detail) for c in capabilities] == [
+        ("lab-ssh", "ok", "reached:good-peer")
+    ]
 
 
 def test_probe_caches_the_slow_checks_and_reads_shellcheck_every_time(
     box: Host,
 ) -> None:
     box.run()
-    box.answers(delegation="ok llm.openrouter.api_key-resolves", scm="missing bus:x")
+    box.answers(scm="missing bus:x")
     box.stub("shellcheck", "exit 0\n")
     read = box.run()
-    assert read["delegation-key"][0] == "missing"
     assert read["scm-pr-create"][0] == "ok"
     assert read["shellcheck"][0] == "ok"
     shutil.rmtree(box.home / ".cache")
     read = box.run()
-    assert read["delegation-key"][0] == "ok"
     assert read["scm-pr-create"] == (
         "missing",
         "bus:x",
@@ -294,7 +281,6 @@ def test_the_capability_program_is_one_quoted_word_and_answers_one_verdict_line(
 ):
     assert "'" not in cap.CAPABILITY_PY
     for args in (
-        ["delegation-key", cap.DELEGATION_SECRET_REF],
         ["scm-pr-create", cap.SCM_BUS_LANE, "1"],
         ["nothing"],
     ):
@@ -312,3 +298,136 @@ def test_the_capability_program_is_one_quoted_word_and_answers_one_verdict_line(
         assert done.returncode == 0, (args, done.stdout, done.stderr)
         assert len(lines) == 1, (args, done.stdout, done.stderr)
         assert lines[0].split()[0] in cap.VERDICTS, (args, done.stdout, done.stderr)
+
+
+# The recorded failure: ``ScmBusCaller`` joins no consumer group (it sets ``_bus`` only), yet a copy of this check read ``._group``, so every
+# lab host printed ``unknown bus-check-failed:AttributeError:'ScmBusCaller' object has no attribute '_group'``.
+RECORDED_GROUP_ERROR = "'ScmBusCaller' object has no attribute '_group'"
+STUB_SCM = {
+    "omnimarket/__init__.py": "",
+    "omnimarket/handlers/__init__.py": "",
+    "omnimarket/handlers/scm/__init__.py": "",
+    "omnimarket/handlers/scm/handler_scm_dispatch.py": (
+        "class Topics:\n    success = 'terminal.ok'\n    failure = 'terminal.failed'\n\n\n"
+        "def load_topics(node):\n    return Topics()\n\n\n"
+        "def verb(name):\n    return type('Verb', (), {'node': name})\n\n\n"
+        "class ScmBusCaller:\n    def __init__(self, bus):\n        if not hasattr(bus, 'subscribe_ungrouped'):\n"
+        "            raise TypeError('no subscribe_ungrouped')\n        self._bus = bus\n"
+    ),
+    "omnimarket/handlers/scm/scm_cli.py": (
+        "import contextlib\nimport os\n\n\nclass Bus:\n    def __init__(self, ungrouped, refuse):\n        self.refuse = refuse\n"
+        "        if ungrouped:\n            self.subscribe_ungrouped = self._ungrouped\n\n"
+        "    async def stop(self):\n        return None\n\n"
+        "    async def _ungrouped(self, topic, handler):\n        if self.refuse:\n"
+        "            raise type('LabRunBusError', (Exception,), {})('SASL authentication failed')\n        return self.stop\n\n\n"
+        "@contextlib.asynccontextmanager\nasync def _open_bus(opts):\n"
+        "    yield Bus(os.environ.get('STUB_UNGROUPED') == '1', os.environ.get('STUB_REFUSE') == '1')\n"
+    ),
+}
+
+
+def scm_check_against_stub_omnimarket(
+    tmp_path: Path, **stub_env: str
+) -> tuple[str, str]:
+    """The scm-pr-create check against an omnimarket whose ``ScmBusCaller`` sets ``_bus`` only."""
+    for name, text in STUB_SCM.items():
+        target = tmp_path / "stub" / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            cap.CAPABILITY_PY,
+            "scm-pr-create",
+            cap.SCM_BUS_LANE,
+            "5",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+        env={
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": str(tmp_path / "stub"),
+            **stub_env,
+        },
+    )
+    verdict, _, detail = done.stdout.strip().partition(" ")
+    assert done.returncode == 0, (done.stdout, done.stderr)
+    assert len(done.stdout.splitlines()) == 1, done.stdout
+    return verdict, detail
+
+
+def test_scm_bus_caller_without_a_group_attribute_reads_ok_not_the_recorded_attribute_error(
+    tmp_path: Path,
+) -> None:
+    verdict, detail = scm_check_against_stub_omnimarket(tmp_path, STUB_UNGROUPED="1")
+    assert (verdict, detail) == ("ok", "subscribed:terminal.ok")
+    assert RECORDED_GROUP_ERROR.replace(" ", "_") not in detail
+    assert "_group" not in detail
+
+
+def test_scm_bus_caller_reads_missing_when_the_broker_refuses_the_ungrouped_read(
+    tmp_path: Path,
+) -> None:
+    verdict, detail = scm_check_against_stub_omnimarket(
+        tmp_path, STUB_UNGROUPED="1", STUB_REFUSE="1"
+    )
+    assert verdict == "missing"
+    assert detail.startswith("bus:LabRunBusError:")
+
+
+def test_scm_bus_caller_over_a_bus_with_no_ungrouped_read_stays_unknown_never_ok(
+    tmp_path: Path,
+) -> None:
+    verdict, detail = scm_check_against_stub_omnimarket(tmp_path)
+    assert verdict == "unknown"
+    assert "no_subscribe_ungrouped" in detail
+
+
+def test_scm_bus_caller_readings_drive_pr_create_placement(tmp_path: Path) -> None:
+    """Feed the probe's actual answers over a group-less bus into placement."""
+    from omnimarket.nodes.node_host_capability_compute.handlers.handler_pr_create_placement import (
+        HandlerPrCreatePlacement,
+    )
+    from omnimarket.nodes.node_host_capability_compute.models import (
+        EnumPrCreateRefusal,
+        ModelHostReading,
+        ModelPrCreatePlacementRequest,
+    )
+
+    answers = {
+        "available": scm_check_against_stub_omnimarket(
+            tmp_path / "available", STUB_UNGROUPED="1"
+        ),
+        "refused": scm_check_against_stub_omnimarket(
+            tmp_path / "refused", STUB_UNGROUPED="1", STUB_REFUSE="1"
+        ),
+        "unreadable": scm_check_against_stub_omnimarket(tmp_path / "unreadable"),
+    }
+    assert {host: verdict for host, (verdict, _) in answers.items()} == {
+        "available": "ok",
+        "refused": "missing",
+        "unreadable": "unknown",
+    }
+    assert all("_group" not in detail for _, detail in answers.values())
+    request = ModelPrCreatePlacementRequest(
+        needs=frozenset({cap.SCM_PR_CREATE}),
+        hosts=tuple(
+            ModelHostReading(
+                host=host,
+                capabilities=cap.parse_capability_lines(
+                    f"PARITY-CAP scm-pr-create {verdict} {detail}"
+                ),
+            )
+            for host, (verdict, detail) in answers.items()
+        ),
+    )
+    result = HandlerPrCreatePlacement().handle(request)
+    assert {v.host: (v.admitted, v.refusal) for v in result.verdicts} == {
+        "available": (True, None),
+        "refused": (False, EnumPrCreateRefusal.CAPABILITY_MISSING),
+        "unreadable": (False, EnumPrCreateRefusal.UNKNOWN_WHILE_PEER_READS_OK),
+    }

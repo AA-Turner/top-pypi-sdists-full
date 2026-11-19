@@ -94,6 +94,10 @@ EXEC_WITH_PUBLISHED_DICT = EXEC_DICT.copy()
 EXEC_WITH_PUBLISHED_DICT.update(
     {'published_global': jsonutils.dumps(EXEC_PUBLISHED)})
 EXEC_WITH_PUBLISHED = executions.Execution(mock, EXEC_WITH_PUBLISHED_DICT)
+EXEC_PARAMS = {"namespace": "", "env": {"var": "val"}}
+EXEC_WITH_PARAMS_DICT = EXEC_DICT.copy()
+EXEC_WITH_PARAMS_DICT.update({'params': jsonutils.dumps(EXEC_PARAMS)})
+EXEC_WITH_PARAMS = executions.Execution(mock, EXEC_WITH_PARAMS_DICT)
 
 
 class TestCLIExecutionsV2(base.BaseCommandTest):
@@ -216,6 +220,30 @@ class TestCLIExecutionsV2(base.BaseCommandTest):
             [EX_RESULT, SUB_WF_EX_RESULT],
             result[1]
         )
+
+    def test_list_include_output(self):
+        exec_dict = dict(EXEC_DICT, output='{"result": "ok"}')
+        self.client.executions.list.return_value = [
+            executions.Execution(mock, exec_dict)
+        ]
+
+        result = self.call(execution_cmd.List, app_args=['--include-output'])
+
+        self.assertEqual('Output', result[0][-1])
+        self.assertEqual([EX_RESULT + ('{"result": "ok"}',)], result[1])
+
+        kwargs = self.client.executions.list.call_args[1]
+
+        self.assertTrue(kwargs['include_output'])
+        self.assertIn('output', kwargs['fields'])
+
+    def test_list_include_output_empty(self):
+        self.client.executions.list.return_value = []
+
+        result = self.call(execution_cmd.List, app_args=['--include-output'])
+
+        self.assertEqual('Output', result[0][-1])
+        self.assertEqual(len(result[0]), len(result[1][0]))
 
     def test_sub_executions(self):
         self.client.executions.get_ex_sub_executions.return_value = \
@@ -371,3 +399,20 @@ class TestCLIExecutionsV2(base.BaseCommandTest):
             EXEC_PUBLISHED,
             jsonutils.loads(self.app.stdout.write.call_args[0][0])
         )
+
+    def test_get_params(self):
+        self.client.executions.get.return_value = EXEC_WITH_PARAMS
+
+        self.call(execution_cmd.GetParams, app_args=['id'])
+
+        self.assertDictEqual(
+            EXEC_PARAMS,
+            jsonutils.loads(self.app.stdout.write.call_args[0][0])
+        )
+
+    def test_get_params_none(self):
+        self.client.executions.get.return_value = EXEC
+
+        self.call(execution_cmd.GetParams, app_args=['id'])
+
+        self.app.stdout.write.assert_called_once_with("\n")

@@ -15,8 +15,14 @@ from .exc import (InvalidVideoFileError, CorruptFrameWarning,
 
 ISWIN = sys.platform.startswith("win")
 
+#: Use an exact (bitexact, accurately rounded) conversion from the YUV
+#: video data to RGB in ffmpeg. By default, ffmpeg uses optimized code
+#: that yields slightly different gray values on different platforms
+#: (e.g. x86 vs. ARM processors).
+FFMPEG_OUTPUT_PARAMS = ["-sws_flags", "accurate_rnd+bitexact+full_chroma_int"]
 
-class ImageColumn(object):
+
+class ImageColumn:
     def __init__(self, rtdc_dataset):
         """A wrapper for ImageMap that takes into account event offsets
 
@@ -40,14 +46,14 @@ class ImageColumn(object):
         if not isinstance(idx, numbers.Integral):
             raise NotImplementedError(
                 "The RTDC_TDMS data handler does not support indexing with "
-                "anything else than scalar integers. Please convert your data "
-                "to the .rtdc file format!")
+                "anything other than scalar integers. Please convert your "
+                "data to the .rtdc file format!")
 
         idnew = int(idx-self.event_offset)
         if idnew < 0:
             # No data - show a dummy image instead
-            warnings.warn("Frame {} in {} ".format(idnew, self.identifier)
-                          + "is not defined; replacing with dummy image!",
+            warnings.warn(f"Frame {idnew} in {self.identifier} "
+                          "is not defined; replacing with dummy image!",
                           InitialFrameMissingWarning)
             cdata = self.dummy
         else:
@@ -61,8 +67,8 @@ class ImageColumn(object):
                 cdata = self._image_data[idnew]
             except excs:
                 # The avi is corrupt. Return a dummy image.
-                warnings.warn("Frame {} in {} ".format(idnew, self.identifier)
-                              + "is corrupt; replacing with dummy image!",
+                warnings.warn(f"Frame {idnew} in {self.identifier} "
+                              "is corrupt; replacing with dummy image!",
                               CorruptFrameWarning)
                 cdata = self.dummy
         return cdata
@@ -105,12 +111,9 @@ class ImageColumn(object):
                 video = videos[0]
                 # g/q video file names. q comes first.
                 for v in videos:
-                    if v.endswith("imag.avi"):
-                        video = v
-                        break
-                    # add this here, because fRT-DC measurements also contain
-                    # videos ..._proc.avi
-                    elif v.endswith("imaq.avi"):
+                    # "imaq.avi" is checked, because fRT-DC measurements
+                    # also contain videos ..._proc.avi
+                    if v.endswith(("imag.avi", "imaq.avi")):
                         video = v
                         break
         if video is None:
@@ -119,12 +122,12 @@ class ImageColumn(object):
             vpath = rtdc_dataset._fdir / video
             if vpath.stat().st_size < 64:
                 # the video file is empty
-                raise InvalidVideoFileError("Bad video '{}'!".format(vpath))
+                raise InvalidVideoFileError(f"Bad video '{vpath}'!")
             else:
                 return vpath
 
 
-class ImageMap(object):
+class ImageMap:
     def __init__(self, fname):
         """Access a video file of an RT-DC dataset
 
@@ -136,7 +139,7 @@ class ImageMap(object):
         self._cap = None
         # filename
         if not fname.exists():
-            raise OSError("file does not exist: {}".format(fname))
+            raise OSError(f"file does not exist: {fname}")
         self.filename = fname
 
     def __del__(self):
@@ -158,7 +161,7 @@ class ImageMap(object):
         try:
             cellimg = cap.get_data(idx)
         except IndexError:
-            self._get_image_workaround_seek(idx)
+            cellimg = self._get_image_workaround_seek(idx)
         else:
             if np.all(cellimg == 0):
                 cellimg = self._get_image_workaround_seek(idx)
@@ -185,8 +188,7 @@ class ImageMap(object):
                     # (aborted measurement), so for the sake of simplicity
                     # we stop here)
                     raise InvalidVideoFileError(
-                        "Video file has unknown length '{}'!".format(
-                            self.filename))
+                        f"Video file has unknown length '{self.filename}'!")
             self._length = length
         return self._length
 
@@ -206,15 +208,17 @@ class ImageMap(object):
         if not np.all(final == 0):
             # This means we succeeded
             warnings.warn("Seeking video file does not work, used workaround "
-                          + "which is slow!", SlowVideoWarning)
+                          "which is slow!", SlowVideoWarning)
         return final
 
     @property
     def video_handle(self):
         if self._cap is None:
             try:
-                self._cap = imageio.get_reader(self.filename)
+                self._cap = imageio.get_reader(
+                    self.filename,
+                    output_params=FFMPEG_OUTPUT_PARAMS)
             except OSError:
                 raise InvalidVideoFileError(
-                    "Broken video file '{}'!".format(self.filename))
+                    f"Broken video file '{self.filename}'!")
         return self._cap

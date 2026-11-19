@@ -115,16 +115,21 @@ events:
 
   # OMN-19550: full-content capture (RULING 2026-09-25T11:23:30Z). The complete
   # prompt, tool input, tool result and assistant reply, one content item (or
-  # one chunk of it) per record, raw (OMN-19513, RULING 2026-10-15T04:24:42Z:
-  # no redaction on the bus). A cmd topic: full prompts and file contents go only
-  # on the restricted onex.cmd.omniintelligence.* family (omniclaude's privacy
-  # split). Local only: the cloud relay's explicit allowlist does not name it.
+  # one chunk of it) per record. OMN-24062: credential-shaped spans are replaced
+  # in place before the record is published (redact_capture; the topic's
+  # `content` and `command` fields are capture_scrubbed in capture_redaction.yaml),
+  # and every other character crosses, so the full output is kept. This replaces
+  # the raw passthrough of OMN-19513 (RULING 2026-10-15T04:24:42Z) for secrets
+  # only: a planted token never reaches the bus or session_content. A cmd topic:
+  # full prompts and file contents go only on the restricted
+  # onex.cmd.omniintelligence.* family (omniclaude's privacy split). Local only:
+  # the cloud relay's explicit allowlist does not name it.
   content.captured:
     fan_out:
       - topic: "onex.cmd.omniintelligence.content-captured.v1"
         tier: telemetry
-        transform: passthrough
-        description: "Raw full session content (OMN-19550, OMN-19513)"
+        transform: redact_capture
+        description: "Full session content with credential-shaped spans replaced (OMN-19550, OMN-24062)"
     partition_key_field: session_id
     required_fields: [session_id, content_kind]
 
@@ -909,6 +914,20 @@ events:
     partition_key_field: delegation_correlation_id
     required_fields: [tenant_id, delegation_correlation_id, disposition, reason_code, caller_lane, artifact_kind, recorded_at, disposition_id]
 
+  # OMN-21320: one numbered step of a delegation run, published by the
+  # delegate-skill run-step recorder and consumed by node_projection_run_trace.
+  # The topic is the orchestrator contract's runtime_dispatch.run_step_event.
+  # No transform: a step carries ids, enums, timings and a short reason, never
+  # the prompt or the answer. Keyed on the run's correlation so one run's steps
+  # stay ordered.
+  delegation.run_step:
+    fan_out:
+      - topic: "onex.evt.omnimarket.delegation-run-step.v1"
+        tier: telemetry
+        description: "One numbered step of a delegation run, for the run-trace projection"
+    partition_key_field: correlation_id
+    required_fields: [tenant_id, correlation_id, step_sequence, step_kind, started_at, outcome]
+
   # OMN-20001: strict core event envelopes; v1 retains its legacy body.
   work.ledger.typed.claim:
     fan_out:
@@ -987,3 +1006,112 @@ events:
         description: "A core typed correction work-ledger event"
     partition_key_field: ledger_id
     required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+
+  # =========================================================================
+  # Additive binding rows (OMN-22016): the miss record of an additive call that
+  # injected nothing for want of a package. profile, reason and elapsed_ms only.
+  # node_owned: node_claude_code_hook_adapter_effect journals it, never a hook script.
+  # =========================================================================
+  additive.miss:
+    node_owned: true
+    fan_out:
+      - topic: "onex.evt.omnimarket.additive-pack-missed.v1"
+        tier: telemetry
+        description: "Additive call injected nothing: profile, reason and elapsed time only"
+    partition_key_field: profile
+    required_fields: [profile, reason, elapsed_ms]
+
+  # =========================================================================
+  # Context compaction (OMN-21112): two restricted commands, six receipts.
+  # Receipt schemas carry ids, hashes, counts, names and enums only.
+  # node_owned: the orchestrator node emits these, never a Claude Code hook, so
+  # the hook-side registry and its drift check carry no registration for them.
+  # =========================================================================
+  compaction.requested:
+    node_owned: true
+    fan_out:
+      - topic: "onex.cmd.omniintelligence.context-compaction-requested.v1"
+        tier: telemetry
+        description: "Compaction request for a session (restricted command)"
+    partition_key_field: session_id
+    required_fields: [invocation_id, session_id, cwd, trigger, input_messages_hash]
+  compaction.package:
+    node_owned: true
+    fan_out:
+      - topic: "onex.cmd.omniintelligence.context-compaction-package.v1"
+        tier: telemetry
+        description: "Compaction package reply correlated by invocation_id (restricted command)"
+    partition_key_field: invocation_id
+    required_fields: [invocation_id, action, status]
+  compaction.prepared:
+    node_owned: true
+    fan_out:
+      - topic: "onex.evt.omnimarket.context-compaction-prepared.v1"
+        tier: telemetry
+        description: "Compaction candidate prepared receipt: ids, hashes and counts only"
+    partition_key_field: session_id
+    required_fields: [candidate_id, session_id, input_messages_hash, assembly_hash, version_vector_hash, profile_name, profile_content_hash]
+  compaction.activated:
+    node_owned: true
+    fan_out:
+      - topic: "onex.evt.omnimarket.context-compaction-activated.v1"
+        tier: telemetry
+        description: "Compaction activated receipt: ids and hashes only"
+    partition_key_field: session_id
+    required_fields: [activation_id, candidate_id, invocation_id, session_id, trigger, model_outputs_hash, final_pack_hash, body_hash, installed_messages_hash]
+  compaction.fallback:
+    node_owned: true
+    fan_out:
+      - topic: "onex.evt.omnimarket.context-compaction-fallback.v1"
+        tier: telemetry
+        description: "Compaction fell back to native: ids and failure class only"
+    partition_key_field: session_id
+    required_fields: [invocation_id, session_id, failure_class]
+  compaction.installed:
+    node_owned: true
+    fan_out:
+      - topic: "onex.evt.omnimarket.context-compaction-installed.v1"
+        tier: telemetry
+        description: "Compaction install confirmed: ids and hashes only"
+    partition_key_field: session_id
+    required_fields: [activation_id, session_id, boundary_uuid, observed_hash]
+  compaction.install_mismatch:
+    node_owned: true
+    fan_out:
+      - topic: "onex.evt.omnimarket.context-compaction-install-mismatch.v1"
+        tier: telemetry
+        description: "Compaction install mismatch: ids and hashes only"
+    partition_key_field: session_id
+    required_fields: [activation_id, session_id, boundary_uuid, installed_messages_hash, observed_hash]
+  compaction.install_uncertain:
+    node_owned: true
+    fan_out:
+      - topic: "onex.evt.omnimarket.context-compaction-install-uncertain.v1"
+        tier: telemetry
+        description: "Compaction install uncertain: ids and reason enum only"
+    partition_key_field: session_id
+    required_fields: [activation_id, session_id, reason]
+
+  # C32 local auth-boundary probe run (OMN-23213): one daily run of node_c32_auth_boundary_probe_effect, the record the MVP launch
+  # reading (M1) reads C32 from. One record a day; the run history file on the host keeps every run. Carries the run id, trigger, verdict,
+  # graded clause names and details (never a credential value: the probe only searches for its planted value), and package versions.
+  c32.auth_boundary_probe.completed:
+    node_owned: true
+    fan_out:
+      - topic: "onex.evt.omnimarket.local-auth-boundary-probe-completed.v1"
+        tier: telemetry
+        description: "C32 auth-boundary probe run: verdict, conclusion, clauses and graded versions; no credential value"
+    partition_key_field: criterion
+    required_fields: [run_id, verdict, conclusion, criterion]
+
+  # Lab proof judge use (OMN-23642): one record each time the judge applies its declared not-applicable class to a change, or refuses
+  # a change that qualifies but has no substitute proof. Carries the repository, pull request, head, class, outcome, node names and
+  # substitute receipt ids; no code, no log text, no credential.
+  lab_proof_judge.use_recorded:
+    node_owned: true
+    fan_out:
+      - topic: "onex.evt.omnimarket.lab-proof-judge-use-recorded.v1"
+        tier: telemetry
+        description: "Lab proof judge use: repo, pr, head, class, outcome, node names and substitute receipt ids"
+    partition_key_field: head
+    required_fields: [repo, pr_number, head, class_id, outcome]

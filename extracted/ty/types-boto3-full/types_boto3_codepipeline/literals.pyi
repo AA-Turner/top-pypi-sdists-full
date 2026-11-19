@@ -144,6 +144,7 @@ TriggerTypeType = Literal[
 WebhookAuthenticationTypeType = Literal["GITHUB_HMAC", "IP", "UNAUTHENTICATED"]
 CodePipelineServiceName = Literal["codepipeline"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

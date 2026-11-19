@@ -321,6 +321,7 @@ VolumeStatusType = Literal[
 ]
 DrsServiceName = Literal["drs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

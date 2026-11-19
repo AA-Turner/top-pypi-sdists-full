@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: markdownify
-Version: 1.2.3
+Version: 1.2.4
 Summary: Convert HTML to markdown.
 Author-email: Matthew Tretter <m@tthewwithanm.com>
 Project-URL: Homepage, http://github.com/matthewwithanm/python-markdownify
@@ -10,17 +10,21 @@ Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2.5
-Classifier: Programming Language :: Python :: 2.6
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Utilities
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: beautifulsoup4<5,>=4.9
-Requires-Dist: six<2,>=1.15
+Dynamic: license-file
 
 |build| |version| |license| |downloads|
 

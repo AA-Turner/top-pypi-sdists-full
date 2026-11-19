@@ -231,4 +231,18 @@ pub(crate) const TARGET_FIELDS: &[TargetField] = &[
             decided_by: &["ignore_audit_failures"],
         },
     },
+    TargetField {
+        group: None,
+        name: "plan_from",
+        rule: MergeRule::Overlay {
+            decided_by: &["plan_from"],
+        },
+    },
+    TargetField {
+        group: None,
+        name: "pause_dynamic",
+        rule: MergeRule::Overlay {
+            decided_by: &["pause_dynamic"],
+        },
+    },
 ];

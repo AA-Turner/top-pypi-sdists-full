@@ -420,6 +420,29 @@ class CreateOpts:
     # similar?
     #: Whether an ID is required or not. If unset, derived from the method.
     requires_id: bool | types.Unset = types.UNSET
+    #: Whether the request includes a body.
+    request_has_body: bool = True
+    #: Whether the response includes a body. If unset, defaults to True.
+    response_has_body: bool = True
+
+
+@final
+@dataclasses.dataclass(frozen=True)
+class CommitOpts:
+    #: Key to use when enveloping requests. If unset, defaults to the
+    #: ``resource_key`` attribute of the resource. Set to None to disable
+    #: enveloping.
+    request_key: str | types.Unset | None = types.UNSET
+    #: Key to use when de-enveloping responses. If unset, defaults to the
+    #: ``resource_key`` attribute of the resource. Set to None to disable
+    #: de-enveloping.
+    response_key: str | types.Unset | None = types.UNSET
+    #: Method to use for commit requests. This must be PATCH if allow_patch is
+    #: True.
+    method: Literal['POST', 'PATCH', 'PUT'] = 'PUT'
+    #: Whether the request includes a body. If False, no body is sent and
+    #: the commit can happen without header or body being dirty.
+    request_has_body: bool = True
     #: Whether the response includes a body. If unset, defaults to True.
     response_has_body: bool = True
 
@@ -478,13 +501,22 @@ class Resource(dict[str, Any]):
     #: override this to set per-resource defaults without overriding create().
     create_opts: ClassVar[CreateOpts] = CreateOpts()
 
-    #: Commits happen without header or body being dirty.
-    allow_empty_commit = False
-    #: Method for committing a resource. This must be PATCH if
-    #: allow_patch is True.
-    commit_method: Literal['POST', 'PATCH', 'PUT'] = 'PUT'
+    #: Class-level configuration for the commit operation. Subclasses can
+    #: override this to set per-resource defaults without overriding commit().
+    commit_opts: ClassVar[CommitOpts] = CommitOpts()
 
-    #: Maximum microversion to use for getting/creating/updating the Resource
+    #: Minimum microversion required to use this resource. ``None`` means the
+    #: resource is available in the service's base API version.
+    _min_microversion: str | None = None
+
+    # TODO(stephenfin): Rename this to _preferred_microversion and introduce
+    # a new _max_microversion for the last version supporting a resource
+    # removed in a later microversion.
+    #: Preferred microversion to negotiate when no session default is set.
+    #: Negotiation caps this at the server's maximum. A configured session
+    #: default takes precedence, even when higher than this value: this is
+    #: not a hard upper bound on the resource's supported versions. ``None``
+    #: falls back to negotiating _min_microversion, if set.
     _max_microversion: str | None = None
 
     #: API microversion (string or None) this Resource was loaded with
@@ -512,11 +544,12 @@ class Resource(dict[str, Any]):
         if (
             cls.allow_commit
             and cls.allow_patch
-            and cls.commit_method != 'PATCH'
+            and cls.commit_opts.method != 'PATCH'
         ):
             raise TypeError(
                 f"{cls.__name__}: 'allow_patch' is True but "
-                f"'commit_method' is {cls.commit_method!r} instead of 'PATCH'"
+                f"'commit_opts.method' is {cls.commit_opts.method!r} instead "
+                f"of 'PATCH'"
             )
 
     def __init__(
@@ -1250,11 +1283,15 @@ class Resource(dict[str, Any]):
                 self._original_body
             )
 
-        # NOTE(gtema) sort result, since we might need validate it in tests
-        return sorted(
+        # make_patch generates dict operations, though JsonPatch.patch is
+        # typed to also accept arbitrary mappings.
+        # https://github.com/stefankoegl/python-json-patch/pull/255
+        patch = cast(
+            list[dict[str, Any]],
             list(jsonpatch.make_patch(original_body, new).patch),
-            key=operator.itemgetter('path'),
         )
+        # NOTE(gtema) sort result, since we might need validate it in tests
+        return sorted(patch, key=operator.itemgetter('path'))
 
     def _prepare_request(
         self,
@@ -1406,21 +1443,54 @@ class Resource(dict[str, Any]):
 
         1. If the session has a default microversion for the current service,
            just use it.
-        2. If ``self._max_microversion`` is not ``None``, use minimum between
+        2. If ``cls._max_microversion`` is not ``None``, use minimum between
            it and the maximum microversion supported by the server.
-        3. Otherwise use ``None``.
+        3. Otherwise, if ``cls._min_microversion`` is not ``None``, negotiate
+           that version with the server.
+        4. Otherwise use ``None``.
+
+        A configured session default takes precedence over
+        ``cls._max_microversion``. For clients created through the connection,
+        its compatibility with the server is checked during service client
+        construction, so that check does not need to be repeated here.
+
+        Without a session default, ``cls._max_microversion`` is a preference,
+        not a requirement: if it exceeds the server's maximum, the server's
+        maximum is selected instead.
+
+        If a minimum microversion is specified, the selected version must be
+        at least that version. This is a local comparison against the session
+        default or negotiated version; no additional capability check is
+        needed. An explicitly configured session default is never silently
+        upgraded.
 
         Subclasses can override this method if more complex logic is needed.
 
         :param session: The session to use for making the request.
         :returns: Microversion as string or ``None``
+        :raises: :exc:`~openstack.exceptions.NotSupported` if the selected
+            version does not satisfy the resource's minimum microversion.
         """
+        microversion: str | None
         if session.default_microversion:
-            return session.default_microversion
+            microversion = session.default_microversion
+        else:
+            microversion = utils.maximum_supported_microversion(
+                session, cls._max_microversion or cls._min_microversion
+            )
 
-        return utils.maximum_supported_microversion(
-            session, cls._max_microversion
-        )
+        if cls._min_microversion is not None:
+            if microversion is None or (
+                discover.normalize_version_number(microversion)
+                < discover.normalize_version_number(cls._min_microversion)
+            ):
+                raise exceptions.NotSupported(
+                    f"{cls.__name__} requires API microversion "
+                    f"{cls._min_microversion}, but "
+                    f"{microversion or 'the base version'} would be used."
+                )
+
+        return microversion
 
     @classmethod
     def _assert_microversion_for(
@@ -1431,16 +1501,46 @@ class Resource(dict[str, Any]):
         error_message: str | None = None,
         maximum: str | None = None,
     ) -> str:
-        """Enforce that the microversion for action satisfies the requirement.
+        """Check microversion to use for the given action.
 
-        :param session: :class`keystoneauth1.adapter.Adapter`
-        :param expected: Expected microversion.
-        :param error_message: Optional error message with details. Will be
-            prepended to the message generated here.
-        :param maximum: Maximum microversion.
-        :returns: resulting microversion as string.
-        :raises: :exc:`~openstack.exceptions.NotSupported` if the version
-            used for the action is lower than the expected one.
+        The base version uses the following logic:
+
+        1. Select a microversion using :meth:`_get_microversion`.
+        2. If no explicit microversion is selected, raise an error.
+        3. If ``expected`` is not ``None``, check that the selected version is
+           at least that version.
+        4. If ``maximum`` is not ``None``, use the minimum between it and the
+           selected version.
+        5. Otherwise use the selected version.
+
+        The minimum check is a local comparison against the version selected
+        by :meth:`_get_microversion`. The selected version is never upgraded to
+        satisfy ``expected``, including when a session default is configured.
+
+        Unlike :func:`~openstack.utils.supports_microversion` and
+        :func:`~openstack.utils.require_microversion`, this checks the version
+        the resource would actually use, not just whether the server and
+        adapter support the required version. Unlike
+        :func:`~openstack.utils.pick_microversion`, it preserves the resource's
+        version-selection policy.
+
+        A maximum microversion can be specified for actions that require
+        older API behaviour. The cap is applied after the minimum check and
+        assumes the server also supports that older version. Callers must
+        pass the returned version as the request's ``microversion`` argument.
+
+        :param session: The session to use for making the request.
+        :param expected: Minimum microversion required by the action, or
+            ``None`` to skip the minimum check. An explicit microversion must
+            still be selected even when this is ``None``.
+        :param error_message: Optional action-specific message to prepend to
+            errors raised by this helper.
+        :param maximum: Optional cap applied after checking ``expected``.
+            If both are supplied, this must not be lower than ``expected``.
+        :returns: Selected, optionally capped microversion as a string.
+        :raises: :exc:`~openstack.exceptions.NotSupported` if no explicit
+            microversion is selected, the selected version is lower than
+            ``expected``, or the resource's minimum cannot be satisfied.
         """
 
         def _raise(message: str) -> NoReturn:
@@ -1578,7 +1678,9 @@ class Resource(dict[str, Any]):
         if method == 'PUT':
             response = session.put(
                 request.url,
-                json=request.body,
+                json=request.body
+                if self.create_opts.request_has_body
+                else None,
                 headers=request.headers,
                 microversion=microversion,
                 params=params,
@@ -1586,7 +1688,9 @@ class Resource(dict[str, Any]):
         else:  # method == 'POST'
             response = session.post(
                 request.url,
-                json=request.body,
+                json=request.body
+                if self.create_opts.request_has_body
+                else None,
                 headers=request.headers,
                 microversion=microversion,
                 params=params,
@@ -1833,7 +1937,9 @@ class Resource(dict[str, Any]):
     def requires_commit(self) -> bool:
         """Whether the next commit() call will do anything."""
         return bool(
-            self._body.dirty or self._header.dirty or self.allow_empty_commit
+            self._body.dirty
+            or self._header.dirty
+            or not self.commit_opts.request_has_body
         )
 
     def commit(
@@ -1850,9 +1956,10 @@ class Resource(dict[str, Any]):
         """Commit the state of the instance to the remote resource.
 
         :param session: The session to use for making this request.
-        :param prepend_key: Whether the
-            :data:`~openstack.resource.Resource.resource_key` should be
-            prepended in a resource creation request. Default to True.
+        :param prepend_key: *DEPRECATED* Configure ``commit_opts`` instead.
+            Whether the :data:`~openstack.resource.Resource.resource_key`
+            should be prepended in a resource commit request. Default to True.
+        :param has_body: *DEPRECATED* Configure ``commit_opts`` instead.
         :param retry_on_conflict: Whether to enable retries on HTTP
             CONFLICT (409). Value of ``None`` leaves the `Adapter` defaults.
         :param base_path: Base part of the URI for modifying resources, if
@@ -1876,10 +1983,20 @@ class Resource(dict[str, Any]):
         if not self.requires_commit:
             return self
 
+        if not isinstance(self.commit_opts.request_key, types.Unset):
+            prepend_key = self.commit_opts.request_key is not None
+            request_key = self.commit_opts.request_key
+        else:
+            request_key = None
+
+        if not self.commit_opts.response_has_body:
+            has_body = False
+
         request = self._prepare_request(
             prepend_key=prepend_key,
             base_path=base_path,
             patch=self.allow_patch,
+            resource_request_key=request_key,
             **attrs,
         )
         if microversion is None:
@@ -1888,7 +2005,7 @@ class Resource(dict[str, Any]):
         return self._commit(
             session,
             request,
-            self.commit_method,
+            self.commit_opts.method,
             microversion,
             has_body=has_body,
             retry_on_conflict=retry_on_conflict,
@@ -1919,10 +2036,11 @@ class Resource(dict[str, Any]):
                 f"Invalid commit method: {method}"
             )
 
+        body = request.body if self.commit_opts.request_has_body else None
         if method == 'POST':
             response = session.post(
                 request.url,
-                json=request.body,
+                json=body,
                 headers=request.headers,
                 microversion=microversion,
                 **kwargs,
@@ -1930,7 +2048,7 @@ class Resource(dict[str, Any]):
         elif method == 'PATCH':
             response = session.patch(
                 request.url,
-                json=request.body,
+                json=body,
                 headers=request.headers,
                 microversion=microversion,
                 **kwargs,
@@ -1938,7 +2056,7 @@ class Resource(dict[str, Any]):
         else:  # method == 'PUT'
             response = session.put(
                 request.url,
-                json=request.body,
+                json=body,
                 headers=request.headers,
                 microversion=microversion,
                 **kwargs,

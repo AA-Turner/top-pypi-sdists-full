@@ -22,6 +22,7 @@ class ModelLabFillRenderConfig(BaseModel):
     run_key: str
     authority_ruling: str
     authority_lane: str
+    authority_ticket: str = ""
     landing_lane: str = "landing-controller"
     lane_timeout_min: int = Field(default=60, ge=1, le=180)
     stalled_hours: int = Field(default=6, ge=1, le=168)
@@ -50,6 +51,7 @@ class ModelLabFillRenderConfig(BaseModel):
         "parent_ticket",
         "authority_ruling",
         "authority_lane",
+        "authority_ticket",
         "landing_lane",
         "run_key",
     )
@@ -61,9 +63,12 @@ class ModelLabFillRenderConfig(BaseModel):
             "pillar": r"[a-z][a-z0-9-]*",
             "parent_ticket": r"OMN-[0-9]+",
             "authority_ruling": r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z",
+            "authority_ticket": r"OMN-[0-9]+",
             "run_key": r"[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{4}Z)?",
         }
         value = value.strip()
+        if name == "authority_ticket" and value == "":
+            return value
         if (
             re.fullmatch(patterns.get(name, r"[A-Za-z0-9][A-Za-z0-9_.:-]*"), value)
             is None
@@ -95,6 +100,12 @@ class ModelLabFillFallbackItem(BaseModel):
     updated_at: str
     fallback_of: str = Field(alias="fallback_of")
     host: str | None = None
+    # What the first lane carried: the source evidence, the fix evidence, and whether the landing controller
+    # escalated a stalled PR. ``retry`` is "capacity" for the one retry of a lane no host took.
+    retry: str | None = None
+    evidence: str | None = None
+    fix_evidence: str | None = None
+    escalated: bool | None = None
 
 
 class ModelLabFillLaneRenderRequest(BaseModel):

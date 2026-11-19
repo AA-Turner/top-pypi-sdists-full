@@ -567,8 +567,3 @@ LAYOUT = {
 #: typing: a character is looked up here first, then among
 #: the shifted ones.
 BY_KEY = {v["key"]: k for k, v in LAYOUT.items() if "key" in v}
-
-#: `shiftKey` -> `code`. `A`, `!`, `{` live here and NOT in
-#: BY_KEY.
-BY_SHIFTED_KEY = {v["shiftKey"]: k for k, v in LAYOUT.items()
-                  if "shiftKey" in v}

@@ -275,6 +275,7 @@ ValidationConfidenceTierType = Literal[
 ValidationTerminalStatusType = Literal["COMPLETED", "FAILED", "NO_SOURCE_AVAILABLE", "PARTIAL"]
 ContinuumServiceName = Literal["continuum"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -20,7 +20,6 @@
 //!  - `Forall` → unwraps body and converts recursively.
 //!  - `Callable` → TSP `FunctionType` with synthesized declaration.
 //!  - `Tuple` → TSP `ClassType` with type args.
-//!  - `Tensor`/`NNModule` → TSP `ClassType` from their base class.
 //!  - `TypeAlias` → unwraps to the aliased type.
 //!  - `SpecialForm` → TSP `BuiltInType` with the form name.
 //!  - `Any`, `Never`, `Ellipsis` → TSP `BuiltInType`.
@@ -37,7 +36,9 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
 
+use dupe::Dupe;
 use lsp_types::Uri;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_types::callable::Callable;
@@ -47,9 +48,12 @@ use pyrefly_types::class::ClassType as PyreflyClassType;
 use pyrefly_types::function::FuncDefId;
 use pyrefly_types::function::FunctionKind;
 use pyrefly_types::literal::Lit;
+use pyrefly_types::module::ModuleType as PyreflyModuleType;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::quantified::QuantifiedOrigin;
+use pyrefly_types::quantified::TypeVarLike;
 use pyrefly_types::sentinel::Sentinel;
+use pyrefly_types::tuple::Tuple;
 use pyrefly_types::type_alias::TypeAliasData;
 use pyrefly_types::type_alias::TypeAliasRef;
 use pyrefly_types::types::BoundMethodType;
@@ -80,6 +84,10 @@ use tsp_types::TypeKind;
 use tsp_types::UnionType;
 
 use crate::lsp::module_helpers::to_real_path;
+use crate::state::state::Transaction;
+use crate::types::env::TypeEnv;
+#[cfg(test)]
+use crate::types::test_type_env::TestTypeEnv;
 
 /// Monotonic counter used to assign unique ids to converted types.
 static NEXT_TYPE_ID: AtomicI32 = AtomicI32::new(1);
@@ -98,8 +106,7 @@ pub type FuncRangeResolver<'a> = dyn Fn(&FuncDefId) -> Option<TextRange> + 'a;
 /// Callback that resolves a module name (e.g. `pkg.subpkg`) to a canonical
 /// filesystem path for that module (preferably package `__init__.py[i]` for
 /// packages).
-pub type ModulePathResolver<'a> =
-    dyn Fn(&pyrefly_types::module::ModuleType) -> Option<PathBuf> + 'a;
+pub type ModulePathResolver<'a> = dyn Fn(&PyreflyModuleType) -> Option<PathBuf> + 'a;
 
 /// Callback that resolves an exported symbol (by defining module and name) to
 /// the `ModulePath` and `lsp_types::Range` of its original definition,
@@ -123,12 +130,93 @@ pub struct StdlibClasses<'a> {
     pub bool_type: &'a PyreflyClassType,
     /// `int`, encoding `Size`/`Dim` (integer tensor dimensions).
     pub int_type: &'a PyreflyClassType,
+    /// `tuple`, encoding concrete, unbounded, and unpacked tuples.
+    pub tuple_class: &'a Class,
+}
+
+/// Convert `ty` using the transaction and import context that produced it.
+///
+/// The caller must compute the type first so this transaction's stdlib is warm.
+/// Reusing the source handle's `SysInfo` keeps cross-module declarations in the
+/// same analysis context, even when the transaction holds multiple platforms.
+pub fn convert_type_in_transaction(
+    transaction: &Transaction,
+    source_handle: &Handle,
+    ty: &PyreflyType,
+) -> TspType {
+    // A `Def` function's name range, looked up in its module's binding table.
+    // The handle reuses `source_handle`'s `SysInfo` (as `get_class_fields`
+    // does for cross-module lookups) so the function's module is found under
+    // the same `SysInfo` the transaction computed it with; re-deriving a
+    // config-default `SysInfo` would miss the module in a multi-`SysInfo`
+    // transaction and silently collapse the range to zero.
+    let resolve_func_range = |func_id: &FuncDefId| {
+        let handle = Handle::new(
+            func_id.qname.module_name(),
+            func_id.qname.module_path().dupe(),
+            source_handle.sys_info().dupe(),
+        );
+        transaction
+            .get_answers(&handle)?
+            .bindings()
+            .function_def_range(func_id.def_index)
+    };
+    let resolve_module_path = |module: &PyreflyModuleType| {
+        let module_name = ModuleName::from_str(&module.to_string());
+        let finding = transaction
+            .import_handle(source_handle, module_name, None)
+            .finding()?;
+        let path = to_real_path(finding.path())?;
+        Some(path.canonicalize().unwrap_or(path))
+    };
+    let resolve_export = |module_name: ModuleName, name: &Name| {
+        resolve_export_location(transaction, source_handle, module_name, name)
+    };
+    // Sentinel-like types (`None`, `TypeGuard`/`TypeIs`, `Size`/`Dim`) are
+    // encoded as the stdlib's version-aware classes. Computing `ty` already
+    // populated this transaction's `Stdlib`, so `get_stdlib` stays on the
+    // warm path.
+    let stdlib = transaction.get_stdlib(source_handle);
+    convert_type_with_resolvers(
+        &transaction.type_env(source_handle),
+        ty,
+        Some(&resolve_func_range),
+        Some(&resolve_module_path),
+        Some(&resolve_export),
+        StdlibClasses {
+            none_type: stdlib.none_type(),
+            bool_type: stdlib.bool(),
+            int_type: stdlib.int(),
+            tuple_class: stdlib.tuple_object(),
+        },
+    )
+}
+
+/// Follow re-exports within the source handle's already-computed import context.
+pub(crate) fn resolve_export_location(
+    transaction: &Transaction,
+    source_handle: &Handle,
+    module_name: ModuleName,
+    name: &Name,
+) -> Option<(ModulePath, lsp_types::Range)> {
+    // The target module is reached via `import_handle`, so it inherits
+    // `source_handle`'s `SysInfo`, whose `Stdlib` this transaction already
+    // computed. That keeps the export lookup on the warm `get_stdlib` path:
+    // re-deriving the handle from the module path would pick a config-derived
+    // `SysInfo` that was never computed, panicking in `get_stdlib` whenever the
+    // transaction holds more than one `SysInfo`.
+    let target_handle = transaction
+        .import_handle(source_handle, module_name, None)
+        .finding()?;
+    let (module, range) = transaction.lookup_export_location(&target_handle, name)?;
+    Some((module.path().dupe(), module.to_lsp_range(range)))
 }
 
 /// Convert a pyrefly `Type` to a TSP protocol `Type` using optional
 /// source-range and module-URI resolvers, plus the stdlib classes used to
 /// encode sentinel-like types (see [`StdlibClasses`]).
 pub fn convert_type_with_resolvers<'a>(
+    env: &'a dyn TypeEnv,
     ty: &PyreflyType,
     func_range_resolver: Option<&'a FuncRangeResolver<'a>>,
     module_path_resolver: Option<&'a ModulePathResolver<'a>>,
@@ -136,6 +224,7 @@ pub fn convert_type_with_resolvers<'a>(
     stdlib: StdlibClasses<'a>,
 ) -> TspType {
     TypeConverter {
+        env,
         resolve_func_range: func_range_resolver,
         resolve_module_path: module_path_resolver,
         resolve_export: export_location_resolver,
@@ -150,9 +239,9 @@ pub fn convert_type_with_resolvers<'a>(
 /// resolver is available. Use [`convert_type_with_resolvers`] when source
 /// locations are needed.
 #[cfg(test)]
-pub fn convert_type(ty: &PyreflyType) -> TspType {
-    let stdlib = TestStdlib::new();
-    convert_type_with_resolvers(ty, None, None, None, stdlib.classes())
+pub fn convert_type(env: &TestTypeEnv, ty: &PyreflyType) -> TspType {
+    let stdlib = TestStdlib::new(env);
+    convert_type_with_resolvers(env, ty, None, None, None, stdlib.classes())
 }
 
 /// Stand-in for the real `Stdlib` classes used by the resolver-free tests,
@@ -163,15 +252,17 @@ struct TestStdlib {
     none_type: PyreflyClassType,
     bool_type: PyreflyClassType,
     int_type: PyreflyClassType,
+    tuple_class: Class,
 }
 
 #[cfg(test)]
 impl TestStdlib {
-    fn new() -> Self {
+    fn new(env: &TestTypeEnv) -> Self {
         Self {
-            none_type: test_class(ModuleName::types(), "NoneType"),
-            bool_type: test_class(ModuleName::builtins(), "bool"),
-            int_type: test_class(ModuleName::builtins(), "int"),
+            none_type: test_class(env, ModuleName::types(), "NoneType"),
+            bool_type: test_class(env, ModuleName::builtins(), "bool"),
+            int_type: test_class(env, ModuleName::builtins(), "int"),
+            tuple_class: *test_class(env, ModuleName::builtins(), "tuple").class_object(),
         }
     }
 
@@ -180,39 +271,35 @@ impl TestStdlib {
             none_type: &self.none_type,
             bool_type: &self.bool_type,
             int_type: &self.int_type,
+            tuple_class: &self.tuple_class,
         }
     }
 }
 
 /// Build a top-level `name` class in bundled `module_name` (`<module>.pyi`).
 #[cfg(test)]
-fn test_class(module_name: ModuleName, name: &str) -> PyreflyClassType {
+fn test_class(env: &TestTypeEnv, module_name: ModuleName, name: &str) -> PyreflyClassType {
     use pyrefly_python::module::Module;
     use pyrefly_python::nesting_context::NestingContext;
-    use pyrefly_types::class::ClassDefIndex;
     use pyrefly_types::types::TArgs;
     use ruff_python_ast::Identifier;
-
-    use crate::types::class::PrecomputedTParams;
 
     let module = Module::new(
         module_name,
         ModulePath::bundled_typeshed(PathBuf::from(format!("{module_name}.pyi"))),
         Arc::new(String::new()),
     );
-    let class = Class::new(
-        ClassDefIndex(0),
+    let class = env.define_class(
         Identifier::new(Name::new(name), TextRange::default()),
         NestingContext::toplevel(),
         module,
-        PrecomputedTParams::NotGeneric,
-        false,
     );
     PyreflyClassType::new(class, TArgs::default())
 }
 
 /// Holds an optional range resolver and drives recursive type conversion.
 struct TypeConverter<'a> {
+    env: &'a dyn TypeEnv,
     resolve_func_range: Option<&'a FuncRangeResolver<'a>>,
     resolve_module_path: Option<&'a ModulePathResolver<'a>>,
     resolve_export: Option<&'a ExportLocationResolver<'a>>,
@@ -237,10 +324,13 @@ impl TypeConverter<'_> {
             PyreflyType::ClassType(ct) => self.convert_class_type(ct, TypeFlags::INSTANCE),
 
             // --- Class definitions (the class object itself, e.g. `type[int]`) ---
-            PyreflyType::ClassDef(cls) => convert_class_def(cls),
+            PyreflyType::ClassDef(cls) => convert_class_def(self.env, cls),
+            PyreflyType::SpecializedClassDef(ct) => {
+                self.convert_class_type(ct, TypeFlags::INSTANTIABLE)
+            }
 
             // --- Literals (Literal[42], Literal["hi"], etc.) ---
-            PyreflyType::Literal(lit) => convert_literal(lit),
+            PyreflyType::Literal(lit) => convert_literal(self.env, lit),
 
             // --- Functions ---
             PyreflyType::Function(func) => {
@@ -297,24 +387,23 @@ impl TypeConverter<'_> {
                 })
             }
 
-            // --- TypedDicts are instances of their class ---
-            PyreflyType::TypedDict(td) | PyreflyType::PartialTypedDict(td) => {
-                if let pyrefly_types::typed_dict::TypedDict::TypedDict(inner) = td {
-                    let cls = inner.class_object();
-                    let declaration = make_class_declaration(cls);
-                    TspType::Class(TspClassType {
-                        declaration: Declaration::Regular(declaration),
-                        flags: TypeFlags::INSTANCE,
-                        id: next_id(),
-                        kind: TypeKind::Class,
-                        literal_value: None,
-                        type_alias_info: None,
-                        type_args: None,
-                    })
-                } else {
-                    // Anonymous TypedDict — fall back to the typing.TypedDict class
-                    self.typing_class("TypedDict", TypeFlags::INSTANTIABLE)
-                }
+            // A partial TypedDict is an instance of the TypedDict's class.
+            PyreflyType::PartialTypedDict(class_type) => {
+                let declaration = make_class_declaration(self.env, class_type.class_object());
+                TspType::Class(TspClassType {
+                    declaration: Declaration::Regular(declaration),
+                    flags: TypeFlags::INSTANCE,
+                    id: next_id(),
+                    kind: TypeKind::Class,
+                    literal_value: None,
+                    type_alias_info: None,
+                    type_args: None,
+                })
+            }
+
+            // An anonymous TypedDict has no class of its own, so fall back to `typing.TypedDict`.
+            PyreflyType::AnonymousTypedDict(_) => {
+                self.typing_class("TypedDict", TypeFlags::INSTANTIABLE)
             }
 
             // --- Overloaded functions ---
@@ -332,25 +421,33 @@ impl TypeConverter<'_> {
             // --- Tuples → ClassType for `tuple` with type args ---
             PyreflyType::Tuple(t) => {
                 let type_args = match t {
-                    pyrefly_types::tuple::Tuple::Concrete(elts) if !elts.is_empty() => {
-                        Some(elts.iter().map(|e| self.convert(e)).collect())
+                    Tuple::Concrete(elts) => elts.iter().map(|e| self.convert(e)).collect(),
+                    Tuple::Unbounded(elem) => {
+                        vec![self.convert(elem.as_ref()), builtin("ellipsis")]
                     }
-                    pyrefly_types::tuple::Tuple::Unbounded(elem) => {
-                        Some(vec![self.convert(elem.as_ref())])
+                    Tuple::Unpacked(parts) => {
+                        let (prefix, middle, suffix) = parts.parts();
+                        let mut type_args: Vec<_> =
+                            prefix.iter().map(|ty| self.convert(ty)).collect();
+                        type_args.push(map_type_flags(
+                            self.convert(middle),
+                            TypeFlags::with_unpacked,
+                        ));
+                        type_args.extend(suffix.iter().map(|ty| self.convert(ty)));
+                        type_args
                     }
-                    _ => None,
                 };
                 TspType::Class(TspClassType {
-                    declaration: Declaration::Synthesized(SynthesizedDeclaration {
-                        kind: DeclarationKind::Synthesized,
-                        uri: String::new(),
-                    }),
+                    declaration: Declaration::Regular(make_class_declaration(
+                        self.env,
+                        self.stdlib.tuple_class,
+                    )),
                     flags: TypeFlags::INSTANCE,
                     id: next_id(),
                     kind: TypeKind::Class,
                     literal_value: None,
                     type_alias_info: None,
-                    type_args,
+                    type_args: Some(type_args),
                 })
             }
 
@@ -358,7 +455,9 @@ impl TypeConverter<'_> {
             // `type[X]` is the class object (instantiable), not an instance,
             // whatever TSP shape `X` converted to: a `Class` for `type[C]`, a
             // `Var` for `type[T]`, a `Union` for `type[A | B]`, etc.
-            PyreflyType::Type(inner) => mark_instantiable(self.convert(inner)),
+            PyreflyType::Type(inner) => {
+                map_type_flags(self.convert(inner), |_| TypeFlags::INSTANTIABLE)
+            }
 
             // --- SelfType is a class type ---
             PyreflyType::SelfType(ct) => self.convert_class_type(ct, TypeFlags::INSTANCE),
@@ -403,15 +502,7 @@ impl TypeConverter<'_> {
             // --- SuperInstance → convert as the class type ---
             PyreflyType::SuperInstance(si) => self.convert_class_type(&si.0, TypeFlags::INSTANCE),
 
-            // --- Tensor → ClassType from base_class ---
-            PyreflyType::ShapedArray(t) => {
-                self.convert_class_type(&t.base_class, TypeFlags::INSTANCE)
-            }
-
             PyreflyType::IntTuple(_) => builtin("tuple"),
-
-            // --- NNModule → ClassType from class ---
-            PyreflyType::NNModule(m) => self.convert_class_type(&m.class, TypeFlags::INSTANCE),
 
             // --- DataFrame / Series → convert the underlying instance type ---
             PyreflyType::DataFrame(schema) => self.convert(&schema.underlying_type()),
@@ -433,7 +524,7 @@ impl TypeConverter<'_> {
             }
 
             // --- Unpack(X) → convert inner ---
-            PyreflyType::Unpack(inner) => self.convert(inner),
+            PyreflyType::Unpack(inner, _) => self.convert(inner),
 
             // --- TypeForm(X) → convert inner ---
             PyreflyType::TypeForm(inner) => self.convert(inner),
@@ -477,6 +568,9 @@ impl TypeConverter<'_> {
             // --- Materialization is a solver artifact ---
             PyreflyType::Materialization => builtin("unknown"),
 
+            // --- `Falsy` and `Truthy` only appear inside an intersection, which converts to its fallback ---
+            PyreflyType::Falsy | PyreflyType::Truthy => builtin("unknown"),
+
             // --- Type-level DSL calls are forced at function-call return boundaries ---
             PyreflyType::TypeLevelDslCall(_) => builtin("unknown"),
 
@@ -496,7 +590,7 @@ impl TypeConverter<'_> {
     /// Convert a pyrefly `ClassType` (an instantiated class) to a TSP `ClassType`.
     fn convert_class_type(&self, ct: &PyreflyClassType, flags: TypeFlags) -> TspType {
         let cls = ct.class_object();
-        let declaration = make_class_declaration(cls);
+        let declaration = make_class_declaration(self.env, cls);
         let type_args: Option<Vec<TspType>> = {
             let args = ct.targs();
             let slice = args.as_slice();
@@ -820,30 +914,28 @@ impl TypeConverter<'_> {
     }
 }
 
-/// Force the `INSTANTIABLE` flag on any TSP type variant, overwriting other
-/// flags (e.g. clearing `INSTANCE`). Used for `type[X]`, whose inner type may
-/// convert to any TSP shape but always denotes a class object. Exhaustive so
-/// the compiler flags new variants.
-fn mark_instantiable(mut ty: TspType) -> TspType {
-    match &mut ty {
-        TspType::BuiltInType(t) => t.flags = TypeFlags::INSTANTIABLE,
-        TspType::Declared(t) => t.flags = TypeFlags::INSTANTIABLE,
-        TspType::Function(t) => t.flags = TypeFlags::INSTANTIABLE,
-        TspType::Class(t) => t.flags = TypeFlags::INSTANTIABLE,
-        TspType::Union(t) => t.flags = TypeFlags::INSTANTIABLE,
-        TspType::Module(t) => t.flags = TypeFlags::INSTANTIABLE,
-        TspType::Var(t) => t.flags = TypeFlags::INSTANTIABLE,
-        TspType::Overloaded(t) => t.flags = TypeFlags::INSTANTIABLE,
-        TspType::Synthesized(t) => t.flags = TypeFlags::INSTANTIABLE,
-        TspType::Reference(t) => t.flags = TypeFlags::INSTANTIABLE,
-    }
+/// Update the flags on any TSP type variant. Exhaustive so the compiler flags new variants.
+fn map_type_flags(mut ty: TspType, update: impl FnOnce(TypeFlags) -> TypeFlags) -> TspType {
+    let flags = match &mut ty {
+        TspType::BuiltInType(value) => &mut value.flags,
+        TspType::Declared(value) => &mut value.flags,
+        TspType::Function(value) => &mut value.flags,
+        TspType::Class(value) => &mut value.flags,
+        TspType::Union(value) => &mut value.flags,
+        TspType::Module(value) => &mut value.flags,
+        TspType::Var(value) => &mut value.flags,
+        TspType::Overloaded(value) => &mut value.flags,
+        TspType::Synthesized(value) => &mut value.flags,
+        TspType::Reference(value) => &mut value.flags,
+    };
+    *flags = update(*flags);
     ty
 }
 
 /// Convert a pyrefly `Class` (class definition object) to a TSP `ClassType`
 /// with the `Instantiable` flag.
-fn convert_class_def(cls: &Class) -> TspType {
-    let declaration = make_class_declaration(cls);
+fn convert_class_def(env: &dyn TypeEnv, cls: &Class) -> TspType {
+    let declaration = make_class_declaration(env, cls);
 
     TspType::Class(TspClassType {
         declaration: Declaration::Regular(declaration),
@@ -857,12 +949,12 @@ fn convert_class_def(cls: &Class) -> TspType {
 }
 
 /// Convert a pyrefly `Literal` to a TSP `ClassType` with `literal_value`.
-fn convert_literal(lit: &pyrefly_types::literal::Literal) -> TspType {
+fn convert_literal(env: &dyn TypeEnv, lit: &pyrefly_types::literal::Literal) -> TspType {
     match &lit.value {
         Lit::Enum(e) => {
             // For enum literals, use the enum class as the declaration source
             let cls = e.class.class_object();
-            let declaration = make_class_declaration(cls);
+            let declaration = make_class_declaration(env, cls);
             TspType::Class(TspClassType {
                 declaration: Declaration::Regular(declaration),
                 flags: TypeFlags::LITERAL,
@@ -1017,8 +1109,8 @@ fn make_typevar_declared(qname: &pyrefly_python::qname::QName) -> DeclaredType {
 }
 
 /// Build a `RegularDeclaration` from a pyrefly `Class`.
-fn make_class_declaration(cls: &Class) -> RegularDeclaration {
-    let qname = cls.qname();
+fn make_class_declaration(env: &dyn TypeEnv, cls: &Class) -> RegularDeclaration {
+    let qname = cls.qname(env);
     let module = qname.module();
     let module_path = qname.module_path();
     let range = qname.range();
@@ -1029,7 +1121,7 @@ fn make_class_declaration(cls: &Class) -> RegularDeclaration {
     RegularDeclaration {
         category: DeclarationCategory::Class,
         kind: DeclarationKind::Regular,
-        name: Some(cls.name().to_string()),
+        name: Some(cls.name(env).to_string()),
         node: Node {
             range: lsp_range_to_tsp(lsp_range),
             uri,
@@ -1099,6 +1191,7 @@ fn builtin(name: &str) -> TspType {
 
 #[cfg(test)]
 mod tests {
+    use pyrefly_python::module::Module;
     use pyrefly_python::module_name::ModuleName;
     use pyrefly_types::callable::Param;
     use pyrefly_types::callable::ParamList;
@@ -1111,15 +1204,21 @@ mod tests {
     use pyrefly_types::literal::LitStyle;
     use pyrefly_types::module::ModuleType;
     use pyrefly_types::quantified::AnchorIndex;
+    use pyrefly_types::quantified::QuantifiedAnchor;
     use pyrefly_types::quantified::QuantifiedIdentity;
     use pyrefly_types::special_form::SpecialForm;
+    use pyrefly_types::test_type_env::TestTypeEnv;
+    use pyrefly_types::tuple::Tuple;
     use pyrefly_types::type_alias::TypeAliasIndex;
     use pyrefly_types::type_var::PreInferenceVariance;
     use pyrefly_types::type_var::Restriction;
+    use pyrefly_types::type_var_tuple::TypeVarTuple;
     use pyrefly_types::types::AnyStyle;
     use pyrefly_types::types::NeverStyle;
     use pyrefly_types::types::Type as PyreflyType;
     use pyrefly_types::types::Var;
+    use pyrefly_util::display::DisplayWithCtx;
+    use ruff_python_ast::Identifier;
     use tsp_types::SynthesizedType;
     use tsp_types::SynthesizedTypeMetadata;
 
@@ -1130,7 +1229,7 @@ mod tests {
     fn make_quantified(name: &str, module: &str, origin: QuantifiedOrigin) -> Quantified {
         let identity = QuantifiedIdentity::new(
             ModuleName::from_str(module),
-            AnchorIndex::first(TextRange::default()),
+            AnchorIndex::first(QuantifiedAnchor::None),
             origin,
         );
         Quantified::type_var(
@@ -1144,8 +1243,8 @@ mod tests {
 
     /// Build a TSP `SynthesizedType` whose stub content is the type's display
     /// string. Used only in tests.
-    fn synthesized(ty: &PyreflyType) -> TspType {
-        let display = ty.to_string();
+    fn synthesized(env: &TestTypeEnv, ty: &PyreflyType) -> TspType {
+        let display = ty.display_with(env).to_string();
         TspType::Synthesized(SynthesizedType {
             flags: TypeFlags::INSTANCE,
             id: next_id(),
@@ -1168,8 +1267,9 @@ mod tests {
 
     #[test]
     fn test_convert_any() {
+        let env = TestTypeEnv::new();
         let ty = PyreflyType::any_implicit();
-        let tsp = convert_type(&ty);
+        let tsp = convert_type(&env, &ty);
         match tsp {
             TspType::BuiltInType(b) => {
                 assert_eq!(b.name, "any");
@@ -1182,8 +1282,9 @@ mod tests {
 
     #[test]
     fn test_convert_never() {
+        let env = TestTypeEnv::new();
         let ty = PyreflyType::Never(NeverStyle::Never);
-        let tsp = convert_type(&ty);
+        let tsp = convert_type(&env, &ty);
         match tsp {
             TspType::BuiltInType(b) => {
                 assert_eq!(b.name, "never");
@@ -1194,7 +1295,8 @@ mod tests {
 
     #[test]
     fn test_convert_none() {
-        let tsp = convert_type(&PyreflyType::None);
+        let env = TestTypeEnv::new();
+        let tsp = convert_type(&env, &PyreflyType::None);
         match tsp {
             TspType::Class(c) => {
                 assert!(c.flags.contains(TypeFlags::INSTANCE));
@@ -1215,22 +1317,135 @@ mod tests {
 
     #[test]
     fn test_convert_ellipsis() {
-        let tsp = convert_type(&PyreflyType::Ellipsis);
+        let env = TestTypeEnv::new();
+        let tsp = convert_type(&env, &PyreflyType::Ellipsis);
         match tsp {
             TspType::BuiltInType(b) => assert_eq!(b.name, "ellipsis"),
             other => panic!("expected BuiltInType, got {other:?}"),
         }
     }
 
+    fn tuple_json(env: &TestTypeEnv, tuple: Tuple) -> serde_json::Value {
+        serde_json::to_value(convert_type(env, &PyreflyType::Tuple(tuple))).unwrap()
+    }
+
+    #[test]
+    fn test_convert_tuple_empty() {
+        let env = TestTypeEnv::new();
+        // tuple[()]
+        let tuple = tuple_json(&env, Tuple::Concrete(Vec::new()));
+        assert_eq!(tuple["typeArgs"], serde_json::json!([]));
+        assert_eq!(tuple["declaration"]["name"], "tuple");
+    }
+
+    #[test]
+    fn test_convert_tuple_concrete() {
+        let env = TestTypeEnv::new();
+        // tuple[int, str]
+        let tuple = tuple_json(
+            &env,
+            Tuple::Concrete(vec![
+                PyreflyType::ClassType(test_class(&env, ModuleName::builtins(), "int")),
+                PyreflyType::ClassType(test_class(&env, ModuleName::builtins(), "str")),
+            ]),
+        );
+        let args = tuple["typeArgs"].as_array().unwrap();
+        assert_eq!(args.len(), 2);
+        assert_eq!(args[0]["declaration"]["name"], "int");
+        assert_eq!(args[1]["declaration"]["name"], "str");
+        assert_eq!(tuple["declaration"]["name"], "tuple");
+    }
+
+    #[test]
+    fn test_convert_tuple_unbounded() {
+        let env = TestTypeEnv::new();
+        // tuple[int, ...]
+        let tuple = tuple_json(
+            &env,
+            Tuple::Unbounded(Box::new(PyreflyType::ClassType(test_class(
+                &env,
+                ModuleName::builtins(),
+                "int",
+            )))),
+        );
+        let args = tuple["typeArgs"].as_array().unwrap();
+        assert_eq!(args.len(), 2);
+        assert_eq!(args[0]["declaration"]["name"], "int");
+        assert_eq!(args[1]["name"], "ellipsis");
+        assert_eq!(tuple["declaration"]["name"], "tuple");
+    }
+
+    #[test]
+    fn test_convert_tuple_unpacked_type_var_tuple() {
+        let env = TestTypeEnv::new();
+        // tuple[int, *Ts, str]
+        let module = Module::new(
+            ModuleName::from_str("mod"),
+            ModulePath::bundled_typeshed(PathBuf::from("mod.pyi")),
+            Arc::new(String::new()),
+        );
+        let middle = PyreflyType::TypeVarTuple(TypeVarTuple::new(
+            Identifier::new(Name::new("Ts"), TextRange::default()),
+            module,
+            None,
+            PreInferenceVariance::Invariant,
+        ));
+        let tuple = tuple_json(
+            &env,
+            Tuple::unpacked(
+                vec![PyreflyType::ClassType(test_class(
+                    &env,
+                    ModuleName::builtins(),
+                    "int",
+                ))],
+                middle,
+                vec![PyreflyType::ClassType(test_class(
+                    &env,
+                    ModuleName::builtins(),
+                    "str",
+                ))],
+            ),
+        );
+        let args = tuple["typeArgs"].as_array().unwrap();
+        assert_eq!(args.len(), 3);
+        assert_eq!(args[0]["declaration"]["name"], "int");
+        assert_eq!(args[1]["declaration"]["name"], "Ts");
+        assert_eq!(args[1]["flags"], TypeFlags::UNPACKED.0);
+        assert_eq!(args[2]["declaration"]["name"], "str");
+        assert_eq!(tuple["declaration"]["name"], "tuple");
+    }
+
+    #[test]
+    fn test_convert_tuple_unpacked_unbounded() {
+        let env = TestTypeEnv::new();
+        // tuple[None, *tuple[Any, ...], None]
+        let tuple = tuple_json(
+            &env,
+            Tuple::unpacked(
+                vec![PyreflyType::None],
+                PyreflyType::Tuple(Tuple::Unbounded(Box::new(PyreflyType::any_explicit()))),
+                vec![PyreflyType::None],
+            ),
+        );
+        let args = tuple["typeArgs"].as_array().unwrap();
+        assert_eq!(args.len(), 3);
+        assert_eq!(args[1]["flags"], TypeFlags::INSTANCE.with_unpacked().0);
+        assert_eq!(args[1]["declaration"]["name"], "tuple");
+        assert_eq!(args[1]["typeArgs"][0]["name"], "any");
+        assert_eq!(args[1]["typeArgs"][1]["name"], "ellipsis");
+        assert_eq!(tuple["declaration"]["name"], "tuple");
+    }
+
     #[test]
     fn test_convert_type_guard_and_type_is_are_bool_class() {
+        let env = TestTypeEnv::new();
         // `TypeGuard`/`TypeIs` erase to their runtime type `bool`, emitted as
         // the real `bool` class rather than an off-spec `bool` `BuiltInType`.
         for ty in [
             PyreflyType::TypeGuard(Box::new(PyreflyType::None)),
             PyreflyType::TypeIs(Box::new(PyreflyType::None)),
         ] {
-            match convert_type(&ty) {
+            match convert_type(&env, &ty) {
                 TspType::Class(c) => {
                     assert!(c.flags.contains(TypeFlags::INSTANCE));
                     let Declaration::Regular(decl) = c.declaration else {
@@ -1248,10 +1463,12 @@ mod tests {
     fn test_convert_int_is_int_class() {
         use pyrefly_types::dimension::Int;
 
+        let env = TestTypeEnv::new();
         // A `Int` is an integer tensor dimension, emitted as the real `int`
         // class rather than an off-spec `int` `BuiltInType`.
-        for ty in [PyreflyType::Int(Int::literal(6))] {
-            match convert_type(&ty) {
+        {
+            let ty = PyreflyType::Int(Int::literal(6));
+            match convert_type(&env, &ty) {
                 TspType::Class(c) => {
                     assert!(c.flags.contains(TypeFlags::INSTANCE));
                     let Declaration::Regular(decl) = c.declaration else {
@@ -1271,6 +1488,7 @@ mod tests {
         use pyrefly_python::nesting_context::NestingContext;
         use ruff_python_ast::Identifier;
 
+        let env = TestTypeEnv::new();
         // A sentinel is emitted as a `ClassType` carrying a `SentinelLiteral`
         // sourced from its own definition, not an off-spec `sentinel`
         // `BuiltInType`.
@@ -1284,7 +1502,7 @@ mod tests {
             NestingContext::toplevel(),
             module,
         );
-        match convert_type(&PyreflyType::Sentinel(sentinel)) {
+        match convert_type(&env, &PyreflyType::Sentinel(sentinel)) {
             TspType::Class(c) => {
                 let Some(LiteralValue::Sentinel(lit)) = c.literal_value else {
                     panic!("expected SentinelLiteral, got {:?}", c.literal_value);
@@ -1307,8 +1525,9 @@ mod tests {
 
     #[test]
     fn test_unique_ids() {
-        let a = convert_type(&PyreflyType::None);
-        let b = convert_type(&PyreflyType::Ellipsis);
+        let env = TestTypeEnv::new();
+        let a = convert_type(&env, &PyreflyType::None);
+        let b = convert_type(&env, &PyreflyType::Ellipsis);
         let id_a = match &a {
             TspType::Class(c) => c.id,
             _ => panic!("expected Class"),
@@ -1364,8 +1583,9 @@ mod tests {
 
     #[test]
     fn test_synthesized_fallback() {
+        let env = TestTypeEnv::new();
         let ty = PyreflyType::Ellipsis;
-        let tsp = synthesized(&ty);
+        let tsp = synthesized(&env, &ty);
         match tsp {
             TspType::Synthesized(s) => {
                 assert_eq!(s.flags, TypeFlags::INSTANCE);
@@ -1377,12 +1597,13 @@ mod tests {
 
     #[test]
     fn test_convert_union_of_builtins() {
+        let env = TestTypeEnv::new();
         // Union[None, Any] should produce a UnionType with 2 sub_types
         let union_ty = PyreflyType::union(vec![
             PyreflyType::None,
             PyreflyType::Any(AnyStyle::Explicit),
         ]);
-        let tsp = convert_type(&union_ty);
+        let tsp = convert_type(&env, &union_ty);
         match tsp {
             TspType::Union(u) => {
                 assert_eq!(u.kind, TypeKind::Union);
@@ -1410,9 +1631,10 @@ mod tests {
 
     #[test]
     fn test_convert_empty_union() {
+        let env = TestTypeEnv::new();
         // An empty union is unusual but should not panic
         let union_ty = PyreflyType::union(vec![]);
-        let tsp = convert_type(&union_ty);
+        let tsp = convert_type(&env, &union_ty);
         match tsp {
             TspType::Union(u) => {
                 assert_eq!(u.sub_types.len(), 0);
@@ -1423,13 +1645,14 @@ mod tests {
 
     #[test]
     fn test_convert_nested_union() {
+        let env = TestTypeEnv::new();
         // Union[None, Union[Any, Never]] — inner union is flattened by convert_type
         let inner = PyreflyType::union(vec![
             PyreflyType::Any(AnyStyle::Explicit),
             PyreflyType::Never(NeverStyle::Never),
         ]);
         let outer = PyreflyType::union(vec![PyreflyType::None, inner]);
-        let tsp = convert_type(&outer);
+        let tsp = convert_type(&env, &outer);
         match tsp {
             TspType::Union(u) => {
                 assert_eq!(u.sub_types.len(), 2);
@@ -1500,9 +1723,10 @@ mod tests {
 
     #[test]
     fn test_union_json_roundtrip() {
+        let env = TestTypeEnv::new();
         // Serialize a Union and verify the sub_types array appears in JSON
         let union_ty = PyreflyType::union(vec![PyreflyType::None, PyreflyType::Ellipsis]);
-        let tsp = convert_type(&union_ty);
+        let tsp = convert_type(&env, &union_ty);
         let json = serde_json::to_value(&tsp).unwrap();
         let obj = json.as_object().expect("expected JSON object");
         assert_eq!(
@@ -1518,8 +1742,9 @@ mod tests {
 
     #[test]
     fn test_synthesized_json_roundtrip() {
+        let env = TestTypeEnv::new();
         // Synthesized type should serialize with stub_content
-        let tsp = synthesized(&PyreflyType::Ellipsis);
+        let tsp = synthesized(&env, &PyreflyType::Ellipsis);
         let json = serde_json::to_value(&tsp).unwrap();
         let obj = json.as_object().expect("expected JSON object");
         assert_eq!(
@@ -1535,9 +1760,10 @@ mod tests {
 
     #[test]
     fn test_convert_type_wrapper_non_class() {
+        let env = TestTypeEnv::new();
         // Type(Any) should pass through since the inner isn't a ClassType
         let ty = PyreflyType::type_of(PyreflyType::Any(AnyStyle::Explicit));
-        let tsp = convert_type(&ty);
+        let tsp = convert_type(&env, &ty);
         // Any wrapped in Type() — inner is BuiltIn, not Class, so it passes through unchanged
         match tsp {
             TspType::BuiltInType(b) => assert_eq!(b.name, "any"),
@@ -1547,12 +1773,13 @@ mod tests {
 
     #[test]
     fn test_convert_type_of_typevar_is_instantiable() {
+        let env = TestTypeEnv::new();
         // `type[T]` where T is a TypeVar must stay instantiable. The inner
         // TypeVar converts to a `TspType::Var`, and the `Type(inner)` arm must
         // propagate the INSTANTIABLE flag onto it rather than dropping it.
         let tv = make_quantified("T", "mod", QuantifiedOrigin::Pep695);
         let ty = PyreflyType::type_of(PyreflyType::Quantified(Box::new(tv)));
-        let tsp = convert_type(&ty);
+        let tsp = convert_type(&env, &ty);
         match tsp {
             TspType::Var(v) => assert!(
                 v.flags.contains(TypeFlags::INSTANTIABLE),
@@ -1565,8 +1792,9 @@ mod tests {
 
     #[test]
     fn test_convert_module_without_resolver_has_empty_uri() {
+        let env = TestTypeEnv::new();
         let ty = PyreflyType::Module(ModuleType::new_as(ModuleName::from_str("pkg")));
-        let tsp = convert_type(&ty);
+        let tsp = convert_type(&env, &ty);
         match tsp {
             TspType::Module(m) => {
                 assert_eq!(m.module_name, "pkg");
@@ -1578,6 +1806,7 @@ mod tests {
 
     #[test]
     fn test_convert_module_with_resolver_sets_uri() {
+        let env = TestTypeEnv::new();
         let ty = PyreflyType::Module(ModuleType::new_as(ModuleName::from_str("pkg")));
         let module_path_resolver = |module: &ModuleType| {
             if module.to_string() == "pkg" {
@@ -1586,8 +1815,9 @@ mod tests {
                 None
             }
         };
-        let stdlib = TestStdlib::new();
+        let stdlib = TestStdlib::new(&env);
         let tsp = convert_type_with_resolvers(
+            &env,
             &ty,
             None,
             Some(&module_path_resolver),
@@ -1605,8 +1835,9 @@ mod tests {
 
     #[test]
     fn test_convert_literal_int_uses_builtins_uri() {
+        let env = TestTypeEnv::new();
         let ty = Lit::Int(LitInt::new(7)).to_implicit_type();
-        let tsp = convert_type(&ty);
+        let tsp = convert_type(&env, &ty);
         match tsp {
             TspType::Class(c) => {
                 let Declaration::Regular(decl) = c.declaration else {
@@ -1625,10 +1856,11 @@ mod tests {
 
     #[test]
     fn test_convert_special_form_emits_typing_class() {
+        let env = TestTypeEnv::new();
         // SpecialForm must map to a typing.<name> ClassType, not a BuiltIn:
         // the TSP BuiltInType.name is restricted to a fixed sentinel set.
         let ty = PyreflyType::SpecialForm(SpecialForm::Literal);
-        match convert_type(&ty) {
+        match convert_type(&env, &ty) {
             TspType::Class(c) => {
                 assert_eq!(c.kind, TypeKind::Class);
                 assert!(c.flags.contains(TypeFlags::INSTANTIABLE));
@@ -1649,6 +1881,7 @@ mod tests {
 
     #[test]
     fn test_special_form_uses_export_resolver_location() {
+        let env = TestTypeEnv::new();
         // When an export resolver is available, the typing class declaration
         // should carry the resolved source location instead of a zero range.
         let ty = PyreflyType::SpecialForm(SpecialForm::Final);
@@ -1671,11 +1904,12 @@ mod tests {
             ))
         };
         match convert_type_with_resolvers(
+            &env,
             &ty,
             None,
             None,
             Some(&resolver),
-            TestStdlib::new().classes(),
+            TestStdlib::new(&env).classes(),
         ) {
             TspType::Class(c) => {
                 let Declaration::Regular(decl) = c.declaration else {
@@ -1694,8 +1928,9 @@ mod tests {
 
     #[test]
     fn test_convert_literal_string_emits_typing_class() {
+        let env = TestTypeEnv::new();
         let ty = PyreflyType::LiteralString(LitStyle::Implicit);
-        match convert_type(&ty) {
+        match convert_type(&env, &ty) {
             TspType::Class(c) => {
                 assert!(c.flags.contains(TypeFlags::INSTANCE));
                 let Declaration::Regular(decl) = c.declaration else {
@@ -1714,8 +1949,9 @@ mod tests {
 
     #[test]
     fn test_convert_param_spec_value_emits_typing_param_spec_class() {
+        let env = TestTypeEnv::new();
         let ty = PyreflyType::ParamSpecValue(ParamList::new(vec![]));
-        match convert_type(&ty) {
+        match convert_type(&env, &ty) {
             TspType::Class(c) => {
                 let Declaration::Regular(decl) = c.declaration else {
                     panic!("expected RegularDeclaration");
@@ -1728,9 +1964,10 @@ mod tests {
 
     #[test]
     fn test_convert_concatenate_emits_typing_class() {
+        let env = TestTypeEnv::new();
         let ty =
             PyreflyType::Concatenate(Vec::new().into_boxed_slice(), Box::new(PyreflyType::None));
-        match convert_type(&ty) {
+        match convert_type(&env, &ty) {
             TspType::Class(c) => {
                 let Declaration::Regular(decl) = c.declaration else {
                     panic!("expected RegularDeclaration");
@@ -1743,6 +1980,7 @@ mod tests {
 
     #[test]
     fn test_type_alias_ref_resolves_against_own_module_not_typing() {
+        let env = TestTypeEnv::new();
         let make_ref = || TypeAliasRef {
             name: Name::new_static("MyAlias"),
             args: None,
@@ -1754,7 +1992,7 @@ mod tests {
         // Without a resolver, the fallback points at the alias's own module
         // file (not `typing.pyi`) — the correct file, just a zero range.
         let ty = PyreflyType::TypeAlias(Box::new(TypeAliasData::Ref(make_ref())));
-        match convert_type(&ty) {
+        match convert_type(&env, &ty) {
             TspType::Class(c) => {
                 let Declaration::Regular(decl) = c.declaration else {
                     panic!("expected RegularDeclaration");
@@ -1796,11 +2034,12 @@ mod tests {
         };
         let ty = PyreflyType::TypeAlias(Box::new(TypeAliasData::Ref(make_ref())));
         match convert_type_with_resolvers(
+            &env,
             &ty,
             None,
             None,
             Some(&resolver),
-            TestStdlib::new().classes(),
+            TestStdlib::new(&env).classes(),
         ) {
             TspType::Class(c) => {
                 let Declaration::Regular(decl) = c.declaration else {
@@ -1815,13 +2054,14 @@ mod tests {
 
     #[test]
     fn test_convert_quantified_without_resolver_is_synthesized_typevar() {
+        let env = TestTypeEnv::new();
         // No export resolver → a locationless synthesized TypeVar.
         let ty = PyreflyType::Quantified(Box::new(make_quantified(
             "T",
             "mod",
             QuantifiedOrigin::Pep695,
         )));
-        match convert_type(&ty) {
+        match convert_type(&env, &ty) {
             TspType::Var(v) => {
                 assert_eq!(v.kind, TypeKind::Typevar);
                 let Declaration::Regular(decl) = v.declaration else {
@@ -1837,6 +2077,7 @@ mod tests {
 
     #[test]
     fn test_convert_pep695_quantified_with_resolver_uses_source_location() {
+        let env = TestTypeEnv::new();
         // A PEP 695 type parameter resolves to a Typeparam declaration at the
         // resolved source location.
         let ty = PyreflyType::Quantified(Box::new(make_quantified(
@@ -1863,11 +2104,12 @@ mod tests {
             ))
         };
         match convert_type_with_resolvers(
+            &env,
             &ty,
             None,
             None,
             Some(&resolver),
-            TestStdlib::new().classes(),
+            TestStdlib::new(&env).classes(),
         ) {
             TspType::Var(v) => {
                 let Declaration::Regular(decl) = v.declaration else {
@@ -1887,6 +2129,7 @@ mod tests {
 
     #[test]
     fn test_convert_legacy_quantified_with_resolver_is_variable_category() {
+        let env = TestTypeEnv::new();
         // A legacy `T = TypeVar("T")` resolves to a module-level *variable*.
         let ty = PyreflyType::Quantified(Box::new(make_quantified(
             "T",
@@ -1900,11 +2143,12 @@ mod tests {
             ))
         };
         match convert_type_with_resolvers(
+            &env,
             &ty,
             None,
             None,
             Some(&resolver),
-            TestStdlib::new().classes(),
+            TestStdlib::new(&env).classes(),
         ) {
             TspType::Var(v) => {
                 let Declaration::Regular(decl) = v.declaration else {
@@ -1918,13 +2162,14 @@ mod tests {
 
     #[test]
     fn test_convert_args_is_synthesized_typevar() {
+        let env = TestTypeEnv::new();
         // ParamSpec-related internal placeholders become synthesized TypeVars.
         let ty = PyreflyType::Args(Box::new(make_quantified(
             "P",
             "m",
             QuantifiedOrigin::ScopedLegacy,
         )));
-        match convert_type(&ty) {
+        match convert_type(&env, &ty) {
             TspType::Var(v) => {
                 assert_eq!(v.kind, TypeKind::Typevar);
                 let Declaration::Regular(decl) = v.declaration else {
@@ -1939,6 +2184,7 @@ mod tests {
 
     #[test]
     fn test_convert_function_populates_specialized_types() {
+        let env = TestTypeEnv::new();
         // A function's parameter and return types are carried in
         // specialized_types so Pylance can overlay real types.
         let callable = Callable::list(
@@ -1960,7 +2206,7 @@ mod tests {
             },
         };
         let ty = PyreflyType::Function(Box::new(func));
-        match convert_type(&ty) {
+        match convert_type(&env, &ty) {
             TspType::Function(f) => {
                 let specialized = f.specialized_types.expect("expected specialized_types");
                 assert_eq!(specialized.parameter_types.len(), 2);
@@ -1993,6 +2239,7 @@ mod tests {
 
     #[test]
     fn test_convert_callable_populates_specialized_types() {
+        let env = TestTypeEnv::new();
         // A `typing.Callable`'s parameter and return types are carried in
         // `specialized_types`, mirroring `convert_function`. For a return
         // annotation like `Callable[[int], str]`, the consumer can recover the
@@ -2006,7 +2253,7 @@ mod tests {
             PyreflyType::Ellipsis,
         );
         let ty = PyreflyType::Callable(Box::new(callable));
-        match convert_type(&ty) {
+        match convert_type(&env, &ty) {
             TspType::Function(f) => {
                 assert!(f.flags.contains(TypeFlags::CALLABLE));
                 assert!(f.return_type.is_some(), "return type should be preserved");
@@ -2031,6 +2278,7 @@ mod tests {
 
     #[test]
     fn test_function_declaration_resolves_special_function_via_export() {
+        let env = TestTypeEnv::new();
         // `typing.overload` is FunctionKind::Overload (not a Def). The export
         // resolver should give it a real declaration location.
         let callable = Callable::list(ParamList::new(vec![]), PyreflyType::None);
@@ -2065,11 +2313,12 @@ mod tests {
             panic!("unexpected export lookup for {module}.{name}");
         };
         match convert_type_with_resolvers(
+            &env,
             &ty,
             None,
             None,
             Some(&resolver),
-            TestStdlib::new().classes(),
+            TestStdlib::new(&env).classes(),
         ) {
             TspType::Function(f) => {
                 let Declaration::Regular(decl) = f.declaration else {
@@ -2087,6 +2336,7 @@ mod tests {
     fn test_synthesized_function_declaration_preserves_name_and_module() {
         use pyrefly_python::module::Module;
 
+        let env = TestTypeEnv::new();
         let module = Module::new(
             ModuleName::from_str("generated"),
             ModulePath::filesystem(PathBuf::from("/repo/generated.py")),
@@ -2097,7 +2347,7 @@ mod tests {
             metadata: FuncMetadata::synthesized(&module, None, Name::new("helper")),
         }));
 
-        let TspType::Function(function) = convert_type(&ty) else {
+        let TspType::Function(function) = convert_type(&env, &ty) else {
             panic!("expected Function");
         };
         let Declaration::Regular(declaration) = function.declaration else {
@@ -2109,8 +2359,9 @@ mod tests {
 
     #[test]
     fn test_convert_var_is_lowercase_unknown() {
+        let env = TestTypeEnv::new();
         // The protocol-conformant sentinel name is lowercase `unknown`.
-        match convert_type(&PyreflyType::Var(Var::ZERO)) {
+        match convert_type(&env, &PyreflyType::Var(Var::ZERO)) {
             TspType::BuiltInType(b) => assert_eq!(b.name, "unknown"),
             other => panic!("expected BuiltInType, got {other:?}"),
         }
@@ -2118,7 +2369,8 @@ mod tests {
 
     #[test]
     fn test_convert_materialization_is_lowercase_unknown() {
-        match convert_type(&PyreflyType::Materialization) {
+        let env = TestTypeEnv::new();
+        match convert_type(&env, &PyreflyType::Materialization) {
             TspType::BuiltInType(b) => assert_eq!(b.name, "unknown"),
             other => panic!("expected BuiltInType, got {other:?}"),
         }

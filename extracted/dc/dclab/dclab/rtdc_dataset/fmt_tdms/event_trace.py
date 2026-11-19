@@ -11,7 +11,7 @@ from . import naming
 from .exc import InvalidTDMSFileFormatError, MultipleSamplesPerEventFound
 
 
-class TraceColumn(object):
+class TraceColumn:
     def __init__(self, rtdc_dataset):
         """Prepares everything but does not load the trace data yet
 
@@ -26,7 +26,7 @@ class TraceColumn(object):
 
     def __getitem__(self, trace_key):
         if trace_key not in dfn.FLUOR_TRACES:
-            msg = "Unknown fluorescence trace key: {}".format(trace_key)
+            msg = f"Unknown fluorescence trace key: {trace_key}"
             raise ValueError(msg)
         return self.trace.__getitem__(trace_key)
 
@@ -46,8 +46,7 @@ class TraceColumn(object):
         if tname is None:
             rep = "No trace data available!"
         else:
-            rep = "Fluorescence trace data from file {}, <{}>".format(tname,
-                                                                      addstr)
+            rep = f"Fluorescence trace data from file {tname}, <{addstr}>"
         return rep
 
     def keys(self):
@@ -55,7 +54,7 @@ class TraceColumn(object):
 
     @property
     def shape(self):
-        key0 = sorted(self.keys())[0]
+        key0 = min(self.keys())
         return len(self), len(self[key0]), len(self[key0][0])
 
     @property
@@ -89,7 +88,7 @@ class TraceColumn(object):
                 sampleids = mdata["Cell Track"]["FL1index"].data
             except KeyError:
                 raise InvalidTDMSFileFormatError(
-                    "No 'FL1index' column in '{}'!".format(tname))
+                    f"No 'FL1index' column in '{mname}'!")
 
             # Check that sample IDs are always incremented with same
             # sample size.
@@ -98,9 +97,9 @@ class TraceColumn(object):
                 # This means the length of the fluorescence trace is not
                 # a constant. According to Philipp, this means the trace
                 # cannot be used.
-                warnings.warn("Ignoring trace data of '{}' ".format(tname)
-                              + "due to multiple values for samples per "
-                              + "event: {}".format(samples_per_event),
+                warnings.warn(f"Ignoring trace data of '{tname}' "
+                              "due to multiple values for samples per "
+                              f"event: {samples_per_event}",
                               MultipleSamplesPerEventFound)
             else:
                 # Load the trace data. The traces file is usually larger than
@@ -123,8 +122,11 @@ class TraceColumn(object):
                                 trace_array = trdat.reshape(
                                     trdat.size // spe, -1)
                             else:
-                                # this is bad, but we allow it
-                                trace_array = np.split(trdat, trdat.size//spe)
+                                # this is bad, but we allow it (ignore the
+                                # samples of the incomplete last event)
+                                num_events = trdat.size // spe
+                                trace_array = trdat[:num_events * spe].reshape(
+                                    num_events, spe)
                             trace[trace_key] = trace_array
 
         return trace

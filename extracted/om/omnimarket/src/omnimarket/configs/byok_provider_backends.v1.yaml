@@ -59,7 +59,7 @@
 #   PROVIDER_MODEL_NOT_FOUND. A credential with no stored model (the provider
 #   could not be reached at registration, or an event from before this change)
 #   carries the marker `byok-model-unresolved`, which the effect resolves before
-#   the call. Code: routing/byok_model_discovery.py.
+#   the call. Code: handlers/routing/byok_model_discovery.py.
 #
 #   Each row's first preference is still the cheapest family that answers, which
 #   is a default and not a constraint. A per-tenant model override belongs in
@@ -191,6 +191,8 @@ providers:
   # string that is baked into the minted ref
   # (`cred_<tenant>_openrouter_<uuid>`).
   - provider: openrouter
+    key_page: https://openrouter.ai/keys
+    key_prefixes: ["sk-or-"]
     plan: free_tier
     # NOT one of the platform's own backend_ids. A tenant-overlay decision
     # namespaces this by tenant_id before deriving the selected_backend_id
@@ -253,6 +255,12 @@ providers:
     # the CLI's own 240s budget. Only a transient failure is retried; on a paid
     # model the customer chose, the spend is the customer's own (INV-068).
     max_retries: 2
+    # OMN-23176. The retries above went out back to back: C29 run 42639763864
+    # (2026-11-09T14:57Z) made its three calls in 5.5 s and all three answered 429
+    # "google/gemini-2.5-flash-lite is temporarily rate-limited upstream. Please
+    # retry shortly", as runs 42589695452 and 42564608889 had. Waiting between
+    # them spreads the three calls over about 40 s of the CLI's 240 s budget.
+    retry_wait_seconds: 20
     # Both mirror the same platform rung. They land in the overlay row's own
     # nullable columns; the routing reducer falls back to its platform
     # defaults (30000 / DELEGATION_MAX_TOKENS_HARD_LIMIT) when either is null.
@@ -301,6 +309,7 @@ providers:
   # A stale z.ai key on the same surface returns 401 code 1000, which is the
   # signature OMN-17987 recorded and mis-read as "the GLM rung cannot be bound".
   - provider: glm
+    key_page: https://z.ai/manage-apikey/apikey-list
     plan: coding_plan
     # OMN-20157: DETECTION-ONLY. Never routed for a customer; see "DETECTION-ONLY
     # PLANS" above and knowledge-base-internal
@@ -398,6 +407,7 @@ providers:
   # key, which is a Coding Plan key that ALSO answers on this surface today. No
   # key that belongs to the general API only exists on this platform.
   - provider: glm
+    key_page: https://z.ai/manage-apikey/apikey-list
     plan: general_api
     # OMN-20157: the customer default. A caller that names no plan, and an event
     # published before plans existed, resolve this row.
@@ -434,6 +444,19 @@ providers:
       source: >-
         docs.z.ai/guides/overview/pricing, read 2026-09-30: glm-4.5-flash input,
         cached input and output all Free.
+    # glm-5.3-flash is the model a key on this surface resolves first (see MODEL
+    # above) and it is metered, so a call to it is booked at its own price, never
+    # left unpriced and never at the tier's rate.
+    model_prices:
+      - model_name: glm-5.3-flash
+        input_per_1m_usd: 0.15
+        output_per_1m_usd: 0.50
+        source: >-
+          docs.z.ai/guides/overview/pricing, read 2026-11-15: glm-5.3-flash $0.15
+          input and $0.50 output per 1M tokens. The page also lists cached input
+          at $0.03, which this row cannot state, so cached tokens are booked at
+          the input price. glm-5.3-flashx ($0.37 input, $1.25 output) stays
+          undeclared.
     limit_model:
       billing: pay_as_you_go
       counter_scope: model
@@ -467,6 +490,8 @@ providers:
   # the dispatch adapter already sends. The endpoint and budgets mirror the
   # platform rung `cloud-gemini-flash`.
   - provider: gemini
+    key_page: https://aistudio.google.com/apikey
+    key_prefixes: ["AIza"]
     plan: ai_studio
     backend_id: byok-gemini
     endpoint_url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
@@ -525,6 +550,8 @@ providers:
   # gpt-6 and o-series models refuse `max_tokens` with HTTP 400, so a model the
   # customer chooses from those families answers like any other.
   - provider: openai
+    key_page: https://platform.openai.com/api-keys
+    key_prefixes: ["sk-"]
     plan: api
     mirrors_house_rung: false
     backend_id: byok-openai
@@ -565,6 +592,91 @@ providers:
             per-model, per-organisation RPM/TPM/RPD by usage tier. Not a single
             published number.
 
+  # OMN-21263. Any other endpoint that speaks the OpenAI chat API and needs a
+  # key: a self-hosted vLLM or LM Studio behind auth, a company gateway, or a
+  # hosted OpenAI-compatible service. One generic row instead of one per
+  # provider: the developer names the base URL when they register the key
+  # (`onex models add openai_compatible --url <base> --model <id>`), it is
+  # stored with the credential, and chat and the model list go to the OpenAI
+  # API's own paths under it (`/v1/chat/completions`, `/v1/models`). The two
+  # URLs below are placeholders on the reserved `.invalid` domain, so nothing
+  # can route on them: `endpoint_from_registration: true` says the registered
+  # URL replaces them. A customer-only surface (`mirrors_house_rung: false`):
+  # the platform holds no key for it. A provider with a quirk this path cannot
+  # carry gets its own row instead.
+  #
+  # MODEL: the developer names every model; the pattern only says any id is a
+  # model this row may run, since the endpoint, not the catalogue, says which
+  # ids exist. The endpoint's own `/v1/models` checks each one at registration
+  # when it has that route.
+  # OMN-23413 (operator 2026-11-13: "add reflection.ai as another provider").
+  # A customer-only surface: the platform holds no Reflection key. Every value
+  # below is from Reflection's developer docs, read 2026-11-13, and matches
+  # models.dev's `reflection` entry: OpenAI-compatible base
+  # https://api.reflection.ai/openai/v1 with a Bearer key (openai-compatibility.md,
+  # authentication.md; GET /models without a key answered 401
+  # missing_credentials); one model, Beam-1.0-501B-A23B, 1,048,576-token context,
+  # 131,072 output (models.md). max_tokens is deprecated for
+  # max_completion_tokens, and both count reasoning tokens; reasoning is
+  # mandatory and defaults to effort max (reasoning.md), so the budget is twice
+  # the API's own 32,768 default and the timeout the long-call one. No key
+  # prefix, rate limit number or per-token price is published, so none is set.
+  # Not yet measured with a key: the measuring host holds none.
+  - provider: reflection
+    key_page: https://platform.reflection.ai/
+    plan: api
+    mirrors_house_rung: false
+    backend_id: byok-reflection
+    endpoint_url: "https://api.reflection.ai/openai/v1/chat/completions"
+    models_url: "https://api.reflection.ai/openai/v1/models"
+    customer_chooses_model: true
+    model_preference:
+      - pattern: 'Beam-(?P<generation>[0-9]+(?:\.[0-9]+)?)-[0-9]+B-A[0-9]+B'
+        tags: [general, large_context]
+    default_models:
+      - "Beam-1.0-501B-A23B"
+    max_retries: 2
+    timeout_ms: 300000
+    max_tokens: 65536
+    token_limit_field: max_completion_tokens
+    limit_model:
+      billing: pay_as_you_go
+      counter_scope: model
+      windows:
+        - window_hours: 24
+          unit: requests
+          limit: null
+          source: >-
+            Reflection rate limits (developers.reflection.ai/rate-limits.md), read
+            2026-11-13: per organization, requests and tokens per minute and per
+            UTC day plus concurrency, with an optional daily token allowance. No
+            numbers are published.
+
+  - provider: openai_compatible
+    plan: by_url
+    mirrors_house_rung: false
+    endpoint_from_registration: true
+    backend_id: byok-openai-compatible
+    endpoint_url: "https://openai-compatible.invalid/v1/chat/completions"
+    models_url: "https://openai-compatible.invalid/v1/models"
+    customer_chooses_model: true
+    model_preference:
+      - pattern: '.+'
+        tags: [developer_named]
+    max_retries: 2
+    timeout_ms: 300000
+    max_tokens: 8192
+    limit_model:
+      billing: pay_as_you_go
+      counter_scope: model
+      windows:
+        - window_hours: 24
+          unit: requests
+          limit: null
+          source: >-
+            The endpoint is the developer's own choice, so its limits are
+            whatever its operator sets; the catalogue cannot know them.
+
   # OMN-20990. A customer's own Anthropic key, offered by operator ruling
   # 2026-10-11T15:05:50Z, which lifted the rule that the provider list refuses
   # Anthropic keys. The platform holds no house Anthropic key and has no rung on
@@ -588,6 +700,8 @@ providers:
   # customer who wants another model names it with --model, checked against the
   # same list.
   - provider: anthropic
+    key_page: https://platform.claude.com/settings/keys
+    key_prefixes: ["sk-ant-"]
     plan: api
     # OMN-20910: a provider with two rows has exactly one default. A caller that
     # names no plan keeps the OpenAI-compatible endpoint it always had.
@@ -644,6 +758,8 @@ providers:
   # declares: key in `x-api-key`, `anthropic-version` header, system and message
   # content blocks with cache breakpoints, a forced tool for schema output.
   - provider: anthropic
+    key_page: https://platform.claude.com/settings/keys
+    key_prefixes: ["sk-ant-"]
     plan: api_native
     auto_detect_plan: false
     inference_protocol: anthropic_messages

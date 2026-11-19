@@ -327,8 +327,8 @@ def _parse_open_work(text, today=None):
     survive - a trailing "?" and the bare word "unknown" both.
     """
     today = today or datetime.date.today()
-    items = [(item["rank"], _parse_raised(item["raised"]), open_work.item_text(line))
-             for line, item in _backlog_items(text) if item["state"] == "open"]
+    items = [(item.rank, _parse_raised(item.raised), open_work.item_text(line))
+             for line, item in _backlog_items(text) if item.state == open_work.ItemState.OPEN]
     # An undated item sorts last within its rank: it makes no age claim, so it cannot displace one
     # that does. datetime.date.max is the sentinel because None will not compare against a date.
     items.sort(key=lambda it: (it[0], it[1] or datetime.date.max))
@@ -342,7 +342,7 @@ def _shared_rank_warning(text):
     """
     states = {}
     for _line, item in _backlog_items(text):
-        states.setdefault(item["rank"], []).append(item["state"] == "open")
+        states.setdefault(item.rank, []).append(item.state == open_work.ItemState.OPEN)
     shared = sorted(rank for rank, opened in states.items() if len(opened) > 1 and any(opened))
     if not shared:
         return ""
@@ -610,7 +610,7 @@ def _refused_heal_line(refused):
     """One context line naming the levels heal refused, or "" when it refused none."""
     if not refused:
         return ""
-    shown = ", ".join(str(level) for level, _why in refused[:_REFUSED_HEAL_SHOWN])
+    shown = ", ".join(str(left.level) for left in refused[:_REFUSED_HEAL_SHOWN])
     more = len(refused) - _REFUSED_HEAL_SHOWN
     rest = " and %d more" % more if more > 0 else ""
     return ("MEMORY STORE: the self-heal refused %d level(s) and left them untouched: %s%s. "
@@ -618,11 +618,24 @@ def _refused_heal_line(refused):
             % (len(refused), shown, rest))
 
 
+def _unreadable_heal_line(unreadable):
+    """One context line naming the levels heal could not read, or "" when there were none."""
+    if not unreadable:
+        return ""
+    shown = ", ".join(str(left.level) for left in unreadable[:_REFUSED_HEAL_SHOWN])
+    more = len(unreadable) - _REFUSED_HEAL_SHOWN
+    rest = " and %d more" % more if more > 0 else ""
+    return ("MEMORY STORE: the self-heal could not read %d level(s) and left them untouched: %s%s. "
+            "`memory_engine.py heal --proj <level>` names each one; fix its permissions, or "
+            "re-save it as UTF-8." % (len(unreadable), shown, rest))
+
+
 def _self_heal(proj):
     """Best-effort repair of the project's memory chain every session (missing/malformed stores,
-    markers, index files). Returns one context line naming the levels heal REFUSED (left untouched
-    with a reason, such as a legacy scope block whose TOPICS line does not parse), else "": a
-    refused level is not scaffolded, and dropping the report hid that until heal was run by hand.
+    markers, index files). Returns the context lines naming the levels heal REFUSED (left untouched
+    with a reason, such as a legacy scope block whose TOPICS line does not parse) and those it
+    could not READ (not UTF-8, no permission), else "": such a level is not scaffolded, and
+    dropping the report hid that until heal was run by hand.
     Fail-open: any error is swallowed and reads as "" so a broken store never wedges a start.
     Skipped under BITRANOX_MEMORY_WRITES=off (heal itself is a no-op there too; this also spares the
     engine import)."""
@@ -631,7 +644,9 @@ def _self_heal(proj):
     try:
         import memory_engine
         report = memory_engine.heal(proj)
-        return _refused_heal_line(report.get("refused") or [])
+        lines = (_refused_heal_line(report.refused_levels),
+                 _unreadable_heal_line(report.unreadable))
+        return "\n".join(line for line in lines if line)
     except Exception:  # noqa: BLE001 - a hook must never block a session
         return ""
 

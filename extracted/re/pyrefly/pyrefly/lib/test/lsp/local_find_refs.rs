@@ -101,6 +101,87 @@ References:
     );
 }
 
+// BUG: References omit __all__ entries.
+// Every cursor should find the definition and both string entries (issue #4344).
+#[test]
+fn dunder_all_entries_are_symbol_references() {
+    let code = r#"
+foo = 1
+# ^
+__all__ = ["foo"]
+#            ^
+__all__.remove("foo")
+#                ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], |state, handle, position| {
+        get_test_report(state, handle, position, true)
+    });
+    assert_eq!(
+        r#"
+# main.py
+2 | foo = 1
+      ^
+References:
+2 | foo = 1
+    ^^^
+
+4 | __all__ = ["foo"]
+                 ^
+References:
+2 | foo = 1
+    ^^^
+
+6 | __all__.remove("foo")
+                     ^
+References:
+2 | foo = 1
+    ^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// BUG: A __slots__ entry is disconnected from references to its attribute.
+// Both cursors should find the slots entry, assignment, and read of self.foo (issue #4344).
+#[test]
+fn dunder_slots_entries_are_attribute_references() {
+    let code = r#"
+class C:
+    __slots__ = ("foo",)
+#                  ^
+
+    def __init__(self) -> None:
+        self.foo = 1
+#            ^
+
+    def get(self) -> int:
+        return self.foo
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], |state, handle, position| {
+        get_test_report(state, handle, position, true)
+    });
+    assert_eq!(
+        r#"
+# main.py
+3 |     __slots__ = ("foo",)
+                       ^
+References:
+
+
+7 |         self.foo = 1
+                 ^
+References:
+7 |         self.foo = 1
+                 ^^^
+11 |         return self.foo
+                         ^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
 #[test]
 fn references_to_aliased_submodule_stop_at_import() {
     let main = r#"
@@ -156,6 +237,91 @@ References:
                       ^^^
 5 | zzz.f()
     ^^^
+
+
+# xxx.py
+
+# xxx.yyy.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn references_to_module_alias_after_submodule_imports() {
+    // Each `import xxx.yyy` rebinds `zzz`, so the use at the end is a hundred rebindings
+    // away from the alias.
+    let main = format!(
+        "\nimport xxx as zzz\n#             ^\n{}zzz.yyy.f()\n# ^\n",
+        "import xxx.yyy\n".repeat(100)
+    );
+    let report = get_batched_lsp_operations_report(
+        &[("main", &main), ("xxx", ""), ("xxx.yyy", "def f(): ...\n")],
+        |state, handle, position| get_test_report(state, handle, position, true),
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | import xxx as zzz
+                  ^
+References:
+2 | import xxx as zzz
+                  ^^^
+104 | zzz.yyy.f()
+      ^^^
+
+104 | zzz.yyy.f()
+        ^
+References:
+2 | import xxx as zzz
+                  ^^^
+104 | zzz.yyy.f()
+      ^^^
+
+
+# xxx.py
+
+# xxx.yyy.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn references_to_module_alias_in_function() {
+    let main = r#"
+import xxx as zzz
+#             ^
+import xxx.yyy
+
+def g():
+    zzz.yyy.f()
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", main), ("xxx", ""), ("xxx.yyy", "def f(): ...\n")],
+        |state, handle, position| get_test_report(state, handle, position, true),
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | import xxx as zzz
+                  ^
+References:
+2 | import xxx as zzz
+                  ^^^
+7 |     zzz.yyy.f()
+        ^^^
+
+7 |     zzz.yyy.f()
+        ^
+References:
+2 | import xxx as zzz
+                  ^^^
+7 |     zzz.yyy.f()
+        ^^^
 
 
 # xxx.py
@@ -587,5 +753,82 @@ References:
 "#
         .trim(),
         without_declaration.trim(),
+    );
+}
+
+#[test]
+fn references_inside_quoted_annotations() {
+    let code = r#"
+from typing import Literal
+
+class Model: ...
+#       ^
+a: "Model"
+#   ^
+b: "dict[str, list[Model]]"
+c: list["Model"]
+d: Literal["Model"]
+e = "Model"
+f: "\x6cist[Model]"
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], |state, handle, position| {
+        get_test_report(state, handle, position, true)
+    });
+    assert_eq!(
+        r#"
+# main.py
+4 | class Model: ...
+            ^
+References:
+4 | class Model: ...
+          ^^^^^
+6 | a: "Model"
+        ^^^^^
+8 | b: "dict[str, list[Model]]"
+                       ^^^^^
+9 | c: list["Model"]
+             ^^^^^
+
+6 | a: "Model"
+        ^
+References:
+4 | class Model: ...
+          ^^^^^
+6 | a: "Model"
+        ^^^^^
+8 | b: "dict[str, list[Model]]"
+                       ^^^^^
+9 | c: list["Model"]
+             ^^^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn references_to_normalized_identifier() {
+    // Python applies NFKC normalization to identifiers, so `𝒞` and `C` are the same name.
+    let code = r#"
+CCC = 1
+# ^
+print(𝒞𝒞𝒞)
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], |state, handle, position| {
+        get_test_report(state, handle, position, true)
+    });
+    assert_eq!(
+        r#"
+# main.py
+2 | CCC = 1
+      ^
+References:
+2 | CCC = 1
+    ^^^
+4 | print(𝒞𝒞𝒞)
+          ^^^
+"#
+        .trim(),
+        report.trim(),
     );
 }

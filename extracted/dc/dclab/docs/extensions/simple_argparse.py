@@ -31,6 +31,7 @@ Changelog:
  - good for short docstrings
 """
 import importlib
+from typing import ClassVar
 
 from docutils.statemachine import ViewList
 from docutils.parsers.rst import Directive, directives
@@ -43,10 +44,10 @@ class ArgparseDirective(Directive):
     optional_arguments = 0
     final_argument_whitespace = True
 
-    option_spec = {
-        'module': directives.unchanged,
-        'func': directives.unchanged,
-        'prog': directives.unchanged,
+    option_spec: ClassVar[dict] = {
+        "module": directives.unchanged,
+        "func": directives.unchanged,
+        "prog": directives.unchanged,
     }
 
     def generate_rst(self):
@@ -64,7 +65,7 @@ class ArgparseDirective(Directive):
 
         rst.append(".. code::")
         rst.append("")
-        rst.append("    {}".format(usage))
+        rst.append(f"    {usage}")
         rst.append("")
 
         # parameters
@@ -75,8 +76,8 @@ class ArgparseDirective(Directive):
             rst.append("**required arguments:**")
             rst.append("")
             for item in pos:
-                rst.append("- ``{}``".format(item[0]))
-                rst.append("  {}".format(item[1]))
+                rst.append(f"- ``{item[0]}``")
+                rst.append(f"  {item[1]}")
             rst.append("")
 
         if opt:
@@ -90,11 +91,11 @@ class ArgparseDirective(Directive):
                     else:
                         default = " *(disabled by default)*"
                 elif item[3] != "":
-                    default = " *(default: {})*".format(item[3])
+                    default = f" *(default: {item[3]})*"
                 else:
                     default = ""
-                rst.append("- ``{}`` {} ".format(item[1], default))
-                rst.append("  {}".format(item[2]))
+                rst.append(f"- ``{item[1]}`` {default} ")
+                rst.append(f"  {item[2]}")
             rst.append("")
 
         return rst
@@ -140,5 +141,5 @@ class ArgparseDirective(Directive):
 
 
 def setup(app):
-    app.add_directive('simple_argparse', ArgparseDirective)
-    return {'version': '0.3'}   # identifies the version of our extension
+    app.add_directive("simple_argparse", ArgparseDirective)
+    return {"version": "0.3"}   # identifies the version of our extension

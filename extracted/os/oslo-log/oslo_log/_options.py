@@ -56,7 +56,6 @@ logging_cli_opts = [
     cfg.StrOpt(
         'log-config-append',
         metavar='PATH',
-        deprecated_name='log-config',
         mutable=True,
         help='The name of a logging configuration file. This file '
         'is appended to any existing logging configuration '
@@ -77,14 +76,14 @@ logging_cli_opts = [
     cfg.StrOpt(
         'log-file',
         metavar='PATH',
-        deprecated_name='logfile',
         help='(Optional) Name of log file to send logging output to. '
-        'If no default is set, logging will go to stderr as '
-        'defined by use_stderr. ' + _IGNORE_MESSAGE,
+        'If both of this option and the log_dir option are unset, '
+        'logging will go to stderr as defined by use_stderr. '
+        'When only the log_dir option is set, the file is named according '
+        'to the entry script path.' + _IGNORE_MESSAGE,
     ),
     cfg.StrOpt(
         'log-dir',
-        deprecated_name='logdir',
         help='(Optional) The base directory used for relative log_file '
         ' paths. ' + _IGNORE_MESSAGE,
     ),

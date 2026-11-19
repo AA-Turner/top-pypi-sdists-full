@@ -401,6 +401,7 @@ TransferableType = Literal[
 ViewBillingPaginatorName = Literal["view_billing"]
 Route53DomainsServiceName = Literal["route53domains"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

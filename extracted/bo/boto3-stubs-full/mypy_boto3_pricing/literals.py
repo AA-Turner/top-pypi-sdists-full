@@ -43,6 +43,7 @@ GetProductsPaginatorName = Literal["get_products"]
 ListPriceListsPaginatorName = Literal["list_price_lists"]
 PricingServiceName = Literal["pricing"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

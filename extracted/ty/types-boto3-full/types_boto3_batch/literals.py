@@ -158,6 +158,7 @@ ServiceResourceIdNameType = Literal["TrainingJobArn"]
 UserdataTypeType = Literal["EKS_BOOTSTRAP_SH", "EKS_NODEADM"]
 BatchServiceName = Literal["batch"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

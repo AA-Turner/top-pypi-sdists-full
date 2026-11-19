@@ -9,7 +9,6 @@ import time
 import uuid
 import warnings
 
-import h5py
 import hdf5plugin
 
 try:
@@ -38,7 +37,9 @@ from .writer import RTDCWriter
 
 
 class LimitingExportSizeWarning(UserWarning):
-    pass
+    """Issued by :func:`Export.hdf5` when the exported features have
+    different lengths and the number of exported events is limited
+    to the length of the shortest feature"""
 
 
 class ContourNotExportedWarning(UserWarning):
@@ -47,7 +48,13 @@ class ContourNotExportedWarning(UserWarning):
 
 class Export:
     def __init__(self, rtdc_ds):
-        """Export functionalities for RT-DC datasets"""
+        """Export functionalities for RT-DC datasets
+
+        Parameters
+        ----------
+        rtdc_ds: dclab.rtdc_dataset.RTDCBase
+            The dataset to export data from
+        """
         self.rtdc_ds = rtdc_ds
 
     def avi(self,
@@ -64,8 +71,9 @@ class Export:
         Parameters
         ----------
         path: str
-            Path to a video file. The container is (.avi, .mkv, ...) is
-            deduced from the file suffix.
+            Path to a video file. The container (.avi, .mkv, ...) is
+            deduced from the file suffix. If the suffix does not have
+            three characters (e.g. no suffix), ".avi" is used.
         filtered: bool
             If set to `True`, only the filtered data
             (index in ds.filter.all) are used.
@@ -76,7 +84,7 @@ class Export:
             Which pixel format to give to ffmpeg.
         codec: str
             Codec name; e.g. "rawvideo" or "libx264"
-        codec_options:
+        codec_options: dict
             Additional arguments to give to the codec using ffmpeg,
             e.g. `{'preset': 'slow', 'crf': '0'}` for "libx264" codec.
         progress_callback: callable
@@ -97,8 +105,9 @@ class Export:
         ds = self.rtdc_ds
         # Check if file already exist
         if not override and path.exists():
-            raise OSError("File already exists: {}\n".format(
-                str(path).encode("ascii", "ignore")) +
+            raise OSError(
+                "File already exists: "
+                f"{str(path).encode('ascii', 'ignore')}\n"
                 "Please use the `override=True` option.")
         # Start exporting
         if "image" in ds:
@@ -174,11 +183,11 @@ class Export:
 
         Notes
         -----
-        Due to incompatibility with the .fcs file format, all events with
-        NaN-valued features are not exported.
+        Due to incompatibility with the .fcs file format, events that have
+        a NaN value in any of the exported features are not exported.
         """
-        if meta_data is None:
-            meta_data = {}
+        # copy to not modify the dictionary passed by the caller
+        meta_data = dict(meta_data) if meta_data is not None else {}
         if not FCSWRITE_AVAILABLE:
             raise ModuleNotFoundError(
                 "Package `fcswrite` required for fcs export!")
@@ -191,8 +200,9 @@ class Export:
             path = path.with_name(path.name + ".fcs")
         # Check if file already exist
         if not override and path.exists():
-            raise OSError("File already exists: {}\n".format(
-                str(path).encode("ascii", "ignore")) +
+            raise OSError(
+                "File already exists: "
+                f"{str(path).encode('ascii', 'ignore')}\n"
                 "Please use the `override=True` option.")
         # Check that features are valid
         features = sorted(set(features))
@@ -259,14 +269,17 @@ class Export:
             (index in ds.filter.all) are used.
         logs: bool
             Whether to store the logs of the original file prefixed with
-            `source_` to the output file.
+            `meta_prefix` to the output file.
         tables: bool
             Whether to store the tables of the original file prefixed with
-            `source_` to the output file.
+            `meta_prefix` to the output file.
         basins: bool
             Whether to export basins. If filtering is disabled, basins
             are copied directly to the output file. If filtering is enabled,
-            then mapped basins are exported.
+            then mapped basins are exported. In addition, a basin
+            referring to the original dataset (or, for hierarchy children,
+            to its root parent) is stored if its format supports basins.
+            Internal and perishable basins are not exported.
         allow_contour: bool
             Whether to allow exporting the "contour" feature. Writing this
             feature to an HDF5 file is extremely inefficient, because it
@@ -282,7 +295,7 @@ class Export:
             If set to `False`, raises `OSError` if ``path`` exists.
         compression_kwargs: dict
             Dictionary with the keys "compression" and "compression_opts"
-            which are passed to :func:`h5py.H5File.create_dataset`. The
+            which are passed to :meth:`h5py.Group.create_dataset`. The
             default is Zstandard compression with the compression
             level 5 `hdf5plugin.Zstd(clevel=5)`.
         compression: str or None
@@ -343,8 +356,8 @@ class Export:
 
         # remove contour information from user-specified features
         if "contour" in (features or []) and not allow_contour:
-            assert isinstance(features, list)
-            features.remove("contour")
+            # do not modify the list passed by the user
+            features = [ft for ft in features if ft != "contour"]
             warnings.warn(
                 "Feature 'contour' not exported to output file, because "
                 "`allow_contour` is `False`. If you really need the "
@@ -406,7 +419,7 @@ class Export:
                 filter_arr[l_min:] = False
                 warnings.warn(
                     "Not all features have the same length! Limiting output "
-                    + f"event count to {l_min} (max {l_max}) in '{l_min}'.",
+                    f"event count to {l_min} (max {l_max}) in '{path}'.",
                     LimitingExportSizeWarning)
 
         # Perform actual export
@@ -500,6 +513,17 @@ class Export:
                     if basin_is_local:
                         # So the user can put them into the same directory.
                         basin_locs.append(ds.path.name)
+                        # Keep the relative path information.
+                        try:
+                            relp = ds.path.relative_to(path.parent,
+                                                       walk_up=True)
+                            basin_locs.append(relp.as_posix())
+                        except BaseException:
+                            # Might fail for multiple reasons:
+                            # - located on other drive
+                            # - located on network share
+                            # - walk_up not implemented in Python<3.12
+                            pass
                     basin_list.append({
                         "basin_name": "Exported data",
                         "basin_type": "file" if basin_is_local else "remote",
@@ -644,8 +668,8 @@ class Export:
             1 for monitoring progress and a string describing what is being
             done.
         """
-        if meta_data is None:
-            meta_data = {}
+        # copy to not modify the dictionary passed by the caller
+        meta_data = dict(meta_data) if meta_data is not None else {}
         features = [c.lower() for c in features]
         features = sorted(set(features))
         path = pathlib.Path(path)
@@ -655,8 +679,9 @@ class Export:
             path = path.with_name(path.name + ".tsv")
         # Check if file already exist
         if not override and path.exists():
-            raise OSError("File already exists: {}\n".format(
-                str(path).encode("ascii", "ignore")) +
+            raise OSError(
+                "File already exists: "
+                f"{str(path).encode('ascii', 'ignore')}\n"
                 "Please use the `override=True` option.")
         # Check that features exist
         for c in features:
@@ -736,7 +761,7 @@ def yield_filtered_array_stacks(data, indices):
     This method works with sliceable (e.g. np.ndarray) and
     non-sliceable (e.g. tdms-format-based images) input data. If the
     input data is sliceable (which is determined by the availability
-    of the `__array__` method, then fast numpy sclicing is used. If the
+    of the `__array__` method), then fast numpy slicing is used. If the
     input data does not support slicing (`__array__` not defined), then
     a slow iteration over `indices` is done.
 
@@ -801,8 +826,8 @@ def store_filtered_feature(rtdc_writer, feat, data, filtarr):
 
     hw = rtdc_writer
     if not hw.mode == "append":
-        raise ValueError("The `rtdc_writer` object must be created with"
-                         + f"`mode='append'`, got '{hw.mode}' for '{hw}'!")
+        raise ValueError("The `rtdc_writer` object must be created with "
+                         f"`mode='append'`, got '{hw.mode}' for '{hw}'!")
     # event-wise, because
     # - tdms-based datasets don't allow indexing with numpy
     # - there might be memory issues
@@ -863,9 +888,9 @@ def hdf5_append(h5obj, rtdc_ds, feat, compression, filtarr=None,
     else:
         no_filter = False
 
-    warnings.warn("`hdf5_append` is deptecated; please use "
-                  " the dclab.RTDCWriter context manager or the "
-                  " export.store_filtered_feature function.",
+    warnings.warn("`hdf5_append` is deprecated; please use "
+                  "the dclab.RTDCWriter context manager or the "
+                  "export.store_filtered_feature function.",
                   DeprecationWarning)
 
     if time_offset != 0:
@@ -902,17 +927,12 @@ def hdf5_autocomplete_config(path_or_h5obj):
     path_or_h5obj: pathlib.Path or str or h5py.File
         Path to or opened RT-DC measurement
     """
-    warnings.warn("`hdf5_autocomplete_config` is deptecated; please use "
-                  " the dclab.RTDCWriter context manager or the "
-                  " dclab.RTDCWriter.rectify_metadata function.",
+    warnings.warn("`hdf5_autocomplete_config` is deprecated; please use "
+                  "the dclab.RTDCWriter context manager or the "
+                  "dclab.RTDCWriter.rectify_metadata function.",
                   DeprecationWarning)
-    if not isinstance(path_or_h5obj, h5py.File):
-        close = True
-    else:
-        close = False
-
     hw = RTDCWriter(path_or_h5obj, mode="append")
     hw.rectify_metadata()
-
-    if close:
-        path_or_h5obj.close()
+    # Only closes the file if `path_or_h5obj` is a path (an h5py.File
+    # passed by the caller is left open).
+    hw.close()

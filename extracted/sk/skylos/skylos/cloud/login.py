@@ -40,43 +40,14 @@ def _find_free_port():
         return s.getsockname()[1]
 
 
-def _get_repo_name():
-    try:
-        url = (
-            subprocess.check_output(
-                read_only_git_command(["remote", "get-url", "origin"]),
-                stderr=subprocess.DEVNULL,
-                env=read_only_git_environment(),
-            )
-            .decode()
-            .strip()
-        )
-        name = url.rstrip("/").split("/")[-1]
-        if name.endswith(".git"):
-            name = name[:-4]
-        return name
-    except Exception:
-        return None
-
-
 def _get_repo_url():
+    from skylos.cloud.project_context import cloud_origin_identity
+
     try:
-        url = (
-            subprocess.check_output(
-                read_only_git_command(["remote", "get-url", "origin"]),
-                stderr=subprocess.DEVNULL,
-                env=read_only_git_environment(),
-            )
-            .decode()
-            .strip()
-        )
-        if url.startswith("git@github.com:"):
-            url = url.replace("git@github.com:", "https://github.com/")
-        if url.endswith(".git"):
-            url = url[:-4]
-        return url
-    except Exception:
+        identity = cloud_origin_identity()
+    except (OSError, subprocess.SubprocessError):
         return None
+    return f"https://{identity}" if identity else None
 
 
 def _get_repo_subpath():
@@ -161,8 +132,8 @@ def browser_login(console=None, base_url=None):
     _safe_whoami_url(base_url)
 
     port = _find_free_port()
-    repo_name = _get_repo_name() or ""
     repo_url = _get_repo_url() or ""
+    repo_name = repo_url.rsplit("/", 1)[-1]
     repo_path = _get_repo_subpath()
     state = secrets.token_urlsafe(24)
 
@@ -318,10 +289,16 @@ def get_current_connection(base_url=None):
     )
 
 
-def _print_connected_result(result, console=None):
-    mcp_hint = (
-        "Token saved locally. For MCP/AI agents, set SKYLOS_API_KEY "
-        "through your private secret manager."
+def _print_connected_result(result, console=None, *, continue_scan=False):
+    sign_in_hint = "Sign-in saved locally. No token to find or copy."
+    scan_hint = (
+        "Continuing the scan and upload to this project."
+        if continue_scan
+        else "Run skylos cloud to scan with every check and upload to this project."
+    )
+    trust_hint = (
+        "Scans from this machine are saved for review; only verified CI scans "
+        "block merges. To block pull requests: skylos cicd init."
     )
 
     if console:
@@ -331,11 +308,9 @@ def _print_connected_result(result, console=None):
         console.print(f"  Plan:         {plan_display_name(result.plan)}")
         if result.repo_subpath:
             console.print(f"  Project root: {result.repo_subpath}")
-        console.print(
-            "\n  Nothing is uploaded automatically. [bold]skylos cloud[/bold] "
-            "scans with every check and sends the findings to this project."
-        )
-        console.print(f"\n  [dim]{mcp_hint}[/dim]")
+        console.print(f"\n  {sign_in_hint}")
+        console.print(f"  {scan_hint}")
+        console.print(f"\n  [dim]{trust_hint}[/dim]")
     else:
         print("\nConnected to Skylos Cloud!")
         print(f"  Project:      {result.project_name}")
@@ -343,14 +318,19 @@ def _print_connected_result(result, console=None):
         print(f"  Plan:         {plan_display_name(result.plan)}")
         if result.repo_subpath:
             print(f"  Project root: {result.repo_subpath}")
-        print(
-            "\n  Nothing is uploaded automatically. skylos cloud "
-            "scans with every check and sends the findings to this project."
-        )
-        print(f"\n  {mcp_hint}")
+        print(f"\n  {sign_in_hint}")
+        print(f"  {scan_hint}")
+        print(f"\n  {trust_hint}")
 
 
-def run_login(console=None, base_url=None):
+def run_login(
+    console=None,
+    base_url=None,
+    *,
+    allow_manual=True,
+    continue_scan=False,
+    keep_existing=True,
+):
     from skylos.cloud.sync import _normalize_api_base_url
 
     # Select once so browser/manual auth and the saved link use the same server,
@@ -358,7 +338,7 @@ def run_login(console=None, base_url=None):
     base_url = _normalize_api_base_url(
         base_url or os.getenv("SKYLOS_API_URL", DEFAULT_BASE_URL)
     )
-    existing = get_current_connection(base_url=base_url)
+    existing = get_current_connection(base_url=base_url) if keep_existing else None
     if existing:
         if console:
             console.print(f"\n[good]Current project:[/good] {existing.project_name}")
@@ -397,13 +377,14 @@ def run_login(console=None, base_url=None):
             else:
                 print(f"Keeping current project: {existing.project_name}")
             return existing
-        result = manual_token_fallback(console=console, base_url=base_url)
+        if allow_manual:
+            result = manual_token_fallback(console=console, base_url=base_url)
 
     if result is None:
         return None
 
     _save_login_result(result, base_url=base_url)
-    _print_connected_result(result, console=console)
+    _print_connected_result(result, console=console, continue_scan=continue_scan)
 
     return result
 

@@ -811,6 +811,7 @@ SortByType = Literal["SCORE"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 ConfigServiceServiceName = Literal["config"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

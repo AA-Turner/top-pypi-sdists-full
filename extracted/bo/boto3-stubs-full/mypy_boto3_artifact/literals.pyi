@@ -83,6 +83,7 @@ ReviewTypeType = Literal["AI", "HUMAN"]
 UploadStateType = Literal["COMPLETE", "FAILED", "FAULT", "PROCESSING"]
 ArtifactServiceName = Literal["artifact"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -104,6 +104,7 @@ SummaryMetricsType = Literal["SavingsPercentage"]
 TermType = Literal["OneYear", "ThreeYears"]
 CostOptimizationHubServiceName = Literal["cost-optimization-hub"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

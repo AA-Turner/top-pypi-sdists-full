@@ -34,7 +34,8 @@ from numpy_groupies.inputs import (
     input_validation,
 )
 from numpy_groupies.npg_numba import argreductions, averaging, collect, cumulative, reductions, specials
-from numpy_groupies.npg_numba.compose import KernelHandle, _round_float16
+from numpy_groupies.npg_numba import mt as npg_mt
+from numpy_groupies.npg_numba.compose import KernelHandle, StateLayout, _round_float16
 from numpy_groupies.npg_numba.mt import (
     GROUP_MT_MIN_VALUES,
     group_chunk_count,
@@ -164,6 +165,20 @@ def _driver_call(handle: KernelHandle) -> Callable[..., Any]:
     driver = handle.driver
     mt_driver = handle.mt_driver
     min_values = handle.mt_min_values
+    # the size of the last-level cache of the machine, read once: the cost
+    # model measures the state of a kernel against it, and the value goes
+    # into the call - a value of the machine must not be baked into the
+    # compiled artifact, whose cache is the user-wide one
+    machine = npg_mt.MACHINE
+    # the bytes the state of the operation holds per group, declared beside
+    # the state itself: the cost model measures the state against the cache
+    # of the machine, and it needs the size of it in bytes
+    measure_state = handle.state_bytes_per_group_of
+    assert measure_state is not None  # every kernel carries the declaration
+
+    def state_bytes_of(out_dtype: np.dtype, aux_dtype: np.dtype, in_dtype: np.dtype) -> int:
+        """The bytes the state of the operation holds per group."""
+        return measure_state(StateLayout(out_dtype, aux_dtype, in_dtype))
 
     if handle.variant == "none":
 
@@ -184,7 +199,19 @@ def _driver_call(handle: KernelHandle) -> Callable[..., Any]:
                 if n_threads > 1:
                     # without a second thread the parallel region is pure
                     # overhead
-                    return mt_driver(n_threads, group_idx, a, size_arg, out_dtype, aux_dtype, fill_value)
+                    state_bytes = state_bytes_of(out_dtype, aux_dtype, a.dtype)
+                    return mt_driver(
+                        n_threads,
+                        group_idx,
+                        a,
+                        size_arg,
+                        out_dtype,
+                        aux_dtype,
+                        fill_value,
+                        0,
+                        machine,
+                        state_bytes,
+                    )
             return driver(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value)
 
         return call_nothing
@@ -206,7 +233,19 @@ def _driver_call(handle: KernelHandle) -> Callable[..., Any]:
             if mt_driver is not None and group_idx.size >= min_values:
                 n_threads = mt_thread_count()
                 if n_threads > 1:
-                    return mt_driver(n_threads, group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, (q, method))
+                    state_bytes = state_bytes_of(out_dtype, aux_dtype, a.dtype)
+                    return mt_driver(
+                        n_threads,
+                        group_idx,
+                        a,
+                        size_arg,
+                        out_dtype,
+                        aux_dtype,
+                        fill_value,
+                        (q, method),
+                        machine,
+                        state_bytes,
+                    )
             return driver(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, q, method)
 
         return call_q_method
@@ -228,7 +267,19 @@ def _driver_call(handle: KernelHandle) -> Callable[..., Any]:
             if mt_driver is not None and group_idx.size >= min_values:
                 n_threads = mt_thread_count()
                 if n_threads > 1:
-                    return mt_driver(n_threads, group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, (ddof, q))
+                    state_bytes = state_bytes_of(out_dtype, aux_dtype, a.dtype)
+                    return mt_driver(
+                        n_threads,
+                        group_idx,
+                        a,
+                        size_arg,
+                        out_dtype,
+                        aux_dtype,
+                        fill_value,
+                        (ddof, q),
+                        machine,
+                        state_bytes,
+                    )
             return driver(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, (ddof, q))
 
         return call_topk
@@ -249,7 +300,19 @@ def _driver_call(handle: KernelHandle) -> Callable[..., Any]:
         if mt_driver is not None and group_idx.size >= min_values:
             n_threads = mt_thread_count()
             if n_threads > 1:
-                return mt_driver(n_threads, group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, ddof)
+                state_bytes = state_bytes_of(out_dtype, aux_dtype, a.dtype)
+                return mt_driver(
+                    n_threads,
+                    group_idx,
+                    a,
+                    size_arg,
+                    out_dtype,
+                    aux_dtype,
+                    fill_value,
+                    ddof,
+                    machine,
+                    state_bytes,
+                )
         return driver(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, ddof)
 
     return call_ddof
@@ -761,6 +824,21 @@ _ARGUMENT_WRAPPERS: dict[str, Callable[[Callable[..., AResult]], Callable[..., A
     "percentile": partial(_quantile_arguments, default=50.0, limit=100.0),
     "nanpercentile": partial(_quantile_arguments, default=50.0, limit=100.0),
 }
+
+
+def state_bytes_per_group(func: str, dtype: np.dtype = np.dtype("float64")) -> int:
+    """The bytes the state of the operation holds per group.
+
+    The state of the parallel path is what the cost model measures against
+    the cache of the machine; the benchmark table of the thread counts
+    reports it beside the times.
+    """
+    pair = dict(_TABLE)[func]
+    handle = pair.plain
+    measure = handle.state_bytes_per_group_of
+    assert measure is not None  # every kernel carries the declaration
+    layout = StateLayout(dtype, dtype, dtype)
+    return measure(layout)
 
 
 def get_ops() -> dict[str, Callable[..., AResult]]:

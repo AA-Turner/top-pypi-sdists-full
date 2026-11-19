@@ -763,8 +763,8 @@ DAEMON_RULES = (
     "`probe feedback send \"<text>\"` - when Probe gets in your way, say what happened and what would have helped. "
     "The researcher is asked before anything is sent.\n"
     "\n"
-    "`probe doctor --send` - when Probe itself breaks (an error, a daemon that stopped), send the Probe team a "
-    "diagnostic report; quote its id in feedback.\n"
+    "`probe doctor --send` - when a `probe` command fails with an error or says the daemon stopped, send the Probe "
+    "team a diagnostic report; quote its id in feedback. You have no Probe MCP tools here; that is not a failure.\n"
 )
 #: Above each part; `{part}` is RULES_PART_OF when there is more than one.
 RULES_LEAD = "Probe's rules for this chat, in force while Probe is on or read here{part}:"

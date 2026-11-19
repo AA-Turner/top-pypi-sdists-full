@@ -28,6 +28,7 @@ from langchain_core.exceptions import (
     ModelRefusalError,
     ModelTimeoutError,
 )
+from langchain_core.load import dumpd
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
@@ -43,7 +44,10 @@ from langchain_core.tools import BaseTool, tool
 from langchain_core.tracers._streaming import _V2StreamingCallbackHandler
 from langchain_core.tracers.base import BaseTracer
 from langchain_core.tracers.schemas import Run
-from langchain_core.utils._gateway import GATEWAY_METADATA_RESPONSE_KEY
+from langchain_core.utils._gateway import (
+    GATEWAY_METADATA_RESPONSE_KEY,
+    langsmith_gateway,
+)
 from pydantic import BaseModel, Field, RootModel, SecretStr, ValidationError
 from pytest import CaptureFixture, MonkeyPatch
 
@@ -1986,6 +1990,96 @@ def test__format_messages_system_after_server_tool_result_sent_in_place(
     assert actual_messages[1]["content"] == [block]
 
 
+@pytest.mark.parametrize("output_version", ["v0", "v1"])
+def test__format_messages_server_tool_use_preserves_caller(output_version: str) -> None:
+    """Nested server tool calls keep `caller` so the API can link them to parents."""
+    caller = {"type": "code_execution_20260120", "tool_id": "srvtoolu_ce"}
+    blocks: list[Any] = [
+        {
+            "type": "server_tool_use",
+            "id": "srvtoolu_ce",
+            "name": "code_execution",
+            "input": {"code": "..."},
+            "caller": {"type": "direct"},
+        },
+        {
+            "type": "server_tool_use",
+            "id": "srvtoolu_ws",
+            "name": "web_search",
+            "input": {"query": "q"},
+            "caller": caller,
+        },
+        {
+            "type": "web_search_tool_result",
+            "tool_use_id": "srvtoolu_ws",
+            "content": [
+                {
+                    "type": "web_search_result",
+                    "url": "https://example.com",
+                    "title": "Example",
+                    "encrypted_content": "abc",
+                }
+            ],
+            "caller": caller,
+        },
+        {
+            "type": "code_execution_tool_result",
+            "tool_use_id": "srvtoolu_ce",
+            "content": {
+                "type": "encrypted_code_execution_result",
+                "encrypted_stdout": "abc",
+                "stderr": "",
+                "return_code": 0,
+                "content": [],
+            },
+        },
+    ]
+    ai = AIMessage(blocks, response_metadata={"model_provider": "anthropic"})
+    if output_version == "v1":
+        ai = AIMessage(
+            [dict(block) for block in ai.content_blocks],
+            response_metadata={"model_provider": "anthropic", "output_version": "v1"},
+        )
+    original_content = copy.deepcopy(ai.content)
+    model = ChatAnthropic(model="claude-sonnet-4-5", api_key="placeholder")
+    payload = model._get_request_payload([HumanMessage("hi"), ai, HumanMessage("next")])
+    expected = copy.deepcopy(blocks)
+    del expected[0]["caller"]
+    assert payload["messages"][1]["content"] == expected
+    assert ai.content == original_content
+
+
+@pytest.mark.parametrize(
+    "block_type", ["web_search_tool_result", "web_fetch_tool_result"]
+)
+@pytest.mark.parametrize(
+    "caller",
+    [
+        None,
+        {"type": "direct"},
+        {"type": "code_execution_20260120", "tool_id": "srvtoolu_ce"},
+    ],
+)
+def test__format_messages_server_tool_result_caller(
+    block_type: str, caller: dict[str, str] | None
+) -> None:
+    block: dict[str, Any] = {
+        "type": block_type,
+        "tool_use_id": "srvtoolu_ws",
+        "content": [],
+    }
+    if caller is not None:
+        block["caller"] = caller
+    expected = copy.deepcopy(block)
+    if caller == {"type": "direct"}:
+        del expected["caller"]
+    _, formatted = _format_messages(
+        [HumanMessage("hi"), AIMessage([block])], model=None
+    )
+    assert formatted[1]["content"] == [expected]
+    assert block.get("caller") == caller
+
+
 def test__format_messages_system_after_client_tool_result_hoisted() -> None:
     """Test client-side tool results are not server tool results."""
     messages = [
@@ -3063,7 +3157,15 @@ _ANTHROPIC_TOOL_SCHEMA = {
 }
 
 
-@pytest.mark.parametrize("model", ["claude-opus-5-5", "claude-fable-5-1"])
+@pytest.mark.parametrize(
+    "model",
+    [
+        "claude-opus-5-5",
+        "claude-fable-5-1",
+        "claude-fable-5-2",
+        "claude-mythos-5-2",
+    ],
+)
 @pytest.mark.parametrize("schema", [_Person, _ANTHROPIC_TOOL_SCHEMA])
 @pytest.mark.parametrize("thinking", [None, {"type": "adaptive"}])
 def test_with_structured_output_skips_forced_tool_choice_when_unsupported(
@@ -4119,24 +4221,48 @@ def test_thinking_content_block_start_carries_initial_thinking() -> None:
     assert thinking_blocks[0]["signature"] == "sig123"
 
 
-def test_empty_thinking_content_block_start_emits_no_chunk() -> None:
-    """An empty `ThinkingBlock` start must not emit a spurious chunk."""
-    from anthropic.types import RawContentBlockStartEvent, ThinkingBlock
+def test_empty_thinking_content_block_start_emits_thinking_block() -> None:
+    """The start of an omitted thinking block emits a chunk, merged block unchanged."""
+    from anthropic.types import (
+        RawContentBlockDeltaEvent,
+        RawContentBlockStartEvent,
+        RawContentBlockStopEvent,
+        SignatureDelta,
+        ThinkingBlock,
+    )
 
     llm = ChatAnthropic(model=MODEL_NAME)  # type: ignore[call-arg]
-    chunk, block_start_event = llm._make_message_chunk_from_anthropic_event(
-        RawContentBlockStartEvent(
-            content_block=ThinkingBlock(thinking="", signature="", type="thinking"),
-            index=0,
-            type="content_block_start",
-        ),
+    start = RawContentBlockStartEvent(
+        content_block=ThinkingBlock(thinking="", signature="", type="thinking"),
+        index=0,
+        type="content_block_start",
+    )
+    chunk, _ = llm._make_message_chunk_from_anthropic_event(
+        start,
         stream_usage=True,
         coerce_content_to_string=False,
         block_start_event=None,
     )
-    assert chunk is None
-    # The block is still tracked so subsequent deltas resolve against it.
-    assert block_start_event is not None
+    assert chunk is not None
+    assert chunk.content == [{"type": "thinking", "thinking": "", "index": 0}]
+
+    aggregate = _aggregate_anthropic_events(
+        llm,
+        [
+            start,
+            RawContentBlockDeltaEvent(
+                delta=SignatureDelta(signature="sig_abc", type="signature_delta"),
+                index=0,
+                type="content_block_delta",
+            ),
+            RawContentBlockStopEvent(index=0, type="content_block_stop"),
+        ],
+        coerce_content_to_string=False,
+    )
+    assert aggregate is not None
+    assert aggregate.content == [
+        {"type": "thinking", "thinking": "", "signature": "sig_abc", "index": 0}
+    ]
 
 
 def test_signature_delta_preserves_empty_thinking_field() -> None:
@@ -4155,8 +4281,8 @@ def test_signature_delta_preserves_empty_thinking_field() -> None:
 
     llm = ChatAnthropic(model=MODEL_NAME)  # type: ignore[call-arg]
 
-    # Step 1: process the empty content_block_start (no chunk emitted).
-    chunk, block_start_event = llm._make_message_chunk_from_anthropic_event(
+    # Step 1: process the empty content_block_start.
+    _, block_start_event = llm._make_message_chunk_from_anthropic_event(
         RawContentBlockStartEvent(
             content_block=ThinkingBlock(thinking="", signature="", type="thinking"),
             index=0,
@@ -4166,7 +4292,6 @@ def test_signature_delta_preserves_empty_thinking_field() -> None:
         coerce_content_to_string=False,
         block_start_event=None,
     )
-    assert chunk is None
     assert block_start_event is not None
 
     # Step 2: process the signature_delta with the tracked start event.
@@ -6606,3 +6731,19 @@ def test_with_structured_output_still_streams_partial_json() -> None:
 
     assert len(outputs) > 1
     assert outputs[-1] == {"answer": "42"}
+
+
+def test_langsmith_gateway_context_headers() -> None:
+    """Gateway headers reach the client but are never serialized."""
+    with langsmith_gateway(api_key="placeholder", headers={"X-Service-Key": "svc-key"}):
+        llm = ChatAnthropic(
+            model="claude-sonnet-4-5",
+            api_key=SecretStr("user-key"),
+            default_headers={"x-service-key": "forged", "X-Custom": "kept"},
+            anthropic_proxy="http://proxy:8080",
+        )
+    sent = llm._client.default_headers
+    assert sent["X-Service-Key"] == "svc-key"
+    assert sent["X-Custom"] == "kept"
+    assert "svc-key" not in json.dumps(dumpd(llm))
+    assert llm.anthropic_proxy is None

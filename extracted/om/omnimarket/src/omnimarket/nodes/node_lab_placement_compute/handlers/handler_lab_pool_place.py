@@ -1,0 +1,266 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Place a unit using the host table and current capacity advertisements."""
+
+from __future__ import annotations
+
+import os
+from collections.abc import Callable, Iterable, Mapping
+from datetime import timedelta
+from typing import Literal
+
+from omnimarket.handlers.node_overlay_reader import NodeOverlayError
+from omnimarket.models.model_host_capacity_advertisement import (
+    ModelHostCapacityAdvertisement,
+)
+from omnimarket.models.overlay_keys import ModelLabHostsTable
+from omnimarket.nodes.node_lab_work_unit_effect.protocols.local_host_reader import (
+    cpu_temp_from_tools,
+    disk_watermark_paged,
+)
+
+from ..models import (
+    LAB_WORK_WEIGHT_ENV,
+    EnumPlacementDecision,
+    EnumRefusalReason,
+    ModelHostVerdict,
+    ModelLabPlacementRequest,
+    ModelLabPoolPlaceRequest,
+    ModelPlacement,
+)
+from .handler_lab_placement import HandlerLabPlacement, HostTableError, load_host_table
+
+
+def newest_per_host(
+    advertisements: Iterable[ModelHostCapacityAdvertisement],
+) -> list[ModelHostCapacityAdvertisement]:
+    """The newest advertisement of each host, ordered by host name."""
+    newest: dict[str, ModelHostCapacityAdvertisement] = {}
+    for ad in advertisements:
+        held = newest.get(ad.host_name)
+        if held is None or ad.advertised_at > held.advertised_at:
+            newest[ad.host_name] = ad
+    return [newest[name] for name in sorted(newest)]
+
+
+class HandlerLabPoolPlace:
+    """COMPUTE handler: table admission followed by capacity admission and ranking.
+
+    The hosts the drain verb stopped (OMN-22905) are read from the drain node at every placement, so no caller wires
+    them. A drain state that cannot be read refuses the placement; it never reads as no host draining.
+    """
+
+    def __init__(
+        self,
+        *,
+        table_source: Callable[[], ModelLabHostsTable] = load_host_table,
+        judge: HandlerLabPlacement | None = None,
+        environ: Mapping[str, str] | None = None,
+        draining_hosts: Callable[[], tuple[str, ...]] | None = None,
+        down_hosts: Callable[[], tuple[str, ...]] | None = None,
+    ) -> None:
+        self._table_source = table_source
+        self._judge = judge
+        self._environ = environ
+        self._draining_hosts = draining_hosts or self._drain_node_hosts
+        self._down_hosts = down_hosts or self._down_node_hosts
+
+    def _drain_node_hosts(self) -> tuple[str, ...]:
+        from omnimarket.nodes.node_host_drain_effect.runtime_host_drain import (
+            read_draining_hosts,
+        )
+
+        return read_draining_hosts(self._environ)
+
+    def _down_node_hosts(self) -> tuple[str, ...]:
+        from omnimarket.nodes.node_host_down_reading_effect.runtime_host_down import (
+            read_down_hosts,
+        )
+
+        return read_down_hosts(self._environ)
+
+    @property
+    def handler_type(self) -> Literal["NODE_HANDLER"]:
+        return "NODE_HANDLER"
+
+    @property
+    def handler_category(self) -> Literal["COMPUTE"]:
+        return "COMPUTE"
+
+    def handle(self, request: ModelLabPoolPlaceRequest) -> ModelPlacement:
+        try:
+            draining = frozenset(request.draining_hosts) | frozenset(
+                self._draining_hosts()
+            )
+        except (OSError, ValueError) as exc:
+            return ModelPlacement(
+                decision=EnumPlacementDecision.REFUSED,
+                refusal=EnumRefusalReason.COULD_NOT_CHECK,
+                verdicts=[],
+                detail=f"the drain state could not be read ({type(exc).__name__}: {exc})",
+            )
+        down_detail = ""
+        try:
+            down = frozenset(request.down_hosts) | frozenset(self._down_hosts())
+        except (OSError, ValueError, NodeOverlayError) as exc:
+            down = frozenset()
+            down_detail = (
+                f"down reading could not be read ({type(exc).__name__}: {exc}): "
+                "placement went on without it"
+            )
+        replaced_from = ""
+        only_host = request.only_host
+        if only_host is not None and only_host in down:
+            replaced_from = only_host
+            only_host = None
+        try:
+            document = request.table or self._table_source()
+            environ = os.environ if self._environ is None else self._environ
+            weight = request.weight or environ.get(LAB_WORK_WEIGHT_ENV)
+            judge = self._judge or HandlerLabPlacement()
+            judged = judge.handle(
+                ModelLabPlacementRequest(
+                    repo=request.repo,
+                    kind=request.kind,
+                    weight=weight,
+                    host_names=tuple(
+                        sorted({ad.host_name for ad in request.advertisements})
+                    ),
+                    table=document.hosts,
+                    unit_needs=document.unit_needs,
+                    need_tools=request.need_tools,
+                )
+            )
+        except HostTableError as exc:
+            return ModelPlacement(
+                decision=EnumPlacementDecision.REFUSED,
+                refusal=EnumRefusalReason.COULD_NOT_CHECK,
+                verdicts=[],
+                detail=str(exc),
+            )
+        table_verdicts = judged.by_host()
+        need = frozenset(request.need_tools)
+        verdicts: list[ModelHostVerdict] = []
+        eligible: list[ModelHostCapacityAdvertisement] = []
+        fresh_seen = False
+        tools_refused = False
+        capacity_refused = False
+        for ad in newest_per_host(request.advertisements):
+            age = (request.evaluated_at - ad.advertised_at).total_seconds()
+            bound = timedelta(seconds=2 * ad.cadence_seconds).total_seconds()
+            table = table_verdicts.get(ad.host_name)
+            reason = ""
+            if ad.host_name in down:
+                reason = "down: the host-down reading reads this host down, so it takes no lane"
+            elif age > bound or age < -bound:
+                reason = f"stale ({age:.0f}s old, bound {bound:.0f}s)"
+            elif only_host is not None and ad.host_name != only_host:
+                reason = "not the requested host"
+            else:
+                fresh_seen = True
+                if ad.host_name in draining:
+                    reason = "draining: the drain verb stopped placement on this host"
+                elif disk_watermark_paged(ad.tools):
+                    reason = (
+                        "disk watermark: a volume is past its page mark, so this "
+                        "host takes no new unit before the admission floor"
+                    )
+                elif table is None or not table.eligible:
+                    reason = "host table: " + (
+                        table.reason
+                        if table
+                        else "the host table did not judge this host"
+                    )
+                elif not need <= set(ad.tools):
+                    tools_refused = True
+                    reason = f"missing tools {sorted(need - set(ad.tools))}"
+                else:
+                    bar = (
+                        int(table.min_free_gb * 1024**3)
+                        if table.min_free_gb is not None
+                        else request.min_free_bytes
+                    )
+                    capacity_refused = True
+                    temp = cpu_temp_from_tools(ad.tools)
+                    if (
+                        temp is not None
+                        and table.max_cpu_c is not None
+                        and temp > table.max_cpu_c
+                    ):
+                        reason = (
+                            f"hot: CPU {temp:.1f} C is over this host's "
+                            f"{table.max_cpu_c:.1f} C hold bar (host table max_cpu_c)"
+                        )
+                    elif ad.load_per_core > request.max_load_per_core:
+                        reason = (
+                            f"over the {request.max_load_per_core:.2f} load/core bar"
+                        )
+                    elif ad.mem_available_bytes < bar:
+                        reason = "short of free memory" + (
+                            f" (this host's own bar is {bar / 1024**3:.1f}GB)"
+                            if table.min_free_gb is not None
+                            else ""
+                        )
+                    elif ad.running_units >= ad.max_units:
+                        reason = f"all {ad.max_units} unit slots busy"
+            if not reason:
+                eligible.append(ad)
+            verdicts.append(
+                ModelHostVerdict(
+                    host_name=ad.host_name,
+                    eligible=not reason,
+                    reason=reason or "eligible",
+                    load_per_core=round(ad.load_per_core, 3),
+                    mem_available_gb=round(ad.mem_available_bytes / 1024**3, 1),
+                    age_seconds=round(age, 1),
+                )
+            )
+        for host in sorted(down - {ad.host_name for ad in request.advertisements}):
+            verdicts.append(
+                ModelHostVerdict(
+                    host_name=host,
+                    eligible=False,
+                    reason=(
+                        "down: the host-down reading reads this host down, so it takes no lane"
+                    ),
+                    load_per_core=0.0,
+                    mem_available_gb=0.0,
+                    age_seconds=0.0,
+                )
+            )
+        detail = down_detail
+        if eligible:
+            best = min(
+                eligible,
+                key=lambda ad: (
+                    ad.load_per_core / table_verdicts[ad.host_name].speed
+                    + ad.rank_penalty,
+                    -ad.mem_available_bytes,
+                    ad.host_name,
+                ),
+            )
+            return ModelPlacement(
+                decision=EnumPlacementDecision.PLACED,
+                host_name=best.host_name,
+                verdicts=verdicts,
+                detail=detail,
+                replaced_from=replaced_from,
+            )
+        if not fresh_seen:
+            refusal = EnumRefusalReason.COULD_NOT_CHECK
+        elif capacity_refused:
+            refusal = EnumRefusalReason.OVER_CAPACITY
+        elif tools_refused:
+            refusal = EnumRefusalReason.MISSING_TOOLS
+        else:
+            refusal = EnumRefusalReason.HOST_TABLE
+        return ModelPlacement(
+            decision=EnumPlacementDecision.REFUSED,
+            refusal=refusal,
+            verdicts=verdicts,
+            detail=detail,
+            replaced_from=replaced_from,
+        )
+
+
+__all__ = ["HandlerLabPoolPlace", "newest_per_host"]

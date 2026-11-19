@@ -3,6 +3,9 @@
 """Cloud eligibility decisions using caller supplied repository exclusions."""
 
 from collections.abc import Collection, Mapping, Sequence
+from importlib.resources import files
+
+import yaml
 
 from omnimarket.nodes.node_lane_model_policy_compute.handlers.handler_lane_model_policy import (
     lane_model_refusal,
@@ -11,8 +14,10 @@ from omnimarket.nodes.node_lane_model_policy_compute.handlers.handler_lane_model
 from .cloud_session import lane_kind
 
 CLAUDE_MODELS = {"sonnet": "claude_sonnet"}
+# review-only (OMN-22345): the session reviews one head and leaves no pull request; its review returns through the
+# session's final message, read by this node, never through a pushed branch.
 CLOUD_LANE_KINDS = frozenset(
-    {"conflict-fix", "red-test-fix", "small-code", "plan-draft"}
+    {"conflict-fix", "red-test-fix", "small-code", "plan-draft", "review-only"}
 )
 
 
@@ -47,3 +52,14 @@ def cloud_refusal(
     if pinned_host or inputs:
         return f"the lane needs a lab host ({pinned_host or 'host-local inputs'})"
     return None
+
+
+def placement_order(placement: str) -> list[str]:
+    """The places to try for this placement, in order, as the node's contract declares them."""
+    contract = yaml.safe_load(
+        files(__package__.rsplit(".", 1)[0]).joinpath("contract.yaml").read_text()
+    )
+    order = contract["placement_order"][placement]
+    if not order or not all(isinstance(place, str) for place in order):
+        raise ValueError(f"placement_order.{placement} names no place")
+    return list(order)

@@ -164,6 +164,7 @@ from .type_defs import (
     ListTenantsRequestTypeDef,
     ListTenantsResponseTypeDef,
     PutAccountDedicatedIpWarmupAttributesRequestTypeDef,
+    PutAccountDeliveryAttributesRequestTypeDef,
     PutAccountDetailsRequestTypeDef,
     PutAccountPricingAttributesRequestTypeDef,
     PutAccountSendingAttributesRequestTypeDef,
@@ -1073,6 +1074,17 @@ class SESV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/put_account_dedicated_ip_warmup_attributes.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#put_account_dedicated_ip_warmup_attributes)
+        """
+
+    def put_account_delivery_attributes(
+        self, **kwargs: Unpack[PutAccountDeliveryAttributesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Set the shared pool delivery mode for your Amazon SES account in the current
+        Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/put_account_delivery_attributes.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#put_account_delivery_attributes)
         """
 
     def put_account_details(

@@ -65,6 +65,7 @@ RecorderTypeType = Literal["AWS", "THIRD_PARTY"]
 SearchPaginatorName = Literal["search"]
 ResourceExplorerServiceName = Literal["resource-explorer-2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

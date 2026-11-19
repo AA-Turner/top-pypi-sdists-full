@@ -7,7 +7,12 @@ from urllib.parse import quote
 
 from typing_extensions import NotRequired, TypeGuard
 
-from bitfab.approval import ApprovalFields, Assignee, Justification
+from bitfab.assertion_status import (
+    Assignee,
+    Justification,
+    StatusFields,
+    with_status_fields,
+)
 from bitfab.categories import CategorySummary
 from bitfab.http import HttpClient
 from bitfab.replay import TokenUsage
@@ -90,7 +95,7 @@ class AssertionCode(TypedDict):
     spanNames: list[str]
 
 
-class TraceAssertion(ApprovalFields):
+class TraceAssertion(StatusFields):
     """A saved assertion. ``category_assertion_id`` is a deprecated alias carrying the same value as ``category_id``."""
 
     id: str
@@ -615,6 +620,15 @@ def _save_assertions_payload(
     }
 
 
+def _fill_status_fields(assertions: Any) -> Any:
+    if not isinstance(assertions, list):
+        return assertions
+    return [
+        with_status_fields(assertion) if isinstance(assertion, dict) else assertion
+        for assertion in assertions
+    ]
+
+
 def _trace_assertions_path(trace_id: str, suffix: str = "") -> str:
     return f"/api/sdk/traces/{quote(trace_id, safe='')}/assertions{suffix}"
 
@@ -740,6 +754,11 @@ class TracesClient:
 
     def get_assertions(self, trace_id: str) -> TraceAssertionsResult:
         result = self._http_client.get(_trace_assertions_path(trace_id))
+        if isinstance(result, dict) and "assertions" in result:
+            result = {
+                **result,
+                "assertions": _fill_status_fields(result["assertions"]),
+            }
         return result  # type: ignore[return-value]
 
     def save_assertions(
@@ -799,7 +818,7 @@ class TracesClient:
             ASSERTIONS_PATH,
             _save_assertions_payload(updates, source, skip_guided_rewrite),
         )
-        return list(result["assertions"])
+        return _fill_status_fields(list(result["assertions"]))
 
     def generate_assertions(
         self,
@@ -815,7 +834,7 @@ class TracesClient:
             _generation_payload(guidance, category_ids, regenerate),
         )
         if _is_generation_finished(started["generation"], trace_id):
-            return started["assertions"]
+            return _fill_status_fields(started["assertions"])
         deadline = time.monotonic() + timeout
         while True:
             if time.monotonic() >= deadline:
@@ -844,7 +863,7 @@ class TracesClient:
             ),
         )
         if _is_generation_finished(started["generation"], trace_id):
-            return started["assertions"]
+            return _fill_status_fields(started["assertions"])
         deadline = time.monotonic() + timeout
         while True:
             if time.monotonic() >= deadline:

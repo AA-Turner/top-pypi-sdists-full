@@ -104,6 +104,7 @@ TlsPolicyType = Literal["Optional", "Require"]
 VerificationStatusType = Literal["Failed", "NotStarted", "Pending", "Success", "TemporaryFailure"]
 SESServiceName = Literal["ses"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

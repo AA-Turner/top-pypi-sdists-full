@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stripe
-Version: 17.0.0
+Version: 17.1.0
 Summary: Python bindings for the Stripe API
 Keywords: stripe,api,payments
 Author-email: Stripe <support@stripe.com>
@@ -13,12 +13,12 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -405,9 +405,12 @@ async for c in await stripe.Customer.list_async().auto_paging_iter():
 There is no `.save_async` as `.save` is [deprecated since stripe-python v5](https://github.com/stripe/stripe-python/wiki/Migration-guide-for-v5#deprecated). Please migrate to `.modify_async`.
 
 The default HTTP client uses `requests` for making synchronous requests but
-`httpx` for making async requests. If you're migrating to async, we recommend
-you to explicitly initialize your own http client and pass it to StripeClient
-or set it as the global default.
+`httpx2` for making async requests, falling back to `httpx` if `httpx2` isn't
+installed (and to `aiohttp` if neither is). We recommend `pip install httpx2`
+for async use, since `httpx` is no longer actively maintained. `httpx` support
+is deprecated and will be removed in the next major version of stripe-python.
+If you're migrating to async, we recommend you to explicitly initialize your own
+http client and pass it to StripeClient or set it as the global default.
 
 If you don't already have a dependency on an async-compatible HTTP library, `pip install stripe[async]` will install one for you (new in `v13.0.1`).
 
@@ -417,7 +420,7 @@ If you don't already have a dependency on an async-compatible HTTP library, `pip
 # make sure you don't unintentionally make a synchronous request.
 my_http_client = stripe.HTTPXClient()
 
-# If you want to use httpx to make sync requests, you can disable this
+# If you want to use httpx2 to make sync requests, you can disable this
 # behavior.
 my_http_client = stripe.HTTPXClient(allow_sync_methods=True)
 

@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: ioregistry
-Version: 0.0.6
+Version: 0.0.7
 Summary: IORegistry exploration library
 Author-email: doronz88 <doron88@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>
-License: GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/doronz88/ioregistry
 Project-URL: Bug Reports, https://github.com/doronz88/ioregistry/issues
 Keywords: macos,osx,ioregistry,devicetree,automation,cli,ioservice
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10

@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Typing :: Typed",
@@ -45,7 +46,20 @@ eventlet = [
 "oslo.privsep" = "oslo_privsep.priv_context:_list_opts"
 
 [tool.setuptools.packages.find]
-include = ["oslo_privsep"]
+include = ["oslo_privsep*"]
+
+[tool.coverage.run]
+source = [
+    "oslo_privsep"
+]
+branch = true
+omit = [
+    "oslo_privsep/tests/*"
+]
+
+[tool.coverage.report]
+ignore_errors = true
+show_missing = true
 
 [tool.mypy]
 python_version = "3.11"

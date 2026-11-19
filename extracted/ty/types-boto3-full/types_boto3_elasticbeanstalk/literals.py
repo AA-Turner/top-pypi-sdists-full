@@ -138,6 +138,7 @@ SourceTypeType = Literal["Git", "Zip"]
 ValidationSeverityType = Literal["error", "warning"]
 ElasticBeanstalkServiceName = Literal["elasticbeanstalk"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

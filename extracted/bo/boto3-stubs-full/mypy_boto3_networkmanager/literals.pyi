@@ -285,6 +285,7 @@ TransitGatewayRegistrationStateType = Literal[
 TunnelProtocolType = Literal["GRE", "NO_ENCAP"]
 NetworkManagerServiceName = Literal["networkmanager"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

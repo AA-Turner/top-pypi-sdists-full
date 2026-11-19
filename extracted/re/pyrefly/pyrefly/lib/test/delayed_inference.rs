@@ -45,7 +45,7 @@ from typing import assert_type, Literal
 x = 5
 while True:
   x = x + 1
-y = x
+y = x  # E: This code is unreachable
 assert_type(y, int)
 "#,
 );
@@ -651,7 +651,7 @@ def h(x: ThisIsANameError):  # E: Could not find name
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/3088
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3088
 testcase!(
     test_dict_with_initial_none_values,
     r#"

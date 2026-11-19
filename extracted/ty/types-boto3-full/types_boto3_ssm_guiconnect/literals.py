@@ -27,6 +27,7 @@ __all__ = ("ResourceServiceName", "SSMGUIConnectServiceName", "ServiceName")
 
 SSMGUIConnectServiceName = Literal["ssm-guiconnect"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

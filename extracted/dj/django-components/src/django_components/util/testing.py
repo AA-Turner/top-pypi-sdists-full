@@ -482,6 +482,7 @@ def _clear_djc_global_state(
                 loader.reset()
 
     # NOTE: There are 1-2 tests which check Templates, so we need to clear the cache
+    from django_components import cache as djc_cache  # noqa: PLC0415
     from django_components.cache import component_media_cache, template_cache  # noqa: PLC0415
 
     if template_cache:
@@ -489,6 +490,9 @@ def _clear_djc_global_state(
 
     if component_media_cache:
         component_media_cache.clear()
+
+    # Not only cleared, but dropped, as the next test may set different limits for it.
+    djc_cache.component_vars_cache = None
 
     if provide_cache:
         provide_cache.clear()
@@ -565,10 +569,21 @@ def _clear_djc_global_state(
     # (the precondition behind #1598).
     from django_components.autodiscovery import LOADED_MODULES  # noqa: PLC0415
 
-    for mod in LOADED_MODULES:
-        if mod not in initial_sys_modules:
-            sys.modules.pop(mod, None)
+    removed_modules = [mod for mod in LOADED_MODULES if mod not in initial_sys_modules]
     LOADED_MODULES.clear()
+    for mod in removed_modules:
+        sys.modules.pop(mod, None)
+
+    # `LOADED_MODULES` has only the modules that were imported by name, so it misses the namespace
+    # packages (directories without `__init__.py`) above them. A namespace package looks up its parent
+    # in `sys.modules` on every import from it, so if it stays while its parent is gone, the next test
+    # gets a `KeyError`. Regular modules below a removed package go too, because a later test must
+    # import them fresh instead of finding a module whose parent was replaced.
+    removed_prefixes = tuple(f"{mod}." for mod in removed_modules)
+    if removed_prefixes:
+        for mod in list(sys.modules):
+            if mod.startswith(removed_prefixes) and mod not in initial_sys_modules:
+                sys.modules.pop(mod, None)
 
     # Clear extensions caches
     extensions._route_to_url.clear()

@@ -81,12 +81,14 @@ _REGISTRY_OPTION_NAMES = frozenset(
         "dataset_ids",
         "grader_ids",
         "only_with_assertions",
+        "only_drafts",
         "category_ids",
         "skip_assertion_judging",
         "judge_assertions",
         "mock",
         "mock_override",
         "sandboxes",
+        "sandbox_modes",
         "adapt_inputs",
         "db_branch",
         "dry_run",
@@ -241,7 +243,20 @@ def _registry_dataset_ids(options: Mapping[str, Any]) -> list[str] | None:
 
 
 def _describe_selection(options: Mapping[str, Any]) -> str:
+    selection = _describe_selected_traces(options)
+    if options.get("only_drafts"):
+        return f"{selection} with a draft assertion"
+    return selection
+
+
+def _describe_selected_traces(options: Mapping[str, Any]) -> str:
     trace_ids = options.get("trace_ids")
+    dataset_ids = options.get("dataset_ids")
+    if trace_ids and dataset_ids:
+        datasets = (
+            "the dataset" if len(dataset_ids) == 1 else f"{len(dataset_ids)} datasets"
+        )
+        return f"{len(trace_ids)} traces of {datasets}"
     if trace_ids:
         return f"{len(trace_ids)} traces"
     limit = options.get("limit")
@@ -274,9 +289,16 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
             "selection instead of replacing it."
         ),
     )
-    selection = parser.add_mutually_exclusive_group()
-    selection.add_argument("--trace-ids", type=_comma_separated)
-    selection.add_argument(
+    parser.add_argument(
+        "--trace-ids",
+        type=_comma_separated,
+        help=(
+            "Traces to replay, comma separated. With --dataset-ids it replays "
+            "only these members of the datasets, recorded on the experiment "
+            "as a subset of them."
+        ),
+    )
+    parser.add_argument(
         "--dataset-ids",
         "--dataset-id",
         dest="dataset_ids",
@@ -394,13 +416,22 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
         dest="only_with_assertions",
     )
     parser.add_argument(
+        "--only-drafts",
+        action="store_true",
+        dest="only_drafts",
+        help=(
+            "Replay only traces carrying a draft assertion. With "
+            "--dataset-ids the run is recorded as a subset of the dataset."
+        ),
+    )
+    parser.add_argument(
         "--category-ids",
         dest="category_ids",
         type=_comma_separated,
         metavar="id1,id2",
         help=(
             "With --trace-ids or --dataset-ids: replay only the traces carrying "
-            "an approved assertion in one of these categories. Which "
+            "a confirmed assertion in one of these categories. Which "
             "assertions are judged stays the same."
         ),
     )
@@ -408,7 +439,7 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
         "--skip-assertion-judging",
         action="store_true",
         dest="skip_assertion_judging",
-        help="don't judge approved assertions on each replay; judging is on by default and costs model calls",
+        help="don't judge confirmed assertions on each replay; judging is on by default and costs model calls",
     )
     parser.add_argument(
         "--judge-assertions",
@@ -499,6 +530,7 @@ _RESUME_REFUSED_FLAGS = (
     ("attempts", "--attempts"),
     ("grader_ids", "--grader-ids"),
     ("only_with_assertions", "--only-with-assertions"),
+    ("only_drafts", "--only-drafts"),
     ("category_ids", "--category-ids"),
     ("dry_run", "--dry-run"),
 )
@@ -510,6 +542,7 @@ _RESUME_FIXED_OPTIONS = (
     "dataset_ids",
     "grader_ids",
     "only_with_assertions",
+    "only_drafts",
     "category_ids",
     "attempts",
     "dry_run",
@@ -862,6 +895,7 @@ _CHILD_OPTION_NAMES = (
     "mock",
     "mock_override",
     "sandboxes",
+    "sandbox_modes",
     "adapt_inputs",
     "db_branch",
     "dry_run",
@@ -1037,17 +1071,42 @@ def _run_assigned_item(
 @dataclass(frozen=True)
 class _AssertionNarrowing:
     only_with_assertions: bool = False
+    only_drafts: bool = False
     category_ids: list[str] | None = None
 
-    def narrows(self) -> bool:
+    def narrows_to_confirmed_assertions(self) -> bool:
         return self.only_with_assertions or self.category_ids is not None
 
+    def narrows(self) -> bool:
+        return self.narrows_to_confirmed_assertions() or self.only_drafts
 
-def _has_approved_assertion(
+    def keeps(self, assertions: list[dict[str, Any]]) -> bool:
+        if self.narrows_to_confirmed_assertions() and not _has_confirmed_assertion(
+            assertions, self.category_ids
+        ):
+            return False
+        return not self.only_drafts or _has_draft_assertion(assertions)
+
+    def no_match_message(self) -> str:
+        if self.only_drafts:
+            return "No traces with a draft assertion matched this replay selection."
+        if self.category_ids is None:
+            return "No traces with confirmed assertions matched this replay selection."
+        return (
+            "No traces with a confirmed assertion in the given "
+            "categories matched this replay selection."
+        )
+
+
+def _has_draft_assertion(assertions: list[dict[str, Any]]) -> bool:
+    return any(assertion.get("status") == "draft" for assertion in assertions)
+
+
+def _has_confirmed_assertion(
     assertions: list[dict[str, Any]], category_ids: list[str] | None
 ) -> bool:
     return any(
-        assertion.get("approvalState") == "approved"
+        assertion.get("status") == "confirmed"
         and (category_ids is None or assertion.get("category_id") in category_ids)
         for assertion in assertions
     )
@@ -1066,19 +1125,12 @@ def _bound_trace_ids(
     selected = []
     for trace_id in trace_ids:
         result = client.traces.get_assertions(trace_id)
-        if result["inheritedFrom"] is None and _has_approved_assertion(
-            result["assertions"], narrowing.category_ids
-        ):
+        if result["inheritedFrom"] is None and narrowing.keeps(result["assertions"]):
             selected.append(trace_id)
             if len(selected) == limit:
                 break
     if not selected:
-        raise ValueError(
-            "No traces with approved assertions matched this replay selection."
-            if narrowing.category_ids is None
-            else "No traces with an approved assertion in the given "
-            "categories matched this replay selection."
-        )
+        raise ValueError(narrowing.no_match_message())
     return selected
 
 
@@ -1218,6 +1270,8 @@ def run_replay_cli(
 
         if args.trace_ids is not None:
             options.pop("dataset_ids", None)
+            if args.dataset_ids is not None:
+                options["dataset_ids"] = args.dataset_ids
             options["trace_ids"] = args.trace_ids
         elif args.dataset_ids is not None:
             options.pop("trace_ids", None)
@@ -1230,6 +1284,7 @@ def run_replay_cli(
         narrowing = _AssertionNarrowing(
             only_with_assertions=args.only_with_assertions
             or options.get("only_with_assertions", False),
+            only_drafts=args.only_drafts or options.get("only_drafts", False),
             category_ids=category_ids,
         )
         bound = args.limit if args.limit is not None else options.get("limit")
@@ -1284,6 +1339,7 @@ def run_replay_cli(
         "mock": args.mock,
         "attempts": args.attempts,
         "only_with_assertions": args.only_with_assertions or None,
+        "only_drafts": args.only_drafts or None,
         "category_ids": args.category_ids,
         "skip_assertion_judging": args.skip_assertion_judging or None,
     }

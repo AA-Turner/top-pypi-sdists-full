@@ -6,6 +6,7 @@ import csv
 import json
 import logging
 import os
+import re
 import time
 from collections.abc import Callable
 from dataclasses import replace
@@ -94,6 +95,8 @@ from sqlbuild.adapter.contract.models import (
 from sqlbuild.adapter.contract.types import (
     BuiltinAdapter,
     CursorKind,
+    DynamicListing,
+    DynamicOperation,
     FrameworkType,
     HistoricalSnapshotCloseStyle,
     HistoricalSnapshotInsertStyle,
@@ -121,6 +124,7 @@ from sqlbuild.adapter.relations.main.run_recorded_inspection_query import (
 )
 from sqlbuild.adapter.relations.models import (
     ListedRelation,
+    RelationChange,
     SchemaColumnListing,
     SchemaRelationListing,
 )
@@ -143,6 +147,7 @@ from sqlbuild.adapters.snowflake._helpers.metadata_types import (
     information_schema_type,
     show_columns_type,
 )
+from sqlbuild.adapters.snowflake._helpers.relation_changes import relation_change_from_row
 from sqlbuild.adapters.snowflake._helpers.relation_usage import read_relation_usage
 from sqlbuild.adapters.snowflake._helpers.show_metadata import (
     is_missing_object_error,
@@ -186,6 +191,7 @@ from sqlbuild.runtime.observability.constants import COST_TELEMETRY_PURPOSE
 from sqlbuild.spec.contracts.constants import DEFAULT_SEED_CSV_SETTINGS
 
 _EXACT_COLUMN_INSPECTION_LIMIT: int = 32
+_CONCURRENT_EXACT_COLUMN_INSPECTION_LIMIT: int = 200
 _STATE_TABLE_RETENTION_ATTRIBUTE: str = "_state_table_retention_fallbacks_state"
 _METADATA_INSPECTION_CONCURRENCY: int = 8
 _SHOW_RESULT_LIMIT: int = 10_000
@@ -201,6 +207,11 @@ _RELATION_LISTING_COLUMNS: str = (
     "table_name, table_schema, table_type, is_transient, created, last_altered, retention_time"
 )
 _BULK_COLUMN_RELATION_CHUNK_SIZE: int = 2_000
+_PLAIN_WAREHOUSE_NAME: re.Pattern[str] = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
+_RELATION_CHANGE_COLUMNS: str = (
+    "table_name, table_schema, table_type, is_transient, created, last_altered, last_ddl, "
+    "retention_time"
+)
 
 
 class SnowflakeAdapter(
@@ -223,7 +234,7 @@ class SnowflakeAdapter(
     statement_limit_excludes_queueing: ClassVar[bool] = True
     metadata_inspection_concurrency: ClassVar[int] = _METADATA_INSPECTION_CONCURRENCY
     concurrent_ddl_limit: ClassVar[int] = 16
-    exact_column_inspection_limit: ClassVar[int] = _EXACT_COLUMN_INSPECTION_LIMIT
+    exact_column_inspection_limit: ClassVar[int] = _CONCURRENT_EXACT_COLUMN_INSPECTION_LIMIT
 
     max_identifier_length: ClassVar[int] = 255
     supports_session_warehouse: ClassVar[bool] = True
@@ -692,6 +703,13 @@ class SnowflakeAdapter(
             schema=schema,
         )
 
+    def render_create_runs_table_sql(self, *, database: str | None, schema: str) -> str:
+        return self._with_state_table_retention(
+            create_sql=super().render_create_runs_table_sql(database=database, schema=schema),
+            database=database,
+            schema=schema,
+        )
+
     def render_create_microbatch_state_table_sql(self, *, database: str | None, schema: str) -> str:
         return self._with_state_table_retention(
             create_sql=super().render_create_microbatch_state_table_sql(
@@ -1144,10 +1162,11 @@ class SnowflakeAdapter(
         )
 
     def _render_create_table_as_type(
-        self, *, destination: str, sql: str, table_type: str
+        self, *, destination: str, sql: str, table_type: str, change_tracking: bool = False
     ) -> tuple[str, ...]:
         table_kind: str = "TABLE" if table_type == TableType.PERMANENT else "TRANSIENT TABLE"
-        return (f"CREATE OR REPLACE {table_kind} {destination} AS {sql}",)
+        tracking: str = " CHANGE_TRACKING = TRUE" if change_tracking else ""
+        return (f"CREATE OR REPLACE {table_kind} {destination}{tracking} AS {sql}",)
 
     def render_create_view_as(self, *, destination: str, sql: str) -> tuple[str, ...]:
         return (f"CREATE OR REPLACE VIEW {destination} AS {sql}",)
@@ -1301,6 +1320,9 @@ class SnowflakeAdapter(
     def render_current_utc_timestamp(self) -> str:
         return "SYSDATE()"
 
+    def render_current_warehouse_user(self) -> str | None:
+        return "CURRENT_USER()"
+
     def create_table_as(
         self,
         *,
@@ -1312,7 +1334,10 @@ class SnowflakeAdapter(
     ) -> None:
         table_type: str = str((config or {}).get("table_type", "transient"))
         statements: tuple[str, ...] = self._render_create_table_as_type(
-            destination=destination, sql=sql, table_type=table_type
+            destination=destination,
+            sql=sql,
+            table_type=table_type,
+            change_tracking=bool((config or {}).get("change_tracking", False)),
         )
         statement_recorder.record_many(statements)
         stmt: str
@@ -2260,6 +2285,34 @@ class SnowflakeAdapter(
             retention_days=None if row[6] is None else int(row[6]),
         )
 
+    def read_relation_changes(
+        self, *, connection: _SnowflakeConnection, database: str | None, schemas: tuple[str, ...]
+    ) -> dict[str, tuple[RelationChange, ...]]:
+        """List schemas from INFORMATION_SCHEMA.TABLES, whose LAST_DDL moves with each DDL."""
+
+        placeholders: str = ", ".join(["%s"] * len(schemas))
+        query: str = (
+            f"SELECT {_RELATION_CHANGE_COLUMNS} "
+            f"FROM {self._information_schema_relation(database=database, name='tables')} "
+            f"WHERE table_schema IN ({placeholders})"
+        )
+        params: list[str] = [self._information_schema_identifier(schema) for schema in schemas]
+        if database is not None:
+            query += " AND table_catalog = %s"
+            params.append(self._information_schema_identifier(database))
+        rows: list[tuple[Any, ...]] = self._fetch_inspection_rows(
+            connection=connection, query=query, params=tuple(params)
+        )
+        changes: dict[str, list[RelationChange]] = {
+            self.metadata_name_key(schema): [] for schema in schemas
+        }
+        row: tuple[Any, ...]
+        for row in rows:
+            changes.setdefault(self.metadata_name_key(str(row[1])), []).append(
+                relation_change_from_row(row=row, database=database)
+            )
+        return {schema: tuple(listed) for schema, listed in changes.items()}
+
     def read_relation_change_token(
         self, *, connection: _SnowflakeConnection, database: str | None, schema: str, name: str
     ) -> str | None:
@@ -2281,24 +2334,45 @@ class SnowflakeAdapter(
     ) -> SchemaRelationListing:
         """List one schema's tables and views with SHOW, which needs no running warehouse."""
 
+        return self.relation_listing_from_reads(
+            database=database,
+            schema=schema,
+            results=tuple(
+                read()
+                for read in self.relation_listing_reads(
+                    connection=connection, database=database, schema=schema
+                )
+            ),
+        )
+
+    def relation_listing_reads(
+        self, *, connection: _SnowflakeConnection, database: str | None, schema: str
+    ) -> tuple[Callable[[], object], ...]:
+        """SHOW TABLES and SHOW VIEWS of one schema, independent reads that may run together."""
+
         show_database: str = self._show_database(
             connection=connection, database=database, schema=schema
         )
         scope: str = self._show_schema_scope(
             connection=connection, database=database, schema=schema
         )
-        tables: list[dict[str, object]] = self._fetch_paged_show_rows(
-            connection=connection,
-            query=f"SHOW TABLES IN SCHEMA {scope}",
-            show_database=show_database,
-            schema=schema,
+        return tuple(
+            partial(
+                self._fetch_paged_show_rows,
+                connection=connection,
+                query=f"SHOW {kind} IN SCHEMA {scope}",
+                show_database=show_database,
+                schema=schema,
+            )
+            for kind in ("TABLES", "VIEWS")
         )
-        views: list[dict[str, object]] = self._fetch_paged_show_rows(
-            connection=connection,
-            query=f"SHOW VIEWS IN SCHEMA {scope}",
-            show_database=show_database,
-            schema=schema,
-        )
+
+    def relation_listing_from_reads(
+        self, *, database: str | None, schema: str, results: tuple[object, ...]
+    ) -> SchemaRelationListing:
+        """One schema's listing from its SHOW TABLES and SHOW VIEWS rows."""
+
+        tables, views = cast(tuple[list[dict[str, object]], list[dict[str, object]]], results)
         entries: dict[str, ListedRelation] = {}
         row: dict[str, object]
         for row in tables:
@@ -3599,6 +3673,105 @@ class SnowflakeAdapter(
         del connection, destination
         return None
 
+    def session_warehouse(self, *, connection: Any) -> str | None:
+        """The session's warehouse, which refreshes a dynamic model that names none."""
+
+        rows: tuple[tuple[object, ...], ...] = self.query(
+            connection=connection, sql="SELECT CURRENT_WAREHOUSE()", limit=None
+        ).rows
+        return None if not rows or rows[0][0] is None else str(rows[0][0])
+
+    def render_create_dynamic(
+        self, *, destination: str, sql: str, target_lag: str, refresh_mode: str, warehouse: str
+    ) -> tuple[str, ...]:
+        """A dynamic table with an explicit mode and ON_CREATE, so it is readable at once."""
+
+        return (
+            f"CREATE OR REPLACE DYNAMIC TABLE {destination} TARGET_LAG = {target_lag} "
+            f"WAREHOUSE = {self._warehouse_name(warehouse)} "
+            f"REFRESH_MODE = {refresh_mode.upper()} INITIALIZE = ON_CREATE AS {sql}",
+        )
+
+    def render_alter_dynamic(
+        self, *, destination: str, target_lag: str, warehouse: str | None
+    ) -> tuple[str, ...]:
+        """The lag, and a declared warehouse, set in place."""
+
+        statements: list[str] = [f"ALTER DYNAMIC TABLE {destination} SET TARGET_LAG = {target_lag}"]
+        if warehouse is not None:
+            statements.append(
+                f"ALTER DYNAMIC TABLE {destination} "
+                f"SET WAREHOUSE = {self._warehouse_name(warehouse)}"
+            )
+        return tuple(statements)
+
+    def render_dynamic_operation(
+        self, *, destination: str, operation: DynamicOperation
+    ) -> tuple[str, ...]:
+        return (f"ALTER DYNAMIC TABLE {destination} {operation.value.upper()}",)
+
+    def render_track_changes(self, *, destination: str) -> tuple[str, ...]:
+        return (f"ALTER TABLE {destination} SET CHANGE_TRACKING = TRUE",)
+
+    def _warehouse_name(self, warehouse: str) -> str:
+        """A plain warehouse name as written, resolved without case; any other quoted exactly."""
+
+        if _PLAIN_WAREHOUSE_NAME.fullmatch(warehouse):
+            return warehouse
+        return '"' + warehouse.replace('"', '""') + '"'
+
+    def dynamic_listing(
+        self, *, connection: Any, database: str | None, schema: str | None, name: str
+    ) -> DynamicListing | None:
+        """The dynamic table's lag, warehouse and scheduling state from SHOW DYNAMIC TABLES."""
+
+        row: dict[str, object] | None = self._listed_dynamic_table(
+            connection=connection, database=database, schema=schema, name=name
+        )
+        if row is None:
+            return None
+        return DynamicListing(
+            target_lag=str(row.get("target_lag")),
+            warehouse=str(row.get("warehouse")),
+            scheduling_state=str(row.get("scheduling_state")),
+        )
+
+    def _listed_dynamic_table(
+        self, *, connection: Any, database: str | None, schema: str | None, name: str
+    ) -> dict[str, object] | None:
+        if schema is None:
+            return None
+        return self._show_named_row(
+            connection=connection,
+            listing="DYNAMIC TABLES",
+            database=database,
+            schema=schema,
+            name=name,
+        )
+
+    def _show_named_row(
+        self, *, connection: Any, listing: str, database: str | None, schema: str, name: str
+    ) -> dict[str, object] | None:
+        """The SHOW <listing> row for exactly this name in the schema, if it lists one."""
+
+        stored_name: str = self._information_schema_identifier(name)
+        rows: list[dict[str, object]] = self._fetch_schema_show_rows(
+            connection=connection,
+            query=(
+                f"SHOW {listing} LIKE '{show_like_pattern(stored_name)}' IN SCHEMA "
+                + self._show_schema_scope(connection=connection, database=database, schema=schema)
+            ),
+            show_database=self._show_database(
+                connection=connection, database=database, schema=schema
+            ),
+            schema=schema,
+        )
+        row: dict[str, object]
+        for row in rows:
+            if str(row.get("name")) == stored_name:
+                return row
+        return None
+
     def widen_target_nullability(
         self,
         *,
@@ -3731,27 +3904,14 @@ class SnowflakeAdapter(
     ) -> tuple[Any, Any] | None:
         """Rows and bytes of one table; a view or other object lists neither."""
 
-        stored_name: str = self._information_schema_identifier(name)
-        rows: list[dict[str, object]] = self._fetch_schema_show_rows(
-            connection=connection,
-            query=(
-                f"SHOW OBJECTS LIKE '{show_like_pattern(stored_name)}' IN SCHEMA "
-                + self._show_schema_scope(connection=connection, database=database, schema=schema)
-            ),
-            show_database=self._show_database(
-                connection=connection, database=database, schema=schema
-            ),
-            schema=schema,
+        row: dict[str, object] | None = self._show_named_row(
+            connection=connection, listing="OBJECTS", database=database, schema=schema, name=name
         )
-        row: dict[str, object]
-        for row in rows:
-            if str(row.get("name")) == stored_name:
-                return (
-                    (row.get("rows"), row.get("bytes"))
-                    if str(row.get("kind")) == SHOW_OBJECTS_TABLE_KIND
-                    else (None, None)
-                )
-        return None
+        if row is None:
+            return None
+        if str(row.get("kind")) != SHOW_OBJECTS_TABLE_KIND:
+            return (None, None)
+        return (row.get("rows"), row.get("bytes"))
 
     def inspect_row_diff_coverage(
         self,

@@ -126,7 +126,13 @@ class Motivo(CompanyAssetModel):
             "WhatsApp directo la bienvenida sale antes de clasificar y va la general."
         ),
     )
-    respuesta: Optional[Accion] = Field(default=None, description="¿Qué les enviamos?")
+    # 0.6.57.6 — Opcional en todos lados: la bienvenida puede ser todo el mensaje. En Consulta general, None = no se
+    # envía nada después de la bienvenida (la efectiva es «nada»); en un motivo, None = como en Consulta general y
+    # `{tipo: "nada"}` = no envía aunque Consulta general envíe.
+    respuesta: Optional[Accion] = Field(
+        default=None,
+        description="¿Qué les enviamos? Opcional. En Consulta general, sin respuesta no se envía nada después de la bienvenida.",
+    )
     seguimientos: Optional[Seguimientos] = Field(default=None, description="Si no responde")
     al_responder: Optional[AlResponder] = Field(default=None, description="Cuando responde")
     # 0.6.9 / 0.5.11 — «Si responde»: acciones fijas (etiquetas, productos, etapa, pendiente) cuando el
@@ -151,7 +157,11 @@ class Motivo(CompanyAssetModel):
     # activarlo a mano (lo baja). Con `borrador` el motivo SIEMPRE está inactivo (lo fuerza el validador).
     borrador: bool = Field(
         default=False,
-        description="Nació sin respuesta: inactivo hasta completar «¿Qué les enviamos?» (al completarla se activa).",
+        description=(
+            "Inactivo hasta activarlo a mano o completar «¿Qué les enviamos?» (se activa solo). Desde 0.6.57.6 un "
+            "motivo nuevo ya no nace en borrador por no tener respuesta (la respuesta es opcional): queda por los "
+            "que ya estaban y por quien lo pida explícito."
+        ),
     )
 
     preview_class: ClassVar[type[MotivoPreview]] = MotivoPreview
@@ -174,6 +184,10 @@ class Motivo(CompanyAssetModel):
             )
         if self.asignar_al_entrar is not None and self.asignar_al_entrar.modo == ModoAsignacion.NADIE:
             raise ValueError("Asignar al entrar va a una persona o al reparto: para no asignar, sacalo")
+        identifica = (getattr(self.si_responde, "identificar_motivo", False)
+                      or getattr(getattr(self.seguimientos, "si_responde", None), "identificar_motivo", False))
+        if identifica and not self.is_fallback:
+            raise ValueError("«Identificar el motivo y pasarlo» es sólo de Consulta general")
         if self.is_fallback:
             self.borrador = False
         if self.borrador:
@@ -185,6 +199,11 @@ class Motivo(CompanyAssetModel):
                     "Consulta general no tiene bienvenida propia: su bienvenida es la general"
                 )
         return self
+
+    def identifica_el_motivo(self) -> bool:
+        """0.6.57.7 — ¿Consulta general tiene «Identificar el motivo y pasarlo» en «Si responde» (de su respuesta)?
+        El de sus seguimientos lo lee el gancho de «Si responde a un seguimiento»."""
+        return bool(self.is_fallback and getattr(self.si_responde, "identificar_motivo", False))
 
     def precalificacion_definida(self) -> Optional[tuple[str, Any]]:
         """(dónde, `Precalificacion`) de la precalificación que ESTE motivo define, o None: la de su
@@ -203,12 +222,15 @@ class Motivo(CompanyAssetModel):
         """En Consulta general, lo que todavía no se configuró (es la base de la herencia: no
         puede decir «como en Consulta general»). En cualquier otro motivo, [].
 
+        `respuesta` NO falta nunca (0.6.57.6): sin respuesta, Consulta general no envía nada
+        después de la bienvenida, y eso es una configuración válida.
+
         «Cuando responde» se hereda campo por campo, así que un `al_responder` definido pero a
         medias también falta: se reportan `al_responder.ia` y/o `al_responder.asignar`. El agente
         (`chatty_ai_agent_id`) puede quedar en None."""
         if not self.is_fallback:
             return []
-        faltan = [b for b in ("respuesta", "seguimientos", "al_responder") if getattr(self, b) is None]
+        faltan = [b for b in ("seguimientos", "al_responder") if getattr(self, b) is None]
         if self.al_responder is not None:
             faltan += [f"al_responder.{c}" for c in ("ia", "asignar") if getattr(self.al_responder, c) is None]
         return faltan

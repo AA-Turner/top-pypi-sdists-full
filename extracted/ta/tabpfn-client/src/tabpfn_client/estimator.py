@@ -29,7 +29,10 @@ from tabpfn_client.client import (
     _resume_hint,
 )
 from tabpfn_client.config import Config, init
-from tabpfn_client.constants import URL_TABPFN_EXTENSIONS_GITHUB_MANY_CLASS_CODE
+from tabpfn_client.constants import (
+    MIN_TRAIN_ROWS,
+    URL_TABPFN_EXTENSIONS_GITHUB_MANY_CLASS_CODE,
+)
 from tabpfn_client.errors import (
     CrossValidateFailedError,
     FitFailedError,
@@ -67,7 +70,13 @@ from tabpfn_client.api_models import (
     FitTimings,
     GetCrossValidateResultResponse,
 )
-from tabpfn_client.models import ApiMode, TabPFNConfig, FitModeLiteral
+from tabpfn_client.models import (
+    ApiMode,
+    ClassifierPresetLiteral,
+    FitModeLiteral,
+    RegressorPresetLiteral,
+    TabPFNConfig,
+)
 from tabpfn_client.persistence import ModelPersistenceMixin, _PendingPredict
 
 try:
@@ -117,12 +126,15 @@ class _PendingCrossValPredict:
         n_rows: The rows of the train set, which the predictions cover.
         method: `"predict"` or `"predict_proba"`.
         classes: The classes of the classifier's targets; None for a regressor.
+        split_rows: For `cross_val_predict_splits()`, the test rows of each
+            split; None for `cross_val_predict()`.
     """
 
     cv_job_id: UUID
     n_rows: int
     method: str
     classes: np.ndarray | None = None
+    split_rows: tuple[int, ...] | None = None
 
 
 class TabPFNModelSelection:
@@ -239,6 +251,9 @@ class _AsyncMixin(ModelPersistenceMixin):
     paper_version: bool
     thinking_mode: bool
     thinking_effort: ThinkingEffort | None
+    group_col: str | list[str] | None
+    time_col: str | None
+    group_time_col: str | None
     api_mode: ApiMode
     _fit_count: int
 
@@ -482,18 +497,59 @@ class _AsyncMixin(ModelPersistenceMixin):
             for the method the cross-validation was started with.
 
         Raises:
-            RuntimeError: If no cross-validation is pending, or polling for it
-                fails.
+            RuntimeError: If no cross-validation is pending, the pending one
+                came from `cross_val_predict_splits()`, or polling for it fails.
             CrossValidateFailedError: If the server reports that the job
                 failed, or does not have it. It is then no longer pending.
             TimeoutError: If the job has not completed within
                 `TABPFN_CLIENT_ASYNC_POLL_TIMEOUT` seconds.
         """
-        return self._await_cross_val_predict()
+        self._check_pending_kind(splits=False)
+        return cast("np.ndarray", self._await_cross_val_predict())
+
+    def wait_for_cross_val_predict_splits(self) -> list[np.ndarray]:
+        """Wait for the cross-validation `cross_val_predict_splits()` stopped
+        waiting for, and return its predictions.
+
+        It stays pending until it has completed, as for
+        `wait_for_cross_val_predict()`.
+
+        Returns:
+            One array per split, as `cross_val_predict_splits()` returns them.
+
+        Raises:
+            RuntimeError: If no cross-validation is pending, the pending one
+                did not come from `cross_val_predict_splits()`, or polling for
+                it fails.
+            CrossValidateFailedError: If the server reports that the job
+                failed, or does not have it. It is then no longer pending.
+            TimeoutError: If the job has not completed within
+                `TABPFN_CLIENT_ASYNC_POLL_TIMEOUT` seconds.
+        """
+        self._check_pending_kind(splits=True)
+        return cast("list[np.ndarray]", self._await_cross_val_predict())
+
+    def _check_pending_kind(self, *, splits: bool) -> None:
+        """Raise if the pending cross-validation was started by the other method.
+
+        Raises:
+            RuntimeError: If it was.
+        """
+        pending = self._pending_cross_val_predict
+        if pending is not None and (pending.split_rows is not None) != splits:
+            wait = (
+                "wait_for_cross_val_predict_splits()"
+                if pending.split_rows is not None
+                else "wait_for_cross_val_predict()"
+            )
+            raise RuntimeError(
+                f"The pending cross-validation {pending.cv_job_id} is waited for "
+                f"with {wait}."
+            )
 
     def _await_cross_val_predict(
         self, first_poll_delay_secs: float = 0.0
-    ) -> np.ndarray:
+    ) -> np.ndarray | list[np.ndarray]:
         """Wait for the pending cross-validation, as `wait_for_cross_val_predict()`.
 
         Polls first after `first_poll_delay_secs`.
@@ -516,7 +572,7 @@ class _AsyncMixin(ModelPersistenceMixin):
         except CrossValidateFailedError:
             self._pending_cross_val_predict = None
             raise
-        output = _cross_val_predictions(result, pending, self.client_options)
+        output = _pending_predictions(result, pending, self.client_options)
         self._pending_cross_val_predict = None
         return output
 
@@ -537,14 +593,21 @@ class _AsyncMixin(ModelPersistenceMixin):
 
         Raises:
             ValueError: If thinking mode is on, the data exceeds the model
-                limits, or the splits are not disjoint test sets that each
-                train on every other row.
+                limits, the group columns are invalid for `X`, or the splits are
+                not disjoint test sets that each train on every other row.
         """
         text_handling = validate_text_handling(self.text_handling)
         if _resolve_thinking_mode(self.thinking_mode, self.thinking_effort):
             raise ValueError("cross_val_predict() does not support thinking mode.")
         init()
         validate_train_set(X, y, model_path=self._get_tabpfn_config().model_path)
+        _validate_group_columns(
+            X,
+            enabled=False,
+            group_col=self.group_col,
+            time_col=self.time_col,
+            group_time_col=self.group_time_col,
+        )
         fold_ids = _cv_fold_ids(cv, X, y, groups, classifier=classifier)
         return _clean_text_features(X), fold_ids, text_handling
 
@@ -568,13 +631,7 @@ class _AsyncMixin(ModelPersistenceMixin):
         Returns:
             The out-of-fold predictions, or None with `submit`.
         """
-        client_options = ClientOptions(
-            timeout=self.client_options.timeout,
-            headers=dict(self.client_options.headers),
-        )
-        # A trace of its own, unless the caller set one before any fit.
-        if self._fit_count > 0 or "sentry-trace" not in client_options.headers:
-            client_options.headers["sentry-trace"] = uuid4().hex
+        client_options = self._cross_val_client_options()
         result = InferenceClient.cross_validate(
             X_clean,
             y,
@@ -600,7 +657,94 @@ class _AsyncMixin(ModelPersistenceMixin):
             output = _cross_val_predictions(result, pending, self.client_options)
             self._pending_cross_val_predict = None
             return output
-        return self._await_cross_val_predict(result.retry_in_secs or 0.0)
+        return cast(
+            "np.ndarray", self._await_cross_val_predict(result.retry_in_secs or 0.0)
+        )
+
+    def _cross_val_client_options(self) -> ClientOptions:
+        """The model's client options for a cross-validation.
+
+        It gets a trace of its own, unless the caller set one before any fit.
+        """
+        client_options = ClientOptions(
+            timeout=self.client_options.timeout,
+            headers=dict(self.client_options.headers),
+        )
+        if self._fit_count > 0 or "sentry-trace" not in client_options.headers:
+            client_options.headers["sentry-trace"] = uuid4().hex
+        return client_options
+
+    def _cross_val_predict_splits(
+        self,
+        splits: Any,
+        categorical_features_indices: list[list[int] | None] | None,
+        *,
+        make_task_config: Callable[[], ClassifierConfig | RegressorConfig],
+        method: str,
+        validate_targets: Callable[[np.ndarray], np.ndarray | None],
+    ) -> list[np.ndarray]:
+        """Cross-validate on caller-built splits, as `cross_val_predict_splits()`.
+
+        Raises:
+            ValueError: If thinking mode is on, there are no splits, a split's
+                data is invalid, or its test rows have other columns than its
+                training rows.
+        """
+        text_handling = validate_text_handling(self.text_handling)
+        if _resolve_thinking_mode(self.thinking_mode, self.thinking_effort):
+            raise ValueError(
+                "cross_val_predict_splits() does not support thinking mode."
+            )
+        splits = list(splits)
+        if not splits:
+            raise ValueError("There are no splits to cross-validate.")
+        init()
+        model_path = self._get_tabpfn_config().model_path
+        uploads = []
+        for index, (X_train, y_train, X_test) in enumerate(splits):
+            _validate_group_columns(
+                X_train,
+                enabled=False,
+                group_col=self.group_col,
+                time_col=self.time_col,
+                group_time_col=self.group_time_col,
+            )
+            upload = _split_upload(index, X_train, y_train, X_test)
+            # The server takes the training and test rows as one train set.
+            validate_train_set(upload[0], upload[1], model_path=model_path)
+            uploads.append(upload)
+        # A classifier's classes span every split's targets.
+        classes = validate_targets(
+            np.concatenate([column_or_1d(y) for _, y, _ in splits])
+        )
+
+        client_options = self._cross_val_client_options()
+        result = InferenceClient.cross_validate_splits(
+            uploads,
+            task_config=make_task_config(),
+            tabpfn_systems=_build_tabpfn_systems(self.paper_version, False),
+            categorical_features_indices=categorical_features_indices,
+            text_handling=text_handling,
+            api_mode=ApiMode(self.api_mode),
+            client_options=client_options,
+            wait=False,
+        )
+        split_rows = tuple(num_val_rows for _, _, num_val_rows in uploads)
+        pending = _PendingCrossValPredict(
+            cv_job_id=result.cv_job_id,
+            n_rows=sum(split_rows),
+            method=method,
+            classes=classes,
+            split_rows=split_rows,
+        )
+        self._drop_pending_cross_val_predict()
+        self._pending_cross_val_predict = pending
+        if result.status == "completed":
+            output = _pending_predictions(result, pending, self.client_options)
+            self._pending_cross_val_predict = None
+        else:
+            output = self._await_cross_val_predict(result.retry_in_secs or 0.0)
+        return cast("list[np.ndarray]", output)
 
     def _drop_pending_cross_val_predict(self) -> None:
         """Forget the pending cross-validation, if there is one, logging its id."""
@@ -665,11 +809,12 @@ class TabPFNClassifier(
         n_estimators: int | None = None,
         softmax_temperature: float | None = None,
         balance_probabilities: bool = False,
-        average_before_softmax: bool | None = None,
+        average_before_softmax: bool | Literal["auto"] | None = None,
         ignore_pretraining_limits: bool = False,
         inference_precision: Literal["autocast", "auto"] | None = None,
         random_state: int | None = 0,
         inference_config: dict[str, Any] | None = None,
+        presets: ClassifierPresetLiteral | list[ClassifierPresetLiteral] | None = None,
         categorical_features_indices: list[int] | None = None,
         fit_mode: FitModeLiteral | None = None,
         # end: tabpfn_config
@@ -730,7 +875,9 @@ class TabPFNClassifier(
                 the estimators before applying the softmax function. This can help to
                 improve predictive performance when there are many classes or when
                 calibrating the model's confidence. This is only applied when predicting
-                during a post-processing step. If None, the server default is used.
+                during a post-processing step. `"auto"` or None take the setting of
+                the checkpoint. True or False cannot be combined with
+                `AVERAGE_BEFORE_SOFTMAX` in `inference_config`.
 
             ignore_pretraining_limits:
                 Whether to ignore the pre-training limits of the model. The TabPFN
@@ -754,6 +901,12 @@ class TabPFNClassifier(
                 behavior of the model interface. See `InferenceConfig` in the tabpfn
                 package for details and options. For the client, the inference_config
                 and the preprocess transforms need to be dictionaries.
+
+            presets:
+                Names of bundles of `inference_config` values. `"grouped"` pools the
+                predictions of a group and needs `group_col`; predict all rows of a
+                group in one call. The keys of `inference_config` win over every
+                preset. If None, the model uses the settings of its checkpoint.
 
             categorical_features_indices:
                 The indices of the columns that should be treated as categorical.
@@ -821,11 +974,12 @@ class TabPFNClassifier(
 
             group_col:
                 New since 0.6.0. Column(s) of `X` that identify groups of related
-                rows, e.g. a patient or a session id. During the fit, the rows of
-                one group are never split between training and validation. The fit
-                may also use the other rows of a group to predict a row of it.
-                Requires thinking mode, and `X` passed to `fit` and `predict` must
-                be a pandas DataFrame that holds the column(s).
+                rows, e.g. a patient or a session id. The model replaces them with
+                one categorical feature that holds the group. In thinking mode, the
+                rows of one group are also never split between training and
+                validation, and the fit may use the other rows of a group to predict
+                a row of it. `X` passed to `fit` and `predict` must be a pandas
+                DataFrame that holds the column(s).
 
             time_col:
                 New since 0.6.0. Column of `X` that holds time, as datetimes or
@@ -878,6 +1032,7 @@ class TabPFNClassifier(
         self.inference_precision = inference_precision
         self.random_state = random_state
         self.inference_config = inference_config
+        self.presets = presets
         self.fit_mode = fit_mode
         self.text_handling = text_handling
         self.paper_version = paper_version
@@ -1239,6 +1394,65 @@ class TabPFNClassifier(
         self._cross_val_predict(X, y, cv, groups, method, submit=True)
         return self
 
+    def cross_val_predict_splits(
+        self,
+        splits: Any,
+        *,
+        method: ClassifierCrossValMethodLiteral = "predict",
+        categorical_features_indices: list[list[int] | None] | None = None,
+    ) -> list[np.ndarray]:
+        """Fit and predict splits you built yourself, in one job on the server.
+
+        Unlike `cross_val_predict()`, each split brings its own rows, so its
+        features can come from steps fitted on that split's training rows
+        only, such as the preprocessing in a pipeline. Every split is uploaded
+        on its own. This does not fit the model. `api_mode` applies as for
+        `fit()`, by the total size of the splits.
+
+        Args:
+            splits: An iterable of `(X_train, y_train, X_test)`. `X_test` has
+                the columns of `X_train`, or as many when it is an array; the
+                splits may differ in columns. The training and test rows are
+                uploaded together, so the model limits apply to both.
+            method: `"predict"` for class labels, `"predict_proba"` for the
+                probabilities of the classes in sorted order.
+            categorical_features_indices: Per split, the categorical columns
+                of its features; None, or None for a split, keeps the model's
+                `categorical_features_indices`.
+
+        Returns:
+            One array per split, for its `X_test` rows in order: shape
+            (n_test,) for `"predict"`, or (n_test, n_classes) for
+            `"predict_proba"`. The classes are those of every split's
+            `y_train`; a split whose training rows lack a class predicts it
+            with probability 0.
+
+        Raises:
+            ValueError: If `method` is unknown, thinking mode is on, there are
+                no splits, a split's training and test rows together exceed
+                the model limits, or a split's `X_test` has other columns, or
+                columns of another kind, than its `X_train`.
+            CrossValidateFailedError: If the server reports that the job
+                failed.
+            RuntimeError: If the server rejects the request.
+            TimeoutError: If the job has not completed within
+                `TABPFN_CLIENT_ASYNC_POLL_TIMEOUT` seconds. The model then
+                holds it: call `wait_for_cross_val_predict_splits()`.
+        """
+        _validate_choice("method", method, ClassifierCrossValMethodLiteral)
+        return self._cross_val_predict_splits(
+            splits,
+            categorical_features_indices,
+            make_task_config=lambda: ClassifierConfig(
+                tabpfn_config=self._get_tabpfn_config(),
+                predict_params=ClassifierPredictParams(
+                    output_type=ClassifierOutputType.PROBAS
+                ),
+            ),
+            method=method,
+            validate_targets=self._validate_targets_and_classes,
+        )
+
     def _cross_val_predict(
         self,
         X: pd.DataFrame | np.ndarray,
@@ -1369,6 +1583,14 @@ class TabPFNClassifier(
             # Nones are treated as unset
             if k in ClassifierTabPFNConfig.model_fields and v is not None
         }
+        presets = [self.presets] if isinstance(self.presets, str) else self.presets
+        if "zero_inflated" in (presets or []):
+            raise ValueError(
+                "The `zero_inflated` preset is for regression only. Use TabPFNRegressor."
+            )
+        if _resolve_thinking_mode(self.thinking_mode, self.thinking_effort):
+            # Thinking mode sends the group columns in its own config.
+            cfg.pop("group_col", None)
         return ClassifierTabPFNConfig.model_validate(cfg)
 
     def _get_predict_params(self, kwargs: dict[str, Any]) -> ClassifierPredictParams:
@@ -1456,11 +1678,12 @@ class TabPFNRegressor(
         model_path: str | None = None,
         n_estimators: int | None = None,
         softmax_temperature: float | None = None,
-        average_before_softmax: bool | None = None,
+        average_before_softmax: bool | Literal["auto"] | None = None,
         ignore_pretraining_limits: bool = False,
         inference_precision: Literal["autocast", "auto"] | None = None,
         random_state: int | None = 0,
         inference_config: dict[str, Any] | None = None,
+        presets: RegressorPresetLiteral | list[RegressorPresetLiteral] | None = None,
         categorical_features_indices: list[int] | None = None,
         fit_mode: FitModeLiteral | None = None,
         # end: tabpfn_config
@@ -1514,8 +1737,9 @@ class TabPFNRegressor(
                 Only used if `n_estimators > 1`. Whether to average the predictions of
                 the estimators before applying the softmax function. This can help to
                 improve predictive performance when calibrating the model's confidence.
-                This is only applied when predicting during a post-processing step. If
-                None, the server default is used.
+                This is only applied when predicting during a post-processing step.
+                `"auto"` or None take the setting of the checkpoint. True or False
+                cannot be combined with `AVERAGE_BEFORE_SOFTMAX` in `inference_config`.
 
             ignore_pretraining_limits:
                 Whether to ignore the pre-training limits of the model. The TabPFN
@@ -1539,6 +1763,16 @@ class TabPFNRegressor(
                 behavior of the model interface. See `InferenceConfig` in the tabpfn
                 package for details and options. For the client, the inference_config
                 and the preprocess transforms need to be dictionaries.
+
+            presets:
+                Names of bundles of `inference_config` values. `"zero_inflated"` is
+                for nonnegative targets with many exact zeros. `"grouped"` pools the
+                predictions of a group and needs `group_col`; predict all rows of a
+                group in one call. Presets combine, as in
+                `["zero_inflated", "grouped"]`, and none overrides another: presets
+                that set one setting to different values are rejected. The keys of
+                `inference_config` win over every preset. If None, the model uses
+                the settings of its checkpoint.
 
             categorical_features_indices:
                 The indices of the columns that should be treated as categorical.
@@ -1597,11 +1831,12 @@ class TabPFNRegressor(
 
             group_col:
                 New since 0.6.0. Column(s) of `X` that identify groups of related
-                rows, e.g. a patient or a session id. During the fit, the rows of
-                one group are never split between training and validation. The fit
-                may also use the other rows of a group to predict a row of it.
-                Requires thinking mode, and `X` passed to `fit` and `predict` must
-                be a pandas DataFrame that holds the column(s).
+                rows, e.g. a patient or a session id. The model replaces them with
+                one categorical feature that holds the group. In thinking mode, the
+                rows of one group are also never split between training and
+                validation, and the fit may use the other rows of a group to predict
+                a row of it. `X` passed to `fit` and `predict` must be a pandas
+                DataFrame that holds the column(s).
 
             time_col:
                 New since 0.6.0. Column of `X` that holds time, as datetimes or
@@ -1653,6 +1888,7 @@ class TabPFNRegressor(
         self.inference_precision = inference_precision
         self.random_state = random_state
         self.inference_config = inference_config
+        self.presets = presets
         self.fit_mode = fit_mode
         self.text_handling = text_handling
         self.paper_version = paper_version
@@ -2066,6 +2302,65 @@ class TabPFNRegressor(
         self._cross_val_predict(X, y, cv, groups, method, output_type, submit=True)
         return self
 
+    def cross_val_predict_splits(
+        self,
+        splits: Any,
+        *,
+        method: RegressorCrossValMethodLiteral = "predict",
+        output_type: RegressorCrossValOutputLiteral = "mean",
+        categorical_features_indices: list[list[int] | None] | None = None,
+    ) -> list[np.ndarray]:
+        """Fit and predict splits you built yourself, in one job on the server.
+
+        Unlike `cross_val_predict()`, each split brings its own rows, so its
+        features can come from steps fitted on that split's training rows
+        only, such as the preprocessing in a pipeline. Every split is uploaded
+        on its own. This does not fit the model. `api_mode` applies as for
+        `fit()`, by the total size of the splits.
+
+        Args:
+            splits: An iterable of `(X_train, y_train, X_test)`. `X_test` has
+                the columns of `X_train`, or as many when it is an array; the
+                splits may differ in columns. The training and test rows are
+                uploaded together, so the model limits apply to both.
+            method: `"predict"`, as for `cross_val_predict()`.
+            output_type: `"mean"`, `"median"` or `"mode"`, as for
+                `cross_val_predict()`.
+            categorical_features_indices: Per split, the categorical columns
+                of its features; None, or None for a split, keeps the model's
+                `categorical_features_indices`.
+
+        Returns:
+            One array of shape (n_test,) per split, for its `X_test` rows in
+            order.
+
+        Raises:
+            ValueError: If `method` or `output_type` is unknown, thinking mode
+                is on, there are no splits, a split's training and test rows
+                together exceed the model limits, or a split's `X_test` has
+                other columns, or columns of another kind, than its `X_train`.
+            CrossValidateFailedError: If the server reports that the job
+                failed.
+            RuntimeError: If the server rejects the request.
+            TimeoutError: If the job has not completed within
+                `TABPFN_CLIENT_ASYNC_POLL_TIMEOUT` seconds. The model then
+                holds it: call `wait_for_cross_val_predict_splits()`.
+        """
+        _validate_choice("method", method, RegressorCrossValMethodLiteral)
+        _validate_choice("output_type", output_type, RegressorCrossValOutputLiteral)
+        return self._cross_val_predict_splits(
+            splits,
+            categorical_features_indices,
+            make_task_config=lambda: RegressorConfig(
+                tabpfn_config=self._get_tabpfn_config(),
+                predict_params=RegressorPredictParams.model_validate(
+                    {"output_type": output_type}
+                ),
+            ),
+            method=method,
+            validate_targets=self._validate_targets,
+        )
+
     def _cross_val_predict(
         self,
         X: pd.DataFrame | np.ndarray,
@@ -2244,6 +2539,9 @@ class TabPFNRegressor(
             # Nones are treated as unset
             if k in RegressorTabPFNConfig.model_fields and v is not None
         }
+        if _resolve_thinking_mode(self.thinking_mode, self.thinking_effort):
+            # Thinking mode sends the group columns in its own config.
+            cfg.pop("group_col", None)
         return RegressorTabPFNConfig.model_validate(cfg)
 
     def _get_predict_params(self, kwargs: dict[str, Any]) -> RegressorPredictParams:
@@ -2283,13 +2581,20 @@ def validate_train_set(
         thinking: Whether the fit runs in thinking mode, which has its own limits.
 
     Raises:
-        ValueError: If `X` and `y` differ in length, or `X` exceeds the model's
-            row, column or upload-cell limits.
+        ValueError: If `X` has fewer than 2 rows, `X` and `y` differ in length,
+            or `X` exceeds the model's row, column or upload-cell limits.
     """
     # check if the number of samples is consistent (ValueError)
     if y is not None:
         if X.shape[0] != y.shape[0]:
             raise ValueError("X and y must have the same number of samples")
+
+    # Reject before uploading; the server can't fit fewer rows (issue #73).
+    if X.shape[0] < MIN_TRAIN_ROWS:
+        raise ValueError(
+            f"Found {X.shape[0]} sample(s) in the training set, but at least "
+            f"{MIN_TRAIN_ROWS} are required."
+        )
 
     limit: ModelLimit | ThinkingLimit | None = None
     if thinking:
@@ -2685,21 +2990,22 @@ def _validate_group_columns(
     """Check `group_col`, `time_col` and `group_time_col` against `X` and thinking mode.
 
     The server reads these columns by name from the data passed to `fit` and to
-    `predict`, so `X` must be a DataFrame that holds them. For now only thinking mode
-    uses them.
+    `predict`, so `X` must be a DataFrame that holds them. `time_col` and
+    `group_time_col` need thinking mode.
 
     Raises:
-        ValueError: A column is named without thinking mode, the combination is
-            invalid, `X` is not a DataFrame, or `X` lacks a named column.
+        ValueError: `time_col` or `group_time_col` is set without thinking mode, the
+            combination is invalid, `X` is not a DataFrame, or `X` lacks a named
+            column.
     """
     group_cols = [group_col] if isinstance(group_col, str) else list(group_col or [])
     named = [*group_cols, *(c for c in (time_col, group_time_col) if c is not None)]
     if not named:
         return
-    if not enabled:
+    if not enabled and (time_col is not None or group_time_col is not None):
         raise ValueError(
-            "`group_col`, `time_col` and `group_time_col` are only supported in "
-            "thinking mode. Set `thinking_mode=True`."
+            "`time_col` and `group_time_col` are only supported in thinking mode. "
+            "Set `thinking_mode=True`."
         )
     if group_col is not None and time_col is not None:
         raise ValueError("`group_col` and `time_col` cannot be combined.")
@@ -2763,6 +3069,122 @@ def _cv_fold_ids(
         if train.size == 0:
             raise ValueError(f"Split {fold} has an empty train set.")
     return fold_ids.tolist()
+
+
+def _split_upload(
+    index: int, X_train: Any, y_train: Any, X_test: Any
+) -> tuple[Any, np.ndarray, int]:
+    """A split as the server takes it: the training rows, then the test rows.
+
+    The test rows' targets are never used; they repeat the first training
+    label, so they add no class and keep the targets' dtype.
+
+    Raises:
+        ValueError: If `X_test` has no row, other columns than `X_train`, or a
+            column whose values would change the kind of the training column
+            once the two are joined.
+    """
+    train = X_train if isinstance(X_train, pd.DataFrame) else pd.DataFrame(X_train)
+    if isinstance(X_test, pd.DataFrame):
+        test = X_test
+    else:
+        test = pd.DataFrame(X_test)
+        if test.shape[1] == train.shape[1]:
+            test.columns = train.columns
+    if len(test) == 0:
+        raise ValueError(f"Split {index} has no test rows.")
+    if list(train.columns) != list(test.columns):
+        raise ValueError(
+            f"Split {index}'s X_test has the columns {list(test.columns)}, "
+            f"not those of its X_train, {list(train.columns)}."
+        )
+    X = pd.concat([train, test], ignore_index=True)
+    changed = [
+        column
+        for column in train.columns
+        if X[column].dtype != train[column].dtype
+        and not (
+            pd.api.types.is_numeric_dtype(train[column])
+            and pd.api.types.is_numeric_dtype(X[column])
+        )
+    ]
+    if changed:
+        raise ValueError(
+            f"Split {index}'s X_test changes the type of the columns {changed} "
+            "once joined to its X_train: give both the same dtypes (for a "
+            "categorical column, the same categories)."
+        )
+    y = column_or_1d(y_train)
+    y = np.concatenate([y, np.repeat(y[:1], len(test))])
+    return _clean_text_features(X), y, len(test)
+
+
+def _pending_predictions(
+    result: GetCrossValidateResultResponse,
+    pending: _PendingCrossValPredict,
+    client_options: ClientOptions,
+) -> np.ndarray | list[np.ndarray]:
+    """The predictions of a completed job, in the form its method returns.
+
+    Raises:
+        RuntimeError: If the job's prediction files do not match its splits.
+    """
+    if pending.split_rows is None:
+        return _cross_val_predictions(result, pending, client_options)
+    urls = result.split_urls or []
+    if len(urls) != len(pending.split_rows):
+        raise RuntimeError(
+            f"Cross-validation job {result.cv_job_id} sent {len(urls)} "
+            f"prediction files for {len(pending.split_rows)} splits."
+        )
+    frames = InferenceClient.download_cross_validate_predictions(urls, client_options)
+    return [
+        _split_predictions(frame, n_rows, result, pending.classes, pending.method)
+        for frame, n_rows in zip(frames, pending.split_rows)
+    ]
+
+
+def _split_predictions(
+    frame: pd.DataFrame,
+    n_rows: int,
+    result: GetCrossValidateResultResponse,
+    classes: np.ndarray | None,
+    method: str,
+) -> np.ndarray:
+    """One split's predictions, in the order of its test rows.
+
+    Raises:
+        RuntimeError: If the file does not hold every test row once, or lacks
+            the columns the request asked for.
+    """
+    frame = frame.sort_values("row")
+    if frame["row"].tolist() != list(range(n_rows)):
+        raise RuntimeError(
+            f"Cross-validation job {result.cv_job_id} sent {len(frame)} predictions "
+            f"for a split of {n_rows} test rows."
+        )
+    if classes is None:
+        if "prediction" not in frame.columns:
+            raise RuntimeError(
+                f"Cross-validation job {result.cv_job_id} sent the columns "
+                f"{list(frame.columns)}, without `prediction`."
+            )
+        return frame["prediction"].to_numpy(dtype=float)
+    served = result.classes or []
+    columns = [f"proba_{c}" for c in served]
+    if not columns or any(c not in frame.columns for c in columns):
+        raise RuntimeError(
+            f"Cross-validation job {result.cv_job_id} sent the columns "
+            f"{list(frame.columns)} for the classes {served}."
+        )
+    probas = frame[columns].to_numpy(dtype=float)
+    if method == "predict_proba":
+        return probas
+    # The server's classes come back through JSON; the targets' own values keep
+    # their dtype.
+    same_classes = [str(c) for c in served] == [str(c) for c in classes]
+    labels = classes if same_classes else np.asarray(served)
+    return labels[np.argmax(probas, axis=1)]
 
 
 def _split_indices(indices: Any, n_rows: int) -> np.ndarray:

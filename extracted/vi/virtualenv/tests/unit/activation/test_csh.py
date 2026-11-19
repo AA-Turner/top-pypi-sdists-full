@@ -13,7 +13,7 @@ from packaging.version import Version
 from prompt_matrix import SHELLS, drawn_prompt, generate_script, run_prompt
 
 from virtualenv.activation import CShellActivator
-from virtualenv.info import IS_PYPY, IS_WIN
+from virtualenv.info import IS_GRAALPY, IS_PYPY, IS_WIN
 from virtualenv.run import cli_run
 
 if TYPE_CHECKING:
@@ -35,7 +35,9 @@ def _is_bsd_csh() -> bool:
     return shell is not None and run([shell, "-fc", "if ($?tcsh) exit 77"], check=False).returncode != 77
 
 
-@pytest.mark.skipif(IS_PYPY, reason="quoting does not depend on the interpreter, the CPython jobs run this matrix")
+@pytest.mark.skipif(
+    IS_PYPY or IS_GRAALPY, reason="quoting does not depend on the interpreter, the CPython jobs run this matrix"
+)
 @pytest.mark.skipif(IS_WIN, reason="csh is not supported on Windows")
 @pytest.mark.parametrize(
     "shell",
@@ -309,6 +311,24 @@ def test_cshell_deactivate_restores_path(csh_plain_activate: Path, original: str
     result = run([_TCSH, "-f"], input=driver, capture_output=True, text=True, encoding="utf-8", timeout=90, check=False)
 
     assert result.stdout == f"PATH=<{original}>\n", result.stderr
+
+
+@pytest.mark.skipif(IS_WIN, reason="csh is not supported on Windows")
+@pytest.mark.skipif(_TCSH is None, reason="tcsh is not installed")
+@pytest.mark.parametrize(
+    ("original", "suffix"),
+    [
+        pytest.param("", "", id="empty"),
+        pytest.param(":first", "::first", id="leading-empty-entry"),
+        pytest.param("/usr/bin:/bin", ":/usr/bin:/bin", id="populated"),
+    ],
+)
+def test_cshell_prepends_bin_to_path(csh_plain_activate: Path, original: str, suffix: str) -> None:
+    driver = f'setenv PATH "{original}"\nsource {csh_plain_activate}\necho "PATH=<$PATH>"\n'
+
+    result = run([_TCSH, "-f"], input=driver, capture_output=True, text=True, encoding="utf-8", timeout=90, check=False)
+
+    assert result.stdout == f"PATH=<{csh_plain_activate.parent}{suffix}>\n", result.stderr
 
 
 @pytest.mark.skipif(IS_WIN, reason="csh is not supported on Windows")

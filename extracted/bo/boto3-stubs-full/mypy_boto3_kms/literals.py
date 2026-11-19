@@ -257,6 +257,7 @@ WrappingKeySpecType = Literal["RSA_2048", "RSA_3072", "RSA_4096", "SM2"]
 XksProxyConnectivityTypeType = Literal["PUBLIC_ENDPOINT", "VPC_ENDPOINT_SERVICE"]
 KMSServiceName = Literal["kms"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

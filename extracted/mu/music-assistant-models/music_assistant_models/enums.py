@@ -501,6 +501,8 @@ class PlayerType(StrEnum):
     light: A device that visualizes music through lighting (e.g. Hue sync, WLED).
     source: A capture-only device that provides audio input (e.g. a line-in client)
             but does not render audio itself.
+    controller: A device that only controls playback (e.g. a remote or a volume knob)
+                but does not play audio.
     """
 
     PLAYER = "player"
@@ -512,6 +514,7 @@ class PlayerType(StrEnum):
     VISUALIZER = "visualizer"
     LIGHT = "light"
     SOURCE = "source"
+    CONTROLLER = "controller"
     UNKNOWN = "unknown"
 
     @classmethod
@@ -542,6 +545,40 @@ class ChannelLayout(StrEnum):
 
     @classmethod
     def _missing_(cls, value: object) -> ChannelLayout:  # noqa: ARG003
+        """Set default enum member if an unknown value is provided."""
+        return cls.UNKNOWN
+
+
+class SpeakerChannel(StrEnum):
+    """
+    Enum with the channel a speaker of a multi-channel player plays.
+
+    The names are the speaker positions of the FLAC channel mask (RFC 9639), as the
+    Sendspin specification uses them.
+    """
+
+    FRONT_LEFT = "front_left"
+    FRONT_RIGHT = "front_right"
+    FRONT_CENTER = "front_center"
+    LFE = "lfe"
+    BACK_LEFT = "back_left"
+    BACK_RIGHT = "back_right"
+    FRONT_LEFT_OF_CENTER = "front_left_of_center"
+    FRONT_RIGHT_OF_CENTER = "front_right_of_center"
+    BACK_CENTER = "back_center"
+    SIDE_LEFT = "side_left"
+    SIDE_RIGHT = "side_right"
+    TOP_CENTER = "top_center"
+    TOP_FRONT_LEFT = "top_front_left"
+    TOP_FRONT_CENTER = "top_front_center"
+    TOP_FRONT_RIGHT = "top_front_right"
+    TOP_REAR_LEFT = "top_rear_left"
+    TOP_REAR_CENTER = "top_rear_center"
+    TOP_REAR_RIGHT = "top_rear_right"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> SpeakerChannel:  # noqa: ARG003
         """Set default enum member if an unknown value is provided."""
         return cls.UNKNOWN
 
@@ -830,6 +867,7 @@ class ProviderFeature(StrEnum):
     REMOVE_PLAYER = "remove_player"
     CREATE_GROUP_PLAYER = "create_group_player"
     REMOVE_GROUP_PLAYER = "remove_group_player"
+    CREATE_MULTI_CHANNEL_PLAYER = "create_multi_channel_player"
 
     #
     # METADATAPROVIDER FEATURES
@@ -1110,6 +1148,45 @@ class ProviderIconVariant(StrEnum):
     DEFAULT = "default"
     DARK = "dark"
     MONOCHROME = "monochrome"
+
+
+class ProviderOffering(StrEnum):
+    """Enum of what a provider offers, as declared in its manifest for discovery."""
+
+    # the media types a music provider offers in every config, the same values as MediaType
+    ARTIST = "artist"
+    ALBUM = "album"
+    TRACK = "track"
+    PLAYLIST = "playlist"
+    RADIO = "radio"
+    PODCAST = "podcast"
+    AUDIOBOOK = "audiobook"
+    SOUND_EFFECT = "sound_effect"
+
+    # audio_source: plays audio into Music Assistant as a live source in every config
+    AUDIO_SOURCE = "audio_source"
+    # ai: provides AI engines (text, plus image where the service has image models)
+    AI = "ai"
+    # tts: provides speech engines
+    TTS = "tts"
+    # scrobble: records what is played to an outside listening history
+    SCROBBLE = "scrobble"
+    # assistant: lets an AI or voice assistant find music and control players
+    ASSISTANT = "assistant"
+    # visualizer: turns music into light effects or visuals
+    VISUALIZER = "visualizer"
+    # recommendations: builds playlists, mixes or recommendations from your music
+    RECOMMENDATIONS = "recommendations"
+    # fun: party modes and games for guests
+    FUN = "fun"
+
+    # fallback
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> ProviderOffering:  # noqa: ARG003
+        """Set default enum member if an unknown value is provided."""
+        return cls.UNKNOWN
 
 
 class CoreState(StrEnum):

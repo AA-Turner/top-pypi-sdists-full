@@ -34,6 +34,7 @@ __all__ = (
 ListKeysPaginatorName = Literal["list_keys"]
 CloudFrontKeyValueStoreServiceName = Literal["cloudfront-keyvaluestore"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

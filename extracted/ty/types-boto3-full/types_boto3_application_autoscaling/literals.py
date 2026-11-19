@@ -136,6 +136,7 @@ ServiceNamespaceType = Literal[
 ]
 ApplicationAutoScalingServiceName = Literal["application-autoscaling"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

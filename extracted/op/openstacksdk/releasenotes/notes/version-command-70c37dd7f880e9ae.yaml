@@ -1,4 +1,0 @@
----
-features:
-  - The installed version can now be quickly checked with ``python -m
-    openstack version``.

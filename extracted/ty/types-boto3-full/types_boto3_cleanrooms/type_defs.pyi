@@ -61,6 +61,7 @@ from .literals import (
     MembershipStatusType,
     MemberStatusType,
     ParameterTypeType,
+    PopulateIntermediateTableAnalysisTypeType,
     PrivacyBudgetTemplateAutoRefreshType,
     PrivacyBudgetTypeType,
     ProtectedJobStatusType,
@@ -457,6 +458,7 @@ __all__ = (
     "PopulateIntermediateTableInputTypeDef",
     "PopulateIntermediateTableOutputTypeDef",
     "PopulationAnalysisConfigurationTypeDef",
+    "PopulationAnalysisJobParametersTypeDef",
     "PopulationAnalysisSqlParametersTypeDef",
     "PreviewPrivacyImpactInputTypeDef",
     "PreviewPrivacyImpactOutputTypeDef",
@@ -496,6 +498,7 @@ __all__ = (
     "ProtectedJobTypeDef",
     "ProtectedJobWorkerComputeConfigurationOutputTypeDef",
     "ProtectedJobWorkerComputeConfigurationTypeDef",
+    "ProtectedJobWorkerComputeConfigurationUnionTypeDef",
     "ProtectedQueryDistributeOutputConfigurationLocationTypeDef",
     "ProtectedQueryDistributeOutputConfigurationOutputTypeDef",
     "ProtectedQueryDistributeOutputConfigurationTypeDef",
@@ -1323,7 +1326,7 @@ class IntermediateTableVersionSummaryTypeDef(TypedDict):
     createTime: datetime
     analysisId: str
     status: IntermediateTableVersionStatusType
-    analysisType: Literal["QUERY"]
+    analysisType: PopulateIntermediateTableAnalysisTypeType
     kmsKeyArn: NotRequired[str]
     expirationTime: NotRequired[datetime]
 
@@ -1544,6 +1547,9 @@ class PopulateIdMappingTableInputTypeDef(TypedDict):
     membershipIdentifier: str
     jobType: NotRequired[JobTypeType]
 
+class PopulationAnalysisJobParametersTypeDef(TypedDict):
+    analysisTemplateArn: str
+
 class PopulationAnalysisSqlParametersTypeDef(TypedDict):
     queryString: NotRequired[str]
     analysisTemplateArn: NotRequired[str]
@@ -1580,9 +1586,6 @@ class ProtectedJobParametersTypeDef(TypedDict):
 
 class WorkerComputeConfigurationPropertiesOutputTypeDef(TypedDict):
     spark: NotRequired[dict[str, str]]
-
-class WorkerComputeConfigurationPropertiesTypeDef(TypedDict):
-    spark: NotRequired[Mapping[str, str]]
 
 class ProtectedQueryMemberOutputConfigurationTypeDef(TypedDict):
     accountId: str
@@ -1665,6 +1668,9 @@ class UpdateProtectedQueryInputTypeDef(TypedDict):
     membershipIdentifier: str
     protectedQueryIdentifier: str
     targetStatus: Literal["CANCELLED"]
+
+class WorkerComputeConfigurationPropertiesTypeDef(TypedDict):
+    spark: NotRequired[Mapping[str, str]]
 
 class AccessBudgetTypeDef(TypedDict):
     resourceArn: str
@@ -1776,7 +1782,7 @@ class PopulateIdMappingTableOutputTypeDef(TypedDict):
 
 class PopulateIntermediateTableOutputTypeDef(TypedDict):
     analysisId: str
-    analysisType: Literal["QUERY"]
+    analysisType: PopulateIntermediateTableAnalysisTypeType
     versionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2231,6 +2237,7 @@ class MembershipProtectedQueryOutputConfigurationTypeDef(TypedDict):
 
 class PopulationAnalysisConfigurationTypeDef(TypedDict):
     sqlParameters: NotRequired[PopulationAnalysisSqlParametersTypeDef]
+    jobParameters: NotRequired[PopulationAnalysisJobParametersTypeDef]
 
 class ProtectedJobConfigurationDetailsTypeDef(TypedDict):
     directAnalysisConfigurationDetails: NotRequired[
@@ -2253,6 +2260,7 @@ class ProtectedJobOutputConfigurationInputTypeDef(TypedDict):
 class ProtectedJobOutputConfigurationOutputTypeDef(TypedDict):
     s3: NotRequired[ProtectedJobS3OutputConfigurationOutputTypeDef]
     member: NotRequired[ProtectedJobMemberOutputConfigurationOutputTypeDef]
+    intermediateTable: NotRequired[IntermediateTableOutputConfigurationTypeDef]
 
 class ProtectedJobOutputTypeDef(TypedDict):
     s3: NotRequired[ProtectedJobS3OutputTypeDef]
@@ -2277,17 +2285,6 @@ WorkerComputeConfigurationOutputTypeDef = TypedDict(
         "properties": NotRequired[WorkerComputeConfigurationPropertiesOutputTypeDef],
     },
 )
-ProtectedJobWorkerComputeConfigurationTypeDef = TypedDict(
-    "ProtectedJobWorkerComputeConfigurationTypeDef",
-    {
-        "type": ProtectedJobWorkerComputeTypeType,
-        "number": int,
-        "properties": NotRequired[WorkerComputeConfigurationPropertiesTypeDef],
-    },
-)
-WorkerComputeConfigurationPropertiesUnionTypeDef = Union[
-    WorkerComputeConfigurationPropertiesTypeDef, WorkerComputeConfigurationPropertiesOutputTypeDef
-]
 
 class ProtectedQueryDistributeOutputConfigurationLocationTypeDef(TypedDict):
     s3: NotRequired[ProtectedQueryS3OutputConfigurationTypeDef]
@@ -2316,6 +2313,10 @@ class SnowflakeTableSchemaOutputTypeDef(TypedDict):
 
 class SnowflakeTableSchemaTypeDef(TypedDict):
     v1: NotRequired[Sequence[SnowflakeTableSchemaV1TypeDef]]
+
+WorkerComputeConfigurationPropertiesUnionTypeDef = Union[
+    WorkerComputeConfigurationPropertiesTypeDef, WorkerComputeConfigurationPropertiesOutputTypeDef
+]
 
 class PrivacyBudgetTemplateParametersInputTypeDef(TypedDict):
     differentialPrivacy: NotRequired[DifferentialPrivacyTemplateParametersInputTypeDef]
@@ -2576,18 +2577,6 @@ class ProtectedJobComputeConfigurationOutputTypeDef(TypedDict):
 class ComputeConfigurationOutputTypeDef(TypedDict):
     worker: NotRequired[WorkerComputeConfigurationOutputTypeDef]
 
-class ProtectedJobComputeConfigurationTypeDef(TypedDict):
-    worker: NotRequired[ProtectedJobWorkerComputeConfigurationTypeDef]
-
-WorkerComputeConfigurationTypeDef = TypedDict(
-    "WorkerComputeConfigurationTypeDef",
-    {
-        "type": NotRequired[WorkerComputeTypeType],
-        "number": NotRequired[int],
-        "properties": NotRequired[WorkerComputeConfigurationPropertiesUnionTypeDef],
-    },
-)
-
 class ProtectedQueryDistributeOutputConfigurationOutputTypeDef(TypedDict):
     locations: list[ProtectedQueryDistributeOutputConfigurationLocationTypeDef]
 
@@ -2619,6 +2608,23 @@ class SnowflakeTableReferenceTypeDef(TypedDict):
     tableName: str
     schemaName: str
     tableSchema: SnowflakeTableSchemaTypeDef
+
+ProtectedJobWorkerComputeConfigurationTypeDef = TypedDict(
+    "ProtectedJobWorkerComputeConfigurationTypeDef",
+    {
+        "type": ProtectedJobWorkerComputeTypeType,
+        "number": int,
+        "properties": NotRequired[WorkerComputeConfigurationPropertiesUnionTypeDef],
+    },
+)
+WorkerComputeConfigurationTypeDef = TypedDict(
+    "WorkerComputeConfigurationTypeDef",
+    {
+        "type": NotRequired[WorkerComputeTypeType],
+        "number": NotRequired[int],
+        "properties": NotRequired[WorkerComputeConfigurationPropertiesUnionTypeDef],
+    },
+)
 
 class CreatePrivacyBudgetTemplateInputTypeDef(TypedDict):
     membershipIdentifier: str
@@ -2830,7 +2836,7 @@ SchemaTypeDef = TypedDict(
 class IntermediateTableActiveVersionTypeDef(TypedDict):
     versionId: str
     analysisId: str
-    analysisType: Literal["QUERY"]
+    analysisType: PopulateIntermediateTableAnalysisTypeType
     inheritedConstraints: IntermediateTableInheritedConstraintsTypeDef
     kmsKeyArn: NotRequired[str]
     parameters: NotRequired[dict[str, str]]
@@ -2944,6 +2950,7 @@ ProtectedJobSummaryTypeDef = TypedDict(
         "status": ProtectedJobStatusType,
         "receiverConfigurations": list[ProtectedJobReceiverConfigurationTypeDef],
         "jobComputePayerAccountId": NotRequired[str],
+        "intermediateTableConfiguration": NotRequired[IntermediateTableOutputConfigurationTypeDef],
     },
 )
 ProtectedJobTypeDef = TypedDict(
@@ -2963,16 +2970,6 @@ ProtectedJobTypeDef = TypedDict(
         "jobComputePayerAccountId": NotRequired[str],
     },
 )
-ProtectedJobComputeConfigurationUnionTypeDef = Union[
-    ProtectedJobComputeConfigurationTypeDef, ProtectedJobComputeConfigurationOutputTypeDef
-]
-
-class ComputeConfigurationTypeDef(TypedDict):
-    worker: NotRequired[WorkerComputeConfigurationTypeDef]
-
-WorkerComputeConfigurationUnionTypeDef = Union[
-    WorkerComputeConfigurationTypeDef, WorkerComputeConfigurationOutputTypeDef
-]
 
 class ProtectedQueryOutputConfigurationOutputTypeDef(TypedDict):
     s3: NotRequired[ProtectedQueryS3OutputConfigurationTypeDef]
@@ -3010,6 +3007,18 @@ class TableReferenceTypeDef(TypedDict):
     snowflake: NotRequired[SnowflakeTableReferenceTypeDef]
     athena: NotRequired[AthenaTableReferenceTypeDef]
     databricks: NotRequired[DatabricksTableReferenceTypeDef]
+
+ProtectedJobWorkerComputeConfigurationUnionTypeDef = Union[
+    ProtectedJobWorkerComputeConfigurationTypeDef,
+    ProtectedJobWorkerComputeConfigurationOutputTypeDef,
+]
+
+class ComputeConfigurationTypeDef(TypedDict):
+    worker: NotRequired[WorkerComputeConfigurationTypeDef]
+
+WorkerComputeConfigurationUnionTypeDef = Union[
+    WorkerComputeConfigurationTypeDef, WorkerComputeConfigurationOutputTypeDef
+]
 
 class GetCollaborationPrivacyBudgetTemplateOutputTypeDef(TypedDict):
     collaborationPrivacyBudgetTemplate: CollaborationPrivacyBudgetTemplateTypeDef
@@ -3238,24 +3247,6 @@ class UpdateProtectedJobOutputTypeDef(TypedDict):
     protectedJob: ProtectedJobTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-StartProtectedJobInputTypeDef = TypedDict(
-    "StartProtectedJobInputTypeDef",
-    {
-        "type": Literal["PYSPARK"],
-        "membershipIdentifier": str,
-        "jobParameters": ProtectedJobParametersUnionTypeDef,
-        "resultConfiguration": NotRequired[ProtectedJobResultConfigurationInputTypeDef],
-        "computeConfiguration": NotRequired[ProtectedJobComputeConfigurationUnionTypeDef],
-        "jobComputePayerAccountId": NotRequired[str],
-    },
-)
-ComputeConfigurationUnionTypeDef = Union[
-    ComputeConfigurationTypeDef, ComputeConfigurationOutputTypeDef
-]
-
-class IntermediateTableComputeConfigurationTypeDef(TypedDict):
-    queryComputeConfiguration: NotRequired[WorkerComputeConfigurationUnionTypeDef]
-
 class ProtectedQueryResultConfigurationOutputTypeDef(TypedDict):
     outputConfiguration: ProtectedQueryOutputConfigurationOutputTypeDef
 
@@ -3283,6 +3274,13 @@ ConfiguredTableTypeDef = TypedDict(
     },
 )
 TableReferenceUnionTypeDef = Union[TableReferenceTypeDef, TableReferenceOutputTypeDef]
+
+class ProtectedJobComputeConfigurationTypeDef(TypedDict):
+    worker: NotRequired[ProtectedJobWorkerComputeConfigurationUnionTypeDef]
+
+ComputeConfigurationUnionTypeDef = Union[
+    ComputeConfigurationTypeDef, ComputeConfigurationOutputTypeDef
+]
 
 class CreateAnalysisTemplateOutputTypeDef(TypedDict):
     analysisTemplate: AnalysisTemplateTypeDef
@@ -3372,13 +3370,6 @@ class ChangeSpecificationTypeDef(TypedDict):
     member: NotRequired[MemberChangeSpecificationUnionTypeDef]
     collaboration: NotRequired[CollaborationChangeSpecificationUnionTypeDef]
 
-class PopulateIntermediateTableInputTypeDef(TypedDict):
-    intermediateTableIdentifier: str
-    membershipIdentifier: str
-    parameters: NotRequired[Mapping[str, str]]
-    computeConfiguration: NotRequired[IntermediateTableComputeConfigurationTypeDef]
-    analysisPayerAccountId: NotRequired[str]
-
 ProtectedQueryTypeDef = TypedDict(
     "ProtectedQueryTypeDef",
     {
@@ -3445,6 +3436,10 @@ class UpdateConfiguredTableInputTypeDef(TypedDict):
     allowedColumns: NotRequired[Sequence[str]]
     analysisMethod: NotRequired[AnalysisMethodType]
     selectedAnalysisMethods: NotRequired[Sequence[SelectedAnalysisMethodType]]
+
+ProtectedJobComputeConfigurationUnionTypeDef = Union[
+    ProtectedJobComputeConfigurationTypeDef, ProtectedJobComputeConfigurationOutputTypeDef
+]
 
 class CreateConfiguredTableAnalysisRuleOutputTypeDef(TypedDict):
     analysisRule: ConfiguredTableAnalysisRuleTypeDef
@@ -3555,6 +3550,22 @@ class GetSchemaAnalysisRuleOutputTypeDef(TypedDict):
     analysisRule: AnalysisRuleTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class IntermediateTableComputeConfigurationTypeDef(TypedDict):
+    queryComputeConfiguration: NotRequired[WorkerComputeConfigurationUnionTypeDef]
+    jobComputeConfiguration: NotRequired[ProtectedJobComputeConfigurationUnionTypeDef]
+
+StartProtectedJobInputTypeDef = TypedDict(
+    "StartProtectedJobInputTypeDef",
+    {
+        "type": Literal["PYSPARK"],
+        "membershipIdentifier": str,
+        "jobParameters": ProtectedJobParametersUnionTypeDef,
+        "resultConfiguration": NotRequired[ProtectedJobResultConfigurationInputTypeDef],
+        "computeConfiguration": NotRequired[ProtectedJobComputeConfigurationUnionTypeDef],
+        "jobComputePayerAccountId": NotRequired[str],
+    },
+)
+
 class ListCollaborationChangeRequestsOutputTypeDef(TypedDict):
     collaborationChangeRequestSummaries: list[CollaborationChangeRequestSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3575,6 +3586,13 @@ class UpdateCollaborationChangeRequestOutputTypeDef(TypedDict):
 class ChangeInputTypeDef(TypedDict):
     specificationType: ChangeSpecificationTypeType
     specification: ChangeSpecificationUnionTypeDef
+
+class PopulateIntermediateTableInputTypeDef(TypedDict):
+    intermediateTableIdentifier: str
+    membershipIdentifier: str
+    parameters: NotRequired[Mapping[str, str]]
+    computeConfiguration: NotRequired[IntermediateTableComputeConfigurationTypeDef]
+    analysisPayerAccountId: NotRequired[str]
 
 class CreateCollaborationChangeRequestInputTypeDef(TypedDict):
     collaborationIdentifier: str

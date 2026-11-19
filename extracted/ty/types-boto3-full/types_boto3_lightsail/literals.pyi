@@ -616,6 +616,7 @@ WafInspectionLevelEnumType = Literal["COMMON", "TARGETED"]
 WafPayloadTypeEnumType = Literal["FORM_ENCODED", "JSON"]
 LightsailServiceName = Literal["lightsail"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

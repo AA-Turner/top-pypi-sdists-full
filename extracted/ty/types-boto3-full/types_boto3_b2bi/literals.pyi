@@ -435,6 +435,7 @@ X12VersionType = Literal[
 ]
 B2BIServiceName = Literal["b2bi"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

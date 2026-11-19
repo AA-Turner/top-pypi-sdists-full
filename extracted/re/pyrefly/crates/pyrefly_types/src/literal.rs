@@ -6,13 +6,15 @@
  */
 
 use std::fmt;
-use std::fmt::Display;
 
 use compact_str::CompactString;
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_util::assert_words;
+use pyrefly_util::display::DisplayWith;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::ExprBooleanLiteral;
 use ruff_python_ast::ExprBytesLiteral;
@@ -24,6 +26,7 @@ use ruff_python_ast::InterpolatedStringElement;
 use ruff_python_ast::name::Name;
 
 use crate::class::ClassType;
+use crate::env::TypeEnv;
 use crate::lit_int::LitInt;
 use crate::stdlib::Stdlib;
 use crate::types::Type;
@@ -34,14 +37,14 @@ static LITERAL_STR_MAX_SIZE: usize = 4096;
 static LITERAL_BYTES_MAX_SIZE: usize = 4096;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct Literal {
     pub value: Lit,
     pub style: LitStyle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum LitStyle {
     Implicit,
     Explicit,
@@ -49,7 +52,7 @@ pub enum LitStyle {
 
 /// A literal value.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum Lit {
     Str(CompactString),
     Int(LitInt),
@@ -82,13 +85,20 @@ pub(crate) fn write_escaped_string(
             '\x0b' => Some("\\v"),
             _ => None,
         };
-        if let Some(escape) = escape {
-            if start < i {
-                f.write_str(&s[start..i])?;
-            }
-            f.write_str(escape)?;
-            start = i + c.len_utf8();
+        if escape.is_none() && !c.is_control() {
+            continue;
         }
+        if start < i {
+            f.write_str(&s[start..i])?;
+        }
+        match escape {
+            Some(escape) => f.write_str(escape)?,
+            // Like Python's `repr`, write every other control character as a hex escape, so
+            // that no control character in a string literal reaches the terminal or editor
+            // that displays the type. Control characters are all below U+0100.
+            None => write!(f, "\\x{:02x}", u32::from(c))?,
+        }
+        start = i + c.len_utf8();
     }
     if start < s.len() {
         f.write_str(&s[start..])?;
@@ -98,14 +108,14 @@ pub(crate) fn write_escaped_string(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, TypeEq)]
+#[derive(Visit, TypeEq, TypeOrd)]
 pub struct LitEnum {
     pub class: ClassType,
     pub member: Name,
     /// Raw type assigned to name in class def.
     /// We store the raw type so we can return it when the value or _value_ attribute is accessed.
     /// NOTE: Intentionally excluded from VisitMut so that type transformations like
-    /// `promote_implicit_literals` don't mutate this metadata field, which must remain
+    /// `promote` don't mutate this metadata field, which must remain
     /// stable for `.value` resolution.
     pub ty: Type,
 }
@@ -119,10 +129,10 @@ impl VisitMut<Type> for LitEnum {
     }
 }
 
-impl Display for Lit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<'e> DisplayWith<dyn TypeEnv + 'e> for Lit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, env: &(dyn TypeEnv + 'e)) -> fmt::Result {
         match self {
-            Lit::Str(_) => self.write_escaped(f, true),
+            Lit::Str(_) => self.write_escaped(f, true, env),
             Lit::Int(x) => write!(f, "{x}"),
             Lit::Bool(x) => {
                 let s = if *x { "True" } else { "False" };
@@ -144,7 +154,7 @@ impl Display for Lit {
                 write!(f, "'")
             }
             Lit::Enum(lit_enum) => {
-                write!(f, "{}.{}", lit_enum.class.name(), lit_enum.member)
+                write!(f, "{}.{}", lit_enum.class.name(env), lit_enum.member)
             }
         }
     }
@@ -275,16 +285,21 @@ impl Lit {
         &self,
         f: &mut impl fmt::Write,
         use_single_quotes_for_string: bool,
+        env: &dyn TypeEnv,
     ) -> fmt::Result {
         match self {
             Lit::Str(s) => write_escaped_string(s, f, use_single_quotes_for_string),
-            lit => write!(f, "{lit}"),
+            lit => write!(f, "{}", lit.display_with(env)),
         }
     }
 
-    pub fn to_string_escaped(&self, use_single_quotes_for_string: bool) -> String {
+    pub fn to_string_escaped(
+        &self,
+        use_single_quotes_for_string: bool,
+        env: &dyn TypeEnv,
+    ) -> String {
         let mut result = String::new();
-        self.write_escaped(&mut result, use_single_quotes_for_string)
+        self.write_escaped(&mut result, use_single_quotes_for_string, env)
             .unwrap();
         result
     }

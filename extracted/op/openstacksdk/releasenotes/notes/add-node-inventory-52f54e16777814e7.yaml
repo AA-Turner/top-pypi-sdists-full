@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds support for querying a node's hardware inventory as per functionality
-    introduced in API 1.81.

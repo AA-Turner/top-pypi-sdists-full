@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnibase_infra"
-version = "0.38.76"
+version = "0.38.78"
 description = "ONEX Infrastructure - Service integration and database infrastructure tools"
 authors = [{ name = "OmniNode.ai", email = "contact@omninode.ai" }]
 license = {text = "MIT"}
@@ -33,25 +33,24 @@ dependencies = [
     # (terminal delegation classes) and core #1440 (runtime_fanout_resolver,
     # OMN-14403). No git-rev override is active for merge.
     #
-    # OMN-19655 (operator ruling 2026-09-25): the PUBLISHED requirement on
-    # omnibase-core is a compatible range, not an exact pin. An exact pin here
-    # stranded every downstream core floor raise until infra was re-released
-    # (omnimarket, 2026-09-24 and 2026-09-25). The exact version this repo is
-    # built, tested and imaged against lives ONLY in [tool.uv]
-    # override-dependencies below, which is what uv.lock resolves. Invariant,
-    # held by tests/unit/test_core_compatible_range_omn19655.py: the range is
-    # `>=FLOOR,<NEXT_MINOR_OF_FLOOR` and admits the override's exact version.
-    # A dependency cascade moves only the override on a patch release; a
-    # change that starts to need a newer core raises FLOOR by hand.
-    # OMN-20368: FLOOR raised 0.47.24 -> 0.47.31. The Done-write guard,
-    # `omnibase_infra.handlers.done_write_receipt_guard`, imports
-    # `omnibase_core.handlers.handler_done_write_receipt_gate` and
-    # `omnibase_core.models.ticket.model_done_write_decision`, first released in
-    # omnibase-core 0.47.31 (core#1852). A resolve below it fails at import.
-    "omnibase-core>=0.47.31,<0.48.0",
-    "omnibase-spi==0.23.7",
-    # OMN-14190: canonical OCC stamp schema lives in omnibase_compat (OMN-14223).
-    "omnibase-compat==0.5.7",
+    # OMN-19655: publish a compatible range so downstream core floor raises
+    # inside the minor can resolve without an infra release.
+    # RULING 2026-10-29T01:50:26Z (OMN-17427): iterate with tags, not releases.
+    # Core resolves solely from its dev-merge tag in [tool.uv.sources]; uv.lock
+    # records the tag and commit, and the locked version must fit this range.
+    # OMN-17427: FLOOR raised to 0.47.58 for the moved core node APIs. The Done-write guard,
+    # `omnibase_infra.handlers.done_write_receipt_guard`, resolves
+    # `node_done_write_receipt_gate_compute` through its packaged contract and
+    # imports its public request and decision models. A resolve below this
+    # floor lacks that contract-backed gate surface.
+    # OMN-21924: FLOOR raised to 0.47.62. node_architecture_validator imports
+    # `omnibase_core.validation.checker_stack_shape` and `validator_stack_shape`
+    # at module import, and 0.47.62 is the first release that ships them.
+    "omnibase-core>=0.47.62,<0.48.0",
+    # FLOOR raised to 0.23.15: the floor fill orchestrator (omnimarket) imports
+    # ModelLaneProcessRunResult, which 0.23.14 does not carry. The lab dispatch
+    # venv is built from this lock, so the lock must resolve 0.23.15.
+    "omnibase-spi>=0.23.15,<0.24.0",
     # ============================================================================
     # External Dependency Security Guidance
     # ============================================================================
@@ -145,14 +144,14 @@ dependencies = [
     "opentelemetry-api>=1.27.0,<2.0.0", # OpenTelemetry API
     "opentelemetry-sdk>=1.27.0,<2.0.0", # OpenTelemetry SDK
     "opentelemetry-exporter-otlp-proto-http>=1.27.0,<2.0.0", # OTLP HTTP exporter (Phoenix uses HTTP, not gRPC)
-    "opentelemetry-instrumentation>=0.48b0,<0.66", # Base instrumentation
-    "opentelemetry-instrumentation-fastapi>=0.48b0,<0.66", # FastAPI tracing
-    "opentelemetry-instrumentation-asyncpg>=0.48b0,<0.66", # AsyncPG tracing
-    "opentelemetry-instrumentation-aiohttp-client>=0.48b0,<0.66", # AIOHTTP tracing
-    "opentelemetry-instrumentation-kafka-python>=0.48b0,<0.66", # Kafka tracing
-    "opentelemetry-instrumentation-redis>=0.48b0,<0.66", # Redis tracing
+    "opentelemetry-instrumentation>=0.48b0,<0.67", # Base instrumentation
+    "opentelemetry-instrumentation-fastapi>=0.48b0,<0.67", # FastAPI tracing
+    "opentelemetry-instrumentation-asyncpg>=0.48b0,<0.67", # AsyncPG tracing
+    "opentelemetry-instrumentation-aiohttp-client>=0.48b0,<0.67", # AIOHTTP tracing
+    "opentelemetry-instrumentation-kafka-python>=0.48b0,<0.67", # Kafka tracing
+    "opentelemetry-instrumentation-redis>=0.48b0,<0.67", # Redis tracing
     # MCP (Model Context Protocol) integration
-    "mcp>=1.25.0,<3.0.0", # Anthropic MCP SDK for streamable HTTP transport
+    "mcp>=2.3.0,<3.0.0", # Anthropic MCP SDK for streamable HTTP transport
     # Additional infrastructure dependencies
     "httpx>=0.28.1,<0.29.0", # Modern HTTP client (>=0.27.1 required by MCP SDK)
     "tenacity>=9.0.0,<10.0.0", # Retry and resilience patterns
@@ -161,7 +160,7 @@ dependencies = [
     "pydantic-settings>=2.2.1,<3.0.0", # Settings management
     "jsonschema>=4.20.0,<5.0.0", # JSON schema validation
     "watchdog>=4.0.0", # Filesystem event monitoring (HandlerContractFileWatcher, OMN-3940)
-    "a2a-sdk>=0.3.4,<2.0.0", # Real A2A client/server protocol support for remote-agent invocation
+    "a2a-sdk>=0.3.4,<1.0.0", # Held below 1.0.0: 1.x is unchecked against handler_a2a_task.py (OMN-23843); real A2A client/server support for remote-agent invocation
     # Security: CVE-2026-32597 (HIGH) - PyJWT <2.12.0 accepts unknown `crit` header extensions.
     # Security: CVE-2026-48526 (HIGH) - PyJWT <2.13.0 authentication bypass via forged tokens.
     # Security: GHSA-9j54-fg26-wv3r, GHSA-9v7f-9g4p-ffgj, GHSA-ffc3-869f-jxw9 (CRITICAL),
@@ -199,13 +198,15 @@ identity = "omnibase_infra.cli.cli_identity:identity_group"
 kafka = "omnibase_infra.cli.cli_kafka:kafka"
 ledger = "omnibase_infra.cli.cli_ledger:ledger_group"
 node = "omnibase_infra.cli.cli_node:run_node_by_name"
-occ = "omnibase_infra.cli.cli_occ:occ"
 profile = "omnibase_infra.cli.cli_profile:profile_group"
 skill = "omnibase_infra.cli.cli_skill:run_skill_by_name"
 
 [project.entry-points."onex.backends"]
 event_bus_kafka = "omnibase_infra.event_bus.event_bus_kafka:EventBusKafka"
 state_postgres = "omnibase_infra.backends.backend_probe:probe_postgres"
+
+[project.entry-points."onex.node_broker_resolvers"]
+overlay = "omnibase_infra.handlers.handler_node_broker_resolve:HandlerNodeBrokerResolve"
 
 [project.entry-points."onex.domain_plugins"]
 registration = "omnibase_infra.nodes.node_registration_orchestrator.plugin:ServiceRegistration"
@@ -268,41 +269,14 @@ dev = [
 
 [tool.uv]
 override-dependencies = [
-    # OMN-19655: the one exact omnibase-core pin. uv.lock and the runtime image
-    # resolve from here; [project.dependencies] publishes the compatible range.
-    # OMN-19749: released omnibase-core 0.47.24 (PyPI, OMN-18595) carries
-    # omnibase_core#1786's runtime lane declaration types this draft needs; the
-    # temporary git-rev override below is removed in the same change.
-    # OMN-17427: 0.47.44 -> 0.47.46, the floor omnimarket dev declares; its
-    # claude_code_binding models import omnibase_core.enums.enum_binding_kind,
-    # first released in 0.47.46 (core#2019).
-    "omnibase-core==0.47.53",
-    "omnibase-spi==0.23.7",
-    "omnibase-compat==0.5.7",
+    "omnibase-spi>=0.23.15,<0.24.0",
 ]
 
 [tool.uv.sources]
-# OMN-19749: the temporary git-rev override to omnibase_core#1786's squash
-# (be874b620) is REMOVED. omnibase-core 0.47.24 is published on PyPI (OMN-18595)
-# and contains that squash as an ancestor; the override-dependencies pin above
-# resolves the released wheel.
-# OMN-12549 CLOSED: the cross-repo seam is now on PyPI (omnibase-core 0.46.3,
-# omnibase-spi 0.23.1). The temporary immutable-rev git overrides for
-# omnibase-core/omnibase-spi were DELETED here and the version pins bumped to
-# the released exact versions, restoring a fully PyPI-sourced reproducible lock.
-#
-# OMN-14628 (2026-08-01): the omnibase-core git-rev override is DELETED. Its own
-# exit condition ("REMOVE WHEN RELEASED: once core publishes a version containing
-# S1/S2/S4") is met — omnibase-core 0.46.8 is published on PyPI and is a content
-# SUPERSET of the last override rev (3d51b047): it carries every module that rev
-# carried, plus enum_delegation_terminal_failure_cause and
-# enum_quality_score_comparison, plus the typed execution_scope field. Verified by
-# tree diff of the published wheel against `git archive 3d51b047 -- src/omnibase_core`
-# (nothing existed only in the rev). The lock is once again fully PyPI-sourced.
-# The seam is now held mechanically, not by this comment:
-# tests/unit/runtime/test_seam_released_core_pin.py asserts the frozen symbol and
-# field-TYPE surface in tests/fixtures/seams/core_release/.
-# Do NOT reintroduce a git-rev or branch pin here.
+# RULING 2026-10-29T01:50:26Z: iterate with a dev-merge TAG, verified by
+# core dev_tag_lineage; rev and branch pins remain refused.
+omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", tag = "dev-20261113013358-a09066caf945" }
+
 
 [tool.ruff]
 target-version = "py312"
@@ -512,6 +486,8 @@ asyncio_mode = "auto"
 # See: tests/conftest.py for detailed documentation on loop_scope configuration.
 asyncio_default_fixture_loop_scope = "function"
 markers = [
+    "cost_estimator_build: exercises the real estimator build settings and host effect",
+    "llm_endpoint_env_render: exercises the real render of the dev lane embedding address from the llm_endpoints overlay",
     "live_contact(artifact): CI-tooling test consuming a recorded real API response or replay via recorded_response (OMN-18648)",
     "unit: Unit tests that test individual components in isolation",
     "integration: Integration tests that test multiple components together",
@@ -637,6 +613,7 @@ exclude_lines = [
 ]
 
 [project.entry-points."onex.nodes"]
+node_api_fixture_record_effect = "omnibase_infra.nodes.node_api_fixture_record_effect"
 node_architecture_validator = "omnibase_infra.nodes.node_architecture_validator"
 node_artifact_change_detector_effect = "omnibase_infra.nodes.node_artifact_change_detector_effect"
 node_artifact_reconciliation_orchestrator = "omnibase_infra.nodes.node_artifact_reconciliation_orchestrator"
@@ -645,11 +622,15 @@ node_baseline_capture = "omnibase_infra.nodes.node_baseline_capture"
 node_baseline_comparison_compute = "omnibase_infra.nodes.node_baseline_comparison_compute"
 node_baselines_batch_compute = "omnibase_infra.nodes.node_baselines_batch_compute"
 node_board_probe_effect = "omnibase_infra.nodes.node_board_probe_effect"
+node_boot_catalog_effect = "omnibase_infra.nodes.node_boot_catalog_effect"
 node_broker_disk_watermark_compute = "omnibase_infra.nodes.node_broker_disk_watermark_compute"
 node_broker_grant_derive_compute = "omnibase_infra.nodes.node_broker_grant_derive_compute"
+node_broker_principal_effect = "omnibase_infra.nodes.node_broker_principal_effect"
 node_build_loop_projection_compute = "omnibase_infra.nodes.node_build_loop_projection_compute"
 node_build_loop_write_effect = "omnibase_infra.nodes.node_build_loop_write_effect"
 node_bus_forwarder_effect = "omnibase_infra.nodes.node_bus_forwarder_effect"
+node_c11_delegation_legs_effect = "omnibase_infra.nodes.node_c11_delegation_legs_effect"
+node_c16_pinned_backend_effect = "omnibase_infra.nodes.node_c16_pinned_backend_effect"
 node_chain_canary_effect = "omnibase_infra.nodes.node_chain_canary_effect"
 node_chain_orchestrator = "omnibase_infra.nodes.node_chain_orchestrator"
 node_chain_replay_compute = "omnibase_infra.nodes.node_chain_replay_compute"
@@ -664,12 +645,14 @@ node_coding_agent_fsm_reducer = "omnibase_infra.nodes.node_coding_agent_fsm_redu
 node_coding_agent_invoke_effect = "omnibase_infra.nodes.node_coding_agent_invoke_effect"
 node_coding_agent_orchestrator = "omnibase_infra.nodes.node_coding_agent_orchestrator"
 node_coding_agent_workspace_compute = "omnibase_infra.nodes.node_coding_agent_workspace_compute"
+node_consumer_coordinator_rejoin_compute = "omnibase_infra.nodes.node_consumer_coordinator_rejoin_compute"
 node_consumer_health_triage_effect = "omnibase_infra.nodes.node_consumer_health_triage_effect"
 node_context_audit_dlq_effect = "omnibase_infra.nodes.node_context_audit_dlq_effect"
 node_contract_loader_effect = "omnibase_infra.nodes.node_contract_loader_effect"
 node_contract_persistence_effect = "omnibase_infra.nodes.node_contract_persistence_effect"
 node_contract_registry_reducer = "omnibase_infra.nodes.node_contract_registry_reducer"
 node_contract_resolver_bridge = "omnibase_infra.nodes.node_contract_resolver_bridge"
+node_contract_subscribe_preflight_effect = "omnibase_infra.nodes.node_contract_subscribe_preflight_effect"
 node_contract_validate_compute = "omnibase_infra.nodes.node_contract_validate_compute"
 node_db_error_linear_effect = "omnibase_infra.nodes.node_db_error_linear_effect"
 node_decision_store_effect = "omnibase_infra.nodes.node_decision_store_effect"
@@ -678,14 +661,23 @@ node_declared_state_apply_effect = "omnibase_infra.nodes.node_declared_state_app
 node_declared_state_diff_compute = "omnibase_infra.nodes.node_declared_state_diff_compute"
 node_declared_state_reconcile_orchestrator = "omnibase_infra.nodes.node_declared_state_reconcile_orchestrator"
 node_delegation_chain_ledger_effect = "omnibase_infra.nodes.node_delegation_chain_ledger_effect"
+node_delegation_dispatch_terminal_effect = "omnibase_infra.nodes.node_delegation_dispatch_terminal_effect"
 node_delta_bundle_effect = "omnibase_infra.nodes.node_delta_bundle_effect"
 node_delta_metrics_effect = "omnibase_infra.nodes.node_delta_metrics_effect"
+node_deploy_job_reading_effect = "omnibase_infra.nodes.node_deploy_job_reading_effect"
+node_deploy_runners = "omnibase_infra.nodes.node_deploy_runners"
+node_dev_boot_guard_effect = "omnibase_infra.nodes.node_dev_boot_guard_effect"
+node_dev_lane_code_ref_pin_effect = "omnibase_infra.nodes.node_dev_lane_code_ref_pin_effect"
+node_dev_lane_pin_compose_guard_effect = "omnibase_infra.nodes.node_dev_lane_pin_compose_guard_effect"
+node_dev_roll_events_effect = "omnibase_infra.nodes.node_dev_roll_events_effect"
+node_developer_principal_plan_compute = "omnibase_infra.nodes.node_developer_principal_plan_compute"
 node_dlq_depth_evaluate_compute = "omnibase_infra.nodes.node_dlq_depth_evaluate_compute"
 node_dlq_depth_monitor_effect = "omnibase_infra.nodes.node_dlq_depth_monitor_effect"
 node_dlq_replay_effect = "omnibase_infra.nodes.node_dlq_replay_effect"
 node_emit_daemon_runtime = "omnibase_infra.nodes.node_emit_daemon_runtime"
 node_event_bus_wiring_effect = "omnibase_infra.nodes.node_event_bus_wiring_effect"
 node_event_forward_effect = "omnibase_infra.nodes.node_event_forward_effect"
+node_event_provenance_stamp_compute = "omnibase_infra.nodes.node_event_provenance_stamp_compute"
 node_evidence_autoclose_sweep_effect = "omnibase_infra.nodes.node_evidence_autoclose_sweep_effect"
 node_fault_inject_fixture_compute = "omnibase_infra.nodes.node_fault_inject_fixture_compute"
 node_gateway_attach_effect = "omnibase_infra.nodes.node_gateway_attach_effect"
@@ -693,13 +685,16 @@ node_gateway_link_health_projection_compute = "omnibase_infra.nodes.node_gateway
 node_gateway_link_health_write_effect = "omnibase_infra.nodes.node_gateway_link_health_write_effect"
 node_gmail_archive_cleanup_effect = "omnibase_infra.nodes.node_gmail_archive_cleanup_effect"
 node_gmail_intent_poller_effect = "omnibase_infra.nodes.node_gmail_intent_poller_effect"
+node_hostile_review_fix_verifier_effect = "omnibase_infra.nodes.node_hostile_review_fix_verifier_effect"
 node_hotpatch_ledger_reconcile_effect = "omnibase_infra.nodes.node_hotpatch_ledger_reconcile_effect"
 node_impact_analyzer_compute = "omnibase_infra.nodes.node_impact_analyzer_compute"
 node_in_progress_probe_hygiene_effect = "omnibase_infra.nodes.node_in_progress_probe_hygiene_effect"
 node_invariant_evaluate_compute = "omnibase_infra.nodes.node_invariant_evaluate_compute"
+node_k3s_lab_preflight_effect = "omnibase_infra.nodes.node_k3s_lab_preflight_effect"
 node_kafka_replay_compute = "omnibase_infra.nodes.node_kafka_replay_compute"
 node_lab_proof_plan_compute = "omnibase_infra.nodes.node_lab_proof_plan_compute"
 node_lab_proof_run_effect = "omnibase_infra.nodes.node_lab_proof_run_effect"
+node_lane_entry_point_census_effect = "omnibase_infra.nodes.node_lane_entry_point_census_effect"
 node_ledger_projection_compute = "omnibase_infra.nodes.node_ledger_projection_compute"
 node_ledger_write_effect = "omnibase_infra.nodes.node_ledger_write_effect"
 node_llm_completion_effect = "omnibase_infra.nodes.node_llm_completion_effect"
@@ -713,15 +708,21 @@ node_migration_freeze_check_compute = "omnibase_infra.nodes.node_migration_freez
 node_migration_sequence_check_compute = "omnibase_infra.nodes.node_migration_sequence_check_compute"
 node_model_health_effect = "omnibase_infra.nodes.node_model_health_effect"
 node_model_router_compute = "omnibase_infra.nodes.node_model_router_compute"
+node_node_broker_resolve_effect = "omnibase_infra.nodes.node_node_broker_resolve_effect"
 node_node_graph_reducer = "omnibase_infra.nodes.node_node_graph_reducer"
 node_onboarding_orchestrator = "omnibase_infra.nodes.node_onboarding_orchestrator"
+node_onex_api_image_build_effect = "omnibase_infra.nodes.node_onex_api_image_build_effect"
+node_onex_api_image_import_check_effect = "omnibase_infra.nodes.node_onex_api_image_import_check_effect"
 node_pattern_lifecycle_effect = "omnibase_infra.nodes.node_pattern_lifecycle_effect"
+node_placement_runtime_effect = "omnibase_infra.nodes.node_placement_runtime_effect"
+node_reconcile_workspace_venvs = "omnibase_infra.nodes.node_reconcile_workspace_venvs"
 node_registration_orchestrator = "omnibase_infra.nodes.node_registration_orchestrator"
 node_registration_reducer = "omnibase_infra.nodes.node_registration_reducer"
 node_registration_storage_effect = "omnibase_infra.nodes.node_registration_storage_effect"
 node_registry_api_effect = "omnibase_infra.nodes.node_registry_api_effect"
 node_registry_effect = "omnibase_infra.nodes.node_registry_effect"
 node_release_identity_compute = "omnibase_infra.nodes.node_release_identity_compute"
+node_release_notes_apply_effect = "omnibase_infra.nodes.node_release_notes_apply_effect"
 node_remote_agent_invoke_effect = "omnibase_infra.nodes.node_remote_agent_invoke_effect"
 node_reward_binder_effect = "omnibase_infra.nodes.node_reward_binder_effect"
 node_routing_orchestrator = "omnibase_infra.nodes.node_routing_orchestrator"
@@ -737,11 +738,13 @@ node_rsd_state_reducer = "omnibase_infra.nodes.node_rsd_state_reducer"
 node_runner_fleet_health_compute = "omnibase_infra.nodes.node_runner_fleet_health_compute"
 node_runner_fleet_maintain_orchestrator = "omnibase_infra.nodes.node_runner_fleet_maintain_orchestrator"
 node_runner_health_snapshot_effect = "omnibase_infra.nodes.node_runner_health_snapshot_effect"
+node_runner_image_roll = "omnibase_infra.nodes.node_runner_image_roll"
 node_runner_usage_effect = "omnibase_infra.nodes.node_runner_usage_effect"
 node_runtime_error_triage_effect = "omnibase_infra.nodes.node_runtime_error_triage_effect"
 node_runtime_manifest_reducer = "omnibase_infra.nodes.node_runtime_manifest_reducer"
 node_runtime_orchestrator = "omnibase_infra.nodes.node_runtime_orchestrator"
 node_runtime_source_attestor_effect = "omnibase_infra.nodes.node_runtime_source_attestor_effect"
+node_runtime_start_first_effect = "omnibase_infra.nodes.node_runtime_start_first_effect"
 node_savings_estimation_compute = "omnibase_infra.nodes.node_savings_estimation_compute"
 node_scope_extract_compute = "omnibase_infra.nodes.node_scope_extract_compute"
 node_scope_file_read_effect = "omnibase_infra.nodes.node_scope_file_read_effect"
@@ -757,7 +760,11 @@ node_setup_local_provision_effect = "omnibase_infra.nodes.node_setup_local_provi
 node_setup_orchestrator = "omnibase_infra.nodes.node_setup_orchestrator"
 node_setup_preflight_effect = "omnibase_infra.nodes.node_setup_preflight_effect"
 node_setup_validate_effect = "omnibase_infra.nodes.node_setup_validate_effect"
+node_sibling_clone_pin_effect = "omnibase_infra.nodes.node_sibling_clone_pin_effect"
+node_sibling_sha_pin_ratchet_compute = "omnibase_infra.nodes.node_sibling_sha_pin_ratchet_compute"
 node_slack_alerter_effect = "omnibase_infra.nodes.node_slack_alerter_effect"
+node_stability_rollback_waiver_effect = "omnibase_infra.nodes.node_stability_rollback_waiver_effect"
+node_standalone_compose_recreate_effect = "omnibase_infra.nodes.node_standalone_compose_recreate_effect"
 node_sync_revert_watchdog_effect = "omnibase_infra.nodes.node_sync_revert_watchdog_effect"
 node_ticket_contract_compose_effect = "omnibase_infra.nodes.node_ticket_contract_compose_effect"
 node_topic_migration_executor_effect = "omnibase_infra.nodes.node_topic_migration_executor_effect"
@@ -769,4 +776,6 @@ node_validation_ledger_projection_compute = "omnibase_infra.nodes.node_validatio
 node_validation_ledger_write_effect = "omnibase_infra.nodes.node_validation_ledger_write_effect"
 node_validation_orchestrator = "omnibase_infra.nodes.node_validation_orchestrator"
 node_vector_store_effect = "omnibase_infra.nodes.node_vector_store_effect"
+node_venv_atomic_install = "omnibase_infra.nodes.node_venv_atomic_install"
 node_waste_detection_compute = "omnibase_infra.nodes.node_waste_detection_compute"
+node_workspace_config_root_resolve_effect = "omnibase_infra.nodes.node_workspace_config_root_resolve_effect"

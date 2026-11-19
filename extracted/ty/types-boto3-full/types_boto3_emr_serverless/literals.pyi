@@ -65,6 +65,7 @@ SessionStateType = Literal[
 ]
 EMRServerlessServiceName = Literal["emr-serverless"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

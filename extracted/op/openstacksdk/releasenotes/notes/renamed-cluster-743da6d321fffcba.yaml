@@ -1,4 +1,0 @@
----
-upgrade:
-  - Renamed cluster to clustering to align with the official
-    service type.

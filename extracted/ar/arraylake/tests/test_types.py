@@ -1,32 +1,55 @@
+import json
 import uuid
+from collections.abc import Callable
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 import pytest
-from pydantic import SecretStr, ValidationError
+from pydantic import BaseModel, SecretStr, TypeAdapter, ValidationError
 
-from arraylake.compute.types import ComputeConfig
+from arraylake.compute.types import ComputeConfig, DeploymentInfo, LogLevel, ServiceStatus, ServiceType
+from arraylake.repos.icechunk.types import ArrayClassification, ClassifiedArray
 from arraylake.types import (
+    MAX_BUCKET_NAME_LENGTH,
+    MAX_BUCKET_PREFIX_LENGTH,
+    MAX_REPO_NAME_LENGTH,
+    RESERVED_REPO_NAMES,
+    AnonymousAuth,
+    Author,
     AWSCustomerManagedRoleAuth,
     AWSRoleAuthPatch,
-    Author,
     AzureCredentials,
+    AzureDelegatedCredentialsAuth,
     BucketModifyRequest,
     BucketResponse,
     DatasetFilter,
     GSCredentials,
     HmacAuth,
-    MAX_BUCKET_NAME_LENGTH,
-    MAX_BUCKET_PREFIX_LENGTH,
-    MAX_REPO_NAME_LENGTH,
+    IcebergGrantResponse,
+    IcebergNamespaceActions,
+    IcebergNamespaceResponse,
+    IcebergNamespaceSubscription,
+    IcebergTableSummaryResponse,
     NewBucket,
+    NewRepoOperationStatus,
     NodeFilter,
-    RESERVED_REPO_NAMES,
     R2AuthPatch,
     R2CustomerManagedRoleAuth,
     Repo,
+    RepoActions,
     RepoCreateBody,
     RepoKind,
+    RepoOperationMode,
     RepoSubscribeBody,
+    RepoSubscriptionInfo,
+    RepoVisibility,
+    RepoVisibilityModel,
     S3Credentials,
+    SubscriptionPricingType,
+    SubscriptionStatus,
+    SubscriptionType,
+    TempCredentials,
     TokenAuthenticateBody,
     UserInfo,
     utc_now,
@@ -686,3 +709,221 @@ def test_repo_create_body_still_rejects_unknown_kind():
     """Request bodies stay strict: a client can only ask for kinds it can open."""
     with pytest.raises(ValidationError):
         RepoCreateBody(name="some-repo", kind="some-future-kind", create_mode="register")
+
+
+_NOW = "2026-01-01T00:00:00Z"
+_UUID = "00000000-0000-0000-0000-000000000001"
+
+
+def _namespace_payload(**overrides: Any) -> dict[str, Any]:
+    return {"id": _UUID, "org": "o", "name": "n", "prefix": "p", "created": _NOW, "updated": _NOW} | overrides
+
+
+def _subscription_payload(**overrides: Any) -> dict[str, Any]:
+    return {"parent_repo": None, "exchange_listing": None} | overrides
+
+
+def _deployment_payload(service_type: str = "zarr", status: str = "available", **config: Any) -> dict[str, Any]:
+    return {
+        "name": "n",
+        "url": "https://example.com",
+        "created": _NOW,
+        "config": {"service_type": service_type, "org": "o", "is_public": False} | config,
+        "status": status,
+    }
+
+
+def _first(values: set[Any]) -> Any:
+    (value,) = values
+    return value
+
+
+_OPEN_ENUM_FIELDS = [
+    pytest.param(RepoOperationMode, NewRepoOperationStatus, lambda v: {"mode": v}, lambda m: m.mode, id="NewRepoOperationStatus.mode"),
+    pytest.param(
+        RepoVisibility, RepoVisibilityModel, lambda v: {"visibility": v}, lambda m: m.visibility, id="RepoVisibilityModel.visibility"
+    ),
+    pytest.param(
+        RepoActions,
+        Repo,
+        lambda v: _repo_payload("icechunk") | {"permissions": [{"principal_id": _UUID, "actions": [v]}]},
+        lambda m: _first(m.permissions[0].actions),
+        id="Repo.permissions.actions",
+    ),
+    pytest.param(
+        RepoVisibility, Repo, lambda v: _repo_payload("icechunk") | {"visibility": v}, lambda m: m.visibility, id="Repo.visibility"
+    ),
+    pytest.param(
+        RepoOperationMode,
+        Repo,
+        lambda v: _repo_payload("icechunk") | {"status": {"mode": v, "initiated_by": {}}},
+        lambda m: m.status.mode,
+        id="Repo.status.mode",
+    ),
+    pytest.param(
+        SubscriptionStatus,
+        RepoSubscriptionInfo,
+        lambda v: _subscription_payload(status=v),
+        lambda m: m.status,
+        id="RepoSubscriptionInfo.status",
+    ),
+    pytest.param(
+        SubscriptionType,
+        RepoSubscriptionInfo,
+        lambda v: _subscription_payload(subscription_type=v),
+        lambda m: m.subscription_type,
+        id="RepoSubscriptionInfo.subscription_type",
+    ),
+    pytest.param(
+        SubscriptionPricingType,
+        RepoSubscriptionInfo,
+        lambda v: _subscription_payload(pricing_type=v),
+        lambda m: m.pricing_type,
+        id="RepoSubscriptionInfo.pricing_type",
+    ),
+    pytest.param(
+        IcebergNamespaceActions,
+        IcebergGrantResponse,
+        lambda v: {"namespace_id": _UUID, "actions": [v]},
+        lambda m: _first(m.actions),
+        id="IcebergGrantResponse.actions",
+    ),
+    pytest.param(
+        SubscriptionStatus,
+        IcebergNamespaceSubscription,
+        lambda v: {"status": v},
+        lambda m: m.status,
+        id="IcebergNamespaceSubscription.status",
+    ),
+    pytest.param(
+        RepoVisibility,
+        IcebergNamespaceResponse,
+        lambda v: _namespace_payload(visibility=v),
+        lambda m: m.visibility,
+        id="IcebergNamespaceResponse.visibility",
+    ),
+    pytest.param(
+        IcebergNamespaceActions,
+        IcebergNamespaceResponse,
+        lambda v: _namespace_payload(effective_actions=[v]),
+        lambda m: _first(m.effective_actions),
+        id="IcebergNamespaceResponse.effective_actions",
+    ),
+    pytest.param(
+        IcebergNamespaceActions,
+        IcebergTableSummaryResponse,
+        lambda v: {"name": "t", "namespace": "n", "table_uuid": _UUID, "created": _NOW, "updated": _NOW, "effective_actions": [v]},
+        lambda m: _first(m.effective_actions),
+        id="IcebergTableSummaryResponse.effective_actions",
+    ),
+    pytest.param(
+        ServiceType,
+        DeploymentInfo,
+        lambda v: _deployment_payload(service_type=v),
+        lambda m: m.config.service_type,
+        id="ServiceConfig.service_type",
+    ),
+    pytest.param(
+        LogLevel, DeploymentInfo, lambda v: _deployment_payload(log_level=v), lambda m: m.config.log_level, id="ServiceConfig.log_level"
+    ),
+    pytest.param(ServiceStatus, DeploymentInfo, lambda v: _deployment_payload(status=v), lambda m: m.status, id="DeploymentInfo.status"),
+    pytest.param(
+        ArrayClassification,
+        ClassifiedArray,
+        lambda v: {
+            "path": "/a",
+            "name": "a",
+            "shape": [1],
+            "dtype": "int8",
+            "dimension_names": ["x"],
+            "attributes": {},
+            "chunk_shape": [1],
+            "classification": v,
+        },
+        lambda m: m.classification,
+        id="ClassifiedArray.classification",
+    ),
+]
+
+
+@pytest.mark.parametrize("enum_cls, model, payload, field", _OPEN_ENUM_FIELDS)
+def test_response_enum_parses_known_values_as_members(
+    enum_cls: type[Enum], model: type[BaseModel], payload: Callable[[str], dict], field: Callable[[Any], Any]
+) -> None:
+    for member in enum_cls:
+        assert field(model.model_validate(payload(member.value))) is member
+
+
+@pytest.mark.parametrize("enum_cls, model, payload, field", _OPEN_ENUM_FIELDS)
+def test_response_enum_keeps_unknown_values_as_str(
+    enum_cls: type[Enum], model: type[BaseModel], payload: Callable[[str], dict], field: Callable[[Any], Any]
+) -> None:
+    parsed = model.model_validate_json(json.dumps(payload("SOME_FUTURE_VALUE")))
+    assert type(field(parsed)) is str
+    assert field(parsed) == "SOME_FUTURE_VALUE"
+    assert "SOME_FUTURE_VALUE" in parsed.model_dump_json()
+
+
+@pytest.mark.parametrize("enum_cls, model, payload, field", _OPEN_ENUM_FIELDS)
+def test_response_enum_publishes_only_known_values_in_json_schema(
+    enum_cls: type[Enum], model: type[BaseModel], payload: Callable[[str], dict], field: Callable[[Any], Any]
+) -> None:
+    schema = json.dumps(model.model_json_schema(mode="serialization"))
+    assert f'"#/$defs/{enum_cls.__name__}"' in schema or f'"enum": {json.dumps([m.value for m in enum_cls])}' in schema
+    assert f'{{"$ref": "#/$defs/{enum_cls.__name__}"}}, {{"type": "string"}}' not in schema
+
+
+FUTURE_CREDENTIALS = Path(__file__).parents[2] / "contracts" / "bucket-credentials" / "future-credentials.json"
+
+
+@pytest.mark.parametrize(
+    "case,expected_type,expected_provider",
+    [
+        ("new_s3_with_refresh_and_extra_fields", S3Credentials, "s3"),
+        ("old_gcs_without_provider_or_refresh", GSCredentials, "gcs"),
+        ("new_azure", AzureCredentials, "azure"),
+    ],
+)
+def test_temp_credentials_parse_old_and_new_shapes(case: str, expected_type: type, expected_provider: str) -> None:
+    payload = json.loads(FUTURE_CREDENTIALS.read_text())[case]
+
+    creds = TypeAdapter(TempCredentials).validate_python(payload)
+
+    assert isinstance(creds, expected_type)
+    assert creds.provider == expected_provider
+
+
+def test_temp_credentials_keep_the_refresh_url_and_hide_secrets() -> None:
+    payload = json.loads(FUTURE_CREDENTIALS.read_text())["new_s3_with_refresh_and_extra_fields"]
+
+    creds = TypeAdapter(TempCredentials).validate_python(payload)
+
+    assert creds.refresh is not None
+    assert creds.refresh.url.startswith("https://")
+    assert "example-secret" not in repr(creds)
+
+
+def test_temp_credentials_reject_an_unknown_provider() -> None:
+    """Callers decide how to treat a provider they do not know; the plain union does not guess."""
+    payload = json.loads(FUTURE_CREDENTIALS.read_text())["unknown_provider"]
+    with pytest.raises(ValidationError):
+        TypeAdapter(TempCredentials).validate_python(payload)
+
+
+HOST_CHANGING_STORAGE_ACCOUNTS = ["attacker.example/x?", "attacker.example#", "attacker.example:8443/y#", "acct\n"]
+
+
+@pytest.mark.parametrize("storage_account", [*HOST_CHANGING_STORAGE_ACCOUNTS, "ab", "a" * 25, "MyAccount", "my-account"])
+def test_azure_storage_account_must_be_an_account_name(storage_account: str) -> None:
+    with pytest.raises(ValidationError):
+        AzureDelegatedCredentialsAuth(method="azure_credential_delegation", tenant_id="t", storage_account=storage_account)
+    with pytest.raises(ValidationError):
+        AnonymousAuth(method="anonymous", storage_account=storage_account)
+    with pytest.raises(ValidationError):
+        AzureCredentials(sas_token="sas", storage_account=storage_account, expiration=None)
+
+
+@pytest.mark.parametrize("storage_account", ["abc", "a" * 24, "myaccount01"])
+def test_azure_storage_account_accepts_account_names(storage_account: str) -> None:
+    auth = AzureDelegatedCredentialsAuth(method="azure_credential_delegation", tenant_id="t", storage_account=storage_account)
+    assert auth.storage_account == storage_account

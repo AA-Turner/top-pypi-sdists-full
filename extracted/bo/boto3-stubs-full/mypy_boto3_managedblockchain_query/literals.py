@@ -75,6 +75,7 @@ QueryTransactionEventTypeType = Literal[
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 ManagedBlockchainQueryServiceName = Literal["managedblockchain-query"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

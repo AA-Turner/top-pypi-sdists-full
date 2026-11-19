@@ -163,6 +163,7 @@ WebAppVpcEndpointIpAddressTypeType = Literal["DUALSTACK", "IPV4"]
 WorkflowStepTypeType = Literal["COPY", "CUSTOM", "DECRYPT", "DELETE", "TAG"]
 TransferServiceName = Literal["transfer"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

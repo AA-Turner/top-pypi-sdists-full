@@ -22,12 +22,12 @@ def reporepr(repo: Repo) -> str:
     # ``kind`` may be a bare string when the server reports a kind this release
     # doesn't know; StrEnum formats identically, so no ``.value`` here.
     contents.append(f"Kind: {repo.kind}")
-    contents.append(f"Visibility: {repo.visibility.value}")
+    contents.append(f"Visibility: {repo.visibility}")
     if repo.prefix:
         contents.append(f"Prefix: {repo.prefix}")
 
     # Status section
-    contents.append(f"Status: {repo.status.mode.value}")
+    contents.append(f"Status: {repo.status.mode}")
     if repo.status.message:
         contents.append(f"Status message: {repo.status.message}")
 

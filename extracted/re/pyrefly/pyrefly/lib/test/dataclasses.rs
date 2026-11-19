@@ -1293,6 +1293,162 @@ def f(d: D2, e: D2, f: D3):
 );
 
 testcase!(
+    test_parent_dataclass_with_order,
+    r#"
+from dataclasses import dataclass
+@dataclass(order=True)
+class D:
+    x: int
+
+class C(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+class E(C):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+    "#,
+);
+
+// Only the decorated class gets generated ordering methods at runtime; subclasses inherit them.
+testcase!(
+    test_ordering_methods_inherited_by_subclass,
+    r#"
+from dataclasses import dataclass
+from typing import reveal_type
+@dataclass(order=True)
+class D:
+    x: int
+
+class C(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+reveal_type(C.__lt__)  # E: revealed type: (self: D, other: D) -> bool
+
+class OverridesGe(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    def __ge__(self, other: object) -> bool:
+        return True
+
+class InheritsGe(OverridesGe):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+InheritsGe(1) >= 3
+    "#,
+);
+
+// The error is at the base it is about, not at another base of the class.
+testcase!(
+    test_parent_dataclass_with_order_among_bases,
+    r#"
+from dataclasses import dataclass
+@dataclass(order=True)
+class D:
+    x: int
+
+class Other:
+    pass
+
+class C(
+    Other,
+    D,  # E: Cannot safely extend dataclass `D` with `order=True`
+):
+    pass
+    "#,
+);
+
+testcase!(
+    test_parent_dataclass_with_order_overridden,
+    r#"
+from dataclasses import dataclass
+from typing import dataclass_transform
+@dataclass(order=True)
+class D:
+    x: int
+
+class FullOrdering:
+    def __lt__(self, other: object) -> bool:
+        return True
+    def __le__(self, other: object) -> bool:
+        return True
+    def __gt__(self, other: object) -> bool:
+        return True
+    def __ge__(self, other: object) -> bool:
+        return True
+
+class OverridesInChild(D):
+    def __lt__(self, other: object) -> bool:
+        return True
+    def __le__(self, other: object) -> bool:
+        return True
+    def __gt__(self, other: object) -> bool:
+        return True
+    def __ge__(self, other: object) -> bool:
+        return True
+
+class InheritsOverride(OverridesInChild):
+    pass
+
+class InheritsOverrideTwice(InheritsOverride):
+    pass
+
+# The methods it doesn't override are still generated, so `PartialOverride(1) < D(1)` fails.
+class PartialOverride(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    def __ge__(self, other: object) -> bool:
+        return True
+
+@dataclass(order=True)
+class OrderedOverPartial(PartialOverride):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+@dataclass(order=True)
+class OrderedChild(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    y: int = 0
+
+class Above:
+    def __lt__(self, other: object) -> bool:
+        return True
+
+@dataclass(order=True)
+class ShadowsAbove(Above):
+    x: int
+
+class ShadowsAboveChild(ShadowsAbove):  # E: Cannot safely extend dataclass `ShadowsAbove` with `order=True`
+    pass
+
+class MixinFirst(FullOrdering, D):
+    pass
+
+class MixinLast(D, FullOrdering):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+class PartialMixin:
+    def __lt__(self, other: object) -> bool:
+        return True
+
+class PartialMixinFirst(PartialMixin, D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+@dataclass
+class Unordered(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+class UnorderedChild(Unordered):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+@dataclass(order=True)
+class D2:
+    y: int
+
+class Both(D, D2):  # E: Cannot safely extend dataclass `D` with `order=True`  # E: Cannot safely extend dataclass `D2` with `order=True`
+    pass
+
+@dataclass_transform(order_default=True)
+class ModelBase: ...
+
+class TransformOrdered(D, ModelBase):
+    pass
+    "#,
+);
+
+testcase!(
     test_call_comparison_unbound_with_named_args,
     r#"
 from dataclasses import dataclass
@@ -2581,7 +2737,7 @@ C(42)
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2923
+// https://github.com/pyrefly-org/pyrefly/issues/2923
 testcase!(
     test_dataclass_on_named_tuple,
     r#"
@@ -2596,7 +2752,7 @@ dataclass(Coord)  # E: Cannot apply `@dataclass` to NamedTuple `Coord`
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2921
+// https://github.com/pyrefly-org/pyrefly/issues/2921
 testcase!(
     test_dataclass_on_protocol,
     r#"
@@ -2624,7 +2780,7 @@ dataclass(Color)  # E: Cannot apply `@dataclass` to Enum `Color`
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2921
+// https://github.com/pyrefly-org/pyrefly/issues/2921
 testcase!(
     test_dataclass_decorator_on_protocol,
     r#"
@@ -2645,7 +2801,7 @@ class DC2(Protocol, DC):  # E: If `Protocol` is included as a base class, all ot
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2921
+// https://github.com/pyrefly-org/pyrefly/issues/2921
 testcase!(
     test_dataclass_protocol_fields_in_subclass,
     r#"
@@ -2667,7 +2823,7 @@ Child("bad", "ok")  # E: Argument `Literal['bad']` is not assignable to paramete
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/3751
+// https://github.com/pyrefly-org/pyrefly/issues/3751
 testcase!(
     test_dataclass_decorator_on_named_tuple,
     r#"
@@ -2680,7 +2836,7 @@ class Foo(NamedTuple):  # E: Cannot apply `@dataclass` to NamedTuple
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2920
+// https://github.com/pyrefly-org/pyrefly/issues/2920
 testcase!(
     test_frozen_dataclass_override_setattr_delattr,
     r#"
@@ -2812,5 +2968,50 @@ class C:
 
 c = C(self="test")
 assert_type(c.self, str)
+"#,
+);
+
+// A dataclass checks the descriptors of its own fields. A base class reports its own fields in its
+// own module.
+testcase!(
+    test_dataclass_does_not_check_inherited_descriptor_fields,
+    TestEnv::one(
+        "foo",
+        r#"
+from dataclasses import dataclass
+
+class NonData:
+    def __get__(self, obj: object, objtype: object) -> int: ...
+
+@dataclass
+class Base:
+    x: NonData = NonData()  # E: Cannot set field `x` to non-data descriptor `NonData`
+"#,
+    ),
+    r#"
+from dataclasses import dataclass
+from foo import Base
+
+@dataclass
+class Child(Base):
+    y: int = 0
+"#,
+);
+
+// Building `__init__` resolves a descriptor's `__set__` only for its type. A `__set__` that cannot
+// be resolved is reported where it is defined, not again at the field.
+testcase!(
+    test_dataclass_init_does_not_report_descriptor_setter,
+    r#"
+from dataclasses import dataclass
+
+class D:
+    def __get__(self, obj: object, objtype: object) -> int: ...
+    @property
+    def __set__(self, extra: int) -> None: ...  # E: Property getter cannot take extra required parameter `extra`
+
+@dataclass
+class C:
+    x: D = D()
 "#,
 );

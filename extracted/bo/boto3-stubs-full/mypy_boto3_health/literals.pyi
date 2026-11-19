@@ -83,6 +83,7 @@ TagsOnboardingStatusForOrganizationType = Literal["DISABLED", "ENABLED"]
 TagsOnboardingStatusType = Literal["DISABLED", "ENABLED"]
 HealthServiceName = Literal["health"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

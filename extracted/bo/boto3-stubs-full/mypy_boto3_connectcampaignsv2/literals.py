@@ -97,6 +97,7 @@ ProfileOutboundRequestFailureCodeType = Literal[
 ]
 ConnectCampaignServiceV2ServiceName = Literal["connectcampaignsv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

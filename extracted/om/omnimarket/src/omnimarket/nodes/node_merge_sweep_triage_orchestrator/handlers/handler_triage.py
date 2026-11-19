@@ -30,16 +30,17 @@ import contextlib
 import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from omnibase_core.models.dispatch.model_handler_output import ModelHandlerOutput
 
 from omnimarket.config.env_flags import env_flag
-from omnimarket.nodes.node_merge_sweep_compute.handlers.handler_merge_sweep import (
-    EnumPRTrack,
-    ModelClassifiedPR,
-)
+from omnimarket.handlers.model_binding_reader import model_binding_section
+from omnimarket.models.merge_sweep.enum_pr_track import EnumPRTrack
+from omnimarket.models.merge_sweep.model_classified_pr import ModelClassifiedPR
+from omnimarket.nodes.contract_topics import contract_topic
 from omnimarket.nodes.node_merge_sweep_triage_orchestrator.models.model_triage_request import (
     ModelAutoMergeArmCommand,
     ModelCiFixCommand,
@@ -56,16 +57,17 @@ from omnimarket.nodes.node_pr_polish.models.model_pr_polish_start_command import
 _log = logging.getLogger(__name__)
 
 # Topics from contract.yaml — never inline elsewhere
-TOPIC_AUTO_MERGE_ARM = "onex.cmd.omnimarket.pr-auto-merge-arm.v1"  # onex-topic-allow: pending contract auto-wiring
-TOPIC_REBASE = (
-    "onex.cmd.omnimarket.pr-rebase.v1"  # onex-topic-allow: pending contract auto-wiring
+_CONTRACT = Path(__file__).resolve().parent.parent / "contract.yaml"
+TOPIC_AUTO_MERGE_ARM = contract_topic(
+    _CONTRACT, "publish_topics", ".pr-auto-merge-arm.v1"
 )
-TOPIC_CI_RERUN = "onex.cmd.omnimarket.pr-ci-rerun.v1"  # onex-topic-allow: pending contract auto-wiring
-TOPIC_THREAD_REPLY = "onex.cmd.omnimarket.pr-thread-reply.v1"  # onex-topic-allow: pending contract auto-wiring
-TOPIC_CONFLICT_HUNK = "onex.cmd.omnimarket.pr-conflict-hunk.v1"  # onex-topic-allow: pending contract auto-wiring
-TOPIC_CI_FIX = (
-    "onex.cmd.omnimarket.pr-ci-fix.v1"  # onex-topic-allow: pending contract auto-wiring
+TOPIC_REBASE = contract_topic(_CONTRACT, "publish_topics", ".pr-rebase.v1")
+TOPIC_CI_RERUN = contract_topic(_CONTRACT, "publish_topics", ".pr-ci-rerun.v1")
+TOPIC_THREAD_REPLY = contract_topic(_CONTRACT, "publish_topics", ".pr-thread-reply.v1")
+TOPIC_CONFLICT_HUNK = contract_topic(
+    _CONTRACT, "publish_topics", ".pr-conflict-hunk.v1"
 )
+TOPIC_CI_FIX = contract_topic(_CONTRACT, "publish_topics", ".pr-ci-fix.v1")
 
 # OMN-14151: legacy arm surface hard-gate. Safe default False — Rule 2 never
 # emits ModelAutoMergeArmCommand (the legacy unconditional arm-emit) unless an
@@ -89,14 +91,7 @@ FAILED_CHECK_CONCLUSIONS = {
 # Default routing policy for Phase 2 LLM commands. It must match
 # omnibase_compat.routing.model_routing_policy.ModelRoutingPolicy because effect
 # handlers fail-loud on malformed command routing.
-_DEFAULT_ROUTING_POLICY: dict[str, Any] = {
-    "primary": "deepseek-r1-14b",
-    "fallback": "qwen3-coder-30b",
-    "fallback_allowed_roles": ["ci_fixer", "thread_reply", "conflict_hunk"],
-    "max_tokens": 2048,
-    "temperature": 0.0,
-    "ci_override": {"primary": "deepseek-r1-14b"},
-}
+_DEFAULT_ROUTING_POLICY: dict[str, Any] = model_binding_section("triage_routing_policy")
 
 
 def _approval_gate_cleared(

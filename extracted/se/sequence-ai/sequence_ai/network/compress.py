@@ -30,7 +30,7 @@ import sys
 import threading
 import time
 import zlib
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Collection, Optional
 
 MARK, KIND, VERSION = "__seq__", "compressed", 1   # the map compressed.expand reads
 MIN_BYTES = 16 * 1024      # smaller values are sent uncompressed: compressing a few kilobytes costs more than it saves
@@ -50,22 +50,35 @@ _PATHS_KEPT = 1024         # paths remembered before the table is cleared: bound
 _SIGN = b"\xaa" + KIND.encode()
 
 
-def _codec() -> "tuple[str, Callable[[bytes], bytes], Callable[[bytes, int], bytes]]":
+def _codec(allowed: "Optional[Collection[str]]" = None
+           ) -> "Optional[tuple[str, Callable[[bytes], bytes], Callable[[bytes, int], bytes]]]":
     """The codec available on this robot, as (name, compress, decompress): zstd where Python or an installed package
-    provides it, else zlib."""
-    try:
-        from compression import zstd  # type: ignore[import-not-found]   # Python 3.14
+    provides it, else zlib - of those in `allowed` (the codecs its server reads; None: either). None when none of them
+    is available."""
+    if allowed is None or "zstd" in allowed:
+        try:
+            from compression import zstd  # type: ignore[import-not-found]   # Python 3.14
 
-        return "zstd", (lambda b: zstd.compress(b, level=1)), (lambda b, n: zstd.decompress(b))
-    except ImportError:
-        pass
-    try:
-        import zstandard  # type: ignore[import-not-found]
+            return "zstd", (lambda b: zstd.compress(b, level=1)), (lambda b, n: zstd.decompress(b))
+        except ImportError:
+            pass
+        try:
+            import zstandard  # type: ignore[import-not-found]
 
-        return ("zstd", (lambda b: zstandard.ZstdCompressor(level=1).compress(b)),
-                (lambda b, n: zstandard.ZstdDecompressor().decompress(b, max_output_size=n)))
-    except ImportError:
+            return ("zstd", (lambda b: zstandard.ZstdCompressor(level=1).compress(b)),
+                    (lambda b, n: zstandard.ZstdDecompressor().decompress(b, max_output_size=n)))
+        except ImportError:
+            pass
+    if allowed is None or "zlib" in allowed:
         return "zlib", (lambda b: zlib.compress(b, 1)), (lambda b, n: zlib.decompress(b))
+    return None
+
+
+def codec_for(reads: "Collection[str]") -> Optional[str]:
+    """The codec this robot would compress with for a server that reads the codecs in `reads` ("zstd", "zlib"): zstd
+    where both have it, else zlib where the server reads it; None when they share none."""
+    found = _codec(reads)
+    return found[0] if found is not None else None
 
 
 class Uplink:
@@ -107,8 +120,13 @@ class Squeeze:
     """Compression state for one connection's observations (the module's docstring): its codec, its uplink estimate, and
     each path's last result."""
 
-    def __init__(self) -> None:
-        self.codec, self._pack, self._unpack = _codec()
+    def __init__(self, codecs: "Optional[Collection[str]]" = None) -> None:
+        """`codecs`: the codecs the server reads, as its X-Seq-Reads names them (None: either). ValueError when this
+        robot has none of them."""
+        found = _codec(codecs)
+        if found is None:
+            raise ValueError(f"no codec this robot has is one the server reads ({', '.join(sorted(codecs or ()))})")
+        self.codec, self._pack, self._unpack = found
         self.uplink = Uplink()
         self._lock = threading.Lock()
         self._paths: "dict[tuple, _Path]" = {}

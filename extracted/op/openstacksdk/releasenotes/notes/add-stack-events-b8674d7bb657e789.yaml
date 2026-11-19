@@ -1,5 +1,0 @@
----
-features:
-  - |
-    The ``stack_events`` method and ``StackEvent`` Class have been
-    added to retrieve stack events

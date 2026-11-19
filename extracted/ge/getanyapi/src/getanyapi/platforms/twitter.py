@@ -135,7 +135,7 @@ class TwitterRepliesInput(TypedDict, total=False):
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     limit: NotRequired[int]
-    """Maximum number of results to return (1-40, default 40). Per-result lanes cost less at lower limits; a backup that bills its native page may cost up to the advertised request price. Range: 1 to 40."""
+    """Most replies to return (1-40, default 40). Ignored on sources that page: each call returns one full page of up to about 36 replies, never trimmed; follow nextCursor for more. Sources that cannot page return up to `limit` replies in one call with no nextCursor, and per-result ones cost less at lower limits; a source that bills its native page may cost up to the advertised request price. Range: 1 to 40."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     requireFields: NotRequired[list[Literal["nextCursor"]]]
@@ -1635,7 +1635,7 @@ class TwitterNamespace:
         Fetch a Twitter/X account's public profile (followers, tweets, bio,
         verification) by handle.
 
-        Price: $0.00022 per request.
+        Price: $0.00021 per request.
 
         Example:
             res = client.twitter.profile(handle="nasa")
@@ -1704,7 +1704,7 @@ class TwitterNamespace:
         per-page maximum; native pages contain approximately 20 tweets unless
         requireSinglePage selects a bulk lane.
 
-        Price: $0.00048 per request.
+        Price: $0.00047 per request.
 
         Example:
             res = client.twitter.search(query="openai")
@@ -1840,7 +1840,7 @@ class TwitterNamespace:
         through the author's linked continuations. This excludes replies from other
         users.
 
-        Price: $0.0004 per request.
+        Price: $0.0024 per request.
 
         Example:
             res = client.twitter.thread(url="https://x.com/SpaceX/status/1732824684683784516")
@@ -2174,7 +2174,7 @@ class AsyncTwitterNamespace:
         Fetch a Twitter/X account's public profile (followers, tweets, bio,
         verification) by handle.
 
-        Price: $0.00022 per request.
+        Price: $0.00021 per request.
 
         Example:
             res = client.twitter.profile(handle="nasa")
@@ -2243,7 +2243,7 @@ class AsyncTwitterNamespace:
         per-page maximum; native pages contain approximately 20 tweets unless
         requireSinglePage selects a bulk lane.
 
-        Price: $0.00048 per request.
+        Price: $0.00047 per request.
 
         Example:
             res = client.twitter.search(query="openai")
@@ -2381,7 +2381,7 @@ class AsyncTwitterNamespace:
         through the author's linked continuations. This excludes replies from other
         users.
 
-        Price: $0.0004 per request.
+        Price: $0.0024 per request.
 
         Example:
             res = client.twitter.thread(url="https://x.com/SpaceX/status/1732824684683784516")

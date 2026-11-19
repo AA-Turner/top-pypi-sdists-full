@@ -67,6 +67,7 @@ ImageSelectorTypeType = Literal["PRODUCER_TIMESTAMP", "SERVER_TIMESTAMP"]
 ListFragmentsPaginatorName = Literal["list_fragments"]
 KinesisVideoArchivedMediaServiceName = Literal["kinesis-video-archived-media"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1,17 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: opentelemetry-container-distro
-Version: 0.2.0
+Version: 0.3.0
 Summary: An OpenTelemetry distro which automatically discovers container attributes
-Home-page: https://github.com/chrisguidry/opentelemetry-container-distro
-Author: Chris Guidry
-Author-email: chris@theguidrys.us
+Project-URL: Repository, https://github.com/chrisguidry/opentelemetry-container-distro
 Project-URL: Bug Tracker, https://github.com/chrisguidry/opentelemetry-container-distro/issues
-Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-Provides-Extra: dev
+Author-email: Chris Guidry <chris@theguidrys.us>
+License-Expression: MIT
 License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Requires-Dist: opentelemetry-api
+Requires-Dist: opentelemetry-exporter-otlp
+Requires-Dist: opentelemetry-instrumentation
+Requires-Dist: opentelemetry-resourcedetector-docker>=0.3.0
+Requires-Dist: opentelemetry-resourcedetector-kubernetes>=0.2.1
+Requires-Dist: opentelemetry-resourcedetector-process>=0.1.1
+Requires-Dist: opentelemetry-sdk
+Description-Content-Type: text/markdown
 
 # opentelemetry-container-distro
 

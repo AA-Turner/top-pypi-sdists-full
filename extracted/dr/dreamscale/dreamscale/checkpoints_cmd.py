@@ -31,13 +31,14 @@ from types import SimpleNamespace
 from typing import Any
 
 import httpx
-from dreamscale_transport import families as manifest
 from rich.text import Text
 
+from dreamscale import _deployment_families as manifest
 from dreamscale import deploy_bases, errors, local_checkpoint, tables
 from dreamscale.config import load_config
 from dreamscale.control import ControlPlaneClient
 from dreamscale.deploy_bases import Base  # noqa: F401 - its CLI name
+from dreamscale.deploy_bases.isaac05 import CLI_ALIAS
 from dreamscale.integrations import hugging_face
 from dreamscale.model_names import internal_model, is_account_ref, public_model
 from dreamscale.policy.deployment import joint_actions
@@ -55,7 +56,7 @@ _REGION_ID = re.compile(r"^[a-z][a-z0-9-]{0,30}[a-z0-9]$")
 DEFAULT_REGION = "us-west"
 # `--region auto` (the default): the nearest region the base serves, measured from here.
 AUTO_REGION = "auto"
-ISAAC = "isaac0.5"
+ISAAC = CLI_ALIAS
 # Every name `--base` takes (aliases too), each base's presets and build steps, and its label:
 # one per deployment base (deploy_bases).
 _BASE_NAMES = deploy_bases.names()
@@ -100,8 +101,8 @@ def downloaded_base(repo: str, path: str | None = None) -> str | None:
         return None
     if name in _BASE_NAMES:
         return _BASE_NAMES[name]
-    from dreamscale_core import training_families
-    from dreamscale_transport import families
+    from dreamscale import _deployment_families as families
+    from dreamscale._training_families import families as training_families
 
     if training_families.is_base(name):
         deploy = families.family(training_families.family_of(name).id).deploy
@@ -118,14 +119,15 @@ def base_name_of(checkpoint: dict) -> str | None:
     doesn't know (a newer control plane's), which is never treated as another base."""
     model = checkpoint.get("base_model") or checkpoint.get("model")
     for base in deploy_bases.BASES:
-        if base.claims_model and model == base.name:
+        if (base.claims_model and model == base.name) or model in base.row_models:
             return base.name
     claimed = deploy_bases.claiming(checkpoint)
     if claimed is not None:
         return claimed.name
     named = checkpoint.get("base_model")
     if named is None:
-        return ISAAC  # rows from before bases were named are Isaac 0.5's
+        # Early endpoint records could omit all model and format fields.
+        return BASE_MODEL if not model and not checkpoint.get("source_format") else None
     return _BASE_NAMES.get(internal_model(str(named)).lower())
 
 
@@ -672,7 +674,7 @@ def _inspect_with_status(
     token: str | None,
     print_fn: Callable[[str], None],
     *,
-    base: str = ISAAC,
+    base: str = BASE_MODEL,
     path: str | None = None,
 ) -> tuple[str, dict]:
     """Inspect, with a ticking line while the repo is read (a cold read takes a while).
@@ -681,7 +683,7 @@ def _inspect_with_status(
     try:
         printer(
             f"Reading {repo}'s deployment adapter and training stats: 0s elapsed"
-            if base == ISAAC
+            if base == BASE_MODEL
             else f"Reading {repo}'s checkpoint and training stats: 0s elapsed"
         )
         return asyncio.run(_inspect_as(client_factory, repo, revision, token, base, path))
@@ -768,8 +770,8 @@ async def _inspect_as(
                 repo, revision=revision, hf_token=token, model=base,
                 **({"path": path} if path is not None else {}),
             )
-        if base == ISAAC:
-            return ISAAC, await client.inspect_endpoint_repo(
+        if base == BASE_MODEL:
+            return BASE_MODEL, await client.inspect_endpoint_repo(
                 repo, revision=revision, hf_token=token
             )
         # Any other (auto too): the Detect of the base named, if it has one, else the

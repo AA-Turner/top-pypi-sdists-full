@@ -41,6 +41,9 @@ from typing import Any
 import pytest
 import yaml
 
+from omnibase_infra.nodes.node_board_probe_effect.models.model_consumer_flow_lane import (
+    ModelConsumerFlowLane,
+)
 from scripts.ci import c28_consumer_flow_probe as probe
 
 pytestmark = pytest.mark.unit
@@ -49,8 +52,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "omn19812"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "chain-canary-c28-consumer-flow.yml"
 
-AUDIT = "local.omnibase_infra.node_gateway_link_health_projection_compute.consume.1.0.0"
+AUDIT = "local.omnibase_infra.node_ledger_projection_compute.consume.1.6.1"
 REDUCER = "local.omnimarket.projection_consumer_flow.consume.1.0.1"
+
+#: Each kind's topic as the grader under test names it, so a row built here
+#: follows the grader's table and the node contract instead of repeating a literal.
+KIND_TOPIC = {kind: topic for kind, _prefix, topic, _counter in probe.KINDS}
+AUDIT_TOPIC = KIND_TOPIC["audit_projection_consumer"]
+REDUCER_TOPIC = KIND_TOPIC["publishing_reducer"]
+RECORDED_LANE = ModelConsumerFlowLane.from_compose_project("omnibase-infra")
 
 
 def _row(
@@ -71,15 +81,15 @@ def _sample(i: int) -> list[dict[str, Any]]:
     return [
         _row(
             AUDIT,
-            "onex.evt.omnibase-infra.gateway-heartbeat.v1",
+            AUDIT_TOPIC,
             start,
-            n_in=2,
+            n_in=4,
             n_out=0,
-            state="STALLED",
+            state="CONSUMING",
         ),
         _row(
             REDUCER,
-            "onex.evt.platform.node-heartbeat.v1",
+            REDUCER_TOPIC,
             start,
             n_in=565,
             n_out=565,
@@ -87,7 +97,7 @@ def _sample(i: int) -> list[dict[str, Any]]:
         ),
         _row(
             "local.omnimarket.other.consume.1.0.0",
-            "onex.evt.x.v1",
+            "onex.evt.omnimarket.projection-consumer-flow-applied.v1",
             start,
             n_in=0,
             n_out=0,
@@ -153,7 +163,7 @@ def _green() -> dict[str, Any]:
             "applied_window_seconds": 90,
             "natural": {
                 c: {"lines": 30000, "total": 0, "probe": 0, "natural": 0}
-                for c in probe.RUNTIME_CONTAINERS
+                for c in RECORDED_LANE.runtime_containers
             },
             "injection": {
                 "offset": 271662,
@@ -168,6 +178,17 @@ def _green() -> dict[str, Any]:
 
 def _failed(rec: probe.Record) -> set[str]:
     return {c.name for c in rec.checks if not c.ok}
+
+
+def test_the_grader_topics_are_the_node_contract_topics() -> None:
+    contract = (
+        REPO_ROOT / "src/omnibase_infra/nodes/node_board_probe_effect/contract.yaml"
+    )
+    declared = yaml.safe_load(contract.read_text(encoding="utf-8"))[
+        "consumer_flow_topics"
+    ]
+    assert declared["audit_projection"] == AUDIT_TOPIC
+    assert declared["publishing_reducer"] == REDUCER_TOPIC
 
 
 def test_the_green_observation_passes_on_every_clause() -> None:
@@ -405,7 +426,9 @@ def test_red_when_no_applied_event_arrived() -> None:
 
 def test_red_on_a_natural_validation_error() -> None:
     def mutate(obs: dict[str, Any]) -> None:
-        obs["boot"]["natural"]["omninode-runtime"].update(total=2, natural=2)
+        obs["boot"]["natural"][RECORDED_LANE.runtime_containers[0]].update(
+            total=2, natural=2
+        )
 
     assert _mutate(mutate) == {"zero_natural_stall_alert_validation_errors"}
 
@@ -427,7 +450,7 @@ def test_red_when_the_seam_did_not_observe_the_injection() -> None:
 
 def test_red_when_the_logs_were_not_read() -> None:
     def mutate(obs: dict[str, Any]) -> None:
-        del obs["boot"]["natural"]["omninode-runtime-effects"]
+        del obs["boot"]["natural"][RECORDED_LANE.runtime_containers[1]]
 
     assert "runtime_logs_read" in _mutate(mutate)
 
@@ -581,19 +604,121 @@ def test_junit_outcomes_reads_failures_and_param_ids() -> None:
 # ---- could-not-look is exit 2 and still leaves a record ---------------------
 
 
-def test_a_lane_that_cannot_be_read_exits_2_with_a_record(tmp_path: Path) -> None:
-    class DeadLane(probe.Lane):
-        def identity(self) -> dict[str, dict[str, Any]]:
-            raise probe.ProbeInputError("docker inspect omninode-runtime exited 1")
+def test_standalone_probe_reads_only_the_requested_lane(tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def runner(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        assert argv[:6] == [
+            "uv",
+            "run",
+            "--frozen",
+            "onex",
+            "node",
+            "node_board_probe_effect",
+        ]
+        request = json.loads(Path(argv[argv.index("--input") + 1]).read_text())
+        contract = yaml.safe_load(Path(argv[argv.index("--contract") + 1]).read_text())
+        route = next(
+            r
+            for r in contract["handler_routing"]["handlers"]
+            if r["operation"] == "board_probe.consumer_flow"
+        )
+        assert contract["handler"]["module"] == route["handler"]["module"]
+        assert contract["handler"]["class"] == route["handler"]["name"]
+        assert request["compose_project"] == "omnibase-infra-stability"
+        assert request["base_url"] == "http://projection.test"
+        assert request["docker_bin"] == "fake-docker"
+        assert request["samples"] == 3
+        assert kwargs["timeout"] == 1800
+        Path(request["record"]).write_text(
+            json.dumps({"observation": {"read_ok": True, **_green()}})
+        )
+        return subprocess.CompletedProcess(argv, 0, "{}", "")
+
+    assert (
+        probe.main(
+            [
+                "--compose-project",
+                "omnibase-infra-stability",
+                "--base-url",
+                "http://projection.test",
+                "--docker-bin",
+                "fake-docker",
+                "--samples",
+                "3",
+                "--scratch",
+                str(tmp_path),
+            ],
+            runner=runner,
+        )
+        == 0
+    )
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        [],
+        ["--compose-project", "omnibase-infra-stability"],
+        ["--base-url", "http://projection.test"],
+    ],
+)
+def test_standalone_probe_refuses_missing_or_invalid_lane_inputs(
+    args: list[str],
+) -> None:
+    def unexpected_node(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        pytest.fail("missing lane inputs must be refused before transport I/O")
+
+    assert probe.main(args, runner=unexpected_node) == 2
+
+
+@pytest.mark.parametrize(
+    "failure", ["command", "timeout", "missing-record", "bad-json", "unreadable-lane"]
+)
+def test_a_lane_that_cannot_be_read_exits_2_with_a_record(
+    tmp_path: Path, failure: str
+) -> None:
+    def runner(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        request = json.loads(Path(argv[argv.index("--input") + 1]).read_text())
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+        if failure == "bad-json":
+            Path(request["record"]).write_text("not json")
+        elif failure == "unreadable-lane":
+            Path(request["record"]).write_text(
+                json.dumps(
+                    {
+                        "observation": {
+                            "read_ok": False,
+                            "read_error": "lane unavailable",
+                        }
+                    }
+                )
+            )
+        return subprocess.CompletedProcess(
+            argv, 1 if failure == "command" else 0, "", ""
+        )
 
     rec_path = tmp_path / "c28.json"
-    code = probe.main(
-        ["--record", str(rec_path), "--scratch", str(tmp_path), "--pytest-cmd", "true"],
-        lane_factory=DeadLane,
+    assert (
+        probe.main(
+            [
+                "--record",
+                str(rec_path),
+                "--scratch",
+                str(tmp_path),
+                "--compose-project",
+                "foreign",
+                "--base-url",
+                "http://projection.test",
+            ],
+            runner=runner,
+        )
+        == 2
     )
-    assert code == 2
-    body = json.loads(rec_path.read_text(encoding="utf-8"))
-    assert body["verdict"] == "could_not_look"
+    assert json.loads(rec_path.read_text())["verdict"] == "could_not_look"
 
 
 def test_replay_of_the_green_observation_exits_0(tmp_path: Path) -> None:
@@ -724,7 +849,7 @@ def test_the_workflow_runs_the_probe_beside_the_resolved_lane() -> None:
         wf["jobs"]["resolve-lane"]["runs-on"]
         == "${{ fromJSON(vars.LAB_PROBE_RUNS_ON_JSON) }}"
     )
-    assert job["name"] == "C28 consumer flow (dev lane)"
+    assert job["name"] == "C28 consumer flow (stability lane)"
     triggers = wf[True] if True in wf else wf["on"]
     assert "schedule" in triggers and "workflow_dispatch" in triggers
     assert "pull_request" not in triggers
@@ -743,6 +868,9 @@ def test_the_workflow_runs_the_probe_beside_the_resolved_lane() -> None:
 class _RecordedSeamDlqLane:
     def __init__(self, recorded_response: dict[str, Any]) -> None:
         self.recorded_response = recorded_response
+        # Recorded on the base compose project (OMN-17427); OMN-21485 derives
+        # the containers from the graded lane's project.
+        self.containers = ModelConsumerFlowLane.from_compose_project("omnibase-infra")
 
     def logs(self, container: str, *, since: str) -> list[str]:
         return self.recorded_response["runtime_log_lines"][container]
@@ -779,8 +907,9 @@ class _RecordedSeamDlqLane:
 
 @pytest.mark.live_contact("tests/ci/fixtures/c28_seam_dlq_marker_omn17427.json")
 @pytest.mark.parametrize("collector", ["script", "node"])
+@pytest.mark.parametrize("project", ["omnibase-infra", "omnibase-infra-stability"])
 def test_recorded_dev_lane_marker_is_counted_on_the_seam_dlq(
-    recorded_response: dict[str, Any], collector: str
+    recorded_response: dict[str, Any], collector: str, project: str
 ) -> None:
     from omnibase_infra.nodes.node_board_probe_effect.handlers import (
         _consumer_flow_collection,
@@ -798,6 +927,20 @@ def test_recorded_dev_lane_marker_is_counted_on_the_seam_dlq(
     assert f"correlation_id={recorded_injection['correlation_id']}" in boundary_line
 
     lane = _RecordedSeamDlqLane(recorded_response)
+    lane.containers = ModelConsumerFlowLane.from_compose_project(project)
+    lane.recorded_response = {
+        **recorded_response,
+        "runtime_log_lines": dict(
+            zip(
+                lane.containers.runtime_containers,
+                (
+                    recorded_response["runtime_log_lines"][c]
+                    for c in RECORDED_LANE.runtime_containers
+                ),
+                strict=True,
+            )
+        ),
+    }
     injection_subset = {
         key: recorded_injection[key]
         for key in ("marker", "correlation_id", "published_at", "offset")

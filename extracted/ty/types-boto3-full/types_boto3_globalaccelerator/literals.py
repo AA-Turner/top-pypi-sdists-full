@@ -91,6 +91,7 @@ ListListenersPaginatorName = Literal["list_listeners"]
 ProtocolType = Literal["TCP", "UDP"]
 GlobalAcceleratorServiceName = Literal["globalaccelerator"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

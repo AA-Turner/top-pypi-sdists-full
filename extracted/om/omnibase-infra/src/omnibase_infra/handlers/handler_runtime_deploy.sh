@@ -97,6 +97,11 @@ set -a
 source "${REPO_ROOT_FOR_ENV}/docker/runtime-policy.env"
 # shellcheck source=/dev/null
 source "${OMNIBASE_OPERATOR_ENV_FILE}"
+# OMN-24119: the exports a refresh script rendered from the overlays (the embedding address
+# and the lane overlay directory) go after the operator env, which keeps a person's older
+# values; with none passed this sources nothing.
+# shellcheck source=/dev/null
+source <(printf '%s' "${ONEX_DEPLOY_LANE_ENV_EXPORTS:-}")
 set +a
 if [[ -n "${OPERATOR_OMNI_HOME}" ]]; then
     export OMNI_HOME="${OPERATOR_OMNI_HOME}"
@@ -106,8 +111,7 @@ if [[ -n "${OPERATOR_HEALTH_CHECK_URL}" ]]; then
 else
     unset HEALTH_CHECK_URL
 fi
-unset OPERATOR_OMNI_HOME
-unset OPERATOR_HEALTH_CHECK_URL
+unset OPERATOR_OMNI_HOME OPERATOR_HEALTH_CHECK_URL
 
 # shellcheck source=./runtime_build/sibling_clone_manifest.sh
 source "${SCRIPT_DIR_FOR_ENV}/runtime_build/sibling_clone_manifest.sh"
@@ -193,7 +197,6 @@ readonly RUNTIME_SERVICES=(
     projection-api
     agent-actions-consumer
     skill-lifecycle-consumer
-    intelligence-api
     omninode-contract-resolver
 )
 
@@ -209,12 +212,8 @@ readonly RUNTIME_SERVICES=(
 # consumes every message, commits every offset, and writes nothing, silently.
 # The onex-dev k8s overlay has run these as Deployments since OMN-15905; the
 # compose lane ran zero of them until this ticket.
-# OMN-16025 adds infra-routing-decisions-consumer to the same array for the same
-# reason: it is declared only in docker/docker-compose.dev-lane.yml. It is not a
-# standalone projection RUNNER -- it is the observability consumer that owns
-# infra_routing_decisions -- but it shares the property that makes membership
-# here mandatory and membership in RUNTIME_SERVICES fatal: the service name does
-# not exist in the prod, stability-test or judge merged compose.
+# The infra routing-decision consumer (OMN-16025) left this array when it was
+# retired into the runtime (OMN-23072, one-runtime plan T14).
 #
 # OMN-17530 adds onex-api for a third reason, stated separately because it is
 # not the writers' reason. It is TAG-REFERENCED, not lane-built, so it cannot go
@@ -257,8 +256,7 @@ readonly DEV_LANE_ONLY_RUNTIME_SERVICES=(
     projection-savings-writer
     projection-tenant-credentials-writer
     projection-live-events-writer
-    infra-routing-decisions-consumer
-    onex-api
+    cost-estimator-web
 )
 
 # OMN-18012: dev-lane Kafka clients that are declared in the BASE compose file
@@ -337,6 +335,73 @@ else
     RUNTIME_BUILD_SERVICES=("${RUNTIME_SERVICES[@]}")
 fi
 
+resolve_lane_folded_services() {
+    # OMN-21288: the compose services a lane folds into omninode-runtime, from
+    # the lane's rendered <PREFIX>_RUNTIME_MAIN_FOLDED_PROFILES. A folded
+    # service is never built or started; restart_services() retires its old
+    # container. The profile -> service map is explicit, never a pattern, and
+    # an unknown profile fails loud. The result is LANE_FOLDED_SERVICES; with a
+    # second argument (an array name) the folded services are also removed
+    # from that array in place.
+    local compose_project="$1" filter_name="${2:-}"
+    local -A folded_profile_services=(
+        [effects]=runtime-effects
+        [workers]=runtime-worker
+        [tenant-projection]=tenant-projection-writer
+        [projection-writer-live-events]=projection-live-events-writer
+        [projection-writer-registration]=projection-registration-writer
+        [projection-writer-savings]=projection-savings-writer
+        [projection-writer-tenant-credentials]=projection-tenant-credentials-writer
+        [projection-writer-tenant-registry]=projection-tenant-registry-writer
+        [projection-writer-delegation]=projection-delegation-writer [projection-api]=projection-api
+    )
+    LANE_FOLDED_SERVICES=()
+    # Each folding lane is selected by its declared project and policy.
+    local folded_profiles=""
+    # OMN-21288: services whose node main runs with no profile of its own (the
+    # claude hook-events projection). Their container of the previous revision
+    # is retired with the folded ones, from the same policy (the dev branch below
+    # seeds LANE_FOLDED_SERVICES with them), so the node's
+    # consumer group has one owner at a time; main's KAFKA_INSTANCE_ID is the
+    # group id the retired writer used, so main resumes from its offsets.
+    if [[ -n "${DEV_COMPOSE_PROJECT:-}" && "${compose_project}" == "${DEV_COMPOSE_PROJECT}" ]]; then
+        folded_profiles="${DEV_RUNTIME_MAIN_FOLDED_PROFILES:-}"
+        IFS=',' read -r -a LANE_FOLDED_SERVICES <<< "${DEV_RUNTIME_MAIN_RETIRED_SERVICES:-}"
+    elif [[ -n "${STABILITY_TEST_COMPOSE_PROJECT:-}" \
+        && "${compose_project}" == "${STABILITY_TEST_COMPOSE_PROJECT}" ]]; then
+        folded_profiles="${STABILITY_TEST_RUNTIME_MAIN_FOLDED_PROFILES:-}"
+    fi
+    if [[ -n "${folded_profiles}" ]]; then
+        local -a profiles=()
+        local profile
+        IFS=',' read -r -a profiles <<< "${folded_profiles}"
+        for profile in "${profiles[@]}"; do
+            profile="${profile#"${profile%%[![:space:]]*}"}"
+            profile="${profile%"${profile##*[![:space:]]}"}"
+            [[ -n "${profile}" ]] || continue
+            if [[ -z "${folded_profile_services[${profile}]:-}" ]]; then
+                log_error "Unknown folded runtime profile: ${profile}"
+                return 1
+            fi
+            LANE_FOLDED_SERVICES+=("${folded_profile_services[${profile}]}")
+        done
+    fi
+
+    [[ -n "${filter_name}" ]] || return 0
+    local -n filtered_services="${filter_name}"
+    local -a remaining_services=()
+    local svc folded_service
+    for svc in "${filtered_services[@]}"; do
+        for folded_service in "${LANE_FOLDED_SERVICES[@]}"; do
+            if [[ "${svc}" == "${folded_service}" ]]; then
+                continue 2
+            fi
+        done
+        remaining_services+=("${svc}")
+    done
+    filtered_services=("${remaining_services[@]}")
+}
+
 resolve_lane_runtime_services() {
     # Populate a caller-provided array (by name) with the runtime services to
     # build/restart for one lane: the lane-agnostic set, plus that lane's OWN
@@ -367,7 +432,9 @@ resolve_lane_runtime_services() {
 
     # A scoped-build override is an explicit operator instruction to touch ONLY
     # the named services; silently appending to it would defeat the point.
+    # OMN-21288: a folded service is dropped here too; it is never started.
     if [[ -n "${RUNTIME_BUILD_SERVICES_OVERRIDE:-}" ]]; then
+        resolve_lane_folded_services "${compose_project}" "${_out_args_name}" || return 1
         return 0
     fi
 
@@ -403,6 +470,7 @@ resolve_lane_runtime_services() {
     for svc in "${lane_only_services[@]}"; do
         eval "${_out_args_name}+=( $(printf '%q' "${svc}") )"
     done
+    resolve_lane_folded_services "${compose_project}" "${_out_args_name}" || return 1
 }
 readonly RUNTIME_BUILD_SERVICES
 # Migration services refreshed (one-shot) before the --no-deps runtime restart.
@@ -452,19 +520,18 @@ readonly RUNTIME_MIGRATION_ONESHOTS=(
 # BOTH are one-shots, so both are in the wait set. A one-shot that is started
 # and never waited on lets the runtime restart race an unapplied corpus, which
 # is the failure OMN-13220 fixed for intelligence-migration.
+# OMN-24476: the dev lane declares no omninode_cloud one-shots any more (the onex-api
+# container and the two one-shots only it read are removed), so both arrays are empty
+# and the refresh names no cloud service that compose cannot resolve.
 readonly DEV_LANE_ONLY_MIGRATION_SERVICES=(
-    cloud-migration-files
-    cloud-migration
 )
 readonly DEV_LANE_ONLY_MIGRATION_ONESHOTS=(
-    cloud-migration-files
-    cloud-migration
 )
 # OMN-18496: only these services depend on the cloud corpus. Keep this set
 # aligned with the dev overlay's cloud-migration dependencies; companions use
 # the required runtime migrations above, not omninode_cloud.
+# OMN-24476: empty, onex-api is removed from the dev lane.
 readonly DEV_LANE_CLOUD_DB_SERVICES=(
-    onex-api
 )
 # OMN-18496: runtime family deployed and verified, but a dev-lane cloud migration
 # one-shot failed and DEV_LANE_CLOUD_DB_SERVICES were stopped. Distinct from
@@ -1417,7 +1484,6 @@ check_sibling_lock_pins() {
         --repo "omnibase-infra=${omni_home}/omnibase_infra"
         --repo "omnibase-core=$(sibling_source_path "${omni_home}" omnibase_core)"
         --repo "omnibase-spi=${omni_home}/omnibase_spi"
-        --repo "omnibase-compat=$(sibling_source_path "${omni_home}" omnibase_compat)"
         --output "${provenance_out}"
         --build-source workspace
     )
@@ -2563,6 +2629,16 @@ sync_files() {
         "${repo_root}/workspace/sibling-vcs-provenance.json" \
         "${deploy_target}/workspace/sibling-vcs-provenance.json"
 
+    # Carry the delegation routing ladder Dockerfile.runtime COPYs
+    # (workspace/routing_tiers.yaml, OMN-21279). The image installs no omnimarket,
+    # so the ladder reaches it through the build context: release mode ships the
+    # committed empty-ladder placeholder; workspace mode ships the ladder
+    # stage_workspace.sh copied from the staged omnimarket sibling.
+    log_cmd "rsync -a workspace/routing_tiers.yaml -> deployed"
+    rsync -a \
+        "${repo_root}/workspace/routing_tiers.yaml" \
+        "${deploy_target}/workspace/routing_tiers.yaml"
+
     # 6. Migration scripts (bind-mounted by docker-compose.infra.yml) plus the
     # Keycloak realm reconciler docker/Dockerfile.runtime COPYs into the image
     # (scripts/seed-keycloak-clients.py, OMN-16026). This include-list is the
@@ -2977,7 +3053,12 @@ build_images() {
     log_step "Build Images"
 
     local -a build_scope
-    resolve_lane_runtime_services build_scope "${compose_project}"
+    resolve_lane_runtime_services build_scope "${compose_project}" || return 1
+    # Compose interprets an empty service list as every service in the project.
+    if [[ "${#build_scope[@]}" -eq 0 ]]; then
+        log_info "No runtime services remain to build."
+        return 0
+    fi
 
     local build_date
     build_date="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -2998,10 +3079,8 @@ build_images() {
     promotion_class="$(resolve_promotion_class "${build_source}")"
     local non_main_lineage
     non_main_lineage="$(resolve_non_main_lineage "${build_source}")"
-    local compat_ref="main"
     local omnimarket_ref="dev"
     if [[ -n "${omni_home}" ]]; then
-        compat_ref="$(read_repo_ref_or_main "$(sibling_source_path "${omni_home}" omnibase_compat)")"
         omnimarket_ref="$(read_repo_ref_or_main "$(sibling_source_path "${omni_home}" omnimarket)")"
     fi
 
@@ -3028,32 +3107,30 @@ build_images() {
         --build-arg "PROMOTION_CLASS=${promotion_class}"
         --build-arg "NON_MAIN_LINEAGE=${non_main_lineage}"
         --build-arg "OMNI_HOME=${omni_home}"
-        --build-arg "OMNIBASE_COMPAT_REF=${compat_ref}"
         --build-arg "OMNIMARKET_REF=${omnimarket_ref}"
     )
     # OMN-14873: scope the build to RUNTIME_BUILD_SERVICES (defaults to the full
     # RUNTIME_SERVICES fan-out; see the override comment above its declaration).
     # OMN-17448: plus the dev-lane-only standalone projection writers, which
     # are declared in that lane's overlay and must be built for it.
-    # Held out of ``cmd`` so the NODE_INVENTORY build-arg can be inserted
-    # between the options and the service list on each of the two passes below
-    # (``docker compose build`` takes OPTIONS before SERVICEs).
+    # Held out of ``cmd``: each of the two passes below appends it (``docker
+    # compose build`` takes OPTIONS before SERVICEs).
 
     log_info "Building images with VCS_REF=${git_sha} RUNTIME_VERSION=${runtime_version} RUNTIME_SOURCE_HASH=${git_sha} COMPOSE_PROJECT=${compose_project}..."
     log_info "Build scope: ${build_scope[*]}"
     log_info "Build source: BUILD_SOURCE=${build_source} EXPECTED_BUILD_SOURCE=${expected_build_source} PROMOTION_CLASS=${promotion_class} NON_MAIN_LINEAGE=${non_main_lineage} OMNI_HOME=${omni_home}"
-    log_info "Plugin refs: OMNIBASE_COMPAT_REF=${compat_ref} OMNIMARKET_REF=${omnimarket_ref}"
+    log_info "Plugin refs: OMNIMARKET_REF=${omnimarket_ref}"
     log_info "Build timeout: ${build_timeout}s (set DOCKER_BUILD_TIMEOUT_SECONDS to override)"
     log_cmd "${cmd[*]}"
 
     # Use timeout to prevent indefinite hangs after build completes (OMN-5462).
     # Exit code 124 = timeout fired; we treat this as success if images exist.
     #
-    # OMN-18708 -- PASS 1 of 2. Built with an EMPTY node inventory, because the
+    # OMN-18708 -- PASS 1 of 2. Built with NO node inventory, because the
     # inventory is a property of the image and cannot be known before the image
-    # exists. The empty value skips the Dockerfile's verify guard, so this pass
-    # behaves exactly as every build before this change did.
-    if timeout "${build_timeout}" "${cmd[@]}" --build-arg "NODE_INVENTORY=" "${build_scope[@]}"; then
+    # exists. No inventory context skips the Dockerfile's verify guard, so this
+    # pass behaves exactly as every build before this change did.
+    if timeout "${build_timeout}" "${cmd[@]}" "${build_scope[@]}"; then
         log_info "Image build complete (pass 1 of 2: no node inventory stamped yet)."
     elif [[ $? -eq 124 ]]; then
         log_warn "Build timed out after ${build_timeout}s — images may still be usable. Continuing."
@@ -3126,9 +3203,9 @@ stamp_node_inventory() {
     # a second time, inside the image, and refuses the build if what we stamp
     # disagrees -- so a stale or hand-edited value cannot survive this pass.
     #
-    # The second build is cheap: NODE_INVENTORY's ARG is declared at the very
-    # end of the runtime stage, so every COPY and apt layer is a cache hit and
-    # only the guard plus the metadata instructions re-execute.
+    # The second build is cheap: the inventory context is read by the last steps
+    # of the runtime stage, so every COPY and apt layer is a cache hit and only
+    # the guard plus the metadata instructions re-execute.
     #
     # FAIL-CLOSED. Every failure here fails the deploy. The sanctioned build
     # path always stamps, which is what lets a consumer read an ABSENT label as
@@ -3150,32 +3227,34 @@ stamp_node_inventory() {
     log_info "Reading the node inventory from ${image_ref}..."
 
     local inventory
-    if ! inventory="$(docker run --rm --entrypoint python "${image_ref}" \
-            -m omnibase_infra.runtime.node_inventory emit)"; then
-        log_error "The image's own discovery pass could not emit a node inventory (image=${image_ref})."
-        return 1
-    fi
-    if [[ -z "${inventory}" ]]; then
-        log_error "The image emitted an EMPTY node inventory. Refusing to stamp an empty label: it would assert the image ships no nodes."
-        return 1
-    fi
+    inventory="$(docker run --rm --entrypoint python "${image_ref}" \
+        -m omnibase_infra.runtime.node_inventory emit)" \
+        || { log_error "The image's own discovery pass could not emit a node inventory (image=${image_ref})."; return 1; }
+    [[ -n "${inventory}" ]] \
+        || { log_error "The image emitted an EMPTY node inventory. Refusing to stamp an empty label: it would assert the image ships no nodes."; return 1; }
+    log_info "Node inventory: ${#inventory} bytes. Rebuilding to stamp it."
 
-    local node_count
-    node_count="$(printf '%s' "${inventory}" | tr ',' '\n' | grep -c '"name":' || true)"
-    log_info "Node inventory: ${node_count} node(s), ${#inventory} bytes. Rebuilding to stamp it."
-
-    if timeout "${build_timeout}" "${_sni_cmd[@]}" \
-            --build-arg "NODE_INVENTORY=${inventory}" "${_sni_build_scope[@]}"; then
-        log_info "Node inventory stamped and verified inside the image."
-    else
-        local rc=$?
-        if [[ ${rc} -eq 124 ]]; then
-            log_error "Node inventory stamping pass timed out after ${build_timeout}s."
-        else
-            log_error "Node inventory stamping pass failed (exit ${rc}). The in-image verify guard refuses a stamped value that disagrees with the image's own discovery pass."
-        fi
+    # OMN-19998: the inventory is longer than one argument or environment value can be
+    # (128 KiB), so it goes to the build as a file: the named build context node_inventory
+    # (the Dockerfile guard reads it from a bind mount) and the label in a compose override.
+    local stamp_dir part rc=0
+    local -a stamp_cmd=()
+    stamp_dir="$(mktemp -d)" && mkdir "${stamp_dir}/context" || return 1
+    printf '%s\n' "${inventory}" > "${stamp_dir}/context/node_inventory.json"
+    jq -n --rawfile inventory "${stamp_dir}/context/node_inventory.json" --arg dir "${stamp_dir}/context" \
+        '{services: ($ARGS.positional | map({key: ., value: {build: {additional_contexts: {node_inventory: $dir}, labels: {"com.omninode.node_inventory": ($inventory | rtrimstr("\n"))}}}}) | from_entries)}' \
+        --args "${_sni_build_scope[@]}" > "${stamp_dir}/override.json" || rc=1
+    for part in "${_sni_cmd[@]}"; do
+        [[ "${part}" == build ]] && stamp_cmd+=(-f "${stamp_dir}/override.json")
+        stamp_cmd+=("${part}")
+    done
+    ((rc == 0)) && { timeout "${build_timeout}" "${stamp_cmd[@]}" "${_sni_build_scope[@]}" || rc=$?; }
+    rm -rf "${stamp_dir}"
+    if [[ ${rc} -ne 0 ]]; then
+        log_error "Node inventory stamping pass failed (exit ${rc}; 124 is the ${build_timeout}s timeout). The in-image verify guard refuses a stamped value that disagrees with the image's own discovery pass."
         return 1
     fi
+    log_info "Node inventory stamped and verified inside the image."
 }
 
 # =============================================================================
@@ -3724,8 +3803,31 @@ restart_services() {
     # OMN-17448: the dev lane additionally recreates the standalone projection
     # writers, which are declared only in its own overlay.
     local -a lane_services
-    resolve_lane_runtime_services lane_services "${compose_project}"
+    resolve_lane_runtime_services lane_services "${compose_project}" || return 1
     exclude_cloud_database_services lane_services || return 1
+
+    if [[ "${#lane_services[@]}" -eq 0 ]]; then
+        log_info "No runtime services remain to restart."
+        return 0
+    fi
+
+    # OMN-21288: retire folded roles before main claims their host ports.
+    # A scoped worker restart must leave effects serving until main is replaced.
+    local -a retired_containers=()
+    local folded_service container_ids
+    resolve_lane_folded_services "${compose_project}" || return 1
+    # Only a recreate of main takes over the folded roles.
+    [[ " ${lane_services[*]} " == *" omninode-runtime "* ]] || LANE_FOLDED_SERVICES=()
+    for folded_service in "${LANE_FOLDED_SERVICES[@]}"; do
+        container_ids="$(docker ps -aq \
+            --filter "label=com.docker.compose.project=${compose_project}" \
+            --filter "label=com.docker.compose.service=${folded_service}")" || return 1
+        [[ -n "${container_ids}" ]] || continue
+        mapfile -t retired_containers <<< "${container_ids}"
+        log_info "Retiring ${folded_service} containers ${retired_containers[*]}: role is folded into omninode-runtime"
+        docker stop --time 30 "${retired_containers[@]}" || return 1
+        docker rm "${retired_containers[@]}" || return 1
+    done
 
     local cmd=(
         docker compose
@@ -4202,7 +4304,7 @@ readback_deployed_ref() {
     # OMN-17448: the readback's in-scope set must match what was actually built
     # and restarted, or a dev-lane writer would be created and never verified.
     local -a readback_scope
-    resolve_lane_runtime_services readback_scope "${compose_project}"
+    resolve_lane_runtime_services readback_scope "${compose_project}" || return 1
     exclude_cloud_database_services readback_scope || return 1
 
     log_info "Verifying in-scope service(s): ${readback_scope[*]}"
@@ -4317,10 +4419,8 @@ print_compose_commands() {
     promotion_class="$(resolve_promotion_class "${build_source}")"
     local non_main_lineage
     non_main_lineage="$(resolve_non_main_lineage "${build_source}")"
-    local compat_ref="main"
     local omnimarket_ref="dev"
     if [[ -n "${omni_home}" ]]; then
-        compat_ref="$(read_repo_ref_or_main "$(sibling_source_path "${omni_home}" omnibase_compat)")"
         omnimarket_ref="$(read_repo_ref_or_main "$(sibling_source_path "${omni_home}" omnimarket)")"
     fi
 
@@ -4344,7 +4444,6 @@ print_compose_commands() {
     log_info "    --build-arg PROMOTION_CLASS=${promotion_class} \\"
     log_info "    --build-arg NON_MAIN_LINEAGE=${non_main_lineage} \\"
     log_info "    --build-arg OMNI_HOME=${omni_home} \\"
-    log_info "    --build-arg OMNIBASE_COMPAT_REF=${compat_ref} \\"
     log_info "    --build-arg OMNIMARKET_REF=${omnimarket_ref}"
     log_info ""
     log_info "Restart runtime services:"

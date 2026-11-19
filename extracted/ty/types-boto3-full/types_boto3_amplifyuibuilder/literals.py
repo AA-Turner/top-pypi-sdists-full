@@ -95,6 +95,7 @@ StorageAccessLevelType = Literal["private", "protected", "public"]
 TokenProvidersType = Literal["figma"]
 AmplifyUIBuilderServiceName = Literal["amplifyuibuilder"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

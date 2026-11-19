@@ -152,6 +152,7 @@ UpstreamRegistryType = Literal[
 ]
 ECRServiceName = Literal["ecr"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

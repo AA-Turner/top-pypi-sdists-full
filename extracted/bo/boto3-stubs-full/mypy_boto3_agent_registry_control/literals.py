@@ -91,6 +91,7 @@ RegistryStatusType = Literal[
 SourceTypeType = Literal["AWS::BedrockAgentCore::Gateway", "AWS::BedrockAgentCore::Runtime"]
 AgentRegistryControlServiceName = Literal["agent-registry-control"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

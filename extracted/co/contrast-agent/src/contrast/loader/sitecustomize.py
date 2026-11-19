@@ -19,7 +19,7 @@ See https://docs.python.org/3/library/site.html for additional details
 import os
 import sys
 
-MIN_SUPPORTED_VERSION = (3, 10)
+MIN_SUPPORTED_VERSION = (3, 11)
 MAX_SUPPORTED_VERSION = (3, 15)
 # We need to check the version_info because certain installation tools bypass
 # pip and setuptools, so the version check in setup.py is skipped. For example,

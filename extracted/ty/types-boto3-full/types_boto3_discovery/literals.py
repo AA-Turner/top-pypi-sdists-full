@@ -108,6 +108,7 @@ TenancyType = Literal["DEDICATED", "SHARED"]
 TermLengthType = Literal["ONE_YEAR", "THREE_YEAR"]
 ApplicationDiscoveryServiceServiceName = Literal["discovery"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

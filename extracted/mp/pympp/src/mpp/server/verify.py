@@ -17,9 +17,15 @@ from mpp import (
     Receipt,
     _body_digest,
     _constant_time_equal,
+    _credential_expiry,
     generate_challenge_id,
 )
-from mpp._parsing import MAX_AUTHORIZATION_SIZE, ParseError, _b64_decode
+from mpp._parsing import (
+    MAX_AUTHORIZATION_SIZE,
+    ParseError,
+    _b64_decode,
+    with_received_credential_header,
+)
 from mpp._replay_store import check_fallback_allowed
 from mpp._typing import is_dict, is_list
 from mpp._units import transform_units
@@ -167,7 +173,8 @@ async def verify_or_challenge(
             realm,
             secret_key,
             description,
-            meta,
+            # Marks the challenge when the intent accepts some credentials past its expiry.
+            _credential_expiry.issuance_meta(intent, meta),
             expires,
             body,
             header,
@@ -314,7 +321,7 @@ async def verify_or_challenge(
             credential,
         )
 
-    if _application_meta(echo_opaque) != (meta or None):
+    if _application_meta(echo_opaque) != _application_meta(meta):
         return await fail(
             InvalidChallengeError(echo.id, "credential opaque does not match this route"),
             credential,
@@ -336,7 +343,9 @@ async def verify_or_challenge(
         # it to an aware "now" raises TypeError. Reject it like any other
         # unparseable value so the route still fails closed.
         return await fail(InvalidChallengeError(echo.id, "invalid expires"), credential)
-    if expires_dt <= datetime.now(UTC):
+    if _credential_expiry.is_expired(
+        expires_dt, datetime.now(UTC), _credential_expiry.grace_of(intent, credential)
+    ):
         return await fail(PaymentExpiredError(echo.expires), credential)
 
     submitted_challenge = _challenge_from_echo(echo, echo_request, echo_opaque)
@@ -548,7 +557,9 @@ def _challenge_from_echo(
     request: dict[str, Any],
     opaque: dict[str, str] | None,
 ) -> Challenge:
-    return Challenge(
+    # Keep the echoed spelling: this challenge can be re-issued for a retry, and its ID
+    # binds the header exactly as echoed.
+    challenge = Challenge(
         id=echo.id,
         realm=echo.realm,
         method=echo.method,
@@ -561,6 +572,7 @@ def _challenge_from_echo(
         header=echo.header,
         description=echo.description,
     )
+    return with_received_credential_header(challenge, echo.header)
 
 
 _PAYMENT_SCHEME_RE = re.compile(r"(?:^|,)[ \t]*payment ", re.IGNORECASE)
@@ -583,7 +595,9 @@ def _extract_payment_scheme(header: str) -> str | None:
 
 
 def _application_meta(meta: dict[str, str] | None) -> dict[str, str] | None:
-    """Remove the HMAC-authenticated issuance nonce for route comparison."""
+    """Remove the HMAC-authenticated issuance nonce and expiry grace marker for route
+    comparison."""
     if not isinstance(meta, dict):
         return None
-    return {key: value for key, value in meta.items() if key != "_mpp_nonce"} or None
+    reserved = ("_mpp_nonce", _credential_expiry.EXPIRY_GRACE_KEY)
+    return {key: value for key, value in meta.items() if key not in reserved} or None

@@ -105,6 +105,7 @@ RuleTypeType = Literal["BINARY_LENGTH", "NUMBER_COMPARISON", "STRING_FROM_SET", 
 UpdateActionTypeType = Literal["CREATE_OR_UPDATE", "DELETE"]
 CloudDirectoryServiceName = Literal["clouddirectory"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

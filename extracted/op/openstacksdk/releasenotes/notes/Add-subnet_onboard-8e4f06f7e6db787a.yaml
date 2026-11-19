@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add ``subnet_onboard`` to ``SubnetPool`` resource and
-    ``onboard_network_subnets`` to network._proxy.Proxy

@@ -1,4 +1,0 @@
----
-upgrade:
-  - The block_store service object has been renamed to block_storage to
-    align the API with the official service types.

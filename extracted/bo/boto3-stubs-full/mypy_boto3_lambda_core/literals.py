@@ -100,6 +100,7 @@ RuntimeVersionActiveWaiterName = Literal["runtime_version_active"]
 RuntimeVersionStateType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING_DELETION"]
 LambdaCoreServiceName = Literal["lambda-core"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

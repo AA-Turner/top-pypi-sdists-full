@@ -9,7 +9,6 @@ from contrast.agent import scope
 from contrast.agent.settings import Settings
 from contrast.reporting.fireball import Client
 from contrast.utils.decorators import fail_loudly
-from contrast.utils.timer import sleep
 from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
@@ -19,7 +18,7 @@ POLL_INTERVAL_SEC = 1
 
 class SettingsThread(threading.Thread):
     def __init__(self, fireball_client: Client):
-        self.stopped = False
+        self._stop_event = threading.Event()
         self.fireball_client = fireball_client
 
         super().__init__()
@@ -28,17 +27,25 @@ class SettingsThread(threading.Thread):
         self.name = SETTINGS_THREAD_NAME
 
     def start(self):
-        self.stopped = False
+        self._stop_event.clear()
         super().start()
+
+    def stop(self):
+        """
+        Ask the thread to exit. If it's waiting between polls, it wakes up immediately.
+        """
+        self._stop_event.set()
 
     def run(self):
         # Ensure the polling thread runs in scope because it is
         # initialized before our thread.start patch is applied.
         with scope.contrast_scope():
             logger.debug("Starting settings polling thread", name=self.name)
-            while not self.stopped and Settings().is_agent_config_enabled():
+            while (
+                not self._stop_event.is_set() and Settings().is_agent_config_enabled()
+            ):
                 self.send_settings()
-                sleep(POLL_INTERVAL_SEC)
+                self._stop_event.wait(POLL_INTERVAL_SEC)
 
     @fail_loudly("Error sending settings message")
     def send_settings(self):

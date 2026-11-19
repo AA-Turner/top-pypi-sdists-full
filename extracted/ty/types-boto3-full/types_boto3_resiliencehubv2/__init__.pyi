@@ -34,6 +34,7 @@ Usage::
         ListTestRunSourcesPaginator,
         ListTestRunsPaginator,
         ListTestSourcesPaginator,
+        ListTestTemplatesPaginator,
         ListTestsPaginator,
         ListUserJourneysPaginator,
         ReportSucceededWaiter,
@@ -72,6 +73,7 @@ Usage::
     list_test_run_sources_paginator: ListTestRunSourcesPaginator = client.get_paginator("list_test_run_sources")
     list_test_runs_paginator: ListTestRunsPaginator = client.get_paginator("list_test_runs")
     list_test_sources_paginator: ListTestSourcesPaginator = client.get_paginator("list_test_sources")
+    list_test_templates_paginator: ListTestTemplatesPaginator = client.get_paginator("list_test_templates")
     list_tests_paginator: ListTestsPaginator = client.get_paginator("list_tests")
     list_user_journeys_paginator: ListUserJourneysPaginator = client.get_paginator("list_user_journeys")
     ```
@@ -102,6 +104,7 @@ from .paginator import (
     ListTestRunsPaginator,
     ListTestSourcesPaginator,
     ListTestsPaginator,
+    ListTestTemplatesPaginator,
     ListUserJourneysPaginator,
 )
 from .waiter import (
@@ -138,6 +141,7 @@ __all__ = (
     "ListTestRunSourcesPaginator",
     "ListTestRunsPaginator",
     "ListTestSourcesPaginator",
+    "ListTestTemplatesPaginator",
     "ListTestsPaginator",
     "ListUserJourneysPaginator",
     "ReportSucceededWaiter",

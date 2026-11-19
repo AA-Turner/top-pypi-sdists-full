@@ -195,6 +195,8 @@ from .type_defs import (
     ListThreatModelsOutputTypeDef,
     ListThreatsInputTypeDef,
     ListThreatsOutputTypeDef,
+    ResumePentestJobInputTypeDef,
+    ResumePentestJobOutputTypeDef,
     StartCodeRemediationInputTypeDef,
     StartCodeReviewJobInputTypeDef,
     StartCodeReviewJobOutputTypeDef,
@@ -1026,6 +1028,16 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_threats.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/client/#list_threats)
+        """
+
+    def resume_pentest_job(
+        self, **kwargs: Unpack[ResumePentestJobInputTypeDef]
+    ) -> ResumePentestJobOutputTypeDef:
+        """
+        Resumes a stopped or paused pentest job from its last saved checkpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/resume_pentest_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/client/#resume_pentest_job)
         """
 
     def start_code_remediation(

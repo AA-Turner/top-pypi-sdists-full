@@ -422,6 +422,45 @@ def test_obj_member_change_detect() -> None:
     check_states(f, POST_ERR)
 
 
+def test_old_has_nested_state_on_entry() -> None:
+    def f(xs: List[List[int]]) -> None:
+        """
+        pre: len(xs) == 1
+        pre: len(xs[0]) == 1
+        post[xs]: len(__old__.xs[0]) == 1 and len(xs[0]) == 0
+        """
+        xs[0].pop()
+
+    check_states(f, CONFIRMED)
+
+
+def test_old_has_nested_set_state_on_entry() -> None:
+    def f(d: Dict[int, Set[int]]) -> int:
+        """
+        pre: len(d) == 1
+        post[d]: _ == sum(0 in s for s in __old__.d.values())
+        """
+        n = 0
+        for s in d.values():
+            n += 0 in s
+            s.discard(0)
+        return n
+
+    check_states(f, CONFIRMED)
+
+
+def test_nested_member_change_detect() -> None:
+    def f(xs: List[List[int]]) -> None:
+        """
+        pre: len(xs) == 1
+        pre: len(xs[0]) == 1
+        post[]: True
+        """
+        xs[0].pop()
+
+    check_states(f, POST_ERR)
+
+
 def test_example_second_largest() -> None:
     def second_largest(items: List[int]) -> int:
         """
@@ -727,7 +766,7 @@ def test_does_not_report_with_actual_repr():
     actual, expected = check_messages(
         analyze_function(f),
         state=MessageType.POST_FAIL,
-        message="false when calling f(BiggerCat()) " "(which returns 2)",
+        message="false when calling f(BiggerCat()) (which returns 2)",
     )
     assert expected == actual
 
@@ -1005,6 +1044,91 @@ def test_raises_ok() -> None:
     check_states(f, CONFIRMED)
 
 
+def raise_value_error(x):
+    raise ValueError(x)
+
+
+def test_raises_ok_with_symbolic_exception_arg() -> None:
+    def f(x: int) -> bool:
+        """
+        raises: ValueError
+        post: __return__
+        """
+        raise ValueError(x)
+
+    check_states(f, CONFIRMED)
+
+
+def test_exception_with_symbolic_arg_in_body() -> None:
+    def f(x: int):
+        """
+        pre: x == 42
+        post: True
+        """
+        raise ValueError(x)
+
+    actual, expected = check_messages(
+        analyze_function(f),
+        state=MessageType.EXEC_ERR,
+        message="ValueError: 42 when calling f(42)",
+    )
+    assert actual == expected
+
+
+def test_exception_with_symbolic_arg_in_postcondition() -> None:
+    def f(x: int) -> int:
+        """
+        pre: x == 42
+        post: raise_value_error(__return__)
+        """
+        return x
+
+    actual, expected = check_messages(
+        analyze_function(f),
+        state=MessageType.POST_ERR,
+        message="ValueError: 42 when calling f(42) (which returns 42)",
+    )
+    assert actual == expected
+
+
+def test_counterexample_beyond_digit_limit(small_int_str_digit_limit) -> None:
+    def f(x: int) -> int:
+        """
+        post: _ != 10**700 + 123
+        """
+        return x
+
+    big = hex(10**700 + 123)
+    actual, expected = check_messages(
+        analyze_function(f),
+        state=MessageType.POST_FAIL,
+        message=f"false when calling f({big}) (which returns {big})",
+    )
+    assert actual == expected
+
+
+def test_exception_with_symbolic_arg_in_precondition() -> None:
+    def f(x: int):
+        """
+        pre: raise_value_error(x)
+        post: True
+        """
+
+    messages = run_checkables(analyze_function(f))
+    assert [m.state for m in messages] == [MessageType.PRE_UNSAT]
+    assert 'possibly because it raised "ValueError(' in messages[0].message
+
+
+def test_unicode_decode_error_on_symbolic_bytes() -> None:
+    def f(b: bytes) -> str:
+        """post: True"""
+        return b.decode("utf8")
+
+    messages = run_checkables(analyze_function(f))
+    assert [m.state for m in messages] == [MessageType.EXEC_ERR]
+    assert messages[0].message.startswith("UnicodeDecodeError: 'utf-8' codec")
+
+
 def test_optional_can_be_none_fail() -> None:
     def f(n: Optional[Pokeable]) -> bool:
         """post: _"""
@@ -1134,19 +1258,17 @@ def test_error_message_has_unmodified_args() -> None:
     assert actual == expected
 
 
-# TODO: List[List] involves no HeapRefs
-def TODO_test_potential_circular_references() -> None:
-    # TODO?: potential aliasing of input argument data?
-    def f(foo: List[List], thing: object) -> None:
+def test_mutation_through_aliased_argument_elements() -> None:
+    def f(foo: List[List]) -> None:
         """
         pre: len(foo) == 2
         pre: len(foo[0]) == 1
         pre: len(foo[1]) == 1
         post: len(foo[1]) == 1
         """
-        foo[0].append(object())  # TODO: using 42 yields a z3 sort error
+        foo[0].append(42)
 
-    check_states(f, CONFIRMED)
+    check_states(f, POST_FAIL)
 
 
 def test_nonatomic_comparison() -> None:
@@ -1362,6 +1484,145 @@ def test_unpickable_args() -> None:
         return foo.x
 
     check_states(dothing, POST_FAIL)
+
+
+class BoxWithoutEq:
+    def __init__(self, x: int):
+        self.x = x
+
+
+@dataclasses.dataclass
+class BoxWithEq:
+    x: int
+
+
+class UncopyableHandle:
+    def __init__(self, n: int):
+        self.n = n
+
+    def __deepcopy__(self, memo):
+        raise TypeError("cannot copy")
+
+
+def error_messages(fn) -> List[str]:
+    options = AnalysisOptionSet(max_iterations=20, per_condition_timeout=10)
+    messages = run_checkables(analyze_function(fn, options))
+    return [m.message for m in messages if m.state > MessageType.PRE_UNSAT]
+
+
+def test_mutation_check_without_eq() -> None:
+    def read_box(b: BoxWithoutEq) -> int:
+        """post[]: True"""
+        return b.x
+
+    (message,) = error_messages(read_box)
+    assert message.startswith(
+        'Cannot check that argument "b" is unchanged: a copy of it does not compare'
+        " equal to the original (does BoxWithoutEq define __eq__?)"
+    )
+
+
+def test_mutation_check_finds_change() -> None:
+    def bump(b: BoxWithEq) -> None:
+        """post[]: True"""
+        b.x += 1
+
+    (message,) = error_messages(bump)
+    assert message.startswith('Argument "b" changed when calling bump(')
+
+
+def test_mutation_check_passes_without_change() -> None:
+    def read_box(b: BoxWithEq) -> int:
+        """post[]: True"""
+        return b.x
+
+    check_states(read_box, CONFIRMED)
+
+
+def test_mutation_check_on_uncopyable_arg() -> None:
+    def bump(h: UncopyableHandle) -> None:
+        """post[]: True"""
+        h.n += 1
+
+    (message,) = error_messages(bump)
+    assert message.startswith(
+        'Cannot check that arguments are unchanged: "h" could not be copied'
+        " (TypeError: cannot copy)"
+    )
+
+
+def test_mutation_check_on_uncopyable_heap_object() -> None:
+    def bump_first(hs: List[UncopyableHandle]) -> None:
+        """post[]: True"""
+        if hs:
+            hs[0].n += 1
+
+    (message,) = error_messages(bump_first)
+    assert message.startswith(
+        "Cannot check that arguments are unchanged: an object of type"
+        " UncopyableHandle could not be copied (TypeError: cannot copy)"
+    )
+
+
+def test_mutation_check_with_other_uncopyable_arg() -> None:
+    def bump(boxes: List[BoxWithEq], h: UncopyableHandle) -> None:
+        """post[h]: True"""
+        h.n += 1
+
+    (message,) = error_messages(bump)
+    assert message.startswith(
+        'Cannot check that arguments are unchanged: "h" could not be copied'
+    )
+
+
+def test_old_on_uncopyable_arg() -> None:
+    def bump(h: UncopyableHandle) -> int:
+        """post[h]: h.n == __old__.h.n + 1"""
+        h.n += 1
+        return h.n
+
+    (message,) = error_messages(bump)
+    assert message.startswith(
+        'Cannot read __old__: "h" could not be copied (TypeError: cannot copy)'
+    )
+
+
+def test_unobserved_uncopyable_arg() -> None:
+    def bump(h: UncopyableHandle) -> int:
+        """post[h]: _ == h.n"""
+        h.n += 1
+        return h.n
+
+    check_states(bump, CONFIRMED)
+
+
+def test_counterexample_notes_uncopied_arg() -> None:
+    def bump(h: UncopyableHandle) -> int:
+        """post[h]: _ != 1"""
+        h.n += 1
+        return h.n
+
+    (message,) = error_messages(bump)
+    assert message.endswith('(could not copy "h"; shown as after the call)')
+
+
+def test_mutation_check_on_object_arg() -> None:
+    def append_to_lists(o: object) -> None:
+        """post[]: True"""
+        if isinstance(o, list):
+            o.append(1)
+
+    (message,) = error_messages(append_to_lists)
+    assert message.startswith('Argument "o" changed when calling')
+
+
+@pytest.mark.parametrize("typ", [float, List[float]])
+def test_mutation_check_allows_nan(typ) -> None:
+    def identity(x: typ) -> typ:  # type: ignore
+        """post[]: True"""
+        return x
+
+    check_states(identity, CONFIRMED)
 
 
 def test_kwargs(space):

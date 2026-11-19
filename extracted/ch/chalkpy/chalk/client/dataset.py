@@ -1316,6 +1316,19 @@ class DatasetRevisionImpl(DatasetRevision):
             resolver_fqn = resolver.fqn
         else:
             raise TypeError(f"resolver_replay expected a Resolver type, got {type(resolver)}")
+        if resolver.static:
+            # Static resolvers are compiled into the query plan, so the engine never stores per-resolver
+            # inputs for them. Fail before awaiting the query rather than after it finishes.
+            raise ValueError(
+                (
+                    f"resolver_replay does not support static resolvers, and '{resolver_fqn}' is static. "
+                    "Static resolvers are compiled into the query plan, so there are no per-resolver inputs to replay. "
+                    "To debug a static resolver, call it locally on a chalk.features.DataFrame "
+                    "(see chalk.testing.check_static_dataframe), request intermediate features as query outputs, "
+                    "or inspect the query plan in the dashboard. "
+                    "See https://docs.chalk.ai/docs/debugging-queries#resolver-replay"
+                )
+            )
 
         # Await dataset job completion
         _logger.info(f"loading Chalk DataFrame for DatasetRevision {self.revision_id}")

@@ -284,6 +284,19 @@ class DataProductVersionId(Identifier):
         return f"{self.data_product_external_id}.{self.version}"
 
 
+class DataProductRoleId(Identifier):
+    data_product_external_id: str = Field(exclude=True)
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"dataProductExternalId='{self.data_product_external_id}', externalId='{self.external_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"dataProductExternalId-{self.data_product_external_id}.externalId-{self.external_id}"
+        return f"{self.data_product_external_id}.{self.external_id}"
+
+
 class TransformationNotificationId(Identifier):
     transformation_external_id: str
     destination: str
@@ -419,3 +432,18 @@ class SignalSinkId(Identifier):
         if include_type:
             return f"type-{self.type}.externalId-{self.external_id}"
         return f"{self.type}.{self.external_id}"
+
+
+class ThreeDJobId(Identifier):
+    """A 3D job. The space scopes the job, the job itself is not a data modeling instance."""
+
+    space: str
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"space='{self.space}', externalId='{self.external_id}'"
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"space-{self.space}.externalId-{self.external_id}"
+        return f"{self.space}.{self.external_id}"

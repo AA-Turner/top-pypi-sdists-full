@@ -2,7 +2,8 @@
 
 import pytest
 
-from url_normalize.url_normalize import provide_url_scheme, url_normalize
+from url_normalize import url_normalize
+from url_normalize.provide_url_scheme import provide_url_scheme
 
 
 @pytest.mark.parametrize(
@@ -14,6 +15,14 @@ from url_normalize.url_normalize import provide_url_scheme, url_normalize
         ("//site/path", "https://site/path"),
         ("ftp://site/", "ftp://site/"),
         ("site/page", "https://site/page"),
+        (".", "."),
+        ("..", ".."),
+        ("./a", "./a"),
+        ("../a", "../a"),
+        (".?q=1", ".?q=1"),
+        ("..#section", "..#section"),
+        ("?q=1", "?q=1"),
+        ("#section", "#section"),
     ],
 )
 def test_provide_url_scheme_result_is_expected(url: str, expected: str) -> None:
@@ -30,6 +39,41 @@ def test_provide_url_scheme_accept_default_scheme_param() -> None:
     actual = provide_url_scheme(url, default_scheme="http")
 
     assert actual == expected
+
+
+@pytest.mark.parametrize(
+    ("scheme", "expected"),
+    [
+        ("HTTPS", "https"),
+        (" https: ", "https"),
+        ("git+ssh.v1-2:", "git+ssh.v1-2"),
+        ("a", "a"),
+    ],
+)
+def test_provide_url_scheme_normalizes_default_scheme(scheme, expected):
+    """Accept scheme case, surrounding whitespace and one optional colon."""
+    # Adapted from normalize-url 10.0.0's defaultProtocol option tests:
+    # https://github.com/sindresorhus/normalize-url/blob/v10.0.0/test.js
+    assert (
+        provide_url_scheme("//example.com/path", scheme)
+        == f"{expected}://example.com/path"
+    )
+
+
+@pytest.mark.parametrize(
+    "scheme", ["https://", "https::", "", "1http", "ht tp", "h\u0442tp", "http/"]
+)
+def test_provide_url_scheme_rejects_malformed_default_scheme(scheme):
+    """Catch malformed configuration before it changes the resulting URL structure."""
+    with pytest.raises(ValueError, match=r"^default_scheme must be a scheme name"):
+        provide_url_scheme("example.com/path", scheme)
+
+
+@pytest.mark.parametrize("scheme", [None, 80])
+def test_provide_url_scheme_rejects_nonstring_default_scheme(scheme):
+    """Avoid silently interpolating non-string values into a URL scheme."""
+    with pytest.raises(TypeError, match=r"^default_scheme must be a string$"):
+        provide_url_scheme("example.com/path", scheme)
 
 
 @pytest.mark.parametrize(

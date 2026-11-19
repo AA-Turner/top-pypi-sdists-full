@@ -181,6 +181,7 @@ VehicleStateType = Literal[
 ]
 IoTFleetWiseServiceName = Literal["iotfleetwise"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -147,6 +147,8 @@ __all__ = (
     "DescribeOrderableDBInstanceOptionsMessageTypeDef",
     "DescribePendingMaintenanceActionsMessagePaginateTypeDef",
     "DescribePendingMaintenanceActionsMessageTypeDef",
+    "DescribeServerlessV2PlatformVersionsMessagePaginateTypeDef",
+    "DescribeServerlessV2PlatformVersionsMessageTypeDef",
     "DescribeValidDBInstanceModificationsMessageTypeDef",
     "DescribeValidDBInstanceModificationsResultTypeDef",
     "DomainMembershipTypeDef",
@@ -214,6 +216,9 @@ __all__ = (
     "RestoreDBClusterFromSnapshotResultTypeDef",
     "RestoreDBClusterToPointInTimeMessageTypeDef",
     "RestoreDBClusterToPointInTimeResultTypeDef",
+    "ServerlessV2FeaturesSupportTypeDef",
+    "ServerlessV2PlatformVersionInfoTypeDef",
+    "ServerlessV2PlatformVersionsMessageTypeDef",
     "ServerlessV2ScalingConfigurationInfoTypeDef",
     "ServerlessV2ScalingConfigurationTypeDef",
     "StartDBClusterMessageTypeDef",
@@ -643,6 +648,11 @@ class RemoveSourceIdentifierFromSubscriptionMessageTypeDef(TypedDict):
 class RemoveTagsFromResourceMessageTypeDef(TypedDict):
     ResourceName: str
     TagKeys: Sequence[str]
+
+
+class ServerlessV2FeaturesSupportTypeDef(TypedDict):
+    MinCapacity: NotRequired[float]
+    MaxCapacity: NotRequired[float]
 
 
 class StartDBClusterMessageTypeDef(TypedDict):
@@ -1308,6 +1318,16 @@ class DescribePendingMaintenanceActionsMessageTypeDef(TypedDict):
     MaxRecords: NotRequired[int]
 
 
+class DescribeServerlessV2PlatformVersionsMessageTypeDef(TypedDict):
+    ServerlessV2PlatformVersion: NotRequired[str]
+    Engine: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DefaultOnly: NotRequired[bool]
+    IncludeAll: NotRequired[bool]
+    MaxRecords: NotRequired[int]
+    Marker: NotRequired[str]
+
+
 class ListTagsForResourceMessageTypeDef(TypedDict):
     ResourceName: str
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -1418,6 +1438,15 @@ class DescribePendingMaintenanceActionsMessagePaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class DescribeServerlessV2PlatformVersionsMessagePaginateTypeDef(TypedDict):
+    ServerlessV2PlatformVersion: NotRequired[str]
+    Engine: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DefaultOnly: NotRequired[bool]
+    IncludeAll: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class DescribeDBInstancesMessageWaitExtraTypeDef(TypedDict):
     DBInstanceIdentifier: NotRequired[str]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -1516,6 +1545,15 @@ class ValidStorageOptionsTypeDef(TypedDict):
     IopsToStorageRatio: NotRequired[list[DoubleRangeTypeDef]]
 
 
+class ServerlessV2PlatformVersionInfoTypeDef(TypedDict):
+    ServerlessV2PlatformVersion: NotRequired[str]
+    ServerlessV2PlatformVersionDescription: NotRequired[str]
+    Engine: NotRequired[str]
+    ServerlessV2FeaturesSupport: NotRequired[ServerlessV2FeaturesSupportTypeDef]
+    Status: NotRequired[str]
+    IsDefault: NotRequired[bool]
+
+
 class OrderableDBInstanceOptionsMessageTypeDef(TypedDict):
     OrderableDBInstanceOptions: list[OrderableDBInstanceOptionTypeDef]
     Marker: str
@@ -1575,6 +1613,7 @@ class DBClusterTypeDef(TypedDict):
     CrossAccountClone: NotRequired[bool]
     AutomaticRestartTime: NotRequired[datetime]
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationInfoTypeDef]
+    ServerlessV2PlatformVersion: NotRequired[str]
     GlobalClusterIdentifier: NotRequired[str]
     IOOptimizedNextAllowedModificationTime: NotRequired[datetime]
     StorageType: NotRequired[str]
@@ -1656,6 +1695,12 @@ class PendingMaintenanceActionsMessageTypeDef(TypedDict):
 
 class ValidDBInstanceModificationsMessageTypeDef(TypedDict):
     Storage: NotRequired[list[ValidStorageOptionsTypeDef]]
+
+
+class ServerlessV2PlatformVersionsMessageTypeDef(TypedDict):
+    Marker: str
+    ServerlessV2PlatformVersions: list[ServerlessV2PlatformVersionInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateDBSubnetGroupResultTypeDef(TypedDict):

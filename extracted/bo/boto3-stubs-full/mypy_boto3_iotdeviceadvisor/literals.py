@@ -74,6 +74,7 @@ TestCaseScenarioStatusType = Literal[
 TestCaseScenarioTypeType = Literal["Advanced", "Basic"]
 IoTDeviceAdvisorServiceName = Literal["iotdeviceadvisor"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

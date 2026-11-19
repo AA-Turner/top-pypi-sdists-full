@@ -8,7 +8,7 @@ ModelLabProofPlan``. Pure: it reads nothing from disk or network, and the same
 request always renders the same plan, so a recorded plan replays exactly.
 
 WHAT A foundation_override PROOF IS (OMN-19572). A foundation repository
-(omnibase_core, omnibase_spi, omnibase_compat) reaches the runtime only as a
+(omnibase_core, omnibase_spi) reaches the runtime only as a
 package pinned by omnibase_infra's lock. CI proves the package against its own
 tests; it cannot see a change that breaks the runtime that installs it. So the
 plan builds the laptop-bundle runtime image from omnibase_infra at a pinned
@@ -45,7 +45,7 @@ from typing import overload
 from urllib.parse import urlsplit
 
 import yaml
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel
 
 from omnibase_infra.enums import EnumHandlerType, EnumHandlerTypeCategory
 from omnibase_infra.lab_proof.enum_lab_proof_attribution import (
@@ -317,14 +317,17 @@ class HandlerLabProofPlan:
         self, request: ModelLabDesiredStateRenderRequest
     ) -> ModelLabDesiredStateRenderResult:
         manifest = yaml.safe_load(request.manifest_yaml)
-        if request.host not in manifest["hosts"]:
+        registry = yaml.safe_load(request.registry_yaml)["registry"]
+        host_row = next((r for r in registry if r["name"] == request.host), None)
+        if host_row is None:
             raise ValueError(f"undeclared host {request.host}")
         target = request.target_ref.model_dump(mode="json")
         target["composition"] = sorted(target["composition"], key=lambda r: r["repo"])
         compose = json.loads(request.compose_json)
-        services = TypeAdapter(dict[str, ModelLabComposeContainer]).validate_python(
-            compose["services"]
-        )
+        services = {
+            name: ModelLabComposeContainer.model_validate(spec)
+            for name, spec in compose["services"].items()
+        }
         hashes = _hashes(request.compose_hashes)
         containers: list[dict[str, object]] = []
         document: dict[str, object] = {
@@ -349,7 +352,7 @@ class HandlerLabProofPlan:
             document["runners"] = self._runners(request, services, hashes)
         else:
             lane = manifest["lanes"][request.lane]
-            if request.host not in lane["hosts"]:
+            if request.lane not in host_row["lanes"]:
                 raise ValueError(
                     f"lane {request.lane} is not declared on {request.host}"
                 )
@@ -604,7 +607,7 @@ class HandlerLabProofPlan:
             argv: list[str],
             *,
             cwd: str = lane,
-            timeout: int = 120,
+            timeout: int = bundle.step_timeouts.default_seconds,
             must_succeed: bool = True,
             **extra: object,
         ) -> ModelLabProofStep:
@@ -683,7 +686,7 @@ class HandlerLabProofPlan:
                     f"{bundle.clone_base_url}/{bundle.infra_repo}.git",
                     request.infra_sha,
                 ],
-                timeout=600,
+                timeout=bundle.step_timeouts.git_fetch_seconds,
             ),
             step(
                 _ID.INFRA_CHECKOUT,
@@ -732,7 +735,7 @@ class HandlerLabProofPlan:
                     f"{bundle.clone_base_url}/{subject.repo}.git",
                     subject.fetch_ref,
                 ],
-                timeout=600,
+                timeout=bundle.step_timeouts.git_fetch_seconds,
             ),
             step(
                 _ID.SUBJECT_CHECKOUT,
@@ -778,7 +781,7 @@ class HandlerLabProofPlan:
                         *tests,
                     ],
                     cwd=subject_dir,
-                    timeout=1800,
+                    timeout=bundle.step_timeouts.focused_tests_seconds,
                     must_succeed=False,
                 )
             )
@@ -881,7 +884,7 @@ class HandlerLabProofPlan:
                 "render the bundle's compose file",
                 [*cli, "generate", bundle.bundle, "--env-file", env_file],
                 cwd=infra,
-                timeout=900,
+                timeout=bundle.step_timeouts.generate_seconds,
             ),
             step(
                 _ID.BUILD_BASE,
@@ -904,7 +907,7 @@ class HandlerLabProofPlan:
                     f"VCS_REF={request.infra_sha}",
                 ],
                 cwd=infra,
-                timeout=3600,
+                timeout=bundle.step_timeouts.build_base_seconds,
             ),
             step(
                 _ID.TAG_BASE,
@@ -937,7 +940,7 @@ class HandlerLabProofPlan:
                     image_latest,
                     context,
                 ],
-                timeout=1800,
+                timeout=bundle.step_timeouts.build_override_seconds,
             ),
             step(
                 _ID.UP,
@@ -946,7 +949,7 @@ class HandlerLabProofPlan:
                 "boot the bundle on the derived image (no rebuild)",
                 [*cli, "up", bundle.bundle, "--env-file", env_file],
                 cwd=infra,
-                timeout=1800,
+                timeout=bundle.step_timeouts.up_seconds,
                 must_succeed=False,
             ),
         ]
@@ -979,7 +982,7 @@ class HandlerLabProofPlan:
                     "{{.State.Health.Status}}",
                     bundle.container_migration_gate,
                 ],
-                timeout=30,
+                timeout=bundle.step_timeouts.health_probe_seconds,
                 must_succeed=False,
                 retry=health,
                 expect_stdout_equals="healthy",
@@ -993,7 +996,7 @@ class HandlerLabProofPlan:
                     _S,
                     f"{container} Docker-healthy",
                     ["docker", "inspect", "-f", "{{.State.Health.Status}}", container],
-                    timeout=30,
+                    timeout=bundle.step_timeouts.health_probe_seconds,
                     must_succeed=False,
                     retry=health,
                     expect_stdout_equals="healthy",
@@ -1020,7 +1023,7 @@ class HandlerLabProofPlan:
                         foundation.import_package,
                         foundation.distribution,
                     ],
-                    timeout=60,
+                    timeout=bundle.step_timeouts.identity_seconds,
                     must_succeed=False,
                 ),
                 step(
@@ -1029,7 +1032,7 @@ class HandlerLabProofPlan:
                     _S,
                     f"every consumer imports in {container}",
                     [*python, IMPORT_SMOKE_PY, *bundle.consumer_modules],
-                    timeout=180,
+                    timeout=bundle.step_timeouts.import_smoke_seconds,
                     must_succeed=False,
                 ),
                 step(
@@ -1038,7 +1041,7 @@ class HandlerLabProofPlan:
                     _S,
                     f"{container} wired every handler",
                     ["docker", "logs", container],
-                    timeout=60,
+                    timeout=bundle.step_timeouts.wiring_logs_seconds,
                     must_succeed=False,
                     grep_patterns=bundle.wiring_failure_patterns,
                     extract_pattern=bundle.wiring_failure_extract,
@@ -1061,7 +1064,7 @@ class HandlerLabProofPlan:
                     "--bus",
                     "kafka",
                     "--kafka-bootstrap",
-                    "redpanda:9092",
+                    bundle.bus_bootstrap_servers,
                     "--locus",
                     "deployed-lane",
                 ],
@@ -1077,7 +1080,7 @@ class HandlerLabProofPlan:
                 "stop the bundle and delete its volumes",
                 [*cli, "down", "--volumes"],
                 cwd=infra,
-                timeout=600,
+                timeout=bundle.step_timeouts.down_seconds,
                 must_succeed=False,
             ),
             step(
@@ -1086,7 +1089,7 @@ class HandlerLabProofPlan:
                 _H,
                 "delete both run images",
                 ["docker", "image", "rm", image_latest, image_base],
-                timeout=300,
+                timeout=bundle.step_timeouts.remove_images_seconds,
                 must_succeed=False,
             ),
             step(
@@ -1095,7 +1098,7 @@ class HandlerLabProofPlan:
                 _H,
                 "delete the run directory",
                 ["python3", "-c", REMOVE_TREE_PY, work, lane, request.run_key],
-                timeout=300,
+                timeout=bundle.step_timeouts.remove_workdir_seconds,
                 must_succeed=False,
             ),
             step(

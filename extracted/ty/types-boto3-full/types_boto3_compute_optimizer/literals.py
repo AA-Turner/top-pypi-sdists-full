@@ -837,6 +837,7 @@ ScopeNameType = Literal["AccountId", "Organization", "ResourceArn"]
 StatusType = Literal["Active", "Failed", "Inactive", "Pending"]
 ComputeOptimizerServiceName = Literal["compute-optimizer"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

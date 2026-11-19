@@ -652,6 +652,7 @@ ValidationFindingScopeTypeType = Literal[
 ValidationFindingTypeType = Literal["ERROR", "INFO", "WARN"]
 SSMServiceName = Literal["ssm"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

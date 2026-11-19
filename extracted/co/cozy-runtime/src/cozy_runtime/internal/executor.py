@@ -1040,6 +1040,13 @@ class _OnDemand:
             with contextlib.suppress(SeamError):
                 self._need(request_id)
 
+    def _cozy_build(self) -> None:
+        """Built now, as its first read would build it: a predicted request that reads it, loaded
+        ahead (`Executor.map`, cl-1123). Nothing once it is built."""
+        with self._lock:
+            if self._model is None:
+                self._model = self._build()
+
     @property
     def _cozy_residency(self) -> Residency | None:
         residency: Residency | None = getattr(self._model, "_cozy_residency", None)
@@ -1181,8 +1188,9 @@ class Executor:
         self.store: Path | None = None
         #: HOST ONLY: the constructed slots built on first use (`on_demand=`), by the same path
         self.on_demand: frozenset[str] = frozenset()
-        #: each on-demand model built so far, by parameter: its prepare facts (the run record's)
-        self.built_on_demand: dict[str, Reply] = {}
+        #: each request's on-demand models, by its id, then by parameter: their prepare facts
+        #: (its run record's `on_demand`)
+        self.built_on_demand: dict[str, dict[str, Reply]] = {}
         self.active = ""
         self.started = False
         #: torch, the Runtime and the package are imported (`Start.import_only`); no device yet
@@ -1479,6 +1487,7 @@ class Executor:
 
     def _execution(
         self,
+        request_id: str,
         pin: str,
         choices: attention.Applied | None,
         start_us: int,
@@ -1487,7 +1496,7 @@ class Executor:
         segments: Sequence[Mapping[str, object]] = (),
         seen: attention_ulysses.Seen | None = None,
     ) -> Reply:
-        """The attempt's execution record: degree, every GPU, and the setup it ran on."""
+        """`request_id`'s attempt's execution record: degree, every GPU, and the setup it ran on."""
         gpus = [
             execution_evidence.record(
                 self._rank_identity() if self.torch is not None else {"pid": os.getpid()},
@@ -1538,8 +1547,12 @@ class Executor:
                 for k, v in m.plan_reports.items()
             },
             "construction": _construction_record(facts),
-            # Each on-demand model's build, made inside the stage that first read it.
-            "on_demand": {p: _construction_record(f) for p, f in self.built_on_demand.items()},
+            # Each on-demand model this request built, inside the stage that first read it; one an
+            # earlier request built is that one's (cl-1103: a call answers for its own request).
+            "on_demand": {
+                p: _construction_record(f)
+                for p, f in self.built_on_demand.pop(request_id, {}).items()
+            },
         }
 
     def _follow_display(self, command: Invoke) -> None:
@@ -2110,6 +2123,8 @@ class Executor:
         self.host.gpu_memory_limit = command.gpu_memory_limit
         # An older machine's Start names none.
         self.host.display_limit = tuple(getattr(command, "display_limit", ()) or ())
+        # A dev machine (`dev = true` in its config.toml) audits its CUDA graphs' replays.
+        graphs.AUDIT = bool(getattr(command, "dev", False))
         if pacing.configure(pace := command.display_pace) and pace is not None:
             print(
                 f"[pacing] the GPU drives a display: a call pauses {pace.pause_ms} ms "
@@ -3550,7 +3565,9 @@ class Executor:
             detail = f"model {parameter} refused: {reply.get('detail', '')}"
             raise RuntimeFailure(detail[:900], code=str(reply.get("code") or "runtime_failure"))
         member.load_reply = reply
-        self.built_on_demand[parameter] = member.facts
+        context = CURRENT.get()
+        request_id = context.request_id if context is not None else ""
+        self.built_on_demand.setdefault(request_id, {})[parameter] = member.facts
         self.torch = self.torch or member.torch
         if member.residency is not None:
             # An on-demand member's parent serves the many-model composite (`_load_group`).
@@ -4219,6 +4236,7 @@ class Executor:
                         calls=self.host._call_broker(command.request_id, self.host.call_interfaces),
                         previewing=functools.partial(self.host.mux.previewing, command.request_id),
                         preview=self._preview_sink(command.request_id),
+                        text=self._text_sink(command.request_id),
                     ),
                 )
                 if group_attempt is not None:
@@ -4394,6 +4412,7 @@ class Executor:
             in (served_attention.totals() if served_attention else {}),
             "execution": {
                 **self._execution(
+                    command.request_id,
                     requested,
                     served_attention,
                     started_us,
@@ -5142,6 +5161,23 @@ class Executor:
 
         return preview
 
+    def _text_sink(self, request_id: str) -> Callable[[str, int, str], None]:
+        """The lossy lane's words for one attempt: each text output's delta as it is made, which
+        TensorD appends to what it holds of that output and passes on (`response.output_text.delta`)."""
+
+        def text(output: str, index: int, delta: str) -> None:
+            with contextlib.suppress(SeamError):
+                self.channel.send(
+                    {
+                        "event": "progress",
+                        "request_id": request_id,
+                        "kind": "text",
+                        "text": {"output": output, "index": index, "delta": delta},
+                    }
+                )
+
+        return text
+
     def _result_schema_digest(self, surface: Surface) -> str:
         """The identity of the DECLARED annotated result surface — never of the value.
 
@@ -5199,7 +5235,9 @@ class Executor:
 
     def map(self, command: Map) -> Reply:
         """TensorD's warming: one loaded construction's models at `command.level`, on every GPU
-        of a group."""
+        of a group; the on-demand ones `command.build` names built first, as a call's first read
+        of each would build them (cl-1123: a predicted request's, so its first step builds
+        nothing). A TensorFS whose `Map` names none builds none."""
         if self.poisoned:
             return {"ok": False, "code": "poisoned_generation", "detail": self.poisoned}
         child = self.constructions.get(command.construction)
@@ -5211,6 +5249,9 @@ class Executor:
         try:
             if group is not None:
                 group.broadcast(commands.encode(command))
+            for parameter in getattr(command, "build", ()):
+                if isinstance(proxy := child.models.get(parameter), _OnDemand):
+                    proxy._cozy_build()
             if self.memory is not None:
                 members = [m for m in child.model_executors or [child] if m.backend is not None]
                 if command.level == "ram":

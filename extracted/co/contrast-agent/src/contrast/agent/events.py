@@ -2,7 +2,7 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import platform
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import contrast
@@ -18,7 +18,7 @@ logger = logging.getLogger("contrast")
 
 class TelemetryEvent:
     def __init__(self, instance_id: str):
-        self.timestamp = datetime.now(timezone.utc).astimezone().isoformat()
+        self.timestamp = datetime.now(UTC).astimezone().isoformat()
         self.telemetry_instance_id = instance_id
         self.tags = MetricsDict(str)
 

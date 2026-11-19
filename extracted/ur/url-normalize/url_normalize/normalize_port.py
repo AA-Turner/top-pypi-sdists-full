@@ -2,25 +2,14 @@
 
 from __future__ import annotations
 
-DEFAULT_PORT = {
-    "ftp": "21",
-    "gopher": "70",
-    "http": "80",
-    "https": "443",
-    "news": "119",
-    "nntp": "119",
-    "snews": "563",
-    "snntp": "563",
-    "telnet": "23",
-    "ws": "80",
-    "wss": "443",
-}
+from ._schemes import DEFAULT_PORT
 
 
 def normalize_port(port: str, scheme: str) -> str:
     """Normalize port part of the url.
 
-    Remove mention of default port number
+    Remove leading zeroes and scheme defaults from ASCII decimal port numbers.
+    Reject other nonempty port text without validating the numeric range.
 
     Params:
         port : string : url port, e.g., '8080'
@@ -29,10 +18,16 @@ def normalize_port(port: str, scheme: str) -> str:
     Returns:
         string : normalized port data.
 
+    Raises:
+        ValueError: A nonempty port contains characters outside ASCII digits.
+
     """
-    if not port.isdigit():
+    if not port:
         return port
-    port = str(int(port))
+    if not port.isascii() or not port.isdigit():
+        msg = "Port must contain only ASCII digits"
+        raise ValueError(msg)
+    port = port.lstrip("0") or "0"
     if DEFAULT_PORT.get(scheme) == port:
         return ""
     return port

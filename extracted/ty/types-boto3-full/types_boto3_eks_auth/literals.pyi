@@ -25,6 +25,7 @@ __all__ = ("EKSAuthServiceName", "RegionName", "ResourceServiceName", "ServiceNa
 
 EKSAuthServiceName = Literal["eks-auth"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

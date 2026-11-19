@@ -40,6 +40,7 @@ PlatformType = Literal["ADM", "APNS", "APNS_SANDBOX", "GCM"]
 StreamingStatusType = Literal["DISABLED", "ENABLED"]
 CognitoSyncServiceName = Literal["cognito-sync"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

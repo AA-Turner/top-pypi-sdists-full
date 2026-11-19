@@ -6,6 +6,8 @@
  */
 
 use pretty_assertions::assert_eq;
+use ruff_text_size::TextRange;
+use ruff_text_size::TextSize;
 
 use crate::state::lsp::AllOffPartial;
 use crate::state::lsp::InlayHintConfig;
@@ -67,6 +69,140 @@ def f(xs: list[int]) -> None:
         head_hint.edits.is_none(),
         "capture inlay hints must not be insertable"
     );
+}
+
+#[test]
+fn walrus_hint_insertability() {
+    for expression in [
+        "if (assigned := make()):\n    print(assigned)\n",
+        "print(assigned := make())\n",
+        "while (assigned := make()):\n    break\n",
+        "[assigned for _ in range(1) if (assigned := make())]\n",
+    ] {
+        let code = format!("def make() -> int:\n    return 1\n\nregular = make()\n{expression}");
+        let files = [("main", code.as_str())];
+        let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Exports);
+        let handle = handles.get("main").unwrap();
+        let hints = state
+            .transaction()
+            .inlay_hints(handle, Default::default(), Default::default())
+            .unwrap();
+        let assigned_position =
+            TextSize::try_from(code.find("assigned :=").unwrap() + "assigned".len()).unwrap();
+        let assigned_hint = hints
+            .iter()
+            .find(|hint| hint.position == assigned_position)
+            .expect("the walrus target has a display hint");
+        assert_eq!(
+            assigned_hint
+                .label_parts
+                .iter()
+                .map(|(text, _)| text.as_str())
+                .collect::<String>(),
+            ": int"
+        );
+        assert!(assigned_hint.edits.is_none());
+
+        let regular_position =
+            TextSize::try_from(code.find("regular").unwrap() + "regular".len()).unwrap();
+        let regular_hint = hints
+            .iter()
+            .find(|hint| hint.position == regular_position)
+            .expect("the regular assignment has a display hint");
+        assert_eq!(regular_hint.edits.as_ref().unwrap().annotation, ": int");
+    }
+}
+
+#[test]
+fn inherited_classvar_inlay_hint_prefers_resolved_field_type() {
+    let code = r#"
+from typing import ClassVar
+
+def value() -> str:
+    return "value"
+
+class A:
+    x: ClassVar[tuple[str, ...]] = ("A",)
+
+class B(A):
+    x = (value(),)
+"#;
+    assert_eq!(
+        r#"
+# main.py
+11 |     x = (value(),)
+          ^ inlay-hint: `: tuple[str, ...]`
+"#
+        .trim(),
+        generate_inlay_hint_report(code, Default::default()).trim(),
+    );
+}
+
+#[test]
+fn class_field_shadowing_inlay_hint() {
+    // Captured writes are unrelated to same-named instance fields.
+    for (body, expected) in [
+        (
+            "x = 0\nclass C:\n    global x\n    x = value()\n    def __init__(self) -> None:\n        self.x: str = 'field'\n",
+            ": int",
+        ),
+        (
+            "def f() -> None:\n    x = 0\n    class C:\n        nonlocal x\n        x = value()\n        def __init__(self) -> None:\n            self.x: str = 'field'\n",
+            ": int",
+        ),
+        (
+            "class C:\n    x: str = 'field'\n    def f(self) -> None:\n        x = value()\n",
+            ": int",
+        ),
+        ("x = value()\n", ": int"),
+    ] {
+        let code = format!("def value() -> int:\n    return 1\n{body}");
+        let position = code.find("x = value()").unwrap() + 1;
+        let (handles, state) =
+            mk_multi_file_state_assert_no_errors(&[("main", &code)], Require::Exports);
+        let hints = state
+            .transaction()
+            .inlay_hints(
+                handles.get("main").unwrap(),
+                Default::default(),
+                Default::default(),
+            )
+            .unwrap();
+        let hint = hints
+            .iter()
+            .find(|hint| usize::from(hint.position) == position)
+            .expect("expected a hint for the nonliteral assignment");
+        let label: String = hint
+            .label_parts
+            .iter()
+            .map(|(text, _)| text.as_str())
+            .collect();
+        assert_eq!(expected, label, "hint for {code}");
+    }
+}
+
+#[test]
+fn inherited_field_hint_insertability() {
+    // Hints remain visible without edits that could discard inherited declaration qualifiers.
+    for body in [
+        "class A:\n    x: ClassVar[tuple[str, ...]] = ()\nclass B(A):\n    x = (value(),)\n",
+        "class A:\n    x: str = ''\nclass B(A):\n    def __init__(self) -> None:\n        self.x = value()\n",
+    ] {
+        let code =
+            format!("from typing import ClassVar\ndef value() -> str:\n    return 'value'\n{body}");
+        let (handles, state) =
+            mk_multi_file_state_assert_no_errors(&[("main", &code)], Require::Exports);
+        let hints = state
+            .transaction()
+            .inlay_hints(
+                handles.get("main").unwrap(),
+                Default::default(),
+                Default::default(),
+            )
+            .unwrap();
+        assert_eq!(1, hints.len(), "hints for {code}");
+        assert!(hints[0].edits.is_none(), "insertability for {code}");
+    }
 }
 
 #[test]
@@ -606,6 +742,71 @@ def test(a: str, b: str) -> None:
 test("a", "b")
 "#;
     assert_eq!(parameter_name_hint_labels(code, true), vec!["a= ", "b= "]);
+}
+
+#[test]
+fn test_issue_5105_hide_hint_when_arg_matches_param_name() {
+    // A matching name is hidden while a different name still shows.
+    let code = r#"
+def foo(a: int, b: int) -> None:
+    pass
+
+a = 1
+c = 2
+foo(a, c)
+"#;
+    assert_eq!(parameter_name_hint_labels(code, true), vec!["b= "]);
+
+    // Every argument matching leaves no hints.
+    let code = r#"
+def foo(a: int, b: int) -> None:
+    pass
+
+a = 1
+b = 2
+foo(a, b)
+"#;
+    assert_eq!(parameter_name_hint_labels(code, true), Vec::<String>::new());
+
+    // obj.a against parameter a still shows a=, so only plain names are suppressed.
+    let code = r#"
+class Box:
+    a: int = 1
+
+def foo(a: int, b: int) -> None:
+    pass
+
+obj = Box()
+c = 2
+foo(obj.a, c)
+"#;
+    assert_eq!(parameter_name_hint_labels(code, true), vec!["a= ", "b= "]);
+}
+
+// Passing `args` without unpacking packs it as one element, so `*args=` is informative.
+#[test]
+fn test_show_hint_when_unstarred_arg_matches_vararg_name() {
+    let code = r#"
+def foo(*args: object) -> None:
+    pass
+
+args = (1, 2)
+foo(args)
+"#;
+    assert_eq!(parameter_name_hint_labels(code, true), vec!["*args= "]);
+}
+
+// Unpacking `*args` into `*args` makes the hint redundant.
+#[test]
+fn test_hide_hint_when_starred_arg_matches_vararg_name() {
+    let code = r#"
+def foo(*args: int) -> None:
+    pass
+
+args = (1, 2)
+foo(*args)
+"#;
+    assert_eq!(parameter_name_hint_labels(code, true), Vec::<String>::new());
 }
 
 #[test]
@@ -1256,6 +1457,111 @@ value = make()
 }
 
 #[test]
+fn test_insertable_hint_module_name_bound_at_module_scope() {
+    let files = [
+        LIB,
+        (
+            "main",
+            r#"
+from lib import make
+
+class Value: ...
+lib = 1
+value = make()
+"#,
+        ),
+    ];
+    let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Exports);
+    let hints = state
+        .transaction()
+        .inlay_hints(&handles["main"], Default::default(), Default::default())
+        .unwrap();
+    // `lib = 1` would shadow a generated `import lib`, and `Value` is bound locally.
+    assert!(hints.iter().all(|hint| hint.edits.is_none()));
+}
+
+#[test]
+fn test_insertable_hint_overloaded_function() {
+    let (annotation, imports) = insertable_hint(&[(
+        "main",
+        r#"
+from typing import overload
+
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: str) -> str: ...
+def f(x: int | str) -> int | str:
+    return x
+
+g = f
+"#,
+    )]);
+    assert_eq!(annotation, ": Callable[..., Any]");
+    assert_eq!(imports, "from typing import Any, Callable\n");
+}
+
+#[test]
+fn test_insertable_hint_generic_function() {
+    let (annotation, imports) = insertable_hint(&[(
+        "main",
+        r#"
+def identity[T](x: T) -> T:
+    return x
+
+g = identity
+"#,
+    )]);
+    assert_eq!(annotation, ": Callable[[Any], Any]");
+    assert_eq!(imports, "from typing import Any, Callable\n");
+}
+
+#[test]
+fn test_insertable_hint_generic_function_with_default() {
+    let (annotation, imports) = insertable_hint(&[(
+        "main",
+        r#"
+def identity[T = int](x: T) -> T:
+    return x
+
+g = identity
+"#,
+    )]);
+    assert_eq!(annotation, ": Callable[[Any], Any]");
+    assert_eq!(imports, "from typing import Any, Callable\n");
+}
+
+#[test]
+fn test_insertable_hint_param_spec_with_default() {
+    let (annotation, imports) = insertable_hint(&[(
+        "main",
+        r#"
+def f[**P](x: int = 0, *args: P.args, **kwargs: P.kwargs) -> int:
+    return x
+
+g = f
+"#,
+    )]);
+    assert_eq!(annotation, ": Callable[..., int]");
+    assert_eq!(imports, "from typing import Callable\n");
+}
+
+#[test]
+fn test_insertable_hint_function_with_default() {
+    let (annotation, imports) = insertable_hint(&[(
+        "main",
+        r#"
+def f(x: int = 0) -> int:
+    return x
+
+g = f
+"#,
+    )]);
+    assert_eq!(annotation, ": Callable[..., int]");
+    assert_eq!(imports, "from typing import Callable\n");
+}
+
+#[test]
 fn test_insertable_hint_renders_unknown_as_any() {
     let (annotation, imports) = insertable_hint(&[
         (
@@ -1440,4 +1746,38 @@ class MyClass:
     assert_eq!(hints.len(), 1);
     // NewType is a callable alias, so `type[N]` is not a valid annotation to insert.
     assert!(hints[0].edits.is_none());
+}
+
+#[test]
+fn test_inlay_hints_in_range_limits_to_the_selection() {
+    let code = "\
+def f() -> int:
+    return 1
+
+yyy = f()
+zzz = f()
+";
+    let files = [("main", code)];
+    let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Exports);
+    let handle = handles.get("main").unwrap();
+    let transaction = state.transaction();
+    let all = transaction
+        .inlay_hints(handle, Default::default(), Default::default())
+        .unwrap();
+    let start = code.find("zzz").unwrap();
+    let zzz = TextRange::new(
+        TextSize::try_from(start).unwrap(),
+        TextSize::try_from(start + 3).unwrap(),
+    );
+    let limited = transaction
+        .inlay_hints_in_range(handle, Default::default(), Default::default(), zzz)
+        .unwrap();
+    assert!(all.len() > limited.len());
+    assert_eq!(limited.len(), 1);
+    let label: String = limited[0]
+        .label_parts
+        .iter()
+        .map(|(text, _)| text.as_str())
+        .collect();
+    assert_eq!(label, ": int");
 }

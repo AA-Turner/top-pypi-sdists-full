@@ -118,6 +118,7 @@ WAFConfigDataTypeType = Literal[
 WAFConflictResolutionOptionsType = Literal["MERGE_WHERE_APPLICABLE"]
 NetworkSecurityManagerCustomerAPIServiceName = Literal["network-security-manager"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

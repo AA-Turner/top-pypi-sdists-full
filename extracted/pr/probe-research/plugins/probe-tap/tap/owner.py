@@ -97,8 +97,6 @@ class Owner:
 #: this module records (`tap/service/procid.py`, a byte copy of
 #: `probe.service.procid`; `make sync-service-client`).
 _Proc = procid.Proc
-_proc_linux = procid.proc_linux
-_proc_ps = procid.proc_ps
 _proc = procid.proc
 
 

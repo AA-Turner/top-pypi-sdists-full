@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_build::handle::SitePackagePath;
 use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -35,6 +36,8 @@ use crate::state::state::TransactionTimingCounters;
 
 #[derive(Debug, Clone, Dupe, PartialEq, Eq)]
 pub enum FindError {
+    /// This module resolved only through the fallback search path heuristic.
+    FallbackSearchPathRelativeImport(ModuleName),
     /// This module could not be found, and we should emit an error
     MissingImport(ModuleName, Arc<Vec1<String>>),
     /// This import could not be found, but the user configured it to be ignored
@@ -97,6 +100,16 @@ impl FindError {
 
     pub fn display(&self) -> (Option<Box<dyn Fn() -> ErrorContext + '_>>, Vec1<String>) {
         match self {
+            Self::FallbackSearchPathRelativeImport(module) => (
+                None,
+                vec1![
+                    format!(
+                        "Import `{module}` was resolved relative to the importing file because it was not found on the search path or the site package path"
+                    ),
+                    "Add the module to the search path/site package path, or use an explicit relative/fully qualified import"
+                        .to_owned(),
+                ],
+            ),
             Self::MissingImport(module, err) => {
                 let mut lines = (**err).clone();
                 // Compute suggestion lazily at display time, using global cache
@@ -131,6 +144,9 @@ impl FindError {
 
     pub fn kind(&self) -> Option<ErrorKind> {
         match self {
+            Self::FallbackSearchPathRelativeImport(..) => {
+                Some(ErrorKind::FallbackSearchPathRelativeImport)
+            }
             Self::MissingImport(..) => Some(ErrorKind::MissingImport),
             Self::MissingSource(..) => Some(ErrorKind::MissingSource),
             Self::MissingSourceForStubs(..) => Some(ErrorKind::MissingSourceForStubs),
@@ -240,6 +256,27 @@ pub struct LoaderFindCache {
 }
 
 impl LoaderFindCache {
+    /// A loader that resolves imports with `config`, but in the Python environment with
+    /// site-package path `site_package_path` rather than `config`'s own, if one is given.
+    pub fn new_in_environment(
+        config: &ArcId<ConfigFile>,
+        site_package_path: Option<SitePackagePath>,
+    ) -> Self {
+        let Some(site_package_path) = site_package_path else {
+            return Self::new(config.dupe());
+        };
+        // Clear the paths queried from the interpreter as well, so that `site_package_path()`
+        // is exactly `site_package_path`.
+        let mut config = ConfigFile::clone(config);
+        config.python_environment.site_package_path = Some(site_package_path.paths().to_vec());
+        config
+            .python_environment
+            .interpreter_site_package_path
+            .clear();
+        config.python_environment.interpreter_editable_path.clear();
+        Self::new(ArcId::new(config))
+    }
+
     pub fn new(config: ArcId<ConfigFile>) -> Self {
         // When no config feature uses origin, all import resolutions produce
         // the same result regardless of which file is importing. We can then
@@ -557,6 +594,51 @@ mod tests {
         let other_first = new_loader();
         assert_eq!(find(&other_first, &other), bundled);
         assert_eq!(find(&other_first, &owner), bundled);
+    }
+
+    #[test]
+    fn test_use_shape_comments_and_stubs_bundled_cache() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::dir("requests", vec![TestPath::file("__init__.py")]),
+                TestPath::dir("requests-shape-stubs", vec![TestPath::file("__init__.pyi")]),
+            ],
+        );
+        let first = ModulePath::memory(root.join("first/main.py"));
+        let second = ModulePath::memory(root.join("second/main.py"));
+        for compatibility in [false, true] {
+            let mut config = ConfigFile::parse_config(&format!(
+                "use-shape-comments-and-stubs = {compatibility}\n\
+                 [[sub-config]]\n\
+                 matches = '**/second/**'\n",
+            ))
+            .unwrap();
+            config.python_environment.set_empty_to_default();
+            config.python_environment.site_package_path = Some(vec![root.to_path_buf()]);
+            config.disable_search_path_heuristics = true;
+            config.configure();
+            let config = ArcId::new(config);
+            for origins in [[&first, &second, &first], [&second, &first, &second]] {
+                let loader = LoaderFindCache::new(config.dupe());
+                for origin in origins {
+                    let path = loader
+                        .find_import(ModuleName::from_str("requests"), Some(origin), None)
+                        .finding()
+                        .unwrap();
+                    if compatibility {
+                        assert_eq!(
+                            path,
+                            ModulePath::filesystem(root.join("requests-shape-stubs/__init__.pyi"))
+                        );
+                    } else {
+                        assert!(path.is_bundled(), "opt-out must restore the bundled stub");
+                    }
+                }
+            }
+        }
     }
 
     #[test]

@@ -13,6 +13,7 @@ use dupe::Dupe;
 use parse_display::Display;
 use parse_display::FromStr;
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::Expr;
@@ -26,7 +27,7 @@ use crate::types::NeverStyle;
 use crate::types::Type;
 
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[derive(Visit, VisitMut, TypeEq, Display, FromStr)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd, Display, FromStr)]
 pub enum SpecialForm {
     Annotated,
     Callable,
@@ -58,16 +59,15 @@ pub enum SpecialForm {
 
 impl SpecialForm {
     pub fn new(name: &Name, annotation: &Expr) -> Option<Self> {
-        if name.as_str() == "Generic" {
-            if let Expr::Subscript(ExprSubscript { value, slice, .. }) = annotation
-                && let Expr::Name(x) = &**value
-                && let Expr::Name(y) = &**slice
-                && x.id == "type"
-                && y.id == "_Generic"
-            {
-                return Some(SpecialForm::Generic);
+        let declares_special_form = match annotation {
+            Expr::Name(x) => x.id == "_SpecialForm",
+            Expr::Subscript(ExprSubscript { value, slice, .. }) => {
+                matches!(&**value, Expr::Name(x) if x.id == "type")
+                    && matches!(&**slice, Expr::Name(y) if y.id.strip_prefix('_') == Some(name.as_str()))
             }
-        } else if !matches!(annotation, Expr::Name(x) if x.id == "_SpecialForm") {
+            _ => false,
+        };
+        if !declares_special_form {
             return None;
         }
         SpecialForm::from_str(name.as_str()).ok()

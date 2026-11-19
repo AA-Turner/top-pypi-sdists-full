@@ -5,8 +5,8 @@ from typing import Optional
 from yggdrasil_engine.engine import UnleashEngine
 
 from UnleashClient._async_scheduler import _AsyncJob, _AsyncScheduler
-from UnleashClient._async_transport import _AsyncTransport
 from UnleashClient._payloads import _build_metrics_payload
+from UnleashClient.api_client._async import _AsyncUnleashApiClient
 from UnleashClient.config import UnleashConfig
 from UnleashClient.impact_metrics import ImpactMetrics
 from UnleashClient.utils import LOGGER
@@ -23,7 +23,7 @@ class _AsyncMetricsReporter:
 
         reporter = _AsyncMetricsReporter(
             config=config,
-            transport=transport,
+            api_client=api_client,
             scheduler=scheduler,
             engine=engine,
             impact_metrics=impact_metrics,
@@ -38,23 +38,23 @@ class _AsyncMetricsReporter:
     def __init__(
         self,
         config: UnleashConfig,
-        transport: _AsyncTransport,
+        api_client: _AsyncUnleashApiClient,
         scheduler: _AsyncScheduler,
         engine: UnleashEngine,
         impact_metrics: ImpactMetrics,
     ) -> None:
         self._config: UnleashConfig = config
-        self._transport: _AsyncTransport = transport
+        self._api: _AsyncUnleashApiClient = api_client
         self._scheduler: _AsyncScheduler = scheduler
         self._engine: UnleashEngine = engine
         self._impact_metrics: ImpactMetrics = impact_metrics
         self._job: Optional[_AsyncJob] = None
 
     def start(self) -> None:
-        """Schedules a send every ``metrics_interval`` seconds, with ``metrics_jitter`` of jitter."""
+        """Schedules a send every ``metrics.interval`` seconds, with up to ``metrics.jitter`` seconds of jitter."""
         self._job = self._scheduler.every(
-            interval_seconds=int(self._config.metrics_interval),
-            jitter_seconds=self._config.metrics_jitter,
+            interval_seconds=int(self._config.metrics.interval),
+            jitter_seconds=self._config.metrics.jitter,
             fn=self.flush,
         )
 
@@ -75,7 +75,7 @@ class _AsyncMetricsReporter:
         payload = _build_metrics_payload(self._config, bucket, impact_metrics)
         sent = False
         try:
-            sent = await self._transport.send_metrics(payload)
+            sent = await self._api.send_metrics(payload)
         finally:
             if not sent and impact_metrics:
                 self._impact_metrics.restore(impact_metrics)

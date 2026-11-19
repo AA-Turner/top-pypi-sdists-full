@@ -30,6 +30,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
 from skylos.constants import DEFAULT_EXCLUDE_FOLDERS, get_non_library_dir_kind
 from skylos.core.file_discovery import discover_source_files
 from skylos.core.python_distributions import (
+    CURATED_IMPORT_PATHS,
     NAMESPACE_ROOTS,
     distribution_import_paths,
     path_is_provided,
@@ -169,6 +170,18 @@ def _load_import_to_dist_mapping() -> dict[str, str]:
     for imp, dist in _SUPPLEMENT.items():
         if imp not in mapping:
             mapping[imp] = dist
+
+    # Curated provider inventories name modules no PyPI project is called
+    # (``pythoncom`` ships in pywin32). Such an import is undeclared, not
+    # hallucinated. Modules more than one distribution provides stay unmapped.
+    curated_providers: dict[str, set[str]] = {}
+    for dist, paths in CURATED_IMPORT_PATHS.items():
+        for path in paths:
+            if "." not in path:
+                curated_providers.setdefault(path, set()).add(dist)
+    for imp, dists in curated_providers.items():
+        if imp not in mapping and len(dists) == 1:
+            mapping[imp] = next(iter(dists))
 
     _IMPORT_TO_DIST_MAPPING = mapping
     return _IMPORT_TO_DIST_MAPPING
@@ -1022,6 +1035,223 @@ def _is_file_local_import(mod, ctx, importer, *, direct_script=False):
     return is_local
 
 
+def _executable_script_sibling(mod, ctx, file_path, required_paths, *, diff_path=False):
+    """A ``#!`` script's absolute import of a module file beside it.
+
+    Run as a file, the script's directory is ``sys.path[0]`` and the sibling
+    loads, even inside a package directory. Only accepted when the import
+    needs no submodule, no ``mod/`` directory can shadow the file, and
+    nothing loads the script as a module instead (``_script_loaded_as_module``).
+    A ``__main__`` guard alone is not enough: ``python -m pkg.script`` keeps
+    package mode, where the absolute import fails."""
+    if file_path is None or not str(mod).isidentifier():
+        return False
+    if any(path != mod for path in required_paths or ()):
+        return False
+    importer = _contained_importer_path(ctx["repo_root"], file_path, diff_path=diff_path)
+    if importer is None:
+        return False
+    text = _project_source_text(ctx, importer)
+    if text is None or not text.startswith("#!") or "__package__" in text:
+        return False
+    try:
+        tree = ast.parse(text)
+    except (MemoryError, RecursionError, SyntaxError, ValueError):
+        return False
+    if any(
+        isinstance(node, ast.ImportFrom) and node.level for node in ast.walk(tree)
+    ):
+        # A relative import means the file also runs in package mode, where
+        # an absolute import of its sibling fails.
+        return False
+    if not _context_has_local_python_file(ctx, importer.parent / f"{mod}.py"):
+        return False
+    if os.path.lexists(ctx["repo_root"] / importer.parent / mod):
+        return False
+    return not _script_loaded_as_module(ctx, importer)
+
+
+_LAUNCHER_SUFFIXES = frozenset(
+    {".sh", ".bash", ".zsh", ".service", ".yml", ".yaml", ".toml", ".cfg",
+     ".ini", ".json", ".conf", ".txt", ".md"}
+)  # fmt: skip
+_LAUNCHER_NAMES = frozenset({"Makefile", "Dockerfile", "Procfile", "Justfile"})
+
+
+def _script_loaded_as_module(ctx, importer):
+    """Whether anything may load the script ``importer`` as a module instead
+    of running it as a file: another project Python file naming it (an
+    import, ``importlib`` string or test), or a launcher or config file
+    running it with ``-m`` or naming it in an entry point. Unreadable files
+    count as naming it."""
+    cache = ctx.setdefault("script_module_cache", {})
+    if importer in cache:
+        return cache[importer]
+    stem = importer.stem
+    named = re.compile(rf"(?<!\w){re.escape(stem)}(?!\w)")
+    loaded = False
+    project_files = _project_python_files(ctx)
+    if project_files is None:
+        loaded = True
+    for other in project_files or ():
+        if other == importer:
+            continue
+        text = _project_source_text(ctx, other)
+        if text is None or named.search(text):
+            loaded = True
+            break
+    if not loaded:
+        dotted = rf"(?:\w+\.)*{re.escape(stem)}"
+        loaded = _launchers_name_module(
+            ctx,
+            re.compile(rf"-m\s+{dotted}(?![\w.])"),
+            re.compile(rf"{dotted}\s*:\s*\w"),
+        )
+    cache[importer] = loaded
+    return loaded
+
+
+def _launchers_name_module(ctx, module_run, entry_point):
+    root = ctx["repo_root"]
+    budget = 2000
+    for directory, folders, files in os.walk(root):
+        folders[:] = [
+            folder
+            for folder in folders
+            if not folder.startswith(".") and folder not in DEFAULT_EXCLUDE_FOLDERS
+        ]
+        for name in files:
+            path = Path(directory) / name
+            if path.suffix not in _LAUNCHER_SUFFIXES and name not in _LAUNCHER_NAMES:
+                continue
+            budget -= 1
+            if budget < 0:
+                return True
+            text = read_project_text_no_symlink(
+                root,
+                path,
+                max_bytes=MAX_DEPENDENCY_MANIFEST_BYTES,
+                encoding="utf-8",
+                errors="ignore",
+            )
+            if text is None:
+                continue
+            if module_run.search(text):
+                return True
+            if name in {"pyproject.toml", "setup.cfg"} and entry_point.search(text):
+                return True
+    return False
+
+
+def _project_python_files(ctx):
+    """Relative paths of the repository's Python files (the analyzer's
+    normal inventory), or None when it cannot be listed."""
+    if "project_python_files" not in ctx:
+        root = ctx["repo_root"]
+        try:
+            files = {
+                relative
+                for path in discover_source_files(
+                    root, PYTHON_SOURCE_SUFFIXES, exclude_folders=DEFAULT_EXCLUDE_FOLDERS
+                )
+                if (relative := _contained_importer_path(root, path)) is not None
+            }
+            ctx["project_python_files"] = frozenset(files | set(ctx["known_python_files"]))
+        except (OSError, RuntimeError, TypeError, ValueError):
+            ctx["project_python_files"] = None
+    return ctx["project_python_files"]
+
+
+def _project_source_text(ctx, relative):
+    cache = ctx.setdefault("source_text_cache", {})
+    if relative not in cache:
+        cache[relative] = read_project_text_no_symlink(
+            ctx["repo_root"],
+            ctx["repo_root"] / relative,
+            max_bytes=MAX_DEPENDENCY_MANIFEST_BYTES,
+            encoding="utf-8",
+            errors="ignore",
+        )
+    return cache[relative]
+
+
+def _sibling_imports_cleanly(ctx, relative):
+    """Whether importing the sibling module ``relative`` cannot raise
+    ImportError: at import time it only imports the standard library or
+    ``__future__``, raises nothing and loads nothing dynamically. Function
+    bodies and the ``__main__`` block do not run on import."""
+    cache = ctx.setdefault("clean_sibling_cache", {})
+    if relative in cache:
+        return cache[relative]
+    clean = False
+    text = _project_source_text(ctx, relative)
+    if text is not None:
+        try:
+            tree = ast.parse(text)
+        except (MemoryError, RecursionError, SyntaxError, ValueError):
+            tree = None
+        if tree is not None:
+            clean = all(
+                _import_time_node_is_clean(ctx, node)
+                for statement in tree.body
+                if not _is_main_guard(statement)
+                for node in _import_time_nodes(statement)
+            )
+    cache[relative] = clean
+    return clean
+
+
+def _is_main_guard(statement):
+    if not isinstance(statement, ast.If) or not isinstance(statement.test, ast.Compare):
+        return False
+    test = statement.test
+    sides = [test.left, *test.comparators]
+    return (
+        len(test.ops) == 1
+        and isinstance(test.ops[0], ast.Eq)
+        and any(isinstance(side, ast.Name) and side.id == "__name__" for side in sides)
+        and any(isinstance(side, ast.Constant) and side.value == "__main__" for side in sides)
+    )
+
+
+def _import_time_nodes(statement):
+    stack = [statement]
+    while stack:
+        node = stack.pop()
+        yield node
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            stack.extend(node.decorator_list)
+            stack.extend(node.args.defaults)
+            stack.extend(item for item in node.args.kw_defaults if item is not None)
+            continue
+        if isinstance(node, ast.Lambda):
+            continue
+        stack.extend(ast.iter_child_nodes(node))
+
+
+def _import_time_node_is_clean(ctx, node):
+    if isinstance(node, ast.Raise):
+        return False
+    if isinstance(node, ast.Import):
+        return all(
+            alias.name.split(".", 1)[0] in ctx["stdlib"] for alias in node.names
+        )
+    if isinstance(node, ast.ImportFrom):
+        return (
+            node.level == 0
+            and bool(node.module)
+            and (
+                node.module == "__future__"
+                or node.module.split(".", 1)[0] in ctx["stdlib"]
+            )
+        )
+    if isinstance(node, ast.Call):
+        callee = node.func
+        name = callee.id if isinstance(callee, ast.Name) else getattr(callee, "attr", "")
+        return name not in {"__import__", "import_module", "exec", "eval", "run_path", "run_module"}
+    return True
+
+
 def _context_has_regular_file(ctx, relative_path):
     """A regular file (not a symlink) inside the repository."""
     if relative_path.suffix in PYTHON_SOURCE_SUFFIXES:
@@ -1655,27 +1885,66 @@ def _optional_roots_from_nodes(nodes, paths):
     return frozenset(path.split(".")[0] for path in paths) - required_roots
 
 
-def _local_import_fallbacks(src, ctx, importer):
-    """Find absolute imports paired with a sibling relative import fallback.
+def _package_guarded_local_imports(nodes, ctx, directory):
+    """Match the script mode of ``if __package__: from .pkg import name``."""
+    if {"__package__", "__name__"} & _source_bound_names(nodes):
+        return
+    for statement in nodes:
+        if not (
+            isinstance(statement, ast.If)
+            and isinstance(statement.test, ast.Name)
+            and statement.test.id == "__package__"
+            and len(statement.body) == len(statement.orelse) == 1
+        ):
+            continue
+        relative, absolute = statement.body[0], statement.orelse[0]
+        if not (
+            isinstance(relative, ast.ImportFrom)
+            and relative.level == 1
+            and isinstance(absolute, ast.ImportFrom)
+            and absolute.level == 0
+            and absolute.module
+            and relative.module == absolute.module
+            and [(alias.name, alias.asname) for alias in relative.names]
+            == [(alias.name, alias.asname) for alias in absolute.names]
+        ):
+            continue
+        parts = absolute.module.split(".")
+        for index in range(1, len(parts)):
+            package = directory.joinpath(*parts[:index])
+            if _context_has_local_python_file(
+                ctx, package.with_suffix(".py")
+            ) and not _context_has_local_python_file(ctx, package / "__init__.py"):
+                break
+        else:
+            module = directory.joinpath(*parts)
+            if _context_has_local_python_file(
+                ctx, module.with_suffix(".py")
+            ) or _context_has_local_python_file(ctx, module / "__init__.py"):
+                yield absolute
 
-    A package module can use ``from .helper`` when imported as a package and
-    ``from helper`` when executed as a script. Only accept the absolute form
-    when *every* absolute import of that root is in a matching ImportError
-    handler and a real sibling Python module exists.
+
+def _local_import_fallbacks(src, ctx, importer):
+    """Find local imports spelled differently in script and package modes.
+
+    Only accept the local provider when every absolute import of the root
+    is paired with a relative form and a matching sibling exists.
     """
-    if (
-        importer is None
-        or "except ImportError" not in src
-        or not _has_direct_script_evidence(src)
+    if importer is None or (
+        "except ImportError" not in src and "__package__" not in src
     ):
+        return frozenset()
+    script = _has_direct_script_evidence(src)
+    if not script and "except ImportError" not in src:
         return frozenset()
     try:
         tree = ast.parse(src)
     except (MemoryError, RecursionError, SyntaxError, ValueError):
         return frozenset()
 
+    nodes = tuple(ast.walk(tree))
     absolute_imports = {}
-    for node in ast.walk(tree):
+    for node in nodes:
         if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             root = node.module.split(".", 1)[0]
             absolute_imports.setdefault(root, set()).add(id(node))
@@ -1685,7 +1954,11 @@ def _local_import_fallbacks(src, ctx, importer):
                 absolute_imports.setdefault(root, set()).add(id(node))
 
     paired = {}
-    for statement in ast.walk(tree):
+    if script and "__package__" in src:
+        for node in _package_guarded_local_imports(nodes, ctx, importer.parent):
+            paired.setdefault(node.module.split(".", 1)[0], set()).add(id(node))
+
+    for statement in nodes:
         if not isinstance(statement, ast.Try):
             continue
         relative_modules = {
@@ -1708,6 +1981,15 @@ def _local_import_fallbacks(src, ctx, importer):
                     and node.module in relative_modules
                     and _context_has_local_python_file(
                         ctx, importer.parent / f"{node.module}.py"
+                    )
+                    and (
+                        # In package mode the relative form loads the
+                        # sibling; it can only fall through to the absolute
+                        # form if the sibling itself raises ImportError.
+                        script
+                        or _sibling_imports_cleanly(
+                            ctx, importer.parent / f"{node.module}.py"
+                        )
                     )
                 ):
                     paired.setdefault(node.module, set()).add(id(node))
@@ -3540,9 +3822,113 @@ class _SourceImportAnalysis:
             _optional_roots_from_nodes(nodes, uncertain_paths) - self.optional_imports
         )
         self._requirements = _requirements_by_root(nodes, optional_paths)
+        self.ros_node_lifecycle = (
+            "rclpy" in self._requirements and _has_ros_node_lifecycle(nodes)
+        )
+        self.ros_launch_description = (
+            tree is not None
+            and "launch" in self._requirements
+            and _has_ros_launch_description(tree, nodes)
+        )
 
     def requirements(self, mod):
         return self._requirements.get(mod, (frozenset({mod}), ()))
+
+
+def _unshadowed_ros_binding(nodes, module, member=None):
+    binding = member or module
+    found = False
+    for node in nodes:
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                if (alias.asname or alias.name.split(".")[0]) != binding:
+                    continue
+                expected = (
+                    isinstance(node, ast.Import) and alias.name == module
+                    if member is None
+                    else isinstance(node, ast.ImportFrom)
+                    and not node.level
+                    and node.module == module
+                    and alias.name == member
+                )
+                if not expected:
+                    return False
+                found = True
+    return found and binding not in _source_bound_names(
+        node for node in nodes if not isinstance(node, (ast.Import, ast.ImportFrom))
+    )
+
+
+def _has_ros_node_lifecycle(nodes):
+    if not _unshadowed_ros_binding(nodes, "rclpy"):
+        return False
+    methods = {
+        node.func.attr
+        for node in nodes
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "rclpy"
+    }
+    return {"init", "shutdown"} <= methods
+
+
+def _has_ros_launch_description(tree, nodes):
+    factories = [
+        statement
+        for statement in tree.body
+        if isinstance(statement, ast.FunctionDef)
+        and statement.name == "generate_launch_description"
+    ]
+    if len(factories) != 1 or not _unshadowed_ros_binding(
+        nodes, "launch", "LaunchDescription"
+    ):
+        return False
+    factory = factories[0]
+    last_statement = factory.body[-1]
+    return (
+        not factory.decorator_list
+        and not any(
+            (
+                factory.args.posonlyargs,
+                factory.args.args,
+                factory.args.kwonlyargs,
+                factory.args.vararg,
+                factory.args.kwarg,
+            )
+        )
+        and isinstance(last_statement, ast.Return)
+        and isinstance(last_statement.value, ast.Call)
+        and isinstance(last_statement.value.func, ast.Name)
+        and last_statement.value.func.id == "LaunchDescription"
+    )
+
+
+def _external_ros_import_paths(analysis, ctx, importer):
+    """Recognize ROS entrypoints without claiming the host provides their imports."""
+    if importer is None or ctx["ros_package_deps"]:
+        return frozenset()
+
+    required_ros = (
+        analysis._requirements.keys() & ROS_PYTHON_IMPORT_ROOTS
+    ) - analysis.type_checking_only
+    node_source = (
+        analysis.ros_node_lifecycle and "rclpy" in required_ros and len(required_ros) > 1
+    )
+    launch_source = (
+        analysis.ros_launch_description
+        and importer.name.endswith(".launch.py")
+        and "launch" not in analysis.type_checking_only
+        and bool(required_ros & {"ament_index_python", "launch_ros"})
+    )
+    if not (node_source or launch_source) or any(
+        _context_has_regular_file(ctx, parent / "package.xml")
+        for parent in importer.parents
+    ):
+        return frozenset()
+
+    roots = required_ros | {"launch"} if launch_source else required_ros
+    return frozenset(path for root in roots for path in analysis.requirements(root)[0])
 
 
 def _source_bound_names(nodes):
@@ -3627,6 +4013,14 @@ def _literal_exec_imports(tree, nodes, *, depth=0, native_ast=False, budget=None
     lines = {}
     imported_nodes = []
     if depth >= 4:
+        return submodules, lines, ()
+    if not any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "exec"
+        and node.args
+        for node in nodes
+    ):
         return submodules, lines, ()
     if budget is None:
         budget = {"steps": 0, "parses": 0, "bytes": 0, "nodes": 0}
@@ -4116,6 +4510,7 @@ def _classify_import(
     uncertain_imports=frozenset(),
     required_paths=(),
     from_imports=(),
+    ros_runtime_paths=frozenset(),
 ):
     """Return a finding template (without file/line) for an import root, or None."""
     if (
@@ -4125,6 +4520,10 @@ def _classify_import(
     ):
         return None
     if mod and _declared_by_name_mapping(mod, required_paths, from_imports, ctx):
+        return None
+    if direct_script and _executable_script_sibling(
+        mod, ctx, file_path, required_paths, diff_path=diff_path
+    ):
         return None
     root_only = set(required_paths or (mod,)) <= {mod} and not from_imports
     template = _classify_import_names(
@@ -4136,6 +4535,7 @@ def _classify_import(
         local_fallbacks=local_fallbacks,
         submodules=submodules,
         root_only=root_only,
+        external_ros_import=ros_runtime_paths.issuperset(required_paths or (mod,)),
     )
     if template is None:
         return None
@@ -4145,21 +4545,31 @@ def _classify_import(
         # ImportError is handled, but the fallback cannot be proven safe.
         _record_unverified(ctx, mod, "guarded_import_fallback_unproven")
         return None
-    # Environment evidence only explains a missing declaration of a package
-    # known to exist; it never clears a (possible) hallucination, which an
-    # install line of the same name does not make real.
-    if template["rule_id"] == RULE_ID_UNDECLARED and _package_known_to_exist(
-        mod, ctx
-    ):
-        if _environment_provides(mod, required_paths, from_imports, ctx):
-            return None
-        importer = None
-        if file_path is not None:
-            importer = _contained_importer_path(
-                ctx["repo_root"], file_path, diff_path=diff_path
-            )
-        if _transitively_provided(mod, required_paths, from_imports, ctx, importer):
-            return None
+    if template["rule_id"] == RULE_ID_UNDECLARED:
+        if _package_known_to_exist(mod, ctx):
+            if _environment_provides(mod, required_paths, from_imports, ctx):
+                return None
+            importer = None
+            if file_path is not None:
+                importer = _contained_importer_path(
+                    ctx["repo_root"], file_path, diff_path=diff_path
+                )
+            if _transitively_provided(mod, required_paths, from_imports, ctx, importer):
+                return None
+        else:
+            # An exact in-scope install declares the distribution even if
+            # the registry cannot verify it. Keep that uncertainty in the
+            # scan result. A known missing package remains a finding.
+            dist = _normalize_name(mod)
+            if (
+                dist in ctx["environment_deps"]
+                and _tracked_pypi_status(mod, ctx) == "unknown"
+                and _distributions_provide(
+                    frozenset({dist}), mod, required_paths, from_imports, ctx
+                )
+            ):
+                _record_unverified(ctx, mod, "declared_environment_registry_unavailable")
+                return None
     checked = _check_declared_providers(
         mod, template, ctx, required_paths=required_paths, from_imports=from_imports
     )
@@ -4219,6 +4629,7 @@ def _classify_import_names(
     local_fallbacks,
     submodules,
     root_only,
+    external_ros_import,
 ):
     if not mod or mod.startswith("_"):
         return None
@@ -4250,6 +4661,10 @@ def _classify_import_names(
         return None
 
     if local_scope_valid and _is_ros_import(mod, ctx, importer):
+        return None
+
+    if local_scope_valid and external_ros_import:
+        _record_unverified(ctx, mod, "ros_external_environment_unverified")
         return None
 
     declared_deps = ctx["declared_deps"]
@@ -4524,6 +4939,85 @@ def _declared_by_name_mapping(mod, required_paths, from_imports, ctx):
     return all(path_is_provided(path, provided) for path in paths)
 
 
+def _existing_undeclared_template(mod, dists, message, ctx):
+    """An undeclared import whose package exists on PyPI.
+
+    Existing is not the same as trustworthy: a name an AI model invented can be
+    registered by anyone. When the package is new or barely used
+    (``skylos.rules.sca.package_history``), the finding asks for a check
+    instead of recommending the package be declared.
+    """
+    for dist in dists:
+        history = _unproven_history(dist, ctx)
+        if history is None:
+            continue
+        from skylos.rules.sca.package_history import (
+            describe_history,
+            history_metadata,
+        )
+
+        facts = history_metadata(history)
+        where = f" ({facts['registry_url']})" if facts.get("registry_url") else ""
+        dist = _normalize_name(dist)
+        template = _undeclared_template(
+            mod,
+            (
+                f"Undeclared import '{mod}'. PyPI package '{dist}' has little "
+                f"history: {describe_history(history)}. Check it is the package "
+                f"you meant{where} before declaring it."
+            ),
+        )
+        template["metadata"] = {
+            "package_name": dist,
+            "supply_chain_signal": "unproven_package",
+            "approve_with": f"pypi:{_normalize_name(dist)}",
+            **facts,
+        }
+        return template
+    return _undeclared_template(mod, message)
+
+
+def _unproven_history(dist, ctx):
+    """ca9's history for ``dist`` when it is new or barely used, else None.
+
+    Nothing is looked up for an approved or internal package, when the policy
+    turns the check off, or when private registries are configured without
+    ``internal_packages`` (the name may be private).
+    """
+    cache = ctx.setdefault("package_history", {})
+    key = _normalize_name(dist)
+    if key in cache:
+        return cache[key]
+    cache[key] = None
+    try:
+        from skylos.commands.hook_locked_packages import is_internal
+        from skylos.rules.sca import package_history
+        from skylos.rules.sca.supply_chain import load_ca9_api
+        from skylos.supply_chain.policy import load_supply_chain_policy
+
+        policy = ctx.get("supply_chain_policy")
+        if policy is None:
+            policy = load_supply_chain_policy(ctx.get("repo_root"))
+            ctx["supply_chain_policy"] = policy
+        if (
+            policy.unproven_packages == "off"
+            or policy.is_approved("pypi", key)
+            or is_internal("pypi", key, tuple(policy.internal_packages))
+            or (policy.private_registries and not policy.internal_packages)
+        ):
+            return None
+        lookup = package_history.history_function(load_ca9_api())
+        if lookup is None:
+            return None
+        history = lookup("pypi", key)
+    except Exception as exc:  # noqa: BLE001 - history is advisory, never fatal
+        logger.debug("package history unavailable: %s", type(exc).__name__)
+        return None
+    if isinstance(history, dict) and history.get("status") in package_history.UNPROVEN_STATUSES:
+        cache[key] = history
+    return cache[key]
+
+
 def _classify_installed_import(mod, ctx, *, root_only=True):
     if mod not in ctx["installed_mapping"]:
         return _NO_FINDING
@@ -4540,10 +5034,12 @@ def _classify_installed_import(mod, ctx, *, root_only=True):
         return None
 
     dist_hint = ", ".join(sorted(known_dists))
-    return _undeclared_template(
+    return _existing_undeclared_template(
         mod,
+        sorted(known_dists),
         f"Undeclared import '{mod}' (provided by: {dist_hint}). "
         f"Add to {DECLARATION_FILES_TEXT}.",
+        ctx,
     )
 
 
@@ -4563,12 +5059,14 @@ def _classify_mapped_import(mod, ctx, *, root_only=True):
             return None
 
         if _tracked_pypi_status(mapped_dist, ctx) == "exists":
-            return _undeclared_template(
+            return _existing_undeclared_template(
                 mod,
+                [mapped_dist],
                 (
                     f"Undeclared import '{mod}' (provided by: "
                     f"{mapped_dist}). Add to {DECLARATION_FILES_TEXT}."
                 ),
+                ctx,
             )
     return _NO_FINDING
 
@@ -4595,9 +5093,11 @@ def _classify_registry_import(mod, ctx, manifest_context, submodules=frozenset()
     if pypi_status == "missing" and _is_confident_hallucination_candidate(mod):
         return _hallucinated_template(mod)
     if pypi_status == "exists" and manifest_context:
-        return _undeclared_template(
+        return _existing_undeclared_template(
             mod,
+            [mod],
             (f"Undeclared import '{mod}'. Not found in {DECLARATION_FILES_TEXT}."),
+            ctx,
         )
     if manifest_context:
         return _undeclared_template(
@@ -4657,6 +5157,107 @@ def _is_build_backend_import(file_path, mod):
     return mod in _SETUP_BUILD_MODULES and Path(str(file_path)).name == "setup.py"
 
 
+def _build_script_context(root, directory, cache):
+    """What the ``setup.py`` in ``directory`` imports, and the distributions
+    its ``pyproject.toml`` lists in ``[build-system].requires`` (PEP 518)."""
+    if directory not in cache:
+        helpers = frozenset()
+        requires = frozenset()
+        setup_source = read_project_text_no_symlink(
+            root,
+            directory / "setup.py",
+            max_bytes=MAX_DEPENDENCY_MANIFEST_BYTES,
+            encoding="utf-8",
+            errors="ignore",
+        )
+        if setup_source is not None:
+            helpers = frozenset(_extract_imports(setup_source))
+            pyproject = read_project_text_no_symlink(
+                root,
+                directory / "pyproject.toml",
+                max_bytes=MAX_DEPENDENCY_MANIFEST_BYTES,
+                encoding="utf-8",
+                errors="ignore",
+            )
+            requires = _build_system_requires(pyproject)
+        cache[directory] = (helpers, requires)
+    return cache[directory]
+
+
+def _build_system_requires(pyproject_text):
+    if pyproject_text is None:
+        return frozenset()
+    try:
+        data = tomllib.loads(pyproject_text)
+    except (tomllib.TOMLDecodeError, RecursionError, ValueError):
+        return frozenset()
+    build_system = data.get("build-system")
+    if not isinstance(build_system, dict):
+        return frozenset()
+    requires = build_system.get("requires")
+    if not isinstance(requires, list):
+        return frozenset()
+    return frozenset(_dependency_names(requires))
+
+
+def _is_build_time_import(root, importer, mod, ctx, cache):
+    """An import in ``setup.py``, or in a module beside it that it imports,
+    of the build backend or of a ``[build-system].requires`` distribution:
+    available when the project is built, not a runtime dependency."""
+    if importer is None:
+        return False
+    helpers, requires = _build_script_context(root, importer.parent, cache)
+    if importer.name != "setup.py" and importer.stem not in helpers:
+        return False
+    if mod in _SETUP_BUILD_MODULES and (importer.name == "setup.py" or helpers):
+        return True
+    names = {_normalize_name(mod)}
+    mapped = ctx["import_to_dist"].get(mod)
+    if mapped:
+        names.add(_normalize_name(mapped))
+    names.update(ctx["installed_mapping"].get(mod, ()))
+    return bool(names & requires)
+
+
+_INLINE_SCRIPT_BLOCK_RE = re.compile(
+    r"(?m)^# /// script[ \t]*\r?\n(?P<content>(?:^#(?: .*)?\r?\n)+?)^# ///[ \t]*$"
+)
+
+
+_INLINE_COMMENT_PREFIX_RE = re.compile(r"^# ?")
+
+
+def _inline_script_dependencies(src):
+    """Distributions a script declares for itself in a PEP 723 block
+    (``# /// script`` ... ``# ///``), or None without a valid block."""
+    match = _INLINE_SCRIPT_BLOCK_RE.search(src)
+    if match is None:
+        return None
+    content = "".join(
+        _INLINE_COMMENT_PREFIX_RE.sub("", line, count=1)
+        for line in match.group("content").splitlines(keepends=True)
+    )
+    try:
+        data = tomllib.loads(content)
+    except (tomllib.TOMLDecodeError, RecursionError, ValueError):
+        return None
+    dependencies = data.get("dependencies")
+    if not isinstance(dependencies, list):
+        return None
+    return frozenset(_dependency_names(dependencies))
+
+
+def _declared_inline(mod, inline_dependencies, ctx):
+    if not inline_dependencies:
+        return False
+    names = {_normalize_name(mod)}
+    mapped = ctx["import_to_dist"].get(mod)
+    if mapped:
+        names.add(_normalize_name(mapped))
+    names.update(ctx["installed_mapping"].get(mod, ()))
+    return bool(names & inline_dependencies)
+
+
 class DependencyImportFindings(list):
     """Findings plus the imports that could not be verified (not findings).
 
@@ -4686,6 +5287,7 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
         root: (ctx["declared_specs"], ctx["project_names"], ctx["provider_unknown"])
     }
     environment_scope_cache = {}
+    build_script_cache = {}
 
     for file_path in py_files:
         declared_deps, manifest_context = _dependency_scope_for_file(
@@ -4705,6 +5307,7 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
         ctx["manifest_context"] = _file_manifest_context(
             manifest_context, ctx, importer
         )
+        scope_token = _dependency_scope_token(ctx, importer, environment_scope_cache)
         src = read_project_text_no_symlink(
             root,
             file_path,
@@ -4720,6 +5323,7 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
             continue
         direct_script = _has_direct_script_evidence(src)
         local_fallbacks = _local_import_fallbacks(src, ctx, importer)
+        inline_dependencies = _inline_script_dependencies(src)
         analysis = _SourceImportAnalysis(
             src,
             submodules=submodules,
@@ -4727,8 +5331,11 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
                 "ast", ctx, importer, direct_script=direct_script
             ),
         )
+        ros_runtime_paths = _external_ros_import_paths(analysis, ctx, importer)
         for mod in sorted(analysis.modules):
             if _is_build_backend_import(file_path, mod):
+                continue
+            if _is_build_time_import(root, importer, mod, ctx, build_script_cache):
                 continue
             required_paths, from_imports = analysis.requirements(mod)
             template = _classify_import(
@@ -4742,6 +5349,7 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
                 uncertain_imports=analysis.uncertain_imports,
                 required_paths=required_paths,
                 from_imports=from_imports,
+                ros_runtime_paths=ros_runtime_paths,
             )
             if template is None or _type_checking_only_undeclared(
                 template, mod, analysis, ctx, importer, direct_script=direct_script
@@ -4749,10 +5357,15 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
                 continue
             if _is_repository_module_import(template, mod, ctx, src):
                 continue
+            if template.get("rule_id") == RULE_ID_UNDECLARED and _declared_inline(
+                mod, inline_dependencies, ctx
+            ):
+                continue
 
             finding = dict(template)
             finding["file"] = str(file_path)
             finding["line"] = analysis.lines.get(mod, 1)
+            finding[_SCOPE_KEY] = scope_token
             findings.append(finding)
 
     unverified = ctx.get("unverified_imports", {})
@@ -4760,6 +5373,92 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
         findings,
         unverified_imports=dict(sorted(unverified.items())),
     )
+
+
+_SCOPE_KEY = "_dependency_scope"
+_MAX_LISTED_IMPORT_SITES = 50
+
+
+def _dependency_scope_token(ctx, importer, environment_cache):
+    """Group missing packages by manifest location and effective declarations."""
+    manifest_directory = "."
+    if importer is not None:
+        for directory in importer.parents:
+            environment = _environment_directory(
+                ctx["repo_root"], directory, environment_cache
+            )
+            if environment.manifests:
+                manifest_directory = directory.as_posix()
+                break
+    return (
+        manifest_directory,
+        tuple(sorted(ctx["declared_deps"])),
+        tuple(sorted(ctx["environment_deps"])),
+        bool(ctx["manifest_context"]),
+    )
+
+
+def merge_repeated_dependency_findings(findings, project_root=None):
+    """One finding per missing or unknown package per declaration scope.
+
+    ``import cv2`` in thirteen files is one missing ``opencv-python`` entry,
+    so the first site stays a finding and the others are listed in
+    ``metadata.other_import_sites``. Every distinct package and scope is
+    still reported. Sibling-provider findings stay per file, because each
+    importer's invocation decides them. Call this after inline and config
+    suppression, so a suppressed site never hides an unsuppressed one."""
+    merged = []
+    groups = {}
+    for finding in findings:
+        scope = finding.pop(_SCOPE_KEY, None) if isinstance(finding, dict) else None
+        metadata = (finding.get("metadata") or {}) if isinstance(finding, dict) else {}
+        if (
+            scope is None
+            or finding.get("rule_id") not in {RULE_ID_UNDECLARED, RULE_ID_HALLUCINATION}
+            or metadata.get("local_provider_candidate")
+        ):
+            merged.append(finding)
+            continue
+        key = (finding.get("rule_id"), finding.get("symbol"), scope)
+        if key in groups:
+            groups[key].append(finding)
+            continue
+        groups[key] = [finding]
+        merged.append(finding)
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        first, others = members[0], members[1:]
+        first["metadata"] = {
+            **(first.get("metadata") or {}),
+            "import_site_count": len(members),
+            "other_import_sites": [
+                {"file": _display_path(row.get("file"), project_root), "line": row.get("line")}
+                for row in others[:_MAX_LISTED_IMPORT_SITES]
+            ],
+        }
+        noun = "file" if len(others) == 1 else "files"
+        first["message"] = (
+            f"{first.get('message', '').rstrip()} Also imported in "
+            f"{len(others)} other {noun} (see metadata.other_import_sites)."
+        )
+    return merged
+
+
+def strip_dependency_scope(findings):
+    for finding in findings:
+        if isinstance(finding, dict):
+            finding.pop(_SCOPE_KEY, None)
+    return findings
+
+
+def _display_path(file_value, project_root):
+    if file_value is None or project_root is None:
+        return file_value
+    try:
+        return Path(file_value).resolve().relative_to(Path(project_root).resolve()).as_posix()
+    except (OSError, RuntimeError, ValueError):
+        return file_value
 
 
 def scan_diff_added_imports(
@@ -4806,6 +5505,7 @@ def scan_diff_added_imports(
     direct_script_cache = {}
     local_fallback_cache = {}
     analysis_cache = {}
+    ros_runtime_cache = {}
     for file_label, line_no, module_name in added_imports:
         mod = str(module_name).split(".")[0].strip()
         if (file_label, mod) in seen or _is_build_backend_import(file_label, mod):
@@ -4847,6 +5547,9 @@ def scan_diff_added_imports(
             analysis_cache[script_key] = _SourceImportAnalysis(
                 source, native_ast=_native_module_origin("ast", ctx, importer)
             )
+            ros_runtime_cache[script_key] = _external_ros_import_paths(
+                analysis_cache[script_key], ctx, importer
+            )
             direct_script_cache[script_key] = False
             local_fallback_cache[script_key] = frozenset()
             if source is not None:
@@ -4873,6 +5576,7 @@ def scan_diff_added_imports(
             uncertain_imports=analysis.uncertain_imports,
             required_paths=required_paths,
             from_imports=from_imports,
+            ros_runtime_paths=ros_runtime_cache[script_key],
         )
         if template is None or _type_checking_only_undeclared(
             template,

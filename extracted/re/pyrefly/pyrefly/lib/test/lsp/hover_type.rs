@@ -7,6 +7,7 @@
 
 use pretty_assertions::assert_eq;
 use pyrefly_build::handle::Handle;
+use pyrefly_util::display::DisplayWithCtx;
 use ruff_text_size::TextSize;
 
 use crate::state::state::State;
@@ -14,8 +15,12 @@ use crate::test::util::get_batched_lsp_operations_report;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
 fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String {
-    if let Some(t) = state.transaction().get_type_at(handle, position) {
-        format!("Hover Result: `{t}`")
+    let transaction = state.transaction();
+    if let Some(t) = transaction.get_type_at(handle, position) {
+        format!(
+            "Hover Result: `{}`",
+            t.display_with(&transaction.type_env(handle))
+        )
     } else {
         "Hover Result: None".to_owned()
     }
@@ -23,7 +28,7 @@ fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String
 
 #[test]
 fn quoted_class_in_type_subscript_hover() {
-    // Regression for https://github.com/facebook/pyrefly/issues/4703:
+    // Regression for https://github.com/pyrefly-org/pyrefly/issues/4703:
     // a quoted class inside `type[...]` must not hover as `type[type[Child]]`.
     let code = r#"
 class Child: ...
@@ -281,6 +286,77 @@ Hover Result: `Literal[2]`
 }
 
 #[test]
+fn class_field_comprehension_shadowing_hover() {
+    let code = r#"
+class C:
+    x: str = "class field"
+    a = [x for x in (1, 2)]
+#              ^
+    b = {x for x in (1, 2)}
+#              ^
+    c = {x: x for x in (1, 2)}
+#                 ^
+    d = (x for x in (1, 2))
+#              ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+4 |     a = [x for x in (1, 2)]
+                   ^
+Hover Result: `Literal[1, 2]`
+
+6 |     b = {x for x in (1, 2)}
+                   ^
+Hover Result: `Literal[1, 2]`
+
+8 |     c = {x: x for x in (1, 2)}
+                      ^
+Hover Result: `Literal[1, 2]`
+
+10 |     d = (x for x in (1, 2))
+                    ^
+Hover Result: `Literal[1, 2]`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn inherited_classvar_hover_prefers_resolved_field_type() {
+    let code = r#"
+from typing import ClassVar
+
+class A:
+    x: ClassVar[tuple[str, ...]] = ("A",)
+
+class B(A):
+    x = ("B",)
+#   ^
+
+reveal = B.x
+#          ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+8 |     x = ("B",)
+        ^
+Hover Result: `tuple[str, ...]`
+
+11 | reveal = B.x
+                ^
+Hover Result: `tuple[str, ...]`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn import_test() {
     let code = r#"
 import typing
@@ -478,7 +554,7 @@ while True:
 y = x
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
     assert_eq!(
         r#"
 # main.py

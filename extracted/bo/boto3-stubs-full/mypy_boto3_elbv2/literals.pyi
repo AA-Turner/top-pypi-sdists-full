@@ -153,6 +153,7 @@ TrustStoreAssociationStatusEnumType = Literal["active", "removed"]
 TrustStoreStatusType = Literal["ACTIVE", "CREATING"]
 ElasticLoadBalancingv2ServiceName = Literal["elbv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

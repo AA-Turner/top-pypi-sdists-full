@@ -1,0 +1,345 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Run pool cloning and real workspace staging against disposable Git origins."""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from omnibase_core.validators.no_unguarded_git_subprocess import scrub_git_location_env
+from tests.helpers.prepr_pool_overlay import pool_overlay_env
+
+pytestmark = [pytest.mark.unit, pytest.mark.usefixtures("pool_overlay_env")]
+ROOT = Path(__file__).resolve().parents[3]
+PROVE = ROOT / "scripts/runtime_build/prepr_pool_prove.sh"
+SIBLINGS = ("omnibase_core", "omnibase_spi", "omnimarket", "omniintelligence")
+REPOS = ("omnibase_infra", *SIBLINGS)
+
+
+def _run(env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        args, env=env, capture_output=True, text=True, timeout=60, check=False
+    )
+
+
+def _git(env: dict[str, str], repo: Path, *args: str) -> str:
+    done = _run(env, "git", "-C", str(repo), *args)
+    assert done.returncode == 0, done.stdout + done.stderr
+    return done.stdout.strip()
+
+
+def _origins(tmp_path: Path) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    # All GitHub clone URLs are redirected by this process-local Git config.
+    # No shell Git stub, host Git config, credentials or network is involved.
+    home = tmp_path / "home"
+    home.mkdir()
+    config = tmp_path / "gitconfig"
+    config.write_text(
+        f'[url "{(tmp_path / "origins").as_uri()}/"]\n'
+        "    insteadOf = https://github.com/OmniNode-ai/\n",
+        encoding="utf-8",
+    )
+    env = {
+        **scrub_git_location_env(),
+        "HOME": str(home),
+        "GIT_CONFIG_GLOBAL": str(config),
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+        "PATH": f"{Path(sys.executable).parent}{os.pathsep}/usr/bin{os.pathsep}/bin",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "DEPLOY_SOURCE_CLONE_ROOT": str(tmp_path / "work/root"),
+        "DEPLOY_SOURCE_WORKTREE_ROOT": str(tmp_path / "source-trees"),
+        "DEPLOY_HOTPATCH": "0",
+        "DEPLOY_SIBLING_REFS": "",
+        "ALLOW_UNPINNED_DEPLOY_SOURCE": "0",
+        "ALLOW_SIBLING_PIN_DRIFT": "0",
+    }
+    env.pop("MODEL_ENDPOINT", None)
+    tags, commits = {}, {}
+    for repo in REPOS:
+        origin = tmp_path / "origins" / f"{repo}.git"
+        origin.mkdir(parents=True)
+        _git(env, origin, "init", "-q", "-b", "dev")
+        _git(env, origin, "config", "user.name", "test")
+        _git(env, origin, "config", "user.email", "test@example.com")
+        (origin / "pyproject.toml").write_text(
+            f'[project]\nname = "{repo.replace("_", "-")}"\nversion = "9.9.9"\n',
+            encoding="utf-8",
+        )
+        (origin / "source.txt").write_text("tagged\n", encoding="utf-8")
+        if repo == "omnibase_infra":
+            build = origin / "scripts/runtime_build"
+            build.mkdir(parents=True)
+            for name in (
+                "stage_workspace.sh",
+                "sibling_clone_manifest.sh",
+                "deploy_source_ref.py",
+                "check_sibling_lock_pins.py",
+            ):
+                shutil.copy2(ROOT / "scripts/runtime_build" / name, build / name)
+            validation = origin / "src/omnibase_infra/validation"
+            validation.mkdir(parents=True)
+            for name in ("checker_first_party_sources.py", "first_party_sources.yaml"):
+                shutil.copy2(
+                    ROOT / "src/omnibase_infra/validation" / name, validation / name
+                )
+            src = ROOT / "src/omnibase_infra"
+            pin_files = (
+                "nodes/node_sibling_clone_pin_effect/runtime_sibling_clone_pin.py",
+                "handlers/handler_sibling_clone_pin.py",
+                "models/sibling_pin/__init__.py",
+                "models/sibling_pin/model_sibling_clone_pin_request.py",
+                "models/sibling_pin/model_sibling_clone_pin_result.py",
+            )
+            for rel in pin_files:
+                dest = origin / "src/omnibase_infra" / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src / rel, dest)
+        if repo == "omnimarket":
+            ladder = origin / "src/omnimarket/configs/routing_tiers.yaml"
+            ladder.parent.mkdir(parents=True)
+            ladder.write_text("tiers: []\n", encoding="utf-8")
+            (origin / "uv.lock").write_text(
+                "\n".join(
+                    f'[[package]]\nname = "{name.replace("_", "-")}"\nversion = "9.9.9"\n'
+                    for name in REPOS
+                    if name != "omniintelligence"  # no lock pins it (OMN-22153)
+                ),
+                encoding="utf-8",
+            )
+        _git(env, origin, "add", "-f", ".")
+        _git(env, origin, "commit", "-qm", "tagged source")
+        commits[repo] = _git(env, origin, "rev-parse", "HEAD")
+        tags[repo] = f"dev-20261030150000-{commits[repo][:12]}"
+        _git(env, origin, "tag", tags[repo])
+        (origin / "source.txt").write_text("branch\n", encoding="utf-8")
+        _git(env, origin, "add", ".")
+        _git(env, origin, "commit", "-qm", "untagged branch advance")
+    return env, tags, commits
+
+
+def _params(tmp_path: Path, **overrides: str) -> Path:
+    values = dict.fromkeys(
+        (
+            "INFRA_PR",
+            "INFRA_GROUP",
+            "INFRA_REF_SHA",
+            "INFRA_DEV_TAG",
+            "MARKET_PR",
+            "MARKET_GROUP",
+            "MARKET_REF_SHA",
+            "CORE_REF",
+            "SPI_REF",
+            "STAGE_DEV_TAGS",
+        ),
+        "",
+    )
+    # A nonempty retired pin must be ignored, even though it cannot resolve.
+    values.update(
+        TAG="stage0-test",
+        CLONE_BASE_URL="https://github.com/OmniNode-ai",
+        W=str(tmp_path / "work"),
+        SLOT_KIND="isolated",
+        COMPAT_REF="retired-compat-pin-must-be-ignored",
+    )
+    values.update(overrides)
+    params = tmp_path / "params.env"
+    params.write_text(
+        "".join(f"{key}={shlex.quote(value)}\n" for key, value in values.items())
+        # The real build has a required MODEL_ENDPOINT check immediately after
+        # local-env. Let that check stop it normally before any container call.
+        + f'make() {{ printf "%s\\n" "$*" >> {shlex.quote(str(tmp_path / "make.log"))}; }}\n'
+        + f"docker() {{ echo unexpected-docker >> {shlex.quote(str(tmp_path / 'docker.log'))}; return 99; }}\n",
+        encoding="utf-8",
+    )
+    return params
+
+
+@pytest.mark.parametrize("use_tag", [False, True])
+def test_pool_clone_selects_infra_tag_and_only_current_siblings(
+    tmp_path: Path, use_tag: bool
+) -> None:
+    env, tags, commits = _origins(tmp_path)
+    params = _params(
+        tmp_path,
+        INFRA_DEV_TAG=tags["omnibase_infra"] if use_tag else "",
+        CORE_REF=tags["omnibase_core"],
+        SPI_REF=tags["omnibase_spi"],
+    )
+    done = _run(env, "bash", str(PROVE), str(params), "clone")
+    assert done.returncode == 0, done.stdout + done.stderr
+    root = tmp_path / "work/root"
+    # OMN-22153: the clone set is the vendored set of the tree under test, so the
+    # pool proof clones omniintelligence beside the other siblings.
+    assert {path.name for path in root.iterdir()} == set(REPOS)
+    assert "omnibase_compat" not in done.stdout + done.stderr
+    expected = (
+        commits["omnibase_infra"]
+        if use_tag
+        else _git(env, tmp_path / "origins/omnibase_infra.git", "rev-parse", "dev")
+    )
+    assert _git(env, root / "omnibase_infra", "rev-parse", "HEAD") == expected
+    for repo in ("omnibase_core", "omnibase_spi"):
+        assert _git(env, root / repo, "rev-parse", "HEAD") == commits[repo]
+        assert (root / repo / "source.txt").read_text() == "tagged\n"
+    assert (root / "omniintelligence/pyproject.toml").is_file()
+
+
+def test_pool_clone_set_is_the_manifest_vendored_set(tmp_path: Path) -> None:
+    # The pool proof must not keep a second list: whatever the tree under test
+    # vendors (SIBLING_VENDORED_REPOS) plus omnibase_infra itself is what it clones.
+    env, _, _ = _origins(tmp_path)
+    done = _run(env, "bash", str(PROVE), str(_params(tmp_path)), "clone")
+    assert done.returncode == 0, done.stdout + done.stderr
+    manifest = ROOT / "scripts/runtime_build/sibling_clone_manifest.sh"
+    listed = _run(
+        env,
+        "bash",
+        "-c",
+        f'source {shlex.quote(str(manifest))}; printf "%s\\n" "${{SIBLING_VENDORED_REPOS[@]}}"',
+    )
+    assert listed.returncode == 0, listed.stdout + listed.stderr
+    cloned = {path.name for path in (tmp_path / "work/root").iterdir()}
+    assert cloned == {"omnibase_infra", *listed.stdout.split()}
+
+
+def test_pool_clone_fails_when_the_infra_dev_tag_cannot_be_cloned(
+    tmp_path: Path,
+) -> None:
+    env, _, _ = _origins(tmp_path)
+    params = _params(tmp_path, INFRA_DEV_TAG="dev-missing-tag")
+    done = _run(env, "bash", str(PROVE), str(params), "clone")
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "dev-missing-tag" in done.stderr
+    assert not (tmp_path / "work/root/omnimarket").exists()
+    assert "clone done" not in done.stdout
+
+
+@pytest.mark.parametrize("stage_tags", ["", "1"])
+def test_pool_staging_passes_spi_pins_or_selects_dev_tags(
+    tmp_path: Path, stage_tags: str
+) -> None:
+    env, tags, commits = _origins(tmp_path)
+    params = _params(
+        tmp_path, INFRA_DEV_TAG=tags["omnibase_infra"], STAGE_DEV_TAGS=stage_tags
+    )
+    cloned = _run(env, "bash", str(PROVE), str(params), "clone")
+    assert cloned.returncode == 0, cloned.stdout + cloned.stderr
+    root = tmp_path / "work/root"
+    before = {repo: _git(env, root / repo, "rev-parse", "HEAD") for repo in SIBLINGS}
+    done = _run(env, "bash", str(PROVE), str(params), "build")
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "MODEL_ENDPOINT is required" in done.stderr
+    assert "stage rc=0" in done.stdout
+    assert (tmp_path / "make.log").read_text().startswith("local-env ")
+    assert not (tmp_path / "docker.log").exists()
+    refs = json.loads((tmp_path / "work/refs.json").read_text())
+    workspace = root / "omnibase_infra/workspace"
+    record = json.loads((workspace / "sibling-vcs-provenance.json").read_text())
+    assert set(record["siblings"]) == set(SIBLINGS)
+    assert set(refs["repos"]) == set(SIBLINGS)
+    assert "omnibase_compat" not in cloned.stdout + cloned.stderr
+    assert "omnibase_compat" not in done.stdout + done.stderr
+    assert "omnibase_compat" not in json.dumps(refs) + json.dumps(record)
+    assert "compat" not in (tmp_path / "make.log").read_text()
+    for repo in SIBLINGS:
+        expected = commits[repo] if stage_tags else before[repo]
+        entry = record["siblings"][repo]
+        assert entry["vcs_ref"] == expected
+        assert entry["vcs_dirty"] is False
+        staged = workspace / "sibling-repos" / repo
+        assert (staged / ".build-sha").read_text().strip() == expected
+        assert (staged / "source.txt").read_text() == (
+            "tagged\n" if stage_tags else "branch\n"
+        )
+        assert _git(env, root / repo, "rev-parse", "HEAD") == before[repo]
+        assert refs["repos"][repo]["ref"] == (
+            tags[repo] if stage_tags else before[repo]
+        )
+        assert refs["repos"][repo]["dev_tag_from"] == (
+            "origin/dev" if stage_tags else ""
+        )
+        if stage_tags:
+            assert entry["dev_merge_tag"] == tags[repo]
+    assert (workspace / "routing_tiers.yaml").read_text() == "tiers: []\n"
+
+
+def test_pool_clone_base_is_injected_not_spelled_in_the_script() -> None:
+    # OMN-22153: the on-host script builds every clone URL from the base the
+    # driver sets from the repository layer map, so the script names no host.
+    assert "github.com" not in PROVE.read_text(encoding="utf-8")
+    spec = importlib.util.spec_from_file_location(
+        "prepr_runtime_pool", ROOT / "scripts/runtime_build/prepr_runtime_pool.py"
+    )
+    assert spec is not None and spec.loader is not None
+    pool = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = pool
+    spec.loader.exec_module(pool)
+    assert "CLONE_BASE_URL" in pool.RESERVED_PARAMS
+    assert pool.settings().clone_base_url() == "https://git.example.invalid/OmniNode-ai"
+
+
+def test_pool_staging_defaults_to_dev_tags_for_an_omnimarket_only_proof(
+    tmp_path: Path,
+) -> None:
+    # OMN-21968: the landing prover writes no STAGE_DEV_TAGS; the image audit then
+    # refused every sha-pinned sibling and the stack never built.
+    env, tags, commits = _origins(tmp_path)
+    params = _params(tmp_path, INFRA_DEV_TAG=tags["omnibase_infra"])
+    params.write_text(
+        "".join(
+            line
+            for line in params.read_text(encoding="utf-8").splitlines(keepends=True)
+            if not line.startswith("STAGE_DEV_TAGS=")
+        ),
+        encoding="utf-8",
+    )
+    assert "STAGE_DEV_TAGS" not in params.read_text(encoding="utf-8")
+    cloned = _run(env, "bash", str(PROVE), str(params), "clone")
+    assert cloned.returncode == 0, cloned.stdout + cloned.stderr
+    done = _run(env, "bash", str(PROVE), str(params), "build")
+    assert "stage rc=0" in done.stdout, done.stdout + done.stderr
+    refs = json.loads((tmp_path / "work/refs.json").read_text())
+    for repo in SIBLINGS:
+        assert refs["repos"][repo]["ref"] == tags[repo]
+        assert refs["repos"][repo]["dev_tag_from"] == "origin/dev"
+        staged = tmp_path / "work/root/omnibase_infra/workspace/sibling-repos" / repo
+        assert (staged / ".build-sha").read_text().strip() == commits[repo]
+
+
+def test_pool_staging_defaults_to_dev_tags_when_the_proof_names_an_infra_ref(
+    tmp_path: Path,
+) -> None:
+    # OMN-19998: the image audit refuses a sha-pinned sibling in every build
+    # context, so a proof of an infra ref stages dev-merge tags like any other
+    # proof; only a params file that names STAGE_DEV_TAGS (even empty) keeps pins.
+    env, tags, commits = _origins(tmp_path)
+    infra_dev = _git(env, tmp_path / "origins/omnibase_infra.git", "rev-parse", "dev")
+    params = _params(tmp_path, INFRA_REF_SHA=infra_dev)
+    params.write_text(
+        "".join(
+            line
+            for line in params.read_text(encoding="utf-8").splitlines(keepends=True)
+            if not line.startswith("STAGE_DEV_TAGS=")
+        ),
+        encoding="utf-8",
+    )
+    cloned = _run(env, "bash", str(PROVE), str(params), "clone")
+    assert cloned.returncode == 0, cloned.stdout + cloned.stderr
+    done = _run(env, "bash", str(PROVE), str(params), "build")
+    assert "stage rc=0" in done.stdout, done.stdout + done.stderr
+    refs = json.loads((tmp_path / "work/refs.json").read_text())
+    for repo in SIBLINGS:
+        assert refs["repos"][repo]["ref"] == tags[repo]
+        assert refs["repos"][repo]["dev_tag_from"] == "origin/dev"
+        staged = tmp_path / "work/root/omnibase_infra/workspace/sibling-repos" / repo
+        assert (staged / ".build-sha").read_text().strip() == commits[repo]

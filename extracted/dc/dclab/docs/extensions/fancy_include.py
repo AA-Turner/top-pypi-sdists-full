@@ -48,7 +48,7 @@ class IncludeDirective(Directive):
 
         # add reference
         name = full_path.stem
-        rst = [".. _example_{}:".format(name),
+        rst = [f".. _example_{name}:",
                "",
                ]
 
@@ -59,8 +59,7 @@ class IncludeDirective(Directive):
 
         code = source[2].split("\n")
 
-        for line in doc:
-            rst.append(line)
+        rst.extend(doc)
 
         # image
         for ext in [".png", ".jpg"]:
@@ -70,12 +69,11 @@ class IncludeDirective(Directive):
         else:
             image_path = ""
         if image_path:
-            rst.append(".. figure:: {}".format(image_path.as_posix()))
+            rst.append(f".. figure:: {image_path.as_posix()}")
             rst.append("")
 
         # download file
-        rst.append(":download:`{} <{}>`".format(
-            full_path.name, full_path.as_posix()))
+        rst.append(f":download:`{full_path.name} <{full_path.as_posix()}>`")
 
         # code
         rst.append("")
@@ -83,7 +81,7 @@ class IncludeDirective(Directive):
         rst.append("   :linenos:")
         rst.append("")
         for line in code:
-            rst.append("   {}".format(line))
+            rst.append(f"   {line}")
         rst.append("")
 
         vl = ViewList(rst, "fakefile.rst")
@@ -96,8 +94,8 @@ class IncludeDirective(Directive):
 
 
 def setup(app):
-    app.add_config_value('fancy_include_path', "../examples", 'html')
+    app.add_config_value("fancy_include_path", "../examples", "html")
 
-    app.add_directive('fancy_include', IncludeDirective)
+    app.add_directive("fancy_include", IncludeDirective)
 
-    return {'version': '0.1'}   # identifies the version of our extension
+    return {"version": "0.1"}   # identifies the version of our extension

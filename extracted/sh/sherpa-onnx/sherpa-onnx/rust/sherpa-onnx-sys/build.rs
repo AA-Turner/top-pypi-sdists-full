@@ -16,6 +16,8 @@ const XCFRAMEWORK_RELEASE_URL: &str =
 const SHERPA_ONNX_STATIC_LIBS: &[&str] = &[
     "sherpa-onnx-c-api",
     "sherpa-onnx-core",
+    "kaldi-hmm-gmm-core",
+    "kaldi-native-io-core",
     "kaldi-decoder-core",
     "sherpa-onnx-kaldifst-core",
     "sherpa-onnx-fstfar",
@@ -557,7 +559,7 @@ fn copy_to_tauri_android_jnilibs(
     let tauri_jni_base = candidates.iter().find(|p| {
         // Check that the parent (main/) exists, meaning
         // `tauri android init` has been run.
-        p.parent().map_or(false, |p| p.exists())
+        p.parent().is_some_and(|p| p.exists())
     });
 
     let tauri_jni_base = match tauri_jni_base {
@@ -593,7 +595,7 @@ fn copy_to_tauri_android_jnilibs(
                         e.path()
                             .file_name()
                             .and_then(OsStr::to_str)
-                            .map_or(false, |n| n.contains(".so"))
+                            .is_some_and(|n| n.contains(".so"))
                     });
                 if has_so {
                     eprintln!("Skipping Tauri Android .so copy: no archive stem but .so files present");
@@ -653,7 +655,7 @@ fn copy_xcframework_to_tauri_project(
     archive_stem: Option<&str>,
 ) -> Result<(), DynError> {
     // lib_dir is something like
-    //   target/.../sherpa-onnx-prebuilt/sherpa-onnx-v2.0.1-ios-shared-onnxruntime-static/lib
+    //   target/.../sherpa-onnx-prebuilt/sherpa-onnx-v2.0.2-ios-shared-onnxruntime-static/lib
     // The xcframework sits next to lib/:
     //   .../sherpa-onnx.xcframework/
     let extracted_dir = lib_dir.parent().unwrap_or(lib_dir);

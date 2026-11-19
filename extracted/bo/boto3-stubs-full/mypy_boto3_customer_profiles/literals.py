@@ -443,6 +443,7 @@ ZendeskConnectorOperatorType = Literal[
 ]
 CustomerProfilesServiceName = Literal["customer-profiles"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-opaque-keys
-Version: 4.0.1
+Version: 5.0.0
 Summary: Create and introspect course and xblock identities through a clear and consistent API
 Author-email: Open edX Project <oscm@openedx.org>
 License-Expression: AGPL-3.0-only

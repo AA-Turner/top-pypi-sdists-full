@@ -79,6 +79,8 @@ pub struct PyrightConfig {
     pub errors: RuleOverrides,
     #[serde(default, rename = "executionEnvironments")]
     pub execution_environments: Vec<ExecEnv>,
+    #[serde(rename = "baselineFile")]
+    pub baseline_file: Option<PathBuf>,
     #[serde(skip, default)]
     pub is_basedpyright: bool,
 }
@@ -208,6 +210,8 @@ pub struct RuleOverrides {
     pub report_invalid_type_form: Option<Severity>,
     #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
     pub report_explicit_any: Option<Severity>,
+    #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
+    pub report_any: Option<Severity>,
 
     // Abstract/instantiation rules
     #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
@@ -381,6 +385,7 @@ impl RuleOverrides {
         add(self.report_invalid_type_form, ErrorKind::InvalidTypeAlias);
         add(self.report_invalid_type_form, ErrorKind::NotAType);
         add(self.report_explicit_any, ErrorKind::ExplicitAny);
+        add(self.report_any, ErrorKind::ExplicitAnyUse);
         add(self.report_abstract_usage, ErrorKind::BadInstantiation);
         add(self.report_argument_type, ErrorKind::BadArgumentType);
         add(self.report_argument_type, ErrorKind::InvalidArgument);
@@ -420,7 +425,7 @@ impl RuleOverrides {
         add(self.report_operator_issue, ErrorKind::NotCallable);
         add(self.report_return_type, ErrorKind::BadReturn);
         add(self.report_return_type, ErrorKind::InvalidYield);
-        add(self.report_private_usage, ErrorKind::NoAccess);
+        add(self.report_private_usage, ErrorKind::ProtectedAccess);
         add(self.report_deprecated, ErrorKind::Deprecated);
         add(
             self.report_incompatible_method_override,
@@ -451,12 +456,20 @@ impl RuleOverrides {
             ErrorKind::UnknownArgumentType,
         );
         add(
+            self.report_unknown_argument_type,
+            ErrorKind::UnknownFromError,
+        );
+        add(
             self.report_unknown_variable_type,
             ErrorKind::UnknownVariableType,
         );
         add(
             self.report_unknown_variable_type,
             ErrorKind::UnknownReturnType,
+        );
+        add(
+            self.report_unknown_variable_type,
+            ErrorKind::UnknownFromError,
         );
         add(
             self.report_unknown_member_type,
@@ -466,6 +479,7 @@ impl RuleOverrides {
             self.report_unknown_member_type,
             ErrorKind::UnknownAttributeAccess,
         );
+        add(self.report_unknown_member_type, ErrorKind::UnknownFromError);
         add(
             self.report_unknown_lambda_type,
             ErrorKind::ImplicitAnyLambda,
@@ -474,6 +488,7 @@ impl RuleOverrides {
             self.report_unknown_lambda_type,
             ErrorKind::UnknownReturnType,
         );
+        add(self.report_unknown_lambda_type, ErrorKind::UnknownFromError);
         add(self.report_invalid_type_var_use, ErrorKind::InvalidTypeVar);
         add(self.report_unnecessary_cast, ErrorKind::RedundantCast);
         add(self.report_undefined_variable, ErrorKind::UnknownName);
@@ -545,6 +560,10 @@ impl RuleOverrides {
             self.report_implicit_override,
             ErrorKind::MissingOverrideDecorator,
         );
+        // Narrowing unannotated overrides report
+        // `bad-override-mutable-attribute`. Widening and incompatible pairs
+        // report plain `bad-override`, but that kind also covers method
+        // overrides and parameter names, so this knob must not touch it.
         add(
             self.report_incompatible_unannotated_override,
             ErrorKind::BadOverrideMutableAttribute,
@@ -581,6 +600,10 @@ impl RuleOverrides {
             self.report_implicit_relative_import,
             ErrorKind::MissingImport,
         );
+        add(
+            self.report_implicit_relative_import,
+            ErrorKind::FallbackSearchPathRelativeImport,
+        );
 
         // Type argument rules
         add(
@@ -614,12 +637,13 @@ pub struct PyrightNotFoundError {}
 #[error("Both `[tool.pyright]` and `[tool.basedpyright]` sections are not supported.")]
 pub struct BothPyrightSectionsError {}
 
-/// Migrate the pyright or basedpyright section of a `pyproject.toml`.
+/// Parse the pyright or basedpyright section of a `pyproject.toml`.
 ///
 /// Exactly one of `[tool.pyright]` and `[tool.basedpyright]` must be present:
 /// this is the parse boundary that enforces that invariant, so callers do not
-/// have to check for the sections themselves before calling.
-pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<ConfigFile> {
+/// have to check for the sections themselves before calling. Callers that want
+/// a Pyrefly config call [`PyrightConfig::convert`].
+pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<PyrightConfig> {
     #[derive(Deserialize)]
     struct Tool {
         pyright: Option<PyrightConfig>,
@@ -635,7 +659,7 @@ pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<ConfigFile> {
         .tool
         .ok_or(anyhow::anyhow!(PyrightNotFoundError {}))?;
 
-    let config = match (tool.pyright, tool.basedpyright) {
+    match (tool.pyright, tool.basedpyright) {
         (Some(pyright), None) => Ok(pyright),
         (None, Some(mut basedpyright)) => {
             basedpyright.is_basedpyright = true;
@@ -643,9 +667,7 @@ pub fn parse_pyproject_toml(raw_file: &str) -> anyhow::Result<ConfigFile> {
         }
         (Some(_), Some(_)) => Err(anyhow::anyhow!(BothPyrightSectionsError {})),
         (None, None) => Err(anyhow::anyhow!(PyrightNotFoundError {})),
-    }?;
-
-    Ok(PyrightConfig::convert(config))
+    }
 }
 
 #[cfg(test)]
@@ -703,6 +725,7 @@ mod tests {
                         .python_environment
                         .interpreter_stdlib_path
                         .clone(),
+                    interpreter_pyrefly_version: None,
                 },
                 root: ConfigBase {
                     infer_with_first_use: Some(false),
@@ -751,6 +774,7 @@ mod tests {
                         .python_environment
                         .interpreter_stdlib_path
                         .clone(),
+                    interpreter_pyrefly_version: None,
                 },
                 root: ConfigBase {
                     infer_with_first_use: Some(false),
@@ -789,16 +813,16 @@ executionEnvironments = [
   { root = "src" }
 ]
 "#;
-        let result = parse_pyproject_toml(src).unwrap();
-        assert_eq!(result.preset, None);
+        let result = parse_pyproject_toml(src).unwrap().convert();
+        assert_eq!(result.root.preset, None);
     }
 
     #[test]
     fn test_convert_from_pyproject_basedpyright() {
         let src = r#"[tool.basedpyright]
 "#;
-        let result = parse_pyproject_toml(src).unwrap();
-        assert_eq!(result.preset, Some(Preset::All));
+        let result = parse_pyproject_toml(src).unwrap().convert();
+        assert_eq!(result.root.preset, Some(Preset::All));
     }
 
     #[test]
@@ -806,8 +830,8 @@ executionEnvironments = [
         let src = r#"[tool.basedpyright]
 typeCheckingMode = "basic"
 "#;
-        let result = parse_pyproject_toml(src).unwrap();
-        assert_eq!(result.preset, None);
+        let result = parse_pyproject_toml(src).unwrap().convert();
+        assert_eq!(result.root.preset, None);
     }
 
     #[test]
@@ -829,6 +853,39 @@ include = ["basedpyright.py"]
     }
 
     #[test]
+    fn test_implicit_relative_import_maps_to_import_error_kinds() -> anyhow::Result<()> {
+        let raw_file = r#"{"reportImplicitRelativeImport": "none"}"#;
+        let config = serde_json::from_str::<PyrightConfig>(raw_file)?.convert();
+        let errors = config.root.errors.as_ref().unwrap();
+
+        assert_eq!(
+            errors.severity(ErrorKind::FallbackSearchPathRelativeImport),
+            Severity::Ignore
+        );
+        assert_eq!(errors.severity(ErrorKind::MissingImport), Severity::Ignore);
+        Ok(())
+    }
+
+    #[test]
+    fn test_incompatible_unannotated_override_maps_to_mutable_attribute_only() {
+        let overrides = RuleOverrides {
+            report_incompatible_unannotated_override: Some(Severity::Warn),
+            ..Default::default()
+        };
+        let errors = overrides.to_config().expect("expected error config");
+        assert_eq!(
+            errors.severity(ErrorKind::BadOverrideMutableAttribute),
+            Severity::Warn
+        );
+        // Plain `bad-override` also covers method overrides and parameter
+        // names, so this knob must leave it at its default.
+        assert_eq!(
+            errors.severity(ErrorKind::BadOverride),
+            ErrorKind::BadOverride.default_severity()
+        );
+    }
+
+    #[test]
     fn test_report_trailing_commas() -> anyhow::Result<()> {
         let raw_file = r#"
             {
@@ -843,6 +900,16 @@ include = ["basedpyright.py"]
         let pyr = serde_jsonrc::from_str::<PyrightConfig>(raw_file)?;
         let config = pyr.convert();
         assert!(!config.project_includes.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_report_private_usage_mapping() -> anyhow::Result<()> {
+        let pyr = serde_json::from_str::<PyrightConfig>(r#"{"reportPrivateUsage": "warning"}"#)?;
+        let config = pyr.convert();
+        let errors = config.root.errors.expect("expected a diagnostic override");
+        assert_eq!(errors.severity(ErrorKind::ProtectedAccess), Severity::Warn);
+        assert_eq!(errors.severity(ErrorKind::NoAccess), Severity::Error);
         Ok(())
     }
 }

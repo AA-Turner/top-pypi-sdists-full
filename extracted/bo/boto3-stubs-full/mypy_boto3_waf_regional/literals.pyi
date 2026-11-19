@@ -324,6 +324,7 @@ WafOverrideActionTypeType = Literal["COUNT", "NONE"]
 WafRuleTypeType = Literal["GROUP", "RATE_BASED", "REGULAR"]
 WAFRegionalServiceName = Literal["waf-regional"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

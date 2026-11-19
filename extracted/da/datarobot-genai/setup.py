@@ -29,7 +29,7 @@ core = [
     "datarobot[core]>=3.19.0,<4.0.0",
     "datarobot-predict>=1.13.2,<2.0.0",
     "openai>=2.30.0,<3.0.0",
-    "pyjwt>=2.15.0,<3.0.0",  # CVE-2026-102275 and CVE-2026-101918 fixed in 2.15.0
+    "pyjwt[crypto]>=2.15.0,<3.0.0",  # crypto: workload-token assertions; CVE-2026-102275 and CVE-2026-101918 fixed in 2.15.0
     "opentelemetry-instrumentation-requests>=0.64b0,<1.0.0",
     "opentelemetry-instrumentation-aiohttp-client>=0.64b0,<1.0.0",
     "opentelemetry-instrumentation-httpx>=0.64b0,<1.0.0",
@@ -85,11 +85,11 @@ llamaindex = core + [
 dragent = core + [
     "datarobot[application-utils]>=3.19.0,<4.0.0",
     "nvidia-nat==1.9.0",
-    "nvidia-nat-a2a==1.9.0",
+    "a2a-sdk[http-server]>=0.3.20,<1.0.0",  # pinned below 1.0 until dragent is ported to the 1.x API
     "nvidia-nat-opentelemetry==1.9.0",
     "nvidia-nat-langchain[litellm]==1.9.0",  # NAT built-in agents require this; [litellm] moved to extra in 1.9
     "nvidia-nat-mcp==1.9.0",
-    "mem0ai>=1.0.8,<2.0.0",
+    "mem0ai>=2.0.18,<3.0.0",
     "starlette>=1.3.1",  # CVE fix
     "opentelemetry-instrumentation-fastapi>=0.64b0,<1.0.0",
     # >=0.4.0 for GEN_AI_AGENT_NAME

@@ -1,22 +1,19 @@
 """
 """
 
-import copy
-from functools import wraps
 import warnings
+from functools import wraps
 
 import numpy as np
 
-from . import markup, QuantitiesDeprecationWarning
+from . import QuantitiesDeprecationWarning, markup
+from .decorators import with_doc
 from .dimensionality import Dimensionality, p_dict
 from .registry import unit_registry
-from .decorators import with_doc
 
 PREFERRED = []  # List of preferred quantities for each symbol,
                 # e.g. PREFERRED = [pq.mV, pq.pA, pq.UnitQuantity('femtocoulomb', 1e-15*pq.C, 'fC')]
                 # Intended to be overwritten in down-stream packages
-
-_np_version = tuple(map(int, np.__version__.split(".dev")[0].split(".")))
 
 
 def validate_unit_quantity(value):
@@ -26,8 +23,7 @@ def validate_unit_quantity(value):
         assert value.magnitude == 1
     except AssertionError:
         raise ValueError(
-                'units must be a scalar Quantity with unit magnitude, got %s'\
-                %value
+                f'units must be a scalar Quantity with unit magnitude, got {value}'
             )
     return value
 
@@ -44,8 +40,7 @@ def validate_dimensionality(value):
         return value.copy()
     else:
         raise TypeError(
-            'units must be a quantity, string, or dimensionality, got %s'\
-            %type(value)
+            f'units must be a quantity, string, or dimensionality, got {type(value)}'
         )
 
 def get_conversion_factor(from_u, to_u):
@@ -205,8 +200,7 @@ class Quantity(np.ndarray):
             cf = get_conversion_factor(from_u, to_u)
         except AssertionError:
             raise ValueError(
-                'Unable to convert between units of "%s" and "%s"'
-                %(from_u._dimensionality, to_u._dimensionality)
+                f'Unable to convert between units of "{from_u._dimensionality}" and "{to_u._dimensionality}"'
             )
         mag = self.magnitude
         mag *= cf
@@ -222,20 +216,19 @@ class Quantity(np.ndarray):
             try:
                 return self.rescale_preferred()
             except Exception as e:
-                raise Exception('No argument passed to `.rescale` and %s' % e)
+                raise Exception(f'No argument passed to `.rescale` and {e}')
         to_dims = validate_dimensionality(units)
         if dtype is None:
             dtype = self.dtype
         if self.dimensionality == to_dims:
-            return self.astype(dtype)
+            return Quantity(self.magnitude.astype(dtype), to_dims, dtype=dtype)
         to_u = Quantity(1.0, to_dims, dtype=dtype)
         from_u = Quantity(1.0, self.dimensionality, dtype=dtype)
         try:
             cf = get_conversion_factor(from_u, to_u)
         except AssertionError:
             raise ValueError(
-                'Unable to convert between units of "%s" and "%s"'
-                %(from_u._dimensionality, to_u._dimensionality)
+                f'Unable to convert between units of "{from_u._dimensionality}" and "{to_u._dimensionality}"'
             )
         if np.dtype(dtype).kind in 'fc':
             cf = np.array(cf, dtype=dtype)
@@ -311,30 +304,40 @@ class Quantity(np.ndarray):
             return obj
 
         try:
-            res._dimensionality = p_dict[uf](*objs)
+            dimensionality = p_dict[uf](*objs)
         except KeyError:
             raise ValueError(
-                """ufunc %r not supported by quantities
+                f"""ufunc {uf!r} not supported by quantities
                 please file a bug report at https://github.com/python-quantities
-                """ % uf
+                """
                 )
+        if (isinstance(res.base, Quantity)
+                and res._dimensionality != dimensionality):
+            raise ValueError('can not modify units of a view of a Quantity')
+        res._dimensionality = dimensionality
         return res
 
     def __array_wrap__(self, obj, context=None, return_scalar=False):
+        # NumPy 2 no longer calls __array_prepare__ itself, so we call it here,
+        # including for Quantity outputs.
+        return self.__array_prepare__(obj, context)
 
-        # For NumPy < 2.0 we do old behavior
-        if _np_version < (2, 0, 0):
-            if not isinstance(obj, Quantity):
-                return self.__array_prepare__(obj, context)
-            else:
-                return obj
-        # For NumPy > 2.0 we either do the prepare or the wrap
-        else:
-            if not isinstance(obj, Quantity):
-                return self.__array_prepare__(obj, context)
-            else:
-                return super().__array_wrap__(obj, context, return_scalar)
-
+    def __array_function__(self, func, types, args, kwargs):
+        # NumPy 2 removed ndarray.ptp, so np.ptp no longer dispatches to
+        # Quantity.ptp and would drop the units.
+        if func is np.ptp:
+            kwargs = dict(kwargs)
+            # ``a`` may be given by keyword, so args can be empty.
+            a = args[0] if args else kwargs.pop("a", None)
+            rest = args[1:]
+            if isinstance(a, Quantity):
+                out = rest[1] if len(rest) > 1 else kwargs.get("out")
+                if out is None or isinstance(out, Quantity):
+                    return Quantity.ptp(a, *rest, **kwargs)
+                # A plain ndarray ``out`` receives the bare magnitude, as
+                # np.ptp did before.
+                return np.ptp(a.magnitude, *rest, **kwargs)
+        return super().__array_function__(func, types, args, kwargs)
 
     @with_doc(np.ndarray.__add__)
     @scale_other_units
@@ -379,22 +382,7 @@ class Quantity(np.ndarray):
     @with_doc(np.ndarray.__imul__)
     @protected_multiplication
     def __imul__(self, other):
-        # the following is an inelegant fix for the removal of __array_prepare__ in NumPy 2.x
-        # the longer-term solution is probably to implement __array_ufunc__
-        # See:
-        # - https://numpy.org/devdocs/release/2.0.0-notes.html#array-prepare-is-removed
-        # - https://numpy.org/neps/nep-0013-ufunc-overrides.html
-        if _np_version < (2, 0, 0):
-            return super().__imul__(other)
-        else:
-            cself = self.copy()
-            if hasattr(other, "copy"):
-                cother = other.copy()
-            else:
-                cother = other
-            res = super().__imul__(other)
-            context = (np.multiply, (cself, cother, cself), 0)
-            return self.__array_prepare__(res, context=context)
+        return super().__imul__(other)
 
     @with_doc(np.ndarray.__rmul__)
     def __rmul__(self, other):
@@ -403,18 +391,7 @@ class Quantity(np.ndarray):
     @with_doc(np.ndarray.__itruediv__)
     @protected_multiplication
     def __itruediv__(self, other):
-        # see comment above on __imul__
-        if _np_version < (2, 0, 0):
-            return super().__itruediv__(other)
-        else:
-            cself = self.copy()
-            if hasattr(other, "copy"):
-                cother = other.copy()
-            else:
-                cother = other
-            res = super().__itruediv__(other)
-            context = (np.true_divide, (cself, cother, cself), 0)
-            return self.__array_prepare__(res, context=context)
+        return super().__itruediv__(other)
 
     @with_doc(np.ndarray.__rtruediv__)
     def __rtruediv__(self, other):
@@ -429,27 +406,16 @@ class Quantity(np.ndarray):
     @check_uniform
     @protected_power
     def __ipow__(self, other):
-        # see comment above on __imul__
-        if _np_version < (2, 0, 0):
-            return super().__ipow__(other)
-        else:
-            cself = self.copy()
-            if hasattr(other, "copy"):
-                cother = other.copy()
-            else:
-                cother = other
-            res = super().__ipow__(other)
-            context = (np.power, (cself, cother, cself), 0)
-            return self.__array_prepare__(res, context=context)
+        # The exponent can share our magnitude buffer. Keep its original value
+        # for the dimensionality calculation performed after the ufunc.
+        return super().__ipow__(other.copy())
 
     def __round__(self, decimals=0):
         return np.around(self, decimals)
 
     @with_doc(np.ndarray.__repr__)
     def __repr__(self):
-        return '%s * %s'%(
-            repr(self.magnitude), self.dimensionality.string
-        )
+        return f'{repr(self.magnitude)} * {self.dimensionality.string}'
 
     @with_doc(np.ndarray.__str__)
     def __str__(self):
@@ -457,17 +423,13 @@ class Quantity(np.ndarray):
             dims = self.dimensionality.unicode
         else:
             dims = self.dimensionality.string
-        return '%s %s'%(str(self.magnitude), dims)
+        return f'{str(self.magnitude)} {dims}'
 
-    if tuple(map(int, np.__version__.split('.')[:2])) >= (1, 14):
-        # in numpy 1.14 the formatting of scalar values was changed
-        # see https://github.com/numpy/numpy/pull/9883
-
-        def __format__(self, format_spec):
-            ret = super().__format__(format_spec)
-            if self.ndim:
-                return ret
-            return ret + f' {self.dimensionality}'
+    def __format__(self, format_spec):
+        ret = super().__format__(format_spec)
+        if self.ndim:
+            return ret
+        return ret + f' {self.dimensionality}'
 
     @with_doc(np.ndarray.__getitem__)
     def __getitem__(self, key):
@@ -552,8 +514,11 @@ class Quantity(np.ndarray):
     # item, itemset, tofile, dump, byteswap
 
     @with_doc(np.ndarray.sum)
-    def sum(self, axis=None, dtype=None, out=None):
-        ret = self.magnitude.sum(axis, dtype, None if out is None else out.magnitude)
+    def sum(self, axis=None, dtype=None, out=None, keepdims=False):
+        ret = self.magnitude.sum(
+            axis, dtype, None if out is None else out.magnitude,
+            keepdims=keepdims
+        )
         dim = self.dimensionality
         if out is None:
             return Quantity(ret, dim)
@@ -629,10 +594,14 @@ class Quantity(np.ndarray):
 
     @with_doc(np.nanmax)
     def nanmax(self, axis=None, out=None):
-        return Quantity(
-            np.nanmax(self.magnitude),
-            self.dimensionality
-        )
+        ret = np.nanmax(self.magnitude, axis, None if out is None else out.magnitude)
+        dim = self.dimensionality
+        if out is None:
+            return Quantity(ret, dim)
+        if not isinstance(out, Quantity):
+            raise TypeError("out parameter must be a Quantity")
+        out._dimensionality = dim
+        return out
 
     @with_doc(np.ndarray.min)
     def min(self, axis=None, out=None):
@@ -647,10 +616,14 @@ class Quantity(np.ndarray):
 
     @with_doc(np.nanmin)
     def nanmin(self, axis=None, out=None):
-        return Quantity(
-            np.nanmin(self.magnitude),
-            self.dimensionality
-        )
+        ret = np.nanmin(self.magnitude, axis, None if out is None else out.magnitude)
+        dim = self.dimensionality
+        if out is None:
+            return Quantity(ret, dim)
+        if not isinstance(out, Quantity):
+            raise TypeError("out parameter must be a Quantity")
+        out._dimensionality = dim
+        return out
 
     @with_doc(np.ndarray.argmin)
     def argmin(self, axis=None, out=None):
@@ -658,15 +631,16 @@ class Quantity(np.ndarray):
 
     @with_doc(np.nanargmin)
     def nanargmin(self,axis=None, out=None):
-        return np.nanargmin(self.magnitude)
+        return np.nanargmin(self.magnitude, axis, out)
 
     @with_doc(np.nanargmax)
     def nanargmax(self,axis=None, out=None):
-        return np.nanargmax(self.magnitude)
+        return np.nanargmax(self.magnitude, axis, out)
 
     @with_doc(np.ptp)
-    def ptp(self, axis=None, out=None):
-        ret = np.ptp(self.magnitude, axis, None if out is None else out.magnitude)
+    def ptp(self, axis=None, out=None, keepdims=False):
+        ret = np.ptp(self.magnitude, axis, None if out is None else out.magnitude,
+                     keepdims=keepdims)
         dim = self.dimensionality
         if out is None:
             return Quantity(ret, dim)
@@ -680,8 +654,10 @@ class Quantity(np.ndarray):
         if min is None and max is None:
             raise ValueError("at least one of min or max must be set")
         else:
-            if min is None: min = Quantity(-np.inf, self._dimensionality)
-            if max is None: max = Quantity(np.inf, self._dimensionality)
+            if min is None:
+                min = Quantity(-np.inf, self._dimensionality)
+            if max is None:
+                max = Quantity(np.inf, self._dimensionality)
 
         if self.dimensionality and not \
                 (isinstance(min, Quantity) and isinstance(max, Quantity)):
@@ -690,9 +666,9 @@ class Quantity(np.ndarray):
             )
 
         clipped = self.magnitude.clip(
-            min.rescale(self._dimensionality).magnitude,
-            max.rescale(self._dimensionality).magnitude,
-            out
+            Quantity(min).rescale(self._dimensionality).magnitude,
+            Quantity(max).rescale(self._dimensionality).magnitude,
+            None if out is None else out.magnitude
         )
         dim = self.dimensionality
         if out is None:
@@ -779,7 +755,7 @@ class Quantity(np.ndarray):
 
     @with_doc(np.ndarray.prod)
     def prod(self, axis=None, dtype=None, out=None):
-        if axis == None:
+        if axis is None:
             power = self.size
         else:
             power = self.shape[axis]

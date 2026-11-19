@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Final
 import pytest
 
 from virtualenv.activation import PowerShellActivator
-from virtualenv.info import IS_PYPY, IS_WIN
+from virtualenv.info import IS_GRAALPY, IS_PYPY, IS_WIN
 from virtualenv.run import cli_run
 
 if TYPE_CHECKING:
@@ -19,6 +19,16 @@ if TYPE_CHECKING:
 
 _POWERSHELLS: Final[list[str]] = [path for path in map(shutil.which, ("pwsh", "powershell.exe")) if path]
 _VENV_BIN_DIR: Final[str] = "Scripts" if IS_WIN else "bin"
+_INTERPRETER_INDEPENDENT: Final[pytest.MarkDecorator] = pytest.mark.skipif(
+    IS_PYPY or IS_GRAALPY, reason="quoting does not depend on the interpreter, the CPython jobs run this matrix"
+)
+
+
+@pytest.fixture(autouse=True)
+def _private_pwsh_cache(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    # pwsh reads and rewrites a startup profile in its cache folder on every start, so parallel workers shared one file;
+    # while they did, every pwsh on a macOS runner crashed with FileLoadException for two minutes (CI run 44217352067)
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path_factory.mktemp("pwsh-cache")))
 
 
 @pytest.mark.parametrize("powershell", _POWERSHELLS)
@@ -97,7 +107,41 @@ def test_powershell_clears_pythonhome(tmp_path: Path, powershell: str) -> None:
     )
 
 
-@pytest.mark.skipif(IS_PYPY, reason="quoting does not depend on the interpreter, the CPython jobs run this matrix")
+@pytest.mark.parametrize("powershell", _POWERSHELLS)
+@pytest.mark.parametrize(
+    ("original", "suffix"),
+    [
+        pytest.param("", "", id="empty"),
+        pytest.param(f"{os.pathsep}first", f"{os.pathsep}{os.pathsep}first", id="leading-empty-entry"),
+        pytest.param("first", f"{os.pathsep}first", id="populated"),
+    ],
+)
+def test_powershell_prepends_bin_to_path(tmp_path: Path, powershell: str, original: str, suffix: str) -> None:
+    session: Final = cli_run(["--no-seed", "--activators", "powershell", str(tmp_path / "env")])
+    driver: Final = tmp_path / "path.ps1"
+    driver.write_text(
+        f"$env:PATH = {PowerShellActivator.quote(original)}\n"
+        f". {PowerShellActivator.quote(str(session.creator.bin_dir / 'activate.ps1'))}\n"
+        "Write-Output $env:PATH\n",
+        encoding="utf-8-sig",
+    )
+    result: Final = subprocess.run(
+        [powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(driver)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=120,
+        check=False,
+    )
+
+    assert (result.returncode, result.stdout, result.stderr) == (
+        0,
+        f"{session.creator.dest}/{_VENV_BIN_DIR}{suffix}\n",
+        "",
+    )
+
+
+@_INTERPRETER_INDEPENDENT
 @pytest.mark.parametrize("powershell", _POWERSHELLS)
 @pytest.mark.parametrize(
     ("name", "mode"),
@@ -181,6 +225,7 @@ def test_powershell_reports_missing_config(tmp_path: Path, current_fastest: str,
     assert "Cannot find configuration file" in result.stderr
 
 
+@_INTERPRETER_INDEPENDENT
 @pytest.mark.skipif(shutil.which("pwsh") is None, reason="requires PowerShell Core")
 @pytest.mark.parametrize(
     "delimiter",

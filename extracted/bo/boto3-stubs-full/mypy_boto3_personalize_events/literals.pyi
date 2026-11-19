@@ -25,6 +25,7 @@ __all__ = ("PersonalizeEventsServiceName", "ResourceServiceName", "ServiceName")
 
 PersonalizeEventsServiceName = Literal["personalize-events"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

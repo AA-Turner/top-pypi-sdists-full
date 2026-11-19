@@ -35,6 +35,7 @@ class FlowSourceInitArgs:
                  min_latency: pulumi.Input[Optional[_builtins.int]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  protocol: pulumi.Input[Optional['FlowSourceProtocol']] = None,
+                 rtmp_push_settings: pulumi.Input[Optional['FlowSourceRtmpPushSettingsArgs']] = None,
                  sender_control_port: pulumi.Input[Optional[_builtins.int]] = None,
                  sender_ip_address: pulumi.Input[Optional[_builtins.str]] = None,
                  source_listener_address: pulumi.Input[Optional[_builtins.str]] = None,
@@ -86,6 +87,8 @@ class FlowSourceInitArgs:
             pulumi.set(__self__, "name", name)
         if protocol is not None:
             pulumi.set(__self__, "protocol", protocol)
+        if rtmp_push_settings is not None:
+            pulumi.set(__self__, "rtmp_push_settings", rtmp_push_settings)
         if sender_control_port is not None:
             pulumi.set(__self__, "sender_control_port", sender_control_port)
         if sender_ip_address is not None:
@@ -236,6 +239,15 @@ class FlowSourceInitArgs:
         pulumi.set(self, "protocol", value)
 
     @_builtins.property
+    @pulumi.getter(name="rtmpPushSettings")
+    def rtmp_push_settings(self) -> pulumi.Input[Optional['FlowSourceRtmpPushSettingsArgs']]:
+        return pulumi.get(self, "rtmp_push_settings")
+
+    @rtmp_push_settings.setter
+    def rtmp_push_settings(self, value: pulumi.Input[Optional['FlowSourceRtmpPushSettingsArgs']]):
+        pulumi.set(self, "rtmp_push_settings", value)
+
+    @_builtins.property
     @pulumi.getter(name="senderControlPort")
     def sender_control_port(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
@@ -338,23 +350,24 @@ class FlowSource(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 decryption: pulumi.Input[Optional[Union['FlowSourceEncryptionArgs', 'FlowSourceEncryptionArgsDict']]] = None,
+                 decryption: pulumi.Input[Optional[Union['FlowSourceEncryptionArgs', 'FlowSourceEncryptionArgsDict', 'outputs.FlowSourceEncryption']]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  entitlement_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  flow_arn: pulumi.Input[Optional[_builtins.str]] = None,
-                 gateway_bridge_source: pulumi.Input[Optional[Union['FlowSourceGatewayBridgeSourceArgs', 'FlowSourceGatewayBridgeSourceArgsDict']]] = None,
+                 gateway_bridge_source: pulumi.Input[Optional[Union['FlowSourceGatewayBridgeSourceArgs', 'FlowSourceGatewayBridgeSourceArgsDict', 'outputs.FlowSourceGatewayBridgeSource']]] = None,
                  ingest_port: pulumi.Input[Optional[_builtins.int]] = None,
                  max_bitrate: pulumi.Input[Optional[_builtins.int]] = None,
                  max_latency: pulumi.Input[Optional[_builtins.int]] = None,
                  min_latency: pulumi.Input[Optional[_builtins.int]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  protocol: pulumi.Input[Optional['FlowSourceProtocol']] = None,
+                 rtmp_push_settings: pulumi.Input[Optional[Union['FlowSourceRtmpPushSettingsArgs', 'FlowSourceRtmpPushSettingsArgsDict', 'outputs.FlowSourceRtmpPushSettings']]] = None,
                  sender_control_port: pulumi.Input[Optional[_builtins.int]] = None,
                  sender_ip_address: pulumi.Input[Optional[_builtins.str]] = None,
                  source_listener_address: pulumi.Input[Optional[_builtins.str]] = None,
                  source_listener_port: pulumi.Input[Optional[_builtins.int]] = None,
                  stream_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  vpc_interface_name: pulumi.Input[Optional[_builtins.str]] = None,
                  whitelist_cidr: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
@@ -363,11 +376,11 @@ class FlowSource(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['FlowSourceEncryptionArgs', 'FlowSourceEncryptionArgsDict']] decryption: The type of encryption that is used on the content ingested from this source.
+        :param pulumi.Input[Union['FlowSourceEncryptionArgs', 'FlowSourceEncryptionArgsDict', 'outputs.FlowSourceEncryption']] decryption: The type of encryption that is used on the content ingested from this source.
         :param pulumi.Input[_builtins.str] description: A description for the source. This value is not used or seen outside of the current AWS Elemental MediaConnect account.
         :param pulumi.Input[_builtins.str] entitlement_arn: The ARN of the entitlement that allows you to subscribe to content that comes from another AWS account. The entitlement is set by the content originator and the ARN is generated as part of the originator's flow.
         :param pulumi.Input[_builtins.str] flow_arn: The ARN of the flow.
-        :param pulumi.Input[Union['FlowSourceGatewayBridgeSourceArgs', 'FlowSourceGatewayBridgeSourceArgsDict']] gateway_bridge_source: The source configuration for cloud flows receiving a stream from a bridge.
+        :param pulumi.Input[Union['FlowSourceGatewayBridgeSourceArgs', 'FlowSourceGatewayBridgeSourceArgsDict', 'outputs.FlowSourceGatewayBridgeSource']] gateway_bridge_source: The source configuration for cloud flows receiving a stream from a bridge.
         :param pulumi.Input[_builtins.int] ingest_port: The port that the flow will be listening on for incoming content.
         :param pulumi.Input[_builtins.int] max_bitrate: The smoothing max bitrate for RIST, RTP, and RTP-FEC streams.
         :param pulumi.Input[_builtins.int] max_latency: The maximum latency in milliseconds. This parameter applies only to RIST-based and Zixi-based streams.
@@ -379,7 +392,7 @@ class FlowSource(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] source_listener_address: Source IP or domain name for SRT-caller protocol.
         :param pulumi.Input[_builtins.int] source_listener_port: Source port for SRT-caller protocol.
         :param pulumi.Input[_builtins.str] stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi-based streams.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]] tags: Key-value pairs that can be used to tag and organize this flow source.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: Key-value pairs that can be used to tag and organize this flow source.
         :param pulumi.Input[_builtins.str] vpc_interface_name: The name of the VPC Interface this Source is configured with.
         :param pulumi.Input[_builtins.str] whitelist_cidr: The range of IP addresses that should be allowed to contribute content to your source. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
         """
@@ -407,23 +420,24 @@ class FlowSource(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 decryption: pulumi.Input[Optional[Union['FlowSourceEncryptionArgs', 'FlowSourceEncryptionArgsDict']]] = None,
+                 decryption: pulumi.Input[Optional[Union['FlowSourceEncryptionArgs', 'FlowSourceEncryptionArgsDict', 'outputs.FlowSourceEncryption']]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  entitlement_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  flow_arn: pulumi.Input[Optional[_builtins.str]] = None,
-                 gateway_bridge_source: pulumi.Input[Optional[Union['FlowSourceGatewayBridgeSourceArgs', 'FlowSourceGatewayBridgeSourceArgsDict']]] = None,
+                 gateway_bridge_source: pulumi.Input[Optional[Union['FlowSourceGatewayBridgeSourceArgs', 'FlowSourceGatewayBridgeSourceArgsDict', 'outputs.FlowSourceGatewayBridgeSource']]] = None,
                  ingest_port: pulumi.Input[Optional[_builtins.int]] = None,
                  max_bitrate: pulumi.Input[Optional[_builtins.int]] = None,
                  max_latency: pulumi.Input[Optional[_builtins.int]] = None,
                  min_latency: pulumi.Input[Optional[_builtins.int]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  protocol: pulumi.Input[Optional['FlowSourceProtocol']] = None,
+                 rtmp_push_settings: pulumi.Input[Optional[Union['FlowSourceRtmpPushSettingsArgs', 'FlowSourceRtmpPushSettingsArgsDict', 'outputs.FlowSourceRtmpPushSettings']]] = None,
                  sender_control_port: pulumi.Input[Optional[_builtins.int]] = None,
                  sender_ip_address: pulumi.Input[Optional[_builtins.str]] = None,
                  source_listener_address: pulumi.Input[Optional[_builtins.str]] = None,
                  source_listener_port: pulumi.Input[Optional[_builtins.int]] = None,
                  stream_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  vpc_interface_name: pulumi.Input[Optional[_builtins.str]] = None,
                  whitelist_cidr: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
@@ -450,6 +464,7 @@ class FlowSource(pulumi.CustomResource):
             __props__.__dict__["min_latency"] = min_latency
             __props__.__dict__["name"] = name
             __props__.__dict__["protocol"] = protocol
+            __props__.__dict__["rtmp_push_settings"] = rtmp_push_settings
             __props__.__dict__["sender_control_port"] = sender_control_port
             __props__.__dict__["sender_ip_address"] = sender_ip_address
             __props__.__dict__["source_listener_address"] = source_listener_address
@@ -459,6 +474,7 @@ class FlowSource(pulumi.CustomResource):
             __props__.__dict__["vpc_interface_name"] = vpc_interface_name
             __props__.__dict__["whitelist_cidr"] = whitelist_cidr
             __props__.__dict__["ingest_ip"] = None
+            __props__.__dict__["rtmp_push_details"] = None
             __props__.__dict__["source_arn"] = None
             __props__.__dict__["source_ingest_port"] = None
         replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["flowArn", "name", "protocol"])
@@ -497,6 +513,8 @@ class FlowSource(pulumi.CustomResource):
         __props__.__dict__["min_latency"] = None
         __props__.__dict__["name"] = None
         __props__.__dict__["protocol"] = None
+        __props__.__dict__["rtmp_push_details"] = None
+        __props__.__dict__["rtmp_push_settings"] = None
         __props__.__dict__["sender_control_port"] = None
         __props__.__dict__["sender_ip_address"] = None
         __props__.__dict__["source_arn"] = None
@@ -508,6 +526,12 @@ class FlowSource(pulumi.CustomResource):
         __props__.__dict__["vpc_interface_name"] = None
         __props__.__dict__["whitelist_cidr"] = None
         return FlowSource(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:mediaconnect:FlowSource', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -604,6 +628,16 @@ class FlowSource(pulumi.CustomResource):
         The protocol that is used by the source.
         """
         return pulumi.get(self, "protocol")
+
+    @_builtins.property
+    @pulumi.getter(name="rtmpPushDetails")
+    def rtmp_push_details(self) -> pulumi.Output['outputs.FlowSourceRtmpPushDetails']:
+        return pulumi.get(self, "rtmp_push_details")
+
+    @_builtins.property
+    @pulumi.getter(name="rtmpPushSettings")
+    def rtmp_push_settings(self) -> pulumi.Output[Optional['outputs.FlowSourceRtmpPushSettings']]:
+        return pulumi.get(self, "rtmp_push_settings")
 
     @_builtins.property
     @pulumi.getter(name="senderControlPort")

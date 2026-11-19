@@ -17,7 +17,6 @@ import asyncio
 from asyncio.exceptions import TimeoutError as AsyncioTimeoutError
 import errno
 import fcntl
-import importlib.metadata
 import logging
 from types import TracebackType
 from typing import Self, TYPE_CHECKING
@@ -101,6 +100,18 @@ class _BaseMutex:
         """
         self.owner = None
         self.recursion_depth = 0
+
+    def __enter__(self) -> 'Self':
+        self.acquire()
+        return self
+
+    def __exit__(
+        self,
+        type_: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.release()
 
 
 class _ReallyPipeMutex(_BaseMutex):
@@ -193,18 +204,6 @@ class _ReallyPipeMutex(_BaseMutex):
         # do, so nobody does it and that's okay.
         self.close()
 
-    def __enter__(self) -> 'Self':
-        self.acquire()
-        return self
-
-    def __exit__(
-        self,
-        type_: type[BaseException] | None,
-        value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        self.release()
-
 
 class _AsyncioMutex(_BaseMutex):
     """Alternative implementation of mutex for eventlet asyncio hub.
@@ -292,13 +291,6 @@ class _AsyncioMutex(_BaseMutex):
 
 _HUB = eventlet.hubs.get_hub()
 if isinstance(_HUB, eventlet.hubs.asyncio.Hub):
-    major, minor, patch = map(
-        int, importlib.metadata.version("eventlet").split(".")[:3]
-    )
-    if (major, minor, patch) < (0, 38, 2):
-        raise RuntimeError(
-            "eventlet 0.38.2 or later is required when using asyncio hub"
-        )
     PipeMutex: type[_AsyncioMutex | _ReallyPipeMutex] = _AsyncioMutex
 else:
     PipeMutex = _ReallyPipeMutex

@@ -29,6 +29,7 @@ from ..types.doc_ai_job_status_response import DocAiJobStatusResponse
 from ..types.doc_ai_presign_upload_response import DocAiPresignUploadResponse
 from ..types.doc_ai_split_job_request import DocAiSplitJobRequest
 from ..types.doc_ai_start_job_response import DocAiStartJobResponse
+from .types.doc_ai_extract_request_mode import DocAiExtractRequestMode
 from .types.doc_ai_extract_request_output_format import DocAiExtractRequestOutputFormat
 from .types.doc_ai_get_results_response import DocAiGetResultsResponse
 from .types.doc_ai_parse_request_content_type import DocAiParseRequestContentType
@@ -308,6 +309,7 @@ class RawDocAiClient:
         output_format: typing.Optional[DocAiExtractRequestOutputFormat] = OMIT,
         classification: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
+        mode: typing.Optional[DocAiExtractRequestMode] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DocAiStartJobResponse]:
         """
@@ -344,6 +346,9 @@ class RawDocAiClient:
         model : typing.Optional[str]
             Model to use for extraction.
 
+        mode : typing.Optional[DocAiExtractRequestMode]
+            Extraction mode. `basic` reads each field on the page where it is printed; best for forms, IDs, and invoices at volume. `advanced` adds a second reading of the whole document to resolve context such as quarterly vs annual values and to check that line items add up to the total; best for financial statements, filings, slide decks, and long records. `advanced` takes longer and costs more per page. Both modes take the same schema and return the same response format.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -375,6 +380,7 @@ class RawDocAiClient:
                     else {}
                 ),
                 **({"model": (None, jsonable_encoder(model), "text/plain")} if model is not OMIT else {}),
+                **({"mode": (None, jsonable_encoder(mode), "text/plain")} if mode is not OMIT else {}),
             },
             request_options=request_options,
             omit=OMIT,
@@ -1234,6 +1240,7 @@ class AsyncRawDocAiClient:
         output_format: typing.Optional[DocAiExtractRequestOutputFormat] = OMIT,
         classification: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
+        mode: typing.Optional[DocAiExtractRequestMode] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DocAiStartJobResponse]:
         """
@@ -1270,6 +1277,9 @@ class AsyncRawDocAiClient:
         model : typing.Optional[str]
             Model to use for extraction.
 
+        mode : typing.Optional[DocAiExtractRequestMode]
+            Extraction mode. `basic` reads each field on the page where it is printed; best for forms, IDs, and invoices at volume. `advanced` adds a second reading of the whole document to resolve context such as quarterly vs annual values and to check that line items add up to the total; best for financial statements, filings, slide decks, and long records. `advanced` takes longer and costs more per page. Both modes take the same schema and return the same response format.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1301,6 +1311,7 @@ class AsyncRawDocAiClient:
                     else {}
                 ),
                 **({"model": (None, jsonable_encoder(model), "text/plain")} if model is not OMIT else {}),
+                **({"mode": (None, jsonable_encoder(mode), "text/plain")} if mode is not OMIT else {}),
             },
             request_options=request_options,
             omit=OMIT,

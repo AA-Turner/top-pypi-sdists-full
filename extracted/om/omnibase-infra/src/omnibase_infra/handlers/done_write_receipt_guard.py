@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Done-write receipt guard: the one check every Linear Done writer calls.
 
-OMN-20368. Operator ruling (2026-10-02): a ticket reaches Done only on a PASS
-dod_verify whose checks bind every acceptance criterion. The rule itself is
-``omnibase_core.handlers.handler_done_write_receipt_gate`` (lifted out of the evidence-
+OMN-20368. Operator ruling (2026-10-02): a ticket reaches Done only on a PASS dod_verify whose checks bind every criterion. The rule itself is
+``node_done_write_receipt_gate_compute`` (lifted out of the evidence-
 autoclose closer so that omnimarket and this repo evaluate one implementation).
 This module is the infra half: it runs the verifier the way the closer does,
 reads the verdict off either declared receipt arm, and hands verdict plus the
@@ -28,19 +27,144 @@ this module.
 from __future__ import annotations
 
 import asyncio
+import importlib
+import importlib.resources
 import json
 import logging
 import sys
-from collections.abc import Awaitable, Callable
+import tempfile
+from collections.abc import Awaitable, Callable, Mapping
+from functools import lru_cache
 from pathlib import Path
+from typing import cast
 
-from omnibase_core.handlers.handler_done_write_receipt_gate import (
-    evaluate_done_write_receipt,
-    extract_dod_verify_verdict,
-)
+import yaml
+
+from omnibase_core.models.ticket.model_ac_binding_row import ModelAcBindingRow
 from omnibase_core.models.ticket.model_done_write_decision import (
     ModelDoneWriteDecision,
 )
+from omnibase_core.models.ticket.model_done_write_receipt_request import (
+    ModelDoneWriteReceiptRequest,
+)
+from omnibase_infra.enums import EnumInfraTransportType
+from omnibase_infra.errors import ContainerWiringError, ModelInfraErrorContext
+from omnibase_infra.models.operational_timeouts import TIMEOUTS
+from omnibase_infra.protocols.protocol_done_write_receipt_gate import (
+    ProtocolDoneWriteReceiptGate,
+)
+
+DONE_WRITE_RECEIPT_GATE_NODE = "node_done_write_receipt_gate_compute"
+
+
+class DoneWriteGateResolutionError(ContainerWiringError):
+    """The packaged Done-write contract cannot bind a compatible gate."""
+
+
+class DoneWriteReceiptGateBinding:
+    """Bind the contract's handler and its validated public helper functions."""
+
+    def __init__(
+        self,
+        handle: Callable[[ModelDoneWriteReceiptRequest], ModelDoneWriteDecision],
+        exports: ProtocolDoneWriteReceiptGate,
+    ) -> None:
+        self._handle = handle
+        self.has_verified_bound_check = exports.has_verified_bound_check
+        self.as_int = exports.as_int
+        self.extract_dod_verify_verdict = exports.extract_dod_verify_verdict
+        self.live_acceptance_criteria_items = exports.live_acceptance_criteria_items
+        self.canonical_ac_label = exports.canonical_ac_label
+        self.criterion_is_state_shaped = exports.criterion_is_state_shaped
+        self.ac_binding_gap = exports.ac_binding_gap
+        self.check_records = exports.check_records
+        self.check_status = exports.check_status
+        self.verdict_is_all_verified = exports.verdict_is_all_verified
+        self.evaluate_done_write_receipt = exports.evaluate_done_write_receipt
+
+    def decide(self, request: ModelDoneWriteReceiptRequest) -> ModelDoneWriteDecision:
+        return self._handle(request)
+
+
+@lru_cache(maxsize=1)
+def resolve_done_write_receipt_gate() -> ProtocolDoneWriteReceiptGate:
+    """Bind node_done_write_receipt_gate_compute from its packaged contract.
+
+    An incompatible or unreadable contract refuses resolution; no alternate
+    handler or implementation is selected.
+    """
+    try:
+        nodes_package = "omnibase_core.nodes"
+        contract_path = importlib.resources.files(nodes_package).joinpath(
+            DONE_WRITE_RECEIPT_GATE_NODE, "contract.yaml"
+        )
+        contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
+        expected = {
+            "name": DONE_WRITE_RECEIPT_GATE_NODE,
+            "input_model": f"{ModelDoneWriteReceiptRequest.__module__}.{ModelDoneWriteReceiptRequest.__qualname__}",
+            "output_model": f"{ModelDoneWriteDecision.__module__}.{ModelDoneWriteDecision.__qualname__}",
+        }
+        if not isinstance(contract, dict):
+            raise ValueError("contract must be a mapping")
+        for key, value in expected.items():
+            if contract.get(key) != value:
+                raise ValueError(f"contract {key} does not match the gate protocol")
+        routing = contract.get("handler_routing")
+        if not isinstance(routing, dict):
+            raise ValueError("handler_routing must be a mapping")
+        default = routing.get("default_handler")
+        if not isinstance(default, str) or default.count(":") != 1:
+            raise ValueError("default_handler must name a node-relative module:Class")
+        module_name, class_name = default.split(":")
+        if not class_name.isidentifier() or not all(
+            part.isidentifier() for part in module_name.split(".")
+        ):
+            raise ValueError("default_handler must name a node-relative module:Class")
+        contract_package = f"{nodes_package}.{DONE_WRITE_RECEIPT_GATE_NODE}"
+        module = importlib.import_module(f"{contract_package}.{module_name}")
+        exported = getattr(module, "__all__", ())
+        members = tuple(
+            name
+            for protocol in ProtocolDoneWriteReceiptGate.__mro__
+            for name in protocol.__dict__
+            if not name.startswith("_") and name != "decide"
+        )
+        if not isinstance(exported, (list, tuple)) or class_name not in exported:
+            raise ValueError("contract handler class is missing from __all__")
+        for name in members:
+            if name not in exported or not callable(getattr(module, name, None)):
+                raise ValueError(
+                    f"protocol member {name} is missing from __all__ or not callable"
+                )
+        handler_class = getattr(module, class_name, None)
+        if not isinstance(handler_class, type) or not callable(
+            getattr(handler_class, "handle", None)
+        ):
+            raise ValueError("default_handler names no class with handle")
+        handle = handler_class().handle
+        return DoneWriteReceiptGateBinding(
+            cast(
+                "Callable[[ModelDoneWriteReceiptRequest], ModelDoneWriteDecision]",
+                handle,
+            ),
+            cast("ProtocolDoneWriteReceiptGate", module),
+        )
+    except (
+        OSError,
+        ImportError,
+        AttributeError,
+        TypeError,
+        ValueError,
+        yaml.YAMLError,
+    ) as exc:
+        raise DoneWriteGateResolutionError(
+            f"Cannot resolve {DONE_WRITE_RECEIPT_GATE_NODE}: {exc}",
+            context=ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.RUNTIME,
+                operation="resolve_done_write_receipt_gate",
+            ),
+        ) from exc
+
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +173,11 @@ LINEAR_COMPLETED_STATE_TYPE = "completed"
 #: The state NAME a Done write carries when the caller does not know the type.
 LINEAR_DONE_STATE_NAME = "done"
 #: A verifier run executes the contract's checks, so it is slow by design.
-DEFAULT_DOD_VERIFY_TIMEOUT_SECONDS = 300.0
+DEFAULT_DOD_VERIFY_TIMEOUT_SECONDS = TIMEOUTS.done_write_verify_seconds
+#: Longest verifier stderr kept in a refusal reason. A traceback's cause is its
+#: tail, so an over-long text keeps its last characters, with the omitted count
+#: stated at the head (OMN-25667).
+MAX_VERIFIER_ERROR_CHARS = 4000
 
 # Injectable runner signature (the real one execs the dispatch venv's `onex`;
 # tests inject fakes with the same shape).
@@ -58,7 +186,9 @@ TypeRunDodVerifyCommand = Callable[
 ]
 
 
-def dod_verify_argv(ticket_id: str, *, contract_path: str = "") -> list[str]:
+def dod_verify_argv(
+    ticket_id: str, *, contract_path: str = "", state_root: str = ""
+) -> list[str]:
     """Argv that dispatches the verifier from THIS process's own environment.
 
     OMN-16846. This used to be ``["uv", "run", "onex", "skill", "dod_verify",
@@ -89,6 +219,13 @@ def dod_verify_argv(ticket_id: str, *, contract_path: str = "") -> list[str]:
     which the caller already converts into a named per-ticket error; the
     sweep job additionally asserts the binary resolves before any ticket is
     scanned, so the loud failure comes first.
+
+    OMN-25667. ``onex skill`` writes its input payload under ``--state-root``,
+    whose default is the cwd-relative ``.onex_state``. The runtime's cwd is
+    ``/app``, which its unprivileged user cannot write, so every Done write
+    died on ``PermissionError: '.onex_state'`` before the verifier produced a
+    verdict. ``state_root`` names a directory the caller owns; with none the
+    CLI default applies, as before.
     """
     return [
         str(Path(sys.executable).parent / "onex"),
@@ -98,7 +235,20 @@ def dod_verify_argv(ticket_id: str, *, contract_path: str = "") -> list[str]:
         "--execution-audience",
         "hosted",
         *(["--contract-path", contract_path] if contract_path else []),
+        *(["--state-root", state_root] if state_root else []),
     ]
+
+
+def bound_verifier_error(text: str) -> str:
+    """The verifier's stderr, whole up to ``MAX_VERIFIER_ERROR_CHARS``.
+
+    Over the bound it keeps the tail (the exception line of a traceback) and
+    says how many leading characters it dropped.
+    """
+    if len(text) <= MAX_VERIFIER_ERROR_CHARS:
+        return text
+    omitted = len(text) - MAX_VERIFIER_ERROR_CHARS
+    return f"[{omitted} chars omitted] ...{text[-MAX_VERIFIER_ERROR_CHARS:]}"
 
 
 async def reap_timed_out_process(proc: asyncio.subprocess.Process) -> None:
@@ -113,7 +263,7 @@ async def reap_timed_out_process(proc: asyncio.subprocess.Process) -> None:
         return
     proc.kill()
     try:
-        await asyncio.wait_for(proc.wait(), timeout=5)
+        await asyncio.wait_for(proc.wait(), timeout=TIMEOUTS.kill_wait_seconds)
     except TimeoutError:
         logger.warning(
             "Timed-out subprocess (pid=%s) did not exit after kill()", proc.pid
@@ -123,9 +273,28 @@ async def reap_timed_out_process(proc: asyncio.subprocess.Process) -> None:
 async def run_dod_verify_command(
     ticket_id: str, cwd: str, timeout: float, *, contract_path: str = ""
 ) -> tuple[dict[str, object] | None, int, str]:
+    # The verifier's payload and capture files live in a scratch directory of
+    # this call, never under the cwd (OMN-25667): the verdict comes back on
+    # stdout and no caller reads a file the verifier wrote.
+    with tempfile.TemporaryDirectory(prefix="onex-dod-verify-") as state_root:
+        return await _run_dod_verify_in(
+            ticket_id, cwd, timeout, contract_path=contract_path, state_root=state_root
+        )
+
+
+async def _run_dod_verify_in(
+    ticket_id: str,
+    cwd: str,
+    timeout: float,
+    *,
+    contract_path: str,
+    state_root: str,
+) -> tuple[dict[str, object] | None, int, str]:
     # OMN-16846: resolved from THIS process's interpreter, not re-resolved
     # by `uv run` from the cwd. See `dod_verify_argv`.
-    args = dod_verify_argv(ticket_id, contract_path=contract_path)
+    args = dod_verify_argv(
+        ticket_id, contract_path=contract_path, state_root=state_root
+    )
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
@@ -164,7 +333,9 @@ async def run_dod_verify_command(
         return (
             None,
             exit_code,
-            stderr_text if exit_code != 0 else f"Invalid dod_verify JSON: {exc}",
+            bound_verifier_error(stderr_text)
+            if exit_code != 0
+            else f"Invalid dod_verify JSON: {exc}",
         )
     if not isinstance(parsed, dict):
         return None, exit_code, "dod_verify output was not a JSON object"
@@ -236,14 +407,17 @@ class DoneWriteReceiptGuard:
                     f"(exit_code={exit_code}): {error}"
                 ),
             )
-        verdict, why = extract_dod_verify_verdict(result)
+        gate = resolve_done_write_receipt_gate()
+        verdict, why = gate.extract_dod_verify_verdict(result)
         if verdict is None:
             return ModelDoneWriteDecision(
                 allowed=False,
                 reason=f"dod_verify exit_code={exit_code}: {why}",
             )
-        return evaluate_done_write_receipt(
-            ticket_id=ticket_id, description=description, verdict=verdict
+        return gate.decide(
+            ModelDoneWriteReceiptRequest(
+                ticket_id=ticket_id, description=description, verdict=verdict
+            )
         )
 
     async def enforce(
@@ -258,7 +432,11 @@ class DoneWriteReceiptGuard:
 
 __all__ = [
     "DEFAULT_DOD_VERIFY_TIMEOUT_SECONDS",
+    "MAX_VERIFIER_ERROR_CHARS",
+    "bound_verifier_error",
     "DoneWriteReceiptGuard",
+    "DoneWriteGateResolutionError",
+    "resolve_done_write_receipt_gate",
     "DoneWriteRefusedError",
     "LINEAR_COMPLETED_STATE_TYPE",
     "LINEAR_DONE_STATE_NAME",

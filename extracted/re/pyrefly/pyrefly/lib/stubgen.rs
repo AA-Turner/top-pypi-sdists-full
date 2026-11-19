@@ -330,6 +330,11 @@ class BaseModel:
     }
 
     #[test]
+    fn test_stubgen_future_import_order() {
+        assert_stubgen_snapshot("future_import_order");
+    }
+
+    #[test]
     fn test_stubgen_try_except_imports() {
         assert_stubgen_snapshot("try_except_imports");
     }
@@ -472,7 +477,7 @@ class C:
     }
 
     /// Instance fields assigned in `__init__` (without class-level annotations) appear in the stub
-    /// using inferred types. See <https://github.com/facebook/pyrefly/issues/3208>.
+    /// using inferred types. See <https://github.com/pyrefly-org/pyrefly/issues/3208>.
     #[test]
     fn test_stubgen_instance_fields_from_init() {
         let actual = run_stubgen(
@@ -495,7 +500,7 @@ class A:
     }
 
     /// Parenthesized multi-line annotations, return types, and values stay valid
-    /// when collapsed onto one logical line. See <https://github.com/facebook/pyrefly/issues/3887>.
+    /// when collapsed onto one logical line. See <https://github.com/pyrefly-org/pyrefly/issues/3887>.
     #[test]
     fn test_stubgen_multiline_parenthesized() {
         let actual = run_stubgen(

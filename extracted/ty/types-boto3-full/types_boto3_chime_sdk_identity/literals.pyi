@@ -46,6 +46,7 @@ StandardMessagesType = Literal["ALL", "AUTO", "MENTIONS", "NONE"]
 TargetedMessagesType = Literal["ALL", "NONE"]
 ChimeSDKIdentityServiceName = Literal["chime-sdk-identity"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1,9 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: dbt-osmosis
-Version: 1.5.0
+Version: 1.6.0
 Summary: A dbt utility for managing YAML to make developing with dbt more delightful.
 Author-email: z3z1ma <butler.alex2010@gmail.com>
 License: Apache-2.0
+License-File: LICENSE
 Keywords: dbt,osmosis,yaml
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -19,7 +20,7 @@ Requires-Dist: click<9,>7
 Requires-Dist: dbt-common<2,>=1
 Requires-Dist: dbt-core-interface>=1.1.7
 Requires-Dist: dbt-core>=1.8
-Requires-Dist: packaging<26,>=24
+Requires-Dist: packaging<27,>=24
 Requires-Dist: pluggy<2,>=1.5.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: rapidfuzz>=3.0.0
@@ -37,12 +38,12 @@ Requires-Dist: mutmut; extra == 'dev'
 Requires-Dist: pre-commit<5,>3.0.0; extra == 'dev'
 Requires-Dist: pytest-cov~=6.0; extra == 'dev'
 Requires-Dist: pytest<9.2.0,>=8.3.4; extra == 'dev'
-Requires-Dist: ruff==0.15.17; extra == 'dev'
+Requires-Dist: ruff==0.16.2; extra == 'dev'
 Requires-Dist: tomli>=2; (python_version < '3.11') and extra == 'dev'
 Provides-Extra: duckdb
 Requires-Dist: dbt-duckdb<2,>=1; extra == 'duckdb'
 Provides-Extra: openai
-Requires-Dist: openai<2.42.0,>=1.58.1; extra == 'openai'
+Requires-Dist: openai<2.54.0,>=1.58.1; extra == 'openai'
 Provides-Extra: proxy
 Requires-Dist: mysql-mimic>=2.5.7; extra == 'proxy'
 Provides-Extra: workbench
@@ -91,7 +92,7 @@ The Docusaurus site is the canonical reference for the current CLI, configuratio
 - dbt Core 1.8+ package resolution
 - a dbt adapter version compatible with the dbt Core runtime in that environment
 
-Audited blocking support covers dbt Core 1.8.x through 1.11.x in CI. The package metadata intentionally remains `dbt-core>=1.8` without an upper bound so installers can resolve newer dbt releases. Future dbt Core minors are canary-only until explicitly audited; scheduled/manual canary CI uses unpinned latest `dbt-core` and `dbt-duckdb` to make upstream breakage visible without redefining audited support. Install a dbt adapter version that is compatible with the dbt Core runtime in your environment; adapter compatibility is owned by the adapter and dbt Core pairing, not by dbt-osmosis extras.
+Audited blocking support covers dbt Core 1.8.x through 1.12.x in CI. The package metadata intentionally remains `dbt-core>=1.8` without an upper bound so installers can resolve newer dbt releases. Future dbt Core minors are canary-only until explicitly audited; scheduled/manual canary CI uses unpinned latest `dbt-core` and `dbt-duckdb` to make upstream breakage visible without redefining audited support. This audit covers the Python-based Core 1.x runtime; it does not establish compatibility with the Rust-based dbt v2 runtime. Install a dbt adapter version that is compatible with the dbt Core runtime in your environment; adapter compatibility is owned by the adapter and dbt Core pairing, not by dbt-osmosis extras.
 
 Optional extras:
 

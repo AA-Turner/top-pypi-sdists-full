@@ -36,6 +36,7 @@ JobTypeType = Literal["Export", "Import"]
 ListJobsPaginatorName = Literal["list_jobs"]
 ImportExportServiceName = Literal["importexport"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -67,14 +67,14 @@ import numpy.typing as npt
 from numpy_groupies.dtypes import (
     TEMPORAL_KINDS,
     is_temporal_input,
+    is_temporal_scalar,
 )
 from numpy_groupies.functions import func_argument_default, nan
 from numpy_groupies.npg_numba.jit import njit_stable, register_overload
 from numpy_groupies.npg_numba.mt import (
     GROUP_MT_MIN_VALUES,
     MT_MIN_VALUES,
-    chunk_count,
-    should_use_mt,
+    mt_thread_plan,
 )
 from numpy_groupies.temporal import NAT_TICK
 from numpy_groupies.typing import AResult, AScalar
@@ -85,9 +85,12 @@ from numpy_groupies.validation import (
     LENGTH_MISMATCH,
     NEGATIVE_INDICES,
     NON_INTEGER_GROUP_IDX,
+    OBJECT_COLUMN_NOT_FOR_NUMBA,
     TOO_LARGE,
     TOO_LARGE_SIZE_PREFIX,
+    check_fill_kind,
     check_fill_value_for_dtype,
+    fill_kind_refusal,
     is_integer_dtype,
     is_numeric_dtype,
 )
@@ -347,9 +350,32 @@ def _kernel_inputs(group_idx: Any, a: Any) -> tuple[Any, Any]:
     if not is_integer_dtype(group_idx.dtype):
         # the same complaint the python-level call makes about the labels
         raise TypeError(NON_INTEGER_GROUP_IDX)
+    if a.dtype.kind == "O":
+        # the compiled driver has no dtype for the values of an object column
+        # - the complaint is the one of the package and not the TypingError
+        # of the compiler behind it
+        raise TypeError(OBJECT_COLUMN_NOT_FOR_NUMBA)
     if not is_numeric_dtype(a.dtype) and a.dtype.kind not in TEMPORAL_KINDS:
         raise ValueError(f"{_NUMERIC_VALUES}, not {a.dtype}")
     return group_idx, a
+
+
+def _tick_fill(fill_value: Any, a_dtype: np.dtype) -> int:
+    """The tick of the fill value of a temporal column, for its tick kernel.
+
+    Nothing given and a nan are the NaT of the unit, a plain number is a tick
+    of that unit, and a date or a duration of the column's own kind is read in
+    that unit: ``np.int64()`` of it reads its value and forgets its unit, and of
+    a date even answers its seconds since the epoch.  The kind of the fill is
+    asked here too - the tick stub answers a temporal column without ever
+    reaching the python prologue that asks it for the other kernels.
+    """
+    check_fill_kind(fill_value, a_dtype)
+    if fill_value is None or (isinstance(fill_value, float) and fill_value != fill_value):
+        return NAT_TICK
+    if is_temporal_scalar(fill_value):
+        return int(np.asarray(fill_value, dtype=a_dtype).view(np.int64))
+    return int(fill_value)
 
 
 def _temporal_fill_scalar(fill_value: Any, out_dtype: np.dtype) -> AScalar:
@@ -363,8 +389,10 @@ def _temporal_fill_scalar(fill_value: Any, out_dtype: np.dtype) -> AScalar:
             return cast("AScalar", np.asarray(fill_value).astype(out_dtype)[()])
         raise ValueError(FILL_NOT_CONVERTIBLE.format(dtype=out_dtype.type.__name__))
     if isinstance(fill_value, (bool, np.bool_, int, np.integer)):
-        # the tick of the value - NaT is the tick -2**63
-        return cast("AScalar", np.asarray(NAT_TICK + int(fill_value)).view(out_dtype)[()])
+        # a plain number names the tick of the unit, as it does for
+        # aggregate() - the value plus the ticks since the NaT would make
+        # the zero of the unit the end of time and answer it with a NaT
+        return cast("AScalar", np.asarray(int(fill_value), dtype=np.int64).view(out_dtype)[()])
     raise ValueError(FILL_NOT_CONVERTIBLE.format(dtype=out_dtype.type.__name__))
 
 
@@ -437,15 +465,19 @@ def _fill_fits_overload(fill_value: Any, low: Any, high: Any, high_exclusive: An
 def _fill_differs(fill_value: Any, forced_fill: float) -> bool:
     """Whether the fill value is the caller's own rather than the forced default.
 
-    A temporal fill is compared within its own unit - a nan differs, the zero
-    of the unit does not - because numba knows no comparison of a temporal
-    scalar with the integer default.  The isinstance is dead code for the
-    numeric dtypes.
+    A temporal fill is compared by its tick, since numba knows no comparison of
+    a temporal scalar with a number.  The comparison asks no unit question: the
+    zero this decision is given is the zero of the unit as well as the number
+    zero, and a default that is no whole number - the nan of the operations
+    that fill with nan - is no tick at all, so no date and no duration is ever
+    equal to it.  What differs, the NaT included, is the caller's own and
+    belongs into the groups the loop never touched.  The isinstance is dead
+    code for the numeric dtypes.
     """
     if isinstance(fill_value, (np.datetime64, np.timedelta64)):
-        # a temporal fill differs from the forced default when it is a NaT -
-        # the unit's zero is the default of the fill-with-zero operations
-        return bool(fill_value != fill_value)
+        if forced_fill != forced_fill or forced_fill != int(forced_fill):
+            return True
+        return bool(np.int64(fill_value) != np.int64(int(forced_fill)))
     return bool(fill_value != forced_fill)
 
 
@@ -575,6 +607,18 @@ _TypingPrologue = Callable[[Any, Any, Any], _TypingCall]
 _Kernel = tuple[Callable[..., Any], Callable[..., Any]]
 
 
+# the two temporal types of numba, by the kind letter they answer with
+_TEMPORAL_FILL_KINDS: dict[type, str] = {nb.types.NPDatetime: "M", nb.types.NPTimedelta: "m"}
+
+
+def _temporal_fill_kind(fill_type: Any) -> str | None:
+    """The kind of a temporal fill value, of its numba type alone."""
+    for temporal_type, kind in _TEMPORAL_FILL_KINDS.items():
+        if isinstance(fill_type, temporal_type):
+            return kind
+    return None
+
+
 def _no_fill_value(fill_type: Any) -> bool:
     """Whether the argument of the signature asks for the default fill value -
     the None of the default arrives as the default itself, as the numba type
@@ -622,6 +666,11 @@ def _python_prologue(
         group_idx, a = _kernel_inputs(group_idx, a)
         if a.dtype.kind in TEMPORAL_KINDS and tick is None:
             _temporal_gate(stub_name, a.dtype)
+        # the kind question of the python half, the twin of the one the typing
+        # function asks: no number of the values is a date and no duration,
+        # and neither is a value of the other kind - asked before any
+        # conversion, which reads the one as the ticks of the other
+        check_fill_kind(fill_value, a.dtype)
         if reject_fill and fill_value is not None:
             # this driver cannot place a fill value - saying so beats ignoring
             # the argument silently
@@ -689,6 +738,12 @@ def _typing_prologue(
         if not is_integer_dtype(_numpy_dtype(getattr(group_idx, "dtype", None))):
             raise nb.TypingError(NON_INTEGER_GROUP_IDX)
         a_dtype = _numpy_dtype(getattr(a, "dtype", None))
+        if a_dtype is not None and a_dtype.kind == "O":
+            # the compiled driver has no dtype for the values of an object
+            # column - the complaint is the one of the package.  A call from
+            # compiled code never reaches it: numba refuses the values of an
+            # object array itself, before the typing of the call is asked for
+            raise TypeError(OBJECT_COLUMN_NOT_FOR_NUMBA)
         temporal = a_dtype is not None and a_dtype.kind in TEMPORAL_KINDS
         if not temporal and not is_numeric_dtype(a_dtype):
             raise nb.TypingError(_NUMERIC_VALUES)
@@ -703,6 +758,14 @@ def _typing_prologue(
                 out_dtype, aux_dtype = rule_same(a)
                 return _temporal_typing_call(out_dtype, aux_dtype)
         out_dtype, aux_dtype = rule(a)
+        # the kind question before the fit question: a date and a duration
+        # reach this function as a type and not as a value, which is enough
+        # to say that no number of the values is one of them - and a complaint
+        # raised here is the TypeError of the package and not the TypingError
+        # of the compiler behind it
+        fill_kind = _temporal_fill_kind(fill_value)
+        if fill_kind is not None and (a_dtype is None or a_dtype.kind != fill_kind):
+            raise fill_kind_refusal("the fill value", fill_kind, a_dtype)
         if reject_fill:
             if not _no_fill_value(fill_value):
                 raise nb.TypingError(_REFUSAL.format(name=stub_name))
@@ -804,7 +867,7 @@ def _kernel_none(
         if tick is not None and is_temporal_input(a):
             group_idx, a = _kernel_checks(group_idx, a)
             ticks = a.view(np.int64)
-            fill = NAT_TICK if fill_value is None else np.int64(fill_value)
+            fill = _tick_fill(fill_value, a.dtype)
             # the answer of the tick kernel, viewed back into the unit
             answer: AResult = tick(group_idx, ticks, size, fill).view(a.dtype)
             return answer
@@ -995,7 +1058,7 @@ def _kernel_q_method(
         if tick is not None and is_temporal_input(a):
             group_idx, a = _kernel_checks(group_idx, a)
             ticks = a.view(np.int64)
-            fill = NAT_TICK if fill_value is None else np.int64(fill_value)
+            fill = _tick_fill(fill_value, a.dtype)
             # the answer of the tick kernel, viewed back into the unit
             answer: AResult = tick(group_idx, ticks, q, method, size, fill).view(a.dtype)
             return answer
@@ -1182,6 +1245,37 @@ def _make_stub(
 # it on as the ``extra`` of the pass structure.
 
 
+class StateLayout(NamedTuple):
+    """What the size of the state of an operation depends on: the dtypes of
+    the call.
+
+    The bytes of the state are a function of them - the dtype of the answer
+    says how wide it is, the auxiliary dtype how wide the deviations are, the
+    dtype of the input how wide the anchor is.  The operations take what they
+    need of it.
+    """
+
+    out_dtype: np.dtype
+    aux_dtype: np.dtype
+    in_dtype: np.dtype
+
+
+def _proxy_state_bytes(state_size: int) -> Callable[..., int]:
+    """The bytes the state holds per group, guessed from its arrays.
+
+    The guess of the model: the number of the arrays of the state times the
+    width of a float64.  Every operation declares its own - the guess is
+    wrong by a factor of two for the float32 and the complex input, and in
+    the direction that lets the parallel path into a state that does not fit
+    the cache.
+    """
+
+    def state_bytes(layout: StateLayout) -> int:
+        return state_size * 8
+
+    return state_bytes
+
+
 def build_driver(
     name: str, passes: Any, suffix: str, multi_threading: bool = False
 ) -> Callable[..., AResult | list[AResult]]:
@@ -1206,9 +1300,11 @@ def build_driver(
             aux_dtype: np.dtype,
             fill_value: float,
             extra: Any = 0,
+            machine: Any = None,
+            state_bytes: int = 8,
         ) -> AResult | list[AResult]:
             result: AResult | list[AResult] = passes(
-                group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, extra, n_threads
+                group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, extra, n_threads, machine, state_bytes
             )
             return result
 
@@ -1264,6 +1360,9 @@ class KernelHandle(NamedTuple):
     ``mt_min_values`` the values from which the parallel path is worth a look
                     - the cost model's floor; the pool size is a runtime call
                     a too-small call should not pay for
+    ``state_bytes_per_group_of`` the bytes the state of the operation holds
+                    per group, measured from the state itself: the cost model
+                    measures the state against the cache of the machine
     """
 
     name: str
@@ -1283,6 +1382,7 @@ class KernelHandle(NamedTuple):
     assembles: bool = False
     mt_driver: Callable[..., AResult | list[AResult]] | None = None
     mt_min_values: int = 0
+    state_bytes_per_group_of: Callable[[StateLayout], int] | None = None
 
 
 def make_tick_call(name: str, handle: KernelHandle) -> Callable[..., Any]:
@@ -1354,6 +1454,12 @@ def build_kernel(
     combine: Callable[..., None] | None = None,
     combine_nan: Callable[..., None] | None = None,
     state_size: int = 1,
+    # the bytes the state of the operation holds per group, as a function of
+    # the dtypes of the call and of the fill value: the cost model measures
+    # the state against the cache of the machine, and it needs the size of it
+    # in bytes.  The declaration belongs beside the state, where the arrays
+    # of it are named.
+    state_bytes: Callable[[StateLayout], int] | None = None,
     nans: bool = True,
     variant: ComposedVariant = "none",
     aux_widen: bool = False,
@@ -1384,6 +1490,13 @@ def build_kernel(
     know.
     """
     init_c = njit_stable(init)
+
+    # the bytes the state of this operation holds per group - declared
+    # beside the state, where the arrays of it are named, and handed to the
+    # cost model with every call: the state is measured against the cache of
+    # the machine, and the model needs its size in bytes
+    state_bytes_per_group_of = state_bytes if state_bytes is not None else _proxy_state_bytes(state_size)
+
     update_c = njit_stable(update)
     update_nan_c = njit_stable(update_nan) if update_nan is not None else None
 
@@ -1586,6 +1699,8 @@ def build_kernel(
                 fill_value: float,
                 extra: Any,
                 n_threads: int,
+                machine: Any,
+                state_bytes: int,
             ) -> AResult | list[AResult]:
                 size = np.max(group_idx) + 1
                 if size_arg >= 0:
@@ -1593,27 +1708,20 @@ def build_kernel(
                         _raise_too_large_for_size(size_arg)
                     size = size_arg
                 n_values = len(group_idx)
-                if not should_use_mt(size, n_threads, n_values, state_size):
+                threads = mt_thread_plan(size, n_threads, n_values, state_size, state_bytes, machine)
+                if threads < 2:
                     # not worth it, or only one thread: the sequential path,
                     # with its result bit for bit
                     return passes(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, extra)
-                n_chunks = chunk_count(n_threads, n_values)
+                # one chunk and one state per thread the plan asks for: the
+                # state of a chunk is the state of the chunk, so no two
+                # threads ever write into the same one - no lock, and the
+                # fold runs in the order of the chunks, the same bits every
+                # time.  The threads of the pool beyond the plan idle.
+                n_chunks = threads
                 chunk = (n_values + n_chunks - 1) // n_chunks
                 faults = np.zeros(n_chunks, np.int64)
-                # states one per chunk or one per thread, the memory decides: a
-                # state is group-sized, so chunk states cost twice the thread
-                # states - with few groups per chunk wins (the fold runs in
-                # chunk order, the same bits every time, not the order the pool
-                # happened to hand the chunks out in), with many groups the
-                # memory counts.
-                #
-                # The extra states may not be more than a tenth of the data
-                # itself: a state is group-sized, the data value-sized.
-                per_chunk = n_threads * size * state_size * 10 <= n_values
-                n_states = n_chunks if per_chunk else n_threads
-                # one state per thread, written by that thread alone - no lock;
-                # a busy thread delays its chunk and not the whole call, the
-                # threads that are done take the chunks that are left.
+                n_states = n_chunks
                 states = [
                     init_c(size, n_values, out_dtype, aux_dtype, a.dtype, fill_value, forced_fill)
                     for _ in range(n_states)
@@ -1622,8 +1730,7 @@ def build_kernel(
                     start = c * chunk
                     stop = min(start + chunk, n_values)
                     if stop > start:
-                        # the state of the chunk, or of the thread that takes it
-                        state = states[c] if per_chunk else states[nb.get_thread_id()]
+                        state = states[c]
                         seed_c(state, a[start:stop])
                         faults[c] = kernel(group_idx[start:stop], a[start:stop], state, fill_value, extra, size)
                 # the states, folded in the order of their index
@@ -1664,6 +1771,7 @@ def build_kernel(
             assembles=assembles,
             mt_driver=mt_driver,
             mt_min_values=MT_MIN_VALUES if mt_driver is not None else 0,
+            state_bytes_per_group_of=state_bytes_per_group_of,
         )
 
     plain = build(False)
@@ -1745,6 +1853,9 @@ def build_custom_kernel(
             nton=nton,
             fallback=fallback,
             refusal=refusal,
+            # the state of these operations is the answer itself: one number
+            # per group, in the output dtype
+            state_bytes_per_group_of=lambda layout: layout.out_dtype.itemsize,
             placeable=placeable,
             post=post,
             assembles=assembles,

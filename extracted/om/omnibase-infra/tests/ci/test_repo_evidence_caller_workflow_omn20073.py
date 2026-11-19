@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-"""OMN-20073/OMN-20074: repo-owned evidence caller and its S6 part 1 trigger."""
+"""Repo-owned evidence caller and its pull request verdicts."""
 
 from __future__ import annotations
 
@@ -21,14 +21,14 @@ from scripts.ci.ci_summary_gate import (
     evaluate_external_contexts,
     evaluate_external_sweep,
 )
+from tests.ci.receipt_gate_pin import RECEIPT_GATE_PIN_SHA, RECEIPT_GATE_PIN_TAG
 
 pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CALLER_PATH = REPO_ROOT / ".github" / "workflows" / "call-repo-evidence-gate.yml"
 
-# First release whose wheel ships node_dod_verify occ-difference, omnimarket#3277.
-_DIFFERENCE_CLASSIFIER_FLOOR = (0, 4, 294)
+_VERIFIER_TAG_SHAPE = r"dev-\d{14}-[0-9a-f]{12}"
 
 _VERIFY = "repo-evidence / verify"
 _DOD_VERIFY = "repo-evidence / dod-verify"
@@ -47,19 +47,15 @@ def test_caller_workflow_shape() -> None:
     # PyYAML 1.1 resolves the bare `on:` key to the boolean True.
     triggers = data.get("on", data.get(True))
     assert isinstance(triggers, dict), "caller must declare a mapping on: block"
-    # OMN-20074: the base-branch trigger makes GitHub read this definition from
-    # the base branch, so a pull request cannot edit what judges it. The operator
-    # ruled (2026-10-08T22:41:24Z) that this one file is the single named
-    # exception to the OMN-15699 ban in scripts/audit-runner-routing.py.
-    assert set(triggers) == {"pull_request_target"}, (
-        "caller must only use the base-branch pull request trigger"
-    )
-    target = triggers["pull_request_target"]
-    assert not {"paths", "paths-ignore"} & set(target), (
+    assert set(triggers) == {"pull_request"}, "caller must only use pull_request"
+    pull_request = triggers["pull_request"]
+    assert not {"paths", "paths-ignore"} & set(pull_request), (
         "the registered verdict must report without a paths filter"
     )
-    assert target["branches"] == ["dev", "main"], "caller must target dev and main"
-    assert target["types"] == [
+    assert pull_request["branches"] == ["dev", "main"], (
+        "caller must target dev and main"
+    )
+    assert pull_request["types"] == [
         "opened",
         "synchronize",
         "reopened",
@@ -80,8 +76,11 @@ def test_caller_workflow_shape() -> None:
     assert job["with"]["evidence-source"] == "caller", (
         "caller evidence mode is required"
     )
-    assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", job["with"]["verifier-version"]), (
-        "verifier-version must be a numeric semantic version"
+    assert re.fullmatch(_VERIFIER_TAG_SHAPE, job["with"]["verifier-tag"]), (
+        "verifier-tag must be an omnimarket dev-merge tag"
+    )
+    assert "verifier-version" not in job["with"], (
+        "the caller installs its verifier from verifier-tag, never a version"
     )
     for key in ("steps", "secrets", "if", "name", "permissions"):
         assert key not in job, f"caller job must not declare {key}"
@@ -89,21 +88,22 @@ def test_caller_workflow_shape() -> None:
 
 
 def test_caller_verifier_ships_the_occ_difference_classifier() -> None:
+    """The verifier comes from a dev-merge tag, which postdates omnimarket#3563.
+
+    The reusable resolves the tag to its commit and refuses one that is moved, off
+    omnimarket dev, or not a descendant of the floor commit (OMN-21853), so no
+    release number is compared here.
+    """
     inputs = _job()["with"]
-    version = tuple(int(part) for part in inputs["verifier-version"].split("."))
-    assert version >= _DIFFERENCE_CLASSIFIER_FLOOR, (
-        "verifier-version must ship node_dod_verify occ-difference "
-        f"(>= {'.'.join(map(str, _DIFFERENCE_CLASSIFIER_FLOOR))})"
-    )
-    assert version >= (0, 4, 305), (
-        "verifier-version must ship omnimarket#3563 (omnimarket v0.4.305), "
-        "the release the receipt-gate pin's contract-home step expects"
-    )
+    assert re.fullmatch(_VERIFIER_TAG_SHAPE, inputs["verifier-tag"]), inputs
+    assert "verifier-version" not in inputs, sorted(inputs)
 
 
 def test_caller_pins_the_s6_part1_inputs() -> None:
     job = _job()
-    assert job["uses"].endswith("@4e4f5e0404d364e296c5d37db6aa3ab9e07f8ffa")
+    assert job["uses"].endswith(f"@{RECEIPT_GATE_PIN_SHA}")
+    assert RECEIPT_GATE_PIN_SHA.startswith(RECEIPT_GATE_PIN_TAG.rsplit("-", 1)[1])
+    assert re.fullmatch(_VERIFIER_TAG_SHAPE, RECEIPT_GATE_PIN_TAG)
     assert job["with"].get("shadow") == "false"
     assert job["with"].get("compare-with-occ") == "false"
 
@@ -162,8 +162,8 @@ def _sweep(
 
 def test_ci_summary_sweep_accepts_the_caller_shape() -> None:
     """Green caller rows pass both layers now that dod-verify is registered."""
-    assert {"pull_request", "pull_request_target"}.isdisjoint(SWEEP_NON_PR_EVENTS), (
-        "the sweep judges the caller's pull_request and pull_request_target rows"
+    assert "pull_request" not in SWEEP_NON_PR_EVENTS, (
+        "the sweep judges the caller's pull_request rows"
     )
     assert _DOD_VERIFY in EXPECTED_EXTERNAL_CONTEXTS
     assert _VERIFY not in EXPECTED_EXTERNAL_CONTEXTS
@@ -186,10 +186,10 @@ def test_ci_summary_sweep_accepts_the_caller_shape() -> None:
         pytest.param("success", "failure", _DOD_VERIFY, id="red-dod-verify"),
     ],
 )
-def test_ci_summary_sweep_judges_the_base_branch_trigger_rows(
+def test_ci_summary_sweep_judges_legacy_base_branch_trigger_rows(
     verify: str, dod_verify: str, refused: str | None
 ) -> None:
-    """Base-branch rows use the sweep for verify and expected contexts for dod-verify."""
+    """The sweep and expected-context checks still judge rows from the old caller."""
     failures, swept, expected_judged = _sweep(
         _caller_rows(verify=verify, dod_verify=dod_verify), "pull_request_target"
     )
@@ -366,7 +366,7 @@ def test_contract_binding_refuses_a_node_id_of_a_missing_test() -> None:
             id="node-id",
         ),
         pytest.param(
-            "uv run pytest 'tests/ci/test_repo_evidence_caller_workflow_omn20073.py::test_ci_summary_sweep_judges_the_base_branch_trigger_rows[green]' -q",
+            "uv run pytest 'tests/ci/test_repo_evidence_caller_workflow_omn20073.py::test_ci_summary_sweep_judges_legacy_base_branch_trigger_rows[green]' -q",
             "tests/ci/test_repo_evidence_caller_workflow_omn20073.py",
             id="parametrized-node-id",
         ),

@@ -6,8 +6,10 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from contextlib import suppress
+from datetime import UTC, datetime
 from email.utils import format_datetime
 from functools import cached_property
 from typing import TYPE_CHECKING
@@ -43,9 +45,7 @@ ASSESS_STACKTRACES = "assess.stacktraces"
 ASSESS_DISABLED_RULE_CONFIG_KEY = "assess.rules.disabled_rules"
 EXPORTED_CONFIG_FILE_NAME = "contrast_connection.json"
 
-UNIX_EPOCH_HTTP = format_datetime(
-    datetime.fromtimestamp(0, tz=timezone.utc), usegmt=True
-)
+UNIX_EPOCH_HTTP = format_datetime(datetime.fromtimestamp(0, tz=UTC), usegmt=True)
 """
 String representation of the unix epoch (1 January 1970) in HTTP-format. Used in the
 `If-Modified-Since` header before we have a `Last-Modified` time.
@@ -491,7 +491,7 @@ class Settings(Singleton):
         In some cases this wasn't immediately feasible due to when and how we reload those settings
         """
         status = self.contrast_ui_status or self.config.config_status or "Success"
-        report_creation_time = datetime.now(timezone.utc).strftime(RFC3339_FORMAT)
+        report_creation_time = datetime.now(UTC).strftime(RFC3339_FORMAT)
         config = {
             "report_create": report_creation_time,
             "config": {
@@ -593,10 +593,15 @@ class Settings(Singleton):
             return
         path = pathlib.Path(self.config.get("agent.logger.path")).parent.resolve()
         filename = f"{path}/{EXPORTED_CONFIG_FILE_NAME}"
+        # Every forked worker exports the config, so write to a unique temporary file
+        # and rename it into place. The rename is atomic, so neither readers nor other
+        # writers ever see a partially written file.
+        tmp_filename = f"{path}/.{EXPORTED_CONFIG_FILE_NAME}.{uuid.uuid4().hex}.tmp"
 
         try:
-            with open(filename, "w", encoding="utf-8") as f:
+            with open(tmp_filename, "x", encoding="utf-8") as f:
                 json.dump(self.generate_effective_config(), f, indent=4)
+            os.replace(tmp_filename, filename)
         except PermissionError as perm_error:
             logger.warning(
                 "Failed to export effective config",
@@ -604,6 +609,9 @@ class Settings(Singleton):
                 error=str(perm_error),
             )
             return
+        finally:
+            with suppress(OSError):
+                os.remove(tmp_filename)
 
 
 RFC3339_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"

@@ -148,6 +148,41 @@ def test_disk_store_json(tmp_path):
     assert store["hans/peter"] == test_dict
 
 
+def test_disk_store_json_types(tmp_path):
+    """Tuples and non-string dictionary keys must survive a round trip"""
+    store = cached.DiskStore(tmp_path)
+    test_value = (1, [2, (3, 4)], {1: "a", (2, 3): ("b",), "c": [5]})
+    store["types/json"] = test_value
+    meta = json.loads((tmp_path / "types/json_meta.json").read_text())
+    assert meta["format"] == "json-typed"
+    value = store["types/json"]
+    assert value == test_value
+    assert isinstance(value, tuple)
+    assert isinstance(value[1], list)
+    assert isinstance(value[1][1], tuple)
+    assert isinstance(value[2][(2, 3)], tuple)
+
+    # data without tuples are stored in plain JSON
+    store["types/plain"] = [1, {"a": [2]}]
+    meta = json.loads((tmp_path / "types/plain_meta.json").read_text())
+    assert meta["format"] == "json"
+    assert store["types/plain"] == [1, {"a": [2]}]
+
+
+def test_disk_store_mixed_types(tmp_path):
+    """Tuples with numpy arrays must survive a round trip"""
+    store = cached.DiskStore(tmp_path)
+    store["types/tuple"] = (np.arange(3), (1, 2))
+    store["types/list"] = [np.arange(3), (1, 2)]
+    value_tuple = store["types/tuple"]
+    assert isinstance(value_tuple, tuple)
+    assert isinstance(value_tuple[1], tuple)
+    assert np.all(value_tuple[0] == np.arange(3))
+    value_list = store["types/list"]
+    assert isinstance(value_list, list)
+    assert isinstance(value_list[1], tuple)
+
+
 def test_disk_store_numpy(tmp_path):
     store = cached.DiskStore(tmp_path)
     test_list = (np.linspace(0, 1, 10, dtype=np.complex128),
@@ -177,6 +212,21 @@ def test_disk_store_path(tmp_path):
     store["a/path"] = pathlib.Path(__file__)
 
     assert store["a/path"] == str(pathlib.Path(__file__))
+
+
+def test_disk_store_remove(tmp_path):
+    store = cached.DiskStore(tmp_path)
+    store["topic/abc/def/0123"] = [np.arange(3), b"peter"]
+    store["topic/abc/def/0124"] = [1, 2]
+    lock_path = tmp_path / "topic/abc/def/0123.lock"
+    lock_path.touch()
+    assert "topic/abc/def/0123" in store
+    store.remove("topic/abc/def/0123")
+    assert "topic/abc/def/0123" not in store
+    assert "topic/abc/def/0123" not in store.index
+    assert sorted(p.name for p in (tmp_path / "topic/abc/def").iterdir()) \
+        == ["0123.lock", "0124.json", "0124_meta.json"]
+    assert store["topic/abc/def/0124"] == [1, 2]
 
 
 def test_disk_store_remove_old_files(tmp_path):

@@ -70,7 +70,7 @@ _BOTH_FAILED: dict[str, object] = {
     "content": _UNACCEPTED_ANSWER,
     "error_message": "HTTP 400 model gpt-5-nano is not available",
     "delegated_to": "openai",
-    "model_name": "gpt-5-nano",
+    "model_name": "gpt-4o-mini",
     "escalation_count": 1,
     "input_tokens": 180,
     "output_tokens": 60,
@@ -92,7 +92,7 @@ _BOTH_FAILED: dict[str, object] = {
         {
             "tier": "byok",
             "backend_id": "byok-openai",
-            "model_id": "gpt-5-nano",
+            "model_id": "gpt-4o-mini",
             "quality_gate_passed": False,
             "cost_usd": 0.0002,
             "failure_class": "provider_error",
@@ -198,7 +198,7 @@ def _row(**overrides: object) -> dict[str, object]:
         "correlation_id": str(uuid.uuid4()),
         "created_at": "2026-10-22T12:00:00+00:00",
         "delegated_to": "openai",
-        "model_name": "gpt-5-nano",
+        "model_name": "gpt-4o-mini",
         "task_type": "code_generation",
         "tokens_input": 180,
         "tokens_output": 60,
@@ -241,11 +241,16 @@ def test_metering_counts_a_returned_run_with_zero_savings_not_unknown(
     assert run.savings_usd == Decimal("0")
 
 
-def test_the_cause_that_decided_the_last_rung_stays_readable_as_the_reason() -> None:
-    """The hand-back keeps the deciding cause, so faults are still told apart."""
+def test_the_reason_is_one_word_from_the_closed_list() -> None:
+    """OMN-23165: the hand-back names the reason from the closed list.
+
+    The fixture's first rung was refused by the quality gate, so the gate
+    decided the run; the second rung's provider error stays on its own attempt.
+    """
     terminal = _terminal()
 
-    assert terminal.terminal_failure_reason == "quality_gate_refused"
+    assert terminal.terminal_failure_reason == "quality_veto"
+    assert terminal.attempts[-1].failure_class == "provider_error"
 
 
 def test_the_row_the_dashboard_reads_books_zero_savings_for_a_returned_run() -> None:

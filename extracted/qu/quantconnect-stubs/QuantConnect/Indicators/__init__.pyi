@@ -5149,7 +5149,7 @@ class MarketProfile(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indi
         This Class is protected.
         
         :param input: The input value to this indicator on this time step
-        :returns: A a value for this indicator, Point of Control (POC) price.
+        :returns: A value for this indicator, Point of Control (POC) price.
         """
         ...
 
@@ -7284,7 +7284,7 @@ class EaseOfMovementValue(QuantConnect.Indicators.TradeBarIndicator, QuantConnec
         This Class is protected.
         
         :param input: The input value to this indicator on this time step
-        :returns: A a value for this indicator.
+        :returns: A value for this indicator.
         """
         ...
 
@@ -8402,7 +8402,7 @@ class AugenPriceSpike(QuantConnect.Indicators.Indicator, QuantConnect.Indicators
         This Class is protected.
         
         :param input: The input value to this indicator on this time step
-        :returns: A a value for this indicator.
+        :returns: A value for this indicator.
         """
         ...
 
@@ -8413,10 +8413,10 @@ class AugenPriceSpike(QuantConnect.Indicators.Indicator, QuantConnect.Indicators
 
 class Stochastic(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
-    This indicator computes the Slow Stochastics %K and %D. The Fast Stochastic %K is is computed by
+    This indicator computes the Slow Stochastics %K and %D. The Fast Stochastic %K is computed by
     (Current Close Price - Lowest Price of given Period) / (Highest Price of given Period - Lowest Price of given Period)
     multiplied by 100. Once the Fast Stochastic %K is calculated the Slow Stochastic %K is calculated by the average/smoothed price of
-    of the Fast %K with the given period. The Slow Stochastic %D is then derived from the Slow Stochastic %K with the given period.
+    the Fast %K with the given period. The Slow Stochastic %D is then derived from the Slow Stochastic %K with the given period.
     """
 
     @property
@@ -11917,7 +11917,7 @@ class RelativeDailyVolume(QuantConnect.Indicators.TradeBarIndicator, QuantConnec
         This Class is protected.
         
         :param input: The input value to this indicator on this time step
-        :returns: A a value for this indicator.
+        :returns: A value for this indicator.
         """
         ...
 

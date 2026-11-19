@@ -40,6 +40,7 @@ ScheduledChangeTypeType = Literal["CANCELLATION", "DOWNGRADE"]
 StatusType = Literal["ACTIVE", "FAILED", "PENDING_APPROVAL", "SYNC_IN_PROGRESS"]
 PricingPlanManagerServiceName = Literal["pricing-plan-manager"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

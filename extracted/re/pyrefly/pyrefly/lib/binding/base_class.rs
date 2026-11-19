@@ -7,8 +7,12 @@
 
 use pyrefly_graph::index::Idx;
 use pyrefly_python::ast::Ast;
+use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::ExprContext;
 use ruff_python_ast::ExprName;
+use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -44,6 +48,31 @@ impl Ranged for BaseClassExpr {
 }
 
 impl BaseClassExpr {
+    /// Reconstruct a type expression only when annotation-specific parsing needs it.
+    pub fn to_expr(&self) -> Expr {
+        match self {
+            Self::Name(name) => Expr::Name(name.clone()),
+            Self::Attribute { value, attr, range } => Expr::Attribute(ExprAttribute {
+                node_index: AtomicNodeIndex::default(),
+                range: *range,
+                value: Box::new(value.to_expr()),
+                attr: attr.clone(),
+                ctx: ExprContext::Load,
+            }),
+            Self::Subscript {
+                value,
+                slice,
+                range,
+            } => Expr::Subscript(ExprSubscript {
+                node_index: AtomicNodeIndex::default(),
+                range: *range,
+                value: Box::new(value.to_expr()),
+                slice: slice.clone(),
+                ctx: ExprContext::Load,
+            }),
+        }
+    }
+
     pub fn from_expr(expr: &Expr) -> Option<Self> {
         match expr {
             Expr::Name(x) => Some(Self::Name(x.clone())),
@@ -66,6 +95,34 @@ impl BaseClassExpr {
             _ => None,
         }
     }
+}
+
+/// A call expression in the base class list of a `class` statement. Its value is only known
+/// after solving the call. The wrapped expression is always an `Expr::Call`.
+#[derive(Debug, Clone)]
+pub struct BaseClassCall(Expr);
+
+impl BaseClassCall {
+    pub fn as_expr(&self) -> &Expr {
+        &self.0
+    }
+}
+
+impl Ranged for BaseClassCall {
+    fn range(&self) -> TextRange {
+        self.0.range()
+    }
+}
+
+/// Where a base class expression appears, which determines whether a call is a valid base.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BaseClassSite {
+    /// The base class list of a `class` statement, which Python evaluates like any other
+    /// expression.
+    ClassStatement,
+    /// The base of a class synthesized from a functional form such as `NewType`, which must be
+    /// a class expression.
+    FunctionalForm,
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +152,7 @@ pub enum BaseClass {
     TypedDict(TextRange),
     Generic(BaseClassGeneric),
     BaseClassExpr(BaseClassExpr),
+    Call(BaseClassCall),
     InvalidExpr(Expr),
     /// A namedtuple base class.
     /// The bool indicates whether fields were dynamically generated
@@ -131,6 +189,7 @@ impl Ranged for BaseClass {
             BaseClass::TypedDict(range) => *range,
             BaseClass::Generic(x) => x.range(),
             BaseClass::BaseClassExpr(base_expr) => base_expr.range(),
+            BaseClass::Call(call) => call.range(),
             BaseClass::InvalidExpr(expr) => expr.range(),
             BaseClass::NamedTuple(range, _) => *range,
             BaseClass::SynthesizedBase(_, range) => *range,
@@ -140,7 +199,7 @@ impl Ranged for BaseClass {
 }
 
 impl<'a> BindingsBuilder<'a> {
-    pub fn base_class_of(&self, base_expr: Expr) -> BaseClass {
+    pub fn base_class_of(&self, base_expr: Expr, site: BaseClassSite) -> BaseClass {
         match self.as_special_export(&base_expr) {
             Some(SpecialExport::TypedDict) => BaseClass::TypedDict(base_expr.range()),
             Some(SpecialExport::TypingNamedTuple) | Some(SpecialExport::CollectionsNamedTuple) => {
@@ -185,9 +244,24 @@ impl<'a> BindingsBuilder<'a> {
                     return BaseClass::TypeOf(inner, base_expr.range());
                 }
                 if let Some(valid_expr) = BaseClassExpr::from_expr(&base_expr) {
-                    BaseClass::BaseClassExpr(valid_expr)
-                } else {
-                    BaseClass::InvalidExpr(base_expr)
+                    return BaseClass::BaseClassExpr(valid_expr);
+                }
+                match base_expr {
+                    // A class statement synthesizes well-formed functional named tuples
+                    // before binding its bases, so a named tuple call here is malformed.
+                    Expr::Call(call)
+                        if site == BaseClassSite::ClassStatement
+                            && !matches!(
+                                self.as_special_export(&call.func),
+                                Some(
+                                    SpecialExport::CollectionsNamedTuple
+                                        | SpecialExport::TypingNamedTuple
+                                )
+                            ) =>
+                    {
+                        BaseClass::Call(BaseClassCall(Expr::Call(call)))
+                    }
+                    base_expr => BaseClass::InvalidExpr(base_expr),
                 }
             }
         }

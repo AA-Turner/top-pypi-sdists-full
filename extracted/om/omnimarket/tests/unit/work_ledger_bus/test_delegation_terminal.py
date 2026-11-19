@@ -9,9 +9,9 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
 from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
 from omnibase_infra.errors import ProjectionNotMaterializedError
+from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
 
 from omnimarket.delegated_test_loop.lab_run_bus import (
     ProtocolBusMessage,
@@ -185,6 +185,52 @@ def test_delegation_terminal_redelivery_appends_once(
             assert len(runner.calls) == 1
             assert path.read_text().count(f"run={run}") == 1
             assert f"outcome={terminal_kind}" in runner.calls[0]
+        finally:
+            await host.stop()
+            await bus.close()
+
+    asyncio.run(scenario())
+
+
+def test_recorded_timeout_reason_survives_the_serve_subscription(
+    tmp_path: Path,
+) -> None:
+    """The recorded 22:01:45 timeout passes through the production adapter."""
+
+    async def scenario() -> None:
+        path = tmp_path / "ledger.md"
+        path.write_text("# Ledger\n")
+        runner = _Runner(path)
+        bus = EventBusInmemory(environment="local", group="delegation-reason-replay")
+        await bus.start()
+        host = _host(bus, runner, path)
+        await host.start()
+        try:
+            topic = host.delegation_topics[1]
+            run = "5a98a1bf-2725-497b-aacc-979c729619cc"
+            envelope = ModelEventEnvelope[dict[str, object]](
+                payload={
+                    "correlation_id": run,
+                    "status": "timeout",
+                    "task_type": "summarization",
+                    "caller_lane": "landing-L24770",
+                    "terminal_failure_cause": "timeout",
+                    "quality_gate_passed": False,
+                    "emitted_at": "2026-11-04T22:01:45Z",
+                },
+                event_type=event_type_for(topic),
+            )
+            for _ in range(2):
+                envelope = envelope.model_copy(update={"envelope_id": uuid4()})
+                await bus.publish(
+                    topic, run.encode(), envelope.model_dump_json().encode()
+                )
+                await host.drain()
+            assert len(runner.calls) == 1
+            cells = runner.calls[0].split(" | ")
+            assert "reason=timeout" in cells
+            assert "reason_source=terminal_failure_cause" in cells
+            assert "outcome=timeout" in cells
         finally:
             await host.stop()
             await bus.close()

@@ -37,6 +37,7 @@ from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
 from omnibase_infra.enums import EnumConsumerGroupPurpose
 from omnibase_infra.enums.enum_infra_transport_type import EnumInfraTransportType
 from omnibase_infra.errors import InfraConnectionError, ModelInfraErrorContext
+from omnibase_infra.handlers.kafka_idle_topic_watches import idle_watched_topics
 from omnibase_infra.models import ModelNodeIdentity
 from omnibase_infra.models.health.model_consumer_sync_status import (
     ModelConsumerSyncStatus,
@@ -108,26 +109,19 @@ def _discover_contracts() -> ProtocolAutoWiringManifestLike:
     circular import of ``ModelAutoWiringManifest`` at module parse time while
     still providing accurate type information to callers.
     """
+    # OMN-21629: this returns the UNFILTERED manifest. The runtime-profile
+    # ownership filter runs exactly once, in _filter_manifest_for_runtime_profile.
+    # This shim used to filter as well, so the monitor filtered twice. That was
+    # harmless while the filter was idempotent; OMN-19513 made it refuse an
+    # ONEX_RUNTIME_NODE_EXCLUSION naming a contract the manifest lacks, and the
+    # second pass always lacks the contract the first pass excluded. On the dev
+    # lane (exclusion projection_claude_hook_events) every check then reported
+    # discovery_errors CRITICAL ("discover_contracts() raised: RuntimeHostError")
+    # while startup, which filters once, wired cleanly.
     from omnibase_infra.runtime.auto_wiring.discovery import discover_contracts
-    from omnibase_infra.runtime.auto_wiring.profile_ownership import (
-        filter_manifest_for_runtime_profile,
-    )
-    from omnibase_infra.runtime.runtime_profile import resolve_runtime_profile_name
 
-    manifest = discover_contracts()
-    # OMN-17985: the ONE validated read of RUNTIME_PROFILE for an ownership
-    # decision. The raw environment read this replaces spelled the same "main"
-    # default but skipped the registry check, so an unregistered role name was
-    # filtered against a list no contract declares -- every contract skipped,
-    # the manifest empty -- and this monitor would report that as a finding
-    # about the FLEET rather than as the misconfiguration it is.
-    runtime_profile = resolve_runtime_profile_name()
-    ownership_result = filter_manifest_for_runtime_profile(
-        manifest=manifest,
-        runtime_profile=runtime_profile,
-    )
     # Why: Runtime validation guarantees the returned value matches the contract.
-    return ownership_result.manifest  # type: ignore[return-value]
+    return discover_contracts()  # type: ignore[return-value]
 
 
 def _filter_manifest_for_runtime_profile(
@@ -145,9 +139,12 @@ def _filter_manifest_for_runtime_profile(
     if not isinstance(manifest, ModelAutoWiringManifest):
         return manifest
 
-    # OMN-17985: same validated read as `_discover_contracts` above. Unset and
-    # blank still resolve to "main" -- consolidating adds the registry check,
-    # it does not move the ownership default.
+    # OMN-17985: the ONE validated read of RUNTIME_PROFILE for an ownership
+    # decision. Unset and blank still resolve to "main" -- consolidating adds
+    # the registry check, it does not move the ownership default. An
+    # unregistered role name is refused here rather than filtered against a
+    # list no contract declares, which would empty the manifest and be
+    # reported as a finding about the fleet.
     ownership_result = filter_manifest_for_runtime_profile(
         manifest=manifest,
         runtime_profile=resolve_runtime_profile_name(),
@@ -424,7 +421,7 @@ def _worst(statuses: list[_HealthStatus]) -> _HealthStatus:
 #: in container logs and in ``docker inspect`` output on every probe interval;
 #: a runtime with fifty wedged groups has one problem, and the first few name
 #: it.
-_MAX_NAMED_SYNC_GROUPS = 5
+_MAX_NAMED_SYNC = 5
 
 #: What the dimension reports when the transport cannot answer the question --
 #: the in-memory bus, and any process that consumes nothing. Stated rather
@@ -448,42 +445,50 @@ def describe_consumer_sync(statuses: Sequence[ModelConsumerSyncStatus]) -> str:
         return "no consumer groups attached yet"
 
     out_of_sync = [status for status in statuses if not status.ready]
+    # OMN-22291: a group that CARRIES a stall the declared window is still
+    # covering is named rather than omitted. The self-heal owns it until the
+    # window passes, so it is correctly not out of sync -- but a reader could
+    # not tell that from the group never having been measured, because both
+    # read as absence. That is the confusion this dimension exists to end, and
+    # it is what let a CRITICAL verdict rest on three groups whose own reason
+    # string cleared them.
+    held = [status for status in statuses if status.stalled and status.ready]
+    inside = "; ".join(_describe_one_group(s) for s in held[:_MAX_NAMED_SYNC])
+    preamble = f"; {len(held)} group(s) carrying a stall held inside the window: "
+    excluded = preamble + inside if held else ""
     if not out_of_sync:
-        max_lag = max(status.backlog_records for status in statuses)
-        newest_advance = min(status.seconds_since_last_record for status in statuses)
         return (
-            f"{len(statuses)} consumer group(s) in sync; "
-            f"max lag {max_lag} record(s), "
-            f"last advance {newest_advance:.0f}s ago"
+            f"{len(statuses)} consumer group(s) in sync; max lag "
+            f"{max(s.backlog_records for s in statuses)} record(s), last advance "
+            f"{min(s.seconds_since_last_record for s in statuses):.0f}s ago{excluded}"
         )
 
-    named = [
-        _describe_one_group(status) for status in out_of_sync[:_MAX_NAMED_SYNC_GROUPS]
-    ]
-    remainder = len(out_of_sync) - len(named)
-    if remainder > 0:
-        named.append(f"+{remainder} more")
+    named = [_describe_one_group(s) for s in out_of_sync[:_MAX_NAMED_SYNC]]
+    if len(out_of_sync) > len(named):
+        named.append(f"+{len(out_of_sync) - len(named)} more")
     return (
         f"{len(out_of_sync)} of {len(statuses)} consumer group(s) out of sync: "
         + "; ".join(named)
+        + excluded
     )
 
 
 def _describe_one_group(status: ModelConsumerSyncStatus) -> str:
-    """One out-of-sync group, with the two facts that prove it."""
-    parts = [
-        status.consumer_group,
-        f"lag={status.backlog_records}",
-        f"stalled={status.stalled_seconds:.0f}s",
-        f"last_advance={status.seconds_since_last_record:.0f}s",
-        f"reason={status.reason.value}",
-    ]
-    if status.last_rejoin_failed:
-        # Named separately from the stall: the group being behind and the
-        # self-heal being unable to fix it are two findings, and only the
-        # second one says the container needs outside help.
-        parts.append(f"rejoin_failed(attempts={status.rejoin_count})")
-    return " ".join(parts)
+    """One group, with the facts that prove its verdict and the window it met."""
+    # ``window`` is carried for every group, in or out of sync: the stall
+    # figure means nothing without the number it was judged against, and a held
+    # group's whole point is that its stall has not outlived it (OMN-22291).
+    # rejoin_failed is named separately from the stall: the group being behind
+    # and the self-heal being unable to fix it are two findings, and only the
+    # second one says the container needs outside help.
+    failed = f" rejoin_failed(attempts={status.rejoin_count})"
+    return (
+        f"{status.consumer_group} lag={status.backlog_records} "
+        f"stalled={status.stalled_seconds:.0f}s of "
+        f"{status.unready_after_seconds:.0f}s window "
+        f"last_advance={status.seconds_since_last_record:.0f}s "
+        f"reason={status.reason.value}{failed if status.last_rejoin_failed else ''}"
+    )
 
 
 def evaluate_consumer_sync(
@@ -779,8 +784,17 @@ class ServiceRuntimeHealthMonitor:
             # excluded half is resolved back to refs so the write-path leg can
             # still name it and can still detect one that is STILL attached.
             kernel_nonwriting = projections_with_no_live_dispatcher()
-            projections = select_projection_contracts(
-                manifest, kernel_nonwriting=kernel_nonwriting
+            # OMN-21629: a projection whose topics all wait for a first record
+            # is deferred to that record (OMN-18087), not unattached. Selecting
+            # it made every boot read DEGRADED: 11 of 18 projections on the dev
+            # effects runtime, 2026-10-31, each on a watched topic.
+            idle = idle_watched_topics()
+            projections = tuple(
+                ref
+                for ref in select_projection_contracts(
+                    manifest, kernel_nonwriting=kernel_nonwriting
+                )
+                if not ref.subscribe_topics or not idle.issuperset(ref.subscribe_topics)
             )
             nonwriting_projections = select_kernel_nonwriting_projections(
                 manifest, kernel_nonwriting

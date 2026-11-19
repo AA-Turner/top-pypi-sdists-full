@@ -219,6 +219,7 @@ ZeroETLIntegrationStatusType = Literal[
 ]
 RedshiftServiceName = Literal["redshift"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

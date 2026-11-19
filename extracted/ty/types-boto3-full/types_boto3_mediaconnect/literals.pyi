@@ -382,6 +382,7 @@ VideoTransferCharacteristicsType = Literal[
 ]
 MediaConnectServiceName = Literal["mediaconnect"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

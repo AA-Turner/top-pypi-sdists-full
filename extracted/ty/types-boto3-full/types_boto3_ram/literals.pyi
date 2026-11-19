@@ -88,6 +88,7 @@ ResourceStatusType = Literal[
 UpdatePermissionStatusType = Literal["ATTACHABLE", "DEPRECATED"]
 RAMServiceName = Literal["ram"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

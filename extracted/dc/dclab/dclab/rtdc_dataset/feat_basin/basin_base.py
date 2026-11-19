@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class Basin(abc.ABC):
     """A basin represents data from an external source
 
-    The external data must be a valid RT-DC dataset, subclasses
+    The external data must be a valid RT-DC dataset; subclasses
     should ensure that the corresponding API is available.
     """
     def __init__(self,
@@ -104,14 +104,15 @@ class Basin(abc.ABC):
             a JSON dump of the basin definition. A random string is used
             if None is specified.
         perishable: bool or PerishableRecord
-            If this is not False, then it must be a :class:`.PerishableRecord`
+            If this is True, an empty :class:`.PerishableRecord` is created.
+            Otherwise, it must be False or a :class:`.PerishableRecord`
             that holds the information about the expiration time, and that
             comes with a method `refresh` to extend the lifetime of the basin.
         kwargs:
             Additional keyword arguments passed to the `load_dataset`
             method of the `Basin` subclass.
 
-        .. versionchanged: 0.58.0
+        .. versionchanged:: 0.58.0
 
             Added the `mapping` keyword argument to support basins
             with a superset of events.
@@ -156,6 +157,8 @@ class Basin(abc.ABC):
         else:
             self._basinmap_referrer = None
         self._ds: RTDCBase | BasinProxy | None = None
+        # make sure the dataset is only loaded once (thread-safety)
+        self._ds_lock = threading.RLock()
         # perform availability check in separate thread
         self._av_check_lock = threading.Lock()
         self._av_check = BasinAvailabilityChecker(self)
@@ -231,18 +234,24 @@ class Basin(abc.ABC):
             # basin so we can access it again.
             self.perishable.refresh()
         if self._ds is None:
-            if not self.is_available():
-                raise BasinNotAvailableError(f"Basin {self} is not available!")
-            self._ds = self.load_dataset(self.location, **self.kwargs)
-            assert self._ds is not None
-            self._ds.ignore_basins(self.ignored_basins)
+            with self._ds_lock:
+                # Check again, another thread might have loaded the
+                # dataset in the meantime.
+                if self._ds is None:
+                    if not self.is_available():
+                        raise BasinNotAvailableError(
+                            f"Basin {self} is not available!")
+                    ds = self.load_dataset(self.location, **self.kwargs)
+                    assert ds is not None
+                    ds.ignore_basins(self.ignored_basins)
+                    self._ds = ds
         return self._ds
 
     @property
     def features(self):
         """Features made available by the basin
 
-        .. versionchanged: 0.56.0
+        .. versionchanged:: 0.56.0
 
            Return nested basin features
         """
@@ -259,14 +268,14 @@ class Basin(abc.ABC):
         return self._features
 
     def as_dict(self):
-        """Return basin kwargs for :func:`RTDCWriter.store_basin`
+        """Return basin kwargs for :meth:`.RTDCWriter.store_basin`
 
         Note that each subclass of :class:`.RTDCBase` has its own
-        implementation of :func:`.RTDCBase.basins_get_dicts` which
+        implementation of :meth:`.RTDCBase.basins_get_dicts` which
         returns a list of basin dictionaries that are used to
-        instantiate the basins in :func:`RTDCBase.basins_enable`.
+        instantiate the basins in :meth:`.RTDCBase.basins_retrieve`.
         This method here is only intended for usage with
-        :func:`RTDCWriter.store_basin`.
+        :meth:`.RTDCWriter.store_basin`.
         """
         return {
             "basin_name": self.name,
@@ -320,6 +329,23 @@ class Basin(abc.ABC):
         return ds_bn
 
     def verify_basin(self, run_identifier=True, availability=True):
+        """Verify the basin availability and measurement identifier
+
+        Parameters
+        ----------
+        run_identifier: bool
+            Whether to check that the measurement identifier of the basin
+            matches the measurement identifier of the referring dataset
+            (and `basin_identifier`, if set)
+        availability: bool
+            Whether to check the availability of the basin; setting this
+            to False is deprecated
+
+        Returns
+        -------
+        verified: bool
+            True if all requested checks passed
+        """
         if not availability:
             warnings.warn("The keyword argument 'availability' is "
                           "deprecated, because it can lead to long waiting "
@@ -377,6 +403,14 @@ class Basin(abc.ABC):
 
 
 def get_basin_classes():
+    """Return all registered basin classes
+
+    Returns
+    -------
+    basin_classes: dict
+        Dictionary with basin formats (e.g. "hdf5", "s3") as keys and
+        the corresponding direct subclasses of :class:`Basin` as values
+    """
     bc = {}
     for b_cls in Basin.__subclasses__():
         if hasattr(b_cls, "basin_format"):

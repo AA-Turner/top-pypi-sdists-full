@@ -71,6 +71,7 @@ ListLandingZonesPaginatorName = Literal["list_landing_zones"]
 RemediationTypeType = Literal["INHERITANCE_DRIFT"]
 ControlTowerServiceName = Literal["controltower"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

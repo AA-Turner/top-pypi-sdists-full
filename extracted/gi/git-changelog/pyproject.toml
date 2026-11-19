@@ -48,7 +48,7 @@ dependencies = [
     "semver>=3.0",
     "typing-extensions>=4.9; python_version < '3.13'",
 ]
-version = "2.11.0"
+version = "2.12.0"
 
 [project.urls]
 Homepage = "https://pawamoy.github.io/git-changelog"

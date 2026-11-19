@@ -23,10 +23,22 @@
 
 pub use crate::ast::{TagAttr, TagValue, ValueChild, ValueKind};
 use crate::error::CompileError;
+use crate::nesting;
 use crate::utils::text::indent_body;
 
 /// Compile a list of parsed tag attributes into a Python code defining a function.
 pub fn compile_tag_attrs(attributes: &[TagAttr]) -> Result<String, CompileError> {
+    // Compiling calls itself once per level of each value, so check the depth
+    // first; `parse_tag` never returns a deeper value, but an AST can also be
+    // built by hand.
+    let mut levels = 0;
+    for attr in attributes {
+        levels = levels.max(nesting::check_value_depth(&attr.value)?);
+    }
+    nesting::with_stack_for_tree(levels, || compile_attrs_unchecked(attributes))
+}
+
+fn compile_attrs_unchecked(attributes: &[TagAttr]) -> Result<String, CompileError> {
     let mut body = String::new();
     // We want to keep Python-like behaviour with args having to come before kwargs.
     // When we have only args and kwargs, we can check at compile-time whether
@@ -49,10 +61,11 @@ pub fn compile_tag_attrs(attributes: &[TagAttr]) -> Result<String, CompileError>
             // It's a kwarg: key=value
             // Kwargs are stored as tuples in the kwargs list so that there can be
             // multiple kwargs with the same key.
-            let value_str = compile_value(&attr.value)?;
+            let value_str = compile_value_unchecked(&attr.value)?;
             body.push_str(&format!(
-                "kwargs.append(('{}', {}))\n",
-                key.content, value_str
+                "kwargs.append(({}, {}))\n",
+                python_string_literal(&key.content, '\''),
+                value_str
             ));
             // Spreads have to be handled at runtime. But before we come across a spread,
             // we can check solely at compile-time whether there are any args after kwargs,
@@ -75,7 +88,7 @@ pub fn compile_tag_attrs(attributes: &[TagAttr]) -> Result<String, CompileError>
                     if kwarg_seen { "True" } else { "False" }
                 ));
             }
-            let value_str = compile_value(&attr.value)?;
+            let value_str = compile_value_unchecked(&attr.value)?;
             let raw_token_str = escape_and_wrap_triple_quotes(&attr.value.value.content);
             body.push_str(&format!(
                 // NOTE: `_handle_spread()` is defined in Python side. It checks at runtime if
@@ -102,7 +115,7 @@ pub fn compile_tag_attrs(attributes: &[TagAttr]) -> Result<String, CompileError>
                     "    raise SyntaxError(\"positional argument follows keyword argument\")\n",
                 );
             }
-            let value_str = compile_value(&attr.value)?;
+            let value_str = compile_value_unchecked(&attr.value)?;
             body.push_str(&format!("args.append({})\n", value_str));
         }
     }
@@ -128,7 +141,39 @@ fn escape_and_wrap_triple_quotes(content: &str) -> String {
     format!("\"\"\"{}\"\"\"", escaped)
 }
 
+/// Write `value` as a single-line Python string literal in the given quote.
+///
+/// The tag's text ends up inside generated Python source, so every character
+/// that could end or change the literal is escaped here, whatever the grammar
+/// allows: a backslash, which would otherwise escape the closing quote, the
+/// quote itself, and line breaks.
+fn python_string_literal(value: &str, quote: char) -> String {
+    let mut literal = String::with_capacity(value.len() + 2);
+    literal.push(quote);
+    for character in value.chars() {
+        match character {
+            '\\' => literal.push_str("\\\\"),
+            '\n' => literal.push_str("\\n"),
+            '\r' => literal.push_str("\\r"),
+            _ if character == quote => {
+                literal.push('\\');
+                literal.push(character);
+            }
+            _ => literal.push(character),
+        }
+    }
+    literal.push(quote);
+    literal
+}
+
+/// Compile one parsed tag value into a Python expression.
 pub fn compile_value(value: &TagValue) -> Result<String, CompileError> {
+    let levels = nesting::check_value_depth(value)?;
+    nesting::with_stack_for_tree(levels, || compile_value_unchecked(value))
+}
+
+/// `compile_value` without the depth check, for values already checked.
+fn compile_value_unchecked(value: &TagValue) -> Result<String, CompileError> {
     // Helper to format token tuple: (start_index, end_index)
     let token_tuple = format!("({}, {})", value.token.start_index, value.token.end_index);
 
@@ -145,9 +190,10 @@ pub fn compile_value(value: &TagValue) -> Result<String, CompileError> {
                 // No surrounding quotes, emit as-is
                 return Ok(content.to_string());
             };
-            // Escape literal newlines so the string stays a valid single-line Python literal
-            let escaped = inner.replace('\\', "\\\\").replace('\n', "\\n").replace('\r', "\\r");
-            Ok(format!("{}{}{}", quote_char, escaped, quote_char))
+            // The grammar lets a string hold its own quote as `\"` or `\'`, which
+            // means the quote. Every other backslash stands for itself.
+            let unescaped = inner.replace(&format!("\\{quote_char}"), &quote_char.to_string());
+            Ok(python_string_literal(&unescaped, quote_char))
         }
         ValueKind::Variable => {
             let wrapped = escape_and_wrap_triple_quotes(&value.value.content);
@@ -217,7 +263,7 @@ pub fn compile_value(value: &TagValue) -> Result<String, CompileError> {
                 let item = child.as_value().ok_or_else(|| {
                     CompileError::from("Can't extract value from Template structure")
                 })?;
-                let compiled_item = compile_value(&item)?;
+                let compiled_item = compile_value_unchecked(&item)?;
                 if item.spread.is_some() {
                     items.push(format!("*{}", compiled_item));
                 } else {
@@ -235,7 +281,7 @@ pub fn compile_value(value: &TagValue) -> Result<String, CompileError> {
                 })?;
 
                 if item.spread.is_some() {
-                    items.push(format!("**{}", compile_value(&item)?));
+                    items.push(format!("**{}", compile_value_unchecked(&item)?));
                 } else {
                     // This is a key, next must be value
                     let key = item;
@@ -246,8 +292,8 @@ pub fn compile_value(value: &TagValue) -> Result<String, CompileError> {
                         CompileError::from("Can't extract value from Template structure")
                     })?;
 
-                    let compiled_key = compile_value(key)?;
-                    let compiled_value = compile_value(value)?;
+                    let compiled_key = compile_value_unchecked(key)?;
+                    let compiled_value = compile_value_unchecked(value)?;
                     items.push(format!("{}: {}", compiled_key, compiled_value));
                 }
             }
@@ -259,18 +305,18 @@ pub fn compile_value(value: &TagValue) -> Result<String, CompileError> {
 
     // Apply filters
     for filter in &value.filters {
-        let filter_name = &filter.name.content;
+        let filter_name = python_string_literal(&filter.name.content, '\'');
         let filter_token_tuple =
             format!("({}, {})", filter.token.start_index, filter.token.end_index);
         if let Some(arg) = &filter.arg {
-            let compiled_arg = compile_value(arg)?;
+            let compiled_arg = compile_value_unchecked(arg)?;
             result = format!(
-                "filter(context, source, {}, filters, tags, '{}', {}, {})",
+                "filter(context, source, {}, filters, tags, {}, {}, {})",
                 filter_token_tuple, filter_name, result, compiled_arg
             );
         } else {
             result = format!(
-                "filter(context, source, {}, filters, tags, '{}', {}, None)",
+                "filter(context, source, {}, filters, tags, {}, {}, None)",
                 filter_token_tuple, filter_name, result
             );
         }

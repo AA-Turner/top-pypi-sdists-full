@@ -87,6 +87,7 @@ RetentionActionType = Literal["DELETE", "NONE", "PERMANENTLY_DELETE"]
 UserRoleType = Literal["REMOTE_USER", "RESOURCE", "SYSTEM_USER", "USER"]
 WorkMailServiceName = Literal["workmail"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

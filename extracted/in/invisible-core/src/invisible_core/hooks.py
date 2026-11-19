@@ -909,12 +909,16 @@ def _run_gate_with_its_own_tests(
 # false on every machine except the one it was written on. `core.hooksPath` is
 # the one setting that makes a checked-in hook directory real.
 #
-# This lived in `invisible_core/scripts/install_hooks.py` and therefore existed
+# This lived in a script of the core's repository and therefore existed
 # for ONE of the three repos - the other two shipped a hook that nothing armed
 # and nothing checked was armed, so a fresh clone of either had no gates at all
 # and no way to notice. Same asymmetry, same fix, as the publish gate.
 
 HOOKS_DIR_NAME = ".githooks"
+
+#: The command that arms a clone: what `install_main` is run by, and what every
+#: message that tells a person to arm one prints.
+INSTALL_COMMAND = "python -m invisible_core.hooks install"
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
@@ -945,7 +949,7 @@ def install_main(argv: Optional[Sequence[str]] = None,
     import argparse
 
     root = Path(root if root is not None else os.getcwd()).resolve()
-    p = argparse.ArgumentParser(prog="install_hooks.py",
+    p = argparse.ArgumentParser(prog=INSTALL_COMMAND,
                                 description="arm this clone's pre-push gate")
     p.add_argument("--check", action="store_true",
                    help="report only; exit 1 if the hooks are not installed")
@@ -968,7 +972,7 @@ def install_main(argv: Optional[Sequence[str]] = None,
         print("HOOKS NOT INSTALLED: the pre-push gates would not run.", file=sys.stderr)
         print(f"  core.hooksPath = {cur or '(unset)'}, wanted {HOOKS_DIR_NAME}",
               file=sys.stderr)
-        print("  fix: python scripts/install_hooks.py", file=sys.stderr)
+        print(f"  fix: {INSTALL_COMMAND}", file=sys.stderr)
         return 1
     if cur:
         print(f"refusing to overwrite core.hooksPath = {cur}", file=sys.stderr)
@@ -1000,4 +1004,8 @@ def install_main(argv: Optional[Sequence[str]] = None,
 
 
 if __name__ == "__main__":
+    # `python -m invisible_core.hooks install [--check]` arms a clone; with no
+    # word it is the pre-push policy, which is what the stub runs.
+    if sys.argv[1:2] == ["install"]:
+        raise SystemExit(install_main(sys.argv[2:]))
     raise SystemExit(main(sys.argv[1:]))

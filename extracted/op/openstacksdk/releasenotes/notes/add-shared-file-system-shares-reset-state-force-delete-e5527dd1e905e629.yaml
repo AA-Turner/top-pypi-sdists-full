@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added ``reset_status`` and ``force_delete`` methods to the ``Share`` and
-    ``ShareSnapshot`` shared file system resources.

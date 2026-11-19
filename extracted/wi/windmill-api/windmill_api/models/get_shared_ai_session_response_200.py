@@ -24,6 +24,7 @@ class GetSharedAiSessionResponse200:
         shared_at (datetime.datetime):
         snapshot (GetSharedAiSessionResponse200Snapshot):
         can_unshare (bool): whether the caller authored the share or is a workspace admin
+        mine (bool): whether the caller authored the share
     """
 
     id: str
@@ -34,6 +35,7 @@ class GetSharedAiSessionResponse200:
     shared_at: datetime.datetime
     snapshot: "GetSharedAiSessionResponse200Snapshot"
     can_unshare: bool
+    mine: bool
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -47,6 +49,7 @@ class GetSharedAiSessionResponse200:
         snapshot = self.snapshot.to_dict()
 
         can_unshare = self.can_unshare
+        mine = self.mine
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -60,6 +63,7 @@ class GetSharedAiSessionResponse200:
                 "shared_at": shared_at,
                 "snapshot": snapshot,
                 "can_unshare": can_unshare,
+                "mine": mine,
             }
         )
 
@@ -86,6 +90,8 @@ class GetSharedAiSessionResponse200:
 
         can_unshare = d.pop("can_unshare")
 
+        mine = d.pop("mine")
+
         get_shared_ai_session_response_200 = cls(
             id=id,
             name=name,
@@ -95,6 +101,7 @@ class GetSharedAiSessionResponse200:
             shared_at=shared_at,
             snapshot=snapshot,
             can_unshare=can_unshare,
+            mine=mine,
         )
 
         get_shared_ai_session_response_200.additional_properties = d

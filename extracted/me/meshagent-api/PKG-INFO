@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meshagent-api
-Version: 0.57.0
+Version: 0.57.1
 Summary: Python Server API for Meshagent
 License-Expression: Apache-2.0
 Project-URL: Documentation, https://docs.meshagent.com

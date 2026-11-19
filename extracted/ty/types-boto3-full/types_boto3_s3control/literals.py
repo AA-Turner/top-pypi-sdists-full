@@ -263,6 +263,7 @@ TransitionStorageClassType = Literal[
 ]
 S3ControlServiceName = Literal["s3control"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

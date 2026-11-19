@@ -36,6 +36,7 @@ DescribeCommunicationsPaginatorName = Literal["describe_communications"]
 UploadStatusType = Literal["attachment-not-ready", "attachment-ready", "failed"]
 SupportServiceName = Literal["support"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

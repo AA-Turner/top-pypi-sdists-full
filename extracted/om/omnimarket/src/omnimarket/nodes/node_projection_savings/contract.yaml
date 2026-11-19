@@ -65,6 +65,27 @@ handler_routing:
         module: omnimarket.nodes.node_projection_savings.handlers.handler_runtime_writer
       handler_module: omnimarket.nodes.node_projection_savings.handlers.handler_runtime_writer
 
+# Four hook events in flight at once instead of one (OMN-23370, after
+# OMN-19513 did the same for projection_claude_hook_events). The writer passes
+# every hook event but PostCompact over in about 0.14 microseconds, yet the
+# runtime hands a serial consumer's records to a worker thread one at a time,
+# and each waits several times to reacquire the GIL on the shared main runtime.
+# Measured on the dev lane on 2026-11-09 with the skip already deployed: this
+# group took about 3 events a second against about 6 written, its lag growing
+# from 12,291 to 17,091, while the sibling group on the same topic, which
+# declares this bound, held a lag of 69. Running four at once overlaps those
+# waits.
+#
+# ORDERING: this topic no longer completes in partition order. Nothing here
+# depends on it. An ignored hook event writes nothing. A PostCompact event is
+# applied by the runtime delivery host one at a time (its delivery lock), and its
+# row is keyed by the event's own id, so two compactions never contend for a
+# row. The bound covers the node's other topics as well; their writes are an
+# upsert on the table's unique identity index (ux_savings_estimates_identity), so
+# two records of one run that overlap converge on one row.
+consume_concurrency:
+  max_in_flight_records: 4
+
 terminal_event: onex.evt.omnimarket.projection-savings-applied.v1
 
 db_io:
@@ -380,3 +401,17 @@ projection_api:
 metadata:
   transport_type: kafka
   delegate_skill_baseline_model_source: pricing_manifest
+
+# OMN-21753 (under OMN-21288): when the one-runtime fold moves this writer from
+# its own container into the runtime, the runtime's consumer group starts from
+# the committed offsets of the container's group,
+# {env}.omnimarket-projections.savings-writer.consume.v1, instead of the bus default
+# (latest), so events published while the container is stopped and the runtime
+# has not yet joined are projected. The container's runner reads a partition it
+# never committed from the earliest offset, and the handover does the same.
+# omnibase_infra's HandlerContractSubscribePreflight reads this key.
+consumer_group_handover:
+  from_service: omnimarket-projections
+  from_node: savings-writer
+  from_version: v1
+  from_auto_offset_reset: earliest

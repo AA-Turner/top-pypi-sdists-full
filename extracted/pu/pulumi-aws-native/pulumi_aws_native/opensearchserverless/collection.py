@@ -30,7 +30,7 @@ class CollectionArgs:
                  encryption_config: pulumi.Input[Optional['CollectionEncryptionConfigArgs']] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  standby_replicas: pulumi.Input[Optional['CollectionStandbyReplicas']] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.CreateOnlyTagArgs']]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.TagArgs']]]] = None,
                  type: pulumi.Input[Optional['CollectionType']] = None,
                  vector_options: pulumi.Input[Optional['CollectionVectorOptionsArgs']] = None):
         """
@@ -46,7 +46,7 @@ class CollectionArgs:
                Contains only lowercase letters a-z, the numbers 0-9 and the hyphen (-)
                Contains between 3 and 64 characters
         :param pulumi.Input['CollectionStandbyReplicas'] standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
-        :param pulumi.Input[Sequence[pulumi.Input['_root_inputs.CreateOnlyTagArgs']]] tags: List of tags to be added to the resource
+        :param pulumi.Input[Sequence[pulumi.Input['_root_inputs.TagArgs']]] tags: List of tags to associate with the collection. Tag changes are applied in place without replacing the collection. Reading, adding, changing or removing tags requires the aoss:ListTagsForResource, aoss:TagResource and aoss:UntagResource permissions.
         :param pulumi.Input['CollectionType'] type: The type of collection. Possible values are `SEARCH` , `TIMESERIES` , and `VECTORSEARCH` . For more information, see [Choosing a collection type](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase) .
         """
         if collection_group_name is not None:
@@ -142,14 +142,14 @@ class CollectionArgs:
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.CreateOnlyTagArgs']]]]:
+    def tags(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.TagArgs']]]]:
         """
-        List of tags to be added to the resource
+        List of tags to associate with the collection. Tag changes are applied in place without replacing the collection. Reading, adding, changing or removing tags requires the aoss:ListTagsForResource, aoss:TagResource and aoss:UntagResource permissions.
         """
         return pulumi.get(self, "tags")
 
     @tags.setter
-    def tags(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.CreateOnlyTagArgs']]]]):
+    def tags(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.TagArgs']]]]):
         pulumi.set(self, "tags", value)
 
     @_builtins.property
@@ -183,12 +183,12 @@ class Collection(pulumi.CustomResource):
                  collection_group_name: pulumi.Input[Optional[_builtins.str]] = None,
                  deletion_protection: pulumi.Input[Optional['CollectionDeletionProtection']] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
-                 encryption_config: pulumi.Input[Optional[Union['CollectionEncryptionConfigArgs', 'CollectionEncryptionConfigArgsDict']]] = None,
+                 encryption_config: pulumi.Input[Optional[Union['CollectionEncryptionConfigArgs', 'CollectionEncryptionConfigArgsDict', 'outputs.CollectionEncryptionConfig']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  standby_replicas: pulumi.Input[Optional['CollectionStandbyReplicas']] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.CreateOnlyTagArgs', '_root_inputs.CreateOnlyTagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  type: pulumi.Input[Optional['CollectionType']] = None,
-                 vector_options: pulumi.Input[Optional[Union['CollectionVectorOptionsArgs', 'CollectionVectorOptionsArgsDict']]] = None,
+                 vector_options: pulumi.Input[Optional[Union['CollectionVectorOptionsArgs', 'CollectionVectorOptionsArgsDict', 'outputs.CollectionVectorOptions']]] = None,
                  __props__=None):
         """
         Amazon OpenSearchServerless collection resource
@@ -244,7 +244,7 @@ class Collection(pulumi.CustomResource):
                Contains only lowercase letters a-z, the numbers 0-9 and the hyphen (-)
                Contains between 3 and 64 characters
         :param pulumi.Input['CollectionStandbyReplicas'] standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.CreateOnlyTagArgs', '_root_inputs.CreateOnlyTagArgsDict']]]] tags: List of tags to be added to the resource
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: List of tags to associate with the collection. Tag changes are applied in place without replacing the collection. Reading, adding, changing or removing tags requires the aoss:ListTagsForResource, aoss:TagResource and aoss:UntagResource permissions.
         :param pulumi.Input['CollectionType'] type: The type of collection. Possible values are `SEARCH` , `TIMESERIES` , and `VECTORSEARCH` . For more information, see [Choosing a collection type](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase) .
         """
         ...
@@ -313,12 +313,12 @@ class Collection(pulumi.CustomResource):
                  collection_group_name: pulumi.Input[Optional[_builtins.str]] = None,
                  deletion_protection: pulumi.Input[Optional['CollectionDeletionProtection']] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
-                 encryption_config: pulumi.Input[Optional[Union['CollectionEncryptionConfigArgs', 'CollectionEncryptionConfigArgsDict']]] = None,
+                 encryption_config: pulumi.Input[Optional[Union['CollectionEncryptionConfigArgs', 'CollectionEncryptionConfigArgsDict', 'outputs.CollectionEncryptionConfig']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  standby_replicas: pulumi.Input[Optional['CollectionStandbyReplicas']] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.CreateOnlyTagArgs', '_root_inputs.CreateOnlyTagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  type: pulumi.Input[Optional['CollectionType']] = None,
-                 vector_options: pulumi.Input[Optional[Union['CollectionVectorOptionsArgs', 'CollectionVectorOptionsArgsDict']]] = None,
+                 vector_options: pulumi.Input[Optional[Union['CollectionVectorOptionsArgs', 'CollectionVectorOptionsArgsDict', 'outputs.CollectionVectorOptions']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -343,7 +343,7 @@ class Collection(pulumi.CustomResource):
             __props__.__dict__["dashboard_endpoint"] = None
             __props__.__dict__["fips_endpoints"] = None
             __props__.__dict__["kms_key_arn"] = None
-        replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["collectionGroupName", "encryptionConfig", "name", "standbyReplicas", "tags[*]", "type"])
+        replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["collectionGroupName", "encryptionConfig", "name", "standbyReplicas", "type"])
         opts = pulumi.ResourceOptions.merge(opts, replace_on_changes)
         super(Collection, __self__).__init__(
             'aws-native:opensearchserverless:Collection',
@@ -383,6 +383,12 @@ class Collection(pulumi.CustomResource):
         __props__.__dict__["type"] = None
         __props__.__dict__["vector_options"] = None
         return Collection(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:opensearchserverless:Collection', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -479,9 +485,9 @@ class Collection(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def tags(self) -> pulumi.Output[Optional[Sequence['_root_outputs.CreateOnlyTag']]]:
+    def tags(self) -> pulumi.Output[Optional[Sequence['_root_outputs.Tag']]]:
         """
-        List of tags to be added to the resource
+        List of tags to associate with the collection. Tag changes are applied in place without replacing the collection. Reading, adding, changing or removing tags requires the aoss:ListTagsForResource, aoss:TagResource and aoss:UntagResource permissions.
         """
         return pulumi.get(self, "tags")
 

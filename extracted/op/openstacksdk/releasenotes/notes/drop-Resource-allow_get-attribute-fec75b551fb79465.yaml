@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    The ``allow_get`` attribute of ``openstack.resource.Resource`` has been
-    removed. Use ``allow_fetch`` or ``allow_list`` instead.

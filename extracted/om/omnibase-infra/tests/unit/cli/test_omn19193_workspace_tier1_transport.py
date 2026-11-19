@@ -55,9 +55,9 @@ from omnibase_infra.errors import ProtocolConfigurationError
 from omnibase_infra.runtime.models.enum_event_bus_profile import EnumEventBusProfile
 from omnibase_infra.runtime.models.model_event_bus_config import ModelEventBusConfig
 from omnibase_infra.runtime.service_kernel import (
-    WORKSPACE_RUNTIME_CONTRACTS_RELATIVE_PATH,
     load_runtime_config,
     resolve_embedded_runtime_config,
+    workspace_runtime_contracts_dir,
 )
 
 pytestmark = pytest.mark.unit
@@ -104,8 +104,9 @@ def _workspace(root: Path, *, tier1: str | None = _TIER1) -> Path:
     declaration.write_text(_LANES, encoding="utf-8")
     if tier1 is not None:
         config = (
-            Path(os.environ["ONEX_WORKSPACE_CONFIG_ROOT"])
-            / WORKSPACE_RUNTIME_CONTRACTS_RELATIVE_PATH
+            workspace_runtime_contracts_dir(
+                Path(os.environ["ONEX_WORKSPACE_CONFIG_ROOT"])
+            )
             / "runtime"
             / "runtime_config.yaml"
         )
@@ -136,8 +137,9 @@ class TestTheWorkspaceTier:
         assert "workspace tier-1" in source
         assert (
             str(
-                Path(os.environ["ONEX_WORKSPACE_CONFIG_ROOT"])
-                / WORKSPACE_RUNTIME_CONTRACTS_RELATIVE_PATH
+                workspace_runtime_contracts_dir(
+                    Path(os.environ["ONEX_WORKSPACE_CONFIG_ROOT"])
+                )
             )
             in source
         )
@@ -151,8 +153,9 @@ class TestTheWorkspaceTier:
         message = str(exc.value)
         assert (
             str(
-                Path(os.environ["ONEX_WORKSPACE_CONFIG_ROOT"])
-                / WORKSPACE_RUNTIME_CONTRACTS_RELATIVE_PATH
+                workspace_runtime_contracts_dir(
+                    Path(os.environ["ONEX_WORKSPACE_CONFIG_ROOT"])
+                )
                 / "runtime"
             )
             in message
@@ -204,7 +207,7 @@ class TestTheLaneField:
         # Lab configuration is never hardcoded in the product every customer
         # runs (OMN-19184). The package ships the resolution tier and the
         # optional field; the lane a workspace uses is the workspace's own.
-        assert not (_REPO_ROOT / WORKSPACE_RUNTIME_CONTRACTS_RELATIVE_PATH).exists()
+        assert not (workspace_runtime_contracts_dir(_REPO_ROOT)).exists()
         declared = [
             path
             for path in _REPO_ROOT.rglob("runtime_config.yaml")
@@ -292,7 +295,7 @@ class TestRunDelegateDefaultPath:
 
         def _no_consumer(**_: object) -> object:
             raise DelegateLocusRefusedError(
-                "no live consumer group is bound to 'onex.cmd.test.v1'"
+                "no live consumer group is bound to the delegation topic"
             )
 
         monkeypatch.setattr(cli_delegate, "resolve_delegate_locus", _no_consumer)
@@ -357,17 +360,20 @@ def test_retiring_root_config_cannot_answer_without_owning_config(
     legacy = root / "config/onex/runtime/runtime_config.yaml"
     legacy.parent.mkdir(parents=True)
     legacy.write_text(_TIER1, encoding="utf-8")
-    with pytest.raises(ProtocolConfigurationError, match="omnibase_internal"):
+    with pytest.raises(ProtocolConfigurationError, match="ONEX_WORKSPACE_CONFIG_ROOT"):
         resolve_embedded_runtime_config(workspace_root=root)
 
 
-def test_symlinked_registry_uses_its_physical_config_sibling(
+def test_symlinked_registry_uses_its_physical_developer_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("ONEX_WORKSPACE_CONFIG_ROOT", raising=False)
     actual = tmp_path / "registry/omni_home"
     actual.mkdir(parents=True)
-    owner = actual.parent / "omnibase_internal/config/onex/runtime/runtime_config.yaml"
+    owner = (
+        actual.resolve()
+        / ".onex/workspace-config/config/onex/runtime/runtime_config.yaml"
+    )
     owner.parent.mkdir(parents=True)
     owner.write_text(_TIER1, encoding="utf-8")
     link = tmp_path / "alias/omni_home"

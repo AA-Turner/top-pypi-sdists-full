@@ -18,7 +18,7 @@ async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
 		let scheduled = false;
 		try {
-			const response = await api.fetchApi(`/v2/snapshot/restore?target=${target}`, { method: 'POST', cache: "no-store" });
+			const response = await api.fetchApi(`/v2/snapshot/restore?target=${target}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: "no-store" });
 
 			if(response.status == 403) {
 				show_message('This action is not allowed with this security level configuration.');
@@ -41,7 +41,7 @@ async function restore_snapshot(target) {
 		finally {
 			await SnapshotManager.instance.invalidateControl();
 			if(scheduled) {
-				SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='p-button p-component'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+				SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='cm-ui-button'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
 			}
 		}
 	}
@@ -50,7 +50,7 @@ async function restore_snapshot(target) {
 async function remove_snapshot(target) {
 	if(SnapshotManager.instance) {
 		try {
-			const response = await api.fetchApi(`/v2/snapshot/remove?target=${target}`, { method: 'POST', cache: "no-store" });
+			const response = await api.fetchApi(`/v2/snapshot/remove?target=${target}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: "no-store" });
 
 			if(response.status == 403) {
 				show_message('This action is not allowed with this security level configuration.');
@@ -77,7 +77,7 @@ async function remove_snapshot(target) {
 
 async function save_current_snapshot() {
 	try {
-		const response = await api.fetchApi('/v2/snapshot/save', { method: 'POST', cache: "no-store" });
+		const response = await api.fetchApi('/v2/snapshot/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: "no-store" });
 		app.ui.dialog.close();
 		return true;
 	}
@@ -136,7 +136,7 @@ export class SnapshotManager extends ComfyDialog {
 
 	createControls() {
 		return [
-			$el("button.p-button.p-component", {
+			$el("button.cm-ui-button", {
 				type: "button",
 				textContent: "Close",
 				onclick: () => { this.close(); }
@@ -234,7 +234,7 @@ export class SnapshotManager extends ComfyDialog {
 				data_button.className = "data-btns";
 
 				var restoreBtn = document.createElement('button');
-				restoreBtn.className = "snapshot-restore-btn p-button p-component";
+				restoreBtn.className = "snapshot-restore-btn cm-ui-button";
 				restoreBtn.innerHTML = 'Restore';
 				restoreBtn.style.width = "100px";
 
@@ -243,7 +243,7 @@ export class SnapshotManager extends ComfyDialog {
 				});
 
 				var removeBtn = document.createElement('button');
-				removeBtn.className = "snapshot-remove-btn p-button p-component";
+				removeBtn.className = "snapshot-remove-btn cm-ui-button";
 				removeBtn.innerHTML = 'Remove';
 				removeBtn.style.width = "100px";
 
@@ -293,7 +293,7 @@ export class SnapshotManager extends ComfyDialog {
 
 	async createBottomControls() {
 		var save_button = document.createElement("button");
-		save_button.className = "p-button p-component";
+		save_button.className = "cm-ui-button";
 		save_button.innerHTML = "Save snapshot";
 		save_button.onclick = () => { save_current_snapshot(); }
 		save_button.style.horizontalAlign = "right";

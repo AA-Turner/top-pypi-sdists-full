@@ -35,7 +35,13 @@ from click.testing import CliRunner
 
 from omnimarket.cli import cli_secret
 from omnimarket.cli.cli_secret import models_group
-from omnimarket.handlers import handler_model_keys
+from omnimarket.handlers import handler_model_keys, model_provider_labels
+from omnimarket.handlers.routing.byok_plan_detection import ModelByokPlanDetection
+from omnimarket.handlers.routing.byok_provider_backends import (
+    byok_routable_plans,
+    customer_provider_catalogue,
+    resolve_byok_provider_backend,
+)
 from omnimarket.inference.local_byok_credential_adapter import (
     LocalByokCredentialStore,
     registered_local_byok_providers,
@@ -45,12 +51,6 @@ from omnimarket.nodes.node_model_setup_effect.handlers import handler_model_setu
 from omnimarket.nodes.node_model_setup_effect.handlers.handler_model_setup import (
     PROVIDERS,
     HandlerModelSetup,
-)
-from omnimarket.routing.byok_plan_detection import ModelByokPlanDetection
-from omnimarket.routing.byok_provider_backends import (
-    byok_routable_plans,
-    customer_provider_catalogue,
-    resolve_byok_provider_backend,
 )
 
 pytestmark = pytest.mark.unit
@@ -155,7 +155,10 @@ class TestTheProviderListFollowsTheCatalogue:
     def test_a_fresh_profile_lists_glm_not_set_up(self) -> None:
         result = CliRunner().invoke(models_group, ["list"])
         assert result.exit_code == 0, result.output
-        assert "GLM         not set up" in result.output.splitlines()
+        assert (
+            f"{model_provider_labels.MODEL_LABELS['glm']:<{model_provider_labels.LABEL_WIDTH}} not set up"
+            in (result.output.splitlines())
+        )
 
     def test_a_fresh_profile_lists_every_offered_provider(self) -> None:
         result = CliRunner().invoke(models_group, ["list", "--json"])
@@ -197,7 +200,10 @@ class TestModelsAddGlm:
         assert "glm" in registered_local_byok_providers()
         assert resolve_local_byok_credential_model("glm") == "glm-5.3-flash"
         assert delegate.pins == ["byok-glm-general"]
-        assert "GLM         ✓ answered (glm-5.3-flash)" in result.output
+        assert (
+            f"{model_provider_labels.MODEL_LABELS['glm']:<{model_provider_labels.LABEL_WIDTH}} "
+            "✓ answered (glm-5.3-flash)"
+        ) in result.output
 
     def test_list_shows_glm_set_up_after_add(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

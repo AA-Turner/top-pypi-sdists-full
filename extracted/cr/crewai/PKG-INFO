@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: crewai
-Version: 1.15.41
+Version: 1.15.43
 Summary: Cutting-edge framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com
@@ -11,10 +11,9 @@ Requires-Dist: aiofiles~=24.1.0
 Requires-Dist: aiosqlite~=0.21.0
 Requires-Dist: appdirs~=1.4.4
 Requires-Dist: cel-python<0.6,>=0.5.0
-Requires-Dist: chromadb~=1.5.9
 Requires-Dist: click<9,>=8.1.7
-Requires-Dist: crewai-cli==1.15.41
-Requires-Dist: crewai-core==1.15.41
+Requires-Dist: crewai-cli==1.15.43
+Requires-Dist: crewai-core==1.15.43
 Requires-Dist: httpx~=0.28.1
 Requires-Dist: instructor<1.16,>=1.3.3
 Requires-Dist: json-repair~=0.60.1
@@ -25,9 +24,9 @@ Requires-Dist: mcp<2,>=1.30.0
 Requires-Dist: oauthlib<5,>=4.0.0
 Requires-Dist: openai<3,>=2.30.0
 Requires-Dist: openpyxl~=3.1.5
-Requires-Dist: opentelemetry-api<2,>=1.45.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.45.1
-Requires-Dist: opentelemetry-sdk<2,>=1.45.1
+Requires-Dist: opentelemetry-api<2,>=1.45.2
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.45.2
+Requires-Dist: opentelemetry-sdk<2,>=1.45.2
 Requires-Dist: pdfplumber~=0.11.4
 Requires-Dist: portalocker~=2.7.0
 Requires-Dist: pydantic-settings<3,>=2.14.2
@@ -35,6 +34,7 @@ Requires-Dist: pydantic<2.13,>=2.11.9
 Requires-Dist: pyjwt<3,>=2.15.0
 Requires-Dist: python-dotenv<2,>=1.2.2
 Requires-Dist: pyyaml~=6.0
+Requires-Dist: qdrant-client~=1.14.3
 Requires-Dist: regex~=2026.1.15
 Requires-Dist: tokenizers<1,>=0.21
 Requires-Dist: tomli-w~=1.1.0
@@ -55,13 +55,15 @@ Requires-Dist: azure-identity<2,>=1.17.0; extra == 'azure-ai-inference'
 Provides-Extra: bedrock
 Requires-Dist: aiobotocore~=3.8.0; extra == 'bedrock'
 Requires-Dist: boto3~=1.43.46; extra == 'bedrock'
+Provides-Extra: chromadb
+Requires-Dist: chromadb~=1.5.9; extra == 'chromadb'
 Provides-Extra: docling
 Requires-Dist: docling-core[chunking]<3,>=2.98.0; extra == 'docling'
 Requires-Dist: docling~=2.132.0; extra == 'docling'
 Provides-Extra: embeddings
 Requires-Dist: tiktoken<0.13,>=0.8.0; extra == 'embeddings'
 Provides-Extra: file-processing
-Requires-Dist: crewai-files==1.15.41; extra == 'file-processing'
+Requires-Dist: crewai-files==1.15.43; extra == 'file-processing'
 Provides-Extra: google-genai
 Requires-Dist: google-genai~=1.65.0; extra == 'google-genai'
 Provides-Extra: litellm
@@ -77,10 +79,10 @@ Requires-Dist: qdrant-client[fastembed]~=1.14.3; extra == 'qdrant'
 Provides-Extra: qdrant-edge
 Requires-Dist: qdrant-edge-py>=0.6.0; extra == 'qdrant-edge'
 Provides-Extra: spreadsheets
-Requires-Dist: crewai-files[spreadsheets]==1.15.41; extra == 'spreadsheets'
-Requires-Dist: crewai-tools==1.15.41; extra == 'spreadsheets'
+Requires-Dist: crewai-files[spreadsheets]==1.15.43; extra == 'spreadsheets'
+Requires-Dist: crewai-tools==1.15.43; extra == 'spreadsheets'
 Provides-Extra: tools
-Requires-Dist: crewai-tools==1.15.41; extra == 'tools'
+Requires-Dist: crewai-tools==1.15.43; extra == 'tools'
 Provides-Extra: voyageai
 Requires-Dist: voyageai~=0.3.5; extra == 'voyageai'
 Provides-Extra: watson
@@ -291,8 +293,6 @@ If you encounter a `PATH` warning, run:
 ```shell
 uv tool update-shell
 ```
-
-If you encounter the `chroma-hnswlib==0.7.6` build error (`fatal error C1083: Cannot open include file: 'float.h'`) on Windows, install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with *Desktop development with C++*.
 
 Verify the install:
 
@@ -721,9 +721,9 @@ CrewAI is released under the [MIT License](https://github.com/crewAIInc/crewAI/b
 
 ### Enterprise Features
 
-- [What additional features does CrewAI AMP offer?](#q-what-additional-features-does-crewai-enterprise-offer)
-- [Is CrewAI AMP available for cloud and on-premise deployments?](#q-is-crewai-enterprise-available-for-cloud-and-on-premise-deployments)
-- [Can I try CrewAI AMP for free?](#q-can-i-try-crewai-enterprise-for-free)
+- [What additional features does CrewAI AMP offer?](#q-what-additional-features-does-crewai-amp-offer)
+- [Is CrewAI AMP available for cloud and on-premise deployments?](#q-is-crewai-amp-available-for-cloud-and-on-premise-deployments)
+- [Can I try CrewAI AMP for free?](#q-can-i-try-crewai-amp-for-free)
 
 ### Q: What exactly is CrewAI?
 

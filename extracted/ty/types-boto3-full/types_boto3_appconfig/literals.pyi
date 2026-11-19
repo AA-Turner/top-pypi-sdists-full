@@ -109,6 +109,7 @@ TriggeredByType = Literal["APPCONFIG", "CLOUDWATCH_ALARM", "INTERNAL_ERROR", "US
 ValidatorTypeType = Literal["JSON_SCHEMA", "LAMBDA"]
 AppConfigServiceName = Literal["appconfig"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

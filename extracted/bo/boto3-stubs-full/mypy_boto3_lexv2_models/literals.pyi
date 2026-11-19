@@ -370,6 +370,7 @@ UtteranceContentTypeType = Literal["CustomPayload", "ImageResponseCard", "PlainT
 VoiceEngineType = Literal["generative", "long-form", "neural", "standard"]
 LexModelsV2ServiceName = Literal["lexv2-models"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

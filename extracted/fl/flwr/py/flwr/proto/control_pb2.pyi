@@ -26,11 +26,13 @@ import flwr.proto.message_pb2
 import flwr.proto.node_pb2
 import flwr.proto.run_pb2
 import flwr.proto.runseries_pb2
+import flwr.proto.space_pb2
 import flwr.proto.task_pb2
 import flwr.proto.transport_pb2
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
+import google.protobuf.struct_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -313,6 +315,7 @@ class Automation(google.protobuf.message.Message):
     FIXED_INTERVAL_FIELD_NUMBER: builtins.int
     REMAINING_RUNS_FIELD_NUMBER: builtins.int
     STOPPED_AT_FIELD_NUMBER: builtins.int
+    AGENT_ID_FIELD_NUMBER: builtins.int
     automation_id: builtins.int
     status: builtins.str
     federation: builtins.str
@@ -324,6 +327,7 @@ class Automation(google.protobuf.message.Message):
     fixed_interval: builtins.int
     remaining_runs: builtins.int
     stopped_at: builtins.str
+    agent_id: builtins.int
     def __init__(
         self,
         *,
@@ -338,9 +342,12 @@ class Automation(google.protobuf.message.Message):
         fixed_interval: builtins.int | None = ...,
         remaining_runs: builtins.int | None = ...,
         stopped_at: builtins.str | None = ...,
+        agent_id: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_fixed_interval", b"_fixed_interval", "_remaining_runs", b"_remaining_runs", "_stopped_at", b"_stopped_at", "fixed_interval", b"fixed_interval", "remaining_runs", b"remaining_runs", "stopped_at", b"stopped_at"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_fixed_interval", b"_fixed_interval", "_remaining_runs", b"_remaining_runs", "_stopped_at", b"_stopped_at", "automation_id", b"automation_id", "created_at", b"created_at", "federation", b"federation", "fixed_interval", b"fixed_interval", "flwr_aid", b"flwr_aid", "next_run_at", b"next_run_at", "remaining_runs", b"remaining_runs", "series_id", b"series_id", "status", b"status", "stopped_at", b"stopped_at", "updated_at", b"updated_at"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_agent_id", b"_agent_id", "_fixed_interval", b"_fixed_interval", "_remaining_runs", b"_remaining_runs", "_stopped_at", b"_stopped_at", "agent_id", b"agent_id", "fixed_interval", b"fixed_interval", "remaining_runs", b"remaining_runs", "stopped_at", b"stopped_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_agent_id", b"_agent_id", "_fixed_interval", b"_fixed_interval", "_remaining_runs", b"_remaining_runs", "_stopped_at", b"_stopped_at", "agent_id", b"agent_id", "automation_id", b"automation_id", "created_at", b"created_at", "federation", b"federation", "fixed_interval", b"fixed_interval", "flwr_aid", b"flwr_aid", "next_run_at", b"next_run_at", "remaining_runs", b"remaining_runs", "series_id", b"series_id", "status", b"status", "stopped_at", b"stopped_at", "updated_at", b"updated_at"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_agent_id", b"_agent_id"]) -> typing.Literal["agent_id"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_fixed_interval", b"_fixed_interval"]) -> typing.Literal["fixed_interval"] | None: ...
     @typing.overload
@@ -509,218 +516,115 @@ class ListRunsResponse(google.protobuf.message.Message):
 global___ListRunsResponse = ListRunsResponse
 
 @typing.final
-class ConversationParticipant(google.protobuf.message.Message):
+class BootstrapRequest(google.protobuf.message.Message):
+    """Agents and Spaces only. Message history is fetched through GetSpaceMessages."""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    FLWR_AID_FIELD_NUMBER: builtins.int
-    AGENT_ID_FIELD_NUMBER: builtins.int
-    flwr_aid: builtins.str
-    agent_id: builtins.int
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___BootstrapRequest = BootstrapRequest
+
+@typing.final
+class BootstrapResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    AGENTS_FIELD_NUMBER: builtins.int
+    SPACES_FIELD_NUMBER: builtins.int
+    CURSOR_FIELD_NUMBER: builtins.int
+    cursor: builtins.int
+    """Feed head from the same snapshot as agents and spaces."""
+    @property
+    def agents(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Agent]: ...
+    @property
+    def spaces(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[flwr.proto.space_pb2.Space]: ...
     def __init__(
         self,
         *,
-        flwr_aid: builtins.str = ...,
-        agent_id: builtins.int = ...,
+        agents: collections.abc.Iterable[global___Agent] | None = ...,
+        spaces: collections.abc.Iterable[flwr.proto.space_pb2.Space] | None = ...,
+        cursor: builtins.int = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["agent_id", b"agent_id", "flwr_aid", b"flwr_aid", "participant", b"participant"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["agent_id", b"agent_id", "flwr_aid", b"flwr_aid", "participant", b"participant"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["participant", b"participant"]) -> typing.Literal["flwr_aid", "agent_id"] | None: ...
+    def ClearField(self, field_name: typing.Literal["agents", b"agents", "cursor", b"cursor", "spaces", b"spaces"]) -> None: ...
 
-global___ConversationParticipant = ConversationParticipant
+global___BootstrapResponse = BootstrapResponse
 
 @typing.final
-class Conversation(google.protobuf.message.Message):
+class Event(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    ID_FIELD_NUMBER: builtins.int
-    TITLE_FIELD_NUMBER: builtins.int
+    EVENT_ID_FIELD_NUMBER: builtins.int
+    TYPE_FIELD_NUMBER: builtins.int
+    SPACE_ID_FIELD_NUMBER: builtins.int
+    PAYLOAD_FIELD_NUMBER: builtins.int
     CREATED_AT_FIELD_NUMBER: builtins.int
-    PARTICIPANTS_FIELD_NUMBER: builtins.int
-    id: builtins.str
-    title: builtins.str
+    event_id: builtins.str
+    type: builtins.str
+    space_id: builtins.str
     created_at: builtins.str
     @property
-    def participants(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ConversationParticipant]: ...
+    def payload(self) -> google.protobuf.struct_pb2.Struct: ...
     def __init__(
         self,
         *,
-        id: builtins.str = ...,
-        title: builtins.str = ...,
+        event_id: builtins.str = ...,
+        type: builtins.str = ...,
+        space_id: builtins.str | None = ...,
+        payload: google.protobuf.struct_pb2.Struct | None = ...,
         created_at: builtins.str = ...,
-        participants: collections.abc.Iterable[global___ConversationParticipant] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["created_at", b"created_at", "id", b"id", "participants", b"participants", "title", b"title"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_space_id", b"_space_id", "payload", b"payload", "space_id", b"space_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_space_id", b"_space_id", "created_at", b"created_at", "event_id", b"event_id", "payload", b"payload", "space_id", b"space_id", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_space_id", b"_space_id"]) -> typing.Literal["space_id"] | None: ...
 
-global___Conversation = Conversation
+global___Event = Event
 
 @typing.final
-class CreateConversationRequest(google.protobuf.message.Message):
+class StreamEventsRequest(google.protobuf.message.Message):
+    """POST /v1/control/stream-events uses binary protobuf stream framing.
+    Resume from Bootstrap.cursor or the last consumed seq. Task events use their
+    existing separate stream. The event journal is append-only; replay cursors
+    do not expire.
+    """
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    PARTICIPANTS_FIELD_NUMBER: builtins.int
+    AFTER_SEQ_FIELD_NUMBER: builtins.int
+    after_seq: builtins.int
+    """Exclusive user-feed cursor. Defaults to zero when absent."""
+    def __init__(
+        self,
+        *,
+        after_seq: builtins.int | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_after_seq", b"_after_seq", "after_seq", b"after_seq"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_after_seq", b"_after_seq", "after_seq", b"after_seq"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_after_seq", b"_after_seq"]) -> typing.Literal["after_seq"] | None: ...
+
+global___StreamEventsRequest = StreamEventsRequest
+
+@typing.final
+class StreamEventsResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SEQ_FIELD_NUMBER: builtins.int
+    EVENT_FIELD_NUMBER: builtins.int
+    seq: builtins.int
+    """Position in the authenticated user's feed."""
     @property
-    def participants(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ConversationParticipant]: ...
+    def event(self) -> global___Event: ...
     def __init__(
         self,
         *,
-        participants: collections.abc.Iterable[global___ConversationParticipant] | None = ...,
+        seq: builtins.int = ...,
+        event: global___Event | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["participants", b"participants"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["event", b"event"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["event", b"event", "seq", b"seq"]) -> None: ...
 
-global___CreateConversationRequest = CreateConversationRequest
-
-@typing.final
-class CreateConversationResponse(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    CONVERSATION_FIELD_NUMBER: builtins.int
-    @property
-    def conversation(self) -> global___Conversation: ...
-    def __init__(
-        self,
-        *,
-        conversation: global___Conversation | None = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing.Literal["conversation", b"conversation"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["conversation", b"conversation"]) -> None: ...
-
-global___CreateConversationResponse = CreateConversationResponse
-
-@typing.final
-class ListConversationsRequest(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    def __init__(
-        self,
-    ) -> None: ...
-
-global___ListConversationsRequest = ListConversationsRequest
-
-@typing.final
-class ListConversationsResponse(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    CONVERSATIONS_FIELD_NUMBER: builtins.int
-    @property
-    def conversations(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Conversation]: ...
-    def __init__(
-        self,
-        *,
-        conversations: collections.abc.Iterable[global___Conversation] | None = ...,
-    ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["conversations", b"conversations"]) -> None: ...
-
-global___ListConversationsResponse = ListConversationsResponse
-
-@typing.final
-class ConversationMessage(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    ID_FIELD_NUMBER: builtins.int
-    CONVERSATION_ID_FIELD_NUMBER: builtins.int
-    AUTHOR_FIELD_NUMBER: builtins.int
-    CREATED_AT_FIELD_NUMBER: builtins.int
-    CONTENT_FIELD_NUMBER: builtins.int
-    id: builtins.int
-    conversation_id: builtins.str
-    created_at: builtins.str
-    content: builtins.str
-    @property
-    def author(self) -> global___ConversationParticipant: ...
-    def __init__(
-        self,
-        *,
-        id: builtins.int = ...,
-        conversation_id: builtins.str = ...,
-        author: global___ConversationParticipant | None = ...,
-        created_at: builtins.str = ...,
-        content: builtins.str = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing.Literal["author", b"author"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["author", b"author", "content", b"content", "conversation_id", b"conversation_id", "created_at", b"created_at", "id", b"id"]) -> None: ...
-
-global___ConversationMessage = ConversationMessage
-
-@typing.final
-class GetConversationMessagesRequest(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    CONVERSATION_ID_FIELD_NUMBER: builtins.int
-    BEFORE_ID_FIELD_NUMBER: builtins.int
-    LIMIT_FIELD_NUMBER: builtins.int
-    conversation_id: builtins.str
-    before_id: builtins.int
-    """Exclusive upper ID bound. Absent selects the newest page."""
-    limit: builtins.int
-    """Absent uses the server's default page size."""
-    def __init__(
-        self,
-        *,
-        conversation_id: builtins.str = ...,
-        before_id: builtins.int | None = ...,
-        limit: builtins.int | None = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_before_id", b"_before_id", "_limit", b"_limit", "before_id", b"before_id", "limit", b"limit"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_before_id", b"_before_id", "_limit", b"_limit", "before_id", b"before_id", "conversation_id", b"conversation_id", "limit", b"limit"]) -> None: ...
-    @typing.overload
-    def WhichOneof(self, oneof_group: typing.Literal["_before_id", b"_before_id"]) -> typing.Literal["before_id"] | None: ...
-    @typing.overload
-    def WhichOneof(self, oneof_group: typing.Literal["_limit", b"_limit"]) -> typing.Literal["limit"] | None: ...
-
-global___GetConversationMessagesRequest = GetConversationMessagesRequest
-
-@typing.final
-class GetConversationMessagesResponse(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    MESSAGES_FIELD_NUMBER: builtins.int
-    @property
-    def messages(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ConversationMessage]:
-        """Messages in the selected page, ordered by ascending ID."""
-
-    def __init__(
-        self,
-        *,
-        messages: collections.abc.Iterable[global___ConversationMessage] | None = ...,
-    ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["messages", b"messages"]) -> None: ...
-
-global___GetConversationMessagesResponse = GetConversationMessagesResponse
-
-@typing.final
-class SendConversationMessageRequest(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    CONVERSATION_ID_FIELD_NUMBER: builtins.int
-    CONTENT_FIELD_NUMBER: builtins.int
-    conversation_id: builtins.str
-    content: builtins.str
-    def __init__(
-        self,
-        *,
-        conversation_id: builtins.str = ...,
-        content: builtins.str = ...,
-    ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["content", b"content", "conversation_id", b"conversation_id"]) -> None: ...
-
-global___SendConversationMessageRequest = SendConversationMessageRequest
-
-@typing.final
-class SendConversationMessageResponse(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    MESSAGE_FIELD_NUMBER: builtins.int
-    @property
-    def message(self) -> global___ConversationMessage: ...
-    def __init__(
-        self,
-        *,
-        message: global___ConversationMessage | None = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing.Literal["message", b"message"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["message", b"message"]) -> None: ...
-
-global___SendConversationMessageResponse = SendConversationMessageResponse
+global___StreamEventsResponse = StreamEventsResponse
 
 @typing.final
 class ListRunSeriesRequest(google.protobuf.message.Message):
@@ -951,13 +855,17 @@ class ListConnectorsRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     FEDERATION_FIELD_NUMBER: builtins.int
+    AGENT_ID_FIELD_NUMBER: builtins.int
     federation: builtins.str
+    agent_id: builtins.int
+    """Select an agent instead of a federation; 0 leaves the agent unset."""
     def __init__(
         self,
         *,
         federation: builtins.str = ...,
+        agent_id: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["federation", b"federation"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["agent_id", b"agent_id", "federation", b"federation"]) -> None: ...
 
 global___ListConnectorsRequest = ListConnectorsRequest
 
@@ -1011,17 +919,21 @@ class DisconnectConnectorRequest(google.protobuf.message.Message):
     CONNECTOR_REF_FIELD_NUMBER: builtins.int
     CONNECTOR_ID_FIELD_NUMBER: builtins.int
     FEDERATION_FIELD_NUMBER: builtins.int
+    AGENT_ID_FIELD_NUMBER: builtins.int
     connector_ref: builtins.str
     connector_id: builtins.int
     federation: builtins.str
+    agent_id: builtins.int
+    """Select an agent instead of a federation; 0 leaves the agent unset."""
     def __init__(
         self,
         *,
         connector_ref: builtins.str = ...,
         connector_id: builtins.int = ...,
         federation: builtins.str = ...,
+        agent_id: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["connector_id", b"connector_id", "connector_ref", b"connector_ref", "federation", b"federation"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["agent_id", b"agent_id", "connector_id", b"connector_id", "connector_ref", b"connector_ref", "federation", b"federation"]) -> None: ...
 
 global___DisconnectConnectorRequest = DisconnectConnectorRequest
 
@@ -1042,17 +954,21 @@ class BeginConnectorOAuthRequest(google.protobuf.message.Message):
     CONNECTOR_REF_FIELD_NUMBER: builtins.int
     REDIRECT_URI_FIELD_NUMBER: builtins.int
     FEDERATION_FIELD_NUMBER: builtins.int
+    AGENT_ID_FIELD_NUMBER: builtins.int
     connector_ref: builtins.str
     redirect_uri: builtins.str
     federation: builtins.str
+    agent_id: builtins.int
+    """Select an agent instead of a federation; 0 leaves the agent unset."""
     def __init__(
         self,
         *,
         connector_ref: builtins.str = ...,
         redirect_uri: builtins.str = ...,
         federation: builtins.str = ...,
+        agent_id: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["connector_ref", b"connector_ref", "federation", b"federation", "redirect_uri", b"redirect_uri"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["agent_id", b"agent_id", "connector_ref", b"connector_ref", "federation", b"federation", "redirect_uri", b"redirect_uri"]) -> None: ...
 
 global___BeginConnectorOAuthRequest = BeginConnectorOAuthRequest
 
@@ -1537,17 +1453,23 @@ class CreateFederationRequest(google.protobuf.message.Message):
     FEDERATION_NAME_FIELD_NUMBER: builtins.int
     DESCRIPTION_FIELD_NUMBER: builtins.int
     SIMULATION_FIELD_NUMBER: builtins.int
+    HANDLE_FIELD_NUMBER: builtins.int
     federation_name: builtins.str
     description: builtins.str
     simulation: builtins.bool
+    handle: builtins.str
+    """Bare namespace handle. Omission selects the authenticated caller's handle."""
     def __init__(
         self,
         *,
         federation_name: builtins.str = ...,
         description: builtins.str = ...,
         simulation: builtins.bool = ...,
+        handle: builtins.str | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["description", b"description", "federation_name", b"federation_name", "simulation", b"simulation"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_handle", b"_handle", "handle", b"handle"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_handle", b"_handle", "description", b"description", "federation_name", b"federation_name", "handle", b"handle", "simulation", b"simulation"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_handle", b"_handle"]) -> typing.Literal["handle"] | None: ...
 
 global___CreateFederationRequest = CreateFederationRequest
 

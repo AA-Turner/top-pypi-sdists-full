@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add ``source_ip_prefix`` and ``destination_ip_prefix`` to Neutron metering
-    label rules.

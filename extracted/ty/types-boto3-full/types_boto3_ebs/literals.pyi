@@ -38,6 +38,7 @@ SSETypeType = Literal["none", "sse-ebs", "sse-kms"]
 StatusType = Literal["completed", "error", "pending"]
 EBSServiceName = Literal["ebs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

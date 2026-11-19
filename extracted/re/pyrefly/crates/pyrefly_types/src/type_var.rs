@@ -11,6 +11,7 @@ use std::hash::Hash;
 
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::module::Module;
@@ -22,13 +23,14 @@ use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Identifier;
 
 use crate::dimension::gradual_size;
+use crate::env::TypeEnv;
 use crate::equality::TypeEq;
 use crate::equality::TypeEqCtx;
 use crate::heap::TypeHeap;
 use crate::quantified::Quantified;
 use crate::quantified::QuantifiedKind;
+use crate::quantified::TypeVarLike;
 use crate::simplify::unions;
-use crate::stdlib::Stdlib;
 use crate::types::Type;
 
 mod flag;
@@ -60,7 +62,7 @@ impl Display for TypeVar {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum Restriction {
     Constraints(Vec<Type>),
     Bound(Type),
@@ -77,13 +79,14 @@ impl Restriction {
         )
     }
 
-    fn as_type(&self, stdlib: &Stdlib, heap: &TypeHeap, kind: QuantifiedKind) -> Type {
+    /// This restriction as an upper bound for a type parameter of kind `kind`.
+    pub fn as_type(&self, env: &dyn TypeEnv, heap: &TypeHeap, kind: QuantifiedKind) -> Type {
         match self {
             Self::Bound(t) => t.clone(),
-            Self::Constraints(ts) => unions(ts.clone(), heap),
-            Self::ShapeExtension(extension) => extension.upper_bound(stdlib, heap),
+            Self::Constraints(ts) => unions(ts.clone(), env, heap),
+            Self::ShapeExtension(extension) => extension.upper_bound(env, heap),
             Self::Unrestricted => match kind {
-                QuantifiedKind::TypeVar => stdlib.object().clone().to_type(),
+                QuantifiedKind::TypeVar => env.stdlib().object().clone().to_type(),
                 QuantifiedKind::IntVar => gradual_size(),
                 QuantifiedKind::ParamSpec => Type::Ellipsis,
                 QuantifiedKind::TypeVarTuple => Type::any_tuple(),
@@ -94,13 +97,13 @@ impl Restriction {
 
 impl Quantified {
     /// The upper bound of this type parameter as a type.
-    pub fn upper_bound(&self, stdlib: &Stdlib, heap: &TypeHeap) -> Type {
-        self.restriction.as_type(stdlib, heap, self.kind)
+    pub fn upper_bound(&self, env: &dyn TypeEnv, heap: &TypeHeap) -> Type {
+        self.restriction.as_type(env, heap, self.kind)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum PreInferenceVariance {
     Covariant,
     Contravariant,
@@ -120,7 +123,7 @@ impl Display for PreInferenceVariance {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum Variance {
     Covariant,
     Contravariant,
@@ -171,7 +174,7 @@ impl Display for Variance {
     }
 }
 
-#[derive(Debug, PartialEq, TypeEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, TypeEq, TypeOrd, Eq, Ord, PartialOrd)]
 struct TypeVarInner {
     qname: QName,
     kind: QuantifiedKind,
@@ -179,6 +182,28 @@ struct TypeVarInner {
     default: Option<Type>,
     /// The variance if known, or None for infer_variance=True
     variance: PreInferenceVariance,
+}
+
+impl TypeVarLike for TypeVar {
+    fn qname(&self) -> &QName {
+        &self.0.qname
+    }
+
+    fn kind(&self) -> QuantifiedKind {
+        self.0.kind
+    }
+
+    fn default(&self) -> Option<&Type> {
+        self.0.default.as_ref()
+    }
+
+    fn restriction(&self) -> &Restriction {
+        &self.0.restriction
+    }
+
+    fn variance(&self) -> PreInferenceVariance {
+        self.0.variance
+    }
 }
 
 impl TypeVar {
@@ -217,33 +242,13 @@ impl TypeVar {
         }))
     }
 
-    pub fn qname(&self) -> &QName {
-        &self.0.qname
-    }
-
-    pub fn restriction(&self) -> &Restriction {
-        &self.0.restriction
-    }
-
-    pub fn kind(&self) -> QuantifiedKind {
-        self.0.kind
-    }
-
-    pub fn default(&self) -> Option<&Type> {
-        self.0.default.as_ref()
-    }
-
-    pub fn variance(&self) -> PreInferenceVariance {
-        self.0.variance
-    }
-
     pub fn to_type(&self, heap: &TypeHeap) -> Type {
         heap.mk_type_var(self.dupe())
     }
 
     /// The upper bound of this legacy TypeVar as a type.
-    pub fn upper_bound(&self, stdlib: &Stdlib, heap: &TypeHeap) -> Type {
-        self.restriction().as_type(stdlib, heap, self.kind())
+    pub fn upper_bound(&self, env: &dyn TypeEnv, heap: &TypeHeap) -> Type {
+        self.restriction().as_type(env, heap, self.kind())
     }
 
     pub fn type_eq_inner(&self, other: &Self, ctx: &mut TypeEqCtx) -> bool {

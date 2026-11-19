@@ -135,6 +135,7 @@ __all__ = (
     "StackSetStatusType",
     "StackStatusType",
     "StackUpdateCompleteWaiterName",
+    "StageStatusType",
     "TemplateFormatType",
     "TemplateStageType",
     "ThirdPartyTypeType",
@@ -421,6 +422,15 @@ StackStatusType = Literal[
     "UPDATE_ROLLBACK_IN_PROGRESS",
 ]
 StackUpdateCompleteWaiterName = Literal["stack_update_complete"]
+StageStatusType = Literal[
+    "FAILED",
+    "IN_PROGRESS",
+    "NOT_APPLICABLE",
+    "NOT_STARTED",
+    "PARTIAL_SUCCESS",
+    "PENDING",
+    "SUCCEEDED",
+]
 TemplateFormatType = Literal["JSON", "YAML"]
 TemplateStageType = Literal["Original", "Processed"]
 ThirdPartyTypeType = Literal["HOOK", "MODULE", "RESOURCE"]
@@ -438,6 +448,7 @@ WarningTypeType = Literal[
 ]
 CloudFormationServiceName = Literal["cloudformation"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -546,6 +557,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -730,6 +742,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -797,6 +810,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

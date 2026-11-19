@@ -25,14 +25,20 @@ is paid once per process.
 
 WHAT IT SKIPS, returning no event: records that are not prompts, every chunk
 after the first (the first chunk is the start of the prompt, which is what
-the classifier weighs), blank content, and records with no correlation id
-(the projection upserts on it, so an event without one cannot land).
+the classifier weighs), blank content, and records whose correlation id is
+absent or not a UUID, or whose emission time is missing or not an ISO 8601
+datetime — the consumers reject all of those (the omnimemory event model
+needs a UUID correlation id to upsert on and a datetime emitted_at, so an
+event carrying them would fail validation downstream, not just land empty).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from datetime import datetime
 from functools import cache
+from importlib import import_module
+from uuid import UUID
 
 from omnimarket.nodes.node_prompt_intent_classify_compute.models.model_content_captured_record import (
     ModelContentCapturedRecord,
@@ -52,14 +58,39 @@ PromptClassifier = Callable[[str], ModelPromptIntentVerdict]
 
 @cache
 def _omniintelligence_functions() -> tuple[
-    Callable[..., object], Callable[..., object]
+    Callable[[str], Mapping[str, object]], Callable[[str, float], object]
 ]:
+    """Bind the classify and resolve calls to what omniintelligence exports.
+
+    The installed module defines ``HandlerIntentClassifier`` and
+    ``HandlerTypedClassification``, each with ``handle(request)``; it has no
+    module-level ``classify_intent`` (OMN-21898).
+    """
     from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification import (  # type: ignore[import-not-found]
-        classify_intent,
+        HandlerIntentClassifier,
     )
     from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_typed_classification import (  # type: ignore[import-not-found]
-        resolve_typed_intent,
+        HandlerTypedClassification,
     )
+
+    models = import_module(
+        "omniintelligence.nodes.node_intent_classifier_compute.models"
+    )
+    classifier = HandlerIntentClassifier()
+    typed_resolver = HandlerTypedClassification()
+
+    def classify_intent(prompt: str) -> Mapping[str, object]:
+        result: Mapping[str, object] = classifier.handle(
+            models.ModelClassifyIntentRequest(content=prompt)
+        )
+        return result
+
+    def resolve_typed_intent(category: str, confidence: float) -> object:
+        return typed_resolver.handle(
+            models.ModelResolveTypedIntentRequest(
+                intent_category=category, confidence=confidence
+            )
+        )
 
     return classify_intent, resolve_typed_intent
 
@@ -69,7 +100,7 @@ def classify_with_omniintelligence(prompt: str) -> ModelPromptIntentVerdict:
     classify_intent, resolve_typed_intent = _omniintelligence_functions()
     raw = classify_intent(prompt)
     if not isinstance(raw, dict):
-        msg = f"classify_intent returned {type(raw).__name__}, expected a mapping"
+        msg = f"the classifier returned {type(raw).__name__}, expected a mapping"
         raise TypeError(msg)
     category = str(raw.get("intent_category", "unknown"))
     confidence = float(raw.get("confidence", 0.0))
@@ -83,6 +114,29 @@ def classify_with_omniintelligence(prompt: str) -> ModelPromptIntentVerdict:
         confidence=confidence,
         keywords=keywords,
     )
+
+
+def _is_valid_uuid(value: str) -> bool:
+    """True when ``value`` parses as a UUID (the consumers upsert on it)."""
+    try:
+        UUID(value)
+    except (ValueError, TypeError):
+        return False
+    return True
+
+
+def _is_valid_iso8601(value: str | None) -> bool:
+    """True when ``value`` parses as an ISO 8601 datetime (trailing Z ok)."""
+    if not value:
+        return False
+    text = value
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        datetime.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
 
 
 def _agent_source(actor: str | None) -> str:
@@ -114,7 +168,9 @@ class HandlerPromptIntentClassify:
             return None
         if record.chunk_index != 0:
             return None
-        if not record.correlation_id:
+        if not record.correlation_id or not _is_valid_uuid(record.correlation_id):
+            return None
+        if not _is_valid_iso8601(record.emitted_at):
             return None
         text = record.content or ""
         if not text.strip():

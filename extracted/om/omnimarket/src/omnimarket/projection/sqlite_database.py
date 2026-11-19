@@ -28,6 +28,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
+from functools import partial
 from importlib.resources import files
 from pathlib import Path
 from types import MappingProxyType
@@ -40,6 +41,36 @@ from omnibase_core.models.projection.model_upsert_plan import (
 
 from omnimarket.handlers.handler_projection_derived_write import (
     HandlerProjectionDerivedWrite,
+)
+from omnimarket.models.model_local_install_delegation_savings import (
+    DELEGATION_SAVINGS_VIEW_STEPS,
+    create_delegation_savings_view,
+)
+from omnimarket.models.model_local_install_delegation_summary import (
+    DELEGATION_SUMMARY_VIEW_STEPS,
+    DELEGATION_VIEW_REPLACE_STEPS,
+    create_delegation_summary_view,
+)
+from omnimarket.models.model_local_install_schema import (
+    _CURSOR_TABLE_STEPS,
+    RUN_SAVINGS_RECOMPUTE_STEP,
+    recompute_run_savings,
+    relabel_usage_source,
+)
+from omnimarket.models.model_local_install_schema import (
+    METERING_SUMMARY_COLUMN_STEPS as _METERING_SUMMARY_COLUMN_STEPS,
+)
+from omnimarket.nodes.node_projection_tenant_credentials.stores import (
+    _CREDENTIAL_CHOSEN_MODELS_STEP as _CREDENTIAL_CHOSEN_MODELS_STEP,
+)
+from omnimarket.nodes.node_projection_tenant_credentials.stores import (
+    _CREDENTIAL_ROUTE_VERSIONS_STEP as _CREDENTIAL_ROUTE_VERSIONS_STEP,
+)
+from omnimarket.nodes.node_projection_tenant_credentials.stores import (
+    _DELEGATION_ROUTING_TENANT_OVERLAY_DDL,
+    _TENANT_INFERENCE_CREDENTIALS_ADDED_COLUMNS,
+    _TENANT_INFERENCE_CREDENTIALS_DDL,
+    CredentialSqliteStore,
 )
 
 logger = logging.getLogger(__name__)
@@ -358,63 +389,6 @@ CREATE TABLE IF NOT EXISTS run_trace (
 )
 """
 
-# OMN-19988: the latest environment report per (tenant, mode, service), with the
-# verdict and open alert the alert compute gave it. A row changes in place, so its
-# cursor is re-stamped from a one-row sequence on every insert and update, as
-# usage_by_model_day does: a row read again after it changed sorts after the rest.
-_LOCAL_ENVIRONMENT_DDL = """
-CREATE TABLE IF NOT EXISTS local_environment (
-    tenant_id TEXT NOT NULL,
-    mode TEXT NOT NULL,
-    service TEXT NOT NULL,
-    observed_state TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    versions TEXT NOT NULL DEFAULT '{}',
-    last_seen TEXT NOT NULL,
-    last_change TEXT NOT NULL,
-    verdict TEXT NOT NULL,
-    verdict_reason TEXT NOT NULL,
-    alert_code TEXT,
-    alert_severity TEXT,
-    alert_since TEXT,
-    store_kind TEXT,
-    store_location TEXT,
-    access_mode TEXT,
-    token_minted_at TEXT,
-    rotate_hint TEXT,
-    report_id TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    projection_cursor INTEGER,
-    PRIMARY KEY (tenant_id, mode, service)
-)
-"""
-_LOCAL_ENVIRONMENT_CURSOR_SEQ_DDL = """
-CREATE TABLE IF NOT EXISTS local_environment_projection_cursor_seq (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    last_value INTEGER NOT NULL
-)
-"""
-_LOCAL_ENVIRONMENT_CURSOR_SEQ_SEED = (
-    "INSERT OR IGNORE INTO local_environment_projection_cursor_seq "
-    "(id, last_value) VALUES (1, 0)"
-)
-_LOCAL_ENVIRONMENT_CURSOR_STAMP = """
-    UPDATE local_environment_projection_cursor_seq SET last_value = last_value + 1;
-    UPDATE local_environment
-    SET projection_cursor = (
-        SELECT last_value FROM local_environment_projection_cursor_seq
-    )
-    WHERE rowid = NEW.rowid;
-"""
-_LOCAL_ENVIRONMENT_CURSOR_TRIGGERS = (
-    "CREATE TRIGGER IF NOT EXISTS local_environment_cursor_on_insert "
-    "AFTER INSERT ON local_environment BEGIN" + _LOCAL_ENVIRONMENT_CURSOR_STAMP + "END",
-    "CREATE TRIGGER IF NOT EXISTS local_environment_cursor_on_update "
-    "AFTER UPDATE OF updated_at ON local_environment BEGIN"
-    + _LOCAL_ENVIRONMENT_CURSOR_STAMP
-    + "END",
-)
-
 _METERING_SUMMARY_DDL = """
 CREATE TABLE IF NOT EXISTS metering_summary (
     tenant_id TEXT NOT NULL,
@@ -535,58 +509,6 @@ CREATE TABLE IF NOT EXISTS automation_alarm_episodes (
 )
 """
 
-# OMN-19968: the local half of the tenant BYOK credential projection's two
-# tables, declared from node_projection_tenant_credentials/migrations (0000,
-# 0001: name and provider nullable for a revoke tombstone) and
-# node_delegation_routing_reducer/migrations (0001, 0004: provider). Timestamps
-# are ISO text; the primary key and the (tenant_id, task_type) unique key back
-# the two upserts in handler_tenant_credentials_store.
-_TENANT_INFERENCE_CREDENTIALS_DDL = """
-CREATE TABLE IF NOT EXISTS tenant_inference_credentials (
-    api_key_ref TEXT PRIMARY KEY,
-    tenant_id   TEXT NOT NULL,
-    name        TEXT,
-    provider    TEXT,
-    created_at  TEXT NOT NULL,
-    revoked_at  TEXT,
-    fingerprint TEXT,
-    set_at      TEXT,
-    expires_at  TEXT,
-    bound_host  TEXT,
-    workspace_id TEXT
-)
-"""
-
-# 0005: a file made before the fingerprint and set time existed gains them on open,
-# so a read of the exposure's declared columns never meets a missing one.
-_TENANT_INFERENCE_CREDENTIALS_ADDED_COLUMNS: dict[str, object] = {
-    "fingerprint": None,
-    "set_at": None,
-    # 0006 (OMN-20991): the key's expiry date.
-    "expires_at": None,
-    # 0007 (OMN-21012): the lab host the key is bound to.
-    "bound_host": None,
-    # 0008 (OMN-20967): the Anthropic workspace the key belongs to.
-    "workspace_id": None,
-}
-
-_DELEGATION_ROUTING_TENANT_OVERLAY_DDL = """
-CREATE TABLE IF NOT EXISTS delegation_routing_tenant_overlay (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    tenant_id    TEXT NOT NULL,
-    task_type    TEXT NOT NULL,
-    backend_id   TEXT NOT NULL,
-    provider     TEXT,
-    endpoint_url TEXT NOT NULL,
-    model_name   TEXT NOT NULL,
-    secret_ref   TEXT,
-    timeout_ms   INTEGER CHECK (timeout_ms IS NULL OR timeout_ms > 0),
-    max_tokens   INTEGER CHECK (max_tokens IS NULL OR max_tokens > 0),
-    created_at   TEXT NOT NULL,
-    updated_at   TEXT NOT NULL,
-    UNIQUE (tenant_id, task_type)
-)
-"""
 
 # OMN-19968: the local half of llm_call_metrics, declared beside the Postgres
 # schema (node_projection_llm_cost/migrations/0001_create_llm_call_metrics.sql).
@@ -645,7 +567,6 @@ _USAGE_BY_MODEL_DAY_TIER_KEY_SQL = (
 # OMN-20709: the SQLite counterpart of node_projection_delegation migration
 # 0050's projection_delegation_summary view. It lives with the node that owns
 # delegation_events and the Postgres view; the file explains the differences.
-_DELEGATION_SUMMARY_VIEW_STEP = "omn20709_delegation_summary_view"
 _DELEGATION_SUMMARY_VIEW_SQL = (
     "omnimarket.nodes.node_projection_delegation",
     "sqlite/delegation_summary_view.sql",
@@ -654,61 +575,19 @@ _DELEGATION_SUMMARY_VIEW_SQL = (
 # quality-gate view, the relations the Overview's Run locally, Tier mix and
 # Quality rows read. Same home and pattern as the summary view.
 _DELEGATION_ROUTING_QUALITY_VIEWS_STEP = "omn20754_delegation_routing_quality_views"
-# OMN-20226: metering_summary's three not-yet-measured fields. A store written
-# before them has the table without the columns, and CREATE TABLE IF NOT EXISTS
-# leaves it so; the read node then refuses the whole exposure
-# (projection_column_missing). They are added once, nullable with no default
-# like migration 0003, so a row written before them reads null, never a zero.
-_METERING_SUMMARY_MEASURES_STEP = "omn20226_metering_summary_measure_columns"
-_METERING_SUMMARY_ADDED_COLUMNS: tuple[tuple[str, str], ...] = (
-    ("compression_ratio", "TEXT"),
-    ("cache_hit_rate", "TEXT"),
-    ("runs_cache_answered", "INTEGER"),
-)
-# OMN-20008: metering_summary's savings share of the baseline, the counterpart
-# of migration 0004. Its own step, not a fourth entry above: a store that has
-# already recorded the OMN-20226 step would never run that step again.
-_METERING_SUMMARY_SAVINGS_PCT_STEP = "omn20008_metering_summary_savings_pct_column"
-_METERING_SUMMARY_SAVINGS_PCT_COLUMNS: tuple[tuple[str, str], ...] = (
-    ("savings_pct_of_counterfactual", "TEXT"),
-)
 _DELEGATION_ROUTING_QUALITY_VIEWS_SQL: tuple[tuple[str, str], ...] = (
     ("projection_delegation_model_routing", "sqlite/delegation_model_routing_view.sql"),
     ("projection_delegation_quality_gate", "sqlite/delegation_quality_gate_view.sql"),
 )
 # OMN-21015 AC2: the counterpart of node_projection_delegation migration 0060, the
 # model-routing view whose tiers each list their models with run count, share and
-# cost. Its own step, replacing the OMN-20754 definition of that one view: a store
-# that has already recorded the OMN-20754 step would never run it again.
-_DELEGATION_MODEL_ROUTING_TIER_MODELS_STEP = "omn21015_model_routing_tier_models"
+# cost; the default relation of _replace_delegation_view. Its step, with the per-day
+# view's (OMN-21970) and their later revisions, is declared in order in
+# DELEGATION_VIEW_REPLACE_STEPS (model_local_install_delegation_summary).
 _DELEGATION_MODEL_ROUTING_TIER_MODELS_SQL = (
     "projection_delegation_model_routing",
     "sqlite/delegation_model_routing_view_v2.sql",
 )
-# OMN-20008: the counterpart of node_projection_savings migration 090's savings
-# view, serving the local exposure with each run's stored call provenance.
-_DELEGATION_SAVINGS_VIEW_STEP = "omn20008_delegation_savings_view"
-_DELEGATION_SAVINGS_VIEW_SQL = (
-    "omnimarket.nodes.node_projection_savings",
-    "sqlite/delegation_savings_view.sql",
-)
-# OMN-20717: the counterpart of migration 096, which appends unpriced_call_count
-# to the savings view. Its own step after the OMN-20008 one: a store that has
-# recorded that step would never run it again.
-_DELEGATION_SAVINGS_UNPRICED_VIEW_STEP = "omn20717_delegation_savings_unpriced_view"
-_DELEGATION_SAVINGS_UNPRICED_VIEW_SQL = (
-    "omnimarket.nodes.node_projection_savings",
-    "sqlite/delegation_savings_view_unpriced.sql",
-)
-_DELEGATION_SAVINGS_MEASURED_VIEW_STEP = "omn21206_delegation_savings_measured_view"
-_DELEGATION_SAVINGS_MEASURED_VIEW_SQL = (
-    "omnimarket.nodes.node_projection_savings",
-    "sqlite/delegation_savings_view_measured.sql",
-)
-# OMN-19988: the local environment table, its cursor sequence and triggers. A
-# store step, not a statement on every connect: the sequence seed is a write, so
-# a read-only store, or a reader on a busy one, must not run it.
-_LOCAL_ENVIRONMENT_STEP = "omn19988_local_environment"
 # OMN-21349: correlation-keyed claims have no delivery_id mapping. Preserve
 # them in a legacy table and create the current shape before its indexes.
 _CLAIMS_DELIVERY_ID_SHAPE_STEP = "omn21349_claims_delivery_id_shape"
@@ -777,7 +656,7 @@ def default_evidence_db_path() -> Path:
     return _DEFAULT_EVIDENCE_DB_PATH
 
 
-class SqliteDatabaseAdapter:
+class SqliteDatabaseAdapter(CredentialSqliteStore):
     """``ProtocolProjectionDatabaseSync`` over a local SQLite file.
 
     Idempotent schema creation; additive columns inferred from the row dict so a
@@ -832,6 +711,7 @@ class SqliteDatabaseAdapter:
                 "tenant_inference_credentials",
                 _TENANT_INFERENCE_CREDENTIALS_ADDED_COLUMNS,
             )
+            self._ensure_credential_route_columns(conn)
             self._apply_store_steps(conn, self._db_path)
         except BaseException:
             conn.close()
@@ -926,7 +806,7 @@ class SqliteDatabaseAdapter:
             pending.append(
                 (
                     _USAGE_SOURCE_VOCABULARY_STEP,
-                    cls._relabel_usage_source,
+                    relabel_usage_source,
                     "moved llm_call_metrics.usage_source onto the shared vocabulary",
                 )
             )
@@ -946,14 +826,15 @@ class SqliteDatabaseAdapter:
                     "keyed usage-by-model-day on the tier with each row's share",
                 )
             )
-        if not cls._store_step_recorded(conn, _DELEGATION_SUMMARY_VIEW_STEP):
-            pending.append(
-                (
-                    _DELEGATION_SUMMARY_VIEW_STEP,
-                    cls._create_delegation_summary_view,
-                    "created the delegation summary view",
+        for step, resource in DELEGATION_SUMMARY_VIEW_STEPS:
+            if not cls._store_step_recorded(conn, step):
+                pending.append(
+                    (
+                        step,
+                        partial(create_delegation_summary_view, resource=resource),
+                        "created the delegation summary view",
+                    )
                 )
-            )
         if not cls._store_step_recorded(conn, _DELEGATION_ROUTING_QUALITY_VIEWS_STEP):
             pending.append(
                 (
@@ -962,64 +843,32 @@ class SqliteDatabaseAdapter:
                     "created the delegation model-routing and quality-gate views",
                 )
             )
-        if not cls._store_step_recorded(conn, _METERING_SUMMARY_MEASURES_STEP):
-            pending.append(
-                (
-                    _METERING_SUMMARY_MEASURES_STEP,
-                    cls._add_metering_summary_measure_columns,
-                    "added the metering-summary compression and cache columns",
+        for step, columns, lacking in _METERING_SUMMARY_COLUMN_STEPS:
+            if not cls._store_step_recorded(conn, step):
+                pending.append(
+                    (
+                        step,
+                        partial(cls._add_metering_summary_columns, columns=columns),
+                        lacking,
+                    )
                 )
-            )
-        if not cls._store_step_recorded(conn, _DELEGATION_SAVINGS_VIEW_STEP):
-            pending.append(
-                (
-                    _DELEGATION_SAVINGS_VIEW_STEP,
-                    cls._create_delegation_savings_view,
-                    "created the delegation savings view",
+        for step, resource, done in DELEGATION_SAVINGS_VIEW_STEPS:
+            if not cls._store_step_recorded(conn, step):
+                pending.append(
+                    (
+                        step,
+                        partial(create_delegation_savings_view, resource=resource),
+                        done,
+                    )
                 )
-            )
-        if not cls._store_step_recorded(conn, _METERING_SUMMARY_SAVINGS_PCT_STEP):
-            pending.append(
-                (
-                    _METERING_SUMMARY_SAVINGS_PCT_STEP,
-                    cls._add_metering_summary_savings_pct_column,
-                    "added the metering-summary savings share column",
-                )
-            )
-        if not cls._store_step_recorded(conn, _DELEGATION_SAVINGS_UNPRICED_VIEW_STEP):
-            pending.append(
-                (
-                    _DELEGATION_SAVINGS_UNPRICED_VIEW_STEP,
-                    cls._create_delegation_savings_unpriced_view,
-                    "re-created the delegation savings view with its unpriced-call count",
-                )
-            )
-        if not cls._store_step_recorded(conn, _DELEGATION_SAVINGS_MEASURED_VIEW_STEP):
-            pending.append(
-                (
-                    _DELEGATION_SAVINGS_MEASURED_VIEW_STEP,
-                    cls._create_delegation_savings_measured_view,
-                    "restricted savings money to measured runs and counted each basis",
-                )
-            )
-        if not cls._store_step_recorded(
-            conn, _DELEGATION_MODEL_ROUTING_TIER_MODELS_STEP
-        ):
-            pending.append(
-                (
-                    _DELEGATION_MODEL_ROUTING_TIER_MODELS_STEP,
-                    cls._replace_delegation_model_routing_view,
-                    "listed each tier's models in the delegation model-routing view",
-                )
-            )
-        if not cls._store_step_recorded(conn, _LOCAL_ENVIRONMENT_STEP):
-            pending.append(
-                (
-                    _LOCAL_ENVIRONMENT_STEP,
-                    cls._create_local_environment,
-                    "created the local environment table and its cursor",
-                )
-            )
+        for step, relation, done in DELEGATION_VIEW_REPLACE_STEPS:
+            if not cls._store_step_recorded(conn, step):
+                replace = partial(cls._replace_delegation_view, relation=relation)
+                pending.append((step, replace, done))
+        for step, note, ddl in _CURSOR_TABLE_STEPS:
+            if not cls._store_step_recorded(conn, step):
+                create = partial(cls._create_cursor_table, ddl=ddl)
+                pending.append((step, create, f"created {note} and its cursor"))
         if not cls._store_step_recorded(conn, _CLAIMS_DELIVERY_ID_SHAPE_STEP):
             pending.append(
                 (
@@ -1044,10 +893,19 @@ class SqliteDatabaseAdapter:
                     "indexed the delegate-skill command claims by correlation",
                 )
             )
+        if not cls._store_step_recorded(conn, RUN_SAVINGS_RECOMPUTE_STEP):
+            redo = "recomputed each run's modelled saving"
+            pending.append((RUN_SAVINGS_RECOMPUTE_STEP, recompute_run_savings, redo))
+        pending.extend(cls._credential_store_steps(conn))
         for index, (step, apply, _) in enumerate(pending):
             try:
                 conn.execute("BEGIN IMMEDIATE")
                 conn.execute(_STORE_STEPS_DDL)
+                # OMN-21970: another process may have applied it since the list
+                # was read; a step such as ADD COLUMN is not safe to run twice.
+                if cls._store_step_recorded(conn, step):
+                    conn.rollback()
+                    continue
                 apply(conn)
                 conn.execute(
                     f"INSERT OR IGNORE INTO {_STORE_STEPS_TABLE} (step, applied_at) "
@@ -1068,20 +926,6 @@ class SqliteDatabaseAdapter:
             except BaseException:
                 conn.rollback()
                 raise
-
-    @staticmethod
-    def _relabel_usage_source(conn: sqlite3.Connection) -> None:
-        """OMN-19968: move rows written before the shared vocabulary onto it.
-
-        The SQLite counterpart of migration 0003 (EnumUsageSource; omnibase_infra
-        migration 077), run once per store as a store step.
-        """
-        conn.execute(
-            "UPDATE llm_call_metrics SET usage_source = CASE usage_source "
-            "WHEN 'API' THEN 'measured' WHEN 'ESTIMATED' THEN 'estimated' "
-            "WHEN 'MISSING' THEN 'unknown' ELSE usage_source END "
-            "WHERE usage_source IN ('API', 'ESTIMATED', 'MISSING')"
-        )
 
     @classmethod
     def _add_usage_by_model_day_columns(cls, conn: sqlite3.Connection) -> None:
@@ -1145,23 +989,6 @@ class SqliteDatabaseAdapter:
                 conn.execute(trigger)
 
     @classmethod
-    def _add_metering_summary_measure_columns(cls, conn: sqlite3.Connection) -> None:
-        """OMN-20226: give a store written before them metering_summary's
-        compression and cache columns, run once per store as a store step.
-
-        The columns are read again here, under the step's write lock, so a fresh
-        store, whose table already has them, and two first opens that race both
-        add nothing twice.
-        """
-        cls._add_metering_summary_columns(conn, _METERING_SUMMARY_ADDED_COLUMNS)
-
-    @classmethod
-    def _add_metering_summary_savings_pct_column(cls, conn: sqlite3.Connection) -> None:
-        """OMN-20008: give a store written before it metering_summary's
-        savings_pct_of_counterfactual column, run once per store as a store step."""
-        cls._add_metering_summary_columns(conn, _METERING_SUMMARY_SAVINGS_PCT_COLUMNS)
-
-    @classmethod
     def _add_metering_summary_columns(
         cls, conn: sqlite3.Connection, columns: tuple[tuple[str, str], ...]
     ) -> None:
@@ -1172,18 +999,6 @@ class SqliteDatabaseAdapter:
                 conn.execute(
                     f"ALTER TABLE metering_summary ADD COLUMN {column} {declaration}"
                 )
-
-    @staticmethod
-    def _create_delegation_summary_view(conn: sqlite3.Connection) -> None:
-        """OMN-20709: give the store the summary relation the exposure reads.
-
-        Dropped first so a store that somehow holds an older definition takes
-        this one; a later revision is a new step, never an edit to this one.
-        """
-        package, resource = _DELEGATION_SUMMARY_VIEW_SQL
-        ddl = files(package).joinpath(resource).read_text(encoding="utf-8")
-        conn.execute("DROP VIEW IF EXISTS projection_delegation_summary")
-        conn.execute(ddl)
 
     @staticmethod
     def _create_delegation_routing_quality_views(conn: sqlite3.Connection) -> None:
@@ -1198,14 +1013,24 @@ class SqliteDatabaseAdapter:
             conn.execute(f"DROP VIEW IF EXISTS {view}")
             conn.execute(ddl)
 
-    @staticmethod
-    def _create_local_environment(conn: sqlite3.Connection) -> None:
-        """OMN-19988: the local environment table, its cursor sequence and triggers."""
-        conn.execute(_LOCAL_ENVIRONMENT_DDL)
-        conn.execute(_LOCAL_ENVIRONMENT_CURSOR_SEQ_DDL)
-        conn.execute(_LOCAL_ENVIRONMENT_CURSOR_SEQ_SEED)
-        for trigger in _LOCAL_ENVIRONMENT_CURSOR_TRIGGERS:
-            conn.execute(trigger)
+    @classmethod
+    def _create_cursor_table(
+        cls, conn: sqlite3.Connection, ddl: tuple[str, ...]
+    ) -> None:
+        """OMN-19988, OMN-19986: a local table, its cursor sequence, seed and triggers.
+
+        OMN-21970: SQLite has no ADD COLUMN IF NOT EXISTS, so when a step is replayed
+        (a store that lost its step records) a column it already added is kept.
+        """
+        for statement in ddl:
+            words = statement.split()
+            if (
+                words[:2] == ["ALTER", "TABLE"]
+                and words[3:5] == ["ADD", "COLUMN"]
+                and words[5] in cls._existing_columns(conn, words[2])
+            ):
+                continue
+            conn.execute(statement)
 
     @classmethod
     def _migrate_claims_table_to_delivery_id(cls, conn: sqlite3.Connection) -> None:
@@ -1249,48 +1074,20 @@ class SqliteDatabaseAdapter:
         conn.execute(_CLAIMS_CORRELATION_INDEX_DDL)
 
     @staticmethod
-    def _replace_delegation_model_routing_view(conn: sqlite3.Connection) -> None:
-        """OMN-21015 AC2: the model-routing view whose tiers list their models.
+    def _replace_delegation_view(
+        conn: sqlite3.Connection,
+        relation: tuple[str, str] = _DELEGATION_MODEL_ROUTING_TIER_MODELS_SQL,
+    ) -> None:
+        """Drop one delegation view and create it from its node's SQL file.
 
-        Runs after the OMN-20754 step, which created the first definition; this
-        one drops it and creates the revision. A later revision is a new step.
+        OMN-21015 AC2 (the default): the model-routing view whose tiers list
+        their models, after the OMN-20754 step created the first definition.
+        OMN-21970: the per-day view. A later revision is a new step.
         """
         package, _ = _DELEGATION_SUMMARY_VIEW_SQL
-        view, resource = _DELEGATION_MODEL_ROUTING_TIER_MODELS_SQL
+        view, resource = relation
         ddl = files(package).joinpath(resource).read_text(encoding="utf-8")
         conn.execute(f"DROP VIEW IF EXISTS {view}")
-        conn.execute(ddl)
-
-    @staticmethod
-    def _create_delegation_savings_view(conn: sqlite3.Connection) -> None:
-        """OMN-20008: give the store the savings relation the exposure reads.
-
-        Dropped first so a store that somehow holds an older definition takes
-        this one; a later revision is a new step, never an edit to this one.
-        """
-        package, resource = _DELEGATION_SAVINGS_VIEW_SQL
-        ddl = files(package).joinpath(resource).read_text(encoding="utf-8")
-        conn.execute("DROP VIEW IF EXISTS projection_delegation_savings")
-        conn.execute(ddl)
-
-    @staticmethod
-    def _create_delegation_savings_unpriced_view(conn: sqlite3.Connection) -> None:
-        """OMN-20717: re-create the savings view with unpriced_call_count appended.
-
-        Same shape as the OMN-20008 step it follows: dropped first, and a later
-        revision is a new step, never an edit to this one.
-        """
-        package, resource = _DELEGATION_SAVINGS_UNPRICED_VIEW_SQL
-        ddl = files(package).joinpath(resource).read_text(encoding="utf-8")
-        conn.execute("DROP VIEW IF EXISTS projection_delegation_savings")
-        conn.execute(ddl)
-
-    @staticmethod
-    def _create_delegation_savings_measured_view(conn: sqlite3.Connection) -> None:
-        """Replace the view once on both new and previously upgraded stores."""
-        package, resource = _DELEGATION_SAVINGS_MEASURED_VIEW_SQL
-        ddl = files(package).joinpath(resource).read_text(encoding="utf-8")
-        conn.execute("DROP VIEW IF EXISTS projection_delegation_savings")
         conn.execute(ddl)
 
     @staticmethod
@@ -1553,7 +1350,7 @@ class SqliteDatabaseAdapter:
                 ).fetchall()
             else:
                 rows = conn.execute(f"SELECT * FROM {table}{suffix}").fetchall()
-            return [dict(row) for row in rows]
+            return self._decoded_credential_models(table, [dict(row) for row in rows])
         finally:
             conn.close()
 

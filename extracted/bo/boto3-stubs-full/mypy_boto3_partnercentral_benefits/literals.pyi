@@ -158,6 +158,7 @@ ListBenefitsPaginatorName = Literal["list_benefits"]
 ResourceTypeType = Literal["BENEFIT_ALLOCATION", "OPPORTUNITY"]
 PartnerCentralBenefitsServiceName = Literal["partnercentral-benefits"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

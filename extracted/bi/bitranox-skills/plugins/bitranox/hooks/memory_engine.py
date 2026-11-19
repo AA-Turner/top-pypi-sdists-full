@@ -36,7 +36,10 @@ import os
 import re
 import sys
 import time
+from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
+from typing import NamedTuple
 
 import capture_constraints
 import self_improve_signals as sig
@@ -83,6 +86,160 @@ class Entry:
         self.pin = bool(pin)
         self.uuid = uuid or ""
         self.legacy = bool(legacy)
+
+
+# ---- report records: what move, relocate, rename, retitle, heal and ensure-all-trees return ------
+# `refused` means one thing on every report that has it: the WHOLE action was declined and nothing
+# was written, as the text saying why, else None. A level that heal or a scaffold LEFT while the
+# rest of the chain went ahead is a `LevelReason` under `refused_levels` instead.
+
+class LevelSlug(NamedTuple):
+    """A fact named at one level: a pointer heal found whose central body is missing."""
+
+    level: str
+    slug: str
+
+
+class LevelLine(NamedTuple):
+    """A raw pointer line at one level whose slug is not a plain filename."""
+
+    level: str
+    line: str
+
+
+class LevelReason(NamedTuple):
+    """A level left untouched, with why: its files cannot be read, or its legacy scope block has a
+    TOPICS line that does not parse."""
+
+    level: str
+    reason: str
+
+
+class RefSite(StrEnum):
+    """Where a repointed [[ref]] sat in the citing fact."""
+
+    HOOK = "hook"
+    BODY = "body"
+
+
+class RewrittenRef(NamedTuple):
+    """One citation a rename repointed: the citing fact, its level, and where the ref sat."""
+
+    level: str
+    citer: str
+    site: RefSite
+
+
+class MoveDirection(StrEnum):
+    """Which way along the altitude chain a move goes: up to an ancestor, down to a descendant."""
+
+    UP = "up"
+    DOWN = "down"
+
+
+@dataclass
+class MoveReport:
+    """What `move_entry` did. `direction` stays None when the move was refused before it was
+    known; `moved_slugs` lists the members already written when a write failed mid-set."""
+
+    slugs: list[str]
+    from_level: str
+    to_level: str
+    direction: MoveDirection | None = None
+    moved: bool = False
+    moved_slugs: list[str] = field(default_factory=list[str])
+    refused: str | None = None
+    warnings: list[str] = field(default_factory=list[str])
+
+    @property
+    def slug(self) -> str:
+        """The moving set as one comma-joined name, the bare slug for a single fact."""
+        return ", ".join(self.slugs)
+
+
+@dataclass
+class RelocateReport:
+    """What `relocate_entry` did; `notes` carries what the copy changed on the way (a dropped
+    topics line), `warnings` what it could not do."""
+
+    slug: str
+    from_level: str
+    to_level: str
+    cross_tree: bool = False
+    relocated: bool = False
+    refused: str | None = None
+    warnings: list[str] = field(default_factory=list[str])
+    notes: list[str] = field(default_factory=list[str])
+
+
+@dataclass
+class RenameReport:
+    """What `rename_entry` did; `to_slug` is the normalised new slug once it is known."""
+
+    slug: str
+    to_slug: str
+    level: str
+    renamed: bool = False
+    refs_rewritten: list[RewrittenRef] = field(default_factory=list[RewrittenRef])
+    refused: str | None = None
+    warnings: list[str] = field(default_factory=list[str])
+
+
+@dataclass
+class RetitleReport:
+    """What `retitle_entry` did; `levels` lists every level whose line was retitled, the asked
+    level first."""
+
+    slug: str
+    to_title: str
+    level: str
+    retitled: bool = False
+    levels: list[str] = field(default_factory=list[str])
+    refused: str | None = None
+    warnings: list[str] = field(default_factory=list[str])
+
+
+@dataclass
+class HealReport:
+    """What `heal` repaired and what it reported. `skipped` holds the refusal line when memory
+    writes are off, in which case every list is empty and nothing was looked at."""
+
+    healed: list[str] = field(default_factory=list[str])
+    orphans: list[LevelSlug] = field(default_factory=list[LevelSlug])
+    invalid_pointers: list[LevelLine] = field(default_factory=list[LevelLine])
+    unreadable: list[LevelReason] = field(default_factory=list[LevelReason])
+    refused_levels: list[LevelReason] = field(default_factory=list[LevelReason])
+    levels: int = 0
+    skipped: str | None = None
+
+
+class TreeStatus(StrEnum):
+    """Whether ensure-all-trees may scaffold a tree: `ambiguous` is a store-less top CLAUDE.md
+    sitting above other trees, which scaffolding would merge."""
+
+    OK = "ok"
+    AMBIGUOUS = "ambiguous"
+
+
+@dataclass
+class TreeReport:
+    """One knowledge tree ensure-all-trees found; `why` is set only when it is ambiguous."""
+
+    top: str
+    store_exists: bool
+    members: list[str]
+    status: TreeStatus = TreeStatus.OK
+    why: str | None = None
+    created: list[str] = field(default_factory=list[str])
+    refused_levels: list[LevelReason] = field(default_factory=list[LevelReason])
+
+
+@dataclass
+class TreesReport:
+    """What `ensure_all_trees` found under `roots`, one `TreeReport` per tree, sorted by top."""
+
+    roots: list[str]
+    trees: list[TreeReport] = field(default_factory=list[TreeReport])
 
 
 class SlugCollision(ValueError):
@@ -847,12 +1004,14 @@ def _upsert_checked(proj, anchor, slug, title, hook, body, type_, pin, scope_def
                 # with the bare frame. No explicit --type on an UPDATE means "leave the kind alone": re-deriving it from
                 # the slug discards what the stored body already records, and for a prefix-less slug
                 # that always lands on "project".
-                kept_skill = skill or _body_skill(body) or _body_skill(e.body)
                 framed = _framed_body(slug, e.hook, type_ or _body_type(e.body), body)
                 # A body that brings its own frame sets only the keys it names: a partial frame
                 # (`name:` and `topics:`) replaced the stored one whole and dropped `description:`
                 # and `metadata:`, so the body yielded no line and stopped being placed by topic.
                 framed = _with_stored_frame_keys(framed, e.body)
+                # Read after the merge, which already carries the stored skill unless the frame
+                # removed it with a bare `skill:` - falling back to the stored body put it back.
+                kept_skill = skill or _body_skill(framed)
                 # The stored topics line wins over whatever the new body's frame says or lacks:
                 # topics change only through set-topics (`e.body` is still the stored body here).
                 e.body = _with_stored_topics(_with_skill(_synced_frame(slug, e.hook, type_, framed),
@@ -1051,18 +1210,23 @@ def _readable_copies_of(anchor, slug):
     read, or a tree whose level walk fails, contributes no line instead of raising TreeWalkError.
     Only for a question where a missed line costs less than a refused write (see
     `_slug_owned_elsewhere`)."""
+    return [(level, ptr) for level, ptr in _readable_pointers(anchor) if ptr.slug == slug]
+
+
+def _readable_pointers(anchor):
+    """Yield (level, pointer) for every line of every level under `anchor` that can be read; a
+    level that cannot, or a tree whose level walk fails, yields nothing for it."""
     try:
         levels = list(curated_levels_under(anchor))
     except TreeWalkError:
-        return []
-    out = []
+        return
     for level in levels:
         try:
             text = read_store_text(sig.claude_local_md_path(level))
         except TreeWalkError:
             continue
-        out.extend((level, ptr) for ptr in us.parse_pointer_index(text)[1] if ptr.slug == slug)
-    return out
+        for ptr in us.parse_pointer_index(text)[1]:
+            yield level, ptr
 
 
 def _body_description(text):
@@ -1259,15 +1423,61 @@ def _frame_blocks(inner):
     return blocks
 
 
+# The `metadata:` sub-key a bare line never removes: the fact's kind, which `--type` changes and
+# `lint --tree` requires. Like `_MANAGED_FRAME_KEYS` one level up.
+_MANAGED_METADATA_KEYS = frozenset({"type"})
+
+
+def _metadata_sub_blocks(lines):
+    """[(key, lines)] for the sub-keys of a `metadata:` block (its header line left out), each
+    with its own deeper lines; lines before the first sub-key come under key None."""
+    def indent(line):
+        return len(line) - len(line.lstrip(" \t"))
+
+    subs = [line for line in lines[1:] if _FRAME_SUBKEY_RX.match(line)]
+    level = min(map(indent, subs), default=0)
+    blocks = []
+    for line in lines[1:]:
+        m = _FRAME_SUBKEY_RX.match(line)
+        if (m and indent(line) == level) or not blocks:
+            blocks.append((m.group(1) if m and indent(line) == level else None, [line]))
+        else:
+            blocks[-1][1].append(line)
+    return blocks
+
+
+def _bare_sub_block(lines):
+    """True when a metadata sub-block (`_metadata_sub_blocks`) is its key with no value and
+    nothing below it."""
+    return (not lines[0].split(":", 1)[1].strip()
+            and all(not line.strip() for line in lines[1:]))
+
+
+def _metadata_cleared(new_lines, stored_lines):
+    """The sub-keys the new `metadata:` block removes (a bare sub-key against a stored one with a
+    value, never a `_MANAGED_METADATA_KEYS` one) and those it hands back to the stored value (a
+    bare managed one); see `_with_stored_frame_keys`."""
+    stored = {k: b for k, b in _metadata_sub_blocks(stored_lines) if k is not None}
+    bare = {k for k, b in _metadata_sub_blocks(new_lines) if k is not None and _bare_sub_block(b)}
+    valued = {k for k in bare if k in stored and not _bare_sub_block(stored[k])}
+    return valued - _MANAGED_METADATA_KEYS, valued & _MANAGED_METADATA_KEYS
+
+
 def _merged_metadata(new_lines, stored_lines):
     """The `metadata:` block `new_lines` with each sub-key line of `stored_lines` it does not set
     appended (a sub-key's own continuation lines come with it), re-indented to the new block's
     sub-key indent: the two frames may indent differently (a stored two against a handed-in
-    four), and a carried line at the stored indent made the frame invalid YAML."""
+    four), and a carried line at the stored indent made the frame invalid YAML. A bare sub-key
+    the stored block gives a value removes it; a bare `type:` keeps the stored kind instead."""
     def indent(line):
         return len(line) - len(line.lstrip(" \t"))
 
-    have = {m.group(1) for m in map(_FRAME_SUBKEY_RX.match, new_lines[1:]) if m}
+    removed, restored = _metadata_cleared(new_lines, stored_lines)
+    if removed or restored:
+        dropped = removed | restored
+        new_lines = new_lines[:1] + [line for key, block in _metadata_sub_blocks(new_lines)
+                                     if key not in dropped for line in block]
+    have = {m.group(1) for m in map(_FRAME_SUBKEY_RX.match, new_lines[1:]) if m} | removed
     subs = [line for line in stored_lines[1:] if _FRAME_SUBKEY_RX.match(line)]
     level = min(map(indent, subs), default=0)    # a sub-key's own indent; deeper is its value
     new_subs = [line for line in new_lines[1:] if _FRAME_SUBKEY_RX.match(line)]
@@ -1317,8 +1527,11 @@ def _with_stored_frame_keys(text, stored):
     So leaving a key out never removes it. A key the engine does not manage (any but
     `_MANAGED_FRAME_KEYS`) is removed by naming it with no value: a bare `stale:` line, nothing
     below it, against a stored `stale:` that has a value. It is the only route, since the
-    store-edit-guard denies a hand edit of the body. A stored bare key handed back bare stays, so an
-    unedited round trip (`factedit.py show --body`, then `apply --body-file`) changes nothing."""
+    store-edit-guard denies a hand edit of the body. The same holds one level down: a bare
+    `metadata:` sub-key (`skill:`) removes the stored one, except `type:`, the fact's kind, which
+    a bare line leaves as stored (`--type` changes it). A stored bare key handed back bare stays,
+    so an unedited round trip (`factedit.py show --body`, then `apply --body-file`) changes
+    nothing."""
     head, m = _frontmatter(text)
     _shead, sm = _frontmatter(stored)
     if m is None or sm is None:
@@ -1402,9 +1615,13 @@ def _entry_from_body(anchor, slug):
 
 
 def _free_slug(anchor, slug):
-    """The first free `<slug>-N` variant in this tree (the collision suggestion)."""
+    """The first free `<slug>-N` variant in this tree (the collision suggestion): no body file
+    holds it and no level points at it. A line whose body is gone still owns its slug (see
+    `_slug_owned_elsewhere`), so a suggestion checked against body files alone was refused in turn.
+    The line walk is best effort, like the one a new slug gets: an unreadable level holds none."""
+    pointed = {ptr.slug for _level, ptr in _readable_pointers(anchor)}
     n = 2
-    while us.body_path(anchor, "%s-%d" % (slug, n)).is_file():
+    while ("%s-%d" % (slug, n)) in pointed or us.body_path(anchor, "%s-%d" % (slug, n)).is_file():
         n += 1
     return "%s-%d" % (slug, n)
 
@@ -1671,37 +1888,35 @@ def move_entry(from_level, to_level, slug, force=False):
     grow that block (see `_move_cap_refusal`), and a target level whose path below the anchor
     crosses a directory the level walk prunes (see `NonLevelDir`).
 
-    Returns {"slug","slugs","from","to","direction","moved","moved_slugs","refused","warnings"};
-    `slug` is the comma-joined set, identical to the input for a single slug."""
+    Returns a `MoveReport`; its `slug` is the comma-joined set, identical to the input for a
+    single slug."""
     sig.refuse_if_memory_writes_off()
     slugs = _as_slug_list(slug)
-    rep = {"slug": ", ".join(slugs), "slugs": list(slugs),
-           "from": str(from_level), "to": str(to_level),
-           "direction": None, "moved": False, "moved_slugs": [], "refused": None, "warnings": []}
+    rep = MoveReport(slugs=list(slugs), from_level=str(from_level), to_level=str(to_level))
     if not slugs:
-        rep["refused"] = "no slug given - name at least one fact to move"
+        rep.refused = "no slug given - name at least one fact to move"
         return rep
     src = Path(from_level).resolve()
     dst = Path(to_level).resolve()
     a_from, a_to = us.resolve_anchor(str(src)), us.resolve_anchor(str(dst))
     if a_from is None or a_to is None or a_from != a_to:
-        rep["refused"] = "cross-tree move (or no anchor) - a move stays within one tree; use a lift/copy for cross-tree"
+        rep.refused = "cross-tree move (or no anchor) - a move stays within one tree; use a lift/copy for cross-tree"
         return rep
     pruned = _pruned_refusal(a_to, dst, "%s move --from-level %s --to-level {level} --slug %s"
                              % (_ENGINE_ROUTE, src, " ".join(slugs)), src)
     if pruned:
-        rep["refused"] = pruned
+        rep.refused = pruned
         return rep
     if src == dst:
-        rep["refused"] = "same level - nothing to move"
+        rep.refused = "same level - nothing to move"
         return rep
     if dst in src.parents:
-        rep["direction"] = "up"
+        rep.direction = MoveDirection.UP
     elif src in dst.parents:
-        rep["direction"] = "down"
+        rep.direction = MoveDirection.DOWN
     else:
         hub = _nearest_common_level(src, dst, Path(a_from).resolve())
-        rep["refused"] = (
+        rep.refused = (
             "sibling levels - a move follows the altitude chain (ancestor <-> descendant only); "
             "re-home it in two moves through the nearest level above both: `move --from-level %s "
             "--to-level %s`, then `move --from-level %s --to-level %s` (the second, down, leg "
@@ -1714,20 +1929,20 @@ def move_entry(from_level, to_level, slug, force=False):
     for s in slugs:
         entry = by_slug.get(s)
         if entry is None:
-            rep["refused"] = "slug %r not found at the from-level" % s
+            rep.refused = "slug %r not found at the from-level" % s
             return rep
         if entry.legacy:
-            rep["refused"] = ("entry %r is an unmigrated legacy pointer - run "
-                              "migrate_to_slug_store.py first" % s)
+            rep.refused = ("entry %r is an unmigrated legacy pointer - run "
+                           "migrate_to_slug_store.py first" % s)
             return rep
         moving.append(entry)
     placed = _placed_slugs(a_from, slugs)
     if placed:
         s = next(s for s in slugs if s in placed)       # the first in the caller's order
-        rep["refused"] = _placed_by_topic(s, a_from)
+        rep.refused = _placed_by_topic(s, a_from)
         return rep
 
-    if rep["direction"] == "down":
+    if rep.direction == MoveDirection.DOWN:
         # a citing entry must sit AT or BELOW the new home, or its [[ref]] leaves cascade reach
         dangling = _dangling_inbound_after_move(src, dst, slugs)
         if dangling:
@@ -1736,9 +1951,9 @@ def move_entry(from_level, to_level, slug, force=False):
             what = ", ".join("%s at %s%s" % (citer, lvl, " (cites %s)" % s if len(slugs) > 1 else "")
                              for lvl, citer, s in dangling)
             if not force:
-                rep["refused"] = "down-move would dangle inbound [[refs]]: %s (use --force to move anyway)" % what
+                rep.refused = "down-move would dangle inbound [[refs]]: %s (use --force to move anyway)" % what
                 return rep
-            rep["warnings"].append("moved despite dangling inbound [[refs]]: %s" % what)
+            rep.warnings.append("moved despite dangling inbound [[refs]]: %s" % what)
 
     # Duplicate-pointer handling (defect A): the target may ALREADY point at a moving slug - either a
     # crash-interrupted move (add succeeded, drop did not) or a real DIVERGENT duplicate from drift
@@ -1761,7 +1976,7 @@ def move_entry(from_level, to_level, slug, force=False):
                     part for part, differs in (("TITLE", dst_entry.title != entry.title),
                                                ("HOOK", (dst_entry.hook or "") != (entry.hook or "")))
                     if differs)
-                rep["refused"] = (
+                rep.refused = (
                     "target already points at %r with a DIFFERENT %s (duplicate pointer); picking by "
                     "move direction would discard one - dedup deliberately with `add --slug %s` at the "
                     "surviving level, or --force to keep the LONGER hook (an exact tie keeps the "
@@ -1780,7 +1995,7 @@ def move_entry(from_level, to_level, slug, force=False):
     # render-topics and set-topics that name a move promise it.
     full = _move_cap_refusal(src, dst, plan)
     if full:
-        rep["refused"] = full
+        rep.refused = full
         return rep
 
     for s, (title, hook, pin) in plan:
@@ -1788,14 +2003,14 @@ def move_entry(from_level, to_level, slug, force=False):
             us.add_pointer(str(dst), slug=s, title=title, hook=hook, pin=pin)
             _drop_pointer(str(src), s)
         except (OSError, TreeWalkError) as exc:        # the re-read inside the drop can fail too
-            rep["refused"] = (
+            rep.refused = (
                 "write failed on %r after %d of %d pointer(s) moved: %s - each move is an idempotent "
                 "add-then-remove, so re-run the SAME command to complete the set"
-                % (s, len(rep["moved_slugs"]), len(plan), exc))
+                % (s, len(rep.moved_slugs), len(plan), exc))
             return rep
-        rep["moved_slugs"].append(s)
-    rep["warnings"].extend(dedup_warnings)
-    rep["moved"] = True
+        rep.moved_slugs.append(s)
+    rep.warnings.extend(dedup_warnings)
+    rep.moved = True
     return rep
 
 
@@ -1977,14 +2192,14 @@ def _heal_level(proj, report):
     with sig.memory_lock(sig.claude_local_md_path(proj)):
         made = _ensure_claude_md(proj)
         if made:
-            report["healed"].append(made)
+            report.healed.append(made)
         ensure_level(proj, _locked=True)
         local = sig.claude_local_md_path(proj)
         text = read_store_text(local)
         scope, pointers = us.parse_pointer_index(text)
         canonical = us.upsert_pointer_block(text, scope, pointers)     # round-trip -> canonical grammar
         if canonical != text and _write_if_changed(local, canonical):
-            report["healed"].append(str(local))
+            report.healed.append(str(local))
 
 
 _REFUSED_LEVEL_LINE = "    ! refused level, left untouched: %s [%s]"
@@ -2002,29 +2217,26 @@ def heal(proj):
     'unreadable' - skipping it without a word read exactly like a healthy level. A level whose
     legacy CLAUDE.md scope block has a TOPICS line that does not parse is left untouched and
     REPORTED under 'refused' with the refusal, which names the file to fix by hand.
-    FAIL-OPEN (never raises). Returns {'healed': [paths], 'orphans': [(level, slug)],
-    'invalid_pointers': [(level, line)], 'unreadable': [(level, reason)],
-    'refused': [(level, reason)], 'levels': n}.
-    Under BITRANOX_MEMORY_WRITES=off it touches nothing and returns every key empty plus
-    'skipped': the refusal line (SessionStart calls it on every start, so it must not raise)."""
+    FAIL-OPEN (never raises). Returns a `HealReport`.
+    Under BITRANOX_MEMORY_WRITES=off it touches nothing and returns every list empty, with
+    `skipped` holding the refusal line (SessionStart calls it on every start, so it must not
+    raise)."""
     if sig.memory_writes_off():
-        return {"healed": [], "orphans": [], "invalid_pointers": [], "unreadable": [], "refused": [],
-                "levels": 0, "skipped": sig.MEMORY_WRITES_OFF_LINE}
-    report = {"healed": [], "orphans": [], "invalid_pointers": [], "unreadable": [], "refused": [],
-              "levels": 0}
+        return HealReport(skipped=sig.MEMORY_WRITES_OFF_LINE)
+    report = HealReport()
     try:
         levels = sig.altitude_chain(proj)            # level dirs, narrowest -> the tree's anchor
     except Exception:                                # noqa: BLE001 - self-heal must never raise
         return report
     for level in levels:
-        report["levels"] += 1
+        report.levels += 1
         level = str(level)
         try:
             _heal_one_level(level, report)
         except TreeWalkError as exc:
-            report["unreadable"].append((level, str(exc)))
+            report.unreadable.append(LevelReason(level, str(exc)))
         except (TopicRefusal, tp.InvalidTopic) as exc:
-            report["refused"].append((level, str(exc)))
+            report.refused_levels.append(LevelReason(level, str(exc)))
         except Exception:                            # noqa: BLE001 - one bad level never blocks the rest
             continue
     return report
@@ -2038,24 +2250,30 @@ def backfill_titles(proj):
     Separate from `heal`, which SessionStart runs on every start and which never opens a body: a
     back-fill reads every body of the tree and writes most of them once, a one-off for stores
     written before titles were kept as data. Returns {'filled': [slugs], 'kept': n, 'unframed':
-    [slugs], 'untitled': [slugs], 'missing': [slugs]}; `untitled` is a framed body whose pointer
-    has an empty link text, so there is no title to copy (kept apart from `unframed`, which would
-    report a frame that is there as absent). A slug pointed at from two levels is filled from the
-    first level the walk meets, and each body is read and written under the lock of that first
+    [slugs], 'untitled': [slugs], 'missing': [slugs], 'legacy': [slugs]}; `untitled` is a framed
+    body whose pointer has an empty link text, so there is no title to copy (kept apart from
+    `unframed`, which would report a frame that is there as absent). A slug pointed at from two
+    levels is filled from the first level the walk meets, and each body is read and written under the lock of that first
     level only: an engine write to the same slug through another level holds that level's lock.
     Raises TreeWalkError (exit 2 on the CLI) when a level or a body cannot be read: a back-fill
     that skipped part of the tree would read as done. Missing is decided by the read itself, never
     by a `Path.is_file()` pre-check, which answers False for a body it cannot stat (EACCES) and
-    would report an unreadable store as a store of missing bodies."""
+    would report an unreadable store as a store of missing bodies. A legacy `uuid:` pointer is not
+    back-filled (its body stays at the legacy path until migrated) and is listed in `legacy`, so a
+    tree holding unmigrated facts never reads as fully back-filled."""
     sig.refuse_if_memory_writes_off()
     anchor = _anchor(proj)
-    rep = {"filled": [], "kept": 0, "unframed": [], "untitled": [], "missing": []}
+    rep = {"filled": [], "kept": 0, "unframed": [], "untitled": [], "missing": [], "legacy": []}
     seen = set()
     for level in curated_levels_under(anchor):
         with sig.memory_lock(sig.claude_local_md_path(level)):
             text = read_store_text(sig.claude_local_md_path(level))
             for ptr in us.parse_pointer_index(text)[1]:
-                if ptr.legacy or ptr.slug in seen:
+                if ptr.legacy:                       # not added to `seen`: a slug's legacy line
+                    if ptr.slug not in rep["legacy"]:    # at one level never hides its migrated
+                        rep["legacy"].append(ptr.slug)   # line at another from the back-fill
+                    continue
+                if ptr.slug in seen:
                     continue
                 seen.add(ptr.slug)
                 raw = read_store_text(us.body_path(anchor, ptr.slug))   # "" only when absent
@@ -2083,7 +2301,7 @@ def _heal_one_level(level, report):
     pointers whose body is missing. Raises TreeWalkError before any write when the level's files
     cannot be read."""
     before = read_store_text(sig.claude_local_md_path(level))
-    report["invalid_pointers"].extend((level, raw) for raw in us.invalid_pointer_lines(before))
+    report.invalid_pointers.extend(LevelLine(level, raw) for raw in us.invalid_pointer_lines(before))
     if _level_needs_heal(level):                     # skip-fast: healthy level = no lock, no write
         _heal_level(level, report)
     anchor = _anchor(level)
@@ -2092,15 +2310,15 @@ def _heal_one_level(level, report):
     for ptr in us.parse_pointer_index(text)[1]:
         path = us.legacy_body_path(anchor, ptr.uuid) if ptr.legacy else us.body_path(anchor, ptr.slug)
         if not path.is_file():
-            report["orphans"].append((level, ptr.slug))
+            report.orphans.append(LevelSlug(level, ptr.slug))
 
 
-def scaffold(proj, refused=None):
+def scaffold(proj, refused_levels=None):
     """Create every MISSING CLAUDE.md (marker) + CLAUDE.local.md (pointer block) from `proj` up to the
     anchor, and the anchor's `.claude-memory/` body-store. Idempotent; returns the created paths.
     A level whose legacy CLAUDE.md scope block has a TOPICS line that does not parse is left as it
-    is and the rest of the chain is still scaffolded; when `refused` is a list, each such level is
-    appended to it as (level, refusal text), the refusal naming the file to fix by hand.
+    is and the rest of the chain is still scaffolded; when `refused_levels` is a list, each such
+    level is appended to it as a `LevelReason`, the refusal naming the file to fix by hand.
     Refuses first under BITRANOX_MEMORY_WRITES=off: it writes the CLAUDE.md marker
     (`_ensure_claude_md`) before `ensure_level`'s own guard is reached."""
     sig.refuse_if_memory_writes_off()
@@ -2122,8 +2340,8 @@ def scaffold(proj, refused=None):
         except (TopicRefusal, tp.InvalidTopic) as exc:
             # a legacy block ensure_level refuses to harvest stays where it is; the next level
             # is still scaffolded, and the caller learns which level was left and why
-            if refused is not None:
-                refused.append((level, str(exc)))
+            if refused_levels is not None:
+                refused_levels.append(LevelReason(level, str(exc)))
         except OSError:
             continue                                   # an unwritable level; the next is still scaffolded
     try:
@@ -2176,41 +2394,40 @@ def relocate_entry(from_level, to_level, slug, force=False):
     refused (see `NonLevelDir`), and a cross-tree line that would leave the target's block past
     MAX_RENDER_BLOCK_BYTES is refused as `move` refuses it (see `_move_cap_refusal`); both before
     any write.
-    Returns {"slug","from","to","cross_tree","relocated","refused","warnings","notes"}.
+    Returns a `RelocateReport`.
     """
     sig.refuse_if_memory_writes_off()
-    rep = {"slug": slug, "from": str(from_level), "to": str(to_level),
-           "cross_tree": False, "relocated": False, "refused": None, "warnings": [], "notes": []}
+    rep = RelocateReport(slug=slug, from_level=str(from_level), to_level=str(to_level))
     src, dst = Path(from_level).resolve(), Path(to_level).resolve()
     a_from, a_to = us.resolve_anchor(str(src)), us.resolve_anchor(str(dst))
     if a_from is None or a_to is None:
-        rep["refused"] = "no anchor for the source or the target level"
+        rep.refused = "no anchor for the source or the target level"
         return rep
     pruned = _pruned_refusal(a_to, dst, "%s relocate --from-level %s --to-level {level} --slug %s"
                              % (_ENGINE_ROUTE, src, slug), src)
     if pruned:
-        rep["refused"] = pruned
+        rep.refused = pruned
         return rep
     if Path(a_from).resolve() == Path(a_to).resolve():
         m = move_entry(from_level, to_level, slug, force=force)
-        rep.update(relocated=m["moved"], refused=m["refused"], warnings=m["warnings"])
+        rep.relocated, rep.refused, rep.warnings = m.moved, m.refused, m.warnings
         return rep
-    rep["cross_tree"] = True
+    rep.cross_tree = True
     if not us.is_valid_slug(slug):
-        rep["refused"] = str(InvalidSlug(slug))
+        rep.refused = str(InvalidSlug(slug))
         return rep
 
     _scope, entries, _bodies = read_store(str(src))
     entry = next((e for e in entries if e.slug == slug), None)
     if entry is None:
-        rep["refused"] = "slug %r not found at the from-level" % slug
+        rep.refused = "slug %r not found at the from-level" % slug
         return rep
     if entry.legacy:
-        rep["refused"] = "entry is an unmigrated legacy pointer - run migrate_to_slug_store.py first"
+        rep.refused = "entry is an unmigrated legacy pointer - run migrate_to_slug_store.py first"
         return rep
     if _placed_slugs(a_from, [slug]):
         # its other lines would stay behind in the source tree, pointing at an archived body
-        rep["refused"] = _placed_by_topic(slug, a_from)
+        rep.refused = _placed_by_topic(slug, a_from)
         return rep
 
     # Slugs are TREE-unique, so a divergent slug already in the target tree is a different fact.
@@ -2218,8 +2435,8 @@ def relocate_entry(from_level, to_level, slug, force=False):
     _s2, dst_entries, _b2 = read_store(str(dst))
     dst_entry = next((e for e in dst_entries if e.slug == slug), None)
     if dst_entry is not None and (dst_entry.title, dst_entry.hook) != (entry.title, entry.hook):
-        rep["refused"] = ("target tree already has slug %r with a DIFFERENT hook - relocating would "
-                          "overwrite that fact; dedup deliberately or rename one first" % slug)
+        rep.refused = ("target tree already has slug %r with a DIFFERENT hook - relocating would "
+                       "overwrite that fact; dedup deliberately or rename one first" % slug)
         return rep
     # A pointer at ANY OTHER level of the target tree means the slug is already owned there - with
     # an identical body the move would leave it pointed at from two levels, and with a missing body
@@ -2227,9 +2444,9 @@ def relocate_entry(from_level, to_level, slug, force=False):
     # leaves its pointer only at the target level itself, which the check above already admits.
     owner = _other_level_pointing_in(a_to, dst, slug)
     if owner is not None:
-        rep["refused"] = ("target tree already points at slug %r from %s - relocating would leave it "
-                          "owned twice or re-bind that pointer; dedup deliberately or rename one "
-                          "first" % (slug, owner))
+        rep.refused = ("target tree already points at slug %r from %s - relocating would leave it "
+                       "owned twice or re-bind that pointer; dedup deliberately or rename one "
+                       "first" % (slug, owner))
         return rep
 
     # The body FILE is the tree-wide slug registry, so it is the check that sees an owner at ANY level
@@ -2240,7 +2457,7 @@ def relocate_entry(from_level, to_level, slug, force=False):
     try:
         src_data = src_body.read_bytes() if src_body.is_file() else b""
     except OSError as exc:
-        rep["refused"] = "could not read the body %s: %s" % (src_body, exc)
+        rep.refused = "could not read the body %s: %s" % (src_body, exc)
         return rep
     # Topics are tagged against ONE tree's closed list, so the copy leaves them behind.
     data, dropped_topics = _without_topics_line(src_data)
@@ -2252,12 +2469,12 @@ def relocate_entry(from_level, to_level, slug, force=False):
         try:
             same = dst_body.read_bytes() in (data, src_data)
         except OSError as exc:
-            rep["refused"] = "could not compare with the target tree's body %s: %s" % (dst_body, exc)
+            rep.refused = "could not compare with the target tree's body %s: %s" % (dst_body, exc)
             return rep
         if not same:
-            rep["refused"] = ("target tree already holds a DIFFERENT body for slug %r (%s) - "
-                              "relocating would overwrite that fact; dedup deliberately or rename "
-                              "one first" % (slug, dst_body))
+            rep.refused = ("target tree already holds a DIFFERENT body for slug %r (%s) - "
+                           "relocating would overwrite that fact; dedup deliberately or rename "
+                           "one first" % (slug, dst_body))
             return rep
 
     # The fact LEAVES this tree entirely, so EVERY inbound [[ref]] in the source tree dangles -
@@ -2266,17 +2483,17 @@ def relocate_entry(from_level, to_level, slug, force=False):
     if dangling:
         what = ", ".join("%s at %s" % (s, lvl) for lvl, s in dangling)
         if not force:
-            rep["refused"] = ("relocating out of this tree would dangle inbound [[refs]]: %s "
-                              "(fix the citers, or --force to relocate anyway)" % what)
+            rep.refused = ("relocating out of this tree would dangle inbound [[refs]]: %s "
+                           "(fix the citers, or --force to relocate anyway)" % what)
             return rep
-        rep["warnings"].append("relocated despite dangling inbound [[refs]]: %s" % what)
+        rep.warnings.append("relocated despite dangling inbound [[refs]]: %s" % what)
 
     # The target's block is held to the cap `move` holds it to (render-topics holds every level
     # to it); checked before the body is copied, so a refusal writes nothing.
     full = _move_cap_refusal(src, dst, [(slug, (entry.title, entry.hook, entry.pin))],
                              verb="relocate")
     if full:
-        rep["refused"] = full
+        rep.refused = full
         return rep
 
     # COPY-THEN-DROP (same crash-safety direction as move_entry): a crash between the two leaves a
@@ -2287,14 +2504,14 @@ def relocate_entry(from_level, to_level, slug, force=False):
         dst_body.parent.mkdir(parents=True, exist_ok=True)
         dst_body.write_bytes(data)
     except OSError as exc:
-        rep["refused"] = "could not write the body into the target tree: %s" % exc
+        rep.refused = "could not write the body into the target tree: %s" % exc
         return rep
     us.add_pointer(str(dst), slug=slug, title=entry.title, hook=entry.hook,
                    pin=entry.pin)
     _drop_pointer(str(src), slug)
     if dropped_topics:
-        rep["notes"].append("dropped the topics: line of %s - topics are tagged against one tree's "
-                            "list; tag it in the target tree with set-topics" % slug)
+        rep.notes.append("dropped the topics: line of %s - topics are tagged against one tree's "
+                         "list; tag it in the target tree with set-topics" % slug)
 
     # Archive the source body only once nothing in the source tree points at the slug any more.
     if not _other_levels_pointing_in(a_from, slug):
@@ -2304,10 +2521,10 @@ def relocate_entry(from_level, to_level, slug, force=False):
             if src_body.is_file():
                 src_body.rename(us.free_archive_path(archive, slug + ".md"))
         except OSError as exc:
-            rep["warnings"].append("source body left in place (archive failed: %s)" % exc)
+            rep.warnings.append("source body left in place (archive failed: %s)" % exc)
     else:
-        rep["warnings"].append("source body kept: another level in the source tree still points at it")
-    rep["relocated"] = True
+        rep.warnings.append("source body kept: another level in the source tree still points at it")
+    rep.relocated = True
     return rep
 
 
@@ -2356,7 +2573,7 @@ def _rewrite_inbound_refs(anchor, old_slug, new_slug):
 
     Rewriting rather than merely reporting is the whole point of rename: citations that survive it
     are what separate a rename from capturing a new fact and orphaning the old one.
-    Returns [(level, citing_slug, "hook"|"body")].
+    Returns a `RewrittenRef` per citation repointed.
     """
     canon_old = _canon_slug(old_slug)
     touched = []
@@ -2367,14 +2584,14 @@ def _rewrite_inbound_refs(anchor, old_slug, new_slug):
             if hook != e.hook:
                 us.add_pointer(str(level), slug=e.slug, title=e.title, hook=hook,
                                pin=e.pin)
-                touched.append((str(level), e.slug, "hook"))
+                touched.append(RewrittenRef(str(level), e.slug, RefSite.HOOK))
             body = us.body_path(anchor, e.slug)
             text = read_store_text(body)            # rename_entry's collision scan read it already
             if text:
                 retargeted = _retarget_refs(text, canon_old, new_slug)
                 if retargeted != text:
                     us.write_if_changed(body, retargeted)
-                    touched.append((str(level), e.slug, "body"))
+                    touched.append(RewrittenRef(str(level), e.slug, RefSite.BODY))
     return touched
 
 
@@ -2391,7 +2608,7 @@ def rename_entry(level, slug, to_slug):
 
     Same level, same tree, body CONTENT untouched: only the name moves, along with the body's
     frontmatter `name:` and every inbound citation.
-    Returns {"slug","to_slug","level","renamed","refs_rewritten","refused","warnings"}.
+    Returns a `RenameReport`.
     """
     sig.refuse_if_memory_writes_off()
     # In a tree that places by topic, a rename holds the placement lock: the fact's lines at
@@ -2404,36 +2621,35 @@ def rename_entry(level, slug, to_slug):
 def _rename_entry(level, slug, to_slug):
     """`rename_entry` itself; its caller holds the placement lock when the fact is bound."""
     sig.refuse_if_memory_writes_off()
-    rep = {"slug": slug, "to_slug": to_slug, "level": str(level), "renamed": False,
-           "refs_rewritten": [], "refused": None, "warnings": []}
+    rep = RenameReport(slug=slug, to_slug=to_slug, level=str(level))
     lvl = Path(level).resolve()
     anchor = us.resolve_anchor(str(lvl))
     if anchor is None:
-        rep["refused"] = "no anchor for this level"
+        rep.refused = "no anchor for this level"
         return rep
 
     canon_new = _canon_slug(to_slug)
     if not canon_new:
-        rep["refused"] = "the new slug is empty"
+        rep.refused = "the new slug is empty"
         return rep
     if canon_new != to_slug:
-        rep["warnings"].append("new slug normalised to %r" % canon_new)
+        rep.warnings.append("new slug normalised to %r" % canon_new)
         to_slug = canon_new
-        rep["to_slug"] = to_slug
+        rep.to_slug = to_slug
     if not us.is_valid_slug(to_slug):
-        rep["refused"] = str(InvalidSlug(to_slug))
+        rep.refused = str(InvalidSlug(to_slug))
         return rep
     if _canon_slug(slug) == canon_new:
-        rep["refused"] = "the new slug is the same as the old one"
+        rep.refused = "the new slug is the same as the old one"
         return rep
 
     _scope, entries, _bodies = read_store(str(lvl))
     entry = next((e for e in entries if e.slug == slug), None)
     if entry is None:
-        rep["refused"] = "slug %r not found at this level" % slug
+        rep.refused = "slug %r not found at this level" % slug
         return rep
     if entry.legacy:
-        rep["refused"] = "entry is an unmigrated legacy pointer - run migrate_to_slug_store.py first"
+        rep.refused = "entry is an unmigrated legacy pointer - run migrate_to_slug_store.py first"
         return rep
 
     # A fact placed by topic has a line at each level its topics place it at: renamed there too,
@@ -2445,12 +2661,12 @@ def _rename_entry(level, slug, to_slug):
     for other in curated_levels_under(anchor):
         _s, oentries, _b = read_store(str(other))
         if any(e.slug == to_slug for e in oentries):
-            rep["refused"] = ("slug %r already exists at %s - slugs are tree-unique; dedup "
-                              "deliberately instead of renaming onto it" % (to_slug, other))
+            rep.refused = ("slug %r already exists at %s - slugs are tree-unique; dedup "
+                           "deliberately instead of renaming onto it" % (to_slug, other))
             return rep
 
     # Every level holding a line of it is held to the block cap before any is written.
-    rep["refused"] = _line_growth_refusal(
+    rep.refused = _line_growth_refusal(
         "rename", [(level_dir, slug, us.Pointer(slug=to_slug, title=ptr.title, hook=ptr.hook,
                                                 pin=ptr.pin))
                    for level_dir, ptr in _copies_of(anchor, slug)],
@@ -2458,14 +2674,14 @@ def _rename_entry(level, slug, to_slug):
             "Rename it to a slug at least %d characters shorter: %s rename --level %s --slug %s "
             "--to-slug <slug> (a slug no longer than %s always goes through)"
             % (shrink, _ENGINE_ROUTE, level, slug, slug)))
-    if rep["refused"]:
+    if rep.refused:
         return rep
 
     # COPY-THEN-DROP, the same crash-safety direction as move/relocate: a crash between the two
     # leaves a visible duplicate, never a lost fact.
     src_body, dst_body = us.body_path(anchor, slug), us.body_path(anchor, to_slug)
     if dst_body.exists():
-        rep["refused"] = "a body file already sits at %s" % dst_body
+        rep.refused = "a body file already sits at %s" % dst_body
         return rep
     try:
         if src_body.is_file():
@@ -2473,9 +2689,9 @@ def _rename_entry(level, slug, to_slug):
             dst_body.write_text(_retarget_body_name(read_store_text(src_body), to_slug),
                                 encoding="utf-8")
         else:
-            rep["warnings"].append("no body file at the old slug; renaming the pointer only")
+            rep.warnings.append("no body file at the old slug; renaming the pointer only")
     except OSError as exc:
-        rep["refused"] = "could not write the body under the new slug: %s" % exc
+        rep.refused = "could not write the body under the new slug: %s" % exc
         return rep
 
     us.add_pointer(str(lvl), slug=to_slug, title=entry.title, hook=entry.hook,
@@ -2499,12 +2715,12 @@ def _rename_entry(level, slug, to_slug):
         _drop_pointer(str(other), slug)
         if placed:
             continue                                 # placed by topic: one line per level, by design
-        rep["warnings"].append("slug was ALSO pointed at from %s - a pre-existing duplicate; "
-                               "renamed there too, dedup it deliberately" % other)
+        rep.warnings.append("slug was ALSO pointed at from %s - a pre-existing duplicate; "
+                            "renamed there too, dedup it deliberately" % other)
 
     # After the pointer swaps, so the renamed fact's OWN body already sits at the new path and a
     # self-reference is repointed along with everyone else's.
-    rep["refs_rewritten"] = _rewrite_inbound_refs(anchor, slug, to_slug)
+    rep.refs_rewritten = _rewrite_inbound_refs(anchor, slug, to_slug)
 
     try:
         if src_body.is_file():
@@ -2512,8 +2728,8 @@ def _rename_entry(level, slug, to_slug):
             archive.mkdir(parents=True, exist_ok=True)
             src_body.rename(us.free_archive_path(archive, slug + ".md"))
     except OSError as exc:
-        rep["warnings"].append("old body left in place (archive failed: %s)" % exc)
-    rep["renamed"] = True
+        rep.warnings.append("old body left in place (archive failed: %s)" % exc)
+    rep.renamed = True
     return rep
 
 
@@ -2538,8 +2754,7 @@ def retitle_entry(level, slug, to_title):
     body's frontmatter `title:`, which carries it as data. A body with no frame is left as it is.
 
     A PINNED fact is refused here and goes through `amend_pinned_entry` instead, which is the single
-    deliberate route through the pin gate. Returns
-    {"slug","to_title","level","retitled","levels","refused","warnings"}.
+    deliberate route through the pin gate. Returns a `RetitleReport`.
     """
     sig.refuse_if_memory_writes_off()
     # In a tree that places by topic, a retitle holds the placement lock: the fact's lines at
@@ -2552,44 +2767,43 @@ def retitle_entry(level, slug, to_title):
 def _retitle_entry(level, slug, to_title):
     """`retitle_entry` itself; its caller holds the placement lock when the fact is bound."""
     sig.refuse_if_memory_writes_off()
-    rep = {"slug": slug, "to_title": to_title, "level": str(level), "retitled": False,
-           "levels": [], "refused": None, "warnings": []}
+    rep = RetitleReport(slug=slug, to_title=to_title, level=str(level))
     lvl = Path(level).resolve()
     anchor = us.resolve_anchor(str(lvl))
     if anchor is None:
-        rep["refused"] = "no anchor for this level"
+        rep.refused = "no anchor for this level"
         return rep
 
     title = _normalised_title(to_title)
     if not title:
-        rep["refused"] = "the new title is empty"
+        rep.refused = "the new title is empty"
         return rep
-    rep["to_title"] = title
+    rep.to_title = title
 
     _scope, entries, _bodies = read_store(str(lvl))
     entry = next((e for e in entries if e.slug == slug), None)
     if entry is None:
-        rep["refused"] = "slug %r not found at this level" % slug
+        rep.refused = "slug %r not found at this level" % slug
         return rep
     if entry.legacy:
         # A legacy `uuid:` line with no `bx:slug=` token has its slug DERIVED from the title
         # (`_slug_from_title`), so retitling one silently changes the fact's identity. `rename`
         # refuses legacy entries for the same reason.
-        rep["refused"] = "entry is an unmigrated legacy pointer - run migrate_to_slug_store.py first"
+        rep.refused = "entry is an unmigrated legacy pointer - run migrate_to_slug_store.py first"
         return rep
     if entry.pin:
-        rep["refused"] = ("fact is pinned - use `amend-pinned --proj %s --slug %s --title ...`, "
-                          "the one deliberate path through the pin gate" % (level, slug))
+        rep.refused = ("fact is pinned - use `amend-pinned --proj %s --slug %s --title ...`, "
+                       "the one deliberate path through the pin gate" % (level, slug))
         return rep
     if entry.title == title:
-        rep["refused"] = "the new title is the same as the old one"
+        rep.refused = "the new title is the same as the old one"
         return rep
     # Decided before any write: a fact placed by topic has a line at each level its topics place
     # it at, retitled there too, and none of them is a duplicate.
     placed = bool(_placed_slugs(anchor, [slug]))
     # Every level it retitles is held to the block cap before any is written.
     old_bytes = len(entry.title.encode("utf-8"))
-    rep["refused"] = _line_growth_refusal(
+    rep.refused = _line_growth_refusal(
         "retitle", [(level_dir, slug, us.Pointer(slug=slug, title=title, hook=ptr.hook,
                                                  pin=ptr.pin))
                     for level_dir, ptr in _copies_of(anchor, slug) if not ptr.legacy],
@@ -2597,12 +2811,12 @@ def _retitle_entry(level, slug, to_title):
             "Retitle it with a title at least %d bytes shorter: %s retitle --level %s --slug %s "
             "--to-title <title> (a title no longer than the %d bytes of the current one always "
             "goes through)" % (shrink, _ENGINE_ROUTE, level, slug, old_bytes)))
-    if rep["refused"]:
+    if rep.refused:
         return rep
 
     us.add_pointer(str(lvl), slug=slug, title=title, hook=entry.hook,
                    pin=entry.pin)
-    rep["levels"].append(str(lvl))
+    rep.levels.append(str(lvl))
     # The body is re-read under the level lock rather than taken from `entry`: that copy was read
     # unlocked, and an `add` on the same slug in another session (which rewrites the body under
     # this lock) can land between that read and this write - writing the stale copy back loses its
@@ -2610,8 +2824,10 @@ def _retitle_entry(level, slug, to_title):
     with sig.memory_lock(sig.claude_local_md_path(str(lvl))):
         current = read_store_text(us.body_path(anchor, slug)).rstrip("\n")
         retitled_body = _with_title(current, title)
-        if current and retitled_body != current:     # "" is an absent body: writing it back
-            us.put_body(str(anchor), slug, retitled_body)   # would create one for a dangler
+        # `current and` is belt-and-braces: `_with_title("")` returns "", so an absent body
+        # (read as "") already compares equal and gets no file, which keeps a dangler dangling.
+        if current and retitled_body != current:
+            us.put_body(str(anchor), slug, retitled_body)
 
     # A slug carried by more than one level is a pre-existing violation, but leaving the OTHER
     # pointers on the old title is not neutral: `move_entry` and `relocate_entry` both refuse when
@@ -2627,18 +2843,18 @@ def _retitle_entry(level, slug, to_title):
         if dup.legacy:
             # add_pointer would flip it to the current format, which strands it unless a
             # slug-named body already exists. Leave it for the migration and say so.
-            rep["warnings"].append("slug was ALSO pointed at from %s as an unmigrated legacy "
-                                   "pointer - left alone; migrate it, then retitle there" % other)
+            rep.warnings.append("slug was ALSO pointed at from %s as an unmigrated legacy "
+                                "pointer - left alone; migrate it, then retitle there" % other)
             continue
         us.add_pointer(str(other), slug=slug, title=title, hook=dup.hook,
                        pin=dup.pin)
-        rep["levels"].append(str(other))
+        rep.levels.append(str(other))
         if placed:
             continue                                 # placed by topic: one line per level, by design
-        rep["warnings"].append("slug was ALSO pointed at from %s - a pre-existing duplicate; "
-                               "retitled there too, dedup it deliberately" % other)
+        rep.warnings.append("slug was ALSO pointed at from %s - a pre-existing duplicate; "
+                            "retitled there too, dedup it deliberately" % other)
 
-    rep["retitled"] = True
+    rep.retitled = True
     return rep
 
 
@@ -4264,26 +4480,28 @@ def ensure_all_trees(roots=None, apply=False):
     BOOTSTRAP TIE-BREAK (mis-anchoring protection): a group whose top has NO store yet is scaffolded
     ONLY when no other group's top lies strictly beneath it; otherwise it is reported `ambiguous`
     ("a stray top CLAUDE.md above store-bearing trees; scaffolding would merge them") and skipped -
-    never auto-merged. Default is a DRY-RUN report; `apply=True` writes."""
+    never auto-merged. Default is a DRY-RUN report; `apply=True` writes. Returns a
+    `TreesReport`."""
     sig.refuse_if_memory_writes_off()
     roots = [str(r) for r in (roots or sig.discovery_roots())]
     groups = sig.tree_groups(sig.find_claude_md_dirs(roots))
     tops = list(groups)
-    report = {"roots": roots, "trees": []}
+    report = TreesReport(roots=roots)
     for top, members in sorted(groups.items(), key=lambda kv: str(kv[0])):
         store = Path(top) / sig.MEMORY_DIRNAME
-        entry = {"top": str(top), "store_exists": store.is_dir(),
-                 "members": [str(m) for m in members], "status": "ok", "created": [], "refused": []}
+        entry = TreeReport(top=str(top), store_exists=store.is_dir(),
+                           members=[str(m) for m in members])
         if not store.is_dir():
             beneath = [str(o) for o in tops if o != top and top in o.parents]
             if beneath:
-                entry["status"] = "ambiguous"
-                entry["why"] = ("stray top CLAUDE.md above %d store-bearing tree(s) (%s); "
-                                "scaffolding would merge them" % (len(beneath), ", ".join(sorted(beneath))))
-        if entry["status"] == "ok" and apply:
+                entry.status = TreeStatus.AMBIGUOUS
+                entry.why = ("stray top CLAUDE.md above %d store-bearing tree(s) (%s); "
+                             "scaffolding would merge them" % (len(beneath), ", ".join(sorted(beneath))))
+        if entry.status == TreeStatus.OK and apply:
             for m in members:
-                entry["created"] += [str(c) for c in scaffold(str(m), refused=entry["refused"])]
-        report["trees"].append(entry)
+                entry.created += [str(c) for c in scaffold(str(m),
+                                                           refused_levels=entry.refused_levels)]
+        report.trees.append(entry)
     return report
 
 
@@ -4354,7 +4572,9 @@ def _topic_read(args):
         return 1 if stale else 0
     data = topic_store.load(_anchor(args.proj))
     if data is None:
-        print("no topic list in this tree")
+        # a caller that asked for JSON parses stdout on every exit: the success shape, emptied
+        print(json.dumps({"tagger": None, "topics": {}}, sort_keys=True) if args.as_json
+              else "no topic list in this tree")
         return 1
     if args.as_json:
         print(json.dumps({"tagger": data.tagger.value, "topics": dict(data.topics)}, sort_keys=True))
@@ -4680,15 +4900,15 @@ def _main(argv=None):
     if args.cmd == "ensure-all-trees":
         rep = ensure_all_trees(roots=args.roots or None, apply=args.apply)
         tag = "APPLIED" if args.apply else "DRY-RUN"
-        print("%s: %d tree(s) under %s" % (tag, len(rep["trees"]), ", ".join(rep["roots"])))
-        for tr in rep["trees"]:
-            flag = "" if tr["store_exists"] else " [bootstrap]"
-            print("  tree %s%s - %d member(s) - %s" % (tr["top"], flag, len(tr["members"]), tr["status"]))
-            if tr["status"] == "ambiguous":
-                print("    ! %s" % tr["why"])
-            for c in tr["created"]:
+        print("%s: %d tree(s) under %s" % (tag, len(rep.trees), ", ".join(rep.roots)))
+        for tr in rep.trees:
+            flag = "" if tr.store_exists else " [bootstrap]"
+            print("  tree %s%s - %d member(s) - %s" % (tr.top, flag, len(tr.members), tr.status))
+            if tr.status == TreeStatus.AMBIGUOUS:
+                print("    ! %s" % tr.why)
+            for c in tr.created:
                 print("    + %s" % c)
-            for level, why in tr["refused"]:
+            for level, why in tr.refused_levels:
                 print(_REFUSED_LEVEL_LINE % (why, level))
         return 0
 
@@ -4715,52 +4935,52 @@ def _main(argv=None):
         # `--slug a --slug b` and `--slug a b` both land as a list of groups; flatten to the set
         slugs = [s for group in args.slug for s in group]
         rep = move_entry(args.from_level, args.to_level, slugs, force=args.force)
-        if rep["refused"]:
-            return _refused(rep["refused"])
-        for w in rep["warnings"]:
+        if rep.refused:
+            return _refused(rep.refused)
+        for w in rep.warnings:
             print("~ warning: %s" % w)
-        print("moved %s: %s -> %s (%s)" % (rep["slug"], rep["from"], rep["to"], rep["direction"]))
+        print("moved %s: %s -> %s (%s)" % (rep.slug, rep.from_level, rep.to_level, rep.direction))
         return 0
 
     if args.cmd == "relocate":
         rep = relocate_entry(args.from_level, args.to_level, args.slug, force=args.force)
-        if rep["refused"]:
-            return _refused(rep["refused"])
-        for w in rep["warnings"]:
+        if rep.refused:
+            return _refused(rep.refused)
+        for w in rep.warnings:
             print("~ warning: %s" % w)
-        for note in rep.get("notes", []):
+        for note in rep.notes:
             print("~ note: %s" % note)
         print("relocated %s: %s -> %s (%s)" % (
-            rep["slug"], rep["from"], rep["to"],
-            "CROSS-TREE: body moved + source archived" if rep["cross_tree"]
+            rep.slug, rep.from_level, rep.to_level,
+            "CROSS-TREE: body moved + source archived" if rep.cross_tree
             else "same tree: pointer move, body untouched"))
         return 0
 
     if args.cmd == "rename":
         rep = rename_entry(args.level, args.slug, args.to_slug)
-        if rep["refused"]:
-            return _refused(rep["refused"])
-        for w in rep["warnings"]:
+        if rep.refused:
+            return _refused(rep.refused)
+        for w in rep.warnings:
             print("~ warning: %s" % w)
-        print("renamed %s -> %s at %s" % (rep["slug"], rep["to_slug"], rep["level"]))
-        for lvl, citer, where in rep["refs_rewritten"]:
+        print("renamed %s -> %s at %s" % (rep.slug, rep.to_slug, rep.level))
+        for lvl, citer, where in rep.refs_rewritten:
             print("    ref repointed: %s (%s) [%s]" % (citer, where, lvl))
         return 0
 
     if args.cmd == "retitle":
         rep = retitle_entry(args.level, args.slug, args.to_title)
-        if rep["refused"]:
-            return _refused(rep["refused"])
-        for w in rep["warnings"]:
+        if rep.refused:
+            return _refused(rep.refused)
+        for w in rep.warnings:
             print("~ warning: %s" % w)
-        print("retitled %s -> %r at %s" % (rep["slug"], rep["to_title"], rep["level"]))
-        for lvl in rep["levels"][1:]:
+        print("retitled %s -> %r at %s" % (rep.slug, rep.to_title, rep.level))
+        for lvl in rep.levels[1:]:
             print("    also retitled at: %s" % lvl)
         return 0
 
     if args.cmd == "ensure-memory-structure":
         refused = []
-        created = scaffold(args.proj, refused=refused)
+        created = scaffold(args.proj, refused_levels=refused)
         print("ensure-memory-structure: created %d file(s) up the chain" % len(created))
         for p in created:
             print("    +", p)
@@ -4811,24 +5031,27 @@ def _main(argv=None):
             print("    ~ pointer has no title to copy, body left as it is: %s" % slug)
         for slug in rep["missing"]:
             print("    ! missing central body (not fabricated): %s" % slug)
+        for slug in rep["legacy"]:
+            print("    ~ legacy uuid: pointer, migrate it first (hooks/migrate_to_slug_store.py), "
+                  "left as it is: %s" % slug)
         return 0
 
     if args.cmd == "heal":
         rep = heal(args.proj)
-        print("healed %d file(s) across %d level(s)" % (len(rep["healed"]), rep["levels"]))
-        for p in rep["healed"]:
+        print("healed %d file(s) across %d level(s)" % (len(rep.healed), rep.levels))
+        for p in rep.healed:
             print("    ~ repaired: %s" % p)
-        for level, slug in rep["orphans"]:
+        for level, slug in rep.orphans:
             print("    ! missing central body (not fabricated): %s [%s]" % (slug, level))
-        for level, raw in rep["invalid_pointers"]:
+        for level, raw in rep.invalid_pointers:
             print("    ! dropped a pointer whose slug is not a plain filename: %s [%s]" % (raw, level))
-        for level, why in rep["unreadable"]:
+        for level, why in rep.unreadable:
             print("    ! unreadable level, left untouched (fix its permissions, or re-save it as "
                   "UTF-8): %s [%s]" % (why, level))
-        for level, why in rep["refused"]:
+        for level, why in rep.refused_levels:
             print(_REFUSED_LEVEL_LINE % (why, level))
         # heal could not do its job at an unreadable level, so "done" would be a lie there
-        return 2 if rep["unreadable"] else 0
+        return 2 if rep.unreadable else 0
 
     if args.cmd == "add":
         hook, err = _text_from_flag_or_file(args.hook, args.hook_file, "--hook", "--hook-file")

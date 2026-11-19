@@ -25,6 +25,7 @@ class ProfileAssociationArgs:
                  resource_id: pulumi.Input[_builtins.str],
                  arn: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
                  tags: pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.TagArgs']]]] = None):
         """
         The set of arguments for constructing a ProfileAssociation resource.
@@ -33,6 +34,7 @@ class ProfileAssociationArgs:
         :param pulumi.Input[_builtins.str] resource_id: The resource that you associated the  profile with.
         :param pulumi.Input[_builtins.str] arn: The Amazon Resource Name (ARN) of the profile association.
         :param pulumi.Input[_builtins.str] name: The name of an association between a  Profile and a VPC.
+        :param pulumi.Input[_builtins.int] priority: The priority of the profile association, used to order the profiles applied to a VPC when multiple profiles are associated with it. Lower values have higher precedence. Omit for the first profile associated with a VPC. This orders whole profiles on a VPC and is distinct from the DNS Firewall rule group priority carried in a ProfileResourceAssociation's ResourceProperties.
         :param pulumi.Input[Sequence[pulumi.Input['_root_inputs.TagArgs']]] tags: An array of key-value pairs to apply to this resource.
         """
         pulumi.set(__self__, "profile_id", profile_id)
@@ -41,6 +43,8 @@ class ProfileAssociationArgs:
             pulumi.set(__self__, "arn", arn)
         if name is not None:
             pulumi.set(__self__, "name", name)
+        if priority is not None:
+            pulumi.set(__self__, "priority", priority)
         if tags is not None:
             pulumi.set(__self__, "tags", tags)
 
@@ -94,6 +98,18 @@ class ProfileAssociationArgs:
 
     @_builtins.property
     @pulumi.getter
+    def priority(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        The priority of the profile association, used to order the profiles applied to a VPC when multiple profiles are associated with it. Lower values have higher precedence. Omit for the first profile associated with a VPC. This orders whole profiles on a VPC and is distinct from the DNS Firewall rule group priority carried in a ProfileResourceAssociation's ResourceProperties.
+        """
+        return pulumi.get(self, "priority")
+
+    @priority.setter
+    def priority(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "priority", value)
+
+    @_builtins.property
+    @pulumi.getter
     def tags(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.TagArgs']]]]:
         """
         An array of key-value pairs to apply to this resource.
@@ -113,9 +129,10 @@ class ProfileAssociation(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  arn: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
                  profile_id: pulumi.Input[Optional[_builtins.str]] = None,
                  resource_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         """
         Resource Type definition for AWS::Route53Profiles::ProfileAssociation
@@ -124,9 +141,10 @@ class ProfileAssociation(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] arn: The Amazon Resource Name (ARN) of the profile association.
         :param pulumi.Input[_builtins.str] name: The name of an association between a  Profile and a VPC.
+        :param pulumi.Input[_builtins.int] priority: The priority of the profile association, used to order the profiles applied to a VPC when multiple profiles are associated with it. Lower values have higher precedence. Omit for the first profile associated with a VPC. This orders whole profiles on a VPC and is distinct from the DNS Firewall rule group priority carried in a ProfileResourceAssociation's ResourceProperties.
         :param pulumi.Input[_builtins.str] profile_id: The ID of the  profile that you associated with the resource that is specified by ResourceId.
         :param pulumi.Input[_builtins.str] resource_id: The resource that you associated the  profile with.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]] tags: An array of key-value pairs to apply to this resource.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: An array of key-value pairs to apply to this resource.
         """
         ...
     @overload
@@ -154,9 +172,10 @@ class ProfileAssociation(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  arn: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 priority: pulumi.Input[Optional[_builtins.int]] = None,
                  profile_id: pulumi.Input[Optional[_builtins.str]] = None,
                  resource_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -168,6 +187,7 @@ class ProfileAssociation(pulumi.CustomResource):
 
             __props__.__dict__["arn"] = arn
             __props__.__dict__["name"] = name
+            __props__.__dict__["priority"] = priority
             if profile_id is None and not opts.urn:
                 raise TypeError("Missing required property 'profile_id'")
             __props__.__dict__["profile_id"] = profile_id
@@ -203,10 +223,17 @@ class ProfileAssociation(pulumi.CustomResource):
         __props__.__dict__["arn"] = None
         __props__.__dict__["aws_id"] = None
         __props__.__dict__["name"] = None
+        __props__.__dict__["priority"] = None
         __props__.__dict__["profile_id"] = None
         __props__.__dict__["resource_id"] = None
         __props__.__dict__["tags"] = None
         return ProfileAssociation(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:route53profiles:ProfileAssociation', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -231,6 +258,14 @@ class ProfileAssociation(pulumi.CustomResource):
         The name of an association between a  Profile and a VPC.
         """
         return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def priority(self) -> pulumi.Output[Optional[_builtins.int]]:
+        """
+        The priority of the profile association, used to order the profiles applied to a VPC when multiple profiles are associated with it. Lower values have higher precedence. Omit for the first profile associated with a VPC. This orders whole profiles on a VPC and is distinct from the DNS Firewall rule group priority carried in a ProfileResourceAssociation's ResourceProperties.
+        """
+        return pulumi.get(self, "priority")
 
     @_builtins.property
     @pulumi.getter(name="profileId")

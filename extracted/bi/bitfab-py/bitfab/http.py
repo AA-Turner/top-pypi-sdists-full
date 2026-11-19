@@ -1121,6 +1121,7 @@ class HttpClient:
         grader_ids: list[str] | None = None,
         db_branch_settings: dict[str, Any] | None = None,
         only_with_assertions: bool = False,
+        only_drafts: bool = False,
         category_ids: list[str] | None = None,
         skip_assertion_judging: bool = False,
         attempts: int = 1,
@@ -1197,10 +1198,13 @@ class HttpClient:
                 server rejects the replay.
             only_with_assertions: When True, the server narrows whatever the
                 other selectors chose to the traces carrying at least one
-                approved assertion (sent only when True). An assertion awaiting
-                review is not checked on a replay and does not qualify a trace.
+                confirmed assertion (sent only when True). A draft assertion
+                is not checked on a replay and does not qualify a trace.
+            only_drafts: When True, the server narrows whatever the other
+                selectors chose to the traces carrying at least one draft
+                assertion that is not archived (sent only when True).
             category_ids: Optional category UUIDs. The server narrows a ``trace_ids`` or ``dataset_ids`` selection to
-                the traces carrying an approved assertion in one of these
+                the traces carrying a confirmed assertion in one of these
                 categories (sent only when set). Which assertions are judged
                 stays the same.
             attempts: How many times each source trace replays in this run (sent only when above 1).
@@ -1261,6 +1265,8 @@ class HttpClient:
             payload["judgeAssertions"] = True
         if only_with_assertions:
             payload["onlyWithAssertions"] = True
+        if only_drafts:
+            payload["onlyDrafts"] = True
         if category_ids is not None:
             payload["categoryIds"] = category_ids
         if attempts > 1:

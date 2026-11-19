@@ -42,6 +42,7 @@ SupportPermitRequestStatusType = Literal["ACCEPTED", "CANCELLED", "PENDING", "RE
 SupportPermitStatusType = Literal["ACTIVE", "DELETING", "INACTIVE"]
 SupportAuthZServiceName = Literal["supportauthz"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

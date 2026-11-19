@@ -31,6 +31,7 @@ class CalculatedAttributeDefinitionArgs:
                  conditions: pulumi.Input[Optional['CalculatedAttributeDefinitionConditionsArgs']] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  display_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 filter: pulumi.Input[Optional['CalculatedAttributeDefinitionFilterArgs']] = None,
                  tags: pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.TagArgs']]]] = None,
                  use_historical_data: pulumi.Input[Optional[_builtins.bool]] = None):
         """
@@ -56,6 +57,8 @@ class CalculatedAttributeDefinitionArgs:
             pulumi.set(__self__, "description", description)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
+        if filter is not None:
+            pulumi.set(__self__, "filter", filter)
         if tags is not None:
             pulumi.set(__self__, "tags", tags)
         if use_historical_data is not None:
@@ -147,6 +150,15 @@ class CalculatedAttributeDefinitionArgs:
 
     @_builtins.property
     @pulumi.getter
+    def filter(self) -> pulumi.Input[Optional['CalculatedAttributeDefinitionFilterArgs']]:
+        return pulumi.get(self, "filter")
+
+    @filter.setter
+    def filter(self, value: pulumi.Input[Optional['CalculatedAttributeDefinitionFilterArgs']]):
+        pulumi.set(self, "filter", value)
+
+    @_builtins.property
+    @pulumi.getter
     def tags(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.TagArgs']]]]:
         """
         An array of key-value pairs to apply to this resource.
@@ -176,14 +188,15 @@ class CalculatedAttributeDefinition(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 attribute_details: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionAttributeDetailsArgs', 'CalculatedAttributeDefinitionAttributeDetailsArgsDict']]] = None,
+                 attribute_details: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionAttributeDetailsArgs', 'CalculatedAttributeDefinitionAttributeDetailsArgsDict', 'outputs.CalculatedAttributeDefinitionAttributeDetails']]] = None,
                  calculated_attribute_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 conditions: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionConditionsArgs', 'CalculatedAttributeDefinitionConditionsArgsDict']]] = None,
+                 conditions: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionConditionsArgs', 'CalculatedAttributeDefinitionConditionsArgsDict', 'outputs.CalculatedAttributeDefinitionConditions']]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  display_name: pulumi.Input[Optional[_builtins.str]] = None,
                  domain_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 filter: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionFilterArgs', 'CalculatedAttributeDefinitionFilterArgsDict', 'outputs.CalculatedAttributeDefinitionFilter']]] = None,
                  statistic: pulumi.Input[Optional['CalculatedAttributeDefinitionStatistic']] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  use_historical_data: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         """
@@ -191,14 +204,14 @@ class CalculatedAttributeDefinition(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['CalculatedAttributeDefinitionAttributeDetailsArgs', 'CalculatedAttributeDefinitionAttributeDetailsArgsDict']] attribute_details: Mathematical expression and a list of attribute items specified in that expression.
+        :param pulumi.Input[Union['CalculatedAttributeDefinitionAttributeDetailsArgs', 'CalculatedAttributeDefinitionAttributeDetailsArgsDict', 'outputs.CalculatedAttributeDefinitionAttributeDetails']] attribute_details: Mathematical expression and a list of attribute items specified in that expression.
         :param pulumi.Input[_builtins.str] calculated_attribute_name: The name of an attribute defined in a profile object type.
-        :param pulumi.Input[Union['CalculatedAttributeDefinitionConditionsArgs', 'CalculatedAttributeDefinitionConditionsArgsDict']] conditions: The conditions including range, object count, and threshold for the calculated attribute.
+        :param pulumi.Input[Union['CalculatedAttributeDefinitionConditionsArgs', 'CalculatedAttributeDefinitionConditionsArgsDict', 'outputs.CalculatedAttributeDefinitionConditions']] conditions: The conditions including range, object count, and threshold for the calculated attribute.
         :param pulumi.Input[_builtins.str] description: The description of the calculated attribute.
         :param pulumi.Input[_builtins.str] display_name: The display name of the calculated attribute.
         :param pulumi.Input[_builtins.str] domain_name: The unique name of the domain.
         :param pulumi.Input['CalculatedAttributeDefinitionStatistic'] statistic: The aggregation operation to perform for the calculated attribute.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]] tags: An array of key-value pairs to apply to this resource.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: An array of key-value pairs to apply to this resource.
         :param pulumi.Input[_builtins.bool] use_historical_data: Whether to use historical data for the calculated attribute.
         """
         ...
@@ -225,14 +238,15 @@ class CalculatedAttributeDefinition(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 attribute_details: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionAttributeDetailsArgs', 'CalculatedAttributeDefinitionAttributeDetailsArgsDict']]] = None,
+                 attribute_details: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionAttributeDetailsArgs', 'CalculatedAttributeDefinitionAttributeDetailsArgsDict', 'outputs.CalculatedAttributeDefinitionAttributeDetails']]] = None,
                  calculated_attribute_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 conditions: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionConditionsArgs', 'CalculatedAttributeDefinitionConditionsArgsDict']]] = None,
+                 conditions: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionConditionsArgs', 'CalculatedAttributeDefinitionConditionsArgsDict', 'outputs.CalculatedAttributeDefinitionConditions']]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  display_name: pulumi.Input[Optional[_builtins.str]] = None,
                  domain_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 filter: pulumi.Input[Optional[Union['CalculatedAttributeDefinitionFilterArgs', 'CalculatedAttributeDefinitionFilterArgsDict', 'outputs.CalculatedAttributeDefinitionFilter']]] = None,
                  statistic: pulumi.Input[Optional['CalculatedAttributeDefinitionStatistic']] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  use_historical_data: pulumi.Input[Optional[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -255,6 +269,7 @@ class CalculatedAttributeDefinition(pulumi.CustomResource):
             if domain_name is None and not opts.urn:
                 raise TypeError("Missing required property 'domain_name'")
             __props__.__dict__["domain_name"] = domain_name
+            __props__.__dict__["filter"] = filter
             if statistic is None and not opts.urn:
                 raise TypeError("Missing required property 'statistic'")
             __props__.__dict__["statistic"] = statistic
@@ -264,7 +279,7 @@ class CalculatedAttributeDefinition(pulumi.CustomResource):
             __props__.__dict__["last_updated_at"] = None
             __props__.__dict__["readiness"] = None
             __props__.__dict__["status"] = None
-        replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["attributeDetails", "calculatedAttributeName", "conditions.range.timestampFormat", "conditions.range.timestampSource", "domainName", "statistic", "useHistoricalData"])
+        replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["attributeDetails", "calculatedAttributeName", "conditions.range.timestampFormat", "conditions.range.timestampSource", "domainName", "filter", "statistic", "useHistoricalData"])
         opts = pulumi.ResourceOptions.merge(opts, replace_on_changes)
         super(CalculatedAttributeDefinition, __self__).__init__(
             'aws-native:customerprofiles:CalculatedAttributeDefinition',
@@ -295,6 +310,7 @@ class CalculatedAttributeDefinition(pulumi.CustomResource):
         __props__.__dict__["description"] = None
         __props__.__dict__["display_name"] = None
         __props__.__dict__["domain_name"] = None
+        __props__.__dict__["filter"] = None
         __props__.__dict__["last_updated_at"] = None
         __props__.__dict__["readiness"] = None
         __props__.__dict__["statistic"] = None
@@ -302,6 +318,12 @@ class CalculatedAttributeDefinition(pulumi.CustomResource):
         __props__.__dict__["tags"] = None
         __props__.__dict__["use_historical_data"] = None
         return CalculatedAttributeDefinition(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:customerprofiles:CalculatedAttributeDefinition', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="attributeDetails")
@@ -358,6 +380,11 @@ class CalculatedAttributeDefinition(pulumi.CustomResource):
         The unique name of the domain.
         """
         return pulumi.get(self, "domain_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def filter(self) -> pulumi.Output[Optional['outputs.CalculatedAttributeDefinitionFilter']]:
+        return pulumi.get(self, "filter")
 
     @_builtins.property
     @pulumi.getter(name="lastUpdatedAt")

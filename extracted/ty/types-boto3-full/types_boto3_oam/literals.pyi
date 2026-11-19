@@ -47,6 +47,7 @@ ResourceTypeType = Literal[
 ]
 CloudWatchObservabilityAccessManagerServiceName = Literal["oam"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

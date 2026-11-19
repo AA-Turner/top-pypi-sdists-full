@@ -165,6 +165,7 @@ TargetStatusType = Literal["DRAINING", "HEALTHY", "INITIAL", "UNAVAILABLE", "UNH
 VerificationStatusType = Literal["PENDING", "VERIFICATION_TIMED_OUT", "VERIFIED"]
 VPCLatticeServiceName = Literal["vpc-lattice"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

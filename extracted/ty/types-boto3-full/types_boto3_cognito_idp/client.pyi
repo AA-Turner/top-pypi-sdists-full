@@ -83,6 +83,8 @@ from .type_defs import (
     AdminUserGlobalSignOutRequestTypeDef,
     AssociateSoftwareTokenRequestTypeDef,
     AssociateSoftwareTokenResponseTypeDef,
+    CancelPointInTimeRecoveryRequestTypeDef,
+    CancelPointInTimeRecoveryResponseTypeDef,
     ChangePasswordRequestTypeDef,
     CompleteWebAuthnRegistrationRequestTypeDef,
     ConfirmDeviceRequestTypeDef,
@@ -130,6 +132,8 @@ from .type_defs import (
     DescribeManagedLoginBrandingByClientResponseTypeDef,
     DescribeManagedLoginBrandingRequestTypeDef,
     DescribeManagedLoginBrandingResponseTypeDef,
+    DescribePointInTimeRecoveryRequestTypeDef,
+    DescribePointInTimeRecoveryResponseTypeDef,
     DescribeResourceServerRequestTypeDef,
     DescribeResourceServerResponseTypeDef,
     DescribeRiskConfigurationRequestTypeDef,
@@ -187,12 +191,16 @@ from .type_defs import (
     GlobalSignOutRequestTypeDef,
     InitiateAuthRequestTypeDef,
     InitiateAuthResponseTypeDef,
+    InitiatePointInTimeRecoveryRequestTypeDef,
+    InitiatePointInTimeRecoveryResponseTypeDef,
     ListDevicesRequestTypeDef,
     ListDevicesResponseTypeDef,
     ListGroupsRequestTypeDef,
     ListGroupsResponseTypeDef,
     ListIdentityProvidersRequestTypeDef,
     ListIdentityProvidersResponseTypeDef,
+    ListPointInTimeRecoveriesRequestTypeDef,
+    ListPointInTimeRecoveriesResponseTypeDef,
     ListResourceServersRequestTypeDef,
     ListResourceServersResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -239,6 +247,8 @@ from .type_defs import (
     SetUserSettingsRequestTypeDef,
     SignUpRequestTypeDef,
     SignUpResponseTypeDef,
+    StartPointInTimeRecoveryRequestTypeDef,
+    StartPointInTimeRecoveryResponseTypeDef,
     StartUserImportJobRequestTypeDef,
     StartUserImportJobResponseTypeDef,
     StartWebAuthnRegistrationRequestTypeDef,
@@ -723,6 +733,17 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#associate_software_token)
         """
 
+    def cancel_point_in_time_recovery(
+        self, **kwargs: Unpack[CancelPointInTimeRecoveryRequestTypeDef]
+    ) -> CancelPointInTimeRecoveryResponseTypeDef:
+        """
+        Cancels a point-in-time recovery of a user pool before Amazon Cognito applies
+        any changes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/cancel_point_in_time_recovery.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#cancel_point_in_time_recovery)
+        """
+
     def change_password(self, **kwargs: Unpack[ChangePasswordRequestTypeDef]) -> dict[str, Any]:
         """
         Changes the password for the currently signed-in user.
@@ -1041,6 +1062,17 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#describe_managed_login_branding_by_client)
         """
 
+    def describe_point_in_time_recovery(
+        self, **kwargs: Unpack[DescribePointInTimeRecoveryRequestTypeDef]
+    ) -> DescribePointInTimeRecoveryResponseTypeDef:
+        """
+        Returns details about a point-in-time recovery of a user pool, including its
+        status and the point in time that it restores the user pool to.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/describe_point_in_time_recovery.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#describe_point_in_time_recovery)
+        """
+
     def describe_resource_server(
         self, **kwargs: Unpack[DescribeResourceServerRequestTypeDef]
     ) -> DescribeResourceServerResponseTypeDef:
@@ -1341,6 +1373,17 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#initiate_auth)
         """
 
+    def initiate_point_in_time_recovery(
+        self, **kwargs: Unpack[InitiatePointInTimeRecoveryRequestTypeDef]
+    ) -> InitiatePointInTimeRecoveryResponseTypeDef:
+        """
+        Initiates a point-in-time recovery of a user pool to a time in the past that
+        you specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/initiate_point_in_time_recovery.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#initiate_point_in_time_recovery)
+        """
+
     def list_devices(
         self, **kwargs: Unpack[ListDevicesRequestTypeDef]
     ) -> ListDevicesResponseTypeDef:
@@ -1369,6 +1412,17 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_identity_providers.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#list_identity_providers)
+        """
+
+    def list_point_in_time_recoveries(
+        self, **kwargs: Unpack[ListPointInTimeRecoveriesRequestTypeDef]
+    ) -> ListPointInTimeRecoveriesResponseTypeDef:
+        """
+        Lists the point-in-time recoveries of a user pool, including the active
+        recovery and past recoveries.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_point_in_time_recoveries.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#list_point_in_time_recoveries)
         """
 
     def list_resource_servers(
@@ -1621,6 +1675,16 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/sign_up.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#sign_up)
+        """
+
+    def start_point_in_time_recovery(
+        self, **kwargs: Unpack[StartPointInTimeRecoveryRequestTypeDef]
+    ) -> StartPointInTimeRecoveryResponseTypeDef:
+        """
+        Applies a point-in-time recovery to a user pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/start_point_in_time_recovery.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#start_point_in_time_recovery)
         """
 
     def start_user_import_job(

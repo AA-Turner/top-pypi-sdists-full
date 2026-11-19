@@ -6,7 +6,7 @@
  */
 
 use pyrefly_python::ast::Ast;
-use pyrefly_python::docstring::Docstring;
+use pyrefly_python::docstring::DocRanges;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModuleStyle;
@@ -40,7 +40,10 @@ use starlark_map::small_set::SmallSet;
 use crate::binding::stmt::SpecialImportForm;
 use crate::binding::stmt::is_special_import_function;
 use crate::binding::stmt::special_import_form;
+use crate::binding::stmt::special_import_module;
 use crate::export::deprecation::parse_deprecation;
+use crate::export::doc_ranges::class_doc_ranges;
+use crate::export::doc_ranges::function_doc_ranges;
 use crate::export::special::SpecialExport;
 use crate::types::globals::ImplicitGlobal;
 
@@ -106,35 +109,70 @@ pub struct Definition {
     /// Does this definition require an `Anywhere` binding at binding time? Typically yes if there
     /// are multiple definitions, but mutable captures and `del` both require special handling.
     pub needs_anywhere: bool,
-    /// If the first statement in a definition (class, function) is a string literal, PEP 257 convention
-    /// states that is the docstring.
-    pub docstring_range: Option<TextRange>,
-    /// The range of the textually last assignment site. When there is only one
-    /// definition, this equals `range`. Used to determine if a variable is
+    /// The documentation of a class or function definition.
+    pub doc_ranges: DocRanges,
+    /// The range of the textually last site that assigns or rebinds this name, including an
+    /// `import foo.bar` that rebinds an alias bound by `import foo as <alias>`. When there is
+    /// only one definition, this equals `range`. Used to determine if a variable is
     /// reassigned after a given point (e.g. after a nested function definition).
     pub last_range: TextRange,
     /// True while every definition site is inside an `if __name__ == "__main__":` body.
     /// Such names resolve in-module but are not importable, so the export surface excludes them.
     pub main_guard_only: bool,
-    /// True if any definition site assigns or imports a value, as opposed to merely
-    /// declaring the name (`global`/`nonlocal`) or deleting it. Only meaningful when
-    /// `style` is `MutableCapture`: a capture whose own scope defines a value
-    /// (`global x; x = 1`) legally creates the outer-scope name, so it needs no
-    /// pre-existing outer definition.
-    pub has_value_definition: bool,
+    /// Whether the definition sites bind a value to the name.
+    pub sites: DefinitionSites,
 }
 
-/// Does this definition style give the name a value in the current scope?
-/// `global`/`nonlocal` declarations and `del` do not; implicit globals are
-/// injected module-level, not defined here.
-fn is_value_definition(style: &DefinitionStyle) -> bool {
-    !matches!(
-        style,
-        DefinitionStyle::MutableCapture(..)
-            | DefinitionStyle::Delete
+/// Whether a name's definition sites bind a value to it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DefinitionSites {
+    /// No site binds a value: each one declares the name (`global`, `nonlocal`, or a bare
+    /// `x: int`) or deletes it.
+    NoValue,
+    /// Some site binds a value by assigning or importing the name.
+    SomeValue,
+    /// Every site is a `def` or `class` statement. This is purely syntactic: a decorated `def`
+    /// (e.g. `@property`) counts, but a method- or class-like assignment such as
+    /// `f = staticmethod(g)`, `f = lambda self: 1`, or `Color = Enum("Color", "A B")` does not.
+    /// Telling such assignments apart from data attributes would need type information, so the
+    /// syntactic rule is much simpler and stays predictable.
+    OnlyDefOrClass,
+}
+
+impl DefinitionSites {
+    /// Classifies a single site by its style. A bare annotation has the same style as an
+    /// annotated assignment, so its caller classifies it instead. Implicit globals are injected
+    /// module-level, not defined here.
+    fn of_style(style: &DefinitionStyle) -> Self {
+        match style {
+            DefinitionStyle::Unannotated(SymbolKind::Function | SymbolKind::Class) => {
+                Self::OnlyDefOrClass
+            }
+            DefinitionStyle::Annotated(..)
+            | DefinitionStyle::Unannotated(..)
+            | DefinitionStyle::ImportAs(..)
+            | DefinitionStyle::ImportAsEq(..)
+            | DefinitionStyle::Import(..)
+            | DefinitionStyle::ImportModule(..) => Self::SomeValue,
+            DefinitionStyle::MutableCapture(..)
             | DefinitionStyle::ImplicitGlobal
             | DefinitionStyle::ImportInvalidRelative
-    )
+            | DefinitionStyle::Delete => Self::NoValue,
+        }
+    }
+
+    /// Combines the sites of two definitions of the same name.
+    pub fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::OnlyDefOrClass, Self::OnlyDefOrClass) => Self::OnlyDefOrClass,
+            (Self::NoValue, Self::NoValue) => Self::NoValue,
+            _ => Self::SomeValue,
+        }
+    }
+
+    pub fn binds_value(self) -> bool {
+        self != Self::NoValue
+    }
 }
 
 impl Definition {
@@ -145,9 +183,15 @@ impl Definition {
         }
     }
 
-    fn merge(&mut self, other: DefinitionStyle, range: TextRange, in_main_guard: bool) {
+    fn merge(
+        &mut self,
+        other: DefinitionStyle,
+        range: TextRange,
+        in_main_guard: bool,
+        sites: DefinitionSites,
+    ) {
         self.main_guard_only &= in_main_guard;
-        self.has_value_definition |= is_value_definition(&other);
+        self.sites = self.sites.merge(sites);
         // To ensure binding code cannot produce invalid lookups, we ensure that
         // `self.style` and `self.range` always match.
         if other < self.style {
@@ -173,6 +217,17 @@ impl Definition {
     }
 }
 
+/// What the export step records about a name marked `Final`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FinalName {
+    /// The assigned value, if it is a string literal (e.g. `X: Final = "x"`), used to resolve
+    /// Final variable references in synthesized class field names.
+    pub string_value: Option<String>,
+    /// Whether the name's type is declared rather than inferred: `Final[T]` gives the type, and
+    /// a bare `Final` assigned a literal has the literal's type.
+    pub has_declared_type: bool,
+}
+
 /// Find the definitions available in a scope. Does not traverse inside classes/functions,
 /// since they are separate scopes.
 #[derive(Debug, Clone, Default)]
@@ -190,15 +245,22 @@ pub struct Definitions {
     pub implicitly_imported_submodules: SmallSet<Name>,
     /// Deprecated names that are defined in this module.
     pub deprecated: SmallMap<Name, Deprecation>,
-    /// Names that are marked `Final`, with their string literal value if assigned one.
-    /// The `Option<String>` is `Some` when the RHS is a string literal (e.g. `X: Final = "x"`),
-    /// used to resolve Final variable references in synthesized class field names.
-    pub final_names: SmallMap<Name, Option<String>>,
+    /// Names that are marked `Final`.
+    pub final_names: SmallMap<Name, FinalName>,
+    /// Names with a definition inside an `if` whose tests depend on the environment, which
+    /// another configuration would replace with another definition or none.
+    pub environment_names: SmallSet<Name>,
+    /// Modules imported with `from ... import *` inside an `if` whose tests depend on the
+    /// environment, so that every name they bring in is chosen by the environment.
+    pub environment_import_all: SmallSet<ModuleName>,
     /// Special exports defined in this module
     pub special_exports: SmallMap<Name, SpecialExport>,
     /// Names that are read (not just defined) in this scope.
     /// Used to compute implicit captures when entering nested function scopes.
     pub name_reads: SmallSet<Name>,
+    /// The last outermost statement containing a finally suite or an eager class scope.
+    /// Nested function scopes are excluded.
+    pub last_finally_or_class: Option<TextRange>,
 }
 
 /// Whether `__all__` was explicitly defined by the user or synthesized from module definitions.
@@ -302,6 +364,13 @@ struct DefinitionsBuilder {
     sys_info: SysInfo,
     inner: Definitions,
     in_main_guard: bool,
+    /// Whether we are inside an `if` with a test that depends on the environment, such as
+    /// `sys.platform`, so the definitions here hold for this configuration only.
+    in_environment_branch: bool,
+    /// Top-level modules with an `import foo.bar` in this scope, with the range of the last one.
+    submodule_import_roots: SmallMap<Name, TextRange>,
+    /// Names bound by `import foo as <alias>` in this scope, keyed by `foo`.
+    module_aliases: SmallMap<Name, Vec<Name>>,
 }
 
 fn is_private_name(name: &Name) -> bool {
@@ -328,17 +397,7 @@ fn is_final_annotation(annotation: &Expr) -> bool {
         Expr::Subscript(sub) => &*sub.value,
         other => other,
     };
-    let (base, value) = match target {
-        Expr::Name(x) => (None, &x.id),
-        Expr::Attribute(ExprAttribute { value, attr, .. }) if let Expr::Name(base) = &**value => {
-            (Some(&base.id), &attr.id)
-        }
-        _ => return false,
-    };
-    SpecialExport::new(value).is_some_and(|special| {
-        special == SpecialExport::Final
-            && base.is_none_or(|base| special.defined_in(ModuleName::from_name(base)))
-    })
+    SpecialExport::from_syntax(target) == Some(SpecialExport::Final)
 }
 
 fn is_overload_decorator(decorator: &Decorator) -> bool {
@@ -356,8 +415,28 @@ impl Definitions {
             is_init,
             inner: Definitions::default(),
             in_main_guard: false,
+            in_environment_branch: false,
+            submodule_import_roots: SmallMap::new(),
+            module_aliases: SmallMap::new(),
         };
         builder.stmts(x);
+        // An `import foo.bar` rebinds a name that is bound by `import foo as <alias>` at
+        // that point in the same scope, so it is a definition site of the alias: reads from
+        // an enclosed scope need an `Anywhere` to see the rebinding, and the import counts
+        // as the alias's last definition site, as it already does for `foo` itself. A `global` or
+        // `nonlocal` alias is owned by another scope and never has an `Anywhere` here.
+        for (root, range) in &builder.submodule_import_roots {
+            for alias in builder.module_aliases.get(root).into_iter().flatten() {
+                if let Some(definition) = builder.inner.definitions.get_mut(alias)
+                    && !matches!(definition.style, DefinitionStyle::MutableCapture(..))
+                {
+                    definition.needs_anywhere = true;
+                    if range.start() > definition.last_range.start() {
+                        definition.last_range = *range;
+                    }
+                }
+            }
+        }
 
         builder.inner
     }
@@ -370,10 +449,10 @@ impl Definitions {
                     range: TextRange::default(),
                     style: DefinitionStyle::ImplicitGlobal,
                     needs_anywhere: false,
-                    docstring_range: None,
+                    doc_ranges: DocRanges::default(),
                     last_range: TextRange::default(),
                     main_guard_only: false,
-                    has_value_definition: false,
+                    sites: DefinitionSites::NoValue,
                 },
             );
         }
@@ -447,41 +526,60 @@ impl Definitions {
 impl DefinitionsBuilder {
     fn stmts(&mut self, xs: &[Stmt]) {
         for x in xs {
+            let previous = self.inner.last_finally_or_class;
             self.stmt(x);
+            if self.inner.last_finally_or_class != previous {
+                // Include the enclosing statement: loops can revisit an earlier cleanup.
+                self.inner.last_finally_or_class = Some(x.range());
+            }
         }
     }
 
-    fn add_name_with_body(
+    fn add_name_with_docs(
         &mut self,
         x: &Name,
         range: TextRange,
         style: DefinitionStyle,
-        body: Option<&[Stmt]>,
+        doc_ranges: DocRanges,
+        sites: DefinitionSites,
     ) {
         if x.is_empty() {
             return;
         }
         let in_main_guard = self.in_main_guard;
-        let has_value_definition = is_value_definition(&style);
+        if self.in_environment_branch {
+            self.inner.environment_names.insert(x.clone());
+        }
         match self.inner.definitions.entry(x.clone()) {
             Entry::Occupied(mut e) => {
-                e.get_mut().merge(style, range, in_main_guard);
+                e.get_mut().merge(style, range, in_main_guard, sites);
             }
             Entry::Vacant(e) => {
                 e.insert(Definition {
                     range,
                     style,
                     needs_anywhere: false,
-                    docstring_range: body.and_then(Docstring::range_from_stmts),
+                    doc_ranges,
                     last_range: range,
                     main_guard_only: in_main_guard,
-                    has_value_definition,
+                    sites,
                 });
             }
         }
     }
 
     fn add_name(&mut self, x: &Name, range: TextRange, style: DefinitionStyle) {
+        let sites = DefinitionSites::of_style(&style);
+        self.add_name_with_sites(x, range, style, sites)
+    }
+
+    fn add_name_with_sites(
+        &mut self,
+        x: &Name,
+        range: TextRange,
+        style: DefinitionStyle,
+        sites: DefinitionSites,
+    ) {
         if matches!(
             style,
             DefinitionStyle::Annotated(..) | DefinitionStyle::Unannotated(..)
@@ -490,20 +588,21 @@ impl DefinitionsBuilder {
         {
             self.inner.special_exports.insert(x.clone(), special_export);
         }
-        self.add_name_with_body(x, range, style, None)
+        self.add_name_with_docs(x, range, style, DocRanges::default(), sites)
     }
 
     fn add_identifier(&mut self, x: &Identifier, style: DefinitionStyle) {
         self.add_name(&x.id, x.range, style);
     }
 
-    fn add_identifier_with_body(
+    fn add_identifier_with_docs(
         &mut self,
         x: &Identifier,
         style: DefinitionStyle,
-        body: Option<&[Stmt]>,
+        doc_ranges: DocRanges,
     ) {
-        self.add_name_with_body(&x.id, x.range, style, body);
+        let sites = DefinitionSites::of_style(&style);
+        self.add_name_with_docs(&x.id, x.range, style, doc_ranges, sites);
     }
 
     fn expr_lvalue(&mut self, x: &Expr) {
@@ -568,19 +667,33 @@ impl DefinitionsBuilder {
                         self.inner.implicitly_imported_submodules.insert(submodule);
                     }
                     match &a.asname {
-                        None => self.add_name(
-                            &imported_module.first_component(),
-                            a.name.range,
-                            DefinitionStyle::ImportModule(imported_module),
-                        ),
-                        Some(alias) => self.add_identifier(
-                            alias,
-                            if alias.id == a.name.id {
-                                DefinitionStyle::ImportAsEq(imported_module)
-                            } else {
-                                DefinitionStyle::ImportAs(imported_module, a.name.id.clone())
-                            },
-                        ),
+                        None => {
+                            if imported_module.as_str().contains('.') {
+                                self.submodule_import_roots
+                                    .insert(imported_module.first_component(), a.name.range);
+                            }
+                            self.add_name(
+                                &imported_module.first_component(),
+                                a.name.range,
+                                DefinitionStyle::ImportModule(imported_module),
+                            )
+                        }
+                        Some(alias) => {
+                            if !imported_module.as_str().contains('.') {
+                                self.module_aliases
+                                    .entry(imported_module.first_component())
+                                    .or_default()
+                                    .push(alias.id.clone());
+                            }
+                            self.add_identifier(
+                                alias,
+                                if alias.id == a.name.id {
+                                    DefinitionStyle::ImportAsEq(imported_module)
+                                } else {
+                                    DefinitionStyle::ImportAs(imported_module, a.name.id.clone())
+                                },
+                            )
+                        }
                     };
                 }
             }
@@ -601,6 +714,9 @@ impl DefinitionsBuilder {
                     if &a.name == "*" {
                         if let Some(module) = name {
                             self.inner.import_all.insert(module, a.name.range);
+                            if self.in_environment_branch {
+                                self.inner.environment_import_all.insert(module);
+                            }
                         }
                     } else {
                         let style = match name {
@@ -628,12 +744,14 @@ impl DefinitionsBuilder {
                     }
                 }
             }
-            Stmt::ClassDef(StmtClassDef {
-                name,
-                body,
-                decorator_list,
-                ..
-            }) => {
+            Stmt::ClassDef(
+                class_def @ StmtClassDef {
+                    name,
+                    decorator_list,
+                    ..
+                },
+            ) => {
+                self.inner.last_finally_or_class = Some(x.range());
                 let mut deprecated_decoration = None;
                 for d in decorator_list {
                     self.named_in_expr(&d.expression);
@@ -644,10 +762,10 @@ impl DefinitionsBuilder {
                 if let Some(decoration) = deprecated_decoration {
                     self.inner.deprecated.insert(name.id.clone(), decoration);
                 }
-                self.add_identifier_with_body(
+                self.add_identifier_with_docs(
                     name,
                     DefinitionStyle::Unannotated(SymbolKind::Class),
-                    Some(body),
+                    class_doc_ranges(class_def),
                 );
                 return; // These things are inside a scope
             }
@@ -715,29 +833,40 @@ impl DefinitionsBuilder {
                         }
                     }
                 }
-                let has_final_annotation = is_final_annotation(&x.annotation);
-                let final_string_value = if has_final_annotation {
-                    match x.value.as_deref() {
+                let final_name = is_final_annotation(&x.annotation).then(|| FinalName {
+                    string_value: match x.value.as_deref() {
                         Some(Expr::StringLiteral(s)) => Some(s.value.to_string()),
                         _ => None,
-                    }
-                } else {
-                    None
-                };
+                    },
+                    has_declared_type: matches!(*x.annotation, Expr::Subscript(_))
+                        || matches!(
+                            x.value.as_deref(),
+                            Some(
+                                Expr::BooleanLiteral(_)
+                                    | Expr::NoneLiteral(_)
+                                    | Expr::NumberLiteral(_)
+                                    | Expr::StringLiteral(_)
+                                    | Expr::BytesLiteral(_)
+                            )
+                        ),
+                });
                 match &*x.target {
-                    Expr::Name(x) => {
-                        self.add_name(
-                            &x.id,
-                            x.range,
+                    Expr::Name(name) => {
+                        self.add_name_with_sites(
+                            &name.id,
+                            name.range,
                             DefinitionStyle::Annotated(
                                 SymbolKind::Variable,
-                                ShortIdentifier::expr_name(x),
+                                ShortIdentifier::expr_name(name),
                             ),
+                            if x.value.is_some() {
+                                DefinitionSites::SomeValue
+                            } else {
+                                DefinitionSites::NoValue
+                            },
                         );
-                        if has_final_annotation {
-                            self.inner
-                                .final_names
-                                .insert(x.id.clone(), final_string_value);
+                        if let Some(final_name) = final_name {
+                            self.inner.final_names.insert(name.id.clone(), final_name);
                         }
                     }
                     _ => self.expr_lvalue(&x.target),
@@ -771,9 +900,9 @@ impl DefinitionsBuilder {
             Stmt::Delete(x) => {
                 for target in &x.targets {
                     self.named_in_expr(target);
-                    if let Expr::Name(name) = target {
+                    Ast::expr_lvalue(target, &mut |name| {
                         self.add_name(&name.id, name.range, DefinitionStyle::Delete)
-                    }
+                    });
                 }
             }
             Stmt::Expr(StmtExpr { value, .. }) => {
@@ -791,8 +920,7 @@ impl DefinitionsBuilder {
                     && !arguments.args.is_empty()
                     && let Expr::StringLiteral(path_lit) = &arguments.args[0]
                 {
-                    let module_name_str = path_lit.value.to_str().replace('/', ".");
-                    let m = ModuleName::from_string(module_name_str);
+                    let m = special_import_module(path_lit.value.to_str());
 
                     match special_import_form(&arguments.args) {
                         SpecialImportForm::Wildcard => {
@@ -871,12 +999,13 @@ impl DefinitionsBuilder {
                     self.expr_lvalue(&x.name)
                 }
             }
-            Stmt::FunctionDef(StmtFunctionDef {
-                name,
-                body,
-                decorator_list,
-                ..
-            }) => {
+            Stmt::FunctionDef(
+                func_def @ StmtFunctionDef {
+                    name,
+                    decorator_list,
+                    ..
+                },
+            ) => {
                 let mut is_overload = false;
                 let mut deprecated_decoration = None;
                 for d in decorator_list {
@@ -895,10 +1024,10 @@ impl DefinitionsBuilder {
                         .deprecated
                         .insert(name.id.clone(), deprecated_decoration);
                 }
-                self.add_identifier_with_body(
+                self.add_identifier_with_docs(
                     name,
                     DefinitionStyle::Unannotated(SymbolKind::Function),
-                    Some(body),
+                    function_doc_ranges(func_def),
                 );
                 return; // don't recurse because a separate scope
             }
@@ -921,6 +1050,9 @@ impl DefinitionsBuilder {
                 }
             }
             Stmt::Try(x) => {
+                if !x.finalbody.is_empty() {
+                    self.inner.last_finally_or_class = Some(x.range());
+                }
                 for x in &x.handlers {
                     match x {
                         ExceptHandler::ExceptHandler(x) => {
@@ -937,11 +1069,46 @@ impl DefinitionsBuilder {
             Stmt::If(x) => {
                 self.named_in_expr(&x.test);
                 let sys_info = self.sys_info;
-                for (test, body) in sys_info.pruned_if_branches(x) {
+                // Suites before the first test of the environment are chosen the same way under
+                // every configuration, so only that test's suite and later ones are chosen by it.
+                let environment_start = Ast::if_branches(x)
+                    .find(|(_, test, _)| test.is_some_and(SysInfo::depends_on_sys_info))
+                    .map(|(range, _, _)| range.start());
+                let chosen_by_environment = |range: TextRange| {
+                    environment_start.is_some_and(|start| range.start() >= start)
+                };
+                let outer_environment = self.in_environment_branch;
+                let mut walked = SmallSet::new();
+                for (range, test, body) in sys_info.pruned_if_branches(x) {
+                    walked.insert(range);
+                    self.in_environment_branch = outer_environment || chosen_by_environment(range);
                     let outer = self.in_main_guard;
                     self.in_main_guard = outer || test.is_some_and(Ast::is_main_guard);
                     self.stmts(body);
                     self.in_main_guard = outer;
+                }
+                self.in_environment_branch = outer_environment;
+                // Another configuration walks the suites this one rules out instead, so the names
+                // they define or star-import are chosen by the environment too.
+                for (range, _, body) in Ast::if_branches(x) {
+                    if !walked.contains(&range) && chosen_by_environment(range) {
+                        let skipped =
+                            Definitions::new(body, self.module_name, self.is_init, sys_info);
+                        // The scan rules out nested suites by the configuration too, and
+                        // records what they define.
+                        self.inner.environment_names.extend(
+                            skipped
+                                .definitions
+                                .into_keys()
+                                .chain(skipped.environment_names),
+                        );
+                        self.inner.environment_import_all.extend(
+                            skipped
+                                .import_all
+                                .into_keys()
+                                .chain(skipped.environment_import_all),
+                        );
+                    }
                 }
                 return; // We went through the relevant branches already
             }
@@ -978,10 +1145,19 @@ impl DefinitionsBuilder {
         match x {
             Expr::Named(expr_named) => {
                 self.expr_lvalue(&expr_named.target);
-                expr_named.value.recurse(&mut |x| self.named_in_expr(x));
+                self.named_in_expr(&expr_named.value);
             }
             Expr::Name(name) => {
                 self.inner.name_reads.insert(name.id.clone());
+            }
+            // The binder skips a ternary branch that the environment rules out, so a
+            // walrus in that branch has no binding and must not be defined.
+            Expr::If(x) => {
+                self.named_in_expr(&x.test);
+                let sys_info = self.sys_info;
+                for branch in sys_info.pruned_ternary_branches(x) {
+                    self.named_in_expr(branch);
+                }
             }
             // Lambda defines a fully separate scope; walrus operators inside
             // a lambda are scoped to the lambda, not the enclosing scope.
@@ -1004,13 +1180,18 @@ impl DefinitionsBuilder {
         match x {
             Expr::Named(expr_named) => {
                 self.expr_lvalue(&expr_named.target);
-                expr_named
-                    .value
-                    .recurse(&mut |x| self.walrus_targets_in_expr(x));
+                self.walrus_targets_in_expr(&expr_named.value);
             }
             // Stop at lambdas — walrus inside lambda-in-comprehension is
             // scoped to the lambda.
             Expr::Lambda(..) => {}
+            Expr::If(x) => {
+                self.walrus_targets_in_expr(&x.test);
+                let sys_info = self.sys_info;
+                for branch in sys_info.pruned_ternary_branches(x) {
+                    self.walrus_targets_in_expr(branch);
+                }
+            }
             _ => x.recurse(&mut |x| self.walrus_targets_in_expr(x)),
         }
     }

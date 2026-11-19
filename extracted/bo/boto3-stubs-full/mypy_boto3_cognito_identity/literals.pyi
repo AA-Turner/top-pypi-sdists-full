@@ -41,6 +41,7 @@ MappingRuleMatchTypeType = Literal["Contains", "Equals", "NotEqual", "StartsWith
 RoleMappingTypeType = Literal["Rules", "Token"]
 CognitoIdentityServiceName = Literal["cognito-identity"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

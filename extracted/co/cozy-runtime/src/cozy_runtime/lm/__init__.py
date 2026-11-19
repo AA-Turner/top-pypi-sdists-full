@@ -60,7 +60,7 @@ import time
 import weakref
 from collections import deque
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from contextlib import ExitStack, contextmanager, nullcontext
+from contextlib import ExitStack, contextmanager, nullcontext, suppress
 from functools import partial
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Protocol, cast
 
@@ -70,9 +70,10 @@ from tensorfs.varena import Exhausted
 from cozy_runtime.accel.kernels import KernelsUnavailable, Launch, Plan, TritonKernels
 from cozy_runtime.author import _request_path as request_path
 from cozy_runtime.author._context import CURRENT, Context
-from cozy_runtime.author._errors import Cancelled, DoesNotFit, is_capacity
-from cozy_runtime.author._model import LANDED, PLACED, WARNINGS, Building, recovered
+from cozy_runtime.author._errors import Cancelled, DoesNotFit, Fault, fault, is_capacity
+from cozy_runtime.author._model import LANDED, PLACED, WARNINGS, Building, Yielded, recovered
 from cozy_runtime.author._services import counting, stage_tokens
+from cozy_runtime import graphs as _graphs
 from cozy_runtime.graphs import (
     BYPASS,
     DECODERS,
@@ -81,6 +82,7 @@ from cozy_runtime.graphs import (
     capture_domain,
     close_pool,
     no_room,
+    observe,
     safeguard,
     say,
 )
@@ -89,6 +91,7 @@ from cozy_runtime.internal import cache_owners, contract
 from cozy_runtime.lm import _kernels
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
     from types import ModuleType
 
     from torch.utils.hooks import RemovableHandle
@@ -127,6 +130,9 @@ LAG = 2
 #: Tokens a draft head proposes a step. Qwen3.5-9B's head on FLUX.3's prompt upsampler keeps
 #: ~0.7 of first drafts and few third ones: 2 is fastest on a 4090 (1 and 3 lose 5%, 4 more).
 DEPTH = 2
+#: The positions from a row's length that one step can write in a key buffer: the model's for its
+#: token and `DEPTH` drafts, and the head's for them, which start one further.
+STEP_SLOTS = DEPTH + 2
 _DRAFT: contextvars.ContextVar[torch.nn.Module | None] = contextvars.ContextVar(
     "cozy_lm_draft", default=None
 )
@@ -242,6 +248,30 @@ def _lm(model: PreTrainedModel) -> _Generating:
     return cast("_Generating", model)  # cast: `generate` serves causal LMs (GenerationMixin's)
 
 
+#: The room a decode step takes beside its held weights: its live tensors, graph pool and one
+#: eager step. Qwen3.6 measured: 27B int8 on a 5090 0.8 GiB live + 1.3 GiB pool, out of memory
+#: with 2.2 GiB left (44080295662); 27B w4a8 on a 4090 1.1 + 0.6, out at 1.9 (44077054825);
+#: 35B-A3B on an A6000 0.4 + 0.9, out at 1.3 (cl-1119).
+STEP_ROOM = 5 << 29
+
+
+class NoStepRoom(RuntimeError):
+    """The held weights leave a decode step too little of the card (`_Engine._short`)."""
+
+
+def _decoding(model: torch.nn.Module, drafting: bool) -> tuple[str, ...]:
+    """The module paths a decode step reads: the language model's decoder, its head and, while
+    it drafts, its draft head. A vision tower only a prefill reads stays out, evictable once the
+    prefill is done: held with the rest, Qwen3.6-27B's decode pinned 21.8 of a 4090's 22.9 GiB
+    (cr-319)."""
+    lm = _lm(model)  # type: ignore[arg-type]  # a model `generate` was given
+    head = getattr(model, "mtp", None) if drafting else None
+    reads = (lm.get_decoder(), lm.get_output_embeddings(), head)
+    wanted = {id(m) for m in reads if m is not None}
+    paths = tuple(name for name, module in model.named_modules() if name and id(module) in wanted)
+    return paths or ("",)
+
+
 def _set[T](value: T | None) -> T:
     """`value`, which the engine's state has set where it is read (its slots' cache and
     device, its head, its graphs' domain and pool, a row's tokens once it ended)."""
@@ -264,6 +294,7 @@ def generate(
     allowed: Constraint | None = None,
     progress: Callable[[int], None] | None = None,
     no_repeat_ngram: int | None = None,
+    streamed: Callable[[list[list[int]]], None] | None = None,
 ) -> torch.Tensor:
     """Tokens after the prompt, `[batch, n]` (`model.generate(...)`'s tail): `inputs` as the
     processor returned them, generation ends at a `stop` token or after `max_new_tokens`, and a
@@ -290,7 +321,9 @@ def generate(
     `PROGRESS_S`, for display only; one that raises is dropped, with a run warning (a cancel is
     the decode's own check's to act on). Without one, the running telemetry stage is told them
     as a count of tokens, `max_new_tokens` only their cap. `ctx.progress` called from it counts
-    tokens too, never steps."""
+    tokens too, never steps.
+    `streamed(rows)` is told each row's tokens so far, at most every `STREAM_S`, for display only
+    (`vlm` streams their words); one that raises is dropped, with a run warning."""
     for named in (draft, _DRAFT.get(), HEADS.get(model)):
         if named is not None:
             draft = named
@@ -305,7 +338,7 @@ def generate(
     if progress is None and (stage := stage_tokens()) is not None:
         progress = partial(_share, stage, max_new_tokens)
     sampling = _Sampling(float(temperature), float(top_p), int(seed), int(top_k))
-    tell = _Tell(progress)
+    tell = _Tell(progress, streamed)
     stops = [int(token) for token in stop]
     filler = stops[0] if pad is None else int(pad)
     why = ABSENT or _unsupported(model)
@@ -376,6 +409,7 @@ def _graph_snapshot(
             "replays": engine.replayed,
             "eager_steps": engine.eager,
             "refused": sorted(set(engine.unrecorded.values())),
+            "partial_restore": engine.partial,
         },
         [engine.pool] if engine.pool is not None else [],
         engine.domain,
@@ -1065,7 +1099,9 @@ def _transformers(
     tell: _Tell,
     allowed: Constraint | None = None,
     ngram: int = 0,
+    why: str = "",
 ) -> torch.Tensor:
+    """`why`: what sent the call here, said with its tokens a second in the run record."""
     prompt = int(inputs["input_ids"].shape[1])
     processors: list[_Allowed | _TopK | _Presence | _Draw | NoRepeatNGramLogitsProcessor] = (
         [] if allowed is None else [_Allowed(prompt, allowed, stops)]
@@ -1080,7 +1116,7 @@ def _transformers(
         processors.append(_Draw(prompt, sampling))
     context = CURRENT.get()
     with _PLANE, torch.inference_mode(), ExitStack() as held:
-        cancel = _Cancel(context, tell, _Keeper(model, held))
+        cancel = _Cancel(context, tell, _Keeper(model, held, why), prompt)
         out = _lm(model).generate(
             **inputs,
             max_new_tokens=max_new_tokens,
@@ -1106,25 +1142,39 @@ class _Keeper:
     cap decoded about 1 s a token, every weight read again for each). The prompt's prefill runs
     before any is held: its working memory is the call's largest."""
 
-    def __init__(self, model: torch.nn.Module, held: ExitStack) -> None:
-        self.placed = PLACED.get(model)
+    def __init__(self, model: torch.nn.Module, held: ExitStack, why: str = "") -> None:
+        self.placed, self.why = PLACED.get(model), why
         self.held, self.since, self.began = held, 0, time.perf_counter()
         self.decoded = 0.0
         self.kept = self.read = 0
+        #: the held blocks' own lease, which a refusal beside them ends (`_shed`)
+        self.lease: ExitStack | None = None
+        #: bytes each keep leaves free past its reserve: the refused blocks' (`_shed`), measured
+        self.less = 0
+        self.sheds = 0
+        self.again = False
 
     def step(self, steps: int) -> None:
-        if self.placed is None or steps > 2:
+        if self.placed is None or (steps > 2 and not self.again):
             return
         if steps == 1:  # the prompt's token: the decode begins
             self.since, self.decoded = time.monotonic_ns(), time.perf_counter()
+            self.held.enter_context(self.placed[0].gathering(self.placed[1]))
             return
+        self.again = False
         try:
-            found = self.placed[0].keep(self.placed[1], self.since, KEEP_RESERVE)
+            found = self.placed[0].keep(self.placed[1], self.since, KEEP_RESERVE + self.less)
             if found is None:
+                self.kept = 0
                 return
             binding, self.kept, self.read = found
-            self.held.callback(binding.close)
-            self.held.enter_context(binding.prepare())
+            lease = ExitStack()
+            lease.callback(binding.close)
+            lease.enter_context(binding.prepare())
+            self.lease = lease
+            sheds = binding.model.memory.sheds
+            sheds.append(self._shed)
+            self.held.callback(self._end, sheds)
             print(
                 f"[lm] streamed decode holds {_gib(self.kept)} of its weights, reads "
                 f"{_gib(self.read)} again a token",
@@ -1136,15 +1186,37 @@ class _Keeper:
             _unwind(exc)
             self.kept = 0
 
+    def _shed(self, need: int) -> bool:
+        """A block this decode streams was refused room beside the blocks it holds: they go now,
+        and from the next token it holds less by the refused block's `need`, each refusal again
+        (cr-319: Klein's upsampler at a 6 GiB cap held 4.0 GiB and a 0.2 GiB layer it streams found
+        no room; gate 44062127052)."""
+        lease, self.lease = self.lease, None
+        if lease is None:
+            return False
+        lease.close()
+        self.less += need
+        self.sheds += 1
+        self.again = True
+        return True
+
+    def _end(self, sheds: list[Callable[[int], bool]]) -> None:
+        with suppress(ValueError):
+            sheds.remove(self._shed)
+        lease, self.lease = self.lease, None
+        if lease is not None:
+            lease.close()
+
     def report(self, prompt: int, steps: int) -> None:
         """Its tokens a second, and the bytes kept and read again a token, in the run record."""
         if self.placed is None or steps < 2:
             return
         seconds = time.perf_counter() - self.decoded
-        text = (
+        text = (f"{self.why}: " if self.why else "") + (
             f"{steps} tokens after {prompt} through Transformers' loop: "
             f"{(steps - 1) / max(seconds, 1e-9):.2f} tokens/s decoding, "
             f"{_gib(self.kept)} of its weights held, {_gib(self.read)} read again a token"
+            + (f", holding less after {self.sheds} refusals beside it" if self.sheds else "")
         )
         print(f"[lm] {text}", file=sys.stderr)
         self.placed[0].note(f"{self.placed[1]}.lm", text)
@@ -1154,8 +1226,9 @@ class _Cancel(StoppingCriteria):
     """Transformers' loop raises the attempt's cancellation between tokens, tells its progress
     and, after the first decode step, keeps what of the model fits (`_Keeper`)."""
 
-    def __init__(self, context: Context | None, tell: _Tell, keeper: _Keeper) -> None:
+    def __init__(self, context: Context | None, tell: _Tell, keeper: _Keeper, prompt: int) -> None:
         self.context, self.tell, self.keeper, self.steps = context, tell, keeper, 0
+        self.prompt = prompt
 
     def __call__(
         self, input_ids: torch.Tensor, scores: tuple[torch.Tensor] | None, **kwargs: object
@@ -1164,26 +1237,45 @@ class _Cancel(StoppingCriteria):
             self.context.raise_if_cancelled()
         self.steps += 1  # one token a step: this loop drafts none
         self.keeper.step(self.steps)
-        self.tell(lambda: self.steps)
+        self.tell(lambda: self.steps, lambda: input_ids[:, self.prompt :].tolist())
         flags = torch.zeros(input_ids.shape[0], dtype=torch.bool, device=input_ids.device)
         return cast("torch.BoolTensor", flags)  # cast: Transformers types its flags as BoolTensor
 
 
 #: The least time between two progress reports of one call.
 PROGRESS_S = 0.25
+#: The least time between two reports of a call's tokens (`streamed`): words grow about ten times a
+#: second.
+STREAM_S = 0.1
 
 
 class _Tell:
-    """A call's `progress`, told its tokens so far at most every `PROGRESS_S`: `count` is read only
-    then."""
+    """A call's `progress`, told its tokens so far at most every `PROGRESS_S`, and `streamed`, told
+    each row's tokens at most every `STREAM_S`: `count` and `rows` are read only then."""
 
-    def __init__(self, progress: Callable[[int], None] | None) -> None:
+    def __init__(
+        self,
+        progress: Callable[[int], None] | None,
+        streamed: Callable[[list[list[int]]], None] | None = None,
+    ) -> None:
         self.progress, self.told = progress, 0.0
+        self.streamed, self.shown = streamed, 0.0
 
-    def __call__(self, count: Callable[[], int]) -> None:
+    def __call__(
+        self, count: Callable[[], int], rows: Callable[[], list[list[int]]] | None = None
+    ) -> None:
+        now = time.perf_counter()
+        if self.streamed is not None and rows is not None and now - self.shown >= STREAM_S:
+            self.shown = now
+            try:
+                self.streamed(rows())
+            except Cancelled:  # the decode's own check ends the call
+                pass
+            except Exception as exc:  # the decode outlives its words' display
+                self.streamed = None
+                WARNINGS.append(recovered("decode's words stopped streaming", error=str(exc)[:200]))
         if self.progress is None:
             return
-        now = time.perf_counter()
         if now - self.told < PROGRESS_S:
             return
         self.told = now
@@ -1673,7 +1765,8 @@ class _Request:
         self.prefill_s = self.began = self.ended = 0.0
         #: the engine's (captures, capture seconds, eager steps) at admission, then over its life
         self.at: tuple[float, ...] = (0, 0.0, 0)
-        self.steps = self.live = 0
+        #: its steps, the drafted ones among them, and its rows summed over them
+        self.steps = self.drafted = self.live = 0
         self.warnings: list[WarningRow] = []
         #: the attempt it serves (cancellation), and whether its rows left for it
         self.context: Context | None = CURRENT.get()
@@ -1779,10 +1872,12 @@ class _Engine:
         #: of those, each that took more than its warm-up's guess: the guess, and the room it
         #: was recorded in (`graphs.capture`)
         self.regrown: list[tuple[int, int]] = []
+        #: a dev machine's checks: what the eager step without the whole write set put back gave
+        self.partial: list[str] = []
         self.replayed = 0
         self.retired_graphs = 0
-        #: `LANDED` when a capture met a kernel still building (none records until one lands),
-        #: and when the graphs were last started over
+        #: `LANDED` when a capture, or its graph domain's opening, met a kernel still building
+        #: (none records until one lands), and when the graphs were last started over
         self.building, self.landed = -1, LANDED[0]
         self.driver: int | None = None
         self.draft: torch.nn.Module | None = None
@@ -1801,6 +1896,8 @@ class _Engine:
         #: torch pool of its own with no varena memory
         self.pool: Pool | None = None
         self.addresses: dict[int, Binding] = {}
+        #: the module paths each binding leases (`_decoding`)
+        self.reads: dict[int, tuple[str, ...]] = {}
         self.unprepared: BaseException | None = None
         self.completions: dict[torch.cuda.Stream, torch.cuda.Event] = {}
         self.unfenced: set[torch.cuda.Stream] = set()
@@ -1880,6 +1977,7 @@ class _Engine:
                 request.tell,
                 request.allowed,
                 request.ngram,
+                request.fallback,
             )
         self._report(request)
         return request.result()
@@ -1897,8 +1995,9 @@ class _Engine:
         mode = "eager" if _set(self.cache_device).type != "cuda" else "graphs"
         if eager:
             mode = "partly eager" if mode == "graphs" else mode
-        if self.draft is not None:
-            mode += f", drafting {DEPTH}: {looped / max(request.steps, 1):.2f} tokens a step"
+        if request.drafted:  # a head held but never drafted with (a CPU's steps) says nothing
+            some = "" if request.drafted == request.steps else f" in {request.drafted} of its steps"
+            mode += f", drafting {DEPTH}{some}: {looped / max(request.steps, 1):.2f} tokens a step"
         mode += f", {request.live / max(request.steps, 1):.1f} rows a step"
         facts = (
             f"prefill {request.prefill_s:.3f} s",
@@ -1959,10 +2058,13 @@ class _Engine:
                         if held is False:
                             if self._occupied():
                                 raise self.unprepared or RuntimeError("decode residency was lost")
+                            why = "its decode set does not fit at home" + (
+                                f" ({str(self.unprepared)[:200]})" if self.unprepared else ""
+                            )
+                            if isinstance(self.unprepared, NoStepRoom):
+                                why = str(self.unprepared)
                             for request in self.incoming:
-                                request.fallback = "its decode set does not fit at home" + (
-                                    f" ({str(self.unprepared)[:200]})" if self.unprepared else ""
-                                )
+                                request.fallback = why
                             self.incoming = []
                         if self.incoming or self.retire:
                             self._settle(self.incoming)
@@ -2018,13 +2120,17 @@ class _Engine:
         identities: list[object] = []
         with ExitStack() as leases:
             for module, (residency, name) in self._targets():
+                drafting = self.draft is not None
+                reads = _decoding(module, drafting) if module is self.model else ("",)
                 binding = self.addresses.get(id(module))
-                if binding is not None and not binding.valid():
+                moved = self.reads.get(id(module)) != reads
+                if binding is not None and (not binding.valid() or moved):
                     self._forget()
                     binding.close()
                     binding = None
                 if binding is None:
-                    binding = self.addresses[id(module)] = residency.retain(name, ("",))
+                    binding = self.addresses[id(module)] = residency.retain(name, reads)
+                    self.reads[id(module)] = reads
                 try:
                     leases.enter_context(binding.prepare())
                 except Exception as exc:
@@ -2033,9 +2139,30 @@ class _Engine:
                     self.unprepared = exc
                     return False
                 identities.append(binding.identity)
+            if (short := self._short()) is not None:
+                self.unprepared = short  # its leases go as this returns
+                return False
             self.where = (*identities, built)
             stack.enter_context(leases.pop_all())
         return True
+
+    def _short(self) -> NoStepRoom | None:
+        """Whether the weights just leased leave a step too little of the card: then the driver
+        drops the draft head, and short still, decodes through Transformers' streamed loop before
+        any step runs, never out of memory after it (cr-319). Rows decoding now decode on."""
+        if self._occupied() or PLACED.get(self.model) is None or not torch.cuda.is_initialized():
+            return None
+        device = torch.cuda.current_device()
+        room = vt.room(device)
+        left = room["capacity"] - room["pinned"] - room["working_live"]
+        if left >= STEP_ROOM:
+            return None
+        name = getattr(self.model.config, "_name_or_path", "") or type(self.model).__name__
+        return NoStepRoom(
+            f"{name} doesn't fit {_gib(room['capacity'])} with room to decode "
+            f"({_gib(room['pinned'])} of weights held, {_gib(left)} left; a step takes about "
+            f"{_gib(STEP_ROOM)}): running the slower streamed path"
+        )
 
     #: The retained bindings' fill generations and derived tensor addresses.
     where: tuple[object, ...] = ()
@@ -2101,6 +2228,7 @@ class _Engine:
             row.reach = min(row.reach + per, self.capacity)
         for request in {id(row.request): row.request for row in rows}.values():
             request.steps += 1
+            request.drafted += drafting
             request.live += len(rows)
 
     def _settle(self, incoming: list[_Request]) -> None:
@@ -2870,8 +2998,9 @@ class _Engine:
                 row.generated += [took[(1 + j) * size + slot] for j in range(took[slot])]
 
     def _tell(self) -> None:
-        """Each held call's progress, its longest row's tokens: drafting decodes several a step. The
-        flag check has just caught the host up with the device, so reading `n` waits on nothing."""
+        """Each held call's progress, its longest row's tokens (drafting decodes several a step),
+        and each row's tokens so far where its words stream. The flag check has just caught the
+        host up with the device, so reading `n` and `out` waits on nothing."""
         counts: list[int] = []
 
         def tokens(request: _Request) -> int:
@@ -2884,8 +3013,23 @@ class _Engine:
             )
             return max(held, default=0)
 
+        def rows(request: _Request) -> list[list[int]]:
+            if not counts:
+                counts.extend(self.n.tolist())
+            held = {
+                row.row: slot
+                for slot, row in enumerate(self.slots)
+                if row is not None and row.request is request
+            }
+            return [
+                self.out[held[i], : counts[held[i]]].tolist()
+                if i in held
+                else ([] if done is None else done.tolist())
+                for i, done in enumerate(request.tokens)
+            ]
+
         for request in {id(row.request): row.request for row in self.slots if row}.values():
-            request.tell(partial(tokens, request))
+            request.tell(partial(tokens, request), partial(rows, request))
 
     def _read(self, drafted: bool) -> tuple[torch.nn.Module, ...]:
         """The modules a step reads: the model, and its head when the step drafts."""
@@ -2915,6 +3059,19 @@ class _Engine:
         finally:
             if side is not None:
                 current.wait_stream(side)
+
+    def _opens(self) -> bool:
+        """Whether a step may warm up or record now. Its graph domain opens first, which a kernel
+        still building refuses (`Building`) as it refuses a capture: the step decodes eagerly until
+        a kernel lands, and its call never fails for it (cr-342)."""
+        if self.building == LANDED[0]:
+            return False
+        try:
+            _set(self.domain).initialize()
+        except Building:
+            self.building = LANDED[0]
+            return False
+        return True
 
     def _replay(self, size: int, cuda: bool) -> None:
         drafted = self._drafting(size)
@@ -2952,7 +3109,7 @@ class _Engine:
             self.eager += 1
             return
         graph = self.graphs.get(key)
-        if graph is None and cuda and key not in self.unrecorded and self.building != LANDED[0]:
+        if graph is None and cuda and key not in self.unrecorded and self._opens():
             domain = _set(self.domain)  # a CUDA step's (`_one`)
             if key not in self.warmed:
                 # This is the caller's actual next token, never an extra speculative warmup; its
@@ -2971,6 +3128,16 @@ class _Engine:
                 return
             capturing = time.perf_counter()
             reserve, why = vt.pool_bytes(self.peaks[key]), ""
+            # Its ops and kernels, set beside the step as written's when its check differs, and
+            # what it writes in place, which its check puts back (cr-283).
+            writes: list[torch.Tensor] = []
+            traced, ops = observe.trace(torch, writes)
+            launch = _STEPS[0]
+
+            def step() -> None:
+                with cast("AbstractContextManager[object]", traced):
+                    self._advance(size)
+
             try:
                 with (
                     self._graph_memory(drafted),
@@ -2986,7 +3153,7 @@ class _Engine:
                     try:
                         graph, why = capture(
                             torch,
-                            lambda: self._advance(size),
+                            step,
                             pool,
                             domain,
                             reserve,
@@ -3002,9 +3169,11 @@ class _Engine:
             except Building:  # eager until a kernel lands
                 graph, why, self.building = None, "", LANDED[0]
             finally:
-                if graph is None and not self.graphs and self.pool is not None:
-                    close_pool(self.pool, domain.device)
-                    self.pool = None
+                if graph is None:
+                    writes.clear()  # no graph to check: none of the step's state stays held
+                    if not self.graphs and self.pool is not None:
+                        close_pool(self.pool, domain.device)
+                        self.pool = None
             if graph is not None:
                 self.graphs[key] = graph
             # A capture's end, recorded or not, ends the pool's use: held again for the rows
@@ -3019,7 +3188,10 @@ class _Engine:
                     vt.pool_scratch(_set(self.pool).handle, (), domain.device)
                 except (RuntimeError, ValueError) as exc:  # A live allocation: it stays mapped.
                     safeguard("scratch_declined", str(exc))
-                self._verify(key, graph, size)
+                try:
+                    self._verify(key, graph, size, ops, launch, writes)
+                finally:
+                    writes.clear()  # its check is over, however it ended
                 return
             elif why:
                 self._unrecorded(key, why)
@@ -3052,29 +3224,197 @@ class _Engine:
         layers = [layer for layer in _layers(_set(self.cache)) if isinstance(layer, _Keys)]
         return [buffer[rows, :, at] for layer in layers for buffer in (layer.keys, layer.values)]
 
-    def _verify(self, key: _Key, graph: torch.cuda.CUDAGraph, size: int) -> None:
+    def _keyed(self) -> list[torch.Tensor]:
+        """Each buffer a step writes by position, at most `STEP_SLOTS` from a row's length: the
+        model's keys and values, and the draft head's."""
+        layers = [layer for layer in _layers(_set(self.cache)) if isinstance(layer, _Keys)]
+        if self.draft is not None:
+            layers.append(self.dkeys)
+        return [buffer for layer in layers for buffer in (layer.keys, layer.values)]
+
+    def _before(
+        self, state: list[torch.Tensor], writes: list[torch.Tensor], at: torch.Tensor
+    ) -> _Before:
+        """A check's snapshot: `state` and any other device tensor its capture wrote, whole, and
+        the key buffers it wrote at each row's `STEP_SLOTS` positions from `at`."""
+        keyed, others = _beyond(writes, state, self._keyed())
+        slots = at[:, None] + torch.arange(STEP_SLOTS, device=at.device)
+        return _Before([*state, *others], keyed, slots.clamp(max=self.capacity - 1))
+
+    def _verify(
+        self,
+        key: _Key,
+        graph: torch.cuda.CUDAGraph,
+        size: int,
+        ops: list[tuple[object, ...]],
+        launch: Launch | None,
+        writes: list[torch.Tensor],
+    ) -> None:
         """A new graph's one check: its replay, then this token's eager step from the same
-        state, last so that what serves the call is eager's. A difference discards the graph."""
+        state, last so that what serves the call is eager's. The same state is all the step writes
+        on the device (`writes`, its capture's), not only `_token_state`: the draft head's keys and
+        values, which a replay writes ahead of the eager step, made Klein's check fail a sound
+        graph (cr-283). Of a key buffer that is the slots a step reaches, never the buffer
+        (`_Before`), and all of it goes as the check ends. A difference discards the graph and
+        explains itself (`_explain`)."""
         domain = _set(self.domain)
         state, stream = self._token_state(key[2]), torch.cuda.current_stream(domain.device)
-        start, at = [value.clone() for value in state], self.length[:size].clone()
-        vt.replay(graph, stream=stream)  # its pool is held since its capture
-        replayed = [*(value.clone() for value in state), *self._written(size, at)]
-        for tensor, value in zip(state, start, strict=True):
-            tensor.copy_(value)
+        start: _Before | None = None
+        replayed: list[torch.Tensor] = []
+        try:
+            try:
+                at = self.length[:size].clone()
+                start = self._before(state, writes, at)
+                vt.replay(graph, stream=stream)  # its pool is held since its capture
+                replayed = [*(value.clone() for value in state), *self._written(size, at)]
+                start.restore()
+                self._advance(size)
+            except Exception as exc:
+                if not _short_of_room(exc):
+                    raise
+                # No room to check it beside its held pool (cr-319: Qwen3.6-27B on a 4090 failed
+                # the run here): the graph and its pool go, and this token and its key's later
+                # ones decode eagerly, from the state before it.
+                if start is not None:
+                    start.restore()
+                    start.release()
+                replayed.clear()
+                self._discard(key, graph, stream)
+                why = no_room(domain.device, "its graph's check", 0, exc)
+                _unwind(exc)
+                _answered(exc)
+                self._unrecorded(key, f"{why}: it decodes eagerly")
+                self._advance(size)
+                self.eager += 1
+                return
+            self.eager += 1
+            why = vt.replay_differs([*state, *self._written(size, at)], replayed)
+            if why:
+                why += "; " + self._explain(
+                    key[2], size, state, start, at, replayed, ops, launch, graph
+                )
+                self._discard(key, graph, stream)
+                self._unrecorded(key, why, "replay_mismatch")
+            elif _graphs.AUDIT and start.beyond(len(state))[0]:
+                try:
+                    self.partial.append(self._partial(size, state, start, at, graph, stream))
+                except Exception as exc:  # a dev machine's diagnosis never fails its call
+                    # A device fault, a yield or a cancel is the call's, never the diagnosis's.
+                    if isinstance(exc, (Cancelled, Yielded)) or fault(exc) in (
+                        Fault.STICKY,
+                        Fault.DEVICE,
+                    ):
+                        raise
+                    said = "no room to check without them" if is_capacity(exc) else "failed"
+                    self.partial.append(f"{said}: {type(exc).__name__}: {exc}"[:200])
+                    _unwind(exc)
+                    start.restore()
+                    self._advance(size)
+        finally:
+            if start is not None:
+                start.release()
+            replayed.clear()
+
+    def _partial(
+        self,
+        size: int,
+        state: list[torch.Tensor],
+        start: _Before,
+        at: torch.Tensor,
+        graph: torch.cuda.CUDAGraph,
+        stream: torch.cuda.Stream,
+    ) -> str:
+        """A dev machine's record of what the check before cr-283 would have found: the replay,
+        then the eager step with only `_token_state` put back. The last run serves as before."""
+        here = [*(value.clone() for value in state), *self._written(size, at)]
+        start.restore()
+        vt.replay(graph, stream=stream)
+        start.restore(len(state))
         self._advance(size)
-        self.eager += 1
-        why = vt.replay_differs([*state, *self._written(size, at)], replayed)
-        if why:
-            stream.synchronize()
-            if len(self.graphs) == 1:
-                self._pool(False)  # the pool's last graph goes: its use ends while it owns it
-            del self.graphs[key]
-            graph.reset()
-            if not self.graphs:
-                close_pool(_set(self.pool), domain.device)
-                self.pool = None
-            self._unrecorded(key, why, "replay_mismatch")
+        old = [*(value.clone() for value in state), *self._written(size, at)]
+        start.restore()
+        self._advance(size)
+        more, extra = start.beyond(len(state))
+        said = vt.replay_differs(here, old) or "the same"
+        return f"{more} more tensors put back ({extra >> 10} KiB); without them: {said}"
+
+    def _explain(
+        self,
+        drafted: bool,
+        size: int,
+        state: list[torch.Tensor],
+        start: _Before,
+        at: torch.Tensor,
+        replayed: list[torch.Tensor],
+        ops: list[tuple[object, ...]],
+        launch: Launch | None,
+        graph: torch.cuda.CUDAGraph,
+    ) -> str:
+        """Why a step's replay differed from it as written (tracker design
+        cuda-graph-correctness.md §5.3, cr-283): the step as written again from the same state,
+        then on its capture's stream and leases, its ops and kernels beside its capture's, and its
+        graph replayed again (a replay that repeats froze something at capture; one that doesn't
+        reads memory that changed). The last run is the check's eager step again, which serves."""
+
+        def run(on_capture: bool, mode: object = None) -> list[torch.Tensor]:
+            start.restore()
+            with (
+                self._graph_memory(drafted) if on_capture else nullcontext(),
+                cast("AbstractContextManager[object]", mode or nullcontext()),
+            ):
+                self._advance(size)
+            return [*(value.clone() for value in state), *self._written(size, at)]
+
+        here = [*(value.clone() for value in state), *self._written(size, at)]
+        mode, written = observe.trace(torch)
+        served = False
+        try:
+            start.restore()
+            vt.replay(graph, stream=torch.cuda.current_stream())
+            twice = [*(value.clone() for value in state), *self._written(size, at)]
+            again = run(False, mode)
+            on_stream = run(True)
+            run(False)
+            served = True
+        except Exception as exc:
+            if not _short_of_room(exc):
+                raise
+            _unwind(exc)
+            _answered(exc)
+            return "no room to run the step again"
+        finally:
+            if not served:
+                start.restore()
+                self._advance(size)
+        if noise := vt.replay_differs(here, again):
+            return f"the step as written differs run to run ({noise}): a nondeterministic kernel"
+        replays = vt.replay_differs(replayed, twice)
+        said = [f"its replays differ ({replays})" if replays else "its replays repeat"]
+        if _STEPS[0] is not launch:
+            said.append("its kernels landed between its capture and its check")
+        if op := observe.diverged(written, ops):
+            said.append(op)
+        if not vt.replay_differs(on_stream, replayed):
+            said.append(
+                "as written on its capture's stream it equals the replay: a library chose by stream"
+            )
+        if len(said) == 1:
+            return (
+                f"the same {len(written)} ops, and on its capture's stream it differs too: a "
+                f"kernel outside Torch's dispatcher; {said[0]}"
+            )
+        return "the capture ran another program: " + "; ".join(said)
+
+    def _discard(self, key: _Key, graph: torch.cuda.CUDAGraph, stream: torch.cuda.Stream) -> None:
+        """A recorded graph goes, and its pool with the last of them."""
+        stream.synchronize()
+        if len(self.graphs) == 1:
+            self._pool(False)  # the pool's last graph goes: its use ends while it owns it
+        del self.graphs[key]
+        graph.reset()
+        if not self.graphs:
+            close_pool(_set(self.pool), _set(self.domain).device)
+            self.pool = None
 
     def _forget(self) -> None:
         """Release recordings only at the driver's already-drained step boundary."""
@@ -3443,6 +3783,55 @@ class _Engine:
         pinned = ("flag", "allow_host", "took", "dtook")
         for name in (*type(self).__annotations__, *pinned, "rows_index", "bit", "dkeys", "dcache"):
             vars(self).pop(name, None)
+
+
+def _beyond(
+    writes: list[torch.Tensor], state: list[torch.Tensor], keyed: list[torch.Tensor]
+) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+    """What a step writes in place on the device beyond `_token_state`'s storages, from its
+    capture's write set: the key buffers among `keyed`, and any other tensor. What it writes on
+    the host (the flags and tokens the host reads back) is its output, never put back."""
+
+    def storage(tensor: torch.Tensor) -> int:
+        return int(tensor.untyped_storage().data_ptr())
+
+    held = {storage(value) for value in state}
+    named = {storage(t) for t in writes if t.is_cuda} - held
+    buffers = [buffer for buffer in keyed if storage(buffer) in named]
+    known = held | {storage(buffer) for buffer in buffers}
+    return buffers, [t for t in writes if t.is_cuda and storage(t) not in known]
+
+
+class _Before:
+    """What a step writes in place, as it was before the step, for its graph's check to put back
+    (`restore`) and let go (`release`): `whole` tensors entire, and of each `keyed` buffer
+    (`[rows, heads, positions, width]`) only `slots`, the positions a step reaches in each row.
+    Key buffers saved whole were the decode cache again, 10 GiB at 16 rows of Qwen3.8-27B,
+    allocated between a capture and its first replay (cr-333)."""
+
+    def __init__(
+        self, whole: list[torch.Tensor], keyed: list[torch.Tensor], slots: torch.Tensor
+    ) -> None:
+        self.whole, self.keyed, self.slots = whole, keyed, slots
+        self.rows = torch.arange(slots.shape[0], device=slots.device)[:, None]
+        self.saved = [value.clone() for value in whole]
+        self.kept = [buffer[self.rows, :, slots] for buffer in keyed]
+
+    def restore(self, first: int | None = None) -> None:
+        """Everything as it was; with `first`, only that many of `whole`."""
+        for tensor, value in zip(self.whole[:first], self.saved[:first], strict=True):
+            tensor.copy_(value)
+        if first is None:
+            for buffer, value in zip(self.keyed, self.kept, strict=True):
+                buffer[self.rows, :, self.slots] = value
+
+    def beyond(self, first: int) -> tuple[int, int]:
+        """The tensors it put back past the first `first` of `whole`, and the bytes it kept."""
+        kept = [*self.saved[first:], *self.kept]
+        return len(kept), sum(value.nbytes for value in kept)
+
+    def release(self) -> None:
+        self.whole, self.keyed, self.saved, self.kept = [], [], [], []
 
 
 def _unwind(exc: BaseException) -> None:

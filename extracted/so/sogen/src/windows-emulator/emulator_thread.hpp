@@ -18,6 +18,20 @@ namespace sogen
     struct vcpu_context;
     struct windows_arch_abi;
 
+    // A raw-input payload is keyed by the HRAWINPUT token posted in WM_INPUT's lParam.
+    struct raw_input_payload
+    {
+        bool keyboard{}; // false = mouse, true = keyboard
+        int32_t dx{};    // mouse relative motion
+        int32_t dy{};
+        uint16_t mouse_buttons{};     // RI_MOUSE_* button transition flags
+        uint16_t mouse_button_data{}; // wheel delta for RI_MOUSE_WHEEL/RI_MOUSE_HWHEEL
+        uint16_t vkey{};
+        uint16_t scan_code{};   // keyboard scan code
+        uint32_t key_message{}; // corresponding WM_KEY* or WM_SYSKEY* message
+        bool key_extended{};    // true when the key's scan code has an E0 prefix (lParam bit 24)
+    };
+
     struct user_timer_key
     {
         sogen::hwnd hwnd{};
@@ -175,6 +189,69 @@ namespace sogen
             buffer.read(this->hwnd_filter);
             buffer.read(this->filter_min);
             buffer.read(this->filter_max);
+        }
+    };
+
+    struct sent_window_message
+    {
+        uint32_t sender_thread_id{};
+        uint64_t sender_callback_depth{};
+        hwnd window{};
+        UINT message{};
+        uint64_t w_param{};
+        uint64_t l_param{};
+        uint64_t scratch_text{};
+        BOOL ansi{};
+        bool replied{};
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(this->sender_thread_id);
+            buffer.write(this->sender_callback_depth);
+            buffer.write(this->window);
+            buffer.write(this->message);
+            buffer.write(this->w_param);
+            buffer.write(this->l_param);
+            buffer.write(this->scratch_text);
+            buffer.write(this->ansi);
+            buffer.write(this->replied);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(this->sender_thread_id);
+            buffer.read(this->sender_callback_depth);
+            buffer.read(this->window);
+            buffer.read(this->message);
+            buffer.read(this->w_param);
+            buffer.read(this->l_param);
+            buffer.read(this->scratch_text);
+            buffer.read(this->ansi);
+            buffer.read(this->replied);
+        }
+    };
+
+    struct sent_message_wait
+    {
+        uint64_t callback_depth{};
+        uint64_t syscall_ip{};
+        uint64_t syscall_number{};
+        std::optional<uint64_t> result{};
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(this->callback_depth);
+            buffer.write(this->syscall_ip);
+            buffer.write(this->syscall_number);
+            buffer.write_optional(this->result);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(this->callback_depth);
+            buffer.read(this->syscall_ip);
+            buffer.read(this->syscall_number);
+            buffer.read_optional(this->result);
         }
     };
 
@@ -410,6 +487,13 @@ namespace sogen
         overflow,
     };
 
+    enum class message_retrieval_mode
+    {
+        peek,
+        remove,
+        get,
+    };
+
     class emulator_thread : public ref_counted_object
     {
       public:
@@ -487,6 +571,7 @@ namespace sogen
         bool await_time_absolute{};
         std::optional<pending_msg> await_msg{};
         std::optional<DWORD> await_msg_mask{};
+        std::optional<NTSTATUS> await_msg_ready_status{};
         std::optional<pending_io_completion_wait> await_io_completion{};
         std::optional<pending_debug_event_wait> await_debug_event{};
         std::optional<emulator_pointer> await_file_io{};
@@ -506,6 +591,7 @@ namespace sogen
         std::vector<pending_apc> pending_apcs{};
 
         std::optional<NTSTATUS> pending_status{};
+        std::vector<sent_message_wait> sent_message_waits{};
 
         uint64_t win32k_thread_info{0};
         uint64_t win32k_thread_state{0};
@@ -543,6 +629,8 @@ namespace sogen
         std::map<user_timer_key, user_timer> user_timers{};
         uint64_t next_user_timer_id{1};
         std::vector<msg> message_queue;
+        std::vector<sent_window_message> pending_sent_messages;
+        std::vector<sent_window_message> active_sent_messages;
         DWORD current_message_time{};
         DWORD current_message_position{};
         std::array<uint32_t, 32> message_queue_status_bit_counts{};
@@ -566,7 +654,16 @@ namespace sogen
 
         void remember_message_wait(cpu_interface& emu, const windows_arch_abi& abi);
         void restart_message_wait(cpu_interface& emu, const windows_arch_abi& abi);
-        bool has_hooked_message(windows_emulator& win_emu);
+        bool needs_message_wait_restart(windows_emulator& win_emu);
+
+        const sent_message_wait* current_sent_message_wait() const
+        {
+            if (this->sent_message_waits.empty() || this->sent_message_waits.back().callback_depth != this->callback_stack.size())
+            {
+                return nullptr;
+            }
+            return &this->sent_message_waits.back();
+        }
 
         bool is_await_time_over(utils::clock& clock) const
         {
@@ -611,8 +708,11 @@ namespace sogen
 
         uint32_t get_message_queue_status(windows_emulator& win_emu);
         std::optional<msg> peek_pending_message(windows_emulator& win_emu, hwnd hwnd_filter = 0, UINT filter_min = 0, UINT filter_max = 0,
-                                                bool remove = false);
+                                                message_retrieval_mode mode = message_retrieval_mode::peek);
         void post_message(windows_emulator& win_emu, msg msg, bool try_coalesce = false);
+        void post_raw_input(windows_emulator& win_emu, hwnd window, uint32_t token, const raw_input_payload& payload);
+        const raw_input_payload* find_raw_input(emulator_pointer token) const;
+        void clear_raw_input();
         void remove_window_messages(hwnd window);
         void set_active_window(hwnd window);
         void set_focus_window(hwnd window);
@@ -685,6 +785,7 @@ namespace sogen
             buffer.write(this->await_time_absolute);
             buffer.write_optional(this->await_msg);
             buffer.write_optional(this->await_msg_mask);
+            buffer.write_optional(this->await_msg_ready_status);
             buffer.write_optional(this->await_io_completion);
             buffer.write_optional(this->await_debug_event);
             buffer.write_optional(this->await_file_io);
@@ -696,6 +797,7 @@ namespace sogen
             buffer.write_vector(this->pending_apcs);
 
             buffer.write_optional(this->pending_status);
+            buffer.write_vector(this->sent_message_waits);
             buffer.write(this->win32k_thread_info);
             buffer.write(this->win32k_thread_state);
             buffer.write(this->win32k_desktop);
@@ -728,6 +830,10 @@ namespace sogen
             buffer.write_map(this->user_timers);
             buffer.write(this->next_user_timer_id);
             buffer.write_vector(this->message_queue);
+            buffer.write_map(this->queued_raw_inputs_);
+            buffer.write_optional(this->last_raw_input_);
+            buffer.write_vector(this->pending_sent_messages);
+            buffer.write_vector(this->active_sent_messages);
             buffer.write(this->current_message_time);
             buffer.write(this->current_message_position);
             buffer.write(this->message_queue_status_bit_counts);
@@ -773,6 +879,7 @@ namespace sogen
             buffer.read(this->await_time_absolute);
             buffer.read_optional(this->await_msg, [this] { return pending_msg{*this->memory_ptr}; });
             buffer.read_optional(this->await_msg_mask);
+            buffer.read_optional(this->await_msg_ready_status);
             buffer.read_optional(this->await_io_completion, [] { return pending_io_completion_wait{}; });
             buffer.read_optional(this->await_debug_event, [] { return pending_debug_event_wait{}; });
             buffer.read_optional(this->await_file_io);
@@ -785,6 +892,7 @@ namespace sogen
             buffer.read_vector(this->pending_apcs);
 
             buffer.read_optional(this->pending_status);
+            buffer.read_vector(this->sent_message_waits);
             buffer.read(this->win32k_thread_info);
             buffer.read(this->win32k_thread_state);
             buffer.read(this->win32k_desktop);
@@ -817,6 +925,10 @@ namespace sogen
             buffer.read_map(this->user_timers);
             buffer.read(this->next_user_timer_id);
             buffer.read_vector(this->message_queue);
+            buffer.read_map(this->queued_raw_inputs_);
+            buffer.read_optional(this->last_raw_input_);
+            buffer.read_vector(this->pending_sent_messages);
+            buffer.read_vector(this->active_sent_messages);
             buffer.read(this->current_message_time);
             buffer.read(this->current_message_position);
             buffer.read(this->message_queue_status_bit_counts);
@@ -835,7 +947,18 @@ namespace sogen
         static bool deleter(emulator_thread& t);
 
       private:
+        struct retrieved_raw_input
+        {
+            emulator_pointer token{};
+            raw_input_payload payload{};
+        };
+
+        std::map<emulator_pointer, raw_input_payload> queued_raw_inputs_{};
+        std::optional<retrieved_raw_input> last_raw_input_{};
+
         bool can_coalesce_message(const msg& msg) const;
+        std::optional<msg> select_pending_message(windows_emulator& win_emu, hwnd hwnd_filter, UINT filter_min, UINT filter_max,
+                                                  bool remove);
         std::optional<msg> peek_queued_message(const process_context& process, hwnd hwnd_filter, UINT filter_min, UINT filter_max,
                                                bool remove);
 

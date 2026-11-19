@@ -764,6 +764,7 @@ WorkerTypeType = Literal[
 WorkflowRunStatusType = Literal["COMPLETED", "ERROR", "RUNNING", "STOPPED", "STOPPING"]
 GlueServiceName = Literal["glue"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

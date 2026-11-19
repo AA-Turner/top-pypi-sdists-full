@@ -36,6 +36,7 @@ from urllib.parse import urlparse
 import yaml
 from pydantic import ValidationError
 
+from omnimarket.handlers.routing.eval_arm_backends import with_eval_arm_backends
 from omnimarket.inference.provider_surfaces import load_provider_surfaces
 from omnimarket.models.delegation.model_bifrost_overlay_provenance import (
     AUTHORITATIVE_BACKEND_FIELDS,
@@ -580,11 +581,8 @@ def _load_merged_bifrost_data(
     # an explicit ``overlay is None`` branch (no sentinel path involved)
     # closes that divergence for every current and future caller instead of
     # requiring each one to reimplement it.
-    overlay: Path | None
-    if config_path is not None and overlay_path is None:
-        overlay = None
-    else:
-        overlay = overlay_path or _DEFAULT_OVERLAY_PATH
+    explicit_contract_only = config_path is not None and overlay_path is None
+    overlay = None if explicit_contract_only else overlay_path or _DEFAULT_OVERLAY_PATH
 
     if not resolved.exists():
         msg = f"Bifrost delegation config not found at {resolved}"
@@ -622,7 +620,8 @@ def _load_merged_bifrost_data(
         )
         data = deep_merge_bifrost_delegation_config(data, overlay_data)
 
-    return data, str(resolved)
+    # OMN-23751: the routing overlay's pinned-only eval arms, appended last.
+    return with_eval_arm_backends(data), str(resolved)
 
 
 def reject_backends_off_a_declared_provider_surface(
@@ -931,10 +930,14 @@ def _deep_merge(default_value: Any, overlay_value: Any) -> Any:
     if isinstance(default_value, dict) and isinstance(overlay_value, dict):
         merged = copy.deepcopy(default_value)
         for key, value in overlay_value.items():
-            if key in merged:
-                merged[key] = _deep_merge(merged[key], value)
-            else:
-                merged[key] = copy.deepcopy(value)
+            # OMN-23413: a bare ``backends:`` line (YAML null) adds and changes no
+            # backend. Merged as a value it replaced the contract's list with
+            # nothing, so every delegation failed schema validation ("at least 1
+            # item, not 0") after a routes file lost its last local model. The
+            # schema needs at least one backend, so a null never means "none".
+            if not (key == "backends" and value is None):
+                # An absent key merges as None, which returns a copy of value.
+                merged[key] = _deep_merge(merged.get(key), value)
         return merged
 
     if isinstance(default_value, list) and isinstance(overlay_value, list):

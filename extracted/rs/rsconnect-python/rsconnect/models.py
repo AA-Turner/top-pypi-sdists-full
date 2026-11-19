@@ -7,21 +7,13 @@ from __future__ import annotations
 import fnmatch
 import pathlib
 import re
-import sys
-from typing import Callable, Literal, Optional, cast
+from typing import Literal, NotRequired, TypedDict, cast
+from collections.abc import Callable
 
 import click
 import semver
 from click import ParamType
 from click.types import StringParamType
-
-# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
-# they should both come from the same typing module.
-# https://peps.python.org/pep-0655/#usage-in-python-3-11
-if sys.version_info >= (3, 11):
-    from typing import TypedDict
-else:
-    from typing_extensions import TypedDict
 
 _version_search_pattern = r"(^[=><]{0,2})(.*)"
 _content_guid_pattern = r"([^,]*),?(.*)"
@@ -54,7 +46,7 @@ class AppMode:
         ordinal: int,
         name: AppModes.Modes,
         text: str,
-        ext: Optional[str] = None,
+        ext: str | None = None,
     ):
         self._ordinal = ordinal
         self._name: AppModes.Modes = name
@@ -73,7 +65,7 @@ class AppMode:
     def extension(self):
         return self._ext
 
-    def cli_alias(self) -> Optional[str]:
+    def cli_alias(self) -> str | None:
         """Return the primary CLI alias for this mode, or ``None`` if absent.
 
         "Primary" is the first key declared in :data:`AppModes._cli_aliases`
@@ -247,7 +239,7 @@ class AppModes:
         return cls._find_by(lambda mode: mode.name() == name, "named %s" % name, return_unknown)
 
     @classmethod
-    def get_by_extension(cls, extension: Optional[str], return_unknown: bool = False) -> AppMode:
+    def get_by_extension(cls, extension: str | None, return_unknown: bool = False) -> AppMode:
         """Get an app mode by its associated extension"""
         # We can't allow a lookup by None since some modes have that for an extension.
         if extension is None:
@@ -266,7 +258,7 @@ class AppModes:
         return cls._cloud_to_connect_modes.get(name, cls.UNKNOWN)
 
     @classmethod
-    def get_connect_cloud_content_type(cls, mode: AppMode) -> Optional[str]:
+    def get_connect_cloud_content_type(cls, mode: AppMode) -> str | None:
         """The Posit Connect Cloud content type for an app mode, or None.
 
         None means Connect Cloud cannot host that kind of content.
@@ -303,7 +295,7 @@ class AppModes:
         raise ValueError("No app mode %s" % message)
 
 
-class GlobMatcher(object):
+class GlobMatcher:
     """
     A simplified means of matching a path against a glob pattern.  The key
     limitation is that we support at most one occurrence of the `**` pattern.
@@ -390,7 +382,7 @@ class GlobMatcher(object):
         return pattern_index == wildcard_index
 
 
-class GlobSet(object):
+class GlobSet:
     """
     Matches against a set of `GlobMatcher` patterns
     """
@@ -414,23 +406,23 @@ class GlobSet(object):
 class StrippedStringParamType(StringParamType):
     name = "StrippedString"
 
-    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
-        value = super(StrippedStringParamType, self).convert(value, param, ctx)
+    def convert(self, value: str, param: click.Parameter | None, ctx: click.Context | None) -> str:
+        value = super().convert(value, param, ctx)
         return value.strip("\"'")
 
 
 class ContentGuidParamType(StrippedStringParamType):
     name = "GUID"
 
-    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
-        value = super(ContentGuidParamType, self).convert(value, param, ctx)
+    def convert(self, value: str, param: click.Parameter | None, ctx: click.Context | None) -> str:
+        value = super().convert(value, param, ctx)
         if not is_content_guid(value):
             self.fail("%r is not a content GUID." % value, param, ctx)
         return value
 
 
-class ContentGuidWithBundle(object):
-    def __init__(self, guid: str, bundle_id: Optional[str] = None):
+class ContentGuidWithBundle:
+    def __init__(self, guid: str, bundle_id: str | None = None):
         self.guid = guid
         self.bundle_id = bundle_id
 
@@ -446,13 +438,13 @@ class ContentGuidWithBundleParamType(StrippedStringParamType):
     def convert(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         value: str | ContentGuidWithBundle,
-        param: Optional[click.Parameter],
-        ctx: Optional[click.Context],
+        param: click.Parameter | None,
+        ctx: click.Context | None,
     ):
         if isinstance(value, ContentGuidWithBundle):
             return value
         if isinstance(value, str):
-            value = super(ContentGuidWithBundleParamType, self).convert(value, param, ctx)
+            value = super().convert(value, param, ctx)
             m = re.match(_content_guid_pattern, value)
             if m is not None:
                 guid_with_bundle = ContentGuidWithBundle(m.group(1))
@@ -520,7 +512,7 @@ VersionProgramName = Literal["r_version", "py_version", "quarto_version"]
 ComparisonOperator = Literal[">", "<", ">=", "<=", "=", "=="]
 
 
-class VersionSearchFilter(object):
+class VersionSearchFilter:
     def __init__(
         self,
         name: VersionProgramName,
@@ -548,8 +540,8 @@ class VersionSearchFilterParamType(ParamType):
     def convert(
         self,
         value: str | VersionSearchFilter,
-        param: Optional[click.Parameter],
-        ctx: Optional[click.Context],
+        param: click.Parameter | None,
+        ctx: click.Context | None,
     ):
         if isinstance(value, VersionSearchFilter):
             return value
@@ -619,6 +611,7 @@ class PyInstallation(TypedDict):
     version: str
     cluster_name: str
     image_name: str
+    publishable: NotRequired[bool]
 
 
 class BuildOutputDTO(TypedDict):
@@ -798,8 +791,8 @@ class KeyValueParamType(ParamType):
     def convert(
         self,
         value: str | tuple[str, str],
-        param: Optional[click.Parameter],
-        ctx: Optional[click.Context],
+        param: click.Parameter | None,
+        ctx: click.Context | None,
     ) -> tuple[str, str]:
         if isinstance(value, tuple):
             return value

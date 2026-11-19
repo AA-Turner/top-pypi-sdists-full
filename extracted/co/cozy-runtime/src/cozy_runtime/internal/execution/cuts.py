@@ -5,9 +5,11 @@ Changing GEMM row geometry may change rounding; bitwise equivalence is not promi
 The results stay on the device, at the level native selection takes from each call's operands
 (`catch`, `sizing`). Level L is 2^L pieces, down to the finest.
 
-Call cuts: Diffusers' FFNs by token, a Runtime-fused block's gated MLP by token (`gated`), its
-channel RMS norms by rows, attention by head groups then query rows, a Transformers vision tower
-by pictures, a package's `split` by windows.
+Call cuts: Diffusers' FFNs, and any module shaped as one (`_ffn_like`), by token, a Runtime-fused
+block's gated MLP by token (`gated`), its channel RMS norms by rows, what Diffusers' attention
+processors run before dispatch (their q/k RMS norms by rows, their RoPE by sequence rows: `rope`),
+attention by head groups then query rows, a Transformers vision tower by pictures, a package's
+`split` by windows.
 """
 
 from __future__ import annotations
@@ -57,8 +59,11 @@ def install(module: nn.Module) -> int:
     the module's path. A Transformers gated MLP cuts by tokens as Diffusers' FFNs do, and a
     Transformers vision tower that reads packed patches and each picture's
     grid (`forward(hidden_states, grid_thw)`: Qwen2.5-VL, Qwen3-VL, Qwen3.5) runs its pictures in
-    groups. Returns how many it cut."""
-    count = 0
+    groups. Diffusers' RMS norms (each attention processor's q/k norm) cut by rows, and the RoPE
+    functions Diffusers' processors call (`rope`). A module of linears and activations alone, up
+    projections from its input's width and one down projection (`_ffn_like`), is a feed-forward
+    whoever wrote it, and cuts by tokens. Returns how many it cut."""
+    count = _ropes()
     for path, sub in module.named_modules():
         if _gated_mlp(sub) and "_cozy_cut" not in vars(sub):
             sub.forward = catch.transparent(_ffn(f"{path}:tokens", sub, _forward(sub)))
@@ -82,9 +87,19 @@ def install(module: nn.Module) -> int:
             count += 1
         # torch's RMS norm reduces each row alone: token pieces are the whole (v7 H3 13826 ran
         # out in a DiT block's 546 MiB rms_norm, a site with no cut).
-        if type(sub) is nn.RMSNorm and "forward" not in vars(sub) and "_cozy_cut" not in vars(sub):
+        if (
+            (type(sub) is nn.RMSNorm or _diffusers_rms(sub))
+            and "forward" not in vars(sub)
+            and "_cozy_cut" not in vars(sub)
+        ):
             norm: nn.Module = sub
             norm.forward = catch.transparent(_norm(f"{path}:tokens", sub, _forward(sub)))
+            vars(sub)["_cozy_cut"] = True
+            count += 1
+            continue
+        if _ffn_like(sub) and "_cozy_cut" not in vars(sub):
+            library = type(sub).forward.__module__.startswith(_LIBRARIES)
+            sub.forward = catch.transparent(_ffn(f"{path}:tokens", sub, _forward(sub), library))
             vars(sub)["_cozy_cut"] = True
             count += 1
             continue
@@ -205,7 +220,9 @@ def _forward(module: nn.Module) -> Forward:
     return vars(module).get("forward") or catch.current(module)
 
 
-def _ffn(site: str, module: nn.Module, forward: Forward) -> Forward:
+def _ffn(site: str, module: nn.Module, forward: Forward, library: bool = True) -> Forward:
+    """A feed-forward by tokens. `library`: its forward is Diffusers' or Transformers', which a
+    refusal inside a piece may run again finer (`catch.cut`'s `pure`); a package's runs once."""
     whole: list[bool] = []  # a piece returned no tensor: it runs whole from then on
 
     def cut(x: object, *args: object, **kwargs: object) -> object:
@@ -217,28 +234,139 @@ def _ffn(site: str, module: nn.Module, forward: Forward) -> Forward:
             or x.dim() < 2
             or module.training
             or torch.is_grad_enabled()
-            or not type(module).forward.__module__.startswith(("diffusers.", "transformers."))
+            or (library and not type(module).forward.__module__.startswith(_LIBRARIES))
             or not _token_local(module)
         ):
             return forward(x, *args, **kwargs)
         tokens = x.numel() // max(x.shape[-1], 1)
         if tokens < 2:
             return forward(x)
-        shape = _ffn_shape(module, x)
+        shape = (_ffn_shape(module, x) if library else None) or _layout_shape(module, x)
         if shape is None:
-            whole.append(True)
-            print(
-                f"cozy-runtime: {site} has no feed-forward layout it reads: whole", file=sys.stderr
-            )
+            if library:
+                whole.append(True)
+                print(
+                    f"cozy-runtime: {site} has no feed-forward layout it reads: whole",
+                    file=sys.stderr,
+                )
             return forward(x)
         try:
-            run = functools.partial(_tokens, forward, x, tokens)
-            return catch.cut(site, levels(tokens), levelled(tokens, shape.need(tokens)), run)
+            run = functools.partial(_tokens, forward, x, tokens, rank=not library)
+            need = levelled(tokens, shape.need(tokens))
+            return catch.cut(site, levels(tokens), need, run, pure=library)
         except _Whole:
             whole.append(True)
         return forward(x)
 
     return cut
+
+
+#: the libraries whose modules' forwards the Runtime reads as written
+_LIBRARIES = ("diffusers.", "transformers.")
+#: modules a feed-forward holds beside its linears: activations and no-ops (torch's, and the
+#: libraries' own activation modules), which act on each element alone
+_ELEMENTWISE = (
+    nn.GELU, nn.SiLU, nn.ReLU, nn.LeakyReLU, nn.ELU, nn.SELU, nn.Mish, nn.Tanh, nn.Sigmoid,
+    nn.Hardswish, nn.Softplus, nn.Identity, nn.Dropout,
+)  # fmt: skip
+_ACTIVATION_MODULES = ("diffusers.models.activations", "transformers.activations")
+#: what a forward that mixes tokens names: reductions over any axis, attention and matmuls
+#: across rows, axis moves and convolutions. A feed-forward's forward names none of them.
+_MIXING = frozenset({
+    "mean", "sum", "prod", "var", "std", "norm", "amax", "amin", "max", "min", "argmax", "argmin",
+    "softmax", "log_softmax", "logsumexp", "cumsum", "cumprod", "sort", "topk", "roll", "flip",
+    "scaled_dot_product_attention", "matmul", "bmm", "baddbmm", "einsum", "mm", "transpose",
+    "permute", "movedim", "swapaxes", "mT", "T", "conv1d", "conv2d", "conv3d", "avg_pool1d",
+    "avg_pool2d", "max_pool1d", "max_pool2d", "interpolate", "group_norm", "batch_norm",
+})  # fmt: skip
+
+
+def _ffn_like(module: nn.Module) -> bool:
+    """A feed-forward by its shape, whoever wrote it: its own forward over one input, linears and
+    elementwise activations alone below it (`_layout`), and a forward that names nothing that mixes
+    tokens (`_MIXING`). RelayVSR's Wan FFN (`net.0.proj`, tanh GELU, `net.2`) is one."""
+    forward = type(module).forward
+    if _widths(module) is not None or forward is nn.Module.forward:
+        return False
+    if forward.__module__.startswith("cozy_runtime."):
+        return False
+    if isinstance(module, nn.ModuleList) or _layout(module) is None:
+        return False
+    return _screened(type(module).forward) and (
+        "forward" not in vars(module) or _screened(vars(module)["forward"])
+    )
+
+
+def _screened(forward: object) -> bool:
+    """Whether `forward`'s code, and the code nested in it, names nothing in `_MIXING`."""
+    while hasattr(forward, "__wrapped__"):
+        forward = forward.__wrapped__
+    code = getattr(forward, "__code__", None)
+    if not inspect.iscode(code):
+        return False
+    stack = [code]
+    while stack:
+        at = stack.pop()
+        if _MIXING.intersection(at.co_names):
+            return False
+        stack.extend(c for c in at.co_consts if inspect.iscode(c))
+    return True
+
+
+def _layout(module: nn.Module, width: int | None = None) -> tuple[int, int, tuple[int, int]] | None:
+    """A feed-forward's widths from the linears under `module`: (din, projected, (inner, dout)),
+    up projections from din (`width` where given; `projected` their outputs together) and one down
+    projection from `inner`, which is `projected` or half of it (gated). None where anything else
+    holds weights or computes: any module but a linear, an elementwise activation, a container,
+    or a holder of those without parameters or a forward of its own (RelayVSR's `GELU`)."""
+    linears: list[tuple[int, int]] = []
+    stack = [module]
+    while stack:
+        sub = stack.pop()
+        widths = _widths(sub) if sub is not module else None
+        if widths is not None:
+            linears.append(widths)
+            continue
+        if (
+            next(sub.parameters(recurse=False), None) is not None
+            or next(sub.buffers(recurse=False), None) is not None
+        ):
+            return None
+        if sub is module:
+            stack.extend(sub.children())
+            continue
+        elementwise = isinstance(sub, _ELEMENTWISE) or type(sub).__module__ in _ACTIVATION_MODULES
+        if not (
+            elementwise
+            or isinstance(sub, nn.ModuleList | nn.Sequential)
+            or type(sub).forward is nn.Module.forward
+        ):
+            return None
+        stack.extend(sub.children())
+    for din in sorted({i for i, _ in linears} if width is None else {width}):
+        ups = [o for i, o in linears if i == din]
+        down = [w for w in linears if w[0] != din]
+        if ups and len(down) == 1 and 2 * down[0][0] in (2 * sum(ups), sum(ups)):
+            return din, sum(ups), down[0]
+    return None
+
+
+def _layout_shape(module: nn.Module, x: Tensor) -> sizing.Ffn | None:
+    """A feed-forward found by its shape (`_ffn_like`), sized for `x`; None when `x` is not its
+    input's width. Its activation's temporaries are unknown: two, as an unfused one holds."""
+    layout = _layout(module, int(x.shape[-1]))
+    if layout is None:
+        return None
+    din, projected, (inner, dout) = layout
+    return sizing.Ffn(
+        din=din,
+        dout=dout,
+        inner=inner,
+        projected=projected,
+        temps=2,
+        itemsize=x.element_size(),
+        quantized=any(getattr(c, "provider", None) is not None for c in module.modules()),
+    )
 
 
 #: activations computing in one kernel (one `n x inner` temporary); the others hold two
@@ -432,14 +560,21 @@ def _join(parts: list[object]) -> object:
     raise _Whole
 
 
-def _tokens(forward: Forward, x: Tensor, tokens: int, level: int) -> object:
+def _tokens(forward: Forward, x: Tensor, tokens: int, level: int, rank: bool = False) -> object:
+    """`forward` over `x`'s token rows in 2^level pieces, each [n, width]; with `rank`, [1, …, n,
+    width] as `x`'s rank is (a package's forward may read its input's dims)."""
     if not level:
         return forward(x)
     size, flat, out = pieces(tokens, level), x.reshape(tokens, x.shape[-1]), None
+    lead = (1,) * (x.dim() - 2) if rank else ()
     for at in range(0, tokens, size):
         catch.checkpoint()
-        part = forward(flat[at : at + size])
-        if not isinstance(part, Tensor):
+        rows = flat[at : at + size]
+        part = forward(rows.view(*lead, *rows.shape))
+        if not isinstance(part, Tensor) or part.shape[: len(lead)] != lead:
+            raise _Whole
+        part = part.view(-1, *part.shape[len(lead) + 1 :]) if lead else part
+        if part.shape[0] != rows.shape[0]:
             raise _Whole
         out = part.new_empty((tokens, *part.shape[1:])) if out is None else out
         out[at : at + part.shape[0]].copy_(part)
@@ -448,9 +583,20 @@ def _tokens(forward: Forward, x: Tensor, tokens: int, level: int) -> object:
     return out.view(*x.shape[:-1], *out.shape[1:])
 
 
+def _diffusers_rms(module: nn.Module) -> bool:
+    """Diffusers' `RMSNorm` as written: every row of its last axis alone (each attention
+    processor's q/k norm, over [batch, tokens, heads, head_dim])."""
+    kind = type(module)
+    return kind.__name__ == "RMSNorm" and kind.__module__ == "diffusers.models.normalization"
+
+
 def _norm(site: str, module: nn.Module, forward: Forward) -> Forward:
-    """A norm over its trailing `normalized_shape` in pieces of whole rows (tokens)."""
-    dims = len(cast("tuple[int, ...]", module.normalized_shape))
+    """A norm over its trailing `normalized_shape` (torch's), or its last axis (Diffusers' RMSNorm),
+    in pieces of whole rows (tokens). Diffusers' holds an fp32 upcast and its square, then an fp32
+    product: two fp32 temporaries a value."""
+    torch_norm = isinstance(module, nn.RMSNorm)
+    dims = len(cast("tuple[int, ...]", module.normalized_shape)) if torch_norm else 1
+    intermediate = 4 if torch_norm else 8
 
     def cut(x: object, *args: object, **kwargs: object) -> object:
         if (
@@ -468,7 +614,7 @@ def _norm(site: str, module: nn.Module, forward: Forward) -> Forward:
         flat = x.reshape(tokens, *x.shape[-dims:])
         run = functools.partial(_rows, forward, flat, tokens)
         # torch's rms_norm holds an fp32 upcast of its rows where it is not fused
-        need = levelled(tokens, sizing.norm(tokens, row, x.element_size(), 4))
+        need = levelled(tokens, sizing.norm(tokens, row, x.element_size(), intermediate))
         out = catch.cut(site, levels(tokens), need, run)
         return cast(Tensor, out).view(x.shape)
 
@@ -567,6 +713,135 @@ def _rms_bands(forward: Forward, x: Tensor, axis: int, level: int) -> object:
     return out
 
 
+class Rows(Protocol):
+    """Where a RoPE call's sequence rows are: the axis of its input, or None (it runs whole)."""
+
+    def __call__(
+        self, x: Tensor, freqs: object, /, *args: object, **kwargs: object
+    ) -> int | None: ...
+
+
+class Rotation(Protocol):
+    """A RoPE function: its input and tables first, then whatever else it takes."""
+
+    def __call__(self, x: Tensor, freqs: object, /, *args: object, **kwargs: object) -> Tensor: ...
+
+
+def _real_rows(x: Tensor, freqs: object, /, *args: object, **kwargs: object) -> int | None:
+    """`diffusers.models.embeddings.apply_rotary_emb`: (cos, sin) tables, [S, D], over the axis
+    it is told (`sequence_dim`, 2 by default). Its complex form (Lumina's) runs whole."""
+    real = args[0] if args else kwargs.get("use_real", True)
+    axis = args[2] if len(args) > 2 else kwargs.get("sequence_dim", 2)
+    return axis if real is True and isinstance(axis, int) and axis in (1, 2) else None
+
+
+def _complex_rows(x: Tensor, freqs: object, /, *args: object, **kwargs: object) -> int | None:
+    """Qwen-Image's `apply_rotary_emb_qwen`: a complex table, [S, D/2], over [B, S, H, D]. Its
+    real form lines its tables up with the heads, and runs whole."""
+    real = args[0] if args else kwargs.get("use_real", True)
+    return 1 if real is False else None
+
+
+#: The RoPE functions Diffusers' attention processors call before dispatch, by the module that
+#: defines each, its name there, and where a call's sequence rows are (`Rows`).
+_QWEN = "diffusers.models.transformers.transformer_qwenimage"
+_ROPES: tuple[tuple[str, str, Rows], ...] = (
+    ("diffusers.models.embeddings", "apply_rotary_emb", _real_rows),
+    (_QWEN, "apply_rotary_emb_qwen", _complex_rows),
+    (f"{_QWEN}21", "apply_rotary_emb_qwen", _complex_rows),
+)
+#: a RoPE function's original, on its cut (`rope`)
+_ORIGINAL = "_cozy_rope"
+#: a piece's temporaries a rotated value: its fp32 upcast and the upcast rotation, a product of
+#: each with its table, and the rotation itself
+_ROTATED = 14
+
+
+def _ropes() -> int:
+    """Cut every `_ROPES` function this process has loaded: each where it is defined, and every
+    loaded Diffusers module's name bound to it (a processor's module imported it by name), so a
+    processor finds the cut whichever way it reaches it. Returns how many it cut now."""
+    cut: dict[int, Rotation] = {}
+    for name, attribute, rows in _ROPES:
+        found = sys.modules.get(name)
+        original = vars(found).get(attribute) if found is not None else None
+        if not callable(original) or _ORIGINAL in vars(original):
+            continue
+        cut[id(original)] = rope(cast("Rotation", original), rows)
+    if cut:
+        for name, loaded in list(sys.modules.items()):
+            if name.startswith("diffusers.") and loaded is not None:
+                bound = vars(loaded)
+                for key, value in list(bound.items()):
+                    if id(value) in cut and callable(value):
+                        bound[key] = cut[id(value)]
+    return len(cut)
+
+
+def rope(original: Rotation, rows: Rows) -> Rotation:
+    """`original`, a RoPE function a Diffusers attention processor calls on its queries and keys
+    before dispatch, in pieces of their sequence rows (`rows` says where they are; None: whole), at
+    the level native selection takes under the current block. It rotates each value alone with
+    its row's table entry, so a piece is the whole call's rows, byte for byte: PAN2's fp32
+    temporaries were 0.8 GiB a call (cr-320). Whole outside a named block, under autograd, and for
+    an input that is not contiguous [B, ·, ·, D] or tables that are not one row a token."""
+
+    def cut(x: Tensor, freqs: object, /, *args: object, **kwargs: object) -> Tensor:
+        axis = (
+            rows(x, freqs, *args, **kwargs)
+            if isinstance(x, Tensor) and x.dim() == 4 and x.is_contiguous()
+            else None
+        )
+        site = None if axis is None or torch.is_grad_enabled() else catch.site("rope")
+        if site is None or axis is None:
+            return original(x, freqs, *args, **kwargs)
+        length = int(x.shape[axis])
+        tables = list(freqs) if isinstance(freqs, list | tuple) else [freqs]
+        if length < 2 or not all(
+            isinstance(t, Tensor) and t.dim() >= 1 and t.shape[0] == length for t in tables
+        ):
+            return original(x, freqs, *args, **kwargs)
+        need = levelled(
+            length, sizing.norm(length, x.numel() // length, x.element_size(), _ROTATED)
+        )
+        run = functools.partial(_rotated, original, x, freqs, axis, args, kwargs)
+        return catch.cut(site, levels(length), need, run)
+
+    functools.update_wrapper(cut, original)
+    vars(cut)[_ORIGINAL] = original
+    return cut
+
+
+def _rotated(
+    original: Rotation,
+    x: Tensor,
+    freqs: object,
+    axis: int,
+    args: Sequence[object],
+    kwargs: dict[str, object],
+    level: int,
+) -> Tensor:
+    if not level:
+        return original(x, freqs, *args, **kwargs)
+    length = int(x.shape[axis])
+    size, out = pieces(length, level), None
+    for at in range(0, length, size):
+        catch.checkpoint()
+        n = min(size, length - at)
+        tables = (
+            type(freqs)(cast(Tensor, t).narrow(0, at, n) for t in freqs)
+            if isinstance(freqs, list | tuple)
+            else cast(Tensor, freqs).narrow(0, at, n)
+        )
+        part = original(x.narrow(axis, at, n), tables, *args, **kwargs)
+        if out is None:
+            out = part.new_empty((*x.shape[:axis], length, *part.shape[axis + 1 :]))
+        out.narrow(axis, at, n).copy_(part)
+        del part
+    assert out is not None
+    return out
+
+
 def attend(
     call: Attention,
     q: Tensor,
@@ -649,26 +924,36 @@ def split[T](
     run: Callable[[int, bool], T],
     pure: bool = False,
     hostable: bool = False,
+    exact: str = "",
 ) -> T:
     """A package's `split` (`cozy_runtime.author.split`): `run(most, host)` runs it in windows of
     at most `most` of its `total` elements; `finest` is the least a window can hold. Its author
     must preserve global statistics/quantizers and declare any overlap approximation; merely
     having no side effects does not make differently sized windows numerically equivalent.
     Package code runs once; `pure` says `run` is a Runtime leaf's, which runs again finer only
-    when varena answers a refusal in it so (`catch.retry`). `out_bytes` is the whole output held
-    beside the windows, `item_bytes` a window's output per element, `holds` how many of that its
-    op's peak holds: its author's estimate, which a completed pass's measured sample replaces.
+    when varena answers a refusal in it so (`catch.retry`), keeping the windows it finished
+    (`author._split._Progress`). `out_bytes` is the whole output held beside the windows,
+    `item_bytes` a window's output per element, `holds` how many of that its op's peak holds: its
+    author's estimate, which a completed pass's measured sample replaces.
 
-    Where `hostable` and no level fits with the whole on the device (refused before any window
-    ran, or its allocation refused in the run: `whole`), the whole goes to pinned host memory: the
-    levels then need only their windows (cr-305). The whole's bytes are measured at its first
-    allocation and replace `out_bytes` from then on; a refusal judged on the measure, or one in the
-    run, keeps the whole on host for the rest of the request, one judged on the estimate only for
-    this call."""
+    Measure, then commit (cr-305, design `varena-activation-plan`): the whole is measured at its
+    first allocation; from then on its measured bytes are the levels' need and it is allocated
+    before any window runs (`ahead`), so a card short of it refuses before work is done. Where
+    `hostable` and no level fits with the whole on the card, the whole goes to pinned host memory
+    and the levels need only their windows. A host decision holds for its request only (cr-337): a
+    refusal judged on the package's estimate for this call only. `exact` names this call's input
+    shape, which the whole's measure is kept under; `key` leaves out the cut extents, so the levels
+    learned serve every length."""
     deepest = levels(-(-total // max(finest, 1)))
     site = f"split:{key}"
-    measured = _WHOLES.get(key)
-    whole_bytes = out_bytes if measured is None else measured
+    request = catch.CURRENT.get()
+    if request is None or not request.memory.cuda or _capturing():  # a capture allocates no host
+        hostable = False
+    exact = exact or key
+    measured = _WHOLES.get(exact)
+    whole_bytes = (  # a whole of windows the op returns on the host takes none of the card
+        out_bytes if measured is None else _nbytes(measured[0], measured[1]) * _on_card(exact)
+    )
 
     def window(level: int) -> int:
         return max(pieces(total, level), finest)
@@ -679,12 +964,11 @@ def split[T](
     def windows_only(level: int) -> tuple[int, ...]:
         return (*[int(window(level) * item_bytes)] * holds,)
 
-    request = catch.CURRENT.get()
-    if request is None or not request.memory.cuda or _capturing():  # a capture allocates no host
-        hostable = False
-    if not (
-        hostable and request is not None and request.hosted.get(site, _ESTIMATED) != _ESTIMATED
-    ):
+    hsite = f"split:{exact}"  # a host decision holds for this shape: another may fit the card
+    on_host = (
+        hostable and request is not None and request.hosted.get(hsite, _ESTIMATED) != _ESTIMATED
+    )
+    if not on_host:
         try:
             return catch.cut(
                 site, deepest, need, lambda level: run(window(level), False), pure=pure
@@ -693,28 +977,32 @@ def split[T](
             if not hostable or request is None:
                 raise
             unwind(exc)
-            _hosted(request, site, name, _ESTIMATED if measured is None else _MEASURED)
+            _hosted(request, hsite, name, _ESTIMATED if measured is None else _MEASURED)
     return catch.cut(
         f"{site}:host", deepest, windows_only, lambda level: run(window(level), True), pure=pure
     )
 
 
-def whole(part: Tensor, shape: Sequence[int], key: str, host: bool) -> Tensor:
-    """The whole output a package's `split` assembles its windows in, `part` its first: pinned
-    host memory with `host`; else the device's, or pinned host memory when the device refuses it
-    beside the windows (a Runtime retry: no window runs again)."""
-    _WHOLES[key] = math.prod(shape) * part.dtype.itemsize
+def whole(part: Tensor, shape: Sequence[int], key: str, host: bool, zeros: bool = False) -> Tensor:
+    """The whole output a package's `split` assembles its windows in, `part` its first (zeroed
+    with `zeros`: a blended whole's accumulator): pinned host memory with `host`; else the
+    device's, or pinned host memory when the device refuses it beside the windows (a Runtime
+    retry: no window runs again). A whole of windows the op returns on the host is plain host
+    memory: there is no card rung to choose."""
+    _WHOLES[key] = (tuple(int(n) for n in shape), part.dtype, part.device)
+    if not part.is_cuda:
+        return part.new_zeros(shape) if zeros else part.new_empty(shape)
     if host:
-        return pinned.empty(shape, part.dtype, part.device)
+        return _pinned(shape, part.dtype, part.device, zeros)
     try:
-        return part.new_empty(shape)
+        return part.new_zeros(shape) if zeros else part.new_empty(shape)
     except BaseException as exc:
         request = catch.CURRENT.get()
         if request is None or not part.is_cuda or not is_capacity(exc) or _capturing():
             raise
         room = catch.room(part.device.index or 0)  # beside the refused bytes, for the record
         try:
-            out = pinned.empty(shape, part.dtype, part.device)
+            out = _pinned(shape, part.dtype, part.device, zeros)
         except Exception as failed:
             exc.add_note(f"its whole output in host memory failed too: {failed}")
             raise exc from None
@@ -722,6 +1010,65 @@ def whole(part: Tensor, shape: Sequence[int], key: str, host: bool) -> Tensor:
         request.retries += 1
         _hosted(request, f"split:{key}", key, room)
         return out
+
+
+class _Short(catch.Unplaced):
+    """A split's measured whole refused on the card before any of its windows ran."""
+
+
+def ahead(key: str, host: bool, zeros: bool) -> Tensor | None:
+    """The whole output allocated before a split's first window, where an earlier call measured
+    it: on host with `host`, else on the card. A card that refuses it raises `_Short`, before any
+    window ran, and the split takes the host rung (a Runtime retry). None while it is unmeasured."""
+    known = _WHOLES.get(key)
+    request = catch.CURRENT.get()
+    if known is None or request is None or _capturing():
+        return None
+    shape, dtype, device = known
+    if device.type != "cuda":
+        return (
+            torch.zeros(shape, dtype=dtype, device=device)
+            if zeros
+            else torch.empty(shape, dtype=dtype, device=device)
+        )
+    if host:
+        return _pinned(shape, dtype, device, zeros)
+    try:
+        if zeros:
+            return torch.zeros(shape, dtype=dtype, device=device)
+        return torch.empty(shape, dtype=dtype, device=device)
+    except BaseException as exc:
+        if not is_capacity(exc):
+            raise
+        room = catch.room(device.index or 0)
+        unwind(exc)
+        request.retries += 1
+        raise _Short(
+            f"{key}: no room for its whole ({_nbytes(shape, dtype)} bytes) beside {room}"
+        ) from None
+
+
+def moved(out: Tensor) -> Tensor:
+    """A split's partly written whole on host: the windows it finished come with it."""
+    if pinned.held(out) or not out.is_cuda:
+        return out
+    host = pinned.empty(out.shape, out.dtype, out.device)
+    pinned.write(host, out)
+    return host
+
+
+def _pinned(shape: Sequence[int], dtype: torch.dtype, device: torch.device, zeros: bool) -> Tensor:
+    out = pinned.empty(shape, dtype, device)
+    return out.zero_() if zeros else out  # a kernel fills it, in the stream's order
+
+
+def narrowed(whole: Tensor, dtype: torch.dtype) -> Tensor:
+    """A blended whole cast to its windows' `dtype`, where it is: a host whole stays on host."""
+    if not pinned.held(whole):
+        return whole.to(dtype)
+    out = pinned.empty(whole.shape, dtype, whole.device)
+    out.copy_(whole)  # a kernel over both: no host round trip
+    return out
 
 
 def write(dst: Tensor, src: Tensor) -> None:
@@ -734,18 +1081,29 @@ def read[X](window: X) -> X:
     return cast("X", pinned.read(window)) if isinstance(window, Tensor) else window
 
 
-#: each split key's whole output, in bytes, as its first allocation measured it
-_WHOLES: dict[str, int] = {}
-#: `Request.hosted`'s reason for a whole chosen to go to host at selection: judged on the
-#: package's estimate (for that call only) or on the measured whole (for the request)
+#: each split call shape's whole output, its shape, dtype and device, as its allocation measured it
+_WHOLES: dict[str, tuple[tuple[int, ...], torch.dtype, torch.device]] = {}
+#: `Request.hosted`'s reason for a whole sent to host without a refusal in the run: selection
+#: judged the package's estimate (for that call only) or the measured whole (for the request)
 _ESTIMATED, _MEASURED = "estimated", "measured"
+
+
+def _nbytes(shape: tuple[int, ...], dtype: torch.dtype) -> int:
+    return math.prod(shape) * dtype.itemsize
+
+
+def _on_card(key: str) -> bool:
+    """Whether `key`'s measured whole is a card's: only those take the card's room."""
+    known = _WHOLES.get(key)
+    return known is not None and known[2].type == "cuda"
 
 
 def _hosted(request: Request, site: str, name: str, why: str) -> None:
     request.hosted[site] = why
+    named = (_ESTIMATED, _MEASURED)
     print(
         f"cozy-runtime: {name}: no room for its whole output beside its windows; it is kept in "
-        f"host memory ({why if why in (_ESTIMATED, _MEASURED) else f'refused beside {why}'})",
+        f"host memory ({why if why in named else f'refused beside {why}'})",
         file=sys.stderr,
     )
 

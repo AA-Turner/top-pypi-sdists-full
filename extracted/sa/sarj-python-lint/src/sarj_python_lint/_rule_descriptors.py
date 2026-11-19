@@ -9,6 +9,33 @@ from sarj_python_lint.rule_metadata import RuleDescriptor
 SCHEMA_VERSION = 1
 DESCRIPTORS: tuple[RuleDescriptor, ...] = (
     RuleDescriptor(
+        rule_id=RuleId("prefer-pydantic-field-bounds"),
+        module="sarj_python_lint.rules.prefer_pydantic_field_bounds",
+        class_name="PreferPydanticFieldBounds",
+        code="SARJ582",
+        description="Declare simple integer field bounds instead of an after-model validator.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("no-value-error-forwarder"),
+        module="sarj_python_lint.rules.no_value_error_forwarder",
+        class_name="NoValueErrorForwarder",
+        code="SARJ580",
+        description="Raise ValueError at the failure boundary instead of forwarding through a helper.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("prefer-defaultdict"),
+        module="sarj_python_lint.rules.prefer_defaultdict",
+        class_name="PreferDefaultdict",
+        code="SARJ579",
+        description="Use defaultdict(list) for a locally owned list-grouping dictionary.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
         rule_id=RuleId("no-nonlocal-statement"),
         module="sarj_python_lint.rules.no_nonlocal_statement",
         class_name="NoNonlocalStatement",
@@ -346,7 +373,7 @@ DESCRIPTORS: tuple[RuleDescriptor, ...] = (
         module="sarj_python_lint.rules.prefer_typed_mapping_get",
         class_name="PreferTypedMappingGet",
         code="SARJ535",
-        description="Read named fields from typed records instead of schema-free mappings.",
+        description="Read named fields through declared contracts instead of ad hoc mapping parsing.",
         aliases=(),
         enabled_by_default=True,
     ),

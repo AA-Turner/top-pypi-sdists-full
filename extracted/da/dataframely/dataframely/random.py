@@ -34,7 +34,8 @@ class Generator:
     """
 
     def __init__(self, seed: int | None = None) -> None:
-        """
+        """Initialize the random number generator.
+
         Args:
             seed: The seed to use for initializing the random number generator used
                 for all sampling methods.
@@ -201,7 +202,7 @@ class Generator:
             norm_weights = norm_weights / norm_weights.sum()
 
         samples = self.numpy_generator.choice(
-            choices,  # type: ignore
+            choices,  # type: ignore[arg-type]
             size=n,
             replace=True,
             p=norm_weights,

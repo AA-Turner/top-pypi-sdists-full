@@ -3123,6 +3123,7 @@ WorkforceIpAddressTypeType = Literal["dualstack", "ipv4"]
 WorkforceStatusType = Literal["Active", "Deleting", "Failed", "Initializing", "Updating"]
 SageMakerServiceName = Literal["sagemaker"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

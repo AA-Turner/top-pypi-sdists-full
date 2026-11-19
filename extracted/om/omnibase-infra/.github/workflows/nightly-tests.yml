@@ -60,13 +60,7 @@ jobs:
   slow-tests:
     name: Slow & Chaos Tests
     # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to ubuntu-latest; public forks default to ubuntu-latest
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    runs-on: ubuntu-latest
     timeout-minutes: 60  # Extended timeout for slow tests
 
     steps:
@@ -104,9 +98,15 @@ jobs:
           # ci.yml's service-integration-suites job (OMN-18795) runs the whole
           # file by path against real services with its opt-in set; selecting
           # it here only made the fail-closed opt-in guard error every night.
+          # OMN-17427: the live LLM adapter documentation suite carries `slow`
+          # and fails closed without LLM_DEEPSEEK_R1_URL (OMN-21147), which no
+          # hosted runner sets. It runs by explicit path against a configured
+          # endpoint; selecting it here only made its fail-closed fixture error
+          # every night.
           uv run pytest tests/ \
             --ignore=tests/integration/docker \
             --deselect tests/integration/registration/e2e/test_two_way_registration_e2e.py \
+            --deselect tests/integration/adapters/llm/test_adapter_documentation_generation_integration.py \
             -m "$FILTER" \
             -n 2 \
             --timeout=600 \
@@ -187,13 +187,7 @@ jobs:
     timeout-minutes: 30
     name: Nightly Summary
     # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to ubuntu-latest; public forks default to ubuntu-latest
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    runs-on: ubuntu-latest
     needs: [slow-tests, performance-tests]
     if: always()
 

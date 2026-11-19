@@ -5,9 +5,8 @@
 Without this, Docker's layer cache silently serves stale COPY src/ layers even when
 git is at the correct SHA (root cause of PR #1231 verification failure).
 
-Also covers OMN-10728 / OMN-11542: OMNIBASE_COMPAT_REF, OMNIMARKET_REF, and
-OMNIBASE_COMPAT_REF/OMNIMARKET_REF must be passed as full commit SHAs so the uv cache mount
-(keyed on URL) misses when main advances.
+The deploy agent passes OMNIMARKET_REF as a full commit SHA in a checkout so
+the uv cache key changes when the source revision advances.
 """
 
 from __future__ import annotations
@@ -169,9 +168,7 @@ class TestCacheBust:
 class TestUvCacheBustPluginRefs:
     """Builds must pass plugin refs as full SHAs for BuildKit cache invalidation.
 
-    OMN-10728 covered omnimarket and onex_change_control. OMN-11542 adds
-    omnibase_compat because runtime evidence DTOs were stale even though the
-    installed package version looked current.
+    A branch can advance without changing the installed package version.
     """
 
     def _fake_run_ok(
@@ -217,8 +214,8 @@ class TestUvCacheBustPluginRefs:
             f"Expected OMNIMARKET_REF={sentinel_sha!r} in build args; got {build_args}"
         )
 
-    def test_compose_build_passes_omnibase_compat_ref_build_arg(self) -> None:
-        """_compose_build must include --build-arg OMNIBASE_COMPAT_REF=<sha>."""
+    def test_compose_build_passes_no_omnibase_compat_ref_build_arg(self) -> None:
+        """The retired package has no build argument."""
         executor = DeployExecutor()
         sentinel_sha = "face1234abcd5678"
 
@@ -249,8 +246,13 @@ class TestUvCacheBustPluginRefs:
             for i, tok in enumerate(build_cmd)
             if tok == "--build-arg" and i + 1 < len(build_cmd)
         }
-        assert f"OMNIBASE_COMPAT_REF={sentinel_sha}" in build_args, (
-            f"Expected OMNIBASE_COMPAT_REF={sentinel_sha!r} in build args; got {build_args}"
+        compat_args = {a for a in build_args if a.startswith("OMNIBASE_COMPAT_REF=")}
+        assert not compat_args, (
+            "OMNIBASE_COMPAT_REF must be absent from build arguments. "
+            f"got {compat_args}"
+        )
+        assert f"OMNIMARKET_REF={sentinel_sha}" in build_args, (
+            f"Expected OMNIMARKET_REF={sentinel_sha!r} in build args; got {build_args}"
         )
 
     def test_compose_build_omits_onex_change_control_ref_build_arg(self) -> None:
@@ -377,15 +379,16 @@ class TestUvCacheBustPluginRefs:
             for i, tok in enumerate(build_cmd)
             if tok == "--build-arg" and i + 1 < len(build_cmd)
         }
-        # OMN-16442: both sibling refs now fall back to the DECLARED tracking
+        # OMN-16442: the sibling ref now falls back to the DECLARED tracking
         # ref. omnimarket already used "dev" (OMN-12195: dev is its default
-        # branch); omnibase_compat used the literal "main" for no stated
-        # reason, on a repo whose default branch is likewise "dev".
+        # branch).
         assert "OMNIMARKET_REF=dev" in build_args, (
             f"Expected OMNIMARKET_REF=dev when OMNI_HOME unset; got {build_args}"
         )
-        assert "OMNIBASE_COMPAT_REF=dev" in build_args, (
-            f"Expected OMNIBASE_COMPAT_REF=dev when OMNI_HOME unset; got {build_args}"
+        compat_args = {a for a in build_args if a.startswith("OMNIBASE_COMPAT_REF=")}
+        assert not compat_args, (
+            "OMNIBASE_COMPAT_REF must not be passed even when OMNI_HOME is "
+            f"unset. Got {compat_args}"
         )
         occ_args = {a for a in build_args if a.startswith("ONEX_CHANGE_CONTROL_REF=")}
         assert not occ_args, (

@@ -38,6 +38,7 @@ from omnimarket.models.pr_handoff import (
     ModelPrHandoffLedgerAppendCommand,
     ModelPrHandoffLedgerAppended,
     ModelPrHandoffRequested,
+    ModelPrHandoffReviewStatus,
 )
 from omnimarket.nodes.node_pr_handoff_orchestrator.models.model_pr_handoff_observation_ingress import (
     ModelPrHandoffObservationIngress,
@@ -64,9 +65,14 @@ TRANSITIONS: Mapping[tuple[str, str], str] = {
     ("WAITING", "evaluated_missing_ticket"): "REFUSED",
     ("WAITING", "evaluated_not_owned"): "REFUSED",
     ("WAITING", "evaluated_missing_lab_proof"): "REFUSED",
+    ("WAITING", "evaluated_review_status_missing"): "REFUSED",
+    ("WAITING", "evaluated_review_status_failing"): "REFUSED",
+    ("WAITING", "evaluated_review_status_other_head"): "REFUSED",
     ("WAITING", "evaluated_held"): "REFUSED",
     ("WAITING", "evaluated_withheld"): "REFUSED",
     ("WAITING", "evaluated_pr_not_open"): "REFUSED",
+    ("WAITING", "evaluated_repo-out-of-landing-scope"): "REFUSED",
+    ("WAITING", "evaluated_scope-unread"): "REFUSED",
     ("WAITING", "superseded"): "REFUSED",
     ("WAITING", "completion_bound_expired"): "TIMED_OUT",
     ("APPENDING", "append_accepted"): "HANDED_OFF",
@@ -115,10 +121,29 @@ class NoLedgerHolds:
         return ()
 
 
+class ProtocolPrHandoffReviewStatusReader(Protocol):
+    """The fable-review-gate commit statuses read for the PR (repo#n), or None when none were read."""
+
+    def status_for(self, handoff_key: str) -> ModelPrHandoffReviewStatus | None: ...
+
+
+class NoReviewStatus:
+    """The review status reader when none is wired: the handoff is decided as before (no review-status refusal)."""
+
+    def status_for(self, handoff_key: str) -> ModelPrHandoffReviewStatus | None:
+        del handoff_key
+        return None
+
+
 @dataclass(frozen=True)
 class PrHandoffPorts:
     decider: ProtocolPrHandoffDecider
     holds: ProtocolPrHandoffHoldReader = field(default_factory=NoLedgerHolds)
+    review_status: ProtocolPrHandoffReviewStatusReader = field(
+        default_factory=NoReviewStatus
+    )
+    landing_scope: tuple[str, ...] | None = None
+    landing_scope_problem: str | None = None
 
 
 @dataclass
@@ -303,6 +328,9 @@ class _Leg:
                 ledger_holds=self.ports.holds.holds_for(
                     request.handoff_key, request.lane
                 ),
+                landing_scope=self.ports.landing_scope,
+                landing_scope_problem=self.ports.landing_scope_problem,
+                review_status=self.ports.review_status.status_for(request.handoff_key),
                 now=now,
             )
         )

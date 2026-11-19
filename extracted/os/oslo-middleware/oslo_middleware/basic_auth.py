@@ -20,7 +20,6 @@ import binascii
 import logging
 from typing import Any, TYPE_CHECKING, TypedDict
 
-import bcrypt
 import webob
 
 from oslo_config import cfg
@@ -38,6 +37,12 @@ OPTS = [
     cfg.StrOpt(
         'http_basic_auth_user_file',
         default='/etc/htpasswd',
+        deprecated_for_removal=True,
+        deprecated_since='8.3.0',
+        deprecated_reason=(
+            'The basic auth middleware that this option configures is '
+            'deprecated for removal.'
+        ),
         help="HTTP basic auth password file.",
     )
 ]
@@ -51,14 +56,26 @@ class AuthEntry(TypedDict):
 
 
 class BasicAuthMiddleware(base.ConfigurableMiddleware):
-    """Middleware which performs HTTP basic authentication on requests"""
+    """Middleware which performs HTTP basic authentication on requests
+
+    .. deprecated:: 8.3.0
+        Deprecated for removal. Terminate HTTP basic authentication in a web
+        server in front of the service, or use keystone.
+    """
 
     def __init__(
         self,
         application: WSGIApplication | None,
         conf: dict[str, Any] | cfg.ConfigOpts | None = None,
     ) -> None:
+        LOG.warning(
+            'The %s module is deprecated for removal. Terminate HTTP basic '
+            'authentication in a web server in front of the service, or use '
+            'keystone.',
+            __name__,
+        )
         super().__init__(application, conf)
+        _check_bcrypt_available()
         self.auth_file = cfg.CONF.oslo_middleware.http_basic_auth_user_file
         validate_auth_file(self.auth_file)
 
@@ -134,11 +151,30 @@ def auth_entry(entry: str, password: bytes) -> AuthEntry:
     :raises: HTTPUnauthorized, if the entry doesn't match supplied password or
         if the entry is crypted with a method other than bcrypt
     """
+    # NOTE: Import lazily. oslo_middleware/__init__.py imports this module,
+    # so a module scope import would load bcrypt into every consumer of the
+    # package, not only the users of this middleware.
+    import bcrypt
+
     username, crypted = parse_entry(entry)
     if not bcrypt.checkpw(password, crypted):
         LOG.info('Password for %s does not match', username)
         raise webob.exc.HTTPUnauthorized()
     return {'HTTP_X_USER': username, 'HTTP_X_USER_NAME': username}
+
+
+def _check_bcrypt_available() -> None:
+    """Check that the optional bcrypt library is installed
+
+    :raises: RuntimeError if bcrypt cannot be imported
+    """
+    try:
+        import bcrypt  # noqa: F401
+    except ImportError:
+        raise RuntimeError(
+            'The basic auth middleware requires the bcrypt library. '
+            'Install it with: pip install oslo.middleware[basic-auth]'
+        )
 
 
 def validate_auth_file(auth_file: str) -> None:

@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Adds shelve_offload_server method to the compute proxy

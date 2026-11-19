@@ -72,6 +72,11 @@ from .issue_details_state import IssueDetailsState
 from .issue_pull_request import IssuePullRequest
 from .issue_pull_request_state import IssuePullRequestState
 from .issue_relation import IssueRelation
+from .item_reference import ItemReference
+from .item_reference_direction import ItemReferenceDirection
+from .item_reference_kind import ItemReferenceKind
+from .item_reference_relation import ItemReferenceRelation
+from .item_reference_state import ItemReferenceState
 from .label import Label
 from .linked_pull_request import LinkedPullRequest
 from .main_branch import MainBranch
@@ -217,6 +222,11 @@ __all__ = (
     "IssuePullRequest",
     "IssuePullRequestState",
     "IssueRelation",
+    "ItemReference",
+    "ItemReferenceDirection",
+    "ItemReferenceKind",
+    "ItemReferenceRelation",
+    "ItemReferenceState",
     "Label",
     "LinkedPullRequest",
     "MainBranch",

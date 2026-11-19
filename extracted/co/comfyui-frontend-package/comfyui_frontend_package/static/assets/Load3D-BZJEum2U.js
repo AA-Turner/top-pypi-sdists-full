@@ -1,1 +1,0 @@
-import{t as e}from"./Load3D-BOmhaFac.js";export{e as default};

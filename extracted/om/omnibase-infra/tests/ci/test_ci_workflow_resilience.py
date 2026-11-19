@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import pytest
@@ -16,6 +16,10 @@ import yaml
 pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+# Built from components so no home-directory literal sits in this file.
+RUNNER_SHARED_ENV_ROOT = str(
+    PurePosixPath("/", "home", "runner", ".cache", "omni", "ci-envs")
+)
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 DOCKER_BUILD_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "docker-build.yml"
 REJECT_SKIP_CALLER_WORKFLOW = (
@@ -336,10 +340,7 @@ def test_short_gates_can_disable_uv_cache_cleanup() -> None:
     action = _load_yaml(SETUP_PYTHON_UV_ACTION)
     assert action["inputs"]["cache-enabled"]["default"] == "true"
     assert action["inputs"]["shared-env-enabled"]["default"] == "auto"
-    assert (
-        action["inputs"]["shared-env-root"]["default"]
-        == "/home/runner/.cache/omni/ci-envs"
-    )
+    assert action["inputs"]["shared-env-root"]["default"] == RUNNER_SHARED_ENV_ROOT
     assert (
         action["inputs"]["shared-env-install-args"]["default"]
         == "--frozen --all-extras --all-groups --no-install-project"
@@ -387,17 +388,15 @@ def test_short_gates_can_disable_uv_cache_cleanup() -> None:
     )
 
     ci_workflow = _load_yaml(CI_WORKFLOW)
-    assert ci_workflow["env"]["OMNI_CI_ENV_ROOT"] == "/home/runner/.cache/omni/ci-envs"
+    # OMN-21538: the root is the action input's default, not a second literal here.
+    assert "OMNI_CI_ENV_ROOT" not in ci_workflow["env"]
     assert "OMNI_CI_SHARED_ENV_ENABLED" in ci_workflow["env"]
     assert (
         "head.repo.full_name != github.repository"
         in ci_workflow["env"]["OMNI_CI_SHARED_ENV_ENABLED"]
     )
     standards_workflow = _load_yaml(OMNI_STANDARDS_WORKFLOW)
-    assert (
-        standards_workflow["env"]["OMNI_CI_ENV_ROOT"]
-        == "/home/runner/.cache/omni/ci-envs"
-    )
+    assert standards_workflow["env"]["OMNI_CI_ENV_ROOT"] == RUNNER_SHARED_ENV_ROOT
     assert "OMNI_CI_SHARED_ENV_ENABLED" in standards_workflow["env"]
 
     for job_name, job in ci_workflow["jobs"].items():
@@ -453,7 +452,9 @@ def test_shared_ci_env_scripts_are_digest_keyed_and_read_only() -> None:
     assert "install_args" in digest_source
 
     ensure_source = ensure_script.read_text(encoding="utf-8")
-    assert "/home/runner/.cache/omni/ci-envs" in ensure_source
+    assert (
+        f'env_root="${{OMNI_CI_ENV_ROOT:-{RUNNER_SHARED_ENV_ROOT}}}"' in ensure_source
+    )
     assert "flock 9" in ensure_source
     assert 'mkdir "${lock_path}"' in ensure_source
     assert 'UV_PROJECT_ENVIRONMENT="${venv_dir}"' in ensure_source
@@ -555,22 +556,21 @@ def test_heavy_cross_repo_boundary_installs_retry_and_have_timeout_budget() -> N
     for job_name in ("schema-handshake", "kafka-boundary-compat"):
         job = ci_workflow["jobs"][job_name]
         assert job["timeout-minutes"] >= 45
-        checkout_names = {step.get("name") for step in job["steps"]}
-        assert "Checkout omnimarket (sibling)" in checkout_names
+        checkout_names = {str(step.get("name", "")) for step in job["steps"]}
+        # OMN-21279: omnimarket depends on infra, never the reverse -- these
+        # jobs neither check it out nor install it.
+        assert "Checkout omnimarket (sibling)" not in checkout_names
+        assert "Checkout omniintelligence (sibling)" in checkout_names
 
         install_step = next(
             step
             for step in job["steps"]
             if str(step.get("name", "")).startswith("Install sibling repos as editable")
         )
-        checkout_names = {str(step.get("name", "")) for step in job["steps"]}
-        assert "Checkout omnimarket (sibling)" in checkout_names
-
         run_script = install_step["run"]
         assert "max_attempts=5" in run_script
         assert "until uv pip install --no-deps" in run_script
-        assert "-e ../omnibase_compat" in run_script
-        assert "-e ../omnimarket" in run_script
+        assert "omnimarket" not in run_script
         assert "-e ../omnimemory" in run_script
         assert "-e ../omniintelligence" in run_script
         assert "sibling deps attempt" in run_script
@@ -582,7 +582,9 @@ def test_heavy_cross_repo_boundary_installs_retry_and_have_timeout_budget() -> N
             if step.get("uses")
             == "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
         }
-        assert "omnimarket" in checkout_paths
+        assert "omnimarket" not in checkout_paths
+        assert {"omnimemory", "omniintelligence"} <= checkout_paths
+        assert "omnibase_compat" not in checkout_paths
 
 
 def test_heavy_cross_repo_jobs_use_cpu_torch_for_sibling_install() -> None:

@@ -1,4 +1,0 @@
----
-upgrade:
-  - |
-    Cloud layer operations for Senlin service are dropped due to big amount of bugs there.

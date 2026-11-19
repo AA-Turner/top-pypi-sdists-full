@@ -13,16 +13,26 @@ Implements automatic 402 Payment Required handling by:
 from __future__ import annotations
 
 import asyncio
+import functools
 import inspect
 from contextlib import suppress
 from dataclasses import dataclass
+from dataclasses import replace as _replace_dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 
-from mpp import AUTHORIZATION_HEADER, PAYMENT_AUTHORIZATION_HEADER, Challenge, Credential
+from mpp import (
+    AUTHORIZATION_HEADER,
+    PAYMENT_AUTHORIZATION_HEADER,
+    Challenge,
+    ChallengeEcho,
+    Credential,
+)
+from mpp._challenge_identity import same_challenge
 from mpp._defaults import DEFAULT_PAID_RETRY_TIMEOUT
-from mpp._parsing import MAX_AUTHORIZATION_SIZE, ParseError
+from mpp._parsing import MAX_AUTHORIZATION_SIZE, ParseError, _b64_decode
+from mpp._pending_settlement import resume as resume_pending_settlement
 from mpp._typing import is_dict
 from mpp.client._identity import IdentityClient
 from mpp.errors import (
@@ -60,7 +70,7 @@ from mpp.x402._types import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Awaitable, Callable, Mapping, Sequence
 
     from mpp.identity import HeaderPairs, Prover
 
@@ -207,7 +217,7 @@ async def _buffer_error_body(response: httpx.Response) -> None:
 def _is_pushed(credential: Credential) -> bool:
     """Whether the credential reports a payment the client already broadcast."""
     payload = credential.payload
-    return is_dict(payload) and payload.get("type") == "hash"
+    return is_dict(payload) and payload.get("type") in ("hash", "zone")
 
 
 def _transaction_hash(method: ClientMethod, credential: Credential) -> str | None:
@@ -296,6 +306,10 @@ class PaymentTransport(httpx.AsyncBaseTransport):
             trusted_tempo_realms: Explicit origin-to-realm pins for zero-amount
                 Tempo charges and Tempo session payments when a server uses a realm
                 other than its hostname.
+            max_payment_retries: Credentials sent per request at most. A ``402``
+                answering a credential with a payable challenge, such as the real charge
+                after a zero-amount proof, is paid as a new round (mppx Fetch); one with
+                no payable challenge is returned as the server's answer.
             paid_retry_timeout: Timeout in seconds for the paid retry request,
                 used exactly when set. ``None`` inherits the request's timeout
                 unchanged. When unset, the inherited read timeout is raised to
@@ -325,7 +339,7 @@ class PaymentTransport(httpx.AsyncBaseTransport):
         self._paid_retry_timeout = paid_retry_timeout
         self._order_challenges = order_challenges
         self._credential_keywords = _accepted_keywords(
-            self._runtime.create_credential, ("request", "fetch", "attempt")
+            self._runtime.create_credential, ("request", "fetch", "attempt", "check_expiry")
         )
         self._identity = IdentityClient(identity) if identity else None
 
@@ -550,11 +564,11 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                 reused: Credential | None = None
                 if sent is not None:
                     previous, sent = sent, None
-                    # Only a method that tracks its credential can have it resent.
-                    same = (
-                        previous.attempt.settle is not None
-                        and previous.method is matched_method
-                        and previous.challenge == challenge
+                    # The same Challenge resends the credential unless the method settled
+                    # it; a method without a settle hook keeps no state, so its credential
+                    # stays unsettled (mppx canReusePrevious).
+                    same = previous.method is matched_method and same_challenge(
+                        challenge, previous.challenge
                     )
                     settled = await _settle_attempt(
                         previous.attempt,
@@ -582,20 +596,44 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                             "fetch": self._send_auxiliary,
                             "attempt": attempt,
                         }
-                        try:
-                            credential = await self._runtime.create_credential(
+                        keywords = {
+                            key: value
+                            for key, value in arguments.items()
+                            if key in self._credential_keywords
+                        }
+                        # Runtimes overriding ``create_credential`` without ``check_expiry``
+                        # check expiry on every attempt, as before.
+                        expiry_keyword = "check_expiry" in self._credential_keywords
+                        event_payload: dict[str, Any] = {
+                            "challenges": challenges,
+                            "request": request,
+                            "response": response,
+                        }
+                        base = cast(
+                            "Callable[..., Awaitable[Credential]]",
+                            functools.partial(
+                                self._runtime.create_credential,
                                 challenge,
                                 matched_method,
-                                event_payload={
-                                    "challenges": challenges,
-                                    "request": request,
-                                    "response": response,
-                                },
-                                **{
-                                    key: value
-                                    for key, value in arguments.items()
-                                    if key in self._credential_keywords
-                                },
+                                event_payload=event_payload,
+                                **keywords,
+                            ),
+                        )
+
+                        def create(
+                            check_expiry: bool,
+                            base: Callable[..., Awaitable[Credential]] = base,
+                            expiry_keyword: bool = expiry_keyword,
+                        ) -> Awaitable[Credential]:
+                            if expiry_keyword:
+                                return base(check_expiry=check_expiry)
+                            return base()
+
+                        try:
+                            # A Zone withdrawal still settling is resumed for this same
+                            # Challenge rather than paid again under a new one (mppx).
+                            credential = await resume_pending_settlement(
+                                create, self._max_payment_retries
                             )
                         except BaseException:
                             # A credential that never reaches the server is rejected, so the
@@ -667,8 +705,12 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                 request.extensions[_PAYMENT_ATTEMPTED_EXTENSION] = True
                 retry_request.extensions[_PAYMENT_ATTEMPTED_EXTENSION] = True
                 try:
+                    # Identity proofs bind to the Challenge the credential pays, which is
+                    # an earlier one when a Zone withdrawal was resumed (mppx).
                     payment_response, _ = await self._send(
-                        retry_request, challenge=challenge, carried=carried
+                        retry_request,
+                        challenge=_credential_challenge(credential, challenge),
+                        carried=carried,
                     )
                     response = payment_response
                     if payment_response.is_server_error:
@@ -801,6 +843,30 @@ class _SentCredential:
     method: ClientMethod
     credential: Credential
     attempt: PaymentAttempt
+
+
+def _credential_challenge(credential: Credential, selected: Challenge) -> Challenge:
+    """The Challenge ``credential`` pays: ``selected``, or the earlier Challenge a method
+    resumed a payment for, keeping ``selected``'s credential header (mppx)."""
+    echo = getattr(credential, "challenge", None)
+    if not isinstance(echo, ChallengeEcho) or echo.id == selected.id:
+        return selected
+    try:
+        request = _b64_decode(echo.request)
+        opaque = _b64_decode(echo.opaque) if echo.opaque else None
+    except (ParseError, ValueError, TypeError):
+        return selected
+    if not isinstance(request, dict) or (opaque is not None and not isinstance(opaque, dict)):
+        return selected
+    return _replace_dataclass(
+        selected,
+        id=echo.id,
+        realm=echo.realm,
+        request=request,
+        expires=echo.expires,
+        digest=echo.digest,
+        opaque=cast("dict[str, str] | None", opaque),
+    )
 
 
 async def _settle_attempt(attempt: PaymentAttempt, outcome: AttemptOutcome) -> bool:

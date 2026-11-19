@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added the unified limits basic CRUD methods. It includes two kinds of
-    resources: `registered_limit` and `limit`.

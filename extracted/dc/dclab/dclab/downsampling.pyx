@@ -10,6 +10,17 @@ ctypedef cnp.uint8_t uint8
 ctypedef cnp.uint32_t uint32
 ctypedef cnp.int64_t int64
 
+
+def fixed_random_state():
+    """Return a new random state with a fixed seed
+
+    The downsampling methods are pseudo-random, but the results must be
+    reproducible. Using a separate random state makes sure that the
+    global random state of numpy is not modified.
+    """
+    return np.random.RandomState(seed=47)
+
+
 def downsample_rand(a, samples, remove_invalid=False, ret_idx=False):
     """Downsampling by randomly removing points
 
@@ -18,7 +29,8 @@ def downsample_rand(a, samples, remove_invalid=False, ret_idx=False):
     a: 1d ndarray
         The input array to downsample
     samples: int
-        The desired number of samples
+        The desired number of samples; if set to 0 or if `a` does not
+        have more (valid) values, no downsampling is performed
     remove_invalid: bool
         Remove nan and inf values before downsampling
     ret_idx: bool
@@ -27,15 +39,14 @@ def downsample_rand(a, samples, remove_invalid=False, ret_idx=False):
 
     Returns
     -------
-    dsa: 1d ndarray of size `samples`
+    dsa: 1d ndarray of size `samples` (or smaller, see `samples`)
         The pseudo-randomly downsampled array `a`
     idx: 1d boolean array with same shape as `a`
         Only returned if `ret_idx` is True.
         A boolean array such that `a[idx] == dsa`
     """
     # fixed random state for this method
-    rs = np.random.RandomState(seed=47).get_state()
-    np.random.set_state(rs)
+    rs = fixed_random_state()
 
     cdef uint32 samples_int = np.uint32(samples)
 
@@ -48,9 +59,9 @@ def downsample_rand(a, samples, remove_invalid=False, ret_idx=False):
 
     if samples_int and (samples_int < pool.shape[0]):
         keep = np.zeros_like(pool, dtype=bool)
-        keep_ids = np.random.choice(np.arange(pool.size),
-                                    size=samples_int,
-                                    replace=False)
+        keep_ids = rs.choice(np.arange(pool.size),
+                             size=samples_int,
+                             replace=False)
         keep[keep_ids] = True
         dsa = pool[keep]
     else:
@@ -95,6 +106,8 @@ def downsample_grid(a, b, samples, remove_invalid=False, ret_idx=False):
     Returns
     -------
     dsa, dsb: 1d ndarrays of shape (samples,)
+        Fewer values are returned if `remove_invalid` is True or not
+        enough data are available; no downsampling if `samples` is 0.
         The arrays `a` and `b` downsampled by evenly selecting
         points and pseudo-randomly adding or removing points
         to match `samples`.
@@ -103,9 +116,6 @@ def downsample_grid(a, b, samples, remove_invalid=False, ret_idx=False):
         A boolean array such that `a[idx] == dsa`
     """
     cdef uint32 samples_int = np.uint32(samples)
-
-    # fixed random state for this method
-    rs = np.random.RandomState(seed=47).get_state()
 
     keep = np.ones_like(a, dtype=bool)
     bad = np.isnan(a) | np.isinf(a) | np.isnan(b) | np.isinf(b)
@@ -151,18 +161,16 @@ def downsample_grid(a, b, samples, remove_invalid=False, ret_idx=False):
         if diff > 0:
             # Too many samples
             rem_indices = np.where(keepdb)[0]
-            np.random.set_state(rs)
-            rem = np.random.choice(rem_indices,
-                                   size=diff,
-                                   replace=False)
+            rem = fixed_random_state().choice(rem_indices,
+                                              size=diff,
+                                              replace=False)
             keepdb[rem] = False
         elif diff < 0:
             # Not enough samples
             add_indices = np.where(~keepdb)[0]
-            np.random.set_state(rs)
-            add = np.random.choice(add_indices,
-                                   size=abs(diff),
-                                   replace=False)
+            add = fixed_random_state().choice(add_indices,
+                                              size=abs(diff),
+                                              replace=False)
             keepdb[add] = True
 
         # paulmueller 2024-01-03
@@ -180,10 +188,9 @@ def downsample_grid(a, b, samples, remove_invalid=False, ret_idx=False):
             if add_indices_bad.size > diff_bad:
                 # Add a few of the invalid values so that in the end
                 # we have the desired array size.
-                np.random.set_state(rs)
-                add_bad = np.random.choice(add_indices_bad,
-                                           size=diff_bad,
-                                           replace=False)
+                add_bad = fixed_random_state().choice(add_indices_bad,
+                                                      size=diff_bad,
+                                                      replace=False)
                 keep[add_bad] = True
             else:
                 # We don't have enough bad indices (or just enough),
@@ -204,6 +211,19 @@ def downsample_grid(a, b, samples, remove_invalid=False, ret_idx=False):
 
 
 def populate_grid(x_discrete, y_discrete, keepd, toproc):
+    """Keep only the first event in each grid cell (in-place)
+
+    Parameters
+    ----------
+    x_discrete, y_discrete: 1d ndarrays
+        Grid cell indices of each event (dtype uint32)
+    keepd: 1d ndarray
+        Output (dtype uint8); set to 1 for the first event in each
+        grid cell
+    toproc: 2d ndarray
+        Grid cells not yet populated (1) (dtype uint8); modified
+        in-place
+    """
     # Py_ssize_t is the proper C type for Python array indices.
     cdef int iter_size = x_discrete.size
     cdef Py_ssize_t ii

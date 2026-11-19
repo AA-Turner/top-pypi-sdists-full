@@ -38,6 +38,7 @@ InputStartingPositionType = Literal["LAST_STOPPED_POINT", "NOW", "TRIM_HORIZON"]
 RecordFormatTypeType = Literal["CSV", "JSON"]
 KinesisAnalyticsServiceName = Literal["kinesisanalytics"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

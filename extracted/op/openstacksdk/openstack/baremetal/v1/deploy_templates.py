@@ -25,7 +25,7 @@ class DeployTemplate(resource.Resource):
     allow_delete = True
     allow_list = True
     allow_patch = True
-    commit_method = 'PATCH'
+    commit_opts = resource.CommitOpts(method='PATCH')
 
     _query_mapping = resource.QueryParameters(
         'detail',
@@ -33,7 +33,9 @@ class DeployTemplate(resource.Resource):
     )
 
     # Deploy Templates is available since 1.55
+    _min_microversion = '1.55'
     _max_microversion = '1.55'
+
     name = resource.Body('name')
     #: Timestamp at which the deploy_template was created.
     created_at = resource.Body('created_at')

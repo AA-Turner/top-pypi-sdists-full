@@ -151,6 +151,7 @@ VoiceAnalyticsConfigurationStatusType = Literal["Disabled", "Enabled"]
 VoiceAnalyticsLanguageCodeType = Literal["en-US"]
 ChimeSDKMediaPipelinesServiceName = Literal["chime-sdk-media-pipelines"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

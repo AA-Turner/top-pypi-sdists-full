@@ -24,8 +24,8 @@ from dreamscale_core.model_refs import (
 # Latest means the latest qualified model in this SDK release. Persist and send
 # the concrete provider ID so an existing session never changes models.
 _LATEST = {
-    "astra": "gpt-6-astra",
-    "sol": "gpt-6.1-sol",
+    "astra": "gpt-6.2-astra",
+    "sol": "gpt-6.2-sol",
     "terra": "gpt-6.1-terra",
     "luna": "gpt-6-luna",
     "fable": "claude-fable-5-2",
@@ -35,13 +35,12 @@ _LATEST = {
     "argon": "gemini-4-argon",
     "carbon": "gemini-4-carbon",
     "hydrogen": "gemini-4-hydrogen",
+    "neon": "gemini-4-neon",
     "robotics-er": "gemini-robotics-er-2-preview",
 }
 _ALIASES = {
     **_LATEST,
     **{f"{family}-latest": model for family, model in _LATEST.items()},
-    "claude-fable-5.1": "claude-fable-5-1",
-    "fable-5.1": "claude-fable-5-1",
     "claude-fable-5.2": "claude-fable-5-2",
     "fable-5.2": "claude-fable-5-2",
     "claude-opus-5.5": "claude-opus-5-5",
@@ -61,16 +60,19 @@ def resolve_llm_model(model: str) -> str:
 
 
 def _public_names() -> dict[str, str]:
-    """Internal id -> public name: each deployment base's and catalog model's that differs
-    (dreamscale_transport.families and .catalog; CI checks them against
-    model_variants.public_id)."""
+    """Internal id -> public name: each deployment base's, catalog model's and LLM's that
+    differs (dreamscale_transport.families and .catalog, dreamscale_core.llm; CI checks them
+    against model_variants.public_id)."""
+    from dreamscale_core.llm import PUBLIC_NAMES as LLM_PUBLIC_NAMES
     from dreamscale_transport import _catalog_client as catalog
-    from dreamscale_transport import families
+
+    from dreamscale import _deployment_families as families
 
     return {
         **{family.deploy.base: family.deploy.public_id for family in families.FAMILIES
            if family.deploy is not None and family.deploy.public_id != family.deploy.base},
         **{entry.id: entry.public_id for entry in catalog.CATALOG if entry.public_id},
+        **LLM_PUBLIC_NAMES,
     }
 
 
@@ -100,10 +102,15 @@ _LISTED_NAMES: dict[str, str] = {}
 
 def _shipped_ids() -> frozenset[str]:
     from dreamscale_transport import _catalog_client as catalog
-    from dreamscale_transport import families
 
-    return frozenset({entry.id for entry in catalog.CATALOG} | {
-        family.deploy.base for family in families.FAMILIES if family.deploy is not None})
+    from dreamscale import _deployment_families as families
+    from dreamscale import deploy_bases
+
+    return frozenset(
+        {entry.id for entry in catalog.CATALOG}
+        | {family.deploy.base for family in families.FAMILIES if family.deploy is not None}
+        | {base.name for base in deploy_bases.bases()}
+    )
 
 
 def resolve_model(name: str, *, list_models=None) -> str:

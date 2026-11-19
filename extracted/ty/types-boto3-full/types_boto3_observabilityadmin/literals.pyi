@@ -176,6 +176,7 @@ ThirdPartyTelemetrySourceType = Literal["Azure"]
 WAFLogTypeType = Literal["WAF_LOGS"]
 CloudWatchObservabilityAdminServiceServiceName = Literal["observabilityadmin"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

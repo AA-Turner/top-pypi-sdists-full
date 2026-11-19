@@ -17,7 +17,7 @@ from collections import (
 )
 from contextvars import ContextVar
 from copy import deepcopy  # noqa: F401  # Preserve the established parser.base export.
-from functools import partial
+from functools import cached_property, partial
 from itertools import chain
 from pathlib import Path
 from typing import (
@@ -163,6 +163,7 @@ from datamodel_code_generator.parser._field_copies import (
     _merge_data_type_modifiers,  # noqa: F401  # Preserve the established parser.base export.
 )
 from datamodel_code_generator.parser._field_rows import (
+    FIELD_OPTIONS_LEFT_OUT,
     FIELD_ROWS_BUILT_WITHOUT_VALIDATION,
     FIELD_ROWS_WITHOUT_VALIDATION_ALIASES,
     field_options_left_out,
@@ -246,7 +247,14 @@ from datamodel_code_generator.parser._pipeline import PARSE_CALLER, Runner, pars
 from datamodel_code_generator.parser._schema_graph import SCHEMA_GRAPH
 from datamodel_code_generator.parser._serialize_as_any import SERIALIZE_AS_ANY_FOR_EVERY_SUBCLASS
 from datamodel_code_generator.parser._stdout_repair import _TOP_LEVEL_FUTURE_IMPORT_PATTERN
-from datamodel_code_generator.parser._tag_plan import TagCapabilities, TagPlan, tag_capabilities, writes_member_values
+from datamodel_code_generator.parser._tag_plan import (
+    TagCapabilities,
+    TagPlan,
+    declared_variant_tags,
+    field_namer,
+    tag_capabilities,
+    writes_member_values,
+)
 from datamodel_code_generator.parser._union_constraints import OMIT_UNTAKEN_UNION_CONSTRAINTS
 from datamodel_code_generator.parser._unique_sets import WRITE_UNIQUE_ITEMS_AS_SETS
 from datamodel_code_generator.parser.generation import GenerationStore
@@ -495,26 +503,31 @@ def dump_templates(templates: list[DataModel]) -> str:
     return _joined_models(str(m) for m in templates)
 
 
+def _hint_data_types(model: DataModel) -> Iterator[tuple[DataModelFieldBase, DataType]]:
+    """Yield each field of a model with the type its hint writes (``DataModelFieldBase._hint_data_type``)."""
+    for field in model.fields:
+        yield field, field._hint_data_type()  # noqa: SLF001
+
+
 def _joined_models(texts: Iterable[str]) -> str:
     """Join the rendered texts of models into a single code string."""
     return "\n\n\n".join(texts)
 
 
-def _forward_root_model_aliases(models: Sequence[DataModel]) -> set[ModelKey]:
+def _forward_root_model_aliases(models: Sequence[DataModel], positions: _ModelPositions) -> set[ModelKey]:
     """Return the keys of the RootModel aliases of a module whose value names a model at their own or a later position.
 
     The module writes such a name quoted, and Pydantic resolves it only when the alias is rebuilt: the alias is no
     class, so no class of the module rebuilds it, and every use of it fails as not fully defined until then.
+    ``positions`` indexes ``models``.
     """
-    keys = [model_key_of(model.reference) for model in models]
-    positions = {key: index for index, key in enumerate(keys)}
     return {
-        key
-        for index, (key, model) in enumerate(zip(keys, models, strict=True))
+        model_key_of(model.reference)
+        for index, model in enumerate(models)
         if model.is_alias
         and model.REQUIRES_FIELD_DEPENDENCY_ORDERING
         and any(
-            positions.get(model_key_of(reference), -1) >= index
+            positions.names_at_or_after(reference, index, view="model-key")
             for field in model.fields
             for data_type in field.data_type.all_data_types
             if (reference := data_type.reference) is not None
@@ -843,6 +856,21 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             "use_default_factory_for_optional_nested_models": self.use_default_factory_for_optional_nested_models,
         }
 
+    @cached_property
+    def _field_policy(self) -> Mapping[FieldRow, partial[DataModelFieldBase]]:
+        """The constructor of each row with the configured options it takes, read once, at the run's first field."""
+        options = self._field_option_kwargs
+        policy: dict[FieldRow, partial[DataModelFieldBase]] = {}
+        for row in FIELD_OPTIONS_LEFT_OUT:
+            left_out = field_options_left_out(row, every_field=self.apply_field_options_to_every_field)
+            policy[row] = partial(
+                _get_model_field_constructor(self.data_model_field_type)
+                if row in FIELD_ROWS_BUILT_WITHOUT_VALIDATION
+                else self.data_model_field_type,
+                **{key: value for key, value in options.items() if key not in left_out},
+            )
+        return policy
+
     def _build_field(
         self,
         row: FieldRow,
@@ -859,9 +887,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         into the alias and the validation aliases, beside the ``--serialization-aliases`` entry of the class ``scope``
         for a field with a ``name`` and the ``source_name`` it is read from.
         """
-        options = self._field_option_kwargs
-        if left_out := field_options_left_out(row, every_field=self.apply_field_options_to_every_field):
-            options = {key: value for key, value in options.items() if key not in left_out}
         aliases: dict[str, Any] = {}
         if "alias" in facts:
             aliases["alias"], validation_aliases, aliases["serialization_alias"] = self._field_aliases(
@@ -869,15 +894,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             )
             if row not in FIELD_ROWS_WITHOUT_VALIDATION_ALIASES:
                 aliases["validation_aliases"] = validation_aliases
-        constructor = (
-            _get_model_field_constructor(self.data_model_field_type)
-            if row in FIELD_ROWS_BUILT_WITHOUT_VALIDATION
-            else self.data_model_field_type
-        )
-        return constructor(
-            data_type=data_type,
-            **{**options, **aliases, **facts},
-            **self._data_model_field_common_kwargs(),
+        return self._field_policy[row](
+            data_type=data_type, **{**aliases, **facts}, **self._data_model_field_common_kwargs_cache
         )
 
     def _field_aliases(
@@ -1418,6 +1436,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.use_one_literal_as_default = config.use_one_literal_as_default
         self.use_enum_values_in_discriminator = config.use_enum_values_in_discriminator
         self.merge_shared_variant_tags = config.merge_shared_variant_tags
+        self.use_unmapped_variant_tag_values = config.use_unmapped_variant_tag_values
         self.use_msgspec_tagged_unions = config.use_msgspec_tagged_unions
         self.tag_msgspec_by_payload_name = config.tag_msgspec_by_payload_name
         self.use_msgspec_nullable_enum_alias = config.use_msgspec_nullable_enum_alias
@@ -1482,9 +1501,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             config.use_default_factory_for_optional_nested_models
         )
         self.field_type_collision_strategy: FieldTypeCollisionStrategy | None = config.field_type_collision_strategy
-
-    def _data_model_field_common_kwargs(self) -> dict[str, Any]:
-        return self._data_model_field_common_kwargs_cache
 
     def _split_field_alias(  # noqa: PLR6301
         self,
@@ -1901,6 +1917,19 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
     def _get_enum_discriminator_literal(enum_source: Enum, value: DiscriminatorValue) -> DiscriminatorValue:
         return enum_discriminator_literal(enum_source, value)
 
+    def _variant_tags(
+        self, property_name: str, mapping: dict[str, str], members: Sequence[DataType]
+    ) -> Iterator[tuple[DataModel, list[DiscriminatorValue]]]:
+        """Yield the variants of a union that declares a discriminator with their tags, read after L7.
+
+        A union whose field writes ``discriminator=`` selects its variant itself, so none is read there; otherwise each
+        variant takes the tags the tag passes read for it (``declared_variant_tags``).
+        """
+        if self._tag_capabilities.writes_argument:
+            return iter(())
+        namer = field_namer(self.model_resolver, self.field_name_model_type)
+        return declared_variant_tags(property_name, mapping, members, namer, _modules.tag_reading(self))
+
     def record_dropped_constraints(self) -> None:
         """Record this parse's dropped-constraint warnings as those of the generation that returns its models."""
         if (record := _DROPPED_CONSTRAINTS.get()) is not None:
@@ -2026,12 +2055,12 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             imports = model_imports[model] if model_imports is not None else model.imports
             for import_ in imports:
                 add(import_.alias or import_.import_.split(".")[-1])
-            for field in model.fields:
+            for field, hint_type in _hint_data_types(model):
                 if field.is_class_var:
                     continue
                 add(field.name)
                 add(field.alias)
-                field.data_type.walk(collect_data_type_names)
+                hint_type.walk(collect_data_type_names)
             for data_type in _data_types_beside_fields(model):
                 collect_data_type_names(data_type)
         return names
@@ -2083,7 +2112,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         if self.dump_resolve_reference_action is None:
             return []
 
-        keyed = keyed_models(models, "reference update actions")
+        positions = _ModelPositions(models, "reference update actions")
+        keyed = positions.keyed
         required_keys_in_module = {key for key in keyed.models if key in require_update}
 
         if (
@@ -2091,22 +2121,17 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             and required_keys_in_module
             and get_resolve_reference_action_capabilities(self.dump_resolve_reference_action).filter_forward_references
         ):
-            module_positions = {m.reference.short_name: i for i, m in enumerate(models) if m.reference}
-            module_model_names = set(module_positions)
-
             forward_needed: set[ModelKey] = set()
             for model in models:
                 if (key := model_key_of(model.reference)) not in required_keys_in_module:
                     continue
-                name = model.reference.short_name
-                pos = module_positions[name]
-                refs = {
-                    t.reference.short_name
-                    for f in model.fields
-                    for t in f.data_type.all_data_types
-                    if t.reference and t.reference.short_name in module_model_names
-                }
-                if name in refs or any(module_positions.get(r, -1) > pos for r in refs):
+                index = positions.rank(model.reference, view="legacy-forward-by-name")
+                if any(
+                    positions.names_at_or_after(reference, index, view="legacy-forward-by-name")
+                    for field in model.fields
+                    for data_type in field.data_type.all_data_types
+                    if (reference := data_type.reference) is not None
+                ):
                     forward_needed.add(key)
 
             required_keys_in_module = reaching(
@@ -2119,7 +2144,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                     for model in models
                 ),
             )
-        required_keys_in_module |= _forward_root_model_aliases(models)
+        required_keys_in_module |= _forward_root_model_aliases(models, positions)
 
         return [
             "\n",
@@ -2154,10 +2179,13 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             hidden_names = _hidden_type_names(model)
             for field in model.fields:
                 for data_type in field.data_type.all_data_types:
-                    if (
-                        (reference := data_type.reference)
-                        and (reference_index := positions.get(reference)) is not None
-                        and (reference_index >= index or (reference.short_name in hidden_names and not data_type.alias))
+                    if (reference := data_type.reference) and (
+                        positions.names_at_or_after(reference, index)
+                        or (
+                            reference.short_name in hidden_names
+                            and not data_type.alias
+                            and positions.get(reference) is not None
+                        )
                     ):
                         return True
         return False
@@ -2474,9 +2502,9 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         for ctx in contexts:
             for model in ctx.models:
                 runtime_imports: list[Import] = []
-                for field in model.fields:
+                for field, hint_type in _hint_data_types(model):
                     runtime_imports.extend(field.runtime_expression_imports)
-                    for data_type in field.data_type.all_data_types:
+                    for data_type in hint_type.all_data_types:
                         runtime_imports.extend(data_type.runtime_expression_imports)
                 if runtime_imports:
                     model_imports[model] = (*model_imports[model], *runtime_imports)

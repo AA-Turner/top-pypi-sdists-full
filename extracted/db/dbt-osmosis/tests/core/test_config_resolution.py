@@ -198,6 +198,26 @@ class TestConfigResolver:
         assert source.get("output-to-lower") is None
         assert source.get("skip_add_tags") is None
 
+    @pytest.mark.parametrize("value", [True, False])
+    def test_legacy_source_config_meta(self, value: bool) -> None:
+        node = MockNode()
+        node.config = SimpleNamespace(
+            extra={"meta": {"dbt-osmosis-options": {"skip-add-source-columns": value}}}
+        )
+        resolver = SettingsResolver()
+        assert resolver.resolve("skip-add-source-columns", node, fallback=not value) is value
+        assert (
+            ConfigSourceName.CONFIG_META,
+            value,
+        ) in resolver.get_precedence_chain("skip-add-source-columns", node)
+
+    def test_native_config_meta_takes_priority_over_extra_meta(self) -> None:
+        node = MockNode(
+            config_meta={"skip-add-source-columns": False},
+            config_extra={"meta": {"skip-add-source-columns": True}},
+        )
+        assert SettingsResolver().resolve("skip-add-source-columns", node, fallback=True) is False
+
     def test_unrendered_config_source_dbt_110(self) -> None:
         """T021: Test UnrenderedConfigSource reads from node.unrendered_config (dbt 1.10+)."""
         # Create a mock node with unrendered_config
@@ -488,6 +508,14 @@ dbt-osmosis-options:
         # Should return None for all keys without error
         assert source.get("skip-add-tags") is None
         assert source.get("yaml-settings") is None
+
+    @pytest.mark.parametrize("raw_value", [False, "False"])
+    def test_rendered_false_precedes_unrendered_literal(self, raw_value: Any) -> None:
+        """Core patch-level raw literal types must not change resolved booleans."""
+        node = MockNode(config_extra={"dbt_osmosis_skip_add_columns": False})
+        node.unrendered_config = {"dbt_osmosis_skip_add_columns": raw_value}
+
+        assert SettingsResolver().resolve("skip-add-columns", node, fallback=True) is False
 
     def test_full_precedence_chain(self) -> None:
         """T012: Test full precedence chain across all 7 sources."""

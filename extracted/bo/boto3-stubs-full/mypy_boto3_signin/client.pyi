@@ -20,14 +20,16 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListResourcePermissionStatementsPaginator
+from .paginator import ListResourcePermissionStatementsPaginator, ListSessionsPaginator
 from .type_defs import (
+    BatchRevokeSessionsInputTypeDef,
+    BatchRevokeSessionsOutputTypeDef,
     CreateBearerTokenRequestTypeDef,
     CreateBearerTokenResponseTypeDef,
     CreateOAuth2TokenRequestTypeDef,
@@ -42,10 +44,14 @@ from .type_defs import (
     GetConsoleAuthorizationConfigurationInputTypeDef,
     GetConsoleAuthorizationConfigurationOutputTypeDef,
     GetResourcePolicyOutputTypeDef,
+    GetSessionInputTypeDef,
+    GetSessionOutputTypeDef,
     IntrospectOAuth2TokenWithIAMRequestTypeDef,
     IntrospectOAuth2TokenWithIAMResponseTypeDef,
     ListResourcePermissionStatementsInputTypeDef,
     ListResourcePermissionStatementsOutputTypeDef,
+    ListSessionsInputTypeDef,
+    ListSessionsOutputTypeDef,
     PutConsoleAuthorizationConfigurationInputTypeDef,
     PutConsoleAuthorizationConfigurationOutputTypeDef,
     PutResourcePermissionStatementInputTypeDef,
@@ -106,6 +112,16 @@ class SignInServiceClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/generate_presigned_url.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#generate_presigned_url)
+        """
+
+    def batch_revoke_sessions(
+        self, **kwargs: Unpack[BatchRevokeSessionsInputTypeDef]
+    ) -> BatchRevokeSessionsOutputTypeDef:
+        """
+        Revokes up to five sign-in sessions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/batch_revoke_sessions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#batch_revoke_sessions)
         """
 
     def create_bearer_token(
@@ -190,6 +206,14 @@ class SignInServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#get_resource_policy)
         """
 
+    def get_session(self, **kwargs: Unpack[GetSessionInputTypeDef]) -> GetSessionOutputTypeDef:
+        """
+        Returns the details of a single sign-in session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/get_session.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#get_session)
+        """
+
     def introspect_oauth2_token_with_iam(
         self, **kwargs: Unpack[IntrospectOAuth2TokenWithIAMRequestTypeDef]
     ) -> IntrospectOAuth2TokenWithIAMResponseTypeDef:
@@ -210,6 +234,16 @@ class SignInServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/list_resource_permission_statements.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#list_resource_permission_statements)
+        """
+
+    def list_sessions(
+        self, **kwargs: Unpack[ListSessionsInputTypeDef]
+    ) -> ListSessionsOutputTypeDef:
+        """
+        Lists sign-in sessions for an IAM identity in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/list_sessions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#list_sessions)
         """
 
     def put_console_authorization_configuration(
@@ -242,9 +276,21 @@ class SignInServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#revoke_oauth2_token_with_iam)
         """
 
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_resource_permission_statements"]
     ) -> ListResourcePermissionStatementsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_sessions"]
+    ) -> ListSessionsPaginator:
         """
         Create a paginator for an operation.
 

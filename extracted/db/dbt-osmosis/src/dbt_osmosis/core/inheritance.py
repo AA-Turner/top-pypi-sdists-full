@@ -10,6 +10,7 @@ if t.TYPE_CHECKING:
     from dbt_osmosis.core.dbt_protocols import YamlRefactorContextProtocol
 
 from dbt_osmosis.core import logger
+from dbt_osmosis.core.column_lineage import Candidate, resolve_candidates
 from dbt_osmosis.core.model_versions import (
     _raw_model_version_value,
     _version_values_match,
@@ -176,6 +177,8 @@ def _build_node_ancestor_tree(
     visited: set[str] | None = None,
     depth: int = 1,
     max_depth: int = 100,
+    *,
+    active_path: set[str] | None = None,
 ) -> dict[str, list[str]]:
     """Build a flat graph of a node and it's ancestors."""
     logger.debug(":seedling: Building ancestor tree/branch for => %s", node.unique_id)
@@ -183,6 +186,9 @@ def _build_node_ancestor_tree(
         visited = {node.unique_id}
         tree = {"generation_0": [node.unique_id]}
         depth = 1
+
+    if active_path is None:
+        active_path = {node.unique_id}
 
     if not hasattr(node, "depends_on"):
         return tree
@@ -200,8 +206,8 @@ def _build_node_ancestor_tree(
         if not dep.startswith(("model.", "seed.", "source.")):
             continue
 
-        # Cycle detection: skip if already visited
-        if dep in visited:
+        # Only an edge back into the current recursion path is a cycle.
+        if dep in active_path:
             logger.warning(
                 ":rotating_light: Circular dependency detected: %s -> %s",
                 node.unique_id,
@@ -209,11 +215,23 @@ def _build_node_ancestor_tree(
             )
             continue
 
+        # Shared ancestors were already recorded at their first discovery depth.
+        if dep in visited:
+            continue
+
         visited.add(dep)
         member = manifest.nodes.get(dep, manifest.sources.get(dep))
         if member:
             tree.setdefault(f"generation_{depth}", []).append(dep)
-            _ = _build_node_ancestor_tree(manifest, member, tree, visited, depth + 1, max_depth)
+            _ = _build_node_ancestor_tree(
+                manifest,
+                member,
+                tree,
+                visited,
+                depth + 1,
+                max_depth,
+                active_path=active_path | {dep},
+            )
 
     for generation in tree.values():
         generation.sort()  # For deterministic ordering
@@ -837,11 +855,27 @@ def _process_inherited_column(
     processed_columns_in_generation: dict[str, set[str]],
     progenitor_alternatives: dict[str, list[str]],
     column_knowledge_graph: dict[str, dict[str, t.Any]],
+    lineage_candidates: dict[str, Candidate] | None = None,
 ) -> None:
     if column_name in processed_columns_in_generation[generation]:
         return
 
     matched_column = _find_matching_column(ancestor, node_column_variants[column_name])
+    candidate = (lineage_candidates or {}).get(column_name)
+    if matched_column is not None:
+        # Preserve explicit progenitor override choices even when automatic
+        # lineage rejects the same-name candidate.
+        _record_progenitor_alternative(
+            progenitor_alternatives,
+            column_name=column_name,
+            ancestor_uid=ancestor_uid,
+            node_uid=node.unique_id,
+        )
+    if candidate is not None and candidate.status != "unavailable":
+        if candidate.status != "candidate" or candidate.node_id != ancestor_uid:
+            return
+        matched_column = ancestor.columns.get(candidate.column)
+        node_column_variants = {**node_column_variants, column_name: [candidate.column]}
     if matched_column is None:
         return
 
@@ -876,6 +910,7 @@ def _process_graph_ancestor(
     processed_columns_in_generation: dict[str, set[str]],
     progenitor_alternatives: dict[str, list[str]],
     column_knowledge_graph: dict[str, dict[str, t.Any]],
+    lineage_candidates: dict[str, Candidate] | None = None,
 ) -> None:
     if ancestor_uid == node.unique_id:
         _process_self_origin_columns(
@@ -899,7 +934,72 @@ def _process_graph_ancestor(
             processed_columns_in_generation=processed_columns_in_generation,
             progenitor_alternatives=progenitor_alternatives,
             column_knowledge_graph=column_knowledge_graph,
+            lineage_candidates=lineage_candidates,
         )
+
+
+def _lineage_sql(context: YamlRefactorContextProtocol, node: ResultNode) -> str | None:
+    from dbt.exceptions import DbtRuntimeError
+
+    from dbt_osmosis.core.sql_operations import compile_model_for_lineage
+
+    if not isinstance(node, ModelNode):
+        return None
+    if context.project.runtime_cfg.credentials.type not in {"duckdb", "trino"}:
+        return None
+    with context.project.manifest_mutex:
+        if context.lineage_compilation_manifest is not context.project.manifest:
+            context.lineage_compilation_attempts.clear()
+            context.lineage_compilation_manifest = context.project.manifest
+        if node.compiled_code:
+            return node.compiled_code
+        if node.unique_id in context.lineage_compilation_attempts:
+            return None
+        context.lineage_compilation_attempts.add(node.unique_id)
+        try:
+            return compile_model_for_lineage(context.project, node)
+        except DbtRuntimeError as exc:
+            node.compiled_code = None
+            logger.warning(
+                "Column lineage compilation failed for %s; using name matching: %s",
+                node.unique_id,
+                exc,
+            )
+            return None
+
+
+def _node_lineage_candidates(
+    context: YamlRefactorContextProtocol, node: ResultNode, tree: dict[str, list[str]]
+) -> dict[str, Candidate]:
+    from dbt_osmosis.core.introspection import resolve_setting
+
+    columns = [
+        name
+        for name in node.columns
+        if resolve_setting(context, "use-sqlglot-lineage", node, name, fallback=False)
+    ]
+    if not columns:
+        return {}
+    ancestors = []
+    seen = {node.unique_id}
+    for ids in tree.values():
+        for uid in ids:
+            if uid not in seen:
+                seen.add(uid)
+                ancestor = _resolve_graph_ancestor(context, uid)
+                if ancestor is not None:
+                    ancestors.append(ancestor)
+    results = resolve_candidates(
+        _lineage_sql(context, node),
+        context.project.runtime_cfg.credentials.type,
+        columns,
+        ancestors,
+    )
+    for name, result in results.items():
+        logger.debug(
+            "Column lineage %s.%s: %s (%s)", node.unique_id, name, result.status, result.reason
+        )
+    return results
 
 
 def _build_column_knowledge_graph(
@@ -913,6 +1013,7 @@ def _build_column_knowledge_graph(
     node_yaml = _get_node_yaml(context, node)
     node_column_variants = _collect_column_variants(context, node)
 
+    lineage_candidates = _node_lineage_candidates(context, node, tree)
     column_knowledge_graph = _initial_column_knowledge_graph(node)
     processed_columns_in_generation: dict[str, set[str]] = {}
     progenitor_alternatives: dict[str, list[str]] = {}
@@ -935,6 +1036,7 @@ def _build_column_knowledge_graph(
                 processed_columns_in_generation=processed_columns_in_generation,
                 progenitor_alternatives=progenitor_alternatives,
                 column_knowledge_graph=column_knowledge_graph,
+                lineage_candidates=lineage_candidates,
             )
 
     _apply_progenitor_overrides(

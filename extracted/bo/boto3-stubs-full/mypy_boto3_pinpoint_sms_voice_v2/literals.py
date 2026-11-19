@@ -459,6 +459,7 @@ VoiceIdType = Literal[
 VoiceMessageBodyTextTypeType = Literal["SSML", "TEXT"]
 PinpointSMSVoiceV2ServiceName = Literal["pinpoint-sms-voice-v2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

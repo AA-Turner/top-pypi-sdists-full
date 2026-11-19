@@ -64,7 +64,7 @@ from datamodel_code_generator._target_contract import (
 from datamodel_code_generator._target_contract import label as _label
 from datamodel_code_generator._target_module import TargetModule
 from datamodel_code_generator._target_naming import NameScope
-from datamodel_code_generator._target_operations import coded_use, described, tags
+from datamodel_code_generator._target_operations import SERVER, coded_use, operation_docstring, tags
 from datamodel_code_generator._target_render import (
     Keyword,
     Parameter,
@@ -251,7 +251,7 @@ class Module(TargetModule):
             case ConstructorType() if value.hint is None and value.base is not None:
                 return self.hint(value.base)
             case UnionType() | GenericType() if value.hint is None:
-                return self.composed(value, static=True)
+                return self.composed(value, self.static)
             case _:
                 pass
         return self.hint(value)
@@ -274,20 +274,10 @@ class Module(TargetModule):
             case ConstructorType() if value.base is not None:
                 return self.annotation(value)
             case UnionType() | GenericType() if value.hint is None or _constrained(value):
-                return self.composed(value, static=False)
+                return self.composed(value, self.validating)
             case _:
                 pass
         return self.hint(value, static=False)
-
-    def composed(self, value: UnionType | GenericType, *, static: bool) -> str:
-        """Return a union or container of spelled parts, as the model generator writes one.
-
-        A generic of no container, such as the `SerializeAsAny` of a model type, is its class of the spelled parts.
-        """
-        spell = self.static if static else self.validating
-        if isinstance(value, UnionType):
-            return self.union(*map(spell, value.members))
-        return self.generic(value, [spell(item) for item in value.arguments])
 
     def constraints(self, value: ConstructorType, base: BuiltinType | ImportedType) -> tuple[str, ...]:
         """Return the metadata of a constrained scalar's keywords, split as the model generator splits them."""
@@ -1082,15 +1072,11 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
             parameters=tuple(self.parameters(module, spec, principal)),
             returns=_chain(module, self.results(module, spec)),
             docstring=format_docstring(
-                self.docstring(spec), 8, use_single_line_docstring=self.use_single_line_docstring
+                operation_docstring(spec.contract, schema=self.use_schema_description, verb=SERVER.verb),
+                8,
+                use_single_line_docstring=self.use_single_line_docstring,
             ),
         )
-
-    def docstring(self, spec: OperationSpec) -> str:
-        """Return an operation's docstring text: its summary and description, as the models document, or its route."""
-        if self.use_schema_description and (text := described(spec.contract)):
-            return text
-        return f"Handle {_label(spec.contract)}."
 
     def parameters(self, module: Module, spec: OperationSpec, principal: str) -> list[Parameter]:
         """Return the keyword-only parameters of one operation's method, typed as the endpoint passes them."""

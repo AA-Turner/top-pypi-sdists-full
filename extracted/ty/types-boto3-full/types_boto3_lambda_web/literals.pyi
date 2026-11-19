@@ -68,6 +68,7 @@ WebFunctionEndpointUpdatedWaiterName = Literal["web_function_endpoint_updated"]
 WebFunctionRevisionActiveWaiterName = Literal["web_function_revision_active"]
 LambdaWebServiceName = Literal["lambda-web"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

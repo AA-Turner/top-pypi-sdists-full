@@ -145,6 +145,7 @@ SnowflakeS3BackupModeType = Literal["AllData", "FailedDataOnly"]
 SplunkS3BackupModeType = Literal["AllEvents", "FailedEventsOnly"]
 FirehoseServiceName = Literal["firehose"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

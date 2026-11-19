@@ -116,11 +116,6 @@ _FENCED: tuple[tuple[str, str, str], ...] = (
         "PEER",
     ),
     (
-        "tests/test_golden_chain_redeploy.py",
-        "onex.evt.omnimarket.redeploy-phase-advance.v1",  # onex-topic-allow: pinned fence row; reading it from the file it pins defeats the pin
-        "PEER",
-    ),
-    (
         "tests/test_golden_chain_redeploy_orchestrator.py",
         "onex.cmd.omnimarket.redeploy-start.v1",  # onex-topic-allow: pinned fence row; reading it from the file it pins defeats the pin
         "PEER",
@@ -169,11 +164,6 @@ _FENCED: tuple[tuple[str, str, str], ...] = (
     (
         "tests/test_codex_runtime_client.py",
         "onex.evt.omnimarket.pattern-b-dispatch-completed.v1",  # onex-topic-allow: pinned fence row; reading it from the file it pins defeats the pin
-        "HOLE",
-    ),
-    (
-        "tests/test_golden_chain_pr_review.py",
-        "onex.evt.omnimarket.pr-review-bot-phase-advance.v1",  # onex-topic-allow: pinned fence row; reading it from the file it pins defeats the pin
         "HOLE",
     ),
     (

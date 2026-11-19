@@ -306,6 +306,10 @@ class BaseSolverTest:
                 self.solver = self.solveInst(msg=False)
             if not self.solver.available():
                 self.skipTest(f"solver {self.solveInst.name} not available")
+            # skip before the test body runs: not every test goes through _apply_pulp_check
+            cfg = self._config(self._testMethodName)
+            if cfg.skip:
+                self.skipTest(cfg.skip_reason or self._testMethodName)
 
         def tearDown(self):
             for ext in ["mst", "log", "lp", "mps", "sol", "out"]:
@@ -449,6 +453,24 @@ class BaseSolverTest:
                 [const.LpSolveStatus.Optimal],
                 {x: 4, y: -1, z: 6, w: 0},
             )
+
+        def test_api_steps(self):
+            """An API solver solves step by step: build, call and find."""
+            if not isinstance(self.solver, solvers.LpSolver_API):
+                self.skipTest("not an API solver")
+            prob = LpProblem(self._testMethodName, const.LpMaximize)
+            x = prob.add_variable("x", 0, 4, cat=const.LpInteger)
+            y = prob.add_variable("y", 0, 3, cat=const.LpInteger)
+            prob += x + 2 * y, "obj"
+            prob += x + y <= 5, "c1"
+            self.solver.buildSolverModel(prob)
+            self.assertIsNotNone(prob.solverModel)
+            result = self.solver.callSolver(prob)
+            status, has_solution = self.solver.findSolutionValues(prob, result)
+            self.assertEqual(status, const.LpSolveStatus.Optimal)
+            self.assertTrue(has_solution)
+            # None (no value) rounds to 0, which fails too
+            self.assertEqual([round(v.value() or 0) for v in (x, y)], [2, 3])
 
         def test_continuous_max(self):
             prob = LpProblem(self._testMethodName, const.LpMaximize)
@@ -941,10 +963,10 @@ class SASTest:
         prob += -2 * X[2] - 3 * X[3] >= -5, "R1"
         prob += X[1] + X[2] + 2 * X[3] <= 4, "R2"
         prob += X[1] + 2 * X[2] + 3 * X[3] <= 7, "R3"
-        self.solver.optionsDict["with"] = "lp"  # ty: ignore[unresolved-attribute]
+        self.solver.optionsDict["with"] = "lp"  # ty: ignore[missing-attribute]
         pulpTestCheck(
             prob,
-            self.solver,  # ty: ignore[unresolved-attribute]
+            self.solver,  # ty: ignore[missing-attribute]
             [const.LpSolveStatus.Optimal],
             {X[1]: 0.0, X[2]: 2.5, X[3]: 0.0},
         )

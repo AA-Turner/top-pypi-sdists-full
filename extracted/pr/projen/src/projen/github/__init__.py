@@ -702,7 +702,7 @@ class AutoQueue(
         :param labels: (experimental) Only pull requests with one of this labels will have auto-queue enabled. Default: - all pull requests are eligible for auto-queueing
         :param merge_method: (experimental) The method used to add the PR to the merge queue Any branch protection rules must allow this merge method. Default: MergeMethod.SQUASH
         :param projen_credentials: (experimental) Choose a method for authenticating with GitHub to enable auto-queue on pull requests. The workflow cannot use a default github token. Queuing a PR with the default token will not trigger any merge queue workflows, which results in the PR just not getting merged at all. Default: - uses credentials from the GitHub component
-        :param target_branches: (experimental) The branch names that we should auto-queue for. This set of branches should be a subset of ``MergeQueueOptions.targetBranches``. Be sure not to enable ``autoQueue`` for branches that don't have branch rules with merge requirements set up, otherwise new PRs will be merged immediately after creating without a chance for review. Automatically merging a set of Stacked PRs If you set this to ``['main']`` you can automatically merge a set of Stacked PRs in the right order. It works like this: - Create PR #1 from branch ``a``, targeting ``main``. - Create PR #2 from branch ``b``, targeting branch ``a``. - Create PR #3 from branch ``c``, targeting branch ``b``. Initially, PR #1 will be set to auto-merge, PRs #2 and #3 will not. Once PR #1 passes all of its requirements it will merge. That will delete branch ``a`` and change the target branch of PR #2 change to ``main``. At that point, auto-queueing will switch on for PR #2 and it gets merged, etc. .. epigraph:: [!IMPORTANT] This component will never disable AutoMerge, only enable it. So if a PR is initially targeted at one of the branches in this list, and then subsequently retargeted to another branch, *AutoMerge is not automatically turned off*.
+        :param target_branches: (experimental) The branch names that we should auto-queue for. This set of branches should be a subset of ``MergeQueueOptions.targetBranches``. .. epigraph:: [!IMPORTANT] Be sure not to enable ``autoQueue`` for branches that don't have branch rules with merge requirements set up, otherwise new PRs will be merged immediately after creating without a chance for review. Even worse, if you have any PRs that get merged without human review, like dependency upgrades, an attacker can have quickly automerge their own PR into the automerged dependency upgrade PR! Automatically merging a set of Stacked PRs If you set this to ``['main']`` (the default) you can automatically merge a set of Stacked PRs in the right order. It works like this: - Create PR #1 from branch ``a``, targeting ``main``. - Create PR #2 from branch ``b``, targeting branch ``a``. - Create PR #3 from branch ``c``, targeting branch ``b``. Initially, PR #1 will be set to auto-merge, PRs #2 and #3 will not. Once PR #1 passes all of its requirements it will merge. That will delete branch ``a`` and change the target branch of PR #2 change to ``main``. At that point, auto-queueing will switch on for PR #2 and it gets merged, etc. .. epigraph:: [!IMPORTANT] This component will never disable AutoMerge, only enable it. So if a PR is initially targeted at one of the branches in this list, and then subsequently retargeted to another branch, *AutoMerge is not automatically turned off*. Default: ['main']
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param runs_on_group: (experimental) Github Runner Group selection options.
 
@@ -757,7 +757,7 @@ class AutoQueueOptions(_projen_04054675.RunsOnOptions):
         :param labels: (experimental) Only pull requests with one of this labels will have auto-queue enabled. Default: - all pull requests are eligible for auto-queueing
         :param merge_method: (experimental) The method used to add the PR to the merge queue Any branch protection rules must allow this merge method. Default: MergeMethod.SQUASH
         :param projen_credentials: (experimental) Choose a method for authenticating with GitHub to enable auto-queue on pull requests. The workflow cannot use a default github token. Queuing a PR with the default token will not trigger any merge queue workflows, which results in the PR just not getting merged at all. Default: - uses credentials from the GitHub component
-        :param target_branches: (experimental) The branch names that we should auto-queue for. This set of branches should be a subset of ``MergeQueueOptions.targetBranches``. Be sure not to enable ``autoQueue`` for branches that don't have branch rules with merge requirements set up, otherwise new PRs will be merged immediately after creating without a chance for review. Automatically merging a set of Stacked PRs If you set this to ``['main']`` you can automatically merge a set of Stacked PRs in the right order. It works like this: - Create PR #1 from branch ``a``, targeting ``main``. - Create PR #2 from branch ``b``, targeting branch ``a``. - Create PR #3 from branch ``c``, targeting branch ``b``. Initially, PR #1 will be set to auto-merge, PRs #2 and #3 will not. Once PR #1 passes all of its requirements it will merge. That will delete branch ``a`` and change the target branch of PR #2 change to ``main``. At that point, auto-queueing will switch on for PR #2 and it gets merged, etc. .. epigraph:: [!IMPORTANT] This component will never disable AutoMerge, only enable it. So if a PR is initially targeted at one of the branches in this list, and then subsequently retargeted to another branch, *AutoMerge is not automatically turned off*.
+        :param target_branches: (experimental) The branch names that we should auto-queue for. This set of branches should be a subset of ``MergeQueueOptions.targetBranches``. .. epigraph:: [!IMPORTANT] Be sure not to enable ``autoQueue`` for branches that don't have branch rules with merge requirements set up, otherwise new PRs will be merged immediately after creating without a chance for review. Even worse, if you have any PRs that get merged without human review, like dependency upgrades, an attacker can have quickly automerge their own PR into the automerged dependency upgrade PR! Automatically merging a set of Stacked PRs If you set this to ``['main']`` (the default) you can automatically merge a set of Stacked PRs in the right order. It works like this: - Create PR #1 from branch ``a``, targeting ``main``. - Create PR #2 from branch ``b``, targeting branch ``a``. - Create PR #3 from branch ``c``, targeting branch ``b``. Initially, PR #1 will be set to auto-merge, PRs #2 and #3 will not. Once PR #1 passes all of its requirements it will merge. That will delete branch ``a`` and change the target branch of PR #2 change to ``main``. At that point, auto-queueing will switch on for PR #2 and it gets merged, etc. .. epigraph:: [!IMPORTANT] This component will never disable AutoMerge, only enable it. So if a PR is initially targeted at one of the branches in this list, and then subsequently retargeted to another branch, *AutoMerge is not automatically turned off*. Default: ['main']
 
         :stability: experimental
         '''
@@ -866,16 +866,21 @@ class AutoQueueOptions(_projen_04054675.RunsOnOptions):
         '''(experimental) The branch names that we should auto-queue for.
 
         This set of branches should be a subset of ``MergeQueueOptions.targetBranches``.
+        .. epigraph::
 
-        Be sure not to enable ``autoQueue`` for branches that don't have branch rules
-        with merge requirements set up, otherwise new PRs will be merged
-        immediately after creating without a chance for review.
+           [!IMPORTANT]
+           Be sure not to enable ``autoQueue`` for branches that don't have branch rules
+           with merge requirements set up, otherwise new PRs will be merged
+           immediately after creating without a chance for review. Even worse, if you
+           have any PRs that get merged without human review, like dependency upgrades,
+           an attacker can have quickly automerge their own PR into the automerged
+           dependency upgrade PR!
 
 
         Automatically merging a set of Stacked PRs
 
-        If you set this to ``['main']`` you can automatically merge a set of Stacked PRs
-        in the right order. It works like this:
+        If you set this to ``['main']`` (the default) you can automatically merge a
+        set of Stacked PRs in the right order. It works like this:
 
         - Create PR #1 from branch ``a``, targeting ``main``.
         - Create PR #2 from branch ``b``, targeting branch ``a``.
@@ -893,6 +898,8 @@ class AutoQueueOptions(_projen_04054675.RunsOnOptions):
            initially targeted at one of the branches in this list, and then
            subsequently retargeted to another branch, *AutoMerge is not
            automatically turned off*.
+
+        :default: ['main']
 
         :stability: experimental
         '''

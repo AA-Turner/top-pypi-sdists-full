@@ -655,7 +655,7 @@ def test_the_stub_carries_no_policy(repo):
     body = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
     assert "invisible_core.hooks" in body, "the stub does not reach the policy"
     for token in ("pytest", "sync_core_pin", "check_forbidden_names",
-                  "version_gate", "verify-index", "INVISIBLE_PIN_CHECK",
+                  "invisible_core.release", "verify-index", "INVISIBLE_PIN_CHECK",
                   "INVISIBLE_NAME_CHECK", "refs/tags"):
         assert token not in body, (
             f"{repo}'s stub decides something about {token!r}. That decision "

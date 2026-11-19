@@ -280,6 +280,11 @@ class ConnectResource:
         *,
         redirect_url: str | None = None,
         reconnect_account_id: str | None = None,
+        welcome: bool | None = None,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        welcome_theme: str | None = None,
     ) -> dict[str, Any]:
         """Get Google Analytics OAuth connect URL"""
         params = self._build_query(
@@ -287,6 +292,11 @@ class ConnectResource:
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
                 "reconnectAccountId": reconnect_account_id,
+                "welcome": welcome,
+                "brandName": brand_name,
+                "logoUrl": logo_url,
+                "primaryColor": primary_color,
+                "welcomeTheme": welcome_theme,
             }
         )
         return self._client._get("/v1/connect/googleanalytics", params=params)
@@ -324,6 +334,11 @@ class ConnectResource:
         *,
         redirect_url: str | None = None,
         reconnect_account_id: str | None = None,
+        welcome: bool | None = None,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        welcome_theme: str | None = None,
     ) -> dict[str, Any]:
         """Get Google Search Console OAuth connect URL"""
         params = self._build_query(
@@ -331,6 +346,11 @@ class ConnectResource:
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
                 "reconnectAccountId": reconnect_account_id,
+                "welcome": welcome,
+                "brandName": brand_name,
+                "logoUrl": logo_url,
+                "primaryColor": primary_color,
+                "welcomeTheme": welcome_theme,
             }
         )
         return self._client._get("/v1/connect/googlesearchconsole", params=params)
@@ -955,6 +975,7 @@ class ConnectResource:
         event_key: str,
         profile_id: str,
         *,
+        report_key: str | None = None,
         name: str | None = None,
         state: str | None = None,
         redirect_url: str | None = None,
@@ -964,6 +985,7 @@ class ConnectResource:
             {
                 "apiKey": api_key,
                 "eventKey": event_key,
+                "reportKey": report_key,
                 "name": name,
                 "profileId": profile_id,
                 "state": state,
@@ -971,6 +993,29 @@ class ConnectResource:
             }
         )
         return self._client._post("/v1/connect/applovin-ads/credentials", data=payload)
+
+    def connect_snapchat_ads_credentials(
+        self,
+        access_token: str,
+        pixel_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Snapchat Ads pixel"""
+        payload = self._build_body(
+            {
+                "accessToken": access_token,
+                "pixelId": pixel_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return self._client._post("/v1/connect/snapchat-ads/credentials", data=payload)
 
     def connect_whop_ads_credentials(
         self,
@@ -1919,6 +1964,11 @@ class ConnectResource:
         *,
         redirect_url: str | None = None,
         reconnect_account_id: str | None = None,
+        welcome: bool | None = None,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        welcome_theme: str | None = None,
     ) -> dict[str, Any]:
         """Get Google Analytics OAuth connect URL (async)"""
         params = self._build_query(
@@ -1926,6 +1976,11 @@ class ConnectResource:
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
                 "reconnectAccountId": reconnect_account_id,
+                "welcome": welcome,
+                "brandName": brand_name,
+                "logoUrl": logo_url,
+                "primaryColor": primary_color,
+                "welcomeTheme": welcome_theme,
             }
         )
         return await self._client._aget("/v1/connect/googleanalytics", params=params)
@@ -1963,6 +2018,11 @@ class ConnectResource:
         *,
         redirect_url: str | None = None,
         reconnect_account_id: str | None = None,
+        welcome: bool | None = None,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        welcome_theme: str | None = None,
     ) -> dict[str, Any]:
         """Get Google Search Console OAuth connect URL (async)"""
         params = self._build_query(
@@ -1970,6 +2030,11 @@ class ConnectResource:
                 "profileId": profile_id,
                 "redirect_url": redirect_url,
                 "reconnectAccountId": reconnect_account_id,
+                "welcome": welcome,
+                "brandName": brand_name,
+                "logoUrl": logo_url,
+                "primaryColor": primary_color,
+                "welcomeTheme": welcome_theme,
             }
         )
         return await self._client._aget(
@@ -2612,6 +2677,7 @@ class ConnectResource:
         event_key: str,
         profile_id: str,
         *,
+        report_key: str | None = None,
         name: str | None = None,
         state: str | None = None,
         redirect_url: str | None = None,
@@ -2621,6 +2687,7 @@ class ConnectResource:
             {
                 "apiKey": api_key,
                 "eventKey": event_key,
+                "reportKey": report_key,
                 "name": name,
                 "profileId": profile_id,
                 "state": state,
@@ -2629,6 +2696,31 @@ class ConnectResource:
         )
         return await self._client._apost(
             "/v1/connect/applovin-ads/credentials", data=payload
+        )
+
+    async def aconnect_snapchat_ads_credentials(
+        self,
+        access_token: str,
+        pixel_id: str,
+        profile_id: str,
+        *,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect a Snapchat Ads pixel (async)"""
+        payload = self._build_body(
+            {
+                "accessToken": access_token,
+                "pixelId": pixel_id,
+                "name": name,
+                "profileId": profile_id,
+                "state": state,
+                "redirect_url": redirect_url,
+            }
+        )
+        return await self._client._apost(
+            "/v1/connect/snapchat-ads/credentials", data=payload
         )
 
     async def aconnect_whop_ads_credentials(

@@ -165,8 +165,9 @@ def test_unpinned_planning_reaches_a_registered_key(
     responders = Responders(quality_failure=quality_failure)
     result = dispatch(tmp_path, responders)
     assert result["status"] == "completed", result
-    tiers = list(dict.fromkeys(call.model_tier for call in responders.calls))
-    assert tiers == ["local", "cheap_cloud", "customer_keys"]
+    # OMN-23413 AC22: the registered key is the developer's selection, so it
+    # answers directly; the built-in local and house cloud rungs are passed over.
+    assert {call.provider for call in responders.calls} == {"byok-openrouter"}
     assert responders.calls[-1].provider == "byok-openrouter"
     assert responders.calls[-1].model_id == "openrouter-tested-model"
 
@@ -201,23 +202,90 @@ def test_keys_follow_registration_order_with_bounded_existing_retries(
         call.provider for call in responders.calls if call.provider.startswith("byok-")
     ]
     assert list(dict.fromkeys(byok)) == ["byok-openrouter", "byok-gemini"]
-    from omnimarket.routing.byok_provider_backends import byok_backend_max_retries
+    from omnimarket.handlers.routing.byok_provider_backends import (
+        byok_backend_max_retries,
+    )
 
     for backend_id in set(byok):
         assert byok.count(backend_id) == 1 + (byok_backend_max_retries(backend_id) or 0)
+
+
+def test_a_just_observed_cap_skips_retries_and_moves_to_the_next_key(
+    profile, tmp_path: Path
+):
+    from datetime import UTC, datetime, timedelta
+
+    from omnimarket.events.provider_quota import EnumProviderQuotaSource
+    from omnimarket.inference.provider_quota_observation import build_quota_observation
+    from omnimarket.inference.provider_quota_policy import ModelQuotaVerdict
+    from omnimarket.models.delegation.wire.model_bifrost_delegation_config import (
+        EnumQuotaDisposition,
+        EnumQuotaScope,
+    )
+
+    HandlerLocalSecretStore().handle(
+        ModelLocalSecretRequest(
+            operation="set",
+            secret_ref="llm.openrouter.api_key",
+            value=SecretStr("synthetic-lab-test-value"),
+            models=("openrouter-tested-model", "openrouter-second-model"),
+            force=True,
+        )
+    )
+    add_key("gemini")
+
+    class CappedResponders(Responders):
+        def __call__(self, request):
+            if request.provider != "byok-openrouter":
+                return super().__call__(request)
+            self.calls.append(request)
+            now = datetime.now(UTC)
+            observation = build_quota_observation(
+                tenant_id=None,
+                endpoint_url="https://openrouter.ai/api/v1/chat/completions",
+                api_key_ref=request.secret_ref,
+                model_name=request.model_id,
+                succeeded=False,
+                observed_at=now,
+                latency_ms=1,
+                source=EnumProviderQuotaSource.INPROCESS_EFFECT,
+                http_status=429,
+                verdict=ModelQuotaVerdict(
+                    disposition=EnumQuotaDisposition.DISABLE_UNTIL_RESET,
+                    provider_id="openrouter",
+                    provider_code="429",
+                    scope=EnumQuotaScope.PROVIDER,
+                    disabled_until=now + timedelta(hours=12),
+                ),
+            )
+            return ModelLlmDelegationCallResult(
+                request_id=request.request_id,
+                success=False,
+                error_message="Rate limit exceeded: free-models-per-day-high-balance.",
+                failure_class=EnumDelegationFailureClass.RATE_LIMITED,
+                quota_observation=observation,
+            )
+
+    responders = CappedResponders()
+    result = dispatch(tmp_path, responders)
+    assert result["status"] == "completed", result
+    byok = [
+        call.provider for call in responders.calls if call.provider.startswith("byok-")
+    ]
+    assert byok == ["byok-openrouter", "byok-gemini"]
 
 
 def test_planning_uses_the_registered_key_over_real_http_unpinned(
     profile, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     """Lab profile: real skill handler, resolver, secret boundary and HTTP effect."""
+    from omnimarket.handlers.routing import byok_provider_backends
     from omnimarket.models.delegation.wire.model_delegate_skill_request import (
         ModelDelegateSkillRequest,
     )
     from omnimarket.nodes.node_delegate_skill_orchestrator.handlers.handler_delegate_skill import (
         HandlerDelegateSkill,
     )
-    from omnimarket.routing import byok_provider_backends
     from tests.chains.local.harness import LocalProviderStub, local_byok_catalogue
 
     provider = LocalProviderStub(model_id="openrouter-tested-model", content=ANSWER)
@@ -250,10 +318,10 @@ def test_planning_uses_the_registered_key_over_real_http_unpinned(
         # Assert only the boolean: never include a credential in failure output.
         credential_matches = provider.presented_credential == "synthetic-lab-test-value"
         assert credential_matches
-        assert list(
-            dict.fromkeys(attempt["tier"] for attempt in payload["attempts"])
-        ) == ["local", "cheap_cloud", "customer_keys"]
-        assert payload["attempts"][-1]["backend_id"] == "byok-openrouter"
+        # OMN-23413 AC22: only the selected key is tried; no built-in rung.
+        assert {attempt["backend_id"] for attempt in payload["attempts"]} == {
+            "byok-openrouter"
+        }
         credential_absent_from_result = "synthetic-lab-test-value" not in str(payload)
         assert credential_absent_from_result
     finally:
@@ -272,7 +340,7 @@ def test_registered_keys_respect_routing_policy(
 ):
     from copy import deepcopy
 
-    from omnimarket.routing.local_byok_route import registered_byok_routes
+    from omnimarket.handlers.routing.local_byok_route import registered_byok_routes
 
     add_key("openrouter")
     if policy == "paid_disabled":
@@ -318,8 +386,8 @@ def test_deployed_resolver_never_reads_a_host_local_key(profile):
 def test_registered_key_snapshot_honors_quota(profile):
     from datetime import UTC, datetime
 
+    from omnimarket.handlers.routing.local_byok_route import registered_byok_routes
     from omnimarket.inference.provider_quota_state import ModelProviderQuotaSnapshot
-    from omnimarket.routing.local_byok_route import registered_byok_routes
 
     add_key("openrouter")
     assert registered_byok_routes()
@@ -330,7 +398,7 @@ def test_registered_key_snapshot_honors_quota(profile):
 
 
 def test_no_overlay_keeps_the_packaged_policy(profile, monkeypatch: pytest.MonkeyPatch):
-    from omnimarket.routing.local_byok_route import registered_byok_routes
+    from omnimarket.handlers.routing.local_byok_route import registered_byok_routes
 
     add_key("openrouter")
     monkeypatch.delenv("DELEGATION_ROUTING_OVERLAY_PATH")

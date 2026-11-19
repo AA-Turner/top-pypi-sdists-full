@@ -109,6 +109,7 @@ from .literals import (
     PolicyStatusType,
     PolicyValidationModeType,
     PrincipalMatchOperatorType,
+    PrivilegeModeType,
     ProviderType,
     RegistryAuthorizerTypeType,
     RegistryRecordCredentialProviderTypeType,
@@ -679,6 +680,7 @@ __all__ = (
     "LimitEntryUnionTypeDef",
     "LinkedinOauth2ProviderConfigInputTypeDef",
     "LinkedinOauth2ProviderConfigOutputTypeDef",
+    "LinuxOperatingSystemConfigurationTypeDef",
     "ListAgentInsightStoresRequestPaginateTypeDef",
     "ListAgentInsightStoresRequestTypeDef",
     "ListAgentInsightStoresResponseTypeDef",
@@ -890,6 +892,7 @@ __all__ = (
     "OnBehalfOfTokenExchangeConfigTypeUnionTypeDef",
     "OnlineEvaluationConfigSummaryTypeDef",
     "OpenResponsesEvaluatorModelConfigTypeDef",
+    "OperatingSystemConfigurationTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
     "PassthroughTargetConfigurationOutputTypeDef",
@@ -966,6 +969,7 @@ __all__ = (
     "RuntimeHooksConfigurationTypeDef",
     "RuntimeMetadataConfigurationTypeDef",
     "RuntimeTargetConfigurationTypeDef",
+    "S3BucketMountConfigurationTypeDef",
     "S3CertificateConfigurationTypeDef",
     "S3ConfigurationTypeDef",
     "S3FilesAccessPointConfigurationTypeDef",
@@ -1355,10 +1359,6 @@ class BrowserSummaryTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
     lastUpdatedAt: NotRequired[datetime]
-
-
-class CapacityProviderConfigurationTypeDef(TypedDict):
-    capacityProviderArn: str
 
 
 class CapacityProviderSummaryTypeDef(TypedDict):
@@ -2049,6 +2049,14 @@ class FallbackTriggersTypeDef(TypedDict):
     errors: NotRequired[Sequence[FallbackErrorType]]
 
 
+class S3BucketMountConfigurationTypeDef(TypedDict):
+    bucket: str
+    mountPath: str
+    prefix: NotRequired[str]
+    s3BucketOwner: NotRequired[str]
+    s3BucketRegion: NotRequired[str]
+
+
 class S3FilesAccessPointConfigurationTypeDef(TypedDict):
     accessPointArn: str
     mountPath: str
@@ -2511,6 +2519,10 @@ class LicenseSpecificationTypeDef(TypedDict):
 class RateConfigTypeDef(TypedDict):
     rate: float
     period: PeriodType
+
+
+class LinuxOperatingSystemConfigurationTypeDef(TypedDict):
+    privilegeMode: NotRequired[PrivilegeModeType]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -4456,6 +4468,7 @@ class FilesystemConfigurationTypeDef(TypedDict):
     s3FilesAccessPoint: NotRequired[S3FilesAccessPointConfigurationTypeDef]
     efsAccessPoint: NotRequired[EfsAccessPointConfigurationTypeDef]
     capacityProviderVolume: NotRequired[CapacityProviderVolumeConfigurationTypeDef]
+    s3BucketMount: NotRequired[S3BucketMountConfigurationTypeDef]
 
 
 FilterTypeDef = TypedDict(
@@ -4746,6 +4759,10 @@ class LimitEntryTypeDef(TypedDict):
     requests: NotRequired[Sequence[RateConfigTypeDef]]
     tokens: NotRequired[Sequence[RateConfigTypeDef]]
     connections: NotRequired[Sequence[RateConfigTypeDef]]
+
+
+class OperatingSystemConfigurationTypeDef(TypedDict):
+    linux: NotRequired[LinuxOperatingSystemConfigurationTypeDef]
 
 
 class ListAgentInsightStoresRequestPaginateTypeDef(TypedDict):
@@ -5856,6 +5873,11 @@ class UpdateGatewayRateLimitResponseTypeDef(TypedDict):
 
 
 LimitEntryUnionTypeDef = Union[LimitEntryTypeDef, LimitEntryOutputTypeDef]
+
+
+class CapacityProviderConfigurationTypeDef(TypedDict):
+    capacityProviderArn: str
+    operatingSystemConfiguration: NotRequired[OperatingSystemConfigurationTypeDef]
 
 
 class GatewayProtocolConfigurationOutputTypeDef(TypedDict):

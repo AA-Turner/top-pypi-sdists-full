@@ -39,6 +39,7 @@ DataAutomationStageType = Literal["DEVELOPMENT", "LIVE"]
 SemanticModalityType = Literal["AUDIO", "DOCUMENT", "IMAGE", "VIDEO"]
 RuntimeforBedrockDataAutomationServiceName = Literal["bedrock-data-automation-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

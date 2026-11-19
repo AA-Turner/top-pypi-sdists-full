@@ -56,6 +56,7 @@ SortDirectionType = Literal["ASC", "DESC"]
 StatusType = Literal["DISABLED", "ENABLED", "FORCE_ENABLED"]
 WickrAdminAPIServiceName = Literal["wickr"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

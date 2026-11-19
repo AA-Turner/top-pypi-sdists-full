@@ -345,6 +345,7 @@ class ParserConfig(BaseModel):
     skip_root_model: bool = False
     use_root_model_sequence_interface: bool = False
     use_type_alias: bool = False
+    use_validate_default_for_root_model_type_aliases: bool = False
     use_plain_alias_for_recursive_models: bool = False
     special_field_name_prefix: str | None = None
     remove_special_field_name_prefix: bool = False
@@ -355,11 +356,13 @@ class ParserConfig(BaseModel):
     use_one_literal_as_default: bool = False
     use_enum_values_in_discriminator: bool = False
     merge_shared_variant_tags: bool = False
+    use_unmapped_variant_tag_values: bool = False
     read_schema_version_per_document: bool = False
     read_escaped_ref_pointers: bool = False
     read_dynamic_anchors_in_document_order: bool = False
     read_ids_with_empty_fragment: bool = False
     read_single_allof_refs_in_their_documents: bool = False
+    read_ref_siblings_in_closed_allof_members: bool = False
     ignore_ref_siblings_by_schema_version: bool = False
     read_yaml_1_1_numbers_as_text: bool = False
     use_msgspec_tagged_unions: bool = False

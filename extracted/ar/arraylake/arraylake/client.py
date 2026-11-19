@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import warnings
-from collections.abc import AsyncGenerator, Callable, Generator, Iterable, Mapping
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator, Iterable, Mapping
 from datetime import UTC
 from functools import partial
 from typing import TYPE_CHECKING, Literal
@@ -63,7 +63,7 @@ from arraylake.repos.icechunk.virtual import (
     warn_authorize_virtual_chunk_access_method_deprecated,
     warn_if_authorize_virtual_chunk_access_passed,
 )
-from arraylake.token import get_auth_handler, get_fresh_id_token
+from arraylake.token import get_auth_handler, get_fresh_id_token, has_token_file
 from arraylake.types import (
     ICECHUNK_ANY_CREDENTIAL,
     URI,
@@ -110,9 +110,13 @@ from arraylake.types import Repo as RepoModel
 if TYPE_CHECKING:
     import obstore as obs
     import openeo
+    import zax_client
     from pyiceberg.catalog.rest import RestCatalog
 
 logger = get_logger(__name__)
+
+# The compute NLB listener that doorman routes zax on, shared with Flight SQL.
+ZAX_PORT = 32010
 
 _VALID_NAME = r"(\w[\w\.\-_]+)"
 
@@ -169,6 +173,7 @@ class AsyncClient:
 
         self.token = token
         self._cache_credentials = cache_credentials
+        self._refresh_urls: dict[CredentialCacheKey, str] = {}
 
     @property
     def service_uri(self) -> str:
@@ -190,9 +195,23 @@ class AsyncClient:
     def __repr__(self):
         return f"arraylake.AsyncClient(service_uri='{self.service_uri}')"
 
-    def _metastore_for_org(self, org: OrgName) -> HttpMetastore:
+    def _metastore_config(self, org: OrgName, *, anonymous: bool) -> HttpMetastoreConfig:
         validate_name(org, entity="org")
-        return HttpMetastore(HttpMetastoreConfig(self.service_uri, org, self.token))
+        return HttpMetastoreConfig(self.service_uri, org, self.token, anonymous=anonymous)
+
+    def _metastore_for_org(self, org: OrgName) -> HttpMetastore:
+        return HttpMetastore(self._metastore_config(org, anonymous=False))
+
+    def _metastore(self, config: HttpMetastoreConfig) -> HttpMetastore:
+        return HttpMetastore(config) if config.anonymous else self._metastore_for_org(config.org)
+
+    def _is_anonymous(self) -> bool:
+        """No token and no token file. A malformed token file is not anonymous: it raises on use."""
+        return self.token is None and not has_token_file(self.service_uri)
+
+    def _read_metastore_config(self, org: OrgName) -> HttpMetastoreConfig:
+        """The auth mode for reading one repo, decided once when it is opened and kept by its refresh functions."""
+        return self._metastore_config(org, anonymous=self._is_anonymous())
 
     async def list_repos(self, org: OrgName, filter_metadata: RepoMetadataT | None = None, include_ghosts: bool = False) -> RepoList:
         """List all repositories for the specified org
@@ -271,16 +290,27 @@ class AsyncClient:
         identifier: str,
         platform: Platform,
         access: Literal["read", "write"] = "read",
+        anonymous: bool,
     ) -> CredentialCacheKey:
         return CredentialCacheKey(
             api_url=self.service_uri,
-            auth_key=hash(self.token),
+            auth_key=hash((self.token, anonymous)),
             scope=scope,
             org=org,
             identifier=identifier,
             platform=platform,
             access=access,
         )
+
+    async def _fetch_credentials(
+        self, key: CredentialCacheKey, mstore: HttpMetastore, fetch_default: Callable[[], Awaitable[TempCredentials]]
+    ) -> TempCredentials:
+        """Prefer the refresh url the server returned with the last credentials for ``key``; servers without one use ``fetch_default``."""
+        url = self._refresh_urls.get(key)
+        creds = await (mstore.get_credentials_from_refresh_url(url) if url is not None else fetch_default())
+        if creds.refresh is not None:
+            self._refresh_urls[key] = creds.refresh.url
+        return creds
 
     async def _get_s3_delegated_credentials_from_repo(self, org: OrgName, repo_name: RepoName) -> S3Credentials:
         """Get delegated credentials for a repo's S3 bucket.
@@ -292,11 +322,11 @@ class AsyncClient:
         Returns:
             S3Credentials: Temporary credentials for the S3 bucket.
         """
-        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform="s3")
+        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform="s3", anonymous=False)
 
-        async def fetch() -> S3Credentials:
+        async def fetch() -> TempCredentials:
             mstore = self._metastore_for_org(org)
-            return await mstore.get_s3_bucket_credentials_from_repo(repo_name)
+            return await self._fetch_credentials(key, mstore, lambda: mstore.get_bucket_credentials_from_repo(repo_name))
 
         creds = await get_or_refresh(key, fetch, use_cache=self._cache_credentials)
         assert isinstance(creds, S3Credentials)
@@ -312,11 +342,11 @@ class AsyncClient:
         Returns:
             GSCredentials: Temporary credentials for the GCS bucket.
         """
-        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform="gs")
+        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform="gs", anonymous=False)
 
-        async def fetch() -> GSCredentials:
+        async def fetch() -> TempCredentials:
             mstore = self._metastore_for_org(org)
-            return await mstore.get_gs_bucket_credentials_from_repo(repo_name)
+            return await self._fetch_credentials(key, mstore, lambda: mstore.get_bucket_credentials_from_repo(repo_name))
 
         creds = await get_or_refresh(key, fetch, use_cache=self._cache_credentials)
         assert isinstance(creds, GSCredentials)
@@ -332,11 +362,11 @@ class AsyncClient:
         Returns:
             AzureCredentials: Temporary credentials for the Azure Blob Storage container.
         """
-        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform="azure")
+        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform="azure", anonymous=False)
 
-        async def fetch() -> AzureCredentials:
+        async def fetch() -> TempCredentials:
             mstore = self._metastore_for_org(org)
-            return await mstore.get_azure_container_credentials_from_repo(repo_name)
+            return await self._fetch_credentials(key, mstore, lambda: mstore.get_bucket_credentials_from_repo(repo_name))
 
         creds = await get_or_refresh(key, fetch, use_cache=self._cache_credentials)
         assert isinstance(creds, AzureCredentials)
@@ -358,12 +388,12 @@ class AsyncClient:
         Returns:
             S3Credentials: Temporary credentials for the S3 bucket.
         """
-        key = self._credential_cache_key(scope="bucket", org=org, identifier=nickname, platform="s3", access=access)
+        key = self._credential_cache_key(scope="bucket", org=org, identifier=nickname, platform="s3", access=access, anonymous=False)
 
-        async def fetch() -> S3Credentials:
+        async def fetch() -> TempCredentials:
             mstore = self._metastore_for_org(org)
             bucket_id = await self._bucket_id_for_nickname(mstore, nickname)
-            return await mstore.get_s3_bucket_credentials_from_bucket(bucket_id, access=access)
+            return await self._fetch_credentials(key, mstore, lambda: mstore.get_bucket_credentials_from_bucket(bucket_id, access=access))
 
         creds = await get_or_refresh(key, fetch, use_cache=self._cache_credentials)
         assert isinstance(creds, S3Credentials)
@@ -385,12 +415,12 @@ class AsyncClient:
         Returns:
             GSCredentials: Temporary credentials for the GCS bucket.
         """
-        key = self._credential_cache_key(scope="bucket", org=org, identifier=nickname, platform="gs", access=access)
+        key = self._credential_cache_key(scope="bucket", org=org, identifier=nickname, platform="gs", access=access, anonymous=False)
 
-        async def fetch() -> GSCredentials:
+        async def fetch() -> TempCredentials:
             mstore = self._metastore_for_org(org)
             bucket_id = await self._bucket_id_for_nickname(mstore, nickname)
-            return await mstore.get_gs_bucket_credentials_from_bucket(bucket_id, access=access)
+            return await self._fetch_credentials(key, mstore, lambda: mstore.get_bucket_credentials_from_bucket(bucket_id, access=access))
 
         creds = await get_or_refresh(key, fetch, use_cache=self._cache_credentials)
         assert isinstance(creds, GSCredentials)
@@ -412,18 +442,20 @@ class AsyncClient:
         Returns:
             AzureCredentials: Temporary credentials for the Azure Blob Storage container.
         """
-        key = self._credential_cache_key(scope="bucket", org=org, identifier=nickname, platform="azure", access=access)
+        key = self._credential_cache_key(scope="bucket", org=org, identifier=nickname, platform="azure", access=access, anonymous=False)
 
-        async def fetch() -> AzureCredentials:
+        async def fetch() -> TempCredentials:
             mstore = self._metastore_for_org(org)
             bucket_id = await self._bucket_id_for_nickname(mstore, nickname)
-            return await mstore.get_azure_container_credentials_from_bucket(bucket_id, access=access)
+            return await self._fetch_credentials(key, mstore, lambda: mstore.get_bucket_credentials_from_bucket(bucket_id, access=access))
 
         creds = await get_or_refresh(key, fetch, use_cache=self._cache_credentials)
         assert isinstance(creds, AzureCredentials)
         return creds
 
-    def _get_icechunk_s3_credentials_refresh_function_for_repo(self, org: OrgName, repo_name: RepoName) -> icechunk.S3StaticCredentials:
+    def _get_icechunk_s3_credentials_refresh_function_for_repo(
+        self, mstore_config: HttpMetastoreConfig, repo_name: RepoName
+    ) -> icechunk.S3StaticCredentials:
         """Get a function that returns S3 credentials for the given org and repo
         for credential refreshes in Icechunk.
 
@@ -431,13 +463,13 @@ class AsyncClient:
         S3StaticCredentials object, and must be synchronous.
 
         Args:
-            org: Name of the org
+            mstore_config: Metastore config the repo was opened with, which fixes its org and auth mode
             repo_name: Name of the repo
 
         Returns:
             Callable: Function that returns a S3StaticCredentials object.
         """
-        credentials = asyncio_run(self._refresh_repo_bucket_credentials(org, repo_name, "s3"), timeout=None)
+        credentials = asyncio_run(self._refresh_repo_bucket_credentials(mstore_config, repo_name, "s3"), timeout=None)
         assert isinstance(credentials, S3Credentials)
         return icechunk.S3StaticCredentials(
             access_key_id=credentials.aws_access_key_id,
@@ -446,7 +478,9 @@ class AsyncClient:
             expires_after=credentials.expiration,
         )
 
-    def _get_icechunk_gcs_credentials_refresh_function_for_repo(self, org: OrgName, repo_name: RepoName) -> icechunk.GcsBearerCredential:
+    def _get_icechunk_gcs_credentials_refresh_function_for_repo(
+        self, mstore_config: HttpMetastoreConfig, repo_name: RepoName
+    ) -> icechunk.GcsBearerCredential:
         """Get a function that returns GCS credentials for the given org and repo
         for credential refreshes in Icechunk.
 
@@ -454,13 +488,13 @@ class AsyncClient:
         GcsBearerCredential object, and must be synchronous.
 
         Args:
-            org: Name of the org
+            mstore_config: Metastore config the repo was opened with, which fixes its org and auth mode
             repo_name: Name of the repo
 
         Returns:
             Callable: Function that returns a GcsBearerCredential object.
         """
-        credentials = asyncio_run(self._refresh_repo_bucket_credentials(org, repo_name, "gs"), timeout=None)
+        credentials = asyncio_run(self._refresh_repo_bucket_credentials(mstore_config, repo_name, "gs"), timeout=None)
         assert isinstance(credentials, GSCredentials)
         return icechunk.GcsBearerCredential(
             bearer=credentials.access_token,
@@ -523,7 +557,7 @@ class AsyncClient:
     ) -> icechunk.AzureStaticCredentials:
         raise NotImplementedError("Azure credential refreshes not implemented in Icechunk.")
 
-    def _populate_credential_cache(self, org: OrgName, repo_name: RepoName, response: OpenRepoResponse) -> None:
+    def _populate_credential_cache(self, mstore_config: HttpMetastoreConfig, repo_name: RepoName, response: OpenRepoResponse) -> None:
         """Seed the credential cache with every delegated credential from an open-repo response.
 
         A single ``/open`` returns fresh credentials for the repo's own bucket and for all of
@@ -533,37 +567,42 @@ class AsyncClient:
         """
         if not self._cache_credentials:
             return
+        org, anonymous = mstore_config.org, mstore_config.anonymous
         if response.repo_credentials is not None:
             platform = self._delegated_credential_platform(response.repo_bucket)
             if platform is not None:
                 populate(
-                    self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform=platform),
+                    self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform=platform, anonymous=anonymous),
                     response.repo_credentials,
                 )
         for vcc_prefix, vcc_creds in response.virtual_chunk_credentials.items():
             if vcc_creds.credentials is not None and vcc_creds.credentials.expiration is not None:
                 populate(
-                    self._credential_cache_key(scope="vcc", org=org, identifier=vcc_prefix, platform=vcc_creds.platform),
+                    self._credential_cache_key(
+                        scope="vcc", org=org, identifier=vcc_prefix, platform=vcc_creds.platform, anonymous=anonymous
+                    ),
                     vcc_creds.credentials,
                 )
 
-    async def _open_repo_and_cache(self, org: OrgName, repo_name: RepoName) -> OpenRepoResponse:
+    async def _open_repo_and_cache(self, mstore_config: HttpMetastoreConfig, repo_name: RepoName) -> OpenRepoResponse:
         """Open the repo once and seed the credential cache with all of its delegated credentials."""
-        mstore = self._metastore_for_org(org)
-        response = await mstore.open_repo(repo_name)
-        self._populate_credential_cache(org, repo_name, response)
+        response = await self._metastore(mstore_config).open_repo(repo_name)
+        self._populate_credential_cache(mstore_config, repo_name, response)
         return response
 
-    async def _refresh_repo_bucket_credentials(self, org: OrgName, repo_name: RepoName, platform: Platform) -> TempCredentials:
+    async def _refresh_repo_bucket_credentials(
+        self, mstore_config: HttpMetastoreConfig, repo_name: RepoName, platform: Platform
+    ) -> TempCredentials:
         """Refresh the repo's own bucket credentials via ``/open``, going through the cache.
 
         Because ``/open`` also seeds the virtual chunk container credentials, a single repo-bucket
         refresh lands fresh credentials for the repo bucket and every virtual bucket at once.
         """
-        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform=platform)
+        org = mstore_config.org
+        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform=platform, anonymous=mstore_config.anonymous)
 
         async def fetch() -> TempCredentials:
-            response = await self._open_repo_and_cache(org, repo_name)
+            response = await self._open_repo_and_cache(mstore_config, repo_name)
             if response.repo_credentials is None:
                 raise ValueError(f"Repo '{org}/{repo_name}' returned no refreshable credentials.")
             return response.repo_credentials
@@ -573,27 +612,31 @@ class AsyncClient:
     async def _get_vcc_credentials_from_repo(
         self, org: OrgName, repo_name: RepoName, vcc_prefix: BucketPrefix, platform: Platform
     ) -> TempCredentials:
-        """Re-fetch credentials for a single virtual chunk container, going through the cache.
-
-        On a cache miss this re-opens the repo, which both refreshes the requested container's
-        credentials and seeds the cache for the repo bucket and all other containers. Reusing the
-        repo-open path means refreshes inherit the same authorization and resolution as the initial
-        open, including cross-org (filtered subscription / exchange) virtual chunks — the server
-        never exposes the provider's org or bucket to us, only the credentials.
-        """
-        key = self._credential_cache_key(scope="vcc", org=org, identifier=vcc_prefix, platform=platform)
+        """Re-fetch one virtual chunk container's credentials through the cache, from the repo's ``bucket-credentials?container=``.
+        The server applies the same authorization as the initial open, including cross-org (subscription / exchange) containers."""
+        key = self._credential_cache_key(scope="vcc", org=org, identifier=vcc_prefix, platform=platform, anonymous=False)
 
         async def fetch() -> TempCredentials:
-            response = await self._open_repo_and_cache(org, repo_name)
-            vcc_creds = response.virtual_chunk_credentials.get(vcc_prefix)
-            if vcc_creds is None or vcc_creds.credentials is None:
-                raise ValueError(
-                    f"Could not refresh credentials for virtual chunk container prefix {vcc_prefix!r} in repo "
-                    f"'{org}/{repo_name}'; the repo may no longer authorize access to it."
-                )
-            return vcc_creds.credentials
+            mstore = self._metastore_for_org(org)
+            creds = await self._fetch_credentials(
+                key, mstore, lambda: mstore.get_bucket_credentials_from_repo(repo_name, container=vcc_prefix)
+            )
+            # Older servers ignore ``container`` and return the repo bucket's credentials, always without ``refresh``.
+            if creds.refresh is None:
+                return await self._vcc_credentials_from_open(org, repo_name, vcc_prefix)
+            return creds
 
         return await get_or_refresh(key, fetch, use_cache=self._cache_credentials)
+
+    async def _vcc_credentials_from_open(self, org: OrgName, repo_name: RepoName, vcc_prefix: BucketPrefix) -> TempCredentials:
+        response = await self._open_repo_and_cache(self._metastore_config(org, anonymous=False), repo_name)
+        vcc_creds = response.virtual_chunk_credentials.get(vcc_prefix)
+        if vcc_creds is None or vcc_creds.credentials is None:
+            raise ValueError(
+                f"Could not refresh credentials for virtual chunk container prefix {vcc_prefix!r} in repo "
+                f"'{org}/{repo_name}'; the repo may no longer authorize access to it."
+            )
+        return vcc_creds.credentials
 
     def _get_icechunk_s3_vcc_credentials_refresh_function(
         self, org: OrgName, repo_name: RepoName, vcc_prefix: BucketPrefix, platform: Platform
@@ -694,23 +737,24 @@ class AsyncClient:
         return None
 
     def _maybe_get_credential_refresh_func_for_icechunk(
-        self, bucket: BucketResponse, org: OrgName, repo_name: RepoName | None
+        self, bucket: BucketResponse, mstore_config: HttpMetastoreConfig, repo_name: RepoName | None
     ) -> Callable | None:  # Removed S3StaticCredentials output type so icechunk import is not required
         """Checks if the bucket is configured for delegated credentials and gets the
         refresh function if it is configured.
 
         Returns None if delegated credentials are not configured for the bucket.
         """
+        org = mstore_config.org
         if _use_delegated_credentials(bucket):
             platform = self._delegated_credential_platform(bucket)
             if platform == "s3":
                 if repo_name:
-                    return partial(self._get_icechunk_s3_credentials_refresh_function_for_repo, org, repo_name)
+                    return partial(self._get_icechunk_s3_credentials_refresh_function_for_repo, mstore_config, repo_name)
                 else:
                     return partial(self._get_icechunk_s3_credentials_refresh_function_for_bucket, org, bucket.nickname)
             elif platform == "gs":
                 if repo_name:
-                    return partial(self._get_icechunk_gcs_credentials_refresh_function_for_repo, org, repo_name)
+                    return partial(self._get_icechunk_gcs_credentials_refresh_function_for_repo, mstore_config, repo_name)
                 else:
                     return partial(self._get_icechunk_gcs_credentials_refresh_function_for_bucket, org, bucket.nickname)
             elif platform == "azure":
@@ -729,18 +773,19 @@ class AsyncClient:
             name: Full name of the repo (of the form [ORG]/[REPO])
         """
         org, repo_name = _parse_org_and_repo(name)
-        mstore = self._metastore_for_org(org)
+        mstore = self._metastore(self._read_metastore_config(org))
 
         repo_model = await mstore.get_database(repo_name)
         return repo_model
 
-    async def _open_repo_response(self, name: OrgAndRepoName) -> tuple[OrgName, RepoName, OpenRepoResponse]:
+    async def _open_repo_response(self, name: OrgAndRepoName) -> tuple[HttpMetastoreConfig, RepoName, OpenRepoResponse]:
         """Open a repo on the server and run the shared operation-mode checks.
 
-        Returns the parsed org, repo name, and the open-repo response.
+        Returns the metastore config the repo was opened with, the repo name, and the open-repo response.
         """
         org, repo_name = _parse_org_and_repo(name)
-        mstore = self._metastore_for_org(org)
+        mstore_config = self._read_metastore_config(org)
+        mstore = self._metastore(mstore_config)
 
         # Single API call to get everything needed to open the repo
         response = await mstore.open_repo(repo_name)
@@ -749,8 +794,14 @@ class AsyncClient:
             raise ValueError(_repo_status_text(f"Repo {name} is offline", response.status))
         elif response.status.mode == RepoOperationMode.MAINTENANCE:
             warnings.warn(_repo_status_text(f"Repo {name} is read-only for maintenance", response.status))
+        elif response.status.mode != RepoOperationMode.ONLINE:
+            warnings.warn(
+                _repo_status_text(
+                    f"Repo {name} is in mode '{response.status.mode}', which this client does not know. Upgrade arraylake", response.status
+                )
+            )
 
-        return org, repo_name, response
+        return mstore_config, repo_name, response
 
     async def get_repo(
         self,
@@ -780,10 +831,10 @@ class AsyncClient:
         if config is not None and not isinstance(config, RepositoryConfig):
             raise ValueError(f"config must be an icechunk.RepositoryConfig object or None: {config}.")
 
-        org, repo_name, response = await self._open_repo_response(name)
+        mstore_config, repo_name, response = await self._open_repo_response(name)
 
         return await self._icechunk_repo_from_response(
-            org,
+            mstore_config,
             repo_name,
             response,
             config=config,
@@ -819,7 +870,14 @@ class AsyncClient:
         """
         from arraylake.repos.iceberg import get_iceberg_catalog
 
-        return await asyncio.to_thread(get_iceberg_catalog, name=org, service_uri=self.service_uri, warehouse=org, token=self.token)
+        return await asyncio.to_thread(
+            get_iceberg_catalog,
+            name=org,
+            service_uri=self.service_uri,
+            warehouse=org,
+            token=self.token,
+            anonymous=self._is_anonymous(),
+        )
 
     async def create_iceberg_namespace(
         self,
@@ -1032,7 +1090,7 @@ class AsyncClient:
 
     async def _icechunk_repo_from_response(
         self,
-        org: OrgName,
+        mstore_config: HttpMetastoreConfig,
         repo_name: RepoName,
         response: OpenRepoResponse,
         *,
@@ -1043,6 +1101,7 @@ class AsyncClient:
         """Build and open the ``icechunk.Repository`` for an already-opened repo."""
         from arraylake import __version__ as arraylake_version
 
+        org = mstore_config.org
         warn_if_authorize_virtual_chunk_access_passed(authorize_virtual_chunk_access)
 
         if config is None:
@@ -1051,12 +1110,12 @@ class AsyncClient:
 
         # Build icechunk storage from the response
         credential_refresh_func = self._maybe_get_credential_refresh_func_for_icechunk(
-            bucket=response.repo_bucket, org=org, repo_name=repo_name
+            bucket=response.repo_bucket, mstore_config=mstore_config, repo_name=repo_name
         )
         credentials = response.repo_credentials if credential_refresh_func is None else None
         # Seed the cache with the repo bucket credentials and every virtual chunk container's
         # credentials, so the first refresh of any of them is served from this single open.
-        self._populate_credential_cache(org, repo_name, response)
+        self._populate_credential_cache(mstore_config, repo_name, response)
         icechunk_storage = _get_icechunk_storage_obj(
             bucket_config=response.repo_bucket,
             prefix=response.repo_prefix,
@@ -1597,7 +1656,7 @@ class AsyncClient:
             raise ValueError(f"Repo {repo_model.org}/{repo_model.name} has no storage bucket.")
 
         credential_refresh_func = self._maybe_get_credential_refresh_func_for_icechunk(
-            bucket=effective_bucket, org=repo_model.org, repo_name=repo_model.name
+            bucket=effective_bucket, mstore_config=self._metastore_config(repo_model.org, anonymous=False), repo_name=repo_model.name
         )
         if credential_refresh_func is None:
             # We can't pass credentials to icechunk if we have a credential refresh function
@@ -1690,7 +1749,9 @@ class AsyncClient:
         if forbid_configs_unsafe_for_virtual_chunks:
             forbid_unsafe_virtual_bucket_configs(bucket=bucket, bucket_nickname=bucket_config_nickname)
 
-        credential_refresh_func = self._maybe_get_credential_refresh_func_for_icechunk(bucket=bucket, org=org, repo_name=None)
+        credential_refresh_func = self._maybe_get_credential_refresh_func_for_icechunk(
+            bucket=bucket, mstore_config=self._metastore_config(org, anonymous=False), repo_name=None
+        )
         if credential_refresh_func is None:
             credentials = await self._maybe_get_credentials_for_icechunk(bucket=bucket, org=org, repo_name=None)
         else:
@@ -3423,3 +3484,53 @@ class Client:
         connection = openeo.connect(deployments[0].url)
         connection.auth = auth
         return connection
+
+    def get_zax_client(self, org: OrgName, deployment_name: str | None = None) -> zax_client.Client:
+        """Connect to this org's deployed zax service with the zax-client package.
+
+        Resolves the gRPC endpoint of the org's enabled zax compute service and returns an
+        unopened ``zax_client.Client``; open it with ``async with``. Requires the ``zax-client``
+        package and an enabled zax service.
+
+        Authenticates with the client's API token if set, otherwise with the cached
+        ``al auth login`` session, which is refreshed as needed on each call so
+        long-running queries don't fail when the login token expires.
+
+        Args:
+            org: Name of the org.
+            deployment_name: Select a specific zax deployment by name when the
+                org has more than one. Defaults to the only/first zax service.
+        """
+        # TEMPORARY(zax-private): zax-client is on Earthmover's private package index, so arraylake
+        # declares no extra for it. Add one when zax-client is on PyPI.
+        try:
+            import zax_client
+        except ImportError as e:
+            raise ImportError(
+                "The 'zax-client' package is required for get_zax_client. It is not on PyPI yet: "
+                "ask Earthmover for access to its package index, then `pip install zax-client`."
+            ) from e
+
+        deployments = [d for d in self.get_services(org).list_enabled() if d.config.service_type == ServiceType.zax]
+        if deployment_name is not None:
+            deployments = [d for d in deployments if (d.config.deployment_name or ServiceType.zax.value) == deployment_name]
+        if not deployments and deployment_name is not None:
+            raise ValueError(f"Org {org!r} has no zax service named {deployment_name!r}.")
+        if not deployments:
+            raise ValueError(f"Org {org!r} has no zax service. Enable one with Client().get_services({org!r}).enable('zax', sku_code='m').")
+
+        token: str | Callable[[], str]
+        if self.aclient.token:
+            token = self.aclient.token
+        elif get_auth_handler(self.aclient.service_uri).tokens is not None:
+            service_uri = self.aclient.service_uri
+
+            def token() -> str:
+                return get_fresh_id_token(service_uri)
+        else:
+            raise ValueError(
+                "An Arraylake API token is required to authenticate to zax. Provide one via Client(token=...) or log in with `al auth login`."
+            )
+
+        host = urlparse(deployments[0].url).hostname
+        return zax_client.Client(f"{host}:{ZAX_PORT}", tls=True, token=token)

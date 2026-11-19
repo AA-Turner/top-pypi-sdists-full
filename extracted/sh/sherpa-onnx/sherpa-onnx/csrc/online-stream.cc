@@ -1,6 +1,7 @@
 // sherpa-onnx/csrc/online-stream.cc
 //
 // Copyright (c)  2023  Xiaomi Corporation
+// Copyright (c)  2026  Julian Pscheid
 #include "sherpa-onnx/csrc/online-stream.h"
 
 #include <memory>
@@ -22,49 +23,62 @@ class OnlineStream::Impl {
       : feat_extractor_(config), context_graph_(std::move(context_graph)) {}
 
   void AcceptWaveform(int32_t sampling_rate, const float *waveform, int32_t n) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     feat_extractor_.AcceptWaveform(sampling_rate, waveform, n);
   }
 
   void InputFinished() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     feat_extractor_.InputFinished();
   }
 
   int32_t NumFramesReady() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     return feat_extractor_.NumFramesReady() - start_frame_index_;
   }
 
   bool IsLastFrame(int32_t frame) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return feat_extractor_.IsLastFrame(frame);
+    std::scoped_lock lock(mutex_);
+    return feat_extractor_.IsLastFrame(frame + start_frame_index_);
   }
 
   std::vector<float> GetFrames(int32_t frame_index, int32_t n) const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     return feat_extractor_.GetFrames(frame_index + start_frame_index_, n);
   }
 
+  std::vector<float> GetBufferedFeatures(int32_t frame_index, int32_t n,
+                                         bool is_final,
+                                         int32_t *start_sample_offset) const {
+    std::scoped_lock lock(mutex_);
+    return feat_extractor_.GetBufferedFeatures(
+        frame_index + start_frame_index_, n, is_final, start_sample_offset);
+  }
+
+  int32_t NumTrailingSamples() const {
+    std::scoped_lock lock(mutex_);
+    return feat_extractor_.NumTrailingSamples();
+  }
+
   void Reset() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     // we don't reset the feature extractor
     start_frame_index_ += num_processed_frames_;
     num_processed_frames_ = 0;
   }
 
   int32_t &GetNumProcessedFrames() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     return num_processed_frames_;
   }
 
   int32_t GetNumFramesSinceStart() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     return start_frame_index_;
   }
 
   int32_t &GetCurrentSegment() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     return segment_;
   }
 
@@ -250,6 +264,17 @@ bool OnlineStream::IsLastFrame(int32_t frame) const {
 std::vector<float> OnlineStream::GetFrames(int32_t frame_index,
                                            int32_t n) const {
   return impl_->GetFrames(frame_index, n);
+}
+
+std::vector<float> OnlineStream::GetBufferedFeatures(
+    int32_t frame_index, int32_t n, bool is_final,
+    int32_t *start_sample_offset) const {
+  return impl_->GetBufferedFeatures(frame_index, n, is_final,
+                                    start_sample_offset);
+}
+
+int32_t OnlineStream::NumTrailingSamples() const {
+  return impl_->NumTrailingSamples();
 }
 
 void OnlineStream::Reset() { impl_->Reset(); }

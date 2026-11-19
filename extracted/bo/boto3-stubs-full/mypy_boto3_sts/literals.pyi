@@ -25,6 +25,7 @@ __all__ = ("RegionName", "ResourceServiceName", "STSServiceName", "ServiceName")
 
 STSServiceName = Literal["sts"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

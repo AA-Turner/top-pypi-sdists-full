@@ -28,6 +28,7 @@ __all__ = ("InspectorscanServiceName", "OutputFormatType", "ResourceServiceName"
 OutputFormatType = Literal["CYCLONE_DX_1_5", "INSPECTOR", "INSPECTOR_ALT"]
 InspectorscanServiceName = Literal["inspector-scan"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

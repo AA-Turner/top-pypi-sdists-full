@@ -240,6 +240,13 @@ def names_invalid_request(exc: BaseException) -> bool:
     )
 
 
+def is_trash_refusal(exc: BaseException) -> bool:
+    """The server's 410 TRASH notice: the write's run, group, experiment or project was put in
+    the trash (by the caller) before the write arrived. Not a write we lost; a retired route's
+    410 (`client_too_old`) carries no trash notice, so never matches."""
+    return getattr(exc, "status", None) == 410 and bool(getattr(exc, "in_trash", False))
+
+
 class ConflictError(RosError):
     """409 - natural-key conflict, or a delete blocked because a published
     experiment version pins something in the subtree. The detail is an object;

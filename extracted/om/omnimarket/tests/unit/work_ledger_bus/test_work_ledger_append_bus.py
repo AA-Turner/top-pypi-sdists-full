@@ -13,8 +13,8 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
 from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
 
 from omnimarket.delegated_test_loop.lab_run_bus import (
     ProtocolBusMessage,
@@ -33,6 +33,7 @@ from omnimarket.work_ledger_bus.bus import (
     WorkLedgerAppendCaller,
     WorkLedgerAppendHost,
     load_work_ledger_append_topics,
+    load_work_ledger_mirror_topics,
 )
 
 pytestmark = pytest.mark.unit
@@ -97,11 +98,12 @@ class _Bus(EventBusInmemory):
         on_message: Callable[[Any], Awaitable[None]],
         group_id: str,
     ) -> Callable[[], Awaitable[None]]:
-        self.groups.append((topic, group_id))
+        if not group_id.startswith("ungrouped."):
+            self.groups.append((topic, group_id))
         return await super().subscribe(topic, on_message=on_message, group_id=group_id)
 
 
-def test_request_round_trips_to_accepted_receipt_with_single_host_group() -> None:
+def test_request_round_trips_to_accepted_receipt_with_only_the_host_groups() -> None:
     async def scenario() -> None:
         bus = _Bus()
         await bus.start()
@@ -120,36 +122,33 @@ def test_request_round_trips_to_accepted_receipt_with_single_host_group() -> Non
             receipt = await caller.append(request, timeout_s=2)
             assert receipt == _receipt(request)
             assert handler.calls == [request.request_id]
-            assert bus.groups[0] == (
-                host.topics.command,
-                "local.omnimarket.node_work_ledger_append_effect.consume.v1",
-            )
-            assert bus.groups[1] == (
-                "onex.cmd.omnimarket.work-ledger-append-from-developer.v1",
-                bus.groups[0][1],
-            )
-            mirror_groups = [group for _, group in bus.groups[2:4]]
-            assert mirror_groups == [
-                "local.omnimarket.node_work_ledger_bus_mirror.consume.v1",
-                "local.omnimarket.node_work_ledger_bus_mirror.consume.v1",
-            ]
-            assert [group for _, group in bus.groups[4:6]] == [
+            # OMN-20275: the host's groups join together, so the order they register in is
+            # not part of the contract; the set of (topic, group) pairs is.
+            append_group = "local.omnimarket.node_work_ledger_append_effect.consume.v1"
+            mirror_group = "local.omnimarket.node_work_ledger_bus_mirror.consume.v1"
+            delegation_group = (
                 "local.omnimarket.node_work_ledger_delegation_mirror.consume.v1"
-            ] * 2
-            assert [topic for topic, _ in bus.groups[4:6]] == list(
-                host.delegation_topics
             )
-            assert [group for _, group in bus.groups[6:7]] == [
+            landing_group = (
                 "local.omnimarket.node_work_ledger_landing_mirror.consume.v1"
-            ]
-            assert [topic for topic, _ in bus.groups[6:7]] == list(host.landing_topics)
-            groups = [group for _, group in bus.groups[7:]]
-            assert len(groups) == 2
-            assert groups[0] == groups[1]
-            assert groups[0].startswith(
-                "local.omnimarket.work_ledger_append_client.consume.v1."
             )
-            assert len(groups[0].split(".")[-1]) == 12
+            assert sorted(bus.groups) == sorted(
+                [
+                    (host.topics.command, append_group),
+                    (
+                        "onex.cmd.omnimarket.work-ledger-append-from-developer.v1",
+                        append_group,
+                    ),
+                    *(
+                        (topic, mirror_group)
+                        for topic in load_work_ledger_mirror_topics()
+                    ),
+                    *((topic, delegation_group) for topic in host.delegation_topics),
+                    *((topic, landing_group) for topic in host.landing_topics),
+                ]
+            )
+            assert len(bus.groups) == 7
+            # The caller joins no group (OMN-21818): its two terminal reads add none.
         finally:
             await caller.stop()
             await host.stop()
@@ -432,6 +431,11 @@ def test_writer_topic_attribution_and_negative_controls(
                 assert receipt.principal == writer
                 assert ledger.calls == 1
                 assert f" | principal={writer} | " in ledger.rows
+                # OMN-24205: the host stamps the bus cell of the requesting host after the request cell.
+                assert (
+                    f" | req={request.request_id} | via=bus:lab-host | text"
+                    in ledger.rows
+                )
             else:
                 assert receipt.status is EnumWorkLedgerAppendStatus.REFUSED
                 assert receipt.exit_code == 65

@@ -10,6 +10,8 @@ class SessionConfigsListParams(TypedDict, total=False):
     cursor: NotRequired[str]
     limit: NotRequired[int]
     archived: NotRequired[bool | None]
+    include_archived: NotRequired[bool | None]
+    include_summary: NotRequired[bool | None]
 
 
 __all__ = [

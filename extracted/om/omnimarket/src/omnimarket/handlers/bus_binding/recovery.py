@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
+import os
+import tempfile
 from datetime import datetime
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -17,11 +20,12 @@ from omnimarket.models.bus_binding import (
     EnumBusBinding,
     EnumBusBindingState,
     ModelBusBindingDecision,
+    ModelBusBindingSettlementPolicy,
 )
-from omnimarket.nodes.node_exception_queue_effect.handler import (
-    HandlerExceptionEmit,
-    HandlerExceptionQueue,
-    HandlerExceptionResolve,
+from omnimarket.nodes.node_exception_queue_effect.container.container_exception_queue_effect import (
+    create_handler_exception_emit,
+    create_handler_exception_queue,
+    create_handler_exception_resolve,
 )
 from omnimarket.nodes.node_exception_queue_effect.models import (
     ModelExceptionEmitRequest,
@@ -29,6 +33,9 @@ from omnimarket.nodes.node_exception_queue_effect.models import (
     ModelExceptionResolveRequest,
     ModelExceptionRow,
 )
+
+if TYPE_CHECKING:
+    from omnimarket.handlers.bus_binding.guard_port_types import GuardPorts
 
 ALARM_CLASS = "bus-binding-degraded"
 OUTAGE_CLASS = "bus-binding-outage"
@@ -53,9 +60,22 @@ def read_record(state_dir: Path, lane: str) -> dict[str, Any]:
 def _write_record(state_dir: Path, lane: str, record: dict[str, Any]) -> None:
     path = state_path(state_dir, lane)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(record, sort_keys=True), encoding="utf-8")
-    tmp.replace(path)
+    tmp: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.stem}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            tmp = Path(handle.name)
+            handle.write(json.dumps(record, sort_keys=True))
+        os.replace(tmp, path)
+    finally:
+        if tmp is not None:
+            tmp.unlink(missing_ok=True)
 
 
 def observe(state_dir: Path, decision: ModelBusBindingDecision) -> None:
@@ -95,7 +115,7 @@ def raise_alarm(
         if overdue
         else f"durable bus health read failed: {decision.reason}"
     )
-    result = HandlerExceptionEmit().handle(
+    result = create_handler_exception_emit().handle(
         ModelExceptionEmitRequest(
             state_dir=state_dir / "exception-queue",
             row=ModelExceptionRow(
@@ -117,12 +137,46 @@ def raise_alarm(
     return f"{result.status}:{result.id}"
 
 
-def escalation_bound_seconds() -> float:
-    contract = yaml.safe_load(
+def _contract() -> dict[str, Any]:
+    contract: dict[str, Any] = yaml.safe_load(
         resources.files("omnimarket.nodes.node_bus_binding_reducer")
         .joinpath("contract.yaml")
         .read_text(encoding="utf-8")
     )
+    return contract
+
+
+def settlement_policy() -> ModelBusBindingSettlementPolicy:
+    """The contract's exception settlement step; a contract that declares none keeps the per-command alarm."""
+    raw = _contract().get("exception_settlement") or {"alarm_scope": "command"}
+    return ModelBusBindingSettlementPolicy.model_validate(
+        {
+            **raw,
+            "settle_on_healthy_read": tuple(raw.get("settle_on_healthy_read") or ()),
+        }
+    )
+
+
+def alarm_once_per_episode(state_dir: Path, decision: ModelBusBindingDecision) -> str:
+    """Emit the episode's alarm once; while the episode stays open, name that row and emit nothing.
+
+    A row closed while its episode is still open (the orchestrator drained it) is not reopened by the next
+    degraded command, so one outage counts once in the class's occurrences (OMN-21959).
+    """
+    record = read_record(state_dir, decision.lane)
+    episode = record.get("outage_started_at")
+    if episode and record.get("alarm_episode") == episode and record.get("alarm_id"):
+        return f"held:{record['alarm_id']}"
+    alarm = raise_alarm(state_dir, decision)
+    status, _, row_id = alarm.partition(":")
+    if episode and row_id and status in ("appended", "repeat"):
+        record.update(alarm_id=row_id, alarm_episode=episode)
+        _write_record(state_dir, decision.lane, record)
+    return alarm
+
+
+def escalation_bound_seconds() -> float:
+    contract = _contract()
     bound = float(contract["recovery_policy"]["escalate_after_seconds"])
     if not 0 < bound < float("inf"):
         raise ValueError("bus binding escalation bound must be finite and positive")
@@ -157,45 +211,128 @@ def record_replay(
     resolve_if_recovered(state_dir, decision)
 
 
-def _report_refused(
-    state_dir: Path, decision: ModelBusBindingDecision, started: str
+def _refusal_evidence(body: dict[str, Any]) -> str:
+    """What the writer needs to see: the host's words, the exit code, the host, and which rows were lost."""
+    refusal = body.get("refusal") or {}
+    message = " ".join(str(refusal.get("message", "")).split())[:300] or "unreadable"
+    kinds: list[str] = []
+    stamps: list[str] = []
+    for line in str(body.get("rows", "")).splitlines():
+        cells = [cell.strip() for cell in line.split(" | ", 2)]
+        if len(cells) >= 2 and cells[0][:2] == "20":
+            stamps.append(cells[0])
+            kinds.append(cells[1])
+    return (
+        f"ledger host {refusal.get('ledger_host', 'unknown')} refused the queued append "
+        f"(exit_code={refusal.get('exit_code', 'unknown')}): {message}; "
+        f"rows lost: {','.join(kinds) or 'unknown'} stamped {','.join(stamps) or 'unknown'}"
+    )
+
+
+def report_refused_to_writers(
+    state_dir: Path,
+    observed_at: datetime,
+    *,
+    since_ns: int = 0,
+    guard: GuardPorts | None = None,
 ) -> int:
-    """Emit one non-decision case per request refused in this episode; return how many."""
+    """Emit one non-decision case per refused request nobody has been told about yet; return how many.
+
+    The case is keyed to the writer's lane, the one told "queued", not to the bus lane. It does not wait
+    for an outage episode to close: a refusal is reported by the replay that found it. A report is marked
+    on the refused file, so a later replay or episode does not report it twice.
+
+    With ``guard`` bound (OMN-21959), a ledger guard's refusal whose cause is already gone is settled in code
+    first and not emitted at all; only a case the guard actor cannot settle is emitted. Each pass then settles
+    the open guard-refusal cases of the queue whose cause has gone since, without emitting any of them again.
+    """
     directory = outbox.outbox_dir(state_dir) / outbox.REFUSED_DIRNAME
-    if not directory.is_dir():
-        return 0
-    since_ns = int(datetime.fromisoformat(started).timestamp() * 1_000_000_000)
     count = 0
+    if not directory.is_dir():
+        _settle_open_guard_cases(state_dir, observed_at, guard)
+        return count
+    from omnimarket.handlers.bus_binding.guard_refusal import settle_guard_case
+
     for path in sorted(directory.glob("*.json")):
         try:
             queued_ns = int(path.stem.split("_", 1)[0])
             request_id = outbox.request_id_of(path)
+            body = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, IndexError):
+            continue
+        if (
+            queued_ns < since_ns
+            or not isinstance(body, dict)
+            or body.get("reported_at")
+        ):
+            continue
+        lane = str(body.get("requested_by_lane") or "unknown")
+        row = ModelExceptionRow(
+            cls=REFUSED_CLASS,
+            key=f"lane={lane} request={request_id}",
+            source=SOURCE,
+            evidence=_refusal_evidence(body),
+            tried=f"replayed the outbox; kept the refused request at {path}",
+            proposed_fix="correct the row and append it again; the refused request is final",
+            decision=False,
+        )
+        body["reported_at"] = observed_at.isoformat()
+        settled = (
+            settle_guard_case(
+                state_dir,
+                dataclasses.asdict(row),
+                guard,
+                now=observed_at,
+                emit_open=False,
+            )
+            if guard is not None
+            else None
+        )
+        if settled is not None and settled.resolved:
+            body["settled"] = settled.how
+            _write_text_atomically(path, json.dumps(body, sort_keys=True))
+            continue
+        create_handler_exception_emit().handle(
+            ModelExceptionEmitRequest(
+                state_dir=state_dir / "exception-queue",
+                row=row,
+                now=observed_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            )
+        )
+        _write_text_atomically(path, json.dumps(body, sort_keys=True))
+        count += 1
+    _settle_open_guard_cases(state_dir, observed_at, guard)
+    return count
+
+
+def _settle_open_guard_cases(
+    state_dir: Path, observed_at: datetime, guard: GuardPorts | None
+) -> None:
+    """Settle the open guard-refusal cases whose cause is gone; an unsettled one is left as it is."""
+    if guard is None:
+        return
+    from omnimarket.handlers.bus_binding.guard_refusal import settle_guard_refusals
+
+    settle_guard_refusals(state_dir, guard, now=observed_at, emit_open=False)
+
+
+def _write_text_atomically(path: Path, text: str) -> None:
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _refused_in_episode(state_dir: Path, started: str) -> int:
+    directory = outbox.outbox_dir(state_dir) / outbox.REFUSED_DIRNAME
+    since_ns = int(datetime.fromisoformat(started).timestamp() * 1_000_000_000)
+    count = 0
+    for path in directory.glob("*.json") if directory.is_dir() else ():
+        try:
+            queued_ns = int(path.stem.split("_", 1)[0])
         except (ValueError, IndexError):
             continue
         # Requests are queued while degraded, so a file older than the episode belongs to an earlier one.
-        if queued_ns < since_ns:
-            continue
-        try:
-            refusal = json.loads(path.read_text(encoding="utf-8")).get("refusal", {})
-            message = " ".join(str(refusal.get("message", "")).split())[:300]
-        except (OSError, ValueError, AttributeError):
-            message = "refusal unreadable"
-        HandlerExceptionEmit().handle(
-            ModelExceptionEmitRequest(
-                state_dir=state_dir / "exception-queue",
-                row=ModelExceptionRow(
-                    cls=REFUSED_CLASS,
-                    key=f"lane={decision.lane} request={request_id}",
-                    source=SOURCE,
-                    evidence=f"ledger host refused the queued append: {message}",
-                    tried=f"replayed the outbox; kept the refused request at {path}",
-                    proposed_fix="correct the row and append it again; the refused request is final",
-                    decision=False,
-                ),
-                now=decision.observed_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            )
-        )
-        count += 1
+        count += queued_ns >= since_ns
     return count
 
 
@@ -211,15 +348,17 @@ def resolve_if_recovered(state_dir: Path, decision: ModelBusBindingDecision) -> 
     ):
         return
     # A refusal is the ledger host's final answer and the request sits in refused/, so it does not hold
-    # the episode open: it is reported below as its own case. A stopped drain or an unreplayed file does.
+    # the episode open: it is reported as its own case, by the replay that found it. A stopped drain or an
+    # unreplayed file does.
     if record.get("replay_stopped"):
         return
     # Include unreadable request files: ignoring one would falsely claim complete replay.
     if any(outbox.outbox_dir(state_dir).glob("*.json")):
         return
     queue_dir = state_dir / "exception-queue"
-    refused = _report_refused(state_dir, decision, record["outage_started_at"])
-    opened = HandlerExceptionQueue().handle(
+    report_refused_to_writers(state_dir, decision.observed_at)
+    refused = _refused_in_episode(state_dir, record["outage_started_at"])
+    opened = create_handler_exception_queue().handle(
         ModelExceptionQueueRequest(queue_dir, "orchestrator")
     )
     how = (
@@ -233,7 +372,7 @@ def resolve_if_recovered(state_dir: Path, decision: ModelBusBindingDecision) -> 
             and row["key"] == f"lane={decision.lane}"
             and row["source"] == SOURCE
         ):
-            HandlerExceptionResolve().handle(
+            create_handler_exception_resolve().handle(
                 ModelExceptionResolveRequest(
                     queue_dir,
                     row["id"],
@@ -243,6 +382,12 @@ def resolve_if_recovered(state_dir: Path, decision: ModelBusBindingDecision) -> 
                 )
             )
     record.update(
-        outage_started_at=None, replayed=0, duplicates=0, refused=0, replay_stopped=None
+        outage_started_at=None,
+        replayed=0,
+        duplicates=0,
+        refused=0,
+        replay_stopped=None,
+        alarm_id=None,
+        alarm_episode=None,
     )
     _write_record(state_dir, decision.lane, record)

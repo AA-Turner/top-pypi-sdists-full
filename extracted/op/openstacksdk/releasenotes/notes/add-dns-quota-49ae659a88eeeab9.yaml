@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add quota support for designate(DNS) API.

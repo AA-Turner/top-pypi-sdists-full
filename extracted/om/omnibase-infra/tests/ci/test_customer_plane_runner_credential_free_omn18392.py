@@ -34,6 +34,12 @@ from typing import Any, cast
 import pytest
 import yaml
 
+from tests.ci._runner_compose_text import (
+    RUNNER_HOME,
+    general_pool_control,
+    read_runner_compose,
+)
+
 pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -52,7 +58,10 @@ SERVICE_FILES: dict[str, Path] = {
 }
 CUSTOMER_PLANE_SERVICES = tuple(SERVICE_FILES)
 # The general pool, used only as the positive control for every absence below.
-CONTROL_SERVICE = "omninode-runner-1"
+# OMN-22898 retired the primary host's own general pool, so the control is the
+# first runner of the largest general pool on another host, which carries the
+# same fleet-wide wiring.
+CONTROL_SERVICE, CONTROL_FILE = general_pool_control()
 
 # OMN-17477 added `arch-amd64`: the fleet's own architecture vocabulary, the one
 # that matches Docker's TARGETARCH and the host inventory, so a workflow pins a
@@ -62,7 +71,7 @@ CONTROL_SERVICE = "omninode-runner-1"
 # still does NOT carry the general-pool label, which is asserted separately
 # below precisely so an edit to this string cannot silently relax it.
 EXPECTED_LABELS = "self-hosted,omnibase-customer-plane,linux,x64,arch-amd64"
-LAB_CREDENTIALS_TARGET = "/home/runner/.lab-credentials"
+LAB_CREDENTIALS_TARGET = RUNNER_HOME + "/.lab-credentials"
 DOCKER_SOCKET = "/var/run/docker.sock"
 
 # The eight variables the probe's "Confirm this runner holds no platform
@@ -82,13 +91,15 @@ PROBE_FORBIDDEN_ENV = (
 
 
 def _compose(path: Path = COMPOSE_FILE) -> dict[str, Any]:
-    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    loaded = yaml.safe_load(read_runner_compose(path))
     assert isinstance(loaded, dict)
     return loaded
 
 
 def _service(name: str) -> dict[str, Any]:
-    path = SERVICE_FILES.get(name, COMPOSE_FILE)
+    path = SERVICE_FILES.get(
+        name, CONTROL_FILE if name == CONTROL_SERVICE else COMPOSE_FILE
+    )
     services = _compose(path)["services"]
     assert name in services, f"{name} is not defined in {path}"
     return cast("dict[str, Any]", services[name])

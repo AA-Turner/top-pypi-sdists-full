@@ -2,7 +2,6 @@ import asyncio
 import json as json_lib
 import pickle
 import time
-from time import perf_counter
 from typing import Any
 
 import httpx
@@ -10,7 +9,6 @@ import pytest
 import structlog
 from hypothesis import given
 from hypothesis import strategies as st
-from pydantic import SecretStr
 from structlog.testing import LogCapture
 
 from arraylake import api_utils
@@ -37,9 +35,7 @@ from arraylake.exceptions import (
     ArraylakeServerError,
     ArraylakeValidationError,
 )
-from arraylake.metastore.http_metastore import HttpMetastoreConfig
 from arraylake.token import AuthException
-from arraylake.types import OauthTokens
 
 from . import fake_jwt
 
@@ -127,16 +123,27 @@ def test_calc_backoff_is_valid(attempt, backoff_factor, jitter_ratio, max_backof
     assert backoff <= max_backoff_wait
 
 
+@pytest.fixture
+def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Record each backoff the client asks for and skip the wait."""
+    requested: list[float] = []
+    real_sleep = asyncio.sleep
+
+    async def fake_sleep(delay: float, result: Any = None) -> Any:
+        requested.append(delay)
+        return await real_sleep(0, result)
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    return requested
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status_code", [429, 502, 503, 504])
 @pytest.mark.parametrize("method", ["GET", "PUT", "DELETE", "POST"])
-async def test_retries(respx_mock, status_code, method) -> None:
+async def test_retries(respx_mock, status_code, method, sleeps: list[float]) -> None:
     mock_url = "https://foo.bar/"
 
-    clock = []
-
     def side_effect(request, route):
-        clock.append(perf_counter())
         if route.call_count > 2:
             return httpx.Response(200)
         return httpx.Response(status_code)
@@ -148,19 +155,17 @@ async def test_retries(respx_mock, status_code, method) -> None:
     assert route.call_count == 4
 
     # verify increasing backoff
-    diff = [clock[n] - clock[n - 1] for n in range(1, len(clock))]
-    assert diff[-1] > diff[0]
+    assert len(sleeps) == 3
+    assert sleeps[-1] > sleeps[0]
 
 
 @pytest.mark.asyncio
-async def test_retry_after_header(respx_mock) -> None:
+async def test_retry_after_header(respx_mock, sleeps: list[float]) -> None:
     mock_url = "https://foo.bar/"
 
-    clock = []
     retry_after_time = 1
 
     def side_effect(request, route):
-        clock.append(perf_counter())
         if route.call_count > 0:
             return httpx.Response(200)
         return httpx.Response(429, headers={"Retry-After": str(retry_after_time)})
@@ -172,8 +177,7 @@ async def test_retry_after_header(respx_mock) -> None:
     assert route.call_count == 2
 
     # verify specified wait time
-    diff = clock[1] - clock[0]
-    assert diff > retry_after_time
+    assert sleeps == [retry_after_time]
 
 
 @pytest.mark.parametrize("method", ["GET", "PUT", "POST"])
@@ -356,7 +360,7 @@ async def test_sync_user_auth_flow_raises(test_token_file) -> None:
 
 
 @pytest.mark.asyncio
-async def test_retry_on_exception_decorator() -> None:
+async def test_retry_on_exception_decorator(sleeps: list[float]) -> None:
     @retry_on_exception(ValueError, n=3)
     async def raise_value_error():
         raise ValueError
@@ -396,7 +400,7 @@ async def test_retry_on_exception_decorator() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("exception", [httpx.RemoteProtocolError, httpx.ConnectError])
-async def test_retry_request_connection_errors(exception, respx_mock) -> None:
+async def test_retry_request_connection_errors(exception, respx_mock, sleeps: list[float]) -> None:
     # regression test for https://github.com/earth-mover/arraylake/issues/514
 
     mock_url = "https://foo.bar/"

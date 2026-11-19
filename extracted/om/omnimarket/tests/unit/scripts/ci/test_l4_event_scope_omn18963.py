@@ -48,6 +48,7 @@ def test_dev_push_does_not_wait_for_main_only_producers() -> None:
         "Enforce validator-requirements.yaml (OMN-13291)",
         "Precommit Fail-Loud Gate",
         "fsm-handler-drift",
+        "internal-sibling-pins / Internal Sibling Pins",
         "validate",
     }
 
@@ -123,7 +124,11 @@ def test_pull_request_preserves_the_full_current_tuple(ref_name: str) -> None:
     # OMN-20287 adds the Deployment Fact Gate, OMN-20781 adds the public-repo
     # hygiene gate and OMN-20940 adds its deployment-config job. The OCC
     # emitter golden gate left the tuple with the OCC companion producer.
-    # OMN-17427 adds the reviewer eval.
+    # OMN-17427 adds the reviewer eval; OMN-21478 adds internal sibling pins;
+    # OMN-21588 adds the composed runtime boot; OMN-22126 adds the prompt cost
+    # estimate contract. OMN-22478 (operator RULING 2026-11-05T20:27:56Z) removes
+    # the two automated review contexts. OMN-25514 removes the delegation-health
+    # check, a dev signal admitted by a dated sweep exclusion.
     assert len(resolved) == 58
 
 
@@ -139,7 +144,7 @@ def test_resolver_unknown_events_fail_closed(
 
 
 @pytest.mark.parametrize(
-    ("branch", "count"), [("main", 21), ("dev", 4), ("hotfix/example", 10)]
+    ("branch", "count"), [("main", 22), ("dev", 5), ("hotfix/example", 10)]
 )
 def test_push_cli_reports_applicable_contexts_and_enforces_them(
     branch: str, count: int, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -282,7 +287,6 @@ def test_scoping_is_a_predicate_over_events_not_over_contexts() -> None:
 
     for name in (
         "advisory-job-gate / advisory-job-gate",
-        "Hostile Review Gate",
         "pr-title / check-title",
         "deploy-gate / deploy-gate",
     ):

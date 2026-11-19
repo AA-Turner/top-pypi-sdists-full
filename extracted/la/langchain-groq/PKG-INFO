@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-groq
-Version: 1.2.0
+Version: 1.2.1
 Summary: An integration package connecting Groq and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/groq
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_groq/
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.11.0
 Requires-Dist: groq>=0.30.0
-Requires-Dist: langchain-core<2.0.0,>=1.5.1
+Requires-Dist: langchain-core<2.0.0,>=1.8.2
 Description-Content-Type: text/markdown
 
 # langchain-groq

@@ -1,5 +1,6 @@
 import json
 import time
+from typing import ClassVar
 
 from ...http_utils import REQUESTS_AVAILABLE  # noqa: F401
 from ...http_utils import requests, session_cache
@@ -14,9 +15,10 @@ class APIHandler:
     #: These are cached to minimize network usage
     #: Note that we are not caching basins, since they may contain
     #: expiring URLs.
-    cache_queries = ["metadata", "size", "feature_list", "valid"]
+    cache_queries: ClassVar[list] = ["metadata", "size", "feature_list",
+                                     "valid"]
     #: DCOR API Keys/Tokens in the current session
-    api_keys = []
+    api_keys: ClassVar[list] = []
 
     def __init__(self, url, api_key="", cert_path=None, dcserv_api_version=2):
         """
@@ -29,8 +31,11 @@ class APIHandler:
             DCOR API token
         cert_path: pathlib.Path
             the path to the server's CA bundle; by default this
-            will use the default certificates (which depends on
-            from where you obtained certifi/requests)
+            will use the default certificates (which depend on
+            where you obtained certifi/requests from)
+        dcserv_api_version: int
+            Version of the ckanext-dc_serve dcserv API to use
+            (see :class:`.RTDC_DCOR`)
         """
         #: DCOR API URL
         self.url = url
@@ -40,7 +45,7 @@ class APIHandler:
         self.api_key = api_key
         #: ckanext-dc_serve dcserv API version
         self.dcserv_api_version = dcserv_api_version
-        #: create a session
+        #: requests session (shared for all handlers with the same host)
         self.session = session_cache.get_session(url)
         self._cache = {}
 
@@ -56,11 +61,11 @@ class APIHandler:
 
     def _get(self,
              query: str,
-             feat: str = None,
-             trace: str = None,
-             event: str = None,
+             feat: str | None = None,
+             trace: str | None = None,
+             event: str | None = None,
              api_key: str = "",
-             timeout: float = None,
+             timeout: float | None = None,
              retries: int = 5):
         """Fetch information via the DCOR API
 
@@ -124,10 +129,10 @@ class APIHandler:
 
     def get(self,
             query: str,
-            feat: str = None,
-            trace: str = None,
-            event: str = None,
-            timeout: float = None,
+            feat: str | None = None,
+            trace: str | None = None,
+            event: str | None = None,
+            timeout: float | None = None,
             retries: int = 5,
             ):
         """Fetch information from DCOR
@@ -143,7 +148,7 @@ class APIHandler:
         event: str
             DEPRECATED (use basins instead), adds f"&event={event}" to query
         timeout: float
-            Request timeout
+            Request timeout in seconds (defaults to 1 s)
         retries: int
             Number of retries to fetch the request. For every retry, the
             timeout is increased by two seconds.

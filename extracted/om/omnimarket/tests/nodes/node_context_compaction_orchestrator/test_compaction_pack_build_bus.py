@@ -13,6 +13,7 @@ from omnibase_core.enums.enum_context_source_status import EnumContextSourceStat
 
 from omnimarket.models.context_pack_orchestrator import ModelContextPackCommand
 
+from .reply_topics import emitted
 from .test_compaction_pack_build import _pack_orchestrator, _request, _sources
 
 pytestmark = [
@@ -35,9 +36,9 @@ async def test_compaction_pack_build_bus_one_command_then_built(compaction_bus):
     bus = compaction_bus(_pack_orchestrator(_sources()))
     request = _request()
     output = await bus.handler().handle_async(request)
-    reply = output.events[-1]
+    reply = emitted(output.events[-1])
     assert reply.status == "built"
-    assert reply.package_id == output.events[0].candidate_id
+    assert reply.package_id == emitted(output.events[0]).candidate_id
     (envelope,) = bus.commands
     ((cid, _),) = bus.consumer.waits
     assert envelope["correlation_id"] == cid
@@ -52,6 +53,36 @@ async def test_compaction_pack_build_bus_one_command_then_built(compaction_bus):
     ]
     assert bus.records[-1][1]["payload"]["candidate_id"] == str(reply.package_id)
     assert bus.records[-1][1]["correlation_id"] == cid
+
+
+@pytest.mark.asyncio
+async def test_compaction_pack_build_bus_nothing_open_still_builds(compaction_bus):
+    """A session whose lane has no open message is built, not sent to native."""
+    bus = compaction_bus(
+        _pack_orchestrator(_sources(open_work=EnumContextSourceStatus.UNRESOLVED))
+    )
+    output = await bus.handler().handle_async(_request())
+    reply = emitted(output.events[-1])
+    assert reply.status == "built"
+    assert reply.package_id == emitted(output.events[0]).candidate_id
+    assert [topic for topic, _ in bus.records] == [
+        bus.topics.request_topic,
+        bus.topics.completed_topic,
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("factor", ["orchestration_state", "operator_rulings"], ids=str)
+async def test_compaction_pack_build_bus_other_unresolved_tier_is_native(
+    compaction_bus, factor
+):
+    """Only open work may be empty: an unresolved state or rulings tier is native."""
+    bus = compaction_bus(
+        _pack_orchestrator(_sources(**{factor: EnumContextSourceStatus.UNRESOLVED}))
+    )
+    output = await bus.handler().handle_async(_request())
+    assert emitted(output.events[-1]).status == "native"
+    assert emitted(output.events[0]).failure_class.value == "pack_build_failed"
 
 
 @pytest.mark.asyncio
@@ -72,8 +103,8 @@ async def test_compaction_pack_build_bus_failed_reply_is_native(
     )
     bus = compaction_bus(pack)
     output = await bus.handler().handle_async(_request())
-    assert output.events[-1].status == "native"
-    assert output.events[0].failure_class.value == "pack_build_failed"
+    assert emitted(output.events[-1]).status == "native"
+    assert emitted(output.events[0]).failure_class.value == "pack_build_failed"
     assert [topic for topic, _ in bus.records] == [
         bus.topics.request_topic,
         bus.topics.failed_topic,
@@ -104,8 +135,8 @@ async def test_compaction_pack_build_bus_deadline_falls_back_once(
     handler = bus.handler(binding=binding)
     request = _request()
     output = await handler.handle_async(request)
-    assert output.events[-1].status == "native"
-    assert output.events[0].failure_class.value == "pack_builder_unavailable"
+    assert emitted(output.events[-1]).status == "native"
+    assert emitted(output.events[0]).failure_class.value == "pack_builder_unavailable"
     assert len(bus.commands) == 1
     (warning,) = _warnings(caplog)
     assert str(request.invocation_id) in warning.getMessage()
@@ -142,7 +173,7 @@ async def test_mismatched_terminal_correlation_is_build_error(compaction_bus, ca
         )
 
     output = await bus.handler(event_publisher=publish).handle_async(_request())
-    assert output.events[0].failure_class.value == "build_error"
+    assert emitted(output.events[0]).failure_class.value == "build_error"
     (warning,) = _warnings(caplog)
     assert "cause=ValueError" in warning.getMessage()
 
@@ -170,7 +201,7 @@ async def test_revision_probe_consumes_the_remaining_compaction_deadline(
     output = await bus.handler(
         binding=_binding(), barrier_probe_source=Projection(), monotonic=clock.monotonic
     ).handle_async(barrier_request())
-    assert output.events[0].failure_class.value == "pack_builder_unavailable"
+    assert emitted(output.events[0]).failure_class.value == "pack_builder_unavailable"
     assert not bus.commands
 
 
@@ -195,7 +226,7 @@ async def test_revision_probe_must_still_prove_completeness(
     output = await bus.handler(
         barrier_probe_source=_Source([met, second])
     ).handle_async(barrier_request())
-    assert output.events[0].failure_class.value == (
+    assert emitted(output.events[0]).failure_class.value == (
         "source_incomplete" if revision_missing else "source_not_caught_up"
     )
     assert not bus.commands

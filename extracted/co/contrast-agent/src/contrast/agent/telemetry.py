@@ -89,9 +89,10 @@ class Telemetry(threading.Thread):
         self._msg_count = 0
         self.settings = Settings()
 
-    def stop(self):
+    def stop(self, timeout: float | None = 30):
+        if not self.is_alive():
+            return
         self.message_q.put(self._stopper)
-        timeout = 30
         self.join(timeout)
         if self.is_alive():
             logger.warn("failed to stop Telemetry thread", timeout=timeout)

@@ -223,7 +223,7 @@ def size(X):
 
     Parameters
     ----------
-    a : array_like
+    X : array_like
         Input data
 
     Returns
@@ -318,12 +318,9 @@ def cross_product(*XS):
 
     Parameters
     ----------
-    X1 : n x d1 matrix
-        First matrix of n samples of d1 features
-        (or an n-element vector, which will be treated as an n x 1 matrix)
-    X2 : n x d2 matrix
-        Second matrix of n samples of d2 features
-        (or an n-element vector, which will be treated as an n x 1 matrix)
+    *XS : n x d_i matrices
+        Matrices of n samples of d_i features
+        (or n-element vectors, which will be treated as n x 1 matrices)
 
     Returns
     -------
@@ -355,7 +352,7 @@ def stack(XS, axis=0):
 
     Parameters
     ----------
-    arrays : sequence of array_like
+    XS : sequence of array_like
         Each array must have the same shape
 
     axis : int, optional
@@ -1357,12 +1354,14 @@ class Summary:
 
         Notes
         -----
-        This currently merges tables with different number of columns.
-        It is recommended to use `as_latex_tabular` directly on the individual
-        tables.
+        Tables with the same number of columns are merged. Tables with different
+        numbers of columns are rendered as separate tabular environments.
 
         """
-        latex = _statsmodels_summary.summary_return(self.tables, return_fmt='latex')
+        if len({len(table[0]) for table in self.tables}) > 1:
+            latex = '\n'.join(table.as_latex_tabular() for table in self.tables)
+        else:
+            latex = _statsmodels_summary.summary_return(self.tables, return_fmt='latex')
         if self.extra_txt is not None:
             latex = latex + '\n\n' + self.extra_txt.replace('\n', ' \\newline\n ')
         return latex
@@ -1737,5 +1736,4 @@ def strata_from_discrete_arrays(arrs):
         curr_array = temp + curr_array * len(enc.classes_)
 
     return curr_array
-
 

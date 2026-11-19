@@ -75,6 +75,7 @@ SortOrderType = Literal["Ascending", "Descending"]
 StartServicePeriodTypeSortNameType = Literal["UpdatedAt"]
 PartnerCentralChannelAPIServiceName = Literal["partnercentral-channel"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

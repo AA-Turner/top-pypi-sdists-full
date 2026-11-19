@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+from urllib.parse import quote
+
 import pytest
 
 import url_normalize as package
@@ -23,7 +26,7 @@ import url_normalize as package
         ),
         (
             "https://example.com/?q=%23test&where=code%3D123",
-            "https://example.com/?q=%23test&where=code=123",
+            "https://example.com/?q=%23test&where=code%3D123",
         ),
     ],
 )
@@ -42,6 +45,86 @@ def test_url_humanize_returns_readable_url_that_normalizes_back(
 def test_url_humanize_preserves_empty_values(value: str | None) -> None:
     """Assert empty inputs match url_normalize behavior."""
     assert package.url_humanize(value) == value
+
+
+@pytest.mark.parametrize("param_count", [0, 25, 200])
+def test_url_humanize_readable_url_needs_one_normalization(param_count):
+    """Keep whole-URL normalization cost constant for already-readable queries."""
+    value = "https://example.com/path"
+    if param_count:
+        value += "?" + "&".join(f"key{i}=value{i}" for i in range(param_count))
+
+    with patch(
+        "url_normalize.url_humanize.url_normalize", wraps=package.url_normalize
+    ) as normalize:
+        assert package.url_humanize(value) == value
+
+    assert normalize.call_count == 1
+
+
+def test_url_humanize_only_rechecks_changed_query_values():
+    """Validate a decoded value without rechecking every unchanged field."""
+    expected_normalizations = 2  # Initial normalization and one round trip.
+    query = "&".join(f"key{i}=value{i}" for i in range(100))
+    value = f"https://example.com/path?{query}&title=%C3%A9"
+    expected = f"https://example.com/path?{query}&title=é"
+
+    with patch(
+        "url_normalize.url_humanize.url_normalize", wraps=package.url_normalize
+    ) as normalize:
+        assert package.url_humanize(value) == expected
+
+    assert normalize.call_count == expected_normalizations
+
+
+@pytest.mark.parametrize("param_count", [2, 100])
+@pytest.mark.parametrize("prefix", ["", "keep=%2541&"])
+def test_url_humanize_checks_readable_query_changes_together(param_count, prefix):
+    """Bound whole-URL work as the number of decodable keys and values grows."""
+    value = f"https://example.com/search?{prefix}" + "&".join(
+        f"%C3%A9{i}=%E4%B8%AD" for i in range(param_count)
+    )
+    expected = f"https://example.com/search?{prefix}" + "&".join(
+        f"é{i}=中" for i in range(param_count)
+    )
+    max_normalizations = 2  # Initial normalization plus one combined round trip.
+    with patch(
+        "url_normalize.url_humanize.url_normalize", wraps=package.url_normalize
+    ) as normalize:
+        assert package.url_humanize(value) == expected
+
+    assert normalize.call_count <= max_normalizations
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("bad=%2541&ok=%C3%A9&ok=%E4%B8%AD", "bad=%2541&ok=é&ok=中"),
+        ("%2541=%C3%A9&%E4%B8%AD=%2542", "%2541=é&中=%2542"),
+    ],
+)
+def test_url_humanize_failed_combined_query_keeps_independent_decoding(query, expected):
+    """A rejected percent escape must not block other readable keys or values."""
+    value = f"https://example.com/search?{query}"
+    humanized = package.url_humanize(value)
+    assert humanized == f"https://example.com/search?{expected}"
+    assert package.url_normalize(humanized) == value
+
+
+def test_url_humanize_combined_query_preserves_selected_policies():
+    """Keep duplicate order, flags, reserved escapes and path/fragment policies."""
+    value = "../a//b?tag=%C3%A9%2F&drop=1&tag=%E4%B8%AD&flag=&flag#"
+    expected = "../a//b?tag=é%2F&tag=中&flag=&flag#"
+    assert (
+        package.url_humanize(
+            value,
+            collapse_slashes=False,
+            keep_empty_components=True,
+            filter_params=True,
+            param_allowlist=["tag", "flag"],
+        )
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -91,8 +174,27 @@ def test_url_humanize_decodes_safe_query_parts_independently() -> None:
 
     assert (
         package.url_humanize(normalized)
-        == "https://example.com/?letter=Ç&equals=a=b&ключ=value"
+        == "https://example.com/?letter=Ç&equals=a%3Db&ключ=value"
     )
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("%C3%A9%2f%C3%B1=%C3%A9%3b%C3%B1", "é%2Fñ=é%3Bñ"),
+        ("q=%C3%A9%3d%26%23%3f%40%5b%5d", "q=é%3D%26%23%3F%40%5B%5D"),
+        ("q=%C3%A9%21%24%27%28%29%2a%2b%2c%3a", "q=é%21%24%27%28%29%2A%2B%2C%3A"),
+        ("q=%C3%A9%20test%2F&x=%E2%80%AE%2F", "q=é test%2F&x=%E2%80%AE%2F"),
+        ("q=%C3%A9%2F%FF", "q=é%2F%FF"),
+    ],
+)
+def test_url_humanize_decodes_text_around_reserved_query_escapes(query, expected):
+    """Expose readable Unicode without turning encoded punctuation into syntax."""
+    value = f"https://example.com/?{query}"
+    humanized = package.url_humanize(value)
+    assert humanized == f"https://example.com/?{expected}"
+    assert package.url_normalize(humanized) == package.url_normalize(value)
+    assert package.url_humanize(humanized) == humanized
 
 
 def test_url_humanize_keeps_malformed_percent_encoding_normalized() -> None:
@@ -124,9 +226,19 @@ def test_url_humanize_skips_failed_round_trip() -> None:
     assert package.url_humanize(value) == value
 
 
-@pytest.mark.parametrize("userinfo", ["user%5B", "user%5D", "user:%5B", "user:%5D"])
-def test_url_humanize_rejects_candidates_that_raise(userinfo):
-    """Retain valid escaped credentials when decoding makes parsing fail."""
+@pytest.mark.parametrize(
+    "userinfo",
+    [
+        "user%5B",
+        "user%5D",
+        "user:%5B",
+        "user:%5D",
+        "us%EF%BC%A0er",
+        "user:p%EF%BC%9Ass",
+    ],
+)
+def test_url_humanize_keeps_escaped_authority_syntax(userinfo):
+    """Keep bracket escapes and reject Unicode decodes that break authority parsing."""
     value = f"https://{userinfo}@example.com/"
     assert package.url_humanize(value) == value
     assert package.url_normalize(package.url_humanize(value)) == value
@@ -146,6 +258,64 @@ def test_url_humanize_keeps_control_characters_encoded(component, escaped):
         f"https:{suffix}" if suffix.startswith("//") else f"https://example.com{suffix}"
     )
     assert package.url_humanize(value) == value
+
+
+@pytest.mark.parametrize("literal_input", [False, True], ids=["escaped", "literal"])
+@pytest.mark.parametrize(
+    "template",
+    [
+        "https://example.com/a{value}b",
+        "https://example.com/?a{value}b=x",
+        "https://example.com/?q=a{value}b",
+        "https://example.com/#a{value}b",
+        "https://a{value}b@example.com/",
+        "https://user:a{value}b@example.com/",
+    ],
+    ids=["path", "query-key", "query-value", "fragment", "username", "password"],
+)
+@pytest.mark.parametrize(
+    ("character", "escaped"),
+    [
+        pytest.param("\u061c", "%D8%9C", id="arabic-letter-mark"),
+        pytest.param("\u200e", "%E2%80%8E", id="left-to-right-mark"),
+        pytest.param("\u200f", "%E2%80%8F", id="right-to-left-mark"),
+        pytest.param("\u202a", "%E2%80%AA", id="left-to-right-embedding"),
+        pytest.param("\u202b", "%E2%80%AB", id="right-to-left-embedding"),
+        pytest.param("\u202c", "%E2%80%AC", id="pop-directional-formatting"),
+        pytest.param("\u202d", "%E2%80%AD", id="left-to-right-override"),
+        pytest.param("\u202e", "%E2%80%AE", id="right-to-left-override"),
+        pytest.param("\u2066", "%E2%81%A6", id="left-to-right-isolate"),
+        pytest.param("\u2067", "%E2%81%A7", id="right-to-left-isolate"),
+        pytest.param("\u2068", "%E2%81%A8", id="first-strong-isolate"),
+        pytest.param("\u2069", "%E2%81%A9", id="pop-directional-isolate"),
+        pytest.param("\u2028", "%E2%80%A8", id="line-separator"),
+        pytest.param("\u2029", "%E2%80%A9", id="paragraph-separator"),
+    ],
+)
+def test_url_humanize_keeps_display_controls_encoded(
+    character, escaped, template, literal_input
+):
+    """Keep bidi controls and Unicode line breaks encoded in display URLs."""
+    value = template.format(value=character if literal_input else escaped)
+    expected = template.format(value=escaped)
+
+    humanized = package.url_humanize(value)
+
+    assert humanized == expected
+    assert character not in humanized
+    assert package.url_normalize(humanized) == package.url_normalize(value)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["שלום", "مرحبا", "می\u200cروم", "👩\u200d💻"],
+    ids=["hebrew", "arabic", "persian-non-joiner", "emoji-joiner"],
+)
+def test_url_humanize_preserves_readable_multilingual_text(text):
+    """Decode ordinary RTL text and join controls used for text shaping."""
+    value = f"https://example.com/{quote(text)}"
+
+    assert package.url_humanize(value) == f"https://example.com/{text}"
 
 
 @pytest.mark.parametrize("scheme", ["http", "https", "ftp"])

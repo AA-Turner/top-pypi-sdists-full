@@ -14,9 +14,8 @@
 
 import json
 import os
-from typing import Any
+from typing import Any, TypedDict
 
-from betamax import cassette
 from betamax import serializers
 import yaml
 
@@ -64,12 +63,16 @@ def _indent_json(val: str | None) -> str:
     )
 
 
-def _is_json_body(interaction: cassette.Interaction) -> bool:
+class _SerializedHTTPMessage(TypedDict):
+    headers: dict[str, list[str]]
+
+
+def _is_json_body(interaction: _SerializedHTTPMessage) -> bool:
     content_type = interaction['headers'].get('Content-Type', [])
     return 'application/json' in content_type
 
 
-class YamlJsonSerializer(serializers.BaseSerializer):  # type: ignore
+class YamlJsonSerializer(serializers.BaseSerializer):  # type: ignore[misc]
     name = "yamljson"
 
     @staticmethod

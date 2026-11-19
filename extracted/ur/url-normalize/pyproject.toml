@@ -1,6 +1,6 @@
 [project]
 name = "url-normalize"
-version = "3.1.0"
+version = "4.0.0"
 description = "URL normalization for Python"
 authors = [{ name = "Nikolay Panov", email = "github@npanov.com" }]
 license = "MIT"
@@ -28,7 +28,7 @@ Changelog = "https://github.com/niksite/url-normalize/blob/master/CHANGELOG.md"
 url-normalize = "url_normalize.cli:main"
 
 [project.optional-dependencies]
-dev = ["mypy", "pre-commit", "pytest-cov", "pytest-socket", "pytest", "ruff"]
+dev = ["hypothesis", "pre-commit", "pytest-cov", "pytest-socket", "pytest", "ruff", "ty"]
 
 [tool.ruff]
 target-version = "py311"
@@ -60,11 +60,14 @@ convention = "google"
 quote-style = "double"
 indent-style = "space"
 
-[tool.mypy]
-ignore_missing_imports = true
-exclude = ["tests"]
-python_version = "3.11"
-show_error_codes = true
+[tool.ty.src]
+include = ["url_normalize", "tests/typing"]
+
+[tool.ty.rules]
+unused-ignore-comment = "error"
+
+[tool.ty.environment]
+python-platform = "all"
 
 [build-system]
 requires = ["setuptools>=77", "wheel"]
@@ -79,3 +82,6 @@ addopts = [
   "-v",
 ]
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
+
+[tool.coverage.run]
+branch = true

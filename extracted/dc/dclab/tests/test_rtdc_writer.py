@@ -1,6 +1,7 @@
 import numbers
 from os.path import join
 import tempfile
+import warnings
 
 import h5py
 import numpy as np
@@ -75,16 +76,16 @@ def test_basin_feature_restriction_verify():
     path = retrieve_data("fmt-hdf5_image-bg_2020.zip")
     path_test = path.parent / "test.h5"
     # We basically create a file that consists only of the metadata.
-    with RTDCWriter(path_test) as hw:
-        with pytest.raises(ValueError, match="blablabla"):
-            hw.store_basin(basin_name="get-out",
-                           basin_type="file",
-                           basin_format="hdf5",
-                           basin_locs=[path],
-                           basin_descr="My very first basin-only dataset",
-                           basin_feats=["blablabla"],
-                           verify=True,
-                           )
+    with (RTDCWriter(path_test) as hw,
+          pytest.raises(ValueError, match="blablabla")):
+        hw.store_basin(basin_name="get-out",
+                       basin_type="file",
+                       basin_format="hdf5",
+                       basin_locs=[path],
+                       basin_descr="My very first basin-only dataset",
+                       basin_feats=["blablabla"],
+                       verify=True,
+                       )
 
 
 @pytest.mark.filterwarnings(
@@ -262,12 +263,12 @@ def test_bulk_scalar():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_bulk_scalar_")
     with RTDCWriter(rtdc_file) as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
         events = rtdc_data["events"]
-        assert "area_um" in events.keys()
+        assert "area_um" in events
         assert np.all(events["area_um"][:] == data["area_um"])
 
 
@@ -282,12 +283,12 @@ def test_bulk_contour():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_bulk_contour_")
     with RTDCWriter(rtdc_file) as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
         events = rtdc_data["events"]
-        assert "contour" in events.keys()
+        assert "contour" in events
         assert np.allclose(events["contour"]["6"], contour[6])
         assert events["contour"]["1"].shape == (2, 6)
 
@@ -301,12 +302,12 @@ def test_bulk_image():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_bulk_image_")
     with RTDCWriter(rtdc_file) as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
         events = rtdc_data["events"]
-        assert "image" in events.keys()
+        assert "image" in events
         assert np.allclose(events["image"][6], image[6])
 
 
@@ -330,12 +331,12 @@ def test_bulk_qpi2d(feat, dtype):
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_bulk_qpi_")
     with RTDCWriter(rtdc_file) as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for key, values in data.items():
+            hw.store_feature(key, values)
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
         events = rtdc_data["events"]
-        assert feat in events.keys()
+        assert feat in events
         assert np.allclose(events[feat][6], feat_data[6])
         assert events[feat][:].dtype == dtype
 
@@ -352,12 +353,12 @@ def test_bulk_mask():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_bulk_mask_")
     with RTDCWriter(rtdc_file) as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
         events = rtdc_data["events"]
-        assert "mask" in events.keys()
+        assert "mask" in events
         # Masks are stored as uint8
         assert np.allclose(events["mask"][6], mask[6]*255)
         assert events["mask"][1].shape == (20, 10)
@@ -393,12 +394,12 @@ def test_bulk_trace():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_bulk_trace_")
     with RTDCWriter(rtdc_file) as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
         events = rtdc_data["events"]
-        assert "trace" in events.keys()
+        assert "trace" in events
         assert np.allclose(events["trace"]["fl1_raw"], trace["fl1_raw"])
 
 
@@ -423,9 +424,9 @@ def test_contour_from_hdf5():
 def test_empty_array():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_error_")
-    with RTDCWriter(rtdc_file) as hw:
-        with pytest.raises(ValueError, match="Empty data object for 'deform'"):
-            hw.store_feature("deform", [])
+    with (RTDCWriter(rtdc_file) as hw,
+          pytest.raises(ValueError, match="Empty data object for 'deform'")):
+        hw.store_feature("deform", [])
 
 
 def test_index_increment():
@@ -509,6 +510,43 @@ def test_logs_append():
             assert outii == (log1 + log2)[ii]
 
 
+def test_logs_append_longer_lines(tmp_path):
+    """Appended log lines that are longer than the existing lines"""
+    rtdc_file = tmp_path / "test.rtdc"
+    log1 = ["short line", "y" * 120]
+    log2 = ["x" * 150, "short again"]
+    with RTDCWriter(rtdc_file, mode="reset") as hw:
+        hw.store_log("testlog", log1)
+        hw.h5file["logs/testlog"].attrs["hans"] = "peter"
+
+    with RTDCWriter(rtdc_file, mode="append") as hw:
+        hw.store_log("testlog", log2)
+
+    with h5py.File(rtdc_file, mode="r") as h5:
+        outlog = [line.decode("utf-8") for line in h5["logs/testlog"]]
+        assert outlog == log1 + log2
+        assert h5["logs/testlog"].attrs["hans"] == "peter"
+
+
+def test_logs_append_longer_lines_multibyte(tmp_path):
+    """Multi-byte UTF-8 characters must not be cut when appending
+
+    Before, the line was truncated to 100 bytes, which cut the "ä" in
+    half and the log could not be decoded anymore.
+    """
+    rtdc_file = tmp_path / "test.rtdc"
+    line = "x" * 99 + "ä"  # 100 characters, 101 bytes
+    with RTDCWriter(rtdc_file, mode="reset") as hw:
+        hw.store_feature("deform", np.linspace(.01, .02, 10))
+        hw.store_log("testlog", ["short"])
+
+    with RTDCWriter(rtdc_file, mode="append") as hw:
+        hw.store_log("testlog", [line, "ü" * 60])
+
+    with new_dataset(rtdc_file) as ds:
+        assert ds.logs["testlog"] == ["short", line, "ü" * 60]
+
+
 def test_meta():
     data = {"area_um": np.linspace(100.7, 110.9, 100)}
     meta = {"setup": {
@@ -523,8 +561,8 @@ def test_meta():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_meta_")
     with RTDCWriter(rtdc_file) as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
         hw.store_metadata(meta)
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
@@ -550,8 +588,8 @@ def test_meta_bytes():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_meta_")
     with RTDCWriter(rtdc_file) as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
         hw.store_metadata(meta)
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
@@ -593,40 +631,39 @@ def test_mode():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_replace_")
     with RTDCWriter(rtdc_file, mode="reset") as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
 
     with RTDCWriter(rtdc_file, mode="append") as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
 
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data1:
         events1 = rtdc_data1["events"]
-        assert "area_um" in events1.keys()
+        assert "area_um" in events1
         assert len(events1["area_um"]) == 2 * len(data["area_um"])
 
     with RTDCWriter(rtdc_file, mode="replace") as hw:
-        for feat in data:
-            hw.store_feature(feat, data[feat])
+        for feat, values in data.items():
+            hw.store_feature(feat, values)
 
     with RTDCWriter(rtdc_file, mode="replace") as hw:
-        for feat in data2:
-            hw.store_feature(feat, data2[feat])
+        for feat, values in data2.items():
+            hw.store_feature(feat, values)
 
     with h5py.File(rtdc_file, mode="r") as rtdc_data2:
         events2 = rtdc_data2["events"]
-        assert "area_um" in events2.keys()
-        assert "deform" in events2.keys()
+        assert "area_um" in events2
+        assert "deform" in events2
         assert len(events2["area_um"]) == len(data["area_um"])
 
 
 def test_nan_array():
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
                                 prefix="dclab_test_error_")
-    with RTDCWriter(rtdc_file) as hw:
-        with pytest.warns(RuntimeWarning) as record:
-            hw.store_feature("deform", np.full(100, np.nan))
+    with RTDCWriter(rtdc_file) as hw, pytest.warns(RuntimeWarning) as record:
+        hw.store_feature("deform", np.full(100, np.nan))
 
     assert len(record) == 3
     assert record[0].message.args[0] == "All-NaN axis encountered"
@@ -697,8 +734,8 @@ def test_real_time():
                     "contour": contours,
                     "mask": masks,
                     "trace": traces}
-            for feat in data:
-                hw.store_feature(feat, data[feat])
+            for feat, values in data.items():
+                hw.store_feature(feat, values)
 
     # Read the file:
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
@@ -732,8 +769,8 @@ def test_real_time_single():
                     "contour": contour,
                     "mask": mask,
                     "trace": trace}
-            for feat in data:
-                hw.store_feature(feat, data[feat])
+            for feat, values in data.items():
+                hw.store_feature(feat, values)
             hw.store_log("log1", f"line {ii}")
 
     # Read the file:
@@ -785,6 +822,29 @@ def test_rectify_metadata_ignore_empty_trace():
         assert h5.attrs["experiment:event count"] == 7
 
 
+def test_rectify_metadata_event_count_trace(tmp_path):
+    """The event count must not be the number of trace channels"""
+    path = tmp_path / "test.rtdc"
+    with RTDCWriter(path, mode="reset") as hw:
+        # "trace" comes before "volume" in alphabetical order
+        hw.store_feature("trace", {
+            "fl1_median": np.zeros((5, 10), dtype=np.int16),
+            "fl1_raw": np.zeros((5, 10), dtype=np.int16)})
+        hw.store_feature("volume", np.arange(5, dtype=float))
+    with h5py.File(path) as h5:
+        assert h5.attrs["experiment:event count"] == 5
+
+
+def test_rectify_metadata_event_count_trace_only(tmp_path):
+    path = tmp_path / "test.rtdc"
+    with RTDCWriter(path, mode="reset") as hw:
+        hw.store_feature("trace", {
+            "fl1_median": np.zeros((5, 10), dtype=np.int16),
+            "fl1_raw": np.zeros((5, 10), dtype=np.int16)})
+    with h5py.File(path) as h5:
+        assert h5.attrs["experiment:event count"] == 5
+
+
 def test_replace_contour():
     num = 7
     contour = []
@@ -801,17 +861,17 @@ def test_replace_contour():
                                 prefix="dclab_test_replace_contour_")
 
     with RTDCWriter(rtdc_file) as hw:
-        for feat in data1:
-            hw.store_feature(feat, data1[feat])
+        for feat, values in data1.items():
+            hw.store_feature(feat, values)
 
     with RTDCWriter(rtdc_file, mode="replace") as hw:
-        for feat in data2:
-            hw.store_feature(feat, data2[feat])
+        for feat, values in data2.items():
+            hw.store_feature(feat, values)
 
     # verify
     with h5py.File(rtdc_file, mode="r") as rtdc_data:
         events = rtdc_data["events"]
-        assert "contour" in events.keys()
+        assert "contour" in events
         assert not np.allclose(events["contour"]["6"], contour[6])
         assert np.allclose(events["contour"]["6"], contour2[6])
 
@@ -884,6 +944,39 @@ def test_scalar_ufuncs_attrs_append():
                            382.6259946949602)
 
 
+@pytest.mark.parametrize("new_session", [False, True])
+def test_scalar_ufuncs_attrs_append_nan(new_session, tmp_path):
+    """The cached mean must ignore nan values when appending data"""
+    rtdc_file = tmp_path / "test.rtdc"
+    chunks = [
+        # deform: nan values in the first chunk
+        {"deform": np.array([0.1, np.nan]),
+         # area_um: only nan values in the first chunk
+         "area_um": np.array([np.nan, np.nan])},
+        {"deform": np.array([0.3]),
+         "area_um": np.array([5.0, 7.0])},
+        {"deform": np.array([np.nan, 0.2]),
+         "area_um": np.array([np.nan, 9.0])},
+    ]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        hw = RTDCWriter(rtdc_file)
+        for chunk in chunks:
+            for feat, values in chunk.items():
+                hw.store_feature(feat, values)
+            if new_session:
+                hw.close()
+                hw = RTDCWriter(rtdc_file)
+        hw.close()
+
+    with h5py.File(rtdc_file) as h5:
+        for feat in ["deform", "area_um"]:
+            assert np.allclose(h5["events"][feat].attrs["mean"],
+                               np.nanmean(h5["events"][feat][:]))
+        assert np.allclose(h5["events/deform"].attrs["mean"], 0.2)
+        assert np.allclose(h5["events/area_um"].attrs["mean"], 7)
+
+
 def test_tables_recarray():
     """Write a numpy recarray table to an .rtdc file"""
     rtdc_file = tempfile.mktemp(suffix=".rtdc",
@@ -891,8 +984,8 @@ def test_tables_recarray():
 
     # generate a table
     columns = ["bread", "beer", "chocolate"]
-    ds_dt = np.dtype({'names': columns,
-                      'formats': [np.float64] * len(columns)})
+    ds_dt = np.dtype({"names": columns,
+                      "formats": [np.float64] * len(columns)})
     tab_data = np.zeros((10, len(columns)))
     tab_data[:, 0] = np.arange(10)
     tab_data[:, 1] = 1000
@@ -922,8 +1015,8 @@ def test_tables_recarray_from_h5array():
 
     # generate a table
     columns = ["bread", "beer", "chocolate"]
-    ds_dt = np.dtype({'names': columns,
-                      'formats': [np.float64] * len(columns)})
+    ds_dt = np.dtype({"names": columns,
+                      "formats": [np.float64] * len(columns)})
     tab_data = np.zeros((10, len(columns)))
     tab_data[:, 0] = np.arange(10)
     tab_data[:, 1] = 1000
@@ -1002,9 +1095,9 @@ def test_tables_recarray_invalid():
                 ]
 
     # Write the table to the .rtdc file
-    with RTDCWriter(rtdc_file) as hw:
-        with pytest.raises(NotImplementedError, match="list"):
-            hw.store_table("food", tab_data)
+    with (RTDCWriter(rtdc_file) as hw,
+          pytest.raises(NotImplementedError, match="list")):
+        hw.store_table("food", tab_data)
 
 
 def test_version_branding_1_write_single_version():

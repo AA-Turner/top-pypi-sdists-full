@@ -1,7 +1,8 @@
-import warnings
-from .. import QuantitiesDeprecationWarning, units as pq
-from .common import TestCase
 import numpy as np
+
+from .. import units as pq
+from .common import TestCase
+
 
 class TestQuantityMethods(TestCase):
 
@@ -17,6 +18,7 @@ class TestQuantityMethods(TestCase):
         self.assertQuantityEqual(self.q.sum(), 10*pq.m)
         self.assertQuantityEqual(self.q.sum(0), [4, 6]*pq.m)
         self.assertQuantityEqual(self.q.sum(1), [3, 7]*pq.m)
+        self.assertQuantityEqual(self.q.sum(1, keepdims=True), [[3], [7]]*pq.m)
 
     def test_nansum(self):
         import numpy as np
@@ -109,6 +111,7 @@ class TestQuantityMethods(TestCase):
 
     def methodWithOut(self, name, result, q=None, *args, **kw):
         import numpy as np
+
         from .. import Quantity
 
         if q is None:
@@ -120,10 +123,7 @@ class TestQuantityMethods(TestCase):
         )
         if isinstance(result, Quantity):
             # deliberately using an incompatible unit
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=QuantitiesDeprecationWarning)
-                out = Quantity(np.empty_like(result.magnitude), pq.s, copy=False)
-            # we can drop 'copy=False' above once the deprecation of the arg has expired.
+            out = Quantity(np.empty_like(result.magnitude), pq.s)
         else:
             out = np.empty_like(result)
         ret = getattr(q.copy(), name)(*args, out=out, **kw)
@@ -151,6 +151,9 @@ class TestQuantityMethods(TestCase):
     def test_nanmax(self):
         q = np.append(self.q, np.nan) * self.q.units
         self.assertQuantityEqual(q.nanmax(), 4*pq.m)
+        q = [[1, np.nan], [3, 4]] * pq.m
+        self.methodWithOut('nanmax', [3, 4] * pq.m, q=q, axis=0)
+        self.methodWithOut('nanmax', [1, 4] * pq.m, q=q, axis=1)
 
     def test_argmax(self):
         import numpy as np
@@ -166,7 +169,10 @@ class TestQuantityMethods(TestCase):
 
     def test_nanargmax(self):
         q = np.append(self.q, np.nan) * self.q.units
-        self.assertEqual(self.q.nanargmax(), 3)
+        self.assertEqual(q.nanargmax(), 3)
+        q = [[1, np.nan], [3, 4]] * pq.m
+        self.assertEqual(q.nanargmax(axis=0).tolist(), [1, 1])
+        self.assertEqual(q.nanargmax(axis=1).tolist(), [0, 1])
 
     def test_min(self):
         self.methodWithOut('min', 1 * pq.m)
@@ -176,6 +182,9 @@ class TestQuantityMethods(TestCase):
     def test_nanmin(self):
         q = np.append(self.q, np.nan) * self.q.units
         self.assertQuantityEqual(q.nanmin(), 1*pq.m)
+        q = [[1, np.nan], [3, 4]] * pq.m
+        self.methodWithOut('nanmin', [1, 4] * pq.m, q=q, axis=0)
+        self.methodWithOut('nanmin', [1, 3] * pq.m, q=q, axis=1)
 
     def test_argmin(self):
         import numpy as np
@@ -191,12 +200,39 @@ class TestQuantityMethods(TestCase):
 
     def test_nanargmin(self):
         q = np.append(self.q, np.nan) * self.q.units
-        self.assertEqual(self.q.nanargmin(), 0)
+        self.assertEqual(q.nanargmin(), 0)
+        q = [[1, np.nan], [3, 4]] * pq.m
+        self.assertEqual(q.nanargmin(axis=0).tolist(), [0, 1])
+        self.assertEqual(q.nanargmin(axis=1).tolist(), [0, 0])
 
     def test_ptp(self):
         self.methodWithOut('ptp', 3 * pq.m)
         self.methodWithOut('ptp', [2, 2] * pq.m, axis=0)
         self.methodWithOut('ptp', [1, 1] * pq.m, axis=1)
+
+    def test_np_ptp(self):
+        self.assertQuantityEqual(np.ptp(self.q), 3 * pq.m)
+        self.assertQuantityEqual(np.ptp(self.q, axis=0), [2, 2] * pq.m)
+        self.assertQuantityEqual(np.ptp(self.q, 1), [1, 1] * pq.m)
+        self.assertQuantityEqual(
+            np.ptp(self.q, axis=1, keepdims=True), [[1], [1]] * pq.m
+        )
+
+    def test_np_ptp_array_keyword(self):
+        self.assertQuantityEqual(np.ptp(a=self.q), 3 * pq.m)
+        self.assertQuantityEqual(np.ptp(a=self.q, axis=0), [2, 2] * pq.m)
+
+    def test_np_ptp_out(self):
+        out = [0, 0] * pq.m
+        res = np.ptp(self.q, axis=0, out=out)
+        self.assertIs(res, out)
+        self.assertQuantityEqual(out, [2, 2] * pq.m)
+
+        out = np.empty(2)
+        res = np.ptp(self.q, axis=0, out=out)
+        self.assertIs(res, out)
+        self.assertNotIsInstance(res, type(self.q))
+        np.testing.assert_array_equal(out, [2, 2])
 
     def test_clip(self):
         self.methodWithOut(
@@ -216,6 +252,23 @@ class TestQuantityMethods(TestCase):
         )
         self.assertRaises(ValueError, self.q.clip, pq.J)
         self.assertRaises(ValueError, self.q.clip, 1)
+
+    def test_clip_dimensionless_numeric_bounds(self):
+        q = [[-2., 0.5], [1.5, 3.]] * pq.dimensionless
+        for lower, upper in ((0, 1), (None, 1), (0, None),
+                             (np.array([[0.], [1.]]), [1., 2.])):
+            with self.subTest(lower=lower, upper=upper):
+                expected = q.magnitude.clip(lower, upper) * pq.dimensionless
+                self.assertQuantityEqual(q.clip(lower, upper), expected)
+                self.assertQuantityEqual(np.clip(q, lower, upper), expected)
+                out = np.empty(q.shape) * pq.dimensionless
+                self.assertIs(q.clip(lower, upper, out=out), out)
+                self.assertQuantityEqual(out, expected)
+        self.assertQuantityEqual(q.clip(0, 1 * pq.dimensionless),
+                                 [[0., 0.5], [1., 1.]] * pq.dimensionless)
+        self.assertRaises(ValueError, q.clip, 0 * pq.m, 1)
+        self.assertRaises(ValueError, self.q.clip, 0, 1 * pq.m)
+        self.assertQuantityEqual(q, [[-2., 0.5], [1.5, 3.]] * pq.dimensionless)
 
     def test_round(self):
         q = [1, 1.33, 5.67, 22] * pq.m

@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 from click.testing import CliRunner, Result
@@ -29,6 +29,7 @@ from omnibase_core.validators.no_unguarded_git_subprocess import (
 from omnibase_infra.errors import InfraConnectionError
 from pydantic import BaseModel, ConfigDict, create_model
 
+from omnimarket.delegated_test_loop.lane_bus import LabRunBusError
 from omnimarket.handlers.scm import scm_cli
 from omnimarket.handlers.scm.handler_scm_dispatch import (
     SCM_REFUSED_VERBS,
@@ -87,6 +88,7 @@ class FakeBus:
 
     def __init__(self, *, fail_writes: bool = False, answer: bool = True) -> None:
         self.published: list[tuple[str, dict[str, Any]]] = []
+        self.groups: set[str] = set()
         self._subscribers: dict[str, list[_Callback]] = {}
         self._offset = 41
         self._fail_writes = fail_writes
@@ -124,12 +126,19 @@ class FakeBus:
         group_id: str | None = None,
     ) -> Callable[[], Awaitable[None]]:
         assert on_message is not None
+        if group_id is not None:
+            self.groups.add(group_id)
         self._subscribers.setdefault(topic, []).append(on_message)
 
         async def unsubscribe() -> None:
             self._subscribers[topic].remove(on_message)
 
         return unsubscribe
+
+    async def subscribe_ungrouped(
+        self, topic: str, on_message: _Callback
+    ) -> Callable[[], Awaitable[None]]:
+        return await self.subscribe(topic, on_message=on_message)
 
     def _respond(
         self, topic: str, payload: dict[str, Any]
@@ -173,6 +182,13 @@ def _pr(request: ModelGithubGatewayRequest) -> dict[str, Any]:
 
 
 _GATEWAY_RESULTS: dict[str, Callable[[ModelGithubGatewayRequest], dict[str, Any]]] = {
+    "open_pr_facts": lambda r: {
+        "operation": "open_pr_facts",
+        "repo": r.repo,
+        "total_count": 0,
+        "truncated": False,
+        "prs": [],
+    },
     "pr_text": lambda r: {
         "operation": "pr_text",
         **_pr(r),
@@ -246,6 +262,14 @@ _GATEWAY_RESULTS: dict[str, Callable[[ModelGithubGatewayRequest], dict[str, Any]
         "truncated": False,
         "text": "done",
     },
+    "job_log_fill": lambda r: {
+        "operation": "job_log_fill",
+        "repo": r.repo,
+        "job_id": r.job_id,
+        "total_bytes": 4,
+        "truncated": False,
+        "text": "done",
+    },
     "artifacts": lambda r: {
         "operation": "artifacts",
         "repo": r.repo,
@@ -263,6 +287,20 @@ _GATEWAY_RESULTS: dict[str, Callable[[ModelGithubGatewayRequest], dict[str, Any]
         "repo": r.repo,
         "truncated": False,
     },
+    "commit_statuses": lambda r: {
+        "operation": "commit_statuses",
+        "repo": r.repo,
+        "head_sha": r.head_sha,
+        "truncated": False,
+        "statuses": [
+            {
+                "id": 3,
+                "context": "fable-review-gate",
+                "state": "success",
+                "target_url": "https://example.invalid/verdict",
+            }
+        ],
+    },
     "commit_check_runs": lambda r: {
         "operation": "commit_check_runs",
         "repo": r.repo,
@@ -278,6 +316,14 @@ _GATEWAY_RESULTS: dict[str, Callable[[ModelGithubGatewayRequest], dict[str, Any]
                 "conclusion": "success",
             }
         ],
+    },
+    "code_scanning_alerts": lambda r: {
+        "operation": "code_scanning_alerts",
+        "repo": r.repo,
+        "ref": f"refs/pull/{r.pr_number}/merge",
+        "available": True,
+        "truncated": False,
+        "alerts": [{"number": 3, "rule_id": "py/example", "severity": "error"}],
     },
     "pr_review_threads": lambda r: {
         "operation": "pr_review_threads",
@@ -439,6 +485,7 @@ _READ_ARGS: dict[str, list[str]] = {
     "pr-status": [f"{REPO}#77", "--source", "bus"],
     "pr-checks": [f"{REPO}#77", "--source", "bus"],
     "pr-list": [REPO, "--source", "bus"],
+    "open-pr-facts": [REPO, "--source", "bus"],
     "pr-merge-commit": [f"{REPO}#77", "--source", "bus"],
     "pr-review": [f"{REPO}#77"],
     "pr-ticket": [f"{REPO}#77"],
@@ -446,6 +493,7 @@ _READ_ARGS: dict[str, list[str]] = {
     "run-list": [REPO, "--branch", "dev", "--limit", "5"],
     "run-view": [REPO, "--run-id", "11"],
     "job-log": [REPO, "--job-id", "12", "--tail-bytes", "1024"],
+    "job-log-fill": [REPO, "--job-id", "12", "--tail-bytes", "1024"],
     "run-download": [REPO, "--run-id", "11"],
     "release-list": [REPO],
     "pr-heads": [REPO, "--source", "bus"],
@@ -456,8 +504,10 @@ _READ_ARGS: dict[str, list[str]] = {
         "--check-name",
         "repo-evidence / dod-verify",
     ],
+    "commit-statuses": [REPO, "--head-sha", "a" * 40],
     "pr-merged": [f"{REPO}#77"],
     "pr-threads": [f"{REPO}#77"],
+    "code-scanning-alerts": [f"{REPO}#77"],
 }
 _WRITE_ARGS: dict[str, list[str]] = {
     "pr-create": [
@@ -485,6 +535,12 @@ _WRITE_ARGS: dict[str, list[str]] = {
     ],
     "pr-comment": [f"{REPO}#77", "--body", "hello"],
     "pr-thread-reply": [f"{REPO}#77", "--thread", "2410010001", "--body", "hello"],
+    "pr-thread-resolve": [
+        f"{REPO}#77",
+        "--review-thread",
+        "PRRT_kwDOExample0001",
+    ],
+    "pr-review-post": [f"{REPO}#77", "--body", "hello", "--head-sha", HEAD],
     "workflow-run": [REPO, "--workflow", "ci.yml", "--ref", "dev", "--input", "a=b"],
     "check-run-create": [
         REPO,
@@ -501,6 +557,28 @@ _WRITE_ARGS: dict[str, list[str]] = {
         "--output-summary",
         "Passed.",
     ],
+    "commit-status-create": [
+        REPO,
+        "--sha",
+        HEAD,
+        "--state",
+        "success",
+        "--target-url",
+        "https://example.invalid/verdict",
+    ],
+    "required-context-apply": [
+        REPO,
+        "--branch",
+        "dev",
+        "--required-context",
+        "fable-review-gate",
+    ],
+    "pr-label": [f"{REPO}#77", "--add", "ci:ready", "--head-sha", HEAD],
+    "variable-set": [REPO, "--variable", "LAB_VAR_ONE"],
+    "variable-get": [REPO, "--variable", "LAB_VAR_ONE"],
+    "runner-list": [REPO],
+    "runner-remove": [REPO, "--runner", "example-runner-1"],
+    "runner-group-get": [REPO, "--group-id", "7"],
 }
 
 
@@ -628,7 +706,7 @@ def test_run_view_returns_step_timestamps_without_an_additional_read(
     transport.assert_drained()
     assert transport.sent == [get(path)]
     declared = sorted(contract_operations(EnumScmNode.GATEWAY))
-    assert len(declared) == 17
+    assert len(declared) == 21
     assert declared == sorted(
         spec.operation for spec in SCM_VERBS if spec.node is EnumScmNode.GATEWAY
     )
@@ -702,7 +780,24 @@ def _contract_1_2_0_request() -> type[BaseModel]:
 
 
 @pytest.mark.parametrize(
-    "verb_name", sorted(set(_WRITE_ARGS) - {"check-run-create", "pr-thread-reply"})
+    "verb_name",
+    sorted(
+        set(_WRITE_ARGS)
+        - {
+            "check-run-create",
+            "commit-status-create",
+            "required-context-apply",
+            "pr-thread-reply",
+            "pr-thread-resolve",
+            "pr-review-post",
+            "pr-label",
+            "variable-set",
+            "variable-get",
+            "runner-list",
+            "runner-remove",
+            "runner-group-get",
+        }
+    ),
 )
 def test_older_write_envelopes_validate_against_the_deployed_contract(
     monkeypatch: pytest.MonkeyPatch, verb_name: str
@@ -722,6 +817,21 @@ def test_older_write_envelopes_validate_against_the_deployed_contract(
     assert (
         ModelRepoWriteRequest.model_validate(payload).model_dump(mode="json") == payload
     )
+
+
+def test_pr_thread_resolve_carries_the_review_thread_node_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    result = _run(
+        ["pr-thread-resolve", *_WRITE_ARGS["pr-thread-resolve"], "--lane", "lane-x"]
+    )
+    assert result.exit_code == 0, result.output
+    payload = bus.published[0][1]["payload"]
+    assert payload["operation"] == "pr_thread_resolve"
+    assert payload["review_thread_id"] == "PRRT_kwDOExample0001"
+    assert "thread_comment_id" not in payload
 
 
 def test_pr_thread_reply_carries_the_thread_id_as_an_integer(
@@ -754,6 +864,128 @@ def test_pr_thread_reply_carries_the_thread_id_as_an_integer(
     assert (sent.pr_number, sent.thread_comment_id) == (77, 2410010001)
     assert sent.body == "Fixed in the head commit.\n"
     assert sent.expected_head_sha is None
+
+
+def test_pr_label_carries_the_labels(monkeypatch: pytest.MonkeyPatch) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    result = _run(["pr-label", *_WRITE_ARGS["pr-label"], "--lane", "lane-x"])
+    assert result.exit_code == 0, result.output
+    payload = bus.published[0][1]["payload"]
+    assert payload["operation"] == "pr_label"
+    assert payload["add_labels"] == ["ci:ready"]
+    assert payload["remove_labels"] is None
+    assert "review_thread_id" not in payload
+    assert payload["pr_number"] == 77
+    assert payload["expected_head_sha"] == HEAD
+
+
+@pytest.mark.parametrize("verb_name", ["variable-set", "variable-get"])
+def test_variable_verbs_carry_the_name_and_never_a_value(
+    monkeypatch: pytest.MonkeyPatch, verb_name: str
+) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    result = _run([verb_name, *_WRITE_ARGS[verb_name], "--lane", "lane-x"])
+    assert result.exit_code == 0, result.output
+    payload = bus.published[0][1]["payload"]
+    assert payload["variable_name"] == "LAB_VAR_ONE"
+    assert payload["operation"] == "repo_" + verb_name.replace("-", "_")
+    assert payload["pr_number"] is None
+    assert "value" not in payload
+    assert payload["expected_head_sha"] is None
+
+
+@pytest.mark.parametrize("verb_name", ["variable-set", "variable-get"])
+def test_variable_verbs_refuse_a_typed_value_and_a_missing_name(
+    monkeypatch: pytest.MonkeyPatch, verb_name: str
+) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    typed = _run([verb_name, REPO, "--variable", "LAB_VAR_ONE", "--value", "x"])
+    assert typed.exit_code != 0
+    missing = _run([verb_name, REPO, "--lane", "lane-x"])
+    assert missing.exit_code != 0
+    assert bus.published == []
+
+
+def test_runner_list_carries_no_runner_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    result = _run(["runner-list", *_WRITE_ARGS["runner-list"], "--lane", "lane-x"])
+    assert result.exit_code == 0, result.output
+    payload = bus.published[0][1]["payload"]
+    assert payload["operation"] == "runner_list"
+    assert "runner_name" not in payload
+    assert payload["pr_number"] is None
+    assert payload["expected_head_sha"] is None
+
+
+def test_runner_remove_carries_the_name_and_nothing_else(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    result = _run(["runner-remove", *_WRITE_ARGS["runner-remove"], "--lane", "lane-x"])
+    assert result.exit_code == 0, result.output
+    payload = bus.published[0][1]["payload"]
+    assert payload["operation"] == "runner_remove"
+    assert payload["runner_name"] == "example-runner-1"
+    assert payload["pr_number"] is None
+    assert payload["expected_head_sha"] is None
+    sent = ModelRepoWriteRequest.model_validate(payload)
+    assert sent.operation is EnumRepoWriteOperation.RUNNER_REMOVE
+
+
+def test_runner_group_get_carries_the_group_id_and_nothing_else(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    result = _run(
+        ["runner-group-get", *_WRITE_ARGS["runner-group-get"], "--lane", "lane-x"]
+    )
+    assert result.exit_code == 0, result.output
+    payload = bus.published[0][1]["payload"]
+    assert payload["operation"] == "runner_group_get"
+    assert payload["runner_group_id"] == 7
+    assert "runner_name" not in payload
+    assert payload["pr_number"] is None
+    assert payload["expected_head_sha"] is None
+    sent = ModelRepoWriteRequest.model_validate(payload)
+    assert sent.operation is EnumRepoWriteOperation.RUNNER_GROUP_GET
+
+
+def test_runner_group_get_refuses_a_missing_group_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    missing = _run(["runner-group-get", REPO, "--lane", "lane-x"])
+    assert missing.exit_code != 0
+    assert bus.published == []
+
+
+def test_runner_remove_refuses_a_missing_name_and_runner_list_a_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    missing = _run(["runner-remove", REPO, "--lane", "lane-x"])
+    assert missing.exit_code != 0
+    typed = _run(
+        ["runner-list", REPO, "--runner", "example-runner-1", "--lane", "lane-x"]
+    )
+    assert typed.exit_code != 0
+    assert bus.published == []
+
+
+def test_pr_label_needs_a_label(monkeypatch: pytest.MonkeyPatch) -> None:
+    bus = FakeBus()
+    _install(monkeypatch, bus)
+    result = _run(["pr-label", f"{REPO}#77", "--head-sha", HEAD, "--lane", "lane-x"])
+    assert result.exit_code != 0
+    assert bus.published == []
 
 
 @pytest.mark.parametrize(
@@ -1042,7 +1274,7 @@ def test_read_exhausts_three_unanswered_attempts(
     assert retry_pauses == [20, 20]
 
 
-@pytest.mark.parametrize("error_type", [scm_cli.LabRunBusError, InfraConnectionError])
+@pytest.mark.parametrize("error_type", [LabRunBusError, InfraConnectionError])
 def test_read_retries_when_the_bus_does_not_open(
     monkeypatch: pytest.MonkeyPatch,
     retry_pauses: list[float],
@@ -1060,7 +1292,7 @@ def test_read_retries_when_the_bus_does_not_open(
     assert retry_pauses == [20]
 
 
-@pytest.mark.parametrize("error_type", [scm_cli.LabRunBusError, InfraConnectionError])
+@pytest.mark.parametrize("error_type", [LabRunBusError, InfraConnectionError])
 def test_read_exhausts_three_bus_unavailable_attempts(
     monkeypatch: pytest.MonkeyPatch,
     retry_pauses: list[float],
@@ -1126,49 +1358,199 @@ def test_write_timeout_is_not_retried(
     assert retry_pauses == []
 
 
-def test_write_timeout_reports_missing_consumer_without_republishing(
-    monkeypatch: pytest.MonkeyPatch, retry_pauses: list[float]
+_Reason = Literal[
+    "no_consumer_for_topic",
+    "consumer_present_no_terminal",
+    "consumer_evidence_unreadable",
+]
+
+
+def _install_evidence(monkeypatch: pytest.MonkeyPatch, reason: _Reason) -> list[str]:
+    """Make the post-timeout broker read answer ``reason``; returns the topics it read."""
+    from omnimarket.handlers.scm import handler_scm_consumer_diagnostics as diagnostics
+    from omnimarket.models.scm.model_scm_consumer_evidence import (
+        ModelScmConsumerEvidence,
+    )
+
+    read: list[str] = []
+
+    async def diagnose(
+        opened: object, node: EnumScmNode, topic: str
+    ) -> ModelScmConsumerEvidence:
+        read.append(topic)
+        return ModelScmConsumerEvidence(
+            reason=reason,
+            command_topic=topic,
+            physical_topic=topic,
+            consumer_count=0 if reason == "no_consumer_for_topic" else None,
+        )
+
+    monkeypatch.setattr(diagnostics, "diagnose_scm_timeout", diagnose)
+    return read
+
+
+_WRITE_VERBS = ("pr-create", "pr-comment")
+
+
+def _write_args(verb: str) -> list[str]:
+    return [verb, *_WRITE_ARGS[verb], "--lane", "lane-x", "--timeout-s", "0.01"]
+
+
+@pytest.mark.parametrize("verb", _WRITE_VERBS)
+def test_write_retries_when_no_consumer_and_keeps_its_idempotency_key(
+    monkeypatch: pytest.MonkeyPatch, retry_pauses: list[float], verb: str
+) -> None:
+    """The recreate window of 2026-10-31: no consumer for 103 s, then one rejoins."""
+    unanswered, completed = FakeBus(answer=False), FakeBus()
+    opened = _install_bus_attempts(monkeypatch, [unanswered, completed])
+    read = _install_evidence(monkeypatch, "no_consumer_for_topic")
+
+    result = _run(_write_args(verb))
+
+    assert result.exit_code == 0, result.output
+    answer = _answer(result)
+    assert answer["outcome"] == "completed"
+    assert answer["attempts"] == 2
+    assert len(result.stdout.strip().splitlines()) == 1
+    assert len(opened) == 2
+    assert read == [WRITE.command]
+    first, second = unanswered.published[0][1], completed.published[0][1]
+    assert unanswered.published[0][0] == completed.published[0][0] == WRITE.command
+    assert first["correlation_id"] != second["correlation_id"]
+    assert second["payload"]["correlation_id"] == second["correlation_id"]
+    assert first["payload"]["idempotency_key"] == second["payload"]["idempotency_key"]
+    assert answer["bus"]["correlation_id"] == second["correlation_id"]
+    assert retry_pauses == [20]
+
+
+@pytest.mark.parametrize("verb", _WRITE_VERBS)
+def test_write_retries_when_no_consumer_exhausts_three_attempts(
+    monkeypatch: pytest.MonkeyPatch, retry_pauses: list[float], verb: str
+) -> None:
+    bus = FakeBus(answer=False)
+    _install(monkeypatch, bus)
+    _install_evidence(monkeypatch, "no_consumer_for_topic")
+
+    result = _run(_write_args(verb))
+
+    assert result.exit_code == scm_cli.EXIT_NO_TERMINAL, result.output
+    answer = _answer(result)
+    assert answer["status"] == "no_terminal"
+    assert answer["reason"] == "no_consumer_for_topic"
+    assert answer["consumer_count"] == 0
+    assert answer["attempts"] == 3
+    assert len(bus.published) == 3
+    keys = {envelope["payload"]["idempotency_key"] for _, envelope in bus.published}
+    assert len(keys) == 1
+    assert answer["correlation_id"] == bus.published[-1][1]["correlation_id"]
+    assert retry_pauses == [20, 20]
+
+
+@pytest.mark.parametrize(
+    "reason", ["consumer_present_no_terminal", "consumer_evidence_unreadable"]
+)
+@pytest.mark.parametrize("verb", _WRITE_VERBS)
+def test_write_is_not_republished_unless_the_broker_shows_no_consumer(
+    monkeypatch: pytest.MonkeyPatch,
+    retry_pauses: list[float],
+    verb: str,
+    reason: _Reason,
+) -> None:
+    bus = FakeBus(answer=False)
+    opened = _install_bus_attempts(monkeypatch, [bus])
+    _install_evidence(monkeypatch, reason)
+
+    result = _run(_write_args(verb))
+
+    assert result.exit_code == scm_cli.EXIT_NO_TERMINAL, result.output
+    answer = _answer(result)
+    assert answer["reason"] == reason
+    assert answer["attempts"] == 1
+    assert len(opened) == len(bus.published) == 1
+    assert retry_pauses == []
+
+
+@pytest.mark.parametrize("error_type", [LabRunBusError, InfraConnectionError])
+def test_write_is_not_republished_when_the_bus_does_not_open(
+    monkeypatch: pytest.MonkeyPatch,
+    retry_pauses: list[float],
+    error_type: type[Exception],
+) -> None:
+    opened = _install_bus_attempts(monkeypatch, [error_type("unavailable")])
+
+    result = _run(_write_args("pr-create"))
+
+    assert result.exit_code == scm_cli.EXIT_BUS_UNAVAILABLE, result.output
+    assert len(opened) == 1
+    assert retry_pauses == []
+
+
+@pytest.mark.parametrize(
+    "reason", ["consumer_present_no_terminal", "consumer_evidence_unreadable"]
+)
+@pytest.mark.parametrize("verb", _WRITE_VERBS)
+def test_write_is_not_republished_after_retry_when_consumer_evidence_changes(
+    monkeypatch: pytest.MonkeyPatch,
+    retry_pauses: list[float],
+    verb: str,
+    reason: _Reason,
 ) -> None:
     from omnimarket.handlers.scm import handler_scm_consumer_diagnostics as diagnostics
     from omnimarket.models.scm.model_scm_consumer_evidence import (
         ModelScmConsumerEvidence,
     )
 
-    bus = FakeBus(answer=False)
-    _install(monkeypatch, bus)
-    observed = []
+    first, second = FakeBus(answer=False), FakeBus(answer=False)
+    opened = _install_bus_attempts(monkeypatch, [first, second])
+    reasons: list[_Reason] = ["no_consumer_for_topic", reason]
+    read: list[str] = []
 
     async def diagnose(
         opened: object, node: EnumScmNode, topic: str
     ) -> ModelScmConsumerEvidence:
-        observed.append((opened, node, topic))
+        current = reasons[len(read)]
+        read.append(topic)
         return ModelScmConsumerEvidence(
-            reason="no_consumer_for_topic",
+            reason=current,
             command_topic=topic,
             physical_topic=topic,
-            consumer_count=0,
+            consumer_count=0 if current == "no_consumer_for_topic" else None,
         )
 
     monkeypatch.setattr(diagnostics, "diagnose_scm_timeout", diagnose)
-    result = _run(
-        [
-            "pr-create",
-            *_WRITE_ARGS["pr-create"],
-            "--lane",
-            "lane-x",
-            "--timeout-s",
-            "0.01",
-        ]
-    )
+
+    result = _run(_write_args(verb))
+
     assert result.exit_code == scm_cli.EXIT_NO_TERMINAL, result.output
     answer = _answer(result)
-    assert answer["reason"] == "no_consumer_for_topic"
-    assert answer["command_topic"] == WRITE.command
-    assert answer["consumer_count"] == 0
-    assert answer["attempts"] == 1
-    assert observed == [(bus, EnumScmNode.WRITE, WRITE.command)]
-    assert len(bus.published) == 1
-    assert retry_pauses == []
+    assert answer["reason"] == reason
+    assert answer["attempts"] == 2
+    assert len(opened) == 2
+    assert read == [WRITE.command, WRITE.command]
+    assert len(first.published) == len(second.published) == 1
+    assert answer["correlation_id"] == second.published[0][1]["correlation_id"]
+    assert retry_pauses == [20]
+
+
+@pytest.mark.parametrize("error_type", [LabRunBusError, InfraConnectionError])
+@pytest.mark.parametrize("verb", _WRITE_VERBS)
+def test_write_is_not_republished_after_retry_when_bus_does_not_open(
+    monkeypatch: pytest.MonkeyPatch,
+    retry_pauses: list[float],
+    verb: str,
+    error_type: type[Exception],
+) -> None:
+    first = FakeBus(answer=False)
+    opened = _install_bus_attempts(monkeypatch, [first, error_type("unavailable")])
+    read = _install_evidence(monkeypatch, "no_consumer_for_topic")
+
+    result = _run(_write_args(verb))
+
+    assert result.exit_code == scm_cli.EXIT_BUS_UNAVAILABLE, result.output
+    assert len(opened) == 2
+    assert len(first.published) == 1
+    assert read == [WRITE.command]
+    assert retry_pauses == [20]
 
 
 def test_timeout_with_unknown_transport_does_not_invent_no_consumers(
@@ -1218,6 +1600,56 @@ def test_a_bus_refusal_exits_69_without_a_traceback(
     assert result.exit_code == scm_cli.EXIT_BUS_UNAVAILABLE
     assert "TopicAuthorizationFailedError" in result.output
     assert result.exception is None or isinstance(result.exception, SystemExit)
+
+
+@pytest.mark.parametrize("stage", ["open", "subscribe", "publish", "timeout_then_open"])
+def test_job_log_dispatch_receipt_marks_only_possible_gateway_calls(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    retry_pauses: list[float],
+    stage: str,
+) -> None:
+    marker = tmp_path / "dispatch.json"
+    marker.write_text('{"command_may_have_run":false}')
+
+    class FailingBus(FakeBus):
+        async def subscribe_ungrouped(self, topic, on_message):
+            if stage == "subscribe":
+                raise InfraConnectionError("subscription refused before publication")
+            return await super().subscribe_ungrouped(topic, on_message)
+
+        async def publish(self, *args, **kwargs):
+            # Publication is the first point where the gateway might run, including
+            # a broker failure whose acknowledgement leaves its outcome unknown.
+            assert json.loads(marker.read_text()) == {"command_may_have_run": True}
+            if stage == "publish":
+                raise InfraConnectionError("publish acknowledgement lost")
+            return await super().publish(*args, **kwargs)
+
+    unavailable = InfraConnectionError("bus unavailable")
+    if stage == "open":
+        attempts = [unavailable] * 3
+    elif stage == "timeout_then_open":
+        attempts = [FailingBus(answer=False), unavailable, unavailable]
+    else:
+        attempts = [FailingBus()] * 3
+    _install_bus_attempts(monkeypatch, attempts)
+    result = _run(
+        [
+            "job-log",
+            REPO,
+            "--job-id",
+            "77",
+            "--timeout-s",
+            "0.01",
+            "--dispatch-receipt",
+            str(marker),
+        ]
+    )
+    assert result.exit_code == scm_cli.EXIT_BUS_UNAVAILABLE, result.output
+    assert json.loads(marker.read_text()) == {
+        "command_may_have_run": stage in {"publish", "timeout_then_open"}
+    }
 
 
 def test_write_expected_head_comes_from_the_watcher(
@@ -1817,3 +2249,19 @@ def test_gateway_boundary_failure_is_reported_as_failed(
     assert answer["outcome"] == "failed"
     assert answer["result"]["status"] == "failed"
     assert answer["bus"]["terminal_envelope_id"]
+
+
+def test_node_owned_dispatch_tracking_refuses_before_publish_when_receipt_cannot_write(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from omnimarket.nodes.node_lane_github_budget_effect import track_gateway_dispatch
+
+    bus = FakeBus()
+    marker = tmp_path / "missing-parent" / "dispatch.json"
+    tracked = track_gateway_dispatch(bus, marker)
+    _install(monkeypatch, tracked)
+    with pytest.raises(FileNotFoundError):
+        _run(["job-log", REPO, "--job-id", "77"])
+
+    assert bus.published == []
+    assert not marker.exists()

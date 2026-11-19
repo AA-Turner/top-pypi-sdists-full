@@ -44,6 +44,7 @@ FulfillmentStateType = Literal["Failed", "Fulfilled", "ReadyForFulfillment"]
 MessageFormatTypeType = Literal["Composite", "CustomPayload", "PlainText", "SSML"]
 LexRuntimeServiceServiceName = Literal["lex-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

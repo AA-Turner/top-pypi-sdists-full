@@ -111,6 +111,19 @@ fn is_partial_py_typed(
     })
 }
 
+/// Returns the module name of a compiled module file, or `None` if `file_name` is
+/// not one. Extension modules may carry an ABI tag between the module name and the
+/// suffix, as in `foo.cpython-312-x86_64-linux-gnu.so`, `foo.abi3.so`, or
+/// `foo.cp312-win_amd64.pyd`.
+fn compiled_module_name(file_name: &str) -> Option<&str> {
+    let (name, rest) = file_name.split_once('.')?;
+    let is_compiled = match rest.split_once('.') {
+        None => COMPILED_FILE_SUFFIXES.contains(&rest),
+        Some((_abi_tag, suffix)) => ["so", "pyd"].contains(&suffix),
+    };
+    is_compiled.then_some(name)
+}
+
 /// Cache of directory listings to avoid repeated stat() calls during module resolution.
 ///
 /// Each directory is read at most once. Entries store
@@ -126,6 +139,9 @@ pub struct DirEntryCache {
     pkgutil_cache: LockedMap<PathBuf, bool>,
     /// Cached partial-package marker check, keyed by `py.typed` path.
     partial_py_typed_cache: LockedMap<PathBuf, bool>,
+    /// Cached compiled modules in a directory, keyed by directory. Each maps a module
+    /// name to its file, for every file name accepted by [`compiled_module_name`].
+    compiled_module_cache: LockedMap<PathBuf, SmallMap<String, PathBuf>>,
 }
 
 impl Debug for DirEntryCache {
@@ -140,6 +156,7 @@ impl DirEntryCache {
             entry_cache: LockedMap::new(),
             pkgutil_cache: LockedMap::new(),
             partial_py_typed_cache: LockedMap::new(),
+            compiled_module_cache: LockedMap::new(),
         }
     }
 
@@ -191,6 +208,31 @@ impl DirEntryCache {
             }
             _ => self.get_entries(dir).is_some(),
         }
+    }
+
+    /// Finds a compiled module file in `dir` named `name` with any suffix accepted by
+    /// [`compiled_module_name`], including ABI-tagged extension modules.
+    fn find_compiled_module(&self, dir: &Path, name: &str) -> Option<PathBuf> {
+        let key = dir.to_path_buf();
+        if let Some(modules) = self.compiled_module_cache.get(&key) {
+            return modules.get(name).cloned();
+        }
+        let modules: SmallMap<String, PathBuf> = self
+            .get_entries(dir)
+            .iter()
+            .flat_map(|entries| entries.iter())
+            .filter(|(_, is_dir)| !**is_dir)
+            .filter_map(|(file_name, _)| {
+                let file_name = file_name.to_str()?;
+                Some((
+                    compiled_module_name(file_name)?.to_owned(),
+                    dir.join(file_name),
+                ))
+            })
+            .collect();
+        let found = modules.get(name).cloned();
+        self.compiled_module_cache.insert(key, modules);
+        found
     }
 
     fn get_entries(&self, dir: &Path) -> Option<Arc<SmallMap<OsString, bool>>> {
@@ -437,6 +479,14 @@ fn find_one_part_in_root(
         }
     }
 
+    // ABI-tagged names cannot be enumerated as phantom paths, so they are found from
+    // the directory listing after the untagged candidates above.
+    if style_filter != Some(ModuleStyle::Interface)
+        && let Some(path) = dir_cache.find_compiled_module(root, name)
+    {
+        return Some(FindResult::CompiledModule(path));
+    }
+
     if dir_exists {
         Some(FindResult::ImplicitNamespacePackage(Vec1::new(
             candidate_dir,
@@ -652,11 +702,13 @@ pub struct ModuleSearchResult {
 pub enum StubSearchResult {
     /// The stub package provides a module for this import: either a concrete
     /// package/module file, or a namespace from a stub that is not marked
-    /// `partial` (and so shadows the runtime). It is preferred over the runtime
-    /// package, preserving the normal `.pyi`-before-`.py` precedence.
+    /// `partial` when the runtime has no concrete module either (and so shadows
+    /// the runtime). It is preferred over the runtime package, preserving the
+    /// normal `.pyi`-before-`.py` precedence.
     Provides(FindResult),
-    /// A partial stub whose lookup landed on a bare namespace directory: it does
-    /// not itself provide this module, so the runtime package is preferred. The
+    /// A stub lookup that landed on a bare namespace directory, either in a
+    /// partial stub or while a lower-precedence package has a concrete module: it
+    /// does not itself provide this module, so that package is preferred. The
     /// namespace roots are retained as a fallback for when no runtime module
     /// exists, and to merge with a runtime namespace of the same name.
     Transparent(Vec1<PathBuf>),
@@ -673,10 +725,15 @@ impl StubSearchResult {
     }
 }
 
+/// Search `include` for `module` in its runtime package and in its `-stubs` package
+/// and, when `include_shape_stubs` is set, its `-shape-stubs` package. A shape stub
+/// package takes precedence over the regular stub package in the same way that the
+/// regular stub package takes precedence over the runtime package.
 pub fn find_module_results<'a, I>(
     module: ModuleName,
     include: I,
     style_filter: Option<ModuleStyle>,
+    include_shape_stubs: bool,
     phantom_paths: &mut Option<&mut Vec<PathBuf>>,
     dir_cache: &DirEntryCache,
     observer: Option<&dyn ModuleResolutionObserver>,
@@ -686,48 +743,75 @@ where
 {
     let module = module.as_str();
     let (first, rest) = module.split_once('.').unwrap_or((module, ""));
+    let shape_stub_first = format!("{first}-shape-stubs");
     let stub_first = format!("{first}-stubs");
-    let stub_result = find_module_components(
-        &stub_first,
-        rest,
-        include.clone(),
-        style_filter,
-        phantom_paths,
-        dir_cache,
-        observer,
-    )
-    .map(|result| {
-        // A namespace package below the top-level stub package is always
-        // incomplete; otherwise the top-level stub package's `py.typed` decides.
-        // The top-level lookup is only performed when the cheap namespace check
-        // does not already settle it, and it reuses the populated directory cache.
-        let is_partial = (!rest.is_empty()
-            && matches!(&result, FindResult::ImplicitNamespacePackage(_)))
-            || find_one_part(
-                &stub_first,
-                include.clone(),
-                style_filter,
-                &mut None,
-                dir_cache,
-                observer,
-            )
-            .is_some_and(|(top_level, _)| top_level.stub_package_is_partial(dir_cache, observer));
-        match result {
-            FindResult::ImplicitNamespacePackage(namespaces) if is_partial => {
-                StubSearchResult::Transparent(namespaces)
-            }
-            result => StubSearchResult::Provides(result),
+    let mut find = |first: &str| {
+        find_module_components(
+            first,
+            rest,
+            include.clone(),
+            style_filter,
+            phantom_paths,
+            dir_cache,
+            observer,
+        )
+    };
+    let shape_stub_result = if include_shape_stubs {
+        find(&shape_stub_first)
+    } else {
+        None
+    };
+    let stub_result = find(&stub_first);
+    let normal_result = find(first);
+
+    // A bare namespace directory in a stub package provides no module of its own,
+    // so it never hides a concrete module in a lower-precedence package. Otherwise it
+    // shadows the lower-precedence packages unless the stub package is incomplete: a
+    // namespace package below the top-level stub package always is, and otherwise the
+    // top-level stub package's `py.typed` decides. The top-level lookup is only
+    // performed when the cheaper checks do not already settle it, and it reuses the
+    // populated directory cache.
+    let classify = |stub_first: &str, result: FindResult, lower_is_concrete: bool| match result {
+        FindResult::ImplicitNamespacePackage(namespaces)
+            if lower_is_concrete
+                || !rest.is_empty()
+                || find_one_part(
+                    stub_first,
+                    include.clone(),
+                    style_filter,
+                    &mut None,
+                    dir_cache,
+                    observer,
+                )
+                .is_some_and(|(top_level, _)| {
+                    top_level.stub_package_is_partial(dir_cache, observer)
+                }) =>
+        {
+            StubSearchResult::Transparent(namespaces)
         }
-    });
-    let normal_result = find_module_components(
-        first,
-        rest,
-        include,
-        style_filter,
-        phantom_paths,
-        dir_cache,
-        observer,
-    );
+        result => StubSearchResult::Provides(result),
+    };
+    let is_concrete =
+        |result: &FindResult| !matches!(result, FindResult::ImplicitNamespacePackage(_));
+    let runtime_is_concrete = normal_result.as_ref().is_some_and(is_concrete);
+    let stub_result = stub_result.map(|result| classify(&stub_first, result, runtime_is_concrete));
+    let stubs_are_concrete = runtime_is_concrete
+        || matches!(&stub_result, Some(StubSearchResult::Provides(result)) if is_concrete(result));
+    let shape_stub_result =
+        shape_stub_result.map(|result| classify(&shape_stub_first, result, stubs_are_concrete));
+
+    let stub_result = match (shape_stub_result, stub_result) {
+        (
+            Some(StubSearchResult::Transparent(mut shape_namespaces)),
+            Some(StubSearchResult::Transparent(namespaces)),
+        ) => {
+            shape_namespaces.extend(namespaces);
+            Some(StubSearchResult::Transparent(shape_namespaces))
+        }
+        (Some(StubSearchResult::Transparent(_)), Some(stub_result)) => Some(stub_result),
+        (Some(shape_stub_result), _) => Some(shape_stub_result),
+        (None, stub_result) => stub_result,
+    };
     ModuleSearchResult {
         stub_result,
         normal_result,
@@ -755,10 +839,13 @@ impl ModuleResolver {
     }
 
     pub fn resolve(&self, module: ModuleName, style: Option<ModuleStyle>) -> Option<ModulePath> {
+        // Shape-stub discovery is a type-checker setting, so build-system resolution
+        // leaves them out rather than overriding that choice.
         let result = find_module_results(
             module,
             self.roots.iter(),
             style,
+            false,
             &mut None,
             &self.dir_cache,
             None,
@@ -819,18 +906,17 @@ fn find_one_part_prefix<'a>(
                         }
                     } else if let Some((stem, ext)) = name.rsplit_once('.')
                         && path.is_file()
-                        && !["__init__", "__main__"].contains(&stem)
                     {
-                        if ["pyi", "py"].contains(&ext) {
-                            results.push((
-                                FindResult::single_file(path.clone(), ext),
-                                ModuleName::from_str(stem),
-                            ));
-                        } else if COMPILED_FILE_SUFFIXES.contains(&ext) {
-                            results.push((
-                                FindResult::CompiledModule(path.clone()),
-                                ModuleName::from_str(stem),
-                            ));
+                        let found = if ["pyi", "py"].contains(&ext) {
+                            Some((FindResult::single_file(path.clone(), ext), stem))
+                        } else {
+                            compiled_module_name(name)
+                                .map(|module| (FindResult::CompiledModule(path.clone()), module))
+                        };
+                        if let Some((result, module)) = found
+                            && !["__init__", "__main__"].contains(&module)
+                        {
+                            results.push((result, ModuleName::from_str(module)));
                         }
                     }
                 }
@@ -1079,10 +1165,17 @@ mod tests {
         let dir_cache = DirEntryCache::new();
         let has_py_typed = |module: &str| {
             let module = ModuleName::from_str(module);
-            let result =
-                find_module_results(module, roots.iter(), None, &mut None, &dir_cache, None)
-                    .normal_result
-                    .expect("test module should resolve");
+            let result = find_module_results(
+                module,
+                roots.iter(),
+                None,
+                false,
+                &mut None,
+                &dir_cache,
+                None,
+            )
+            .normal_result
+            .expect("test module should resolve");
             package_has_py_typed(module, &result, &dir_cache)
         };
 
@@ -1124,6 +1217,28 @@ mod tests {
         assert_eq!(
             resolver.resolve(ModuleName::from_str("foo.bar"), None),
             Some(ModulePath::filesystem(root.join("foo-stubs/bar.pyi"))),
+        );
+    }
+
+    #[test]
+    fn test_module_resolver_ignores_shape_stubs() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::dir("foo", vec![TestPath::file("__init__.py")]),
+                TestPath::dir("foo-stubs", vec![TestPath::file("__init__.pyi")]),
+                TestPath::dir("foo-shape-stubs", vec![TestPath::file("__init__.pyi")]),
+            ],
+        );
+
+        // Shape-stub discovery is a type-checker setting, so build-system
+        // resolution never selects them.
+        let resolver = ModuleResolver::new([root.to_path_buf()]);
+        assert_eq!(
+            resolver.resolve(ModuleName::from_str("foo"), None),
+            Some(ModulePath::filesystem(root.join("foo-stubs/__init__.pyi"))),
         );
     }
 
@@ -1253,6 +1368,62 @@ mod tests {
         let tempdir = tempfile::tempdir().unwrap();
         let root = tempdir.path();
         TestPath::setup_test_directory(root, vec![TestPath::file("foo.py")]);
+        assert_eq!(
+            find_module_prefixes(ModuleName::from_str("fo"), [root.to_path_buf()].iter()),
+            vec![ModuleName::from_str("foo")]
+        );
+    }
+
+    #[test]
+    fn test_find_compiled_module_reuses_cache() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::file("a.cpython-312-x86_64-linux-gnu.so"),
+                TestPath::file("b.abi3.so"),
+                TestPath::file("c.py"),
+                TestPath::dir("d.abi3.so", vec![]),
+            ],
+        );
+        let cache = DirEntryCache::new();
+        // The first lookup indexes `root`; the rest are answered from that index.
+        assert_eq!(
+            cache.find_compiled_module(root, "a"),
+            Some(root.join("a.cpython-312-x86_64-linux-gnu.so"))
+        );
+        assert!(
+            cache
+                .compiled_module_cache
+                .get(&root.to_path_buf())
+                .is_some(),
+            "the first lookup should index the directory"
+        );
+        assert_eq!(
+            cache.find_compiled_module(root, "b"),
+            Some(root.join("b.abi3.so"))
+        );
+        assert_eq!(cache.find_compiled_module(root, "c"), None);
+        assert_eq!(
+            cache.find_compiled_module(root, "d"),
+            None,
+            "a directory is not a compiled module"
+        );
+    }
+
+    #[test]
+    fn test_find_module_prefixes_abi_tagged_extension() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::file("foo.cpython-312-x86_64-linux-gnu.so"),
+                // Not importable: an ABI tag cannot contain dots.
+                TestPath::file("fob.tag.extra.so"),
+            ],
+        );
         assert_eq!(
             find_module_prefixes(ModuleName::from_str("fo"), [root.to_path_buf()].iter()),
             vec![ModuleName::from_str("foo")]

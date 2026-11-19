@@ -37,6 +37,10 @@ from omnimarket.adapters.llm.bifrost.config_loader_bifrost_delegation import (
     reject_backends_off_a_declared_provider_surface,
 )
 from omnimarket.enums.enum_cost_basis import EnumCostBasis
+from omnimarket.handlers.routing.byok_provider_backends import (
+    byok_declared_price_per_1m,
+    resolve_byok_provider_backend,
+)
 from omnimarket.inference.provider_quota_policy import (
     classify_quota_response,
     load_provider_quota_policy,
@@ -58,10 +62,6 @@ from omnimarket.nodes.node_llm_delegation_call_effect.handlers.handler_llm_deleg
 )
 from omnimarket.nodes.node_llm_delegation_call_effect.models.model_llm_delegation_call_request import (
     ModelLlmDelegationCallRequest,
-)
-from omnimarket.routing.byok_provider_backends import (
-    byok_declared_price_per_1m,
-    resolve_byok_provider_backend,
 )
 from omnimarket.routing.tenant_overlay_resolver import (
     BYOK_ALL_TASK_TYPES,
@@ -330,7 +330,7 @@ def test_the_catalogue_declares_the_free_model_zero_price() -> None:
 
 
 def test_a_model_the_catalogue_does_not_declare_has_no_declared_price() -> None:
-    assert byok_declared_price_per_1m(_GENERAL_API_URL, "glm-5.3-flash") is None
+    assert byok_declared_price_per_1m(_GENERAL_API_URL, "glm-5.3-flashx") is None
     assert byok_declared_price_per_1m(_CODING_PLAN_URL, _FREE_MODEL) is None
 
 

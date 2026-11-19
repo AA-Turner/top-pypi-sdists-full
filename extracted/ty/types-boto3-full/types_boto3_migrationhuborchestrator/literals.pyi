@@ -98,6 +98,7 @@ TargetTypeType = Literal["ALL", "NONE", "SINGLE"]
 TemplateStatusType = Literal["CREATED", "CREATING", "CREATION_FAILED", "PENDING_CREATION", "READY"]
 MigrationHubOrchestratorServiceName = Literal["migrationhuborchestrator"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

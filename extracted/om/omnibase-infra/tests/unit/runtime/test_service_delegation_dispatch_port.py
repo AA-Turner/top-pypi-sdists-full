@@ -22,15 +22,27 @@ from omnibase_core.models.dispatch.model_dispatch_bus_terminal_result import (
 from omnibase_infra.errors import InfraUnavailableError
 from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
 from omnibase_infra.event_bus.models.model_event_message import ModelEventMessage
+from omnibase_infra.handlers.handler_delegation_dispatch_terminal import (
+    _normalize_result_payload,
+)
 from omnibase_infra.runtime.runtime_local_ingress import ModelRuntimeLocalIngressRoute
 from omnibase_infra.runtime.service_delegation_dispatch_port import (
     RuntimeDelegationDispatchPort,
-    _normalize_result_payload,
     _select_delegation_route,
 )
 from omnibase_infra.runtime.service_pattern_b_broker import TerminalPayload
+from tests.helpers.cli_registry_stand_in import (
+    install_stand_in_registry,
+    wiring_authority,
+)
 
 pytestmark = pytest.mark.unit
+
+
+@pytest.fixture(autouse=True)
+def _declared_budgets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dispatch with no budget arguments resolves the class's declared budget (OMN-21604)."""
+    install_stand_in_registry(monkeypatch, wiring_authority())
 
 
 @pytest.mark.parametrize("status", ["completed", "failed"])

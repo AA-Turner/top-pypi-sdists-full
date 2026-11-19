@@ -280,6 +280,7 @@ WebExperienceSamplePromptsControlModeType = Literal["DISABLED", "ENABLED"]
 WebExperienceStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PENDING_AUTH_CONFIG"]
 QBusinessServiceName = Literal["qbusiness"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

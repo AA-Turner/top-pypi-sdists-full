@@ -13,7 +13,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from arraylake import AsyncClient, Client
+from arraylake import AsyncClient, Client, config
 from arraylake.cli.main import app
 from arraylake.types import IcebergNamespaceActions, IcebergNamespaceResponse, RepoVisibility
 
@@ -242,7 +242,7 @@ def test_real_catalog_uses_auth_manager(monkeypatch, test_token_file):
     headers = []
 
     def send(self, request, **kwargs):
-        headers.append(request.headers["Authorization"])
+        headers.append(request.headers.get("Authorization"))
         response = Response()
         response.status_code = 200
         response._content = b'{"defaults": {}, "overrides": {}}' if "/config" in request.url else b'{"namespaces": []}'
@@ -258,6 +258,46 @@ def test_real_catalog_uses_auth_manager(monkeypatch, test_token_file):
     machine = get_iceberg_catalog(name="my-org", service_uri=URL, warehouse="my-org", token="ema_static")
     assert headers[-1] == "Bearer ema_static"
     machine.close()
+    anonymous = get_iceberg_catalog(name="my-org", service_uri=URL, warehouse="my-org", token=None, anonymous=True)
+    assert anonymous.list_namespaces() == []
+    assert headers[-2:] == [None, None]
+    anonymous.close()
+
+
+@pytest.mark.parametrize("anonymous", [True, False])
+def test_anonymous_catalog_of_a_private_org_hints_at_login(monkeypatch, test_token_file, anonymous):
+    pytest.importorskip("pyiceberg")
+    from pyiceberg.exceptions import RESTError
+    from requests import Response, Session
+
+    from arraylake.exceptions import AuthException
+    from arraylake.repos.iceberg.catalog import get_iceberg_catalog
+
+    set_login(test_token_file, jwt(time.time() + 3600))
+
+    def send(self, request, **kwargs):
+        response = Response()
+        response.status_code = 404
+        response._content = b'{"error": {"message": "warehouse my-org not found", "type": "NotFoundException", "code": 404}}'
+        return response
+
+    monkeypatch.setattr(Session, "send", send)
+    expected = (AuthException, "not found or has no public namespaces. Run arraylake auth login") if anonymous else (RESTError, "warehouse")
+    with pytest.raises(expected[0], match=expected[1]):
+        get_iceberg_catalog(name="my-org", service_uri=URL, warehouse="my-org", token=None, anonymous=anonymous)
+
+
+@pytest.mark.parametrize("logged_in, expected", [(True, False), (False, True)])
+async def test_get_iceberg_is_anonymous_only_with_no_login(monkeypatch, test_token_file, logged_in, expected):
+    import arraylake.repos.iceberg
+
+    if not logged_in:
+        test_token_file.unlink()
+    seen = {}
+    monkeypatch.setattr(arraylake.repos.iceberg, "get_iceberg_catalog", lambda **kwargs: seen.update(kwargs))
+    with config.set({"token": None}):
+        await AsyncClient(URL).get_iceberg("my-org")
+    assert seen["anonymous"] is expected and seen["token"] is None
 
 
 @pytest.fixture
@@ -349,6 +389,9 @@ def test_cli_table_list_and_describe(cli_client):
         ('observations."weather.daily"', ("observations", "weather.daily")),
         ('"a""b"."daily weather"', ('a"b', "daily weather")),
         ('"気象".weather', ("気象", "weather")),
+        # nested namespaces: every component but the last is a namespace level
+        ("nnja-ai.tankA.adpupa.NC002001", ("nnja-ai", "tankA", "adpupa", "NC002001")),
+        ('"obs.v2".region."weather.daily"', ("obs.v2", "region", "weather.daily")),
     ],
 )
 def test_cli_qualified_table_identifier(cli_client, identifier, expected):
@@ -367,7 +410,7 @@ def test_cli_qualified_table_identifier(cli_client, identifier, expected):
 
 @pytest.mark.parametrize(
     "identifier",
-    ["weather", "a.b.c", ".weather", "obs.", '"".weather', 'obs.""', '"obs.weather', 'ob"s.weather', '"obs"x.weather', "obs.daily weather"],
+    ["weather", ".weather", "obs.", "a..b", '"".weather', 'obs.""', '"obs.weather', 'ob"s.weather', '"obs"x.weather', "obs.daily weather"],
 )
 def test_cli_invalid_table_identifier(cli_client, identifier):
     result = CliRunner().invoke(app, ["iceberg", "table", "describe", "my-org", identifier])
@@ -379,7 +422,10 @@ def test_cli_invalid_table_identifier(cli_client, identifier):
 def test_cli_table_list_quoted_identifiers():
     from arraylake.cli.iceberg import Output, _show_list
 
-    rows = [{"namespace": "observations.v2", "name": "weather.daily", "updated": "2026-09-09", "has_storage_override": False}]
+    rows = [
+        {"namespace": "observations.v2", "name": "weather.daily", "updated": "2026-09-09", "has_storage_override": False},
+        {"namespace": "nnja-ai", "path": ["tankA", "adpupa"], "name": "NC002001", "updated": "2026-09-09", "has_storage_override": False},
+    ]
     # Exercise both user-facing formats without a catalog load.
     import typer
 
@@ -394,7 +440,10 @@ def test_cli_table_list_quoted_identifiers():
     assert rich.exit_code == 0
     assert '"observations.v2"."weather.daily"' in rich.output
     result = runner.invoke(listing, ["--output", "json"])
-    assert json.loads(result.stdout)[0]["identifier"] == '"observations.v2"."weather.daily"'
+    assert [row["identifier"] for row in json.loads(result.stdout)] == [
+        '"observations.v2"."weather.daily"',
+        "nnja-ai.tankA.adpupa.NC002001",
+    ]
 
 
 async def test_refresh_success_persists_rotated_tokens_quietly(http_routes, monkeypatch, test_token_file, capsys):

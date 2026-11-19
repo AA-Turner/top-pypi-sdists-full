@@ -195,6 +195,7 @@ TlsPolicyType = Literal["FIPS", "OPTIONAL", "REQUIRED"]
 TrustStoreResponseOptionType = Literal["EXCLUDE", "INCLUDE"]
 MailManagerServiceName = Literal["mailmanager"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

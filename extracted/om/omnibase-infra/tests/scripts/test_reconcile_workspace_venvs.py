@@ -17,18 +17,16 @@ this script exists and the one thing no single existing tool gets right:
     one BREAKS the second.
 
 ``omnimarket`` is deliberately absent from ``omnibase_infra``'s
-``pyproject.toml`` and ``uv.lock`` (the layer graph is compat -> core -> spi ->
+``pyproject.toml`` and ``uv.lock`` (the layer graph is core -> spi ->
 infra and omnimarket sits above infra), so a bare ``uv sync --frozen``
 UNINSTALLS it and every ``onex skill`` / ``onex delegate`` dispatch then dies on
 the OMN-14060 drift guard. ``--inexact`` is what makes the two layers coexist:
 it applies every locked pin without removing what the lock does not mention.
 
 Given that, the ORDER is chosen for a second reason and is asserted directly
-here: PROVIDER FIRST, LOCK SECOND. The co-install carries a hardcoded
-``COMPAT_PIN`` that downgrades the locked ``omnibase-compat`` (OMN-16262) --
-reproduced live on 2026-08-30, where the downgrade broke the ``occ`` CLI
-extension badly enough that the ``onex`` binary would not start at all. Ending
-on the lock pass is what undoes it.
+here: PROVIDER FIRST, LOCK SECOND. In OMN-16262, a hardcoded co-install
+pin downgraded a dependency and broke the ``onex`` CLI at startup. The
+final lock pass restores governed pins.
 
 The provider co-install must pin to the LOCAL clone's ``HEAD``, never to
 ``origin/dev``: the guard compares against the local clone, so installing from
@@ -40,7 +38,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
+import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -53,6 +54,10 @@ pytestmark = pytest.mark.unit
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SCRIPT = _REPO_ROOT / "scripts" / "reconcile-workspace-venvs.sh"
+_ATOMIC_TOOL = (
+    _REPO_ROOT
+    / "src/omnibase_infra/nodes/node_venv_atomic_install/runtime_venv_atomic_install.py"
+)
 
 _EXIT_OK = 0
 _EXIT_DRIFT = 1
@@ -133,6 +138,7 @@ def _make_uv_shim(
     sync_exit: int = 0,
     check_exit: int = 0,
     venv_relocatable: bool = True,
+    check_exit_after_first: int | None = None,
 ) -> Path:
     """A ``uv`` on PATH that logs argv and returns canned exit statuses.
 
@@ -230,7 +236,18 @@ def _make_uv_shim(
         'printf "env=%s %s\\n" "${UV_PROJECT_ENVIRONMENT:--}" "$*" >> "$UV_SHIM_LOG"\n'
         'printf "uv env=%s %s\\n" "${UV_PROJECT_ENVIRONMENT:--}" "$*" >> "$ORDER_LOG"\n'
         'for a in "$@"; do\n'
-        '  if [[ "$a" == "--check" ]]; then exit ' + str(check_exit) + "; fi\n"
+        '  if [[ "$a" == "--check" ]]; then\n'
+        + (
+            '    _n="$(cat "$UV_SHIM_LOG.checks" 2>/dev/null || echo 0)"\n'
+            '    printf "%s\\n" "$((_n + 1))" > "$UV_SHIM_LOG.checks"\n'
+            f'    if [[ "$_n" -ge 1 ]]; then exit {check_exit_after_first}; fi\n'
+            if check_exit_after_first is not None
+            else ""
+        )
+        + "    exit "
+        + str(check_exit)
+        + "\n"
+        "  fi\n"
         "done\n"
         "exit " + str(sync_exit) + "\n",
         encoding="utf-8",
@@ -252,6 +269,7 @@ def _make_install_shim(path: Path, *, exit_code: int = 0) -> Path:
         # layer was composed into is the whole OMN-17819 question.
         'printf "%s\\n" "$*" >> "$INSTALL_ARGV_LOG"\n'
         'printf "install %s\\n" "${OMNIMARKET_REF:-<unset>}" >> "$ORDER_LOG"\n'
+        'printf "%s\\n" "${ONEX_ATOMIC_INSTALL:-<unset>}" >> "${INSTALL_ATOMIC_LOG:-/dev/null}"\n'
         "exit " + str(exit_code) + "\n",
         encoding="utf-8",
     )
@@ -276,6 +294,12 @@ class _Workspace:
         # The GATE venv: the clone's own project environment, lock-governed
         # only. It carries no omnimarket, which after OMN-17819 is the point.
         self.gate_venv = _make_fake_venv(self.infra / ".venv", None)
+        gate_python = self.gate_venv / "bin/python"
+        gate_python.write_text(
+            "#!/usr/bin/env bash\n"
+            'if [[ "$1" == "-m" && "$2" == "omnibase_infra.nodes.node_reconcile_workspace_venvs.runtime_reconcile_workspace_venvs" ]]; then\n'
+            f'  exec "{sys.executable}" "$@"\nfi\n' + gate_python.read_text()
+        )
         # The DISPATCH venv: outside the clone, composed, and the one the
         # installed-omnimarket probe reads.
         self.dispatch_venv = root / ".onex-dispatch-venv"
@@ -332,6 +356,8 @@ class _Workspace:
             "INSTALL_SHIM_LOG": str(self.install_log),
             "INSTALL_ARGV_LOG": str(self.install_argv_log),
             "ORDER_LOG": str(self.order_log),
+            "INSTALL_ATOMIC_LOG": str(self.root / "install-atomic.log"),
+            "CP_LOG": str(self.root / "cp.log"),
             "ONEX_RECONCILE_INSTALL_SCRIPT": str(self.install_script),
             # Keep the hook-venv surface deterministic: the plugin-data venv is
             # host state, not workspace state, and must not leak into a test.
@@ -434,6 +460,341 @@ def ws(tmp_path: Path) -> _Workspace:
     return _Workspace(tmp_path / "omni_home")
 
 
+def _branch_hook_install(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch, *, plan: str, replace: bool
+) -> Path:
+    """An installer-selected Git ref, followed by the scheduled exact sync.
+
+    PEP 610 is the installer's on-disk intent: requested_revision names the
+    ref and commit_id records what it installed. The uv shim models a lock
+    sync replacing it even though the package version stays the same.
+    """
+    dist = ws.omniclaude / ".venv/lib/python3.12/site-packages/omniclaude-1.0.dist-info"
+    dist.mkdir(parents=True)
+    (dist / "METADATA").write_text("Name: omniclaude\nVersion: 1.0\n")
+    direct = dist / "direct_url.json"
+    direct.write_text(
+        json.dumps(
+            {
+                "url": "https://example.com/omniclaude.git",
+                "vcs_info": {
+                    "vcs": "git",
+                    "requested_revision": "omn-19998-branch-fix",
+                    "commit_id": "b" * 40,
+                },
+            }
+        )
+    )
+    monkeypatch.setenv("HOOK_PROJECT", str(ws.omniclaude))
+    monkeypatch.setenv("HOOK_DIRECT_URL", str(direct))
+    monkeypatch.setenv("HOOK_PLAN", plan)
+    monkeypatch.setenv("HOOK_REPLACE", "1" if replace else "0")
+    uv = ws.bin_dir / "uv"
+    original = uv.read_text()
+    uv.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$*" == *"--project $HOOK_PROJECT"* ]]; then\n'
+        '  if [[ " $* " == *" --dry-run "* ]]; then\n'
+        '    printf "%s\\n" "$HOOK_PLAN" >&2\n'
+        "    exit 0\n"
+        "  fi\n"
+        '  if [[ " $* " != *" --check "* && "$HOOK_REPLACE" == 1 ]]; then\n'
+        # Exact sync can replace a branch with a registry wheel: no PEP 610
+        # metadata remains. A zero exit is not a revision readback.
+        '    rm "$HOOK_DIRECT_URL"\n'
+        "  fi\n"
+        "fi\n" + original
+    )
+    return direct
+
+
+def test_hook_sync_refuses_replacing_an_installer_selected_branch(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _make_uv_shim(ws.bin_dir, check_exit=1)
+    direct = _branch_hook_install(
+        ws,
+        monkeypatch,
+        plan=" - omniclaude==1.0\n + omniclaude==1.0",
+        replace=True,
+    )
+    before = direct.read_bytes()
+    result = ws.run()
+    assert result.returncode == _EXIT_FAILED, result.stdout + result.stderr
+    assert "branch install" in (result.stdout + result.stderr).lower()
+    assert direct.read_bytes() == before
+    assert not any(
+        "--check" not in call and str(ws.omniclaude) in call for call in ws.uv_calls()
+    )
+
+
+def test_hook_sync_checks_revision_after_a_zero_exit(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _make_uv_shim(ws.bin_dir, check_exit=1)
+    _branch_hook_install(ws, monkeypatch, plan="Would make no changes", replace=True)
+    result = ws.run()
+    assert result.returncode == _EXIT_FAILED, result.stdout + result.stderr
+    assert "revision" in (result.stdout + result.stderr).lower()
+    assert "hook venv: reconciled" not in result.stdout
+
+
+def test_hook_sync_reads_revision_even_when_uv_reports_no_change(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    direct = _branch_hook_install(
+        ws, monkeypatch, plan="Would make no changes", replace=False
+    )
+    shim = ws.bin_dir / "uv"
+    shim.write_text(
+        '#!/usr/bin/env bash\nif [[ "$*" == *"--project $HOOK_PROJECT"* && '
+        '" $* " == *" --check "* ]]; then\n'
+        '  rm "$HOOK_DIRECT_URL"\nfi\n' + shim.read_text()
+    )
+    result = ws.run()
+    assert result.returncode == _EXIT_FAILED, result.stdout + result.stderr
+    assert not direct.exists()
+    assert "revision changed" in result.stderr
+    assert "hook venv: already in sync" not in result.stdout
+
+
+def test_hook_sync_preserves_branch_while_repairing_an_unrelated_pin(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _make_uv_shim(ws.bin_dir, check_exit=1)
+    direct = _branch_hook_install(
+        ws, monkeypatch, plan=" - packaging==24.0\n + packaging==25.0", replace=False
+    )
+    before = direct.read_bytes()
+    result = ws.run()
+    assert result.returncode == _EXIT_OK, result.stdout + result.stderr
+    assert direct.read_bytes() == before
+    assert any(
+        "--check" not in call and str(ws.omniclaude) in call for call in ws.uv_calls()
+    )
+
+
+def test_hook_sync_allows_a_revision_that_contains_the_installed_commit(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _make_clone(ws.root, "hook-source")
+    before = _git("rev-parse", "HEAD", cwd=source)
+    after = _advance(source, "contains installed commit")
+    _make_uv_shim(ws.bin_dir, check_exit=1)
+    direct = _branch_hook_install(
+        ws,
+        monkeypatch,
+        plan=f" - omniclaude==1.0\n + omniclaude==1.0 (from git+{source.as_uri()}@{after})",
+        replace=False,
+    )
+    metadata = json.loads(direct.read_text())
+    metadata["url"] = source.as_uri()
+    metadata["vcs_info"]["commit_id"] = before
+    direct.write_text(json.dumps(metadata))
+    metadata["vcs_info"]["commit_id"] = after
+    monkeypatch.setenv("HOOK_NEXT_JSON", json.dumps(metadata))
+    shim = ws.bin_dir / "uv"
+    shim.write_text(
+        '#!/usr/bin/env bash\nif [[ "$*" == *"--project $HOOK_PROJECT"* && '
+        '" $* " != *" --check "* && " $* " != *" --dry-run "* ]]; then\n'
+        '  printf "%s" "$HOOK_NEXT_JSON" > "$HOOK_DIRECT_URL"\nfi\n' + shim.read_text()
+    )
+    result = ws.run()
+    assert result.returncode == _EXIT_OK, result.stdout + result.stderr
+    assert json.loads(direct.read_text())["vcs_info"]["commit_id"] == after
+    assert "hook venv: reconciled" in result.stdout
+
+
+def test_hook_sync_refuses_an_unreadable_branch_plan(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _make_uv_shim(ws.bin_dir, check_exit=1)
+    direct = _branch_hook_install(ws, monkeypatch, plan="", replace=True)
+    before = direct.read_bytes()
+    result = ws.run()
+    assert result.returncode == _EXIT_FAILED, result.stdout + result.stderr
+    assert "unreadable branch install sync plan" in result.stderr
+    assert direct.read_bytes() == before
+
+
+def test_real_uv_hook_sync_keeps_the_installed_branch_revision(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Replay same-version Git replacement through real uv, entirely offline."""
+    uv = shutil.which("uv")
+    assert uv is not None, "uv is required to run workspace reconciliation"
+    source = _make_clone(ws.root, "branch-probe")
+    (source / "pyproject.toml").write_text(
+        '[build-system]\nrequires=[]\nbuild-backend="_backend"\nbackend-path=["."]\n'
+        '[project]\nname="branch-probe"\nversion="1.0"\n'
+    )
+    # A stdlib-only build backend keeps this reproduction offline, including
+    # build isolation: it asks for no setuptools, hatchling or index packages.
+    (source / "_backend.py").write_text(
+        "from pathlib import Path\nimport zipfile\n"
+        "def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):\n"
+        '    name = "branch_probe-1.0-py3-none-any.whl"\n'
+        '    with zipfile.ZipFile(Path(wheel_directory) / name, "w") as z:\n'
+        '        z.writestr("probe.py", Path("probe.py").read_text())\n'
+        '        z.writestr("branch_probe-1.0.dist-info/METADATA", '
+        '"Metadata-Version: 2.1\\nName: branch-probe\\nVersion: 1.0\\n")\n'
+        '        z.writestr("branch_probe-1.0.dist-info/WHEEL", '
+        '"Wheel-Version: 1.0\\nRoot-Is-Purelib: true\\nTag: py3-none-any\\n")\n'
+        '        z.writestr("branch_probe-1.0.dist-info/RECORD", "")\n'
+        "    return name\n"
+    )
+    (source / "probe.py").write_text('REV = "locked"\n')
+    _git("add", ".", cwd=source)
+    _git("commit", "-qm", "locked package", cwd=source)
+    (ws.omniclaude / "pyproject.toml").write_text(
+        '[project]\nname="hook-project"\nversion="1.0"\nrequires-python=">=3.12"\n'
+        f'dependencies=["branch-probe @ git+{source.as_uri()}@dev"]\n'
+    )
+    shutil.rmtree(ws.omniclaude / ".venv")
+    (ws.omniclaude / "uv.lock").unlink()
+    env = scrub_git_location_env()
+    env.pop("UV_PROJECT_ENVIRONMENT", None)
+    env.pop("PYTHONPATH", None)
+    result = subprocess.run(
+        [
+            uv,
+            "sync",
+            "--offline",
+            "--python",
+            sys.executable,
+            "--project",
+            str(ws.omniclaude),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    _git("switch", "-c", "omn-19998-branch-fix", cwd=source)
+    (source / "probe.py").write_text('REV = "branch"\n')
+    _git("add", "probe.py", cwd=source)
+    _git("commit", "-qm", "branch package", cwd=source)
+    branch_commit = _git("rev-parse", "HEAD", cwd=source)
+    result = subprocess.run(
+        [
+            uv,
+            "pip",
+            "install",
+            "--offline",
+            "--python",
+            str(ws.omniclaude / ".venv/bin/python"),
+            f"git+{source.as_uri()}@omn-19998-branch-fix",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    direct = next(
+        (ws.omniclaude / ".venv").glob("lib/python*/site-packages/*/direct_url.json")
+    )
+    assert json.loads(direct.read_text())["vcs_info"]["commit_id"] == branch_commit
+    monkeypatch.setenv("HOOK_PROJECT", str(ws.omniclaude))
+    monkeypatch.setenv("REAL_UV", uv)
+    monkeypatch.setenv("UV_OFFLINE", "true")
+    shim = ws.bin_dir / "uv"
+    shim.write_text(
+        '#!/usr/bin/env bash\nif [[ "$*" == *"--project $HOOK_PROJECT"* ]]; then\n'
+        '  exec "$REAL_UV" "$@"\nfi\n' + shim.read_text()
+    )
+    result = ws.run()
+    assert result.returncode == _EXIT_FAILED, result.stdout + result.stderr
+    assert "conflicting branch install" in result.stdout + result.stderr
+    assert json.loads(direct.read_text())["vcs_info"]["commit_id"] == branch_commit
+
+
+def _real_uv_extra_hook_project(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch, *, lock_lists_extra: bool
+) -> None:
+    """Install an optional extra into the hook venv with real uv, offline (OMN-24524)."""
+    uv = shutil.which("uv")
+    assert uv is not None, "uv is required to run workspace reconciliation"
+    wheel = ws.root / "probe-1.0-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("probe/__init__.py", "")
+        archive.writestr(
+            "probe-1.0.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: probe\nVersion: 1.0\n",
+        )
+        archive.writestr(
+            "probe-1.0.dist-info/WHEEL",
+            "Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+        )
+        archive.writestr("probe-1.0.dist-info/RECORD", "")
+    shutil.rmtree(ws.omniclaude / ".venv")
+    (ws.omniclaude / "uv.lock").unlink()
+    (ws.omniclaude / "pyproject.toml").write_text(
+        '[project]\nname = "hookproj"\nversion = "0.1"\nrequires-python = ">=3.9"\n'
+        "dependencies = []\n\n[project.optional-dependencies]\n"
+        f'probeextra = ["probe @ {wheel.as_uri()}"]\n\n[tool.uv]\npackage = false\n'
+    )
+    env = scrub_git_location_env()
+    for name in ("UV_PROJECT_ENVIRONMENT", "PYTHONPATH"):
+        env.pop(name, None)
+    env["UV_OFFLINE"] = "true"
+    env["UV_LINK_MODE"] = "copy"
+    for args in (["lock"], ["sync", "--frozen", "--extra", "probeextra"]):
+        done = subprocess.run(
+            [uv, *args, "--project", str(ws.omniclaude)],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+    if not lock_lists_extra:
+        lock = ws.omniclaude / "uv.lock"
+        lock.write_text(
+            "\n".join(
+                line
+                for line in lock.read_text().splitlines()
+                if "provides-extras" not in line
+            )
+            + "\n"
+        )
+    monkeypatch.setenv("HOOK_PROJECT", str(ws.omniclaude))
+    monkeypatch.setenv("REAL_UV", uv)
+    monkeypatch.setenv("UV_OFFLINE", "true")
+    monkeypatch.setenv("UV_LINK_MODE", "copy")
+    shim = ws.bin_dir / "uv"
+    shim.write_text(
+        '#!/usr/bin/env bash\nif [[ "$*" == *"--project $HOOK_PROJECT"* ]]; then\n'
+        '  exec "$REAL_UV" "$@"\nfi\n' + shim.read_text()
+    )
+
+
+def test_drift_check_keeps_a_lock_listed_extra_like_the_repair_does(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The check and the repair ask uv the same question, so DRIFT can clear (OMN-24524).
+
+    Measured with real uv: a plain frozen check reads an installed extra as a
+    package to uninstall and exits 1, while the repair keeps it and says in sync.
+    """
+    _real_uv_extra_hook_project(ws, monkeypatch, lock_lists_extra=True)
+    result = ws.run("--check")
+    assert result.returncode == _EXIT_OK, result.stdout + result.stderr
+    assert "outdated against" not in result.stdout
+
+
+def test_drift_check_still_reads_an_unlocked_extra_as_drift(
+    ws: _Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control: an extra the lock does not list is not kept, so the check reports it."""
+    _real_uv_extra_hook_project(ws, monkeypatch, lock_lists_extra=False)
+    result = ws.run("--check")
+    assert result.returncode != _EXIT_OK, result.stdout + result.stderr
+    assert "outdated against" in result.stdout
+    assert "extras not kept (not listed in uv.lock): probeextra" in result.stderr
+
+
 def test_proven_installs_the_floor_commit_without_moving_the_clone(
     ws: _Workspace,
 ) -> None:
@@ -461,6 +822,108 @@ def test_proven_installs_the_floor_commit_without_moving_the_clone(
     assert _git("rev-parse", "--abbrev-ref", "HEAD", cwd=ws.omnimarket) == "dev"
     assert ws.install_refs() == [proven]
     assert floor.read_bytes() == previous
+
+
+_WRAPPER_SOURCE = _REPO_ROOT / "scripts" / "onex"
+_WRAPPER_EXIT_BELOW_FLOOR = 3
+_WRAPPER_RAN = 41  # the entrypoint's own status, so "it ran" cannot be a shell error
+
+
+def _evidence_command_after_install(
+    ws: _Workspace, installed_commit: str
+) -> subprocess.CompletedProcess[str]:
+    """Run the real ``scripts/onex`` wrapper against what the reconcile installed.
+
+    The install shim only logs the ref it was handed, so this writes what uv
+    would have written for it: a ``direct_url.json`` naming that commit in the
+    dispatch venv, and an entrypoint that exits ``_WRAPPER_RAN``. ``skill`` is
+    an evidence-minting subcommand, so a floor mismatch refuses it.
+    """
+    site = ws.dispatch_venv / "lib" / "python3.12" / "site-packages"
+    dist = site / "omnimarket-0.4.11.dist-info"
+    dist.mkdir(parents=True)
+    (dist / "METADATA").write_text(
+        "Name: omnimarket\nVersion: 0.4.11\n", encoding="utf-8"
+    )
+    (dist / "direct_url.json").write_text(
+        json.dumps(
+            {
+                "url": "https://github.com/OmniNode-ai/omnimarket.git",
+                "vcs_info": {"vcs": "git", "commit_id": installed_commit},
+            }
+        ),
+        encoding="utf-8",
+    )
+    entrypoint = ws.dispatch_venv / "bin" / "onex"
+    entrypoint.write_text(
+        f"#!/usr/bin/env bash\nexit {_WRAPPER_RAN}\n", encoding="utf-8"
+    )
+    entrypoint.chmod(0o755)
+    wrapper = ws.infra / "scripts" / "onex"
+    wrapper.write_bytes(_WRAPPER_SOURCE.read_bytes())
+    wrapper.chmod(0o755)
+    env = {
+        "OMNIBASE_PATH": str(ws.root),
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",  # no stray `onex` to shadow
+    }
+    return subprocess.run(
+        ["bash", str(wrapper), "skill", "merge_sweep"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+        check=False,
+    )
+
+
+def test_proven_reconcile_after_a_clone_advance_leaves_onex_runnable(
+    ws: _Workspace,
+) -> None:
+    """OMN-17305: the clone advances, the routine reconcile runs, nodes still run.
+
+    canonical-clone-sync fast-forwards the omnimarket clone past the floor. The
+    reconcile that follows (pull-all.sh runs ``--proven``) installs the floor's
+    commit, so the installed commit equals the floor and the real wrapper still
+    execs an evidence-minting command.
+    """
+    proven = ws.market_head
+    newer = _advance(ws.omnimarket, "newer")
+    ws.set_installed_commit("0" * _SHA_LEN)
+    (ws.root / ".onex-workspace-floor.json").write_text(
+        json.dumps({"omnimarket_commit": proven}, indent=2) + "\n", encoding="utf-8"
+    )
+
+    proc = ws.run("--proven")
+
+    assert proc.returncode == _EXIT_OK, proc.stdout + proc.stderr
+    assert _git("rev-parse", "HEAD", cwd=ws.omnimarket) == newer
+    assert ws.install_refs() == [proven]
+    wrapped = _evidence_command_after_install(ws, ws.install_refs()[-1])
+    assert wrapped.returncode == _WRAPPER_RAN, wrapped.stdout + wrapped.stderr
+    assert "REFUSED" not in wrapped.stderr
+
+
+def test_default_reconcile_after_a_clone_advance_cannot_leave_the_floor_behind(
+    ws: _Workspace,
+) -> None:
+    """OMN-16932 supersedes the earlier negative case.
+
+    The default repair run installs the clone HEAD into the dispatch venv. The
+    plain install shim writes no dist-info, so the floor cannot be advanced
+    with the venv and the run must fail rather than leave the floor behind.
+    """
+    proven = ws.market_head
+    newer = _advance(ws.omnimarket, "newer")
+    ws.set_installed_commit("0" * _SHA_LEN)
+    (ws.root / ".onex-workspace-floor.json").write_text(
+        json.dumps({"omnimarket_commit": proven}, indent=2) + "\n", encoding="utf-8"
+    )
+
+    proc = ws.run()
+
+    assert proc.returncode == _EXIT_FAILED, proc.stdout + proc.stderr
+    assert "floor" in proc.stdout + proc.stderr
+    assert ws.install_refs() == [newer]
 
 
 def test_proven_never_updates_head_under_a_detach_refusing_guard(
@@ -764,13 +1227,9 @@ def test_reconcile_applies_the_lock_without_removing_the_provider_layer(
 def test_provider_coinstall_runs_before_the_lock_pass(ws: _Workspace) -> None:
     """OMN-16262: the co-install downgrades a locked pin, so the lock pass ends the run.
 
-    ``install-node-skill-package.sh`` carries a hardcoded
-    ``COMPAT_PIN="omnibase-compat==0.5.5"`` and installs it ``--no-deps``,
-    silently downgrading the locked 0.5.6. Reproduced live on this Mac
-    2026-08-30 by this very reconciler: the downgrade removed
-    ``omnibase_compat.contracts.pr_occ_stamp``, the ``occ`` CLI extension failed
-    to load, and the ``onex`` binary would not start at all. Ending on the lock
-    pass repairs it structurally instead of inheriting the bug.
+    A hardcoded co-install pin used to downgrade a dependency with
+    ``--no-deps``, causing ``onex`` to fail at startup. The final lock
+    pass restores governed pins.
     """
     ws.set_installed_commit("0" * _SHA_LEN)
     assert ws.run().returncode == _EXIT_OK
@@ -989,6 +1448,7 @@ def test_absent_hook_venv_is_skipped_not_failed(ws: _Workspace) -> None:
     import shutil
 
     shutil.rmtree(ws.omniclaude / ".venv")
+    (ws.omniclaude / "uv.lock").unlink()
     result = ws.run()
     assert result.returncode == _EXIT_OK, result.stdout + result.stderr
     assert "SKIP" in result.stdout.upper()
@@ -1872,7 +2332,7 @@ def test_the_swap_exchanges_the_directories_in_one_syscall(tmp_path: Path) -> No
         [
             "bash",
             "-c",
-            f'{text[start:end]}\nexchange_dirs_atomically "$1" "$2"',
+            f'_ATOMIC_TOOL="{_ATOMIC_TOOL}"\n{text[start:end]}\nexchange_dirs_atomically "$1" "$2"',
             "_",
             str(staging),
             str(live),
@@ -1899,7 +2359,7 @@ def test_the_swap_falls_back_when_the_exchange_is_unavailable(tmp_path: Path) ->
         [
             "bash",
             "-c",
-            f'{text[start:end]}\nexchange_dirs_atomically "$1" "$2"',
+            f'_ATOMIC_TOOL="{_ATOMIC_TOOL}"\n{text[start:end]}\nexchange_dirs_atomically "$1" "$2"',
             "_",
             str(staging),
             str(tmp_path / "absent"),
@@ -1911,3 +2371,156 @@ def test_the_swap_falls_back_when_the_exchange_is_unavailable(tmp_path: Path) ->
 
     assert result.returncode != 0
     assert staging.is_dir()
+
+
+# --------------------------------------------------------------------------- #
+# OMN-22712: a provider-only additive pass updates the moved packages in place.
+# --------------------------------------------------------------------------- #
+#
+# The pass that runs once per omnimarket merge (about 45 a day on a lab Mac)
+# cloned the whole live dispatch venv (about 57,000 files), installed into the
+# clone, swapped it in and deleted the old tree: 57,000 creates and 57,000
+# removes, which is what grows fseventsd without bound. These tests read the
+# collaborators the script runs (`cp` for the clone, the install script for the
+# co-install), so a regression to the clone reads RED here.
+
+
+def _cp_shim(ws: _Workspace) -> None:
+    """A `cp` that logs its argv and then runs the real one."""
+    cp = ws.bin_dir / "cp"
+    cp.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$CP_LOG"\nexec /bin/cp "$@"\n',
+        encoding="utf-8",
+    )
+    cp.chmod(0o755)
+
+
+def _cp_calls(ws: _Workspace) -> list[str]:
+    log = ws.root / "cp.log"
+    return log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+
+
+def _cloned_the_dispatch_venv(ws: _Workspace) -> bool:
+    return any(str(ws.dispatch_venv) in call for call in _cp_calls(ws))
+
+
+def _make_dispatch_venv_relocatable(ws: _Workspace) -> None:
+    cfg = ws.dispatch_venv / "pyvenv.cfg"
+    cfg.write_text(
+        cfg.read_text(encoding="utf-8") + "relocatable = true\n", encoding="utf-8"
+    )
+
+
+def _atomic_flags(ws: _Workspace) -> list[str]:
+    log = ws.root / "install-atomic.log"
+    return log.read_text(encoding="utf-8").split() if log.exists() else []
+
+
+def test_a_provider_only_pass_updates_in_place_without_cloning_the_venv(
+    ws: _Workspace,
+) -> None:
+    """The common tick (omnimarket moved, the lock did not) clones nothing."""
+    _cp_shim(ws)
+    ws.set_installed_commit("0" * _SHA_LEN)
+    _make_dispatch_venv_relocatable(ws)
+
+    result = ws.run()
+
+    assert result.returncode == _EXIT_OK, result.stdout + result.stderr
+    assert not _cloned_the_dispatch_venv(ws), (
+        f"a provider-only pass cloned the whole live venv: {_cp_calls(ws)!r}"
+    )
+    staging = Path(str(ws.dispatch_venv) + _UV_STAGING_SUFFIX)
+    assert not staging.exists()
+    assert str(staging) not in _mutating_uv_targets(ws), (
+        "a provider-only pass still synced into a staged clone"
+    )
+    argv = ws.install_argv_log.read_text(encoding="utf-8")
+    assert str(ws.dispatch_venv / "bin" / "python") in argv, (
+        f"the co-install did not target the live interpreter: {argv!r}"
+    )
+    assert _atomic_flags(ws) == ["1"], (
+        "the co-install was not asked for the atomic in-place install: "
+        f"{_atomic_flags(ws)!r}"
+    )
+    assert "additive pass in place" in result.stdout, result.stdout
+
+
+def test_a_lock_layer_pass_still_clones_the_venv(ws: _Workspace) -> None:
+    """Positive control for the test above: a pass that moves the LOCK clones.
+
+    The same fixture with a lock layer that reads behind must take the clone
+    path, so the zero clone calls above come from the new branch and not from a
+    shim that never records one.
+    """
+    _cp_shim(ws)
+    _make_uv_shim(ws.bin_dir, check_exit=1)
+    ws.set_installed_commit("0" * _SHA_LEN)
+    _make_dispatch_venv_relocatable(ws)
+
+    result = ws.run()
+
+    assert result.returncode == _EXIT_OK, result.stdout + result.stderr
+    assert _cloned_the_dispatch_venv(ws), (
+        f"the lock-layer pass did not clone the venv: {_cp_calls(ws)!r}"
+    )
+    assert _atomic_flags(ws) == ["0"], _atomic_flags(ws)
+
+
+def test_a_venv_that_is_not_relocatable_is_not_updated_in_place(
+    ws: _Workspace,
+) -> None:
+    """Scripts staged for an in-place exchange need the self-locating form."""
+    _cp_shim(ws)
+    ws.set_installed_commit("0" * _SHA_LEN)
+
+    result = ws.run()
+
+    assert result.returncode == _EXIT_OK, result.stdout + result.stderr
+    assert _cloned_the_dispatch_venv(ws), _cp_calls(ws)
+    assert _atomic_flags(ws) == ["0"], _atomic_flags(ws)
+
+
+def test_a_co_install_that_moved_the_lock_layer_applies_it_on_a_clone(
+    tmp_path: Path,
+) -> None:
+    """The lock pass after an in-place co-install is a read; drift clones.
+
+    The first `uv sync --check` (the pre-pass probe) reads in sync, the second
+    (after the co-install) reads behind. The lock is then applied on a staged
+    clone of the venv that now carries the new provider layer, and swapped in.
+    """
+    ws = _Workspace(tmp_path)
+    _cp_shim(ws)
+    _make_uv_shim(ws.bin_dir, check_exit_after_first=1)
+    ws.set_installed_commit("0" * _SHA_LEN)
+    _make_dispatch_venv_relocatable(ws)
+
+    result = ws.run()
+
+    assert result.returncode == _EXIT_OK, result.stdout + result.stderr
+    assert _atomic_flags(ws) == ["1"], _atomic_flags(ws)
+    assert "moved the lock layer" in result.stdout, result.stdout
+    assert _cloned_the_dispatch_venv(ws), _cp_calls(ws)
+    staging = Path(str(ws.dispatch_venv) + _UV_STAGING_SUFFIX)
+    assert str(staging) in _mutating_uv_targets(ws)
+    assert not staging.exists(), "the staged clone survived the swap"
+
+
+def test_a_failed_in_place_co_install_refuses_and_leaves_the_venv_alone(
+    ws: _Workspace,
+) -> None:
+    """The refusal path is unchanged: the install fails, the venv is untouched."""
+    _cp_shim(ws)
+    _make_install_shim(ws.install_script, exit_code=1)
+    ws.set_installed_commit("0" * _SHA_LEN)
+    _make_dispatch_venv_relocatable(ws)
+    before = (ws.dispatch_venv / "bin" / "python").read_text(encoding="utf-8")
+
+    result = ws.run()
+
+    assert result.returncode == _EXIT_FAILED, result.stdout + result.stderr
+    assert "still serving" in result.stdout, result.stdout
+    assert not _cloned_the_dispatch_venv(ws)
+    after = (ws.dispatch_venv / "bin" / "python").read_text(encoding="utf-8")
+    assert after == before

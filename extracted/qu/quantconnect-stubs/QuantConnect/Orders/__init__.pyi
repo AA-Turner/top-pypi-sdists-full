@@ -1566,7 +1566,7 @@ class OrderResponseErrorCode(IntEnum):
     """Cannot submit because order already exists (-2)"""
 
     INSUFFICIENT_BUYING_POWER = -3
-    """Not enough money to to submit order (-3)"""
+    """Not enough money to submit order (-3)"""
 
     BROKERAGE_MODEL_REFUSED_TO_SUBMIT_ORDER = -4
     """Internal logic invalidated submit order (-4)"""

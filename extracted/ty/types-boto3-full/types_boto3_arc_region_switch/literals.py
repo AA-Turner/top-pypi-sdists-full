@@ -200,6 +200,7 @@ WaitELBTargetGroupHealthyType = Literal["disabled", "enabled"]
 WorkflowTargetActionType = Literal["activate", "deactivate", "postRecovery"]
 ARCRegionswitchServiceName = Literal["arc-region-switch"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

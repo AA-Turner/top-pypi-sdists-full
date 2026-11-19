@@ -168,7 +168,8 @@ class LatencyStats:
         """Clear the counts: every counter is set to 0 and every window emptied, with their names kept. The gauges are
         left as they are: each is a current value, not a count since a start, and a clock offset set to zero would read
         as a clock that lost its synchronization. LiveKit Portal's reset_metrics() does the same, for the same reason:
-        it zeroes its counts and leaves its offset and its synced flag unchanged (its docs/09-metrics.md)."""
+        it zeroes its counts and leaves its offset and its synced flag unchanged, as that project's documentation of
+        its metrics says (THIRD_PARTY_NOTICES.md names it)."""
         with self._lock:
             for name in self._counters:
                 self._counters[name] = 0

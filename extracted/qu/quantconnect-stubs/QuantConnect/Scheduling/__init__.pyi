@@ -85,7 +85,7 @@ class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
 
 
 class ITimeRule(metaclass=abc.ABCMeta):
-    """Specifies times times on dates for events, used in conjunction with IDateRule"""
+    """Specifies times on dates for events, used in conjunction with IDateRule"""
 
     @property
     @abc.abstractmethod

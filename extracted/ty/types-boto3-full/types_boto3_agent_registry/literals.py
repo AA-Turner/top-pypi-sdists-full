@@ -54,6 +54,7 @@ RegistryRecordStatusType = Literal[
 ]
 AgentRegistryServiceName = Literal["agent-registry"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

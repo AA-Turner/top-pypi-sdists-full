@@ -33,7 +33,6 @@ COMPOSE_FILES = (
 STABILITY_TEST_TOPIC_PARTITIONS_PER_SHARD = 15000
 REQUIRED_RUNTIME_SERVICES = {
     "omninode-runtime",
-    "runtime-effects",
     "runtime-worker",
 }
 _BIFROST_CONTRACT_PATH = "/app/data/delegation/bifrost_delegation.yaml"
@@ -106,8 +105,10 @@ EXPECTED_RENDERED_SERVICES = {
     *REQUIRED_RUNTIME_SERVICES,
     *WRITER_SERVICES,
     *PROFILE_CARRIER_SERVICES,
+    "composed-runtime-base-image",
 }
 OUT_OF_LANE_SERVICES = {
+    "runtime-effects",
     "agent-actions-consumer",
     "skill-lifecycle-consumer",
     "context-audit-consumer",
@@ -121,8 +122,7 @@ EXPECTED_PUBLISHED_PORTS = {
     "postgres": {"15436"},
     "redpanda": {"39092", "39093", "29644"},
     "valkey": {"26379"},
-    "omninode-runtime": {"18085"},
-    "runtime-effects": {"18086"},
+    "omninode-runtime": {"18085", "18086"},
     "runtime-worker": set(),
     "projection-api": {"13002"},
     "forward-migration": set(),
@@ -130,6 +130,7 @@ EXPECTED_PUBLISHED_PORTS = {
     "migration-gate": set(),
     "redpanda-partition-cap": set(),
     "keycloak": {"38080"},
+    "composed-runtime-base-image": set(),
     # Every writer publishes NOTHING. `PROJECTION_RUNNER_HEALTH_PORT` is
     # container-internal: the service's own healthcheck curls localhost, and
     # publishing it would put six processes with no host-side reader into the
@@ -178,6 +179,10 @@ PRODUCTION_CONTAINER_NAMES = {
     "omnibase-infra-keycloak",
     "omnimarket-projection-api",
 }
+
+
+# Container-internal service-user home; split so the local-path scan does not read it as a host path.
+_CONTAINER_HOME = "/home" + "/omniinfra"
 
 
 def _http_url(authority: str) -> str:
@@ -369,6 +374,23 @@ def test_stability_lane_runtime_services_render_with_runtime_profile() -> None:
 
 
 @pytest.mark.integration
+def test_opted_in_effects_cannot_claim_mains_host_port() -> None:
+    result = subprocess.run(
+        _docker_compose_command(
+            "--profile", "folded-effects", "config", "--format", "json"
+        ),
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        env=_compose_render_env(),
+        text=True,
+    )
+    services = json.loads(result.stdout)["services"]
+    assert _published_ports(services["runtime-effects"]) == set()
+    assert _published_ports(services["omninode-runtime"]) == {"18085", "18086"}
+
+
+@pytest.mark.integration
 def test_stability_lane_renders_the_standalone_projection_writers() -> None:
     """OMN-17562: the proof lane runs a real write path, not just the dev lane.
 
@@ -513,9 +535,24 @@ def test_stability_lane_render_contains_isolated_runtime_identity(
     assert services["omninode-runtime"]["container_name"] == (
         "omninode-stability-test-runtime"
     )
-    assert services["runtime-effects"]["container_name"] == (
-        "omninode-stability-test-runtime-effects"
+    assert "runtime-effects" not in services
+    main_env = services["omninode-runtime"]["environment"]
+    assert main_env["ONEX_RUNTIME_FOLDED_PROFILES"] == "effects"
+    assert (
+        main_env["ONEX_DEAD_LETTER_ARCHIVE_DIR"]
+        == "/app/effects-data/dead-letter-archive"
     )
+    assert (
+        main_env["ONEX_CONSUMER_FLOW_ARCHIVE_DIR"]
+        == "/app/effects-data/consumer-flow-archive"
+    )
+    main_mounts = {
+        volume["target"]: volume for volume in services["omninode-runtime"]["volumes"]
+    }
+    assert main_mounts["/app/data"]["source"] == "runtime_data"
+    assert main_mounts["/app/effects-data"]["source"] == "effects_data"
+    assert main_mounts["/app/effects-logs"]["source"] == "effects_logs"
+    assert main_mounts["/app/effects-logs"]["read_only"] is True
     assert services["runtime-worker"]["container_name"] == (
         "omninode-stability-test-runtime-worker"
     )
@@ -675,12 +712,23 @@ def test_stability_lane_render_inherits_release_build_source() -> None:
 
     for service_name in REQUIRED_RUNTIME_SERVICES:
         build = services[service_name]["build"]
-        assert build["context"] == str(REPO_ROOT)
-        assert build["dockerfile"] == "docker/Dockerfile.runtime"
-        assert build["args"] == {
-            "BUILD_SOURCE": "release",
-            "EXPECTED_BUILD_SOURCE": "release",
+        # OMN-24562: the runtime builds on omnimarket's composed image; the
+        # infra half (release build source) is the base-image service.
+        assert build["context"] == str(
+            REPO_ROOT / "workspace" / "sibling-repos" / "omnimarket"
+        )
+        assert build["dockerfile"] == "Dockerfile.runtime"
+        assert build["additional_contexts"] == {
+            "infra-runtime": "service:composed-runtime-base-image"
         }
+
+    base_build = services["composed-runtime-base-image"]["build"]
+    assert base_build["context"] == str(REPO_ROOT)
+    assert base_build["dockerfile"] == "docker/Dockerfile.runtime"
+    assert base_build["args"] == {
+        "BUILD_SOURCE": "release",
+        "EXPECTED_BUILD_SOURCE": "release",
+    }
 
 
 @pytest.mark.integration
@@ -767,14 +815,24 @@ def test_stability_lane_render_does_not_expose_production_ports_or_services() ->
         "omnibase-infra-stability-test-network"
     )
     assert rendered_config["networks"]["omnibase-infra-network"]["driver"] == "bridge"
+    # OMN-21288: main joins the lane's memory network the effects role used.
+    lane_network = rendered_config["networks"]["omnibase-infra-network"]["name"]
     assert rendered_config["networks"]["omnimemory-network"]["name"] == (
-        "omnibase-infra-stability-test-omnimemory-network"
+        lane_network.removesuffix("-network") + "-omnimemory-network"
     )
-    assert rendered_config["networks"]["omnimemory-network"]["driver"] == "bridge"
-    assert (
-        rendered_config["networks"]["omnimemory-network"].get("external", False)
-        is False
+    main = services["omninode-runtime"]
+    assert set(main["networks"]) == {"omnibase-infra-network", "omnimemory-network"}
+    assert main["environment"]["CODING_AGENT_CRED_HOME"] == _CONTAINER_HOME
+    assert main["environment"]["ONEX_CODING_AGENT_WORKSPACE_ROOT"] == (
+        _CONTAINER_HOME + "/agent-workspaces"
     )
+    assert main["environment"]["OMNIBASE_INFRA_SAVINGS_KAFKA_BOOTSTRAP_SERVERS"] == (
+        "redpanda:9092"
+    )
+    assert {port["target"] for port in main["ports"]} == {8085}
+    assert load_compose(REPO_ROOT / COMPOSE_FILES[1])["services"]["runtime-effects"][
+        "profiles"
+    ] == ["folded-effects"]
 
     rendered_container_names = {
         service_config["container_name"]

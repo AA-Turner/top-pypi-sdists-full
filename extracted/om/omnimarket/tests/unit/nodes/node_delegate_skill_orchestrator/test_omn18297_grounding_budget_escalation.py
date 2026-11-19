@@ -20,6 +20,9 @@ from uuid import uuid4
 import pytest
 
 from omnimarket.enums.enum_delegation_failure_class import EnumDelegationFailureClass
+from omnimarket.handlers.routing.delegation_backend_resolution import (
+    ModelResolvedDelegationBackend,
+)
 from omnimarket.nodes.node_delegate_skill_orchestrator.ports import (
     port_local_delegation_dispatch as port_mod,
 )
@@ -29,9 +32,6 @@ from omnimarket.nodes.node_delegate_skill_orchestrator.ports.port_local_delegati
 from omnimarket.nodes.node_llm_delegation_call_effect import (
     ModelLlmDelegationCallRequest,
     ModelLlmDelegationCallResult,
-)
-from omnimarket.routing.delegation_backend_resolution import (
-    ModelResolvedDelegationBackend,
 )
 
 pytestmark = pytest.mark.unit
@@ -256,7 +256,11 @@ def test_under_budget_input_is_dispatched_to_the_local_backend_unchanged(
 def test_a_backend_declaring_no_budget_is_unbounded_not_defaulted(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """None means NOT DECLARED. No backend is silently given a budget."""
+    """None means NOT DECLARED. No backend is silently given a budget.
+
+    With no overlay root naming the code budget overlay no ceiling applies.
+    """
+    monkeypatch.setenv("ONEX_SKILL_OVERLAY_ROOTS", "")
     _install_ladder(
         monkeypatch,
         budgets={"local-heavy-reasoning": None, "cloud-gemini-2-5-flash": None},
@@ -300,8 +304,8 @@ def test_over_budget_with_no_reachable_rung_fails_rather_than_truncating(
     assert "grounding budget" in failed[0]
 
 
-def test_lab_backends_declare_a_budget_in_the_shipped_contract() -> None:
-    """Wiring proof: the budget is a routing-contract fact, not a test constant."""
+def test_lab_backends_declare_no_packaged_budget_in_the_shipped_contract() -> None:
+    """Wiring proof: the shipped contract holds no packaged budget; the limit is the overlay's."""
     from pathlib import Path as _Path
 
     import yaml
@@ -315,7 +319,4 @@ def test_lab_backends_declare_a_budget_in_the_shipped_contract() -> None:
         for b in backends
         if b["backend_id"] in {"local-coder", "local-heavy-reasoning"}
     }
-    assert declared == {
-        "local-coder": _LOCAL_BUDGET,
-        "local-heavy-reasoning": _LOCAL_BUDGET,
-    }
+    assert declared == {"local-coder": None, "local-heavy-reasoning": None}

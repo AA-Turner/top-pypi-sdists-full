@@ -43,6 +43,25 @@ from omnibase_core.models.delegation.wire import (
 )
 
 from omnimarket.enums.enum_delegation_failure_class import EnumDelegationFailureClass
+from omnimarket.handlers.delegation_call_budget_reader import (
+    require_call_budget_s,
+    require_call_ceiling_s,
+)
+from omnimarket.handlers.network_bindings import network_host
+from omnimarket.handlers.routing.byok_model_discovery import (
+    describe_discovery_refusal,
+    discover_byok_model_sync,
+    model_not_chosen_message,
+)
+from omnimarket.handlers.routing.byok_provider_backends import (
+    BYOK_MODEL_UNRESOLVED,
+    ModelByokProviderBackend,
+    resolve_byok_backend_by_endpoint,
+    token_limit_field_for_endpoint,
+)
+from omnimarket.handlers.routing.delegation_backend_resolution import (
+    describe_model_name_source,
+)
 from omnimarket.inference.local_byok_credential_adapter import (
     MODEL_CHOSEN_BY_CATALOGUE,
     resolve_local_byok_model_chooser,
@@ -73,20 +92,7 @@ from omnimarket.nodes.contract_topics import (
 from omnimarket.nodes.node_llm_delegation_call_effect.handlers import transport
 from omnimarket.nodes.node_llm_delegation_call_effect.models.model_inference_call_budget import (
     INFERENCE_TIMEOUT_LOG_TOKEN,
-    load_inference_call_budget,
 )
-from omnimarket.routing.byok_model_discovery import (
-    describe_discovery_refusal,
-    discover_byok_model_sync,
-    model_not_chosen_message,
-)
-from omnimarket.routing.byok_provider_backends import (
-    BYOK_MODEL_UNRESOLVED,
-    ModelByokProviderBackend,
-    resolve_byok_backend_by_endpoint,
-    token_limit_field_for_endpoint,
-)
-from omnimarket.routing.delegation_backend_resolution import describe_model_name_source
 from omnimarket.tenant_credential_ref import is_tenant_credential_ref
 
 logger = logging.getLogger(__name__)
@@ -123,18 +129,7 @@ _SUPPORTED_URL_SCHEMES = ("http://", "https://")
 # query string, and in a header for any log that records headers. Only a
 # private or loopback address gets them; a third-party provider never does.
 
-# OMN-18852: the ceiling ONE outbound provider call may occupy, read from this
-# node's own contract at import time (the same fail-fast posture as the topic
-# resolution below). This consumer is single-partition and single-member, so a
-# rung's duration is a global resource: the 300 s the local backend asked for
-# is the WHOLE of the dispatch port's wait and 125 % of the delegate-skill
-# handler's execution budget, and holding it produced 600 s of dead slot in a
-# 25-minute window on 2026-09-19.
-_INFERENCE_CALL_BUDGET = load_inference_call_budget()
-_INFERENCE_TIMEOUT_CEILING_SECONDS: Final[float] = float(
-    _INFERENCE_CALL_BUDGET.max_inference_duration_seconds
-)
-
+# OMN-24039: the ceiling is read per call from the code budget overlay.
 
 CREDENTIAL_UNRESOLVED_ONEX_CODE: Final[
     Literal["ONEX_MARKET_EFFECT_CREDENTIAL_UNRESOLVED"]
@@ -711,7 +706,7 @@ def _is_upstream_unavailable(exc: Exception) -> bool:
 def _is_self_hosted_endpoint(endpoint_url: str) -> bool:
     """Whether ``endpoint_url`` is a lab or local model server (OMN-20299)."""
     host = (urlparse(endpoint_url).hostname or "").lower()
-    if host == "localhost":
+    if host == network_host("loopback.name"):
         return True
     try:
         address = ipaddress.ip_address(host)
@@ -731,15 +726,14 @@ def _resolve_effective_timeout(intent: ModelInferenceIntent) -> float:
 
 
 def _ceiling_seconds_for(intent: ModelInferenceIntent) -> float:
-    """The contract ceiling for the model this intent names (OMN-19432).
+    """The overlay budget of the intent's task class, read on every call.
 
-    The default is the effect contract's ``http_request`` ``timeout_seconds``; a
-    model whose measured latency does not fit it has its own declared entry in
-    ``model_timeout_seconds``. Read from the contract, keyed by the intent's
-    model id, never from the request: the wire's ``timeout_seconds`` is
-    producer-supplied and a bound that honours it bounds nothing.
+    Refused when the overlay names none (OMN-24039).
     """
-    return float(_INFERENCE_CALL_BUDGET.ceiling_for(intent.model))
+    task_type = getattr(intent, "task_type", None)
+    if task_type is None:
+        return require_call_ceiling_s()
+    return require_call_budget_s(task_type)
 
 
 def _inference_timeout_error(
@@ -748,6 +742,7 @@ def _inference_timeout_error(
     *,
     elapsed_seconds: float,
     resolved_timeout: float,
+    ceiling_seconds: float,
 ) -> RuntimeError:
     """Log the one greppable abandonment line and return the typed failure.
 
@@ -782,7 +777,7 @@ def _inference_timeout_error(
         elapsed_seconds,
         resolved_timeout,
         intent.timeout_seconds,
-        _ceiling_seconds_for(intent),
+        ceiling_seconds,
         intent.base_url,
         type(exc).__name__,
     )
@@ -794,8 +789,8 @@ def _inference_timeout_error(
     return RuntimeError(
         f"{detail}: provider call timed out after {elapsed_seconds:.3f}s "
         f"against a resolved timeout of {resolved_timeout:.3f}s "
-        f"(requested {intent.timeout_seconds}s, contract ceiling "
-        f"{_ceiling_seconds_for(intent):.3f}s) for model "
+        f"(requested {intent.timeout_seconds}s, overlay ceiling "
+        f"{ceiling_seconds:.3f}s) for model "
         f"{intent.model} [{type(exc).__name__}]"
     )
 
@@ -1057,6 +1052,17 @@ class HandlerInferenceIntent:
                 "URL (OMN-13215)."
             )
 
+        headers: dict[str, str] = {}
+        # OMN-18196: the key was resolved once by ``handle`` and passed in, so
+        # the value this header is built from and the credential class stamped
+        # on the response come from the SAME resolution. Resolving again here
+        # would allow the two to disagree, which is exactly the failure the
+        # stamped field exists to make impossible.
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        if intent.extra_headers:
+            headers.update(intent.extra_headers)
+
         # OMN-17098: fail-closed model-attribution guard, the same one OMN-16419
         # put on ``HandlerLlmDelegationCall`` and the one this handler -- the path
         # the orchestrator actually dispatches to -- never had. The served-model
@@ -1064,10 +1070,13 @@ class HandlerInferenceIntent:
         # echoed ``model`` is not evidence (SGLang echoes whatever was requested).
         # ``None`` is "no evidence either way" (most cloud backends expose no
         # ``/v1/models`` at this origin) and leaves behaviour unchanged.
-        served_ids = transport.get_served_model_ids(base_url)
+        served_ids = transport.get_served_model_ids(base_url, extra_headers=headers)
         if served_ids is not None and intent.model not in served_ids:
             served_ids = (
-                transport.get_served_model_ids(base_url, refresh=True) or served_ids
+                transport.get_served_model_ids(
+                    base_url, refresh=True, extra_headers=headers
+                )
+                or served_ids
             )
         if served_ids is not None and intent.model not in served_ids:
             raise ModelAttributionMismatchError(
@@ -1095,23 +1104,22 @@ class HandlerInferenceIntent:
             provider_request_options,
         )
 
-        headers: dict[str, str] = {}
-        # OMN-18196: the key was resolved once by ``handle`` and passed in, so
-        # the value this header is built from and the credential class stamped
-        # on the response come from the SAME resolution. Resolving again here
-        # would allow the two to disagree, which is exactly the failure the
-        # stamped field exists to make impossible.
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        if intent.extra_headers:
-            headers.update(intent.extra_headers)
         params: dict[str, str] | None = None
         if _is_self_hosted_endpoint(intent.base_url):
             correlation_id = str(intent.correlation_id)
             params = {SELF_HOSTED_CORRELATION_QUERY_PARAM: correlation_id}
             headers[SELF_HOSTED_CORRELATION_HEADER] = correlation_id
 
+        ceiling_seconds = _ceiling_seconds_for(intent)
         timeout = _resolve_effective_timeout(intent)
+        logger.info(
+            "inference call ceiling task_type=%s ceiling_seconds=%s requested_timeout_seconds=%s resolved_timeout_seconds=%s correlation_id=%s",
+            getattr(intent, "task_type", None),
+            ceiling_seconds,
+            intent.timeout_seconds,
+            timeout,
+            intent.correlation_id,
+        )
         started = time.monotonic()
 
         # OMN-20299: the correlation query parameter is the client's, so the
@@ -1157,6 +1165,7 @@ class HandlerInferenceIntent:
                 httpx.ReadTimeout("Inference call exceeded its total deadline"),
                 elapsed_seconds=time.monotonic() - started,
                 resolved_timeout=timeout,
+                ceiling_seconds=ceiling_seconds,
             ) from exc
         except httpx.TimeoutException as exc:
             raise _inference_timeout_error(
@@ -1164,6 +1173,7 @@ class HandlerInferenceIntent:
                 exc,
                 elapsed_seconds=time.monotonic() - started,
                 resolved_timeout=timeout,
+                ceiling_seconds=ceiling_seconds,
             ) from exc
         finally:
             executor.shutdown(wait=False)

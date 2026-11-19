@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added support list, get, update, delete, and create to share transfers
-    from share file system service.

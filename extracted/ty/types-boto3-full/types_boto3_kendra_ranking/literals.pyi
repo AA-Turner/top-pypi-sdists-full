@@ -32,6 +32,7 @@ __all__ = (
 RescoreExecutionPlanStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 KendraRankingServiceName = Literal["kendra-ranking"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

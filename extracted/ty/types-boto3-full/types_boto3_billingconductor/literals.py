@@ -92,6 +92,7 @@ PricingRuleTypeType = Literal["DISCOUNT", "MARKUP", "TIERING"]
 SearchOptionType = Literal["STARTS_WITH"]
 BillingConductorServiceName = Literal["billingconductor"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

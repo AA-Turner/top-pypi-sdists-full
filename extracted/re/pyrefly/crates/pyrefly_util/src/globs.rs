@@ -14,10 +14,13 @@ use std::num::NonZeroUsize;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
+use std::path::is_separator;
 use std::thread::available_parallelism;
 
 use anyhow::Context;
+use glob::MatchOptions;
 use glob::Pattern;
+use glob::glob_with;
 use ignore::Match;
 use ignore::WalkBuilder;
 use ignore::WalkState;
@@ -133,7 +136,23 @@ impl Glob {
         Ok(Self::from_base_pattern(Self::base_pattern(pattern)?))
     }
 
-    fn base_pattern(mut pattern: String) -> anyhow::Result<Pattern> {
+    fn base_pattern(pattern: String) -> anyhow::Result<Pattern> {
+        // The `glob` crate accepts `**` only as a whole path component. Like Pyright and
+        // gitignore, we treat any other run of `*` as a single `*`. Components are split on the
+        // platform's separators, because an absolutized pattern uses `\` on Windows.
+        let mut pattern: String = pattern
+            .split_inclusive(is_separator)
+            .map(|piece| {
+                if piece.trim_end_matches(is_separator) == "**" {
+                    piece.to_owned()
+                } else {
+                    piece
+                        .chars()
+                        .dedup_by(|a, b| *a == '*' && *b == '*')
+                        .collect()
+                }
+            })
+            .collect();
         if pattern.ends_with("**") {
             pattern.push_str("/*");
         } else if pattern.ends_with("**/") {
@@ -189,7 +208,11 @@ impl Glob {
     /// named a concrete path rather than a pattern. Says nothing about whether
     /// the path exists on disk.
     fn has_no_wildcards(&self) -> bool {
-        self.as_path().components().all(|comp| match comp {
+        Self::path_has_no_wildcards(self.as_path())
+    }
+
+    fn path_has_no_wildcards(path: &Path) -> bool {
+        path.components().all(|comp| match comp {
             Component::Normal(part) => !Self::contains_glob_char(part),
             _ => true,
         })
@@ -410,6 +433,15 @@ impl Globs {
         res
     }
 
+    /// The existing files named by patterns without wildcards. [`Globs::files_iter`] yields these
+    /// paths as they are, without walking for them.
+    pub fn explicit_files(&self) -> impl Iterator<Item = &Path> {
+        self.0
+            .iter()
+            .filter(|pattern| pattern.is_explicit_file_pattern())
+            .map(Glob::as_path)
+    }
+
     /// Returns true if the given file matches any of the contained globs.
     /// Directory-style matching is handled by each [`Glob`]'s precomputed
     /// `<pattern>/**` variant.
@@ -423,6 +455,51 @@ impl Globs {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Splits off the patterns without wildcards that name existing directories. Returns those
+    /// patterns and the remaining ones.
+    pub fn partition_explicit_dirs(self) -> (Vec<Glob>, Globs) {
+        let (dirs, rest) = self
+            .0
+            .into_iter()
+            .partition(|pattern| pattern.has_no_wildcards() && pattern.as_path().is_dir());
+        (dirs, Globs(rest))
+    }
+
+    /// Parses `patterns` after it expands each pattern with wildcards to the directories and
+    /// Python files that it matches, as a shell expands a glob, so that a glob is checked the same
+    /// as the paths that it matches. A pattern that matches nothing is kept, so that the check
+    /// reports it.
+    pub fn new_expanded(patterns: Vec<String>) -> anyhow::Result<Self> {
+        let options = MatchOptions {
+            require_literal_leading_dot: true,
+            ..MatchOptions::new()
+        };
+        let mut expanded = Vec::new();
+        for pattern in patterns {
+            if Glob::path_has_no_wildcards(Path::new(&pattern)) {
+                expanded.push(pattern);
+                continue;
+            }
+            let pattern = Glob::base_pattern(pattern)?;
+            let matched_before = expanded.len();
+            let entries = glob_with(pattern.as_str(), options)
+                .with_context(|| format!("While constructing glob pattern from {pattern}"))?;
+            for entry in entries {
+                match entry {
+                    Ok(path) if path.is_dir() || Glob::is_python_extension(path.extension()) => {
+                        expanded.push(Pattern::escape(&path.to_string_lossy()));
+                    }
+                    Ok(_) => {}
+                    Err(error) => warn!("While expanding `{pattern}`: {error}"),
+                }
+            }
+            if expanded.len() == matched_before {
+                expanded.push(pattern.as_str().to_owned());
+            }
+        }
+        Self::new(expanded)
     }
 
     pub fn append(&mut self, patterns: &[Glob]) {
@@ -745,7 +822,8 @@ impl Globs {
         Ok(result.into_inner())
     }
 
-    fn no_matched_files_error(&self) -> anyhow::Error {
+    /// The error for globs that match no Python files.
+    pub fn no_matched_files_error(&self) -> anyhow::Error {
         if self.0.is_empty() {
             return anyhow::anyhow!("There are no patterns to match Python files.");
         }
@@ -777,27 +855,49 @@ impl Globs {
         if limit == Some(0) {
             return Ok(Box::new(std::iter::empty()));
         }
+        let (explicit_files, walked_files) = self.matched_files(filter, limit)?;
+        if explicit_files.is_empty() && walked_files.is_empty() {
+            let was_filtered = (!filter.excludes.is_empty() || !filter.ignore_paths.is_empty())
+                && self
+                    .filtered_files_iter(
+                        &GlobFilter {
+                            excludes: Globs::empty(),
+                            ignores: Vec::new(),
+                            ignore_paths: Vec::new(),
+                            errors: Vec::new(),
+                            hidden_dir_filter: filter.hidden_dir_filter.clone(),
+                        },
+                        Some(1),
+                    )
+                    .is_ok();
+            let error = self.no_matched_files_error();
+            return if was_filtered {
+                Err(anyhow::anyhow!("{filter}\n{error}"))
+            } else {
+                Err(error)
+            };
+        }
+        Ok(Box::new(
+            Self::merged_files_iter(explicit_files, walked_files).take(limit.unwrap_or(usize::MAX)),
+        ))
+    }
+
+    /// The explicit files and the walked files that these globs match after `filter`. Both are
+    /// empty if nothing matches.
+    fn matched_files(
+        &self,
+        filter: &GlobFilter,
+        limit: Option<usize>,
+    ) -> anyhow::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
         let mut active_patterns = Vec::new();
         let mut explicit_files = Vec::new();
         for pattern in &self.0 {
-            // Skip include patterns that are themselves excluded (e.g. the
-            // default `**/*.ipynb` include when the user sets
-            // `project-excludes = ["**/*.ipynb"]`). Warn so the user knows
-            // this pattern is not being used, but don't abort discovery.
-            if filter.is_excluded(pattern.as_path()) {
-                warn!(
-                    "Skipping include pattern `{}` because it is matched by \
-                     `project-excludes` or an ignore file.\n{}",
-                    pattern.as_str(),
-                    filter,
-                );
-                continue;
-            }
             active_patterns.push(pattern);
             // An explicit concrete file is included directly, bypassing the
             // extension filter that wildcard matches must satisfy.
             if pattern.is_explicit_file_pattern()
                 && Glob::should_include_file(pattern.as_path(), true)
+                && !filter.is_excluded(pattern.as_path())
             {
                 explicit_files.push(pattern.as_path().to_path_buf());
             }
@@ -809,12 +909,7 @@ impl Globs {
         } else {
             self.walk_files_parallel(&roots, filter)?
         };
-        if explicit_files.is_empty() && walked_files.is_empty() {
-            return Err(self.no_matched_files_error());
-        }
-        Ok(Box::new(
-            Self::merged_files_iter(explicit_files, walked_files).take(limit.unwrap_or(usize::MAX)),
-        ))
+        Ok((explicit_files, walked_files))
     }
 
     pub fn files_iter(&self) -> anyhow::Result<Box<dyn Iterator<Item = PathBuf>>> {
@@ -1055,6 +1150,54 @@ impl FilteredGlobs {
         Self {
             includes,
             filter: GlobFilter::new(excludes, ignorefile_search_start, hidden_dir_filter),
+        }
+    }
+
+    /// Adds `excludes` to the excludes of this [`FilteredGlobs`].
+    pub fn add_excludes(&mut self, excludes: &[Glob]) {
+        self.filter.excludes.append(excludes);
+    }
+
+    /// Whether the excludes, hidden-directory filter, or ignore files of these globs exclude
+    /// `path`, whether or not the includes match it.
+    pub fn is_excluded(&self, path: &Path) -> bool {
+        self.filter.is_excluded(path)
+    }
+
+    /// The files that these globs include, sorted. Unlike [`Includes::files_iter`], returns no
+    /// files instead of an error when nothing matches.
+    pub fn matched_files(&self) -> anyhow::Result<Vec<PathBuf>> {
+        let (explicit_files, walked_files) = self.includes.matched_files(&self.filter, None)?;
+        Ok(Globs::merged_files_iter(explicit_files, walked_files).collect())
+    }
+
+    /// The files under `dir` that these globs include, sorted. Only `dir` is walked, so an include
+    /// outside of it is never walked. Returns no files when nothing matches.
+    pub fn matched_files_under(&self, dir: &Glob) -> anyhow::Result<Vec<PathBuf>> {
+        let (explicit_files, walked_files) =
+            Globs(vec![dir.clone()]).matched_files(&self.filter, None)?;
+        Ok(Globs::merged_files_iter(explicit_files, walked_files)
+            .filter(|path| self.includes.covers(path))
+            .collect())
+    }
+
+    /// These globs without the excludes that match `dir` or one of its parents. The other
+    /// excludes still apply to the files under `dir`.
+    pub fn without_excludes_of(&self, dir: &Path) -> Self {
+        let excludes = self
+            .filter
+            .excludes
+            .globs()
+            .iter()
+            .filter(|exclude| !exclude.matches(dir))
+            .cloned()
+            .collect();
+        Self {
+            includes: self.includes.clone(),
+            filter: GlobFilter {
+                excludes: Globs(excludes),
+                ..self.filter.for_walk()
+            },
         }
     }
 }
@@ -1300,6 +1443,8 @@ mod tests {
         glob_matches("path/to/my/", true);
         glob_matches("path/to/m", false);
         glob_matches("path/to/m*", true);
+        glob_matches("path/to/m**", true);
+        glob_matches("path/to/x**", false);
 
         glob_matches("path/to/my/file.py", true);
         glob_matches("path/to/my/file.py/", true);
@@ -1322,6 +1467,26 @@ mod tests {
         glob_matches("**/*", true);
         glob_matches("**/*.py", true);
         glob_matches("**/*.pyi", false);
+    }
+
+    // Pyright and gitignore treat a `**` that is not a whole path component as `*`.
+    // https://github.com/pyrefly-org/pyrefly/issues/1471
+    #[test]
+    fn test_recursive_wildcard_within_component() {
+        let normalized = |pattern: &str| Glob::new(pattern.to_owned()).unwrap().to_string();
+        assert_eq!(normalized("env-**"), "env-*");
+        assert_eq!(normalized("a**b/***/c"), "a*b/*/c");
+        assert_eq!(normalized("**/x**/**"), "**/x*/**/*");
+    }
+
+    // On Windows, `\` is also a path separator, so a `**` component bounded by `\` is kept.
+    #[cfg(windows)]
+    #[test]
+    fn test_recursive_wildcard_with_windows_separator() {
+        let normalized = |pattern: &str| Glob::new(pattern.to_owned()).unwrap().to_string();
+        assert_eq!(normalized(r"C:\a\**/*.py"), r"C:\a\**/*.py");
+        assert_eq!(normalized(r"C:\a\**\*.py"), r"C:\a\**\*.py");
+        assert_eq!(normalized(r"C:\a\x**\*.py"), r"C:\a\x*\*.py");
     }
 
     #[test]
@@ -1976,6 +2141,25 @@ mod tests {
     }
 
     #[test]
+    fn test_expand_matches_paths_with_glob_characters() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::file("a1.py"), TestPath::file("a[1].py")],
+        );
+        let pattern = root.join("*.py").to_string_lossy().into_owned();
+        let mut files = Globs::new_expanded(vec![pattern])
+            .unwrap()
+            .files_iter()
+            .unwrap()
+            .collect::<Vec<_>>();
+        files.sort();
+        files.dedup();
+        assert_eq!(files, vec![root.join("a1.py"), root.join("a[1].py")]);
+    }
+
+    #[test]
     fn test_excluded_directory_is_pruned_from_walk() {
         let tempdir = tempfile::tempdir().unwrap();
         let root = tempdir.path();
@@ -1997,6 +2181,64 @@ mod tests {
         assert_eq!(
             filtered.files_iter().unwrap().collect::<Vec<_>>(),
             vec![root.join("src/ok.py")]
+        );
+    }
+
+    #[test]
+    fn test_exclude_pattern_does_not_filter_include_source_text() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(root, vec![TestPath::file("a.py")]);
+
+        let filtered = FilteredGlobs::new(
+            Globs::new_with_root(root, vec!["a*".to_owned()]).unwrap(),
+            Globs::new_with_root(root, vec!["a[*]".to_owned()]).unwrap(),
+            None,
+            HiddenDirFilter::Disabled,
+        );
+
+        assert!(filtered.covers(&root.join("a.py")));
+        assert_eq!(
+            filtered.files_iter().unwrap().collect::<Vec<_>>(),
+            vec![root.join("a.py")],
+        );
+        assert_eq!(
+            filtered
+                .files_iter_with_limit(1)
+                .unwrap()
+                .collect::<Vec<_>>(),
+            vec![root.join("a.py")],
+        );
+
+        let explicit = FilteredGlobs::new(
+            Globs::new_with_root(root, vec!["a.py".to_owned()]).unwrap(),
+            Globs::new_with_root(root, vec!["a.py".to_owned()]).unwrap(),
+            None,
+            HiddenDirFilter::Disabled,
+        );
+        assert!(!explicit.covers(&root.join("a.py")));
+        assert!(
+            explicit
+                .files_iter()
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("`project-excludes`")
+        );
+
+        let unmatched = FilteredGlobs::new(
+            Globs::new_with_root(root, vec!["missing*".to_owned()]).unwrap(),
+            Globs::new_with_root(root, vec!["unrelated*".to_owned()]).unwrap(),
+            None,
+            HiddenDirFilter::Disabled,
+        );
+        assert!(
+            !unmatched
+                .files_iter()
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("`project-excludes`")
         );
     }
 
@@ -2338,11 +2580,8 @@ mod tests {
         );
     }
 
-    /// Regression test: setting `project-excludes = ["**/*.ipynb"]` should not
-    /// prevent `.py` files from being discovered. The default project-includes
-    /// contains both `**/*.py*` and `**/*.ipynb`. When the exclude pattern
-    /// `**/*.ipynb` matches the include pattern `**/*.ipynb`, that include is
-    /// skipped, but the remaining `**/*.py*` include should still find .py files.
+    /// Regression test: excluding one default project include must not prevent
+    /// the remaining include from discovering Python files.
     #[test]
     fn test_project_excludes_ipynb_does_not_break_py_discovery() {
         let tempdir = tempfile::tempdir().unwrap();
@@ -2374,10 +2613,7 @@ mod tests {
 
         let mut files = filtered
             .files_iter()
-            .expect(
-                "file discovery should succeed: the excluded **/*.ipynb include \
-                 pattern should be skipped, not abort the entire search",
-            )
+            .expect("file discovery should succeed when one default include is excluded")
             .collect::<Vec<_>>();
         files.sort();
         let files: Vec<&Path> = files
@@ -2398,7 +2634,7 @@ mod tests {
     /// A lone non-existent concrete path now reports a clear "does not exist"
     /// error instead of the generic "no files matched". A non-existent path
     /// alongside a real one is still silently skipped, so tools that pass a mix
-    /// of paths keep working. https://github.com/facebook/pyrefly/issues/3647
+    /// of paths keep working. https://github.com/pyrefly-org/pyrefly/issues/3647
     #[test]
     fn test_explicit_nonexistent_path() {
         let tempdir = tempfile::tempdir().unwrap();

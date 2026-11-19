@@ -438,8 +438,8 @@ class Policy(_Waits):
         Does not block, does not need an observation, and the poll is not billed. Polling starts nothing: a poll only
         looks at what this robot holds. While it holds nothing - no seat, no worker starting for it, no place in line -
         `ready` is False and the answer says `cold` (its `status`), and `wait_until_ready()` then connects: that seats
-        the robot on a running worker with room, or starts a worker for it in the region nearest the robot - by where
-        its connect comes from, behind a VPN where the VPN exits - or puts it in line. A worker started for it is
+        the robot on a running worker with room, or starts a worker for it on the closest GPU available - or puts
+        it in line. A worker started for it is
         billed from the moment its machine has its GPU, its start included.
 
         Poll it every few seconds - as `wait_until_ready()` does (`poll_s`, 5 s). Each poll is one request on your key's
@@ -544,7 +544,7 @@ class Policy(_Waits):
 
         It places the robot itself: its polls only look, and while one says the robot holds nothing (`cold`) it
         connects - at most once every `poll_s` - which seats the robot on a running worker with room, starts a worker
-        for it in the region nearest the robot, or puts it in line. In line, its connect asks for a seat again at the
+        for it on the closest GPU available, or puts it in line. In line, its connect asks for a seat again at the
         line's pace (the answer's `retry_after_s`), saying where it stands and why (`on_queue`), until it is seated or
         the platform's queue_timeout_s ends the line; while a worker starts for it, or its version builds, it only
         polls.

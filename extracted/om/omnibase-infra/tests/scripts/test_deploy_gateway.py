@@ -37,8 +37,7 @@ Remediation round (OMN-15521, 2026-08-01): a prior version of this script (a)
 derived the AC6 rollback target from gateway.env's GATEWAY_IMAGE= line
 instead of the container's actual running image, with no existence check --
 this produced a registry.json rollback_command that pointed at an already
-pruned/dangling image; (b) omitted the OMNIBASE_COMPAT_REF / OMNIMARKET_REF /
-ONEX_CHANGE_CONTROL_REF build-args onex-runtime-deploy always passes, silently
+pruned/dangling image; (b) omitted sibling build arguments, silently
 falling back to the Dockerfile's hardcoded defaults; (c) verify_deployment()
 never compared the running container's actual image against the digest it
 just built, so a reload that silently failed to recreate the container still
@@ -520,19 +519,17 @@ def test_build_command_stamps_oci_provenance_build_args(harness: _Harness) -> No
 @pytest.mark.unit
 def test_build_command_stamps_sibling_ref_build_args(harness: _Harness) -> None:
     """AC2 remediation (OMN-15521): src/omnibase_infra/handlers/handler_runtime_deploy.sh's build_images()
-    passes OMNIBASE_COMPAT_REF / OMNIMARKET_REF / ONEX_CHANGE_CONTROL_REF
-    unconditionally on every build -- a prior version of this script silently
-    dropped all three, so the gateway image fell back to the Dockerfile's
-    hardcoded ARG defaults (OMNIBASE_COMPAT_REF=v0.5.5,
-    ONEX_CHANGE_CONTROL_REF=v0.5.3, OMNIMARKET_REF=dev). That is exactly how
-    the deployed gateway container's onex-change-control pin (0.5.3) drifted
-    from the omnibase-infra runtime container's pin (0.5.1) on the same
-    `.201` box. OMNI_HOME is explicitly cleared so the fallback strings are
-    deterministic regardless of the host running this test.
+    passes OMNIMARKET_REF unconditionally on every build -- a prior version of
+    this script silently dropped it, so the gateway image fell back to the
+    Dockerfile's hardcoded ARG default (OMNIMARKET_REF=dev). That is exactly
+    how the deployed gateway container's pin drifted from the omnibase-infra
+    runtime container's pin on the same host. OMNI_HOME is explicitly
+    cleared so the fallback strings are deterministic regardless of the host
+    running this test. The retired package has no build argument.
     """
     result = harness.run("--print-compose-cmd", OMNI_HOME="")
     assert result.returncode == 0, result.stderr
-    assert "--build-arg OMNIBASE_COMPAT_REF=main" in result.stdout
+    assert "OMNIBASE_COMPAT_REF" not in result.stdout
     assert "--build-arg OMNIMARKET_REF=dev" in result.stdout
     # OMN-16296: ONEX_CHANGE_CONTROL_REF is deliberately NOT stamped any more --
     # the Dockerfile ARG it fed was removed with onex_change_control itself, so

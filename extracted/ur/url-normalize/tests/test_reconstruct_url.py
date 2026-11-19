@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from url_normalize.tools import URL, reconstruct_url
+from url_normalize._url import URL, deconstruct_url, reconstruct_url
 
 
 @pytest.mark.parametrize(
@@ -40,3 +40,38 @@ def test_reconstruct_url_result_is_expected(url_obj: URL, expected: str) -> None
     """Assert we got expected results from the reconstruct_url function."""
     result = reconstruct_url(url_obj)
     assert result == expected, url_obj
+
+
+@pytest.mark.parametrize(
+    ("query_present", "fragment_present", "suffix"),
+    [(False, False, ""), (True, False, "?"), (False, True, "#"), (True, True, "?#")],
+)
+@pytest.mark.parametrize(
+    ("parts", "base"),
+    [
+        (
+            URL("https", "user@", "example.com", "8080", "/p", "", ""),
+            "https://user@example.com:8080/p",
+        ),
+        (
+            URL("mailto", "", "", "", "user@example.com", "", ""),
+            "mailto:user@example.com",
+        ),
+        (URL("", "", "", "", "/path", "", ""), "/path"),
+        (URL("", "", "", "", "", "", ""), ""),
+    ],
+)
+def test_reconstruct_url_preserves_empty_components(
+    parts, base, query_present, fragment_present, suffix
+):
+    """Serialize present-empty query and fragment components in the right order."""
+    parts = parts._replace(
+        query_present=query_present, fragment_present=fragment_present
+    )
+
+    assert reconstruct_url(parts) == base + suffix
+
+
+def test_schemeless_empty_authority():
+    """Preserve the authority delimiter when reconstructing a network reference."""
+    assert reconstruct_url(deconstruct_url("///foo")) == "///foo"

@@ -2,14 +2,20 @@
 # SPDX-License-Identifier: MIT
 """Cloud session placement models."""
 
-from .model_cloud_session_placement import (
-    ModelCloudHost,
+from omnimarket.models.cloud_session_placement import (
+    ModelCloudAccount,
+    ModelCloudLoginObservation,
     ModelCloudSessionPlacementRequest,
     ModelCloudSessionPlacementResult,
+    ModelCloudTransport,
+    ModelCloudTransportRow,
 )
 
 __all__ = [
-    "ModelCloudHost",
+    "ModelCloudAccount",
+    "ModelCloudLoginObservation",
     "ModelCloudSessionPlacementRequest",
     "ModelCloudSessionPlacementResult",
+    "ModelCloudTransport",
+    "ModelCloudTransportRow",
 ]

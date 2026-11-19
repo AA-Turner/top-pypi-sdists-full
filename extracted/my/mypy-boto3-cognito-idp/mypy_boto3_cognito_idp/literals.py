@@ -83,6 +83,7 @@ __all__ = (
     "ReplicaStatusTypeType",
     "ResourceServerManagedByTypeType",
     "ResourceServiceName",
+    "RestoreStatusTypeType",
     "RevokeAssociatedSessionsTypeType",
     "RiskDecisionTypeType",
     "RiskLevelTypeType",
@@ -222,6 +223,17 @@ RecoveryOptionNameTypeType = Literal["admin_only", "verified_email", "verified_p
 ReplicaRoleTypeType = Literal["PRIMARY", "SECONDARY"]
 ReplicaStatusTypeType = Literal["ACTIVE", "CREATING", "DELETING", "INACTIVE"]
 ResourceServerManagedByTypeType = Literal["COGNITO"]
+RestoreStatusTypeType = Literal[
+    "AWS_ABORTED",
+    "PREVIEW_CANCELLED",
+    "PREVIEW_EXPIRED",
+    "PREVIEW_GENERATED",
+    "PREVIEW_GENERATING",
+    "PREVIEW_GENERATION_FAILED",
+    "RESTORE_COMPLETED",
+    "RESTORING",
+    "TEMPORARY_INTERNAL_ERROR_SEE_SUPPORT_CASE",
+]
 RevokeAssociatedSessionsTypeType = Literal["LINKED", "NONE"]
 RiskDecisionTypeType = Literal["AccountTakeover", "Block", "NoRisk"]
 RiskLevelTypeType = Literal["High", "Low", "Medium"]
@@ -258,6 +270,7 @@ WebAuthnFactorConfigurationTypeType = Literal[
 ]
 CognitoIdentityProviderServiceName = Literal["cognito-idp"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

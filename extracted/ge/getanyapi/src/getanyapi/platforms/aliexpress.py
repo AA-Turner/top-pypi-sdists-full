@@ -31,11 +31,7 @@ class AliexpressProductInput(TypedDict, total=False):
     productId: Required[str]
     """AliExpress product id, the number in the product URL (https://www.aliexpress.com/item/<id>.html), e.g. 3256807039224587. The AliExpress Search SKU returns it as productId."""
     requireFields: NotRequired[
-        list[
-            Literal[
-                "freeShipping", "returnPolicy", "shippingCost", "video", "wishlistCount"
-            ]
-        ]
+        list[Literal["freeShipping", "returnPolicy", "video", "wishlistCount"]]
     ]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `video`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     source: NotRequired[list[str]]

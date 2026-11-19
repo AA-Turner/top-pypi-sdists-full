@@ -80,6 +80,7 @@ ScheduledQueryRunStatusType = Literal[
 ScheduledQueryStateType = Literal["DISABLED", "ENABLED"]
 TimestreamQueryServiceName = Literal["timestream-query"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

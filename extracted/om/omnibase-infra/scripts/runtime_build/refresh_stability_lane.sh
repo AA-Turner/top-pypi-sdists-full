@@ -85,9 +85,23 @@
 #                           healthy, never reaching the health-gate/receipt
 #                           stage.
 #
+# Release tags only (OMN-21611):
+#   The stability lane runs a pinned release set and never a dev ref. The
+#   set is the committed pin file, config/lab/lane-overlays/<lane>.release-pin.yaml
+#   under ONEX_WORKSPACE_CONFIG_ROOT (or --pin-file), naming one v<major>.<minor>.<patch>
+#   tag each for omnibase_infra, omnibase_core and omnimarket.
+#   (lines `  <repo>: <tag>` under `pin:`); --ref overrides the omnibase_infra tag.
+#   Before anything is read from the lane, tagged, checked out, built or
+#   restarted, each tag must be a release tag of its clone under OMNI_HOME: a dev
+#   tag, a bare sha, a branch, a lab tag or a dev omnimarket ref is refused,
+#   exit 64, naming release-tag-only. There is no default ref (it was origin/dev).
+#   Each sibling is staged at its own tag (DEPLOY_SIBLING_REFS), and omnimarket
+#   no longer follows its newest dev-* tag on this lane; the deploy handler's
+#   sibling lock-pin check still refuses a set omnimarket's uv.lock disagrees with.
+#
 # Usage:
-#   refresh_stability_lane.sh [--ref <ref>] [--min-contracts <n>] [--execute]
-#       [--lock-timeout <seconds>]
+#   refresh_stability_lane.sh [--pin-file <path>] [--ref <omnibase_infra tag>]
+#       [--min-contracts <n>] [--execute] [--lock-timeout <seconds>]
 #
 # Exit codes:
 #   0  plan printed (dry-run) or refresh SUCCEEDED (health-gate PASS)
@@ -107,6 +121,11 @@
 #      every service it deployed, so restoring the subset would leave the lane
 #      on a revision combination nothing has ever run. The lane is left as
 #      found; see rollback.missing_rollback_anchors in the receipt.
+#
+#      FAILED_FOLDED_EFFECTS (OMN-21288): health gate passed but the main runtime
+#      did not log its folded roles or a runtime-effects container remains. The
+#      lane is left as found with no rollback and its preflight tags kept as
+#      rollback anchors; see the log lines and receipt result.
 #   64 usage / precondition error
 
 set -euo pipefail
@@ -232,7 +251,7 @@ readonly COMPOSE_PROJECT="${STABILITY_TEST_COMPOSE_PROJECT}"
 # consumer_groups_stability.yaml, or a contract schema extension, is the
 # correct home for them, out of scope for this config-duplication kill.
 readonly REDPANDA_CONTAINER="omnibase-infra-stability-test-redpanda"
-readonly CORE_SERVICES=(omninode-runtime runtime-effects runtime-worker projection-api)
+readonly CORE_SERVICES=(omninode-runtime runtime-worker projection-api)
 # OMN-17562: the six standalone projection writers this lane introduces.
 #
 # BUILD SCOPE, NOT VERIFICATION SCOPE. This array is handed to
@@ -284,7 +303,8 @@ readonly REFRESH_BUILD_SERVICES=(
     # It builds from docker/Dockerfile.runtime -- the same image as the four
     # core services -- so the open OMN-14262 BUILD_SOURCE selector mismatch
     # that scopes this array does not reach it.
-    tenant-projection-writer
+    tenant-projection-writer composed-runtime-base-image
+    # OMN-24562: composed-runtime-base-image, on the line above, is the build-only infra half of the composed runtime image that the stability overlay builds the kernel, worker, projection api and writers on, as the dev lane does. Scale 0, so up starts nothing.
 )
 # OMN-18061: the ROLLBACK set is the DEPLOYED set, not the core four.
 #
@@ -305,12 +325,13 @@ readonly REFRESH_BUILD_SERVICES=(
 readonly ROLLBACK_SERVICES=(
     "${REFRESH_BUILD_SERVICES[@]}"
 )
+# Prefix of the kernel's folded-roles log line in src/omnibase_infra/runtime/service_kernel.py, pinned by tests/unit/runtime/auto_wiring/test_folded_roles_log_marker_omn21288.py.
+readonly FOLDED_ROLES_LOG_MARKER="Auto-wiring folded roles"
 # service -> lane-scoped container_name (docker-compose.stability-test.yml).
 # projection-api's container_name is prefixed "omnimarket-", not "omninode-" --
 # resolve by explicit map, never assume a pattern (OMN-13826-class lesson).
 declare -A CORE_CONTAINERS=(
     [omninode-runtime]="omninode-stability-test-runtime"
-    [runtime-effects]="omninode-stability-test-runtime-effects"
     [runtime-worker]="omninode-stability-test-runtime-worker"
     [projection-api]="omnimarket-stability-test-projection-api"
 )
@@ -322,8 +343,6 @@ declare -A CORE_CONTAINERS=(
 # ref: SIBLING_LANE_REFRESH_REPOS from sibling_clone_manifest.sh, the single
 # place a sibling set is spelled (OMN-19072). Same membership as the literal
 # list it replaced; omnibase_spi is excluded there, by name, with its reason.
-# shellcheck source=./sibling_clone_manifest.sh
-source "${SCRIPT_DIR}/sibling_clone_manifest.sh"
 readonly ALL_TRACKED_REPOS=("${SIBLING_LANE_REFRESH_REPOS[@]}")
 
 # --- defaults ---------------------------------------------------------------
@@ -339,18 +358,13 @@ readonly ALL_TRACKED_REPOS=("${SIBLING_LANE_REFRESH_REPOS[@]}")
 # URLs. Read it from the sourced runtime-policy.env instead; fail fast BY NAME
 # if absent. --manifest-url/--health-url still fully override these defaults.
 require_contract_var STABILITY_TEST_RUNTIME_MAIN_PORT
-# OMN-15837: the health gate now derives its declared consumer-group set from
-# the introspection manifests the refreshed image serves. The EFFECTS runtime
-# serves its own profile-filtered manifest, and its contracts mint consumer
-# groups the main runtime's manifest never describes (273 live on this lane), so
-# the gate needs both. Read the port from the same contract-rendered source as
-# the main port -- never a second hardcoded literal.
-require_contract_var STABILITY_TEST_RUNTIME_EFFECTS_PORT
+# OMN-21288: the main manifest includes the folded effects profile.
 LANE_PROBE_HOST="${LANE_PROBE_HOST:-localhost}" # fallback-ok: localhost IS the lane host in the documented primary context (script runs ON .201); containerized runner overrides via compose env (OMN-14958)
-REF="origin/dev"
+REF=""
+PIN_FILE="${ONEX_WORKSPACE_CONFIG_ROOT:+${ONEX_WORKSPACE_CONFIG_ROOT}/config/lab/lane-overlays/${LANE}.release-pin.yaml}"
 MIN_CONTRACTS=288
 MANIFEST_URL="http://${LANE_PROBE_HOST}:${STABILITY_TEST_RUNTIME_MAIN_PORT}/v1/introspection/manifest"
-EFFECTS_MANIFEST_URL="http://${LANE_PROBE_HOST}:${STABILITY_TEST_RUNTIME_EFFECTS_PORT}/v1/introspection/manifest"
+EFFECTS_MANIFEST_URL="" # OMN-21288: empty = no effects runtime; verify_stability_refresh.py reads "" as None and skips the effects manifest (pinned by test_empty_effects_manifest_url_skips_the_effects_manifest)
 HEALTH_URL="http://${LANE_PROBE_HOST}:${STABILITY_TEST_RUNTIME_MAIN_PORT}/health"
 MODE="plan"
 # OMN-16729: bounded wait for the per-lane host lock, in seconds. 15 minutes by
@@ -360,7 +374,7 @@ MODE="plan"
 LANE_LOCK_TIMEOUT_SECONDS="${LANE_LOCK_TIMEOUT_SECONDS:-900}"
 
 usage() {
-    sed -n '4,83p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '4,/^# Exit codes:$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
@@ -369,6 +383,7 @@ while [[ $# -gt 0 ]]; do
         --ref)
             [[ -n "${2:-}" ]] || { err "--ref requires a value"; exit 64; }
             REF="$2"; shift 2 ;;
+        --pin-file) [[ -n "${2:-}" ]] || { err "--pin-file requires a value"; exit 64; }; PIN_FILE="$2"; shift 2 ;;
         --min-contracts)
             [[ -n "${2:-}" ]] || { err "--min-contracts requires a value"; exit 64; }
             MIN_CONTRACTS="$2"; shift 2 ;;
@@ -444,15 +459,10 @@ else
     exit 64
 fi
 
-run_verify() {
-    # Run verify_stability_refresh.py with the given extra args, print JSON to stdout.
-    run_python "${VERIFY_SCRIPT}" "$@"
-}
-
 run_python() {
     # Run a sibling python script under whichever interpreter this host has.
-    # OMN-18061: extracted from run_verify() so the shared rollback decision
-    # reaches the SAME interpreter selection rather than growing a second one.
+    # OMN-18061: one interpreter selection for the health gate, the shared
+    # rollback decision and the attribution preflight; never a second one.
     local script="$1"; shift
     if [[ "${PYTHON_BIN}" == "uv-run" ]]; then
         uv run --project "${REPO_ROOT}" python "${script}" "$@"
@@ -485,13 +495,38 @@ git_clone() {
     git -c "safe.directory=${clone}" -C "${clone}" "$@"
 }
 
+# --- release-only guard (OMN-21611) -------------------------------------------
+# Before any live read, tag, checkout, build or restart. Each of the three tags
+# (the pin file's, --ref winning for omnibase_infra) must match
+# v<major>.<minor>.<patch> and be a tag of its clone: a dev tag, a bare sha, a
+# branch, a lab tag or a dev omnimarket ref is refused here, by name.
+[[ -z "${PIN_FILE}" || -f "${PIN_FILE}" ]] || { err "release-tag-only: pin file ${PIN_FILE} does not exist (OMN-21611)"; exit 64; }
+PIN_ENTRIES="$(sed -nE 's/^  (omnibase_infra|omnibase_core|omnimarket): *([^ #]+).*/\1=\2/p' "${PIN_FILE:-/dev/null}")"
+for repo in omnibase_infra omnibase_core omnimarket; do
+    tag="$(printf '%s\n%s\n' "${PIN_ENTRIES}" "${REF:+omnibase_infra=${REF}}" | sed -n "s/^${repo}=//p" | tail -n 1)"
+    if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || ! git_clone "${OMNI_HOME}/${repo}" rev-parse -q --verify "refs/tags/${tag}^{commit}" >/dev/null; then err "release-tag-only: ${repo} ref '${tag:-<none>}' is not a v<major>.<minor>.<patch> release tag of ${OMNI_HOME}/${repo}; a dev tag, bare sha, branch or dev omnimarket ref is refused. Nothing was read from the lane, tagged, checked out, built or restarted (OMN-21611)."; exit 64; fi
+    # omnibase_infra comes first, so the sibling list starts empty, never inherited.
+    if [[ "${repo}" == "omnibase_infra" ]]; then REF="${tag}"; DEPLOY_SIBLING_REFS=""; else DEPLOY_SIBLING_REFS+="${DEPLOY_SIBLING_REFS:+ }${repo}=${tag}"; fi
+done
+
 # --- state / receipt paths ---------------------------------------------------
 STATE_DIR="${HOME}/.omnibase/state/stability_lane_refresh"
-HISTORY_DIR="${STATE_DIR}/history"
-mkdir -p "${HISTORY_DIR}"
+HISTORY_DIR="${STATE_DIR}/history"; mkdir -p "${HISTORY_DIR}"
 UTC_NOW="$(date -u +%Y%m%dT%H%M%SZ)"
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/refresh-stability-lane.XXXXXX")"
 trap 'rm -rf "${WORKDIR}"' EXIT
+
+# --- LLM endpoint env from the overlays (OMN-24119) --------------------------
+# The operator env sourced above keeps whatever a person last typed for the embedding
+# address (the removed server's, on the lab host), and onex-runtime-deploy sources it
+# again. The address and the lane bifrost overlay it binds come from the llm_endpoints
+# overlay, the render the dev refresh takes (OMN-24081). The module prints the exports and
+# the ONEX_DEPLOY_LANE_ENV_EXPORTS line that has onex-runtime-deploy source them after the
+# operator env, so they survive. An overlay that cannot be rendered stops the refresh
+# here, before anything is read from the lane, built or restarted.
+LANE_ENV_EXPORTS="$(PYTHONPATH="${REPO_ROOT}/scripts/deploy-agent${PYTHONPATH:+:${PYTHONPATH}}" run_python "${REPO_ROOT}/src/omnibase_infra/nodes/node_setup_local_provision_effect/runtime_llm_endpoint_env.py" "${OMNI_HOME}" "${STATE_DIR}" without-declaration)" || { err "LANE_ENV_FRAGMENT_REFUSED: the LLM endpoint env could not be rendered from the llm_endpoints overlay (reason above); nothing was built or restarted."; exit 64; }
+# shellcheck source=/dev/null
+source <(printf '%s' "${LANE_ENV_EXPORTS}")
 
 # --- lane lock (OMN-16729) --------------------------------------------------
 # Taken before ANY live read of lane state, because the collision this closes
@@ -511,7 +546,7 @@ fi
 
 # --- plan / logging -----------------------------------------------------------
 log "lane            : ${LANE} (compose project ${COMPOSE_PROJECT})"
-log "ref             : ${REF}"
+log "ref             : ${REF} (siblings: ${DEPLOY_SIBLING_REFS})"
 log "min contracts   : ${MIN_CONTRACTS}"
 log "core services   : ${CORE_SERVICES[*]}"
 log "build scope     : ${REFRESH_BUILD_SERVICES[*]}"
@@ -548,13 +583,7 @@ if [[ "${MODE}" != "execute" ]]; then
     ATTRIBUTION_ARGS+=(--check-only)
 fi
 ATTRIBUTION_EXIT=0
-if [[ "${PYTHON_BIN}" == "uv-run" ]]; then
-    ATTRIBUTION_RECORD_JSON="$(uv run --project "${REPO_ROOT}" python "${ATTRIBUTION_PREFLIGHT}" \
-        "${ATTRIBUTION_ARGS[@]}")" || ATTRIBUTION_EXIT=$?
-else
-    ATTRIBUTION_RECORD_JSON="$("${PYTHON_BIN}" "${ATTRIBUTION_PREFLIGHT}" \
-        "${ATTRIBUTION_ARGS[@]}")" || ATTRIBUTION_EXIT=$?
-fi
+ATTRIBUTION_RECORD_JSON="$(run_python "${ATTRIBUTION_PREFLIGHT}" "${ATTRIBUTION_ARGS[@]}")" || ATTRIBUTION_EXIT=$?
 if [[ "${ATTRIBUTION_EXIT}" -ne 0 ]]; then
     err "lane-deploy attribution preflight REFUSED this refresh (exit ${ATTRIBUTION_EXIT})."
     err "  Nothing was tagged, checked out, built, or restarted."
@@ -567,7 +596,7 @@ fi
 if [[ "${MODE}" != "execute" ]]; then
     log "dry-run: no fetch/checkout/build/restart performed. Re-run with --execute."
     log "would run: OMNI_HOME=${OMNI_HOME} OMNIBASE_INFRA_COMPOSE_PROJECT=${COMPOSE_PROJECT} \\"
-    log "  BUILD_SOURCE=workspace DEPLOY_REF=${REF} \\"
+    log "  BUILD_SOURCE=workspace DEPLOY_REF=${REF} DEPLOY_SIBLING_REFS=\"${DEPLOY_SIBLING_REFS}\" \\"
     log "  RUNTIME_BUILD_SERVICES_OVERRIDE=\"${REFRESH_BUILD_SERVICES[*]}\" \\"
     log "  ${DEPLOY_RUNTIME} --execute --force --restart"
     exit 0
@@ -691,9 +720,10 @@ DEPLOY_EXIT=0
     export OMNIBASE_INFRA_COMPOSE_PROJECT="${COMPOSE_PROJECT}"
     export BUILD_SOURCE="workspace"
     export DEPLOY_REF="${REF}"
-    # OMN-19998: omnimarket has no ref named REF, so it falls back to its dev
-    # branch; this stages its newest dev-* tag instead (lab only, never prod).
-    export DEPLOY_FOLLOW_DEV_TAG_REPOS="omnimarket"
+    # OMN-21611: each sibling is staged at its own pinned release tag; none
+    # falls back to a branch and omnimarket no longer follows its newest dev-*
+    # tag (OMN-19998) on this lane.
+    export DEPLOY_SIBLING_REFS
     export RUNTIME_BUILD_SERVICES_OVERRIDE="${REFRESH_BUILD_SERVICES[*]}"
     "${DEPLOY_RUNTIME}" --repository-root "${REPO_ROOT}" --execute --force --restart
 ) || DEPLOY_EXIT=$?
@@ -775,7 +805,7 @@ PRE_IMAGE_IDS_JSON="$(
 
 GATE1_JSON="${WORKDIR}/gate1.json"
 GATE_EXIT=0
-run_verify \
+run_python "${VERIFY_SCRIPT}" \
     --lane "${LANE}" \
     --expected-revision "${NEW_INFRA_SHA_SHORT}" \
     --pre-image-ids "${PRE_IMAGE_IDS_JSON}" \
@@ -838,17 +868,45 @@ log "  build provenance failing      : [${DECISION_PROVENANCE}]"
 
 if [[ "${GATE1_OVERALL}" == "PASS" && "${ANCESTRY_OK}" == true ]]; then
     RESULT="SUCCESS"
-    log "=== SUCCESS: health-gate PASS, ancestry OK ==="
-    # Prune old preflight tags (keep last 3) -- bounded local rollback history.
-    # Over the full anchored set (OMN-18061), or the writers accumulate tags
-    # forever because nothing ever prunes what nothing ever anchored.
-    for svc in "${ROLLBACK_SERVICES[@]}"; do
-        image_tag="${COMPOSE_PROJECT}-${svc}"
-        old_tags="$(docker images --format '{{.Tag}}' "${image_tag}" | grep '^preflight-' | sort -r | tail -n +4 || true)"
-        for t in ${old_tags}; do
-            docker rmi "${image_tag}:${t}" >/dev/null 2>&1 || true
+    # OMN-21288: the deploy handler retires effects before main is recreated.
+    # grep reads the whole log (no -q): under pipefail an early grep exit
+    # would SIGPIPE docker logs and read as "not found".
+    if ! docker logs "${CORE_CONTAINERS[omninode-runtime]}" 2>&1 | grep -F "${FOLDED_ROLES_LOG_MARKER}" >/dev/null; then
+        err "main runtime did not attach its folded roles"
+        RESULT="FAILED_FOLDED_EFFECTS"
+    fi
+    if ! remaining_effects="$(docker ps -aq \
+        --filter "label=com.docker.compose.project=${COMPOSE_PROJECT}" \
+        --filter "label=com.docker.compose.service=runtime-effects")"; then
+        err "could not read runtime-effects container census"
+        RESULT="FAILED_FOLDED_EFFECTS"
+    fi
+    if [[ -n "${remaining_effects}" ]]; then
+        err "runtime-effects containers still exist after folded deploy: ${remaining_effects}"
+        RESULT="FAILED_FOLDED_EFFECTS"
+    fi
+    log "folded effects verification: ${RESULT}"
+    if [[ "${RESULT}" == FAILED_FOLDED_EFFECTS ]]; then
+        err "STOP AND REPORT: the lane is SERVING and was NOT rolled back."
+        err "Preflight tags were kept as rollback anchors. Read the main runtime"
+        err "log for the folded-roles marker and the runtime-effects census"
+        err "before re-running."
+    fi
+    if [[ "${RESULT}" == SUCCESS ]]; then
+        log "=== SUCCESS: health-gate PASS, ancestry OK, folded effects verified ==="
+    fi
+    if [[ "${RESULT}" == SUCCESS ]]; then
+        # Prune old preflight tags (keep last 3) -- bounded local rollback history.
+        # Over the full anchored set (OMN-18061), or the writers accumulate tags
+        # forever because nothing ever prunes what nothing ever anchored.
+        for svc in "${ROLLBACK_SERVICES[@]}"; do
+            image_tag="${COMPOSE_PROJECT}-${svc}"
+            old_tags="$(docker images --format '{{.Tag}}' "${image_tag}" | grep '^preflight-' | sort -r | tail -n +4 || true)"
+            for t in ${old_tags}; do
+                docker rmi "${image_tag}:${t}" >/dev/null 2>&1 || true
+            done
         done
-    done
+    fi
 elif [[ "${DECISION_RESULT}" == "FAILED_BUILD_PROVENANCE" ]]; then
     # ============================================================
     # BUILD-PROVENANCE FINDING -- report, do NOT recreate (OMN-18061)
@@ -974,7 +1032,7 @@ else
     log "=== Re-verifying health after rollback ==="
     GATE2_JSON="${WORKDIR}/gate2.json"
     GATE2_EXIT=0
-    run_verify \
+    run_python "${VERIFY_SCRIPT}" \
         --lane "${LANE}" \
         --expected-revision "${OLD_INFRA_REVISION:-unknown}" \
         --pre-image-ids '{}' \
@@ -1132,5 +1190,7 @@ case "${RESULT}" in
     # restored; FAILED_BUILD_PROVENANCE got there by never being touched
     # (OMN-18061).
     FAILED_ROLLED_BACK|FAILED_BUILD_PROVENANCE) exit 1 ;;
+    # OMN-21288: folded-effects verification failed; no rollback, anchors kept.
+    FAILED_FOLDED_EFFECTS) exit 2 ;;
     *) exit 2 ;;
 esac

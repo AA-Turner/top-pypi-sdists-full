@@ -29,6 +29,8 @@ use crate::api::_helpers::resources::{
     person_operations::recent_runs,
     person_operations::acknowledge,
     person_operations::acknowledgements,
+    person_operations::acknowledge_attention,
+    person_operations::attention_acknowledgements,
     person_reads::run_nodes,
     person_reads::nodes,
     person_reads::node_states,
@@ -51,7 +53,6 @@ use crate::api::_helpers::resources::{
     person_reads::sensor_state,
     person_reads::snapshots,
     person_reads::health,
-    person_reads::mirrored_totals,
     person_reads::problems,
     person_reads::platform_events,
     person_operations::catalog,
@@ -112,7 +113,6 @@ use crate::api::_helpers::resources::{
     warehouse_metadata::preview_copy,
     changed_builds::report,
     warehouse_metadata::statistics_due,
-    warehouse_metadata::retention,
     warehouse_metadata::sync_due,
     warehouse_metadata::watermark
 ))]
@@ -243,6 +243,15 @@ pub enum LoginMode {
 pub struct ControlBootstrap {
     pub login_mode: LoginMode,
     pub access: crate::authorization::models::PersonAccess,
+    /// The display name a trusted proxy reported for this request, if it reports one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// The email address a trusted proxy reported for this request, if it reports one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    /// Where signing out goes when a trusted proxy owns the sign-in; absent means no sign-out link.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logout_url: Option<String>,
 }
 
 /// SSE invalidation topics; `all` means refetch the authorized REST resources.
@@ -302,14 +311,61 @@ pub struct DockerImageSource {
 #[derive(Clone, Debug)]
 pub(crate) struct BrowserOrigin(pub(crate) String);
 
-/// Explicit person bindings require an upstream-replaced X-SQB-User; no provisioning or grants.
+/// A proxy names each signed-in person in a header that only `trusted_peers` may supply.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TrustedProxyAuthentication {
     pub origin: String,
+    /// The proxy's addresses; both loopback addresses when unset, for a proxy on the same host.
+    #[serde(
+        default = "crate::api::_helpers::authentication::proxy_settings::default_trusted_peers"
+    )]
     pub trusted_peers: std::collections::BTreeSet<std::net::IpAddr>,
+    /// Host names a Host-preserving proxy sends, beyond loopback names and the origin's host.
+    #[serde(default)]
+    pub allowed_hosts: Vec<String>,
+    /// Usernames pre-bound to existing principals; a binding wins over provisioning.
+    #[serde(default)]
     pub identities: std::collections::BTreeMap<String, uuid::Uuid>,
+    /// The header naming the signed-in person.
+    #[serde(
+        default = "crate::api::_helpers::authentication::proxy_settings::default_username_header"
+    )]
+    pub username_header: String,
+    /// A header carrying the person's display name, shown in the UI and never stored.
+    #[serde(default)]
+    pub display_name_header: Option<String>,
+    /// A header carrying the person's email address, shown in the UI and never stored.
+    #[serde(default)]
+    pub email_header: Option<String>,
+    #[serde(default)]
+    pub unknown_users: UnknownProxyUsers,
+    /// Where the UI's sign-out link goes, since only the proxy can end its own sign-in.
+    #[serde(default)]
+    pub proxy_logout_url: Option<String>,
 }
+
+/// What happens to a proxy username that is neither bound nor provisioned yet.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UnknownProxyUsers {
+    /// Create the person with the installation-wide viewer role; admins grant more in the UI.
+    #[default]
+    ProvisionViewer,
+    /// Refuse the request.
+    Reject,
+}
+
+/// Who the proxy says this request's person is, beyond the username; read per request, never stored.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ProxyProfile {
+    pub(crate) display_name: Option<String>,
+    pub(crate) email: Option<String>,
+}
+
+/// The proxy's sign-out URL, shown to people signed in through it.
+#[derive(Clone, Debug)]
+pub(crate) struct ProxyLogoutUrl(pub(crate) String);
 
 /// Exact issuer/subject bindings authenticate existing people; beta group mappings grant roles.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -521,6 +577,8 @@ pub(crate) struct ChangeStream {
     pub(crate) receiver: tokio::sync::broadcast::Receiver<crate::store::models::ChangeMessage>,
     pub(crate) updates:
         tokio::sync::broadcast::Receiver<crate::node_states::models::NodeStatusUpdate>,
+    /// Keeps the target's node states refreshed while the stream is open.
+    pub(crate) _watch: crate::node_states::models::NodeStatesWatch,
     pub(crate) stopped: tokio::sync::watch::Receiver<bool>,
     pub(crate) keepalive: tokio::time::Interval,
     pub(crate) initial: bool,
@@ -561,6 +619,8 @@ pub struct ServerFacts {
     pub state_history: crate::warehouse_metadata::models::StateHistoryRetention,
     /// Each launcher's `pool_caps`; empty where this server runs no launcher.
     pub pool_caps: crate::declarations::models::ServerPoolCaps,
+    /// How long an acknowledged attention condition stays hidden while unchanged.
+    pub attention_snooze: crate::acknowledgements::models::AttentionSnooze,
 }
 
 /// The server's version, storage, sign-in and retention, for administrators.

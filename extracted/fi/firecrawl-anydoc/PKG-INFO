@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: firecrawl-anydoc
-Version: 0.2.4
+Version: 0.2.5
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Rust
@@ -67,6 +67,12 @@ anydoc converts locally and does not do OCR, so a PDF with scanned or image-only
 
 ```python
 markdown = anydoc.to_markdown("scan.pdf", ocr="hosted")
+```
+
+`parse_mode` picks the Parse PDF mode: `"auto"` (the default) extracts text and falls back to OCR, `"fast"` extracts text only, `"ocr"` OCRs every page. Any other value raises `HostedError` before anything is sent.
+
+```python
+markdown = anydoc.to_markdown("scan.pdf", ocr="hosted", parse_mode="ocr")
 ```
 
 ## Errors

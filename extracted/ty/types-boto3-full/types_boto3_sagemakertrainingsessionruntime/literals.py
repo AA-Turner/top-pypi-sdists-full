@@ -39,6 +39,7 @@ RequestStatusType = Literal["Completed", "Failed", "InProgress", "Pending", "Ski
 StopReasonType = Literal["length", "stop"]
 SageMakerTrainingSessionRuntimeServiceName = Literal["sagemakertrainingsessionruntime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

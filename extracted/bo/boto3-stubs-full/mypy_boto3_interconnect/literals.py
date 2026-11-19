@@ -53,6 +53,7 @@ ListEnvironmentsPaginatorName = Literal["list_environments"]
 RemoteAccountIdentifierTypeType = Literal["account", "email"]
 InterconnectServiceName = Literal["interconnect"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

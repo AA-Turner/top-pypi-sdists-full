@@ -43,6 +43,7 @@ ListUsersPaginatorName = Literal["list_users"]
 UserStatusType = Literal["DISABLED", "ENABLED"]
 IdentityStoreServiceName = Literal["identitystore"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

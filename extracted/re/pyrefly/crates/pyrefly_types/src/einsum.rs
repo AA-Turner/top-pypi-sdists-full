@@ -25,6 +25,7 @@ use crate::einops::split_einops_arrow;
 use crate::einops::valid_einops_axis;
 use crate::shaped_array::IntTuple;
 use crate::shaped_array::IntTupleView;
+use crate::shaped_array::broadcast_dim;
 use crate::shaped_array::broadcast_shapes;
 
 /// One occurrence of a label: the input term it appears in and its position in that term.
@@ -49,45 +50,6 @@ pub(crate) struct EinsumEquation {
     pub(crate) labels: Vec<EinsumLabel>,
     /// Indices into `labels`, ordered by their appearance in the output term.
     pub(crate) output: Vec<usize>,
-}
-
-impl EinsumEquation {
-    /// Returns every pair of occurrences constrained to have the same extent.
-    ///
-    /// This returns all pairs rather than a chain. A consumer that can compare only known
-    /// dimensions would otherwise miss a mismatch when an unknown dimension splits the chain.
-    pub(crate) fn equalities(&self) -> impl Iterator<Item = (EinsumLocation, EinsumLocation)> + '_ {
-        self.labels.iter().flat_map(|label| {
-            label
-                .locations
-                .iter()
-                .enumerate()
-                .flat_map(|(index, first)| {
-                    label.locations[index + 1..]
-                        .iter()
-                        .map(move |second| (*first, *second))
-                })
-        })
-    }
-}
-
-/// A well-formed equation that shape evaluation does not yet model.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum EinsumUnsupported {
-    /// The output is inferred from labels rather than written after `->`.
-    ImplicitOutput,
-    /// A `...` group whose rank depends on the operands.
-    Ellipsis,
-}
-
-impl EinsumUnsupported {
-    pub(crate) fn message(self) -> String {
-        let feature = match self {
-            Self::ImplicitOutput => "implicit output",
-            Self::Ellipsis => "ellipsis",
-        };
-        format!("einsum: {feature} equations are not supported")
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,7 +89,7 @@ impl EinsumEquationError {
 
 pub(crate) enum EinsumClassification {
     Supported(EinsumEquation),
-    Unsupported(EinsumUnsupported),
+    Unsupported,
     Invalid(EinsumEquationError),
 }
 
@@ -196,7 +158,7 @@ fn resolve_label_extent(
                     return Err(ShapeError::ShapeComputation {
                         message: format!(
                             "{operation}: {label_kind} '{label}' has conflicting dimensions {previous} and {value}"
-                        ),
+                        ).into(),
                     });
                 }
                 _ => literal = Some(*value),
@@ -313,7 +275,8 @@ pub(crate) fn evaluate_einops_einsum(
                 "einops.einsum: expected {} operands, got {}",
                 equation.inputs.len(),
                 operands.len()
-            ),
+            )
+            .into(),
         });
     }
 
@@ -334,7 +297,8 @@ pub(crate) fn evaluate_einops_einsum(
                     if has_ellipsis { "at least " } else { "" },
                     fixed_rank,
                     dimensions.len()
-                ),
+                )
+                .into(),
             });
         }
         let ellipsis_rank = dimensions.len() - fixed_rank;
@@ -498,10 +462,10 @@ pub(crate) fn parse_einsum_equation(spec: &str) -> EinsumClassification {
     // Unsupported is decided only after validating the rest of the equation, so an unimplemented
     // feature never hides an independent typo.
     if has_ellipsis {
-        return EinsumClassification::Unsupported(EinsumUnsupported::Ellipsis);
+        return EinsumClassification::Unsupported;
     }
     if arrows == 0 {
-        return EinsumClassification::Unsupported(EinsumUnsupported::ImplicitOutput);
+        return EinsumClassification::Unsupported;
     }
     EinsumClassification::Supported(EinsumEquation {
         input_ranks,
@@ -513,9 +477,10 @@ pub(crate) fn parse_einsum_equation(spec: &str) -> EinsumClassification {
 /// Projects the output shape of a supported equation over its operand shapes.
 ///
 /// The caller supplies a fixed operand list; an operand sequence with unknown cardinality cannot
-/// justify evaluation. Known operand ranks must match the equation, and repeated literal
-/// dimensions must agree. Symbolic dimensions that cannot be shown equal widen only the output
-/// dimensions they reach unless a repeated literal constrains their value.
+/// justify evaluation. Known operand ranks must match the equation. Repeated labels within one
+/// operand must have equal dimensions, while occurrences across operands broadcast. Symbolic
+/// dimensions that cannot be shown compatible widen only the output dimensions they reach unless
+/// a repeated literal constrains their value.
 pub(crate) fn evaluate_einsum(
     equation: &EinsumEquation,
     operands: &[IntTuple],
@@ -526,7 +491,8 @@ pub(crate) fn evaluate_einsum(
                 "einsum: expected {} operands, got {}",
                 equation.input_ranks.len(),
                 operands.len()
-            ),
+            )
+            .into(),
         });
     }
 
@@ -538,7 +504,8 @@ pub(crate) fn evaluate_einsum(
                 message: format!(
                     "einsum: operand {index} expected rank {expected}, got {}",
                     dimensions.len()
-                ),
+                )
+                .into(),
             });
         }
     }
@@ -551,12 +518,42 @@ pub(crate) fn evaluate_einsum(
         .labels
         .iter()
         .map(|label| {
-            resolve_label_extent(
-                label.locations.iter().filter_map(&dimension),
-                "einsum",
-                "index",
-                &label.name,
-            )
+            let mut extent: Option<Int> = None;
+            for input in 0..operands.len() {
+                let Some(found) = resolve_label_extent(
+                    label
+                        .locations
+                        .iter()
+                        .filter(|location| location.input == input)
+                        .filter_map(&dimension),
+                    "einsum",
+                    "index",
+                    &label.name,
+                )?
+                else {
+                    continue;
+                };
+                extent = Some(match extent {
+                    None => found,
+                    Some(previous) => match broadcast_dim(&previous, &found, 0) {
+                        Ok(broadcasted) => broadcasted,
+                        Err(_) => match (&previous, &found) {
+                            (Int::Literal(previous), Int::Literal(found)) => {
+                                return Err(ShapeError::ShapeComputation {
+                                    message: format!(
+                                        "einsum: index '{}' has conflicting dimensions {previous} and {found}",
+                                        label.name
+                                    ).into(),
+                                });
+                            }
+                            (Int::Literal(_), _) => previous,
+                            (_, Int::Literal(_)) => found,
+                            _ => Int::Int,
+                        },
+                    },
+                });
+            }
+            Ok(extent)
         })
         .collect::<Result<Vec<_>, ShapeError>>()?;
 
@@ -589,9 +586,7 @@ mod tests {
                     equation.input_ranks
                 )
             }
-            EinsumClassification::Unsupported(unsupported) => {
-                format!("unsupported: {}", unsupported.message())
-            }
+            EinsumClassification::Unsupported => "unsupported".to_owned(),
             EinsumClassification::Invalid(error) => format!("invalid: {}", error.message()),
         }
     }
@@ -611,43 +606,32 @@ mod tests {
     }
 
     #[test]
-    fn equalities_include_every_pair() {
-        let EinsumClassification::Supported(equation) = parse_einsum_equation("i,i,i->i") else {
-            panic!("`i,i,i->i` should be supported");
+    fn repeated_labels_check_literals_across_unknown_dimensions() {
+        let EinsumClassification::Supported(equation) = parse_einsum_equation("iii->i") else {
+            panic!("`iii->i` should be supported");
         };
-        let pairs = equation
-            .equalities()
-            .map(|(first, second)| {
-                (
-                    (first.input, first.dimension),
-                    (second.input, second.dimension),
-                )
-            })
-            .collect::<Vec<_>>();
+        let conflicting = IntTuple::new(vec![Int::Literal(2), Int::Int, Int::Literal(3)]);
         assert_eq!(
-            pairs,
-            vec![((0, 0), (1, 0)), ((0, 0), (2, 0)), ((1, 0), (2, 0))]
+            evaluate_einsum(&equation, &[conflicting]),
+            Err(ShapeError::ShapeComputation {
+                message: "einsum: index 'i' has conflicting dimensions 2 and 3"
+                    .to_owned()
+                    .into(),
+            })
+        );
+        let concrete = IntTuple::new(vec![Int::Literal(2); 3]);
+        assert_eq!(
+            evaluate_einsum(&equation, &[concrete]),
+            Ok(IntTuple::new(vec![Int::Literal(2)]))
         );
     }
 
     #[test]
     fn unsupported_equations_are_distinct_from_invalid_equations() {
-        assert_eq!(
-            classify("...ij,...jk->...ik"),
-            "unsupported: einsum: ellipsis equations are not supported"
-        );
-        assert_eq!(
-            classify("ij,jk"),
-            "unsupported: einsum: implicit output equations are not supported"
-        );
-        assert_eq!(
-            classify(""),
-            "unsupported: einsum: implicit output equations are not supported"
-        );
-        assert_eq!(
-            classify("   "),
-            "unsupported: einsum: implicit output equations are not supported"
-        );
+        assert_eq!(classify("...ij,...jk->...ik"), "unsupported");
+        assert_eq!(classify("ij,jk"), "unsupported");
+        assert_eq!(classify(""), "unsupported");
+        assert_eq!(classify("   "), "unsupported");
         assert_eq!(
             classify("...ij->...ii"),
             "invalid: einsum: output index 'i' appears more than once"

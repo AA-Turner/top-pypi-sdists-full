@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add getting the status of one or all services in Designate (DNS) system.

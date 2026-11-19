@@ -59,7 +59,9 @@ def enable_alsa():
 def get_binaries():
     binaries = [
         "sherpa-onnx",
+        "sherpa-onnx-fa",
         "sherpa-onnx-keyword-spotter",
+        "sherpa-onnx-keyword-spotter-microphone",
         "sherpa-onnx-microphone",
         "sherpa-onnx-microphone-offline",
         "sherpa-onnx-microphone-offline-audio-tagging",
@@ -69,6 +71,7 @@ def get_binaries():
         "sherpa-onnx-offline-denoiser",
         "sherpa-onnx-offline-diacritization",
         "sherpa-onnx-offline-language-identification",
+        "sherpa-onnx-offline-parallel",
         "sherpa-onnx-offline-punctuation",
         "sherpa-onnx-offline-source-separation",
         "sherpa-onnx-offline-speaker-diarization",
@@ -91,6 +94,7 @@ def get_binaries():
 
     if enable_alsa():
         binaries += [
+            "sherpa-onnx-keyword-spotter-alsa",
             "sherpa-onnx-alsa",
             "sherpa-onnx-alsa-offline",
             "sherpa-onnx-alsa-offline-audio-tagging",
@@ -345,6 +349,11 @@ class BuildExtension(build_ext):
 
         binaries = get_binaries()
 
+        # setup.py creates this directory only when it also installs binaries,
+        # i.e., not when SHERPA_ONNX_ENABLE_BINARY=OFF. The DLLs below are
+        # copied regardless, so make sure the destination exists.
+        os.makedirs(out_bin_dir, exist_ok=True)
+
         for f in binaries:
             suffix = "" if ".dll" in f else suffix
             src_file = install_dir / "bin" / (f + suffix)
@@ -357,7 +366,7 @@ class BuildExtension(build_ext):
                 continue
 
             print(f"Copying {src_file} to {out_bin_dir}/")
-            shutil.copy(f"{src_file}", f"{out_bin_dir}/")
+            shutil.copy(f"{src_file}", f"{out_bin_dir}")
 
         if Path(f"{install_dir}/bin").is_dir():
             shutil.rmtree(f"{install_dir}/bin")

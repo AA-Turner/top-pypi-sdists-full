@@ -1,5 +1,5 @@
 import pathlib
-import time
+import typing
 
 import h5py
 import numpy as np
@@ -7,7 +7,9 @@ import pytest
 
 import dclab
 from dclab import new_dataset
-from dclab.features.contour import get_contour, get_contour_lazily
+from dclab.features.contour import (
+    get_contour, get_contour_lazily, NoValidContourFoundError
+)
 from dclab.features.volume import get_volume
 
 from scipy.ndimage import binary_fill_holes
@@ -50,6 +52,22 @@ def test_artefact():
     # Event 1, No contour found!" in dclab version <= 0.22.1
     cont = ds["contour"][1]
     assert len(cont) == 37, "just to be sure there really is something"
+
+
+def test_empty_mask():
+    mask = np.zeros((20, 30), dtype=bool)
+    with pytest.raises(NoValidContourFoundError, match="No contour found"):
+        get_contour(mask)
+
+    masks = np.zeros((3, 20, 30), dtype=bool)
+    masks[0, 5:10, 5:10] = True
+    masks[2, 5:10, 5:10] = True
+    cont = get_contour_lazily(masks)
+    assert len(cont[0])
+    with pytest.raises(NoValidContourFoundError,
+                       match="Event 1, No contour found"):
+        cont[1]
+    assert len(cont[2])
 
 
 @pytest.mark.filterwarnings(
@@ -123,15 +141,36 @@ def test_lazy_contour_single():
 
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
-def test_lazy_contour_timing():
+def test_lazy_contour_timing(monkeypatch):
+    """Contours must only be computed when they are accessed
+
+    This test used to compare execution times, which was flaky.
+    Count the number of contour computations instead.
+    """
     ds = new_dataset(retrieve_data("fmt-hdf5_mask-contour_2018.zip"))
     masks = ds["mask"][:]
-    t0 = time.perf_counter()
-    get_contour_lazily(masks)
-    t1 = time.perf_counter()
+    find_contours = dclab.features.contour.find_contours
+    num_computed = []
+
+    def find_contours_counted(*args, **kwargs):
+        num_computed.append(1)
+        return find_contours(*args, **kwargs)
+
+    monkeypatch.setattr(dclab.features.contour, "find_contours",
+                        find_contours_counted)
+
+    conts = get_contour_lazily(masks)
+    assert len(conts) == len(masks)
+    assert len(num_computed) == 0
+    # access a single contour
+    assert np.all(conts[1] == get_contour(masks[1]))
+    assert len(num_computed) == 2
+    # the contour is cached
+    assert np.all(conts[1] == get_contour(masks[1]))
+    assert len(num_computed) == 3
+    # computing all contours
     get_contour(masks)
-    t2 = time.perf_counter()
-    assert t2-t1 > 5 * (t1-t0)
+    assert len(num_computed) == 3 + len(masks)
 
 
 @pytest.mark.filterwarnings(
@@ -176,11 +215,18 @@ def test_volume():
     cont1 = [ci for ci in ds["contour"]]
     cont2 = get_contour(mask)
 
-    kw = dict(pos_x=ds["pos_x"],
-              pos_y=ds["pos_y"],
-              pix=ds.config["imaging"]["pixel size"])
+    kw = {"pos_x": ds["pos_x"],
+          "pos_y": ds["pos_y"],
+          "pix": ds.config["imaging"]["pixel size"]}
 
     v1 = get_volume(cont=cont1, **kw)
     v2 = get_volume(cont=cont2, **kw)
 
     assert np.allclose(v1, v2)
+
+
+@pytest.mark.parametrize("func", [get_contour, get_contour_lazily])
+def test_type_hints(func):
+    """Type hints must be resolvable (`np.int` does not exist anymore)"""
+    hints = typing.get_type_hints(func)
+    assert "mask" in hints

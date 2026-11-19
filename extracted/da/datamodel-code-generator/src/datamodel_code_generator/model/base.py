@@ -235,6 +235,7 @@ _BUILTIN_TEMPLATE_INTERNAL_DATA_KEYS: frozenset[str] = frozenset({
 })
 _RESOLVE_REFERENCE_ACTION_CAPABILITIES_MARKER = "__datamodel_code_generator_resolve_reference_action_capabilities__"
 MroT = TypeVar("MroT")
+_ModelT = TypeVar("_ModelT", bound="DataModel")
 _BuiltT = TypeVar("_BuiltT")
 _CustomTemplateSignature = bytes
 
@@ -948,6 +949,15 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
         """Return the data type ``imports`` collects from, or None when it collects without a type hint."""
         return _field_imports.import_state_data_type(self)
 
+    def _hint_data_type(self) -> DataType:
+        """Return the type the field's hint writes: its own, unless its backend writes a copy of it."""
+        return self.data_type
+
+    def _write_own_pre_render_nullability(self) -> None:
+        """Write the pre-render nullability of the field's own type when its hint renders that type."""
+        if self._hint_renders_own_type():
+            self._write_pre_render_nullability(self.data_type)
+
     def _hint_renders_own_type(self) -> bool:  # noqa: PLR6301
         """Return whether the type hint renders the field's own data type rather than a copy of it."""
         return True
@@ -1424,7 +1434,9 @@ def _nested_model_has_required_constructor_fields(source: DataModel) -> bool:
             or _has_opaque_custom_base(model, model.BASE_CLASS)
         ):
             return False
-    fields = get_effective_fields(source) if inherited else source.fields
+    fields = (
+        [field for _, field in _effective_field_owners(source, models[1:]).values()] if inherited else source.fields
+    )
     return any(
         (field.required or field.should_strip_default_none())
         and (source.USES_DATACLASS_ARGUMENTS or not field.is_class_var)
@@ -1437,6 +1449,11 @@ def _nested_model_has_required_constructor_fields(source: DataModel) -> bool:
         )
         for field in fields
     )
+
+
+def _written_name(data_type: DataType, reference: Reference) -> str:
+    """Return the name the annotation of ``data_type`` writes for the type ``reference``: its alias, else short name."""
+    return data_type.alias or reference.short_name
 
 
 def _default_factory_type_name(data_type: DataType) -> str:
@@ -2270,12 +2287,13 @@ class BaseLayoutView(NamedTuple):
     is_opaque: Callable[[DataModel], bool]
 
 
-def _model_written(field: DataModelFieldBase) -> ModelWritten:
+def _model_written(field: DataModelFieldBase, *, keeps_none: bool = False) -> ModelWritten:
     """Return the written assignment of a field as the neutral rule reads it: its call, declared factory and default."""
     return ModelWritten(
         text=bool(field.field),
         declared_factory=field.has_default_factory,
         default=_default_state(field.default),
+        keeps_none=keeps_none,
     )
 
 
@@ -2564,20 +2582,10 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         """
         fields: dict[object, DataModelFieldBase] = {}
         required: dict[object, bool] = {}
-        visited: set[int] = set()
-
-        def collect(model: DataModel) -> None:
-            if id(model) in visited:
-                return
-            visited.add(id(model))
-            for base in _find_base_classes(model):
-                collect(base)
-            for field in model.fields:
-                key = self._base_layout_key(field)
-                fields[key] = field
-                required[key] = required.get(key, False) or field.required
-
-        collect(self)
+        for field in self.iter_all_fields():
+            key = self._base_layout_key(field)
+            fields[key] = field
+            required[key] = required.get(key, False) or field.required
         return [adopt_field(field, required[key]) for key, field in fields.items()]
 
     def orders_required_assignments_before_defaults(self) -> bool:  # noqa: PLR6301
@@ -2978,17 +2986,8 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         The models of ``visited`` are left out, with the bases reached only through them; every model yielded from is
         added to it.
         """
-        for model in self._bases_first(set() if visited is None else visited):
+        for model in _walk_bases_first((self,), set() if visited is None else visited):
             yield from model.fields
-
-    def _bases_first(self, met: set[ModelKey]) -> list[DataModel]:
-        """Return the model and the generated models it inherits from, each after its bases, so the model last.
-
-        The models of ``met`` are left out, with the bases reached only through them; every model returned is added to
-        it.
-        """
-        walk = _base_walk(GraphSnapshot.INHERITED_FIELDS, (self,))
-        return [walk.node_of[key] for key in walk.graph.postorder(walk.starts[0], EdgeKind.BASE, met)]
 
     def get_dedup_key(self, class_name: str | None = None, *, use_default: bool = True) -> tuple[Any, ...]:
         """Generate hashable key for model deduplication.
@@ -3025,8 +3024,7 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         if self.IS_ROOT_MODEL:
             self.finalize_sequence_interface()
         for field in self.fields:
-            if field._hint_renders_own_type():  # noqa: SLF001
-                field._write_pre_render_nullability(field.data_type)  # noqa: SLF001
+            field._write_own_pre_render_nullability()  # noqa: SLF001
 
     def _write_pre_render_nullability(self) -> None:
         """Write the nullability that collecting the model's imports wrote at L3 (``legacy-l3-import-nullability``).
@@ -3618,7 +3616,7 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         """Whether a dict key that names the model takes its root type instead (``dict_key_takes_root_type``)."""
         if not self._DICT_KEYS_TAKE_ROOT_TYPE:
             return False
-        chain = _hash_chain(GraphSnapshot.DICT_KEY_ROOT_TYPES, (self,))[0]
+        chain = _hash_chain((self,))[0]
         return dict_key_takes_root_type(
             chain=chain,
             generated_checks=bool(self._internal_template_data.get("class_body_lines"))
@@ -3665,7 +3663,8 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         return bool(
             rules
             and any(
-                getattr(rules, name, None) for name in ("pattern_properties", "required_groups", "conditional_required")
+                getattr(rules, name, None)
+                for name in ("pattern_properties", "required_groups", "conditional_required", "conditional_bounds")
             )
         )
 
@@ -3882,29 +3881,49 @@ def direct_base_models(model: DataModel, stand_ins: Mapping[int, Reference | Non
 
 
 def _base_walk(
-    snapshot: GraphSnapshot, models: Iterable[DataModel], stand_ins: Mapping[int, Reference | None] | None = None
-) -> ReachedModels[DataModel]:
-    """Take the snapshot of ``models`` and the generated models they inherit from, however distant.
+    models: Iterable[_ModelT],
+    stand_ins: Mapping[int, Reference | None] | None = None,
+    *,
+    bases_of: Callable[[_ModelT], Iterable[_ModelT]] | None = None,
+) -> ReachedModels[_ModelT]:
+    """Take the snapshot of ``models`` and the generated models they inherit from, however distant, by model key.
 
-    A base a type override replaced is its stand-in model in ``stand_ins``, at every level of the chain.
+    A base a type override replaced is its stand-in model in ``stand_ins``, at every level of the chain. ``bases_of``
+    gives the bases of each model instead, where a walk follows only some of them.
     """
-    return walk_graph(
-        snapshot, EdgeKind.BASE, models, _model_key_of_model, lambda model: direct_base_models(model, stand_ins)
-    )
+    if bases_of is None:
+        bases_of = cast("Callable[[_ModelT], Iterable[_ModelT]]", lambda model: direct_base_models(model, stand_ins))
+    return walk_graph(GraphSnapshot.BASES, EdgeKind.BASE, models, _model_key_of_model, bases_of)
+
+
+def _walk_bases_first(
+    models: Iterable[_ModelT],
+    met: set[ModelKey] | None = None,
+    *,
+    bases_of: Callable[[_ModelT], Iterable[_ModelT]] | None = None,
+) -> list[_ModelT]:
+    """Return ``models`` and the generated models they inherit from, each once after its bases, start by start.
+
+    The models of ``met`` are left out, with the bases reached only through them; every model returned is added to it.
+    ``bases_of`` gives the bases of each model, as for `_base_walk`.
+    """
+    walk = _base_walk(models, bases_of=bases_of)
+    met = set() if met is None else met
+    return [walk.node_of[key] for start in walk.starts for key in walk.graph.postorder(start, EdgeKind.BASE, met)]
 
 
 def _model_ancestor_keys(model: DataModel, stand_ins: Mapping[int, Reference | None] | None) -> frozenset[ModelKey]:
     """Collect the model keys of generated ancestors without assuming direct bases are already sorted."""
-    walk = _base_walk(GraphSnapshot.ANCESTORS, (model,), stand_ins)
+    walk = _base_walk((model,), stand_ins)
     return walk.graph.reached(walk.starts[0], (EdgeKind.BASE,))
 
 
-def _hash_chain(snapshot: GraphSnapshot, models: Sequence[DataModel]) -> list[list[HashClassFacts]]:
+def _hash_chain(models: Sequence[DataModel]) -> list[list[HashClassFacts]]:
     """Return the hash facts of the chain of each of ``models``: the model and the generated models it inherits from.
 
     The chain is in the order a walk of the reference graph over bases meets them, each model once.
     """
-    walk = _base_walk(snapshot, models)
+    walk = _base_walk(models)
     facts = {key: model._hash_class_facts() for key, model in walk.node_of.items()}  # noqa: SLF001
     return [[facts[key] for key in walk.graph.preorder(start, EdgeKind.BASE)] for start in walk.starts]
 
@@ -3919,7 +3938,7 @@ def set_item_models_keeping_builtin_hash(
     """
     return {
         model_key_of(model.reference)
-        for model, chain in zip(models, _hash_chain(GraphSnapshot.SET_ITEM_HASH, models), strict=True)
+        for model, chain in zip(models, _hash_chain(models), strict=True)
         if keeps_builtin_hash(
             chain=chain,
             field_values=(field_value_hashes(field) for field in get_effective_fields(model) if not field.is_class_var),
@@ -4018,7 +4037,7 @@ def linearize_data_models(
     """
     if len(models) == 1 and not models[0].base_classes:
         return models.copy()
-    walk = _base_walk(GraphSnapshot.BASE_CLASS_ORDER, models, stand_ins)
+    walk = _base_walk(models, stand_ins)
     graph = walk.graph
     if graph.acyclic_order((EdgeKind.BASE,)) is None:
         return _mro.linearize(

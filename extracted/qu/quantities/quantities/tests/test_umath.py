@@ -1,9 +1,9 @@
+import warnings
+
 import numpy as np
 
 from .. import units as pq
 from .common import TestCase, unittest
-
-_np_version = tuple(map(int, np.__version__.split(".dev")[0].split(".")))
 
 
 class TestUmath(TestCase):
@@ -22,6 +22,74 @@ class TestUmath(TestCase):
         c = [1,2,3, np.nan] * pq.m
         self.assertQuantityEqual(np.nansum(c), 6 * pq.m)
 
+    def test_nan_variance_and_standard_deviation(self):
+        values = np.array([[1., np.nan, 5.], [2., 4., 8.]])
+        for data in (values, values + 1j * values):
+            q = data * pq.ms
+            for func, units in ((np.nanvar, pq.ms**2), (np.nanstd, pq.ms)):
+                for axis in (None, 0, 1):
+                    for keepdims in (False, True):
+                        with self.subTest(func=func, axis=axis, keepdims=keepdims,
+                                          dtype=data.dtype):
+                            expected = func(data, axis=axis, keepdims=keepdims)
+                            result = func(q, axis=axis, keepdims=keepdims)
+                            self.assertQuantityEqual(result, expected * units)
+                            out = np.zeros_like(expected) * pq.kg
+                            self.assertIs(func(q, axis=axis, keepdims=keepdims,
+                                               out=out), out)
+                            self.assertQuantityEqual(out, expected * units)
+            self.assertQuantityEqual(np.nanstd(q, ddof=1),
+                                     np.nanstd(data, ddof=1) * pq.ms)
+            np.testing.assert_array_equal(q.magnitude, data)
+            self.assertEqual(q.units, pq.ms)
+
+    def test_ufunc_output_units(self):
+        q = [2., 4.] * pq.m
+        out = [0., 0.] * pq.s
+        self.assertIs(np.multiply(q, q, out=out), out)
+        self.assertQuantityEqual(out, [4., 16.] * pq.m**2)
+        self.assertIs(np.sqrt(out, out=out), out)
+        self.assertQuantityEqual(out, q)
+        self.assertIs(np.divide(out, q, out=out), out)
+        self.assertQuantityEqual(out, [1., 1.] * pq.dimensionless)
+        q **= 2
+        self.assertQuantityEqual(q, [4., 16.] * pq.m**2)
+        scalar = 2. * pq.m
+        scalar **= scalar.magnitude
+        self.assertQuantityEqual(scalar, 4. * pq.m**2)
+
+    def test_ufunc_output_view_units(self):
+        for operation in (
+                lambda v: np.multiply(v, v, out=v),
+                lambda v: np.divide(v, v, out=v),
+                lambda v: np.square(v, out=v),
+                lambda v: np.sqrt(v, out=v)):
+            with self.subTest(operation=operation):
+                q = [1., 4., 9.] * pq.m
+                view = q[:2]
+                with self.assertRaisesRegex(ValueError, 'modify units of a view'):
+                    operation(view)
+                self.assertEqual(view.units, pq.m)
+                self.assertEqual(q.units, pq.m)
+
+        q = [1., 4., 9.] * pq.m
+        view = q[:2]
+        self.assertIs(np.multiply(view, 2, out=view), view)
+        self.assertQuantityEqual(q, [2., 8., 9.] * pq.m)
+        self.assertIs(np.add(view, view, out=view), view)
+        self.assertQuantityEqual(q, [4., 16., 9.] * pq.m)
+        self.assertQuantityEqual(np.square(view), [16., 256.] * pq.m**2)
+
+        source = [2., 3.] * pq.m
+        destination = [0., 0., 0.] * pq.m**2
+        output = destination[:2]
+        self.assertIs(np.multiply(source, source, out=output), output)
+        self.assertQuantityEqual(destination, [4., 9., 0.] * pq.m**2)
+        with self.assertRaisesRegex(ValueError, 'modify units of a view'):
+            np.sqrt(source, out=output)
+        self.assertEqual(destination.units, pq.m**2)
+        self.assertEqual(output.units, pq.m**2)
+
     def test_cumprod(self):
         self.assertRaises(ValueError, np.cumprod, self.q)
 
@@ -37,15 +105,42 @@ class TestUmath(TestCase):
     def test_ediff1d(self):
         self.assertQuantityEqual(np.diff(self.q, 1), [1, 1, 1] * pq.J)
 
+    def test_ediff1d_boundary_units(self):
+        from ..quantity import Quantity
+        from ..umath import ediff1d
+
+        values = [[1., 3.], [6., 10.]] * pq.m
+        for begin, end in ((100 * pq.cm, [200, 300] * pq.cm),
+                           (1 * pq.m, [2, 3] * pq.m),
+                           (1, [2, 3])):
+            with self.subTest(begin=begin, end=end):
+                self.assertQuantityEqual(
+                    ediff1d(values, to_begin=begin, to_end=end),
+                    [1., 2., 3., 4., 2., 3.] * pq.m,
+                )
+        self.assertQuantityEqual(ediff1d(values, to_begin=100 * pq.cm),
+                                 [1., 2., 3., 4.] * pq.m)
+        self.assertQuantityEqual(ediff1d(values, to_end=200 * pq.cm),
+                                 [2., 3., 4., 2.] * pq.m)
+        self.assertRaises(ValueError, ediff1d, values, to_begin=1 * pq.s)
+        self.assertRaises(ValueError, ediff1d, values, to_end=1 * pq.s)
+        integer_values = Quantity([1, 3, 6], pq.m, dtype=int)
+        self.assertQuantityEqual(ediff1d(integer_values, to_begin=1),
+                                 [1, 2, 3] * pq.m)
+        # Converted fractional boundaries must obey NumPy's casting rules.
+        self.assertRaises(TypeError, ediff1d, integer_values,
+                          to_begin=1 * pq.cm)
+        self.assertQuantityEqual(values, [[1., 3.], [6., 10.]] * pq.m)
+
     def test_linspace(self):
         self.assertQuantityEqual(np.linspace(self.q[0], self.q[-1], 4), self.q)
 
     @unittest.expectedFailure
     def test_gradient(self):
         try:
-            l = np.gradient([[1,1],[3,4]] * pq.J, 1 * pq.m)
-            self.assertQuantityEqual(l[0], [[2., 3.], [2., 3.]] * pq.J/pq.m)
-            self.assertQuantityEqual(l[1], [[0., 0.], [1., 1.]] * pq.J/pq.m)
+            grad = np.gradient([[1,1],[3,4]] * pq.J, 1 * pq.m)
+            self.assertQuantityEqual(grad[0], [[2., 3.], [2., 3.]] * pq.J/pq.m)
+            self.assertQuantityEqual(grad[1], [[0., 0.], [1., 1.]] * pq.J/pq.m)
         except ValueError as e:
             raise self.failureException(e)
 
@@ -55,14 +150,33 @@ class TestUmath(TestCase):
         b = [4, 9, 2] * pq.m**2
         self.assertQuantityEqual(np.cross(a,b), [-15,-2,39]*pq.kPa*pq.m**2)
 
-    def test_trapz(self):
-        # np.trapz is deprecated, np.trapezoid is recommend
-        if _np_version < (2, 0, 0):
-            self.assertQuantityEqual(np.trapz(self.q, dx = 1*pq.m), 7.5 * pq.J*pq.m)
-
     def test_trapezoid(self):
-        if _np_version >= (2, 0, 0):
-            self.assertQuantityEqual(np.trapezoid(self.q, dx = 1*pq.m), 7.5 * pq.J*pq.m)
+        self.assertQuantityEqual(np.trapezoid(self.q, dx = 1*pq.m), 7.5 * pq.J*pq.m)
+
+    def test_umath_trapz(self):
+        from ..umath import trapz
+        y = [1., 2., 3.] * pq.J
+        x = [0., 1., 3.] * pq.s
+        self.assertQuantityEqual(trapz(y, dx=2*pq.m), 8. * pq.J*pq.m)
+        self.assertQuantityEqual(trapz(y, x=x), 6.5 * pq.J*pq.s)
+        self.assertQuantityEqual(trapz(y), 4. * pq.J)
+        self.assertEqual(trapz(y.magnitude, x=x.magnitude), 6.5)
+        y2 = np.arange(12.).reshape(3, 4)
+        self.assertQuantityEqual(
+            trapz(y2 * pq.m, x=[0., 1., 4.] * pq.s, axis=0),
+            np.trapezoid(y2, x=[0., 1., 4.], axis=0) * pq.m*pq.s
+        )
+
+    def test_no_internal_deprecation_warnings(self):
+        # functions in umath must not trigger the deprecation of
+        # Quantity's 'copy' argument
+        from .. import QuantitiesDeprecationWarning, umath
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", QuantitiesDeprecationWarning)
+            umath.sin(1 * pq.radian)
+            umath.arctan2(1 * pq.m, 2 * pq.m)
+            umath.trapz([1., 2., 3.] * pq.J, dx=1 * pq.m)
+            umath.sum(self.q)
 
     def test_sinh(self):
         q = [1, 2, 3, 4, 6] * pq.radian

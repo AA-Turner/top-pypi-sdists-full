@@ -5,8 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use ruff_python_ast::name::Name;
+
+use crate::binding::binding::KeyExport;
 use crate::test::util::TestEnv;
 use crate::testcase;
+use crate::types::types::Type;
 
 testcase!(
     test_type_alias_simple,
@@ -158,6 +162,77 @@ X: TypeAlias = T | list[T] | None
 def f(x: X[int]):
     assert_type(x, int | list[int] | None)
     "#,
+);
+
+testcase!(
+    test_generic_alias_union_with_enum_literal,
+    r#"
+from enum import Enum
+from typing import Literal, TypeAlias, TypeVar, assert_type
+
+T = TypeVar("T")
+
+class Unset(Enum):
+    _UNSET = "UNSET"
+
+UNSET: Literal[Unset._UNSET] = Unset._UNSET
+UnsetType: TypeAlias = Literal[Unset._UNSET]
+Missing: TypeAlias = UnsetType | T | None
+
+def takes(x: Missing[Literal["a", "b"]]) -> None: ...
+
+def or_unset[U](v: U | None) -> U | Literal[Unset._UNSET]:
+    return UNSET if v is None else v
+
+def f(s: Literal["a"] | None) -> None:
+    assert_type(or_unset(s), Literal["a"] | Literal[Unset._UNSET])
+    takes(or_unset(s))
+"#,
+);
+
+testcase!(
+    test_generic_alias_union_with_enum_literal_direct_argument,
+    r#"
+from enum import Enum
+from typing import Literal, TypeAlias, TypeVar
+
+T = TypeVar("T")
+
+class Unset(Enum):
+    _UNSET = "UNSET"
+
+UnsetType: TypeAlias = Literal[Unset._UNSET]
+Missing: TypeAlias = UnsetType | T | None
+
+def takes(x: Missing[Literal["a", "b"]]) -> None: ...
+
+def f(x: Literal["a"] | Literal[Unset._UNSET] | None) -> None:
+    takes(x)
+"#,
+);
+
+testcase!(
+    test_generic_alias_union_with_inline_enum_literal,
+    r#"
+from enum import Enum
+from typing import Literal, TypeAlias, TypeVar
+
+T = TypeVar("T")
+
+class Unset(Enum):
+    _UNSET = "UNSET"
+
+UNSET: Literal[Unset._UNSET] = Unset._UNSET
+Missing: TypeAlias = Literal[Unset._UNSET] | T | None
+
+def takes(x: Missing[Literal["a", "b"]]) -> None: ...
+
+def or_unset[U](v: U | None) -> U | Literal[Unset._UNSET]:
+    return UNSET if v is None else v
+
+def f(s: Literal["a"] | None) -> None:
+    takes(or_unset(s))
+"#,
 );
 
 testcase!(
@@ -461,6 +536,20 @@ class C:
     type X = int
 def f(x: C.X):
     assert_type(x, int)
+    "#,
+);
+
+testcase!(
+    test_generic_legacy_type_alias_inside_class,
+    r#"
+from typing import TypeAlias, TypeVar, assert_type
+T = TypeVar("T")
+class C:
+    L = list[T]
+    M: TypeAlias = "dict[str, T]"
+def f(l: C.L[int], m: C.M[int]):
+    assert_type(l, list[int])
+    assert_type(m, dict[str, int])
     "#,
 );
 
@@ -993,6 +1082,58 @@ c2: Callable[[int], int] = f2  # E: `(x: C | int | str) -> C | int | str` is not
 );
 
 testcase!(
+    bug = "Union alias names are lost when additional members are merged",
+    test_alias_display_repeated_composition,
+    r#"
+from typing import assert_type, reveal_type
+
+type Alias = int | str | bytes
+
+def grow(x: Alias | float, y: complex, flag: bool) -> None:
+    value = [x if flag else y]
+    assert_type(value, list[int | str | bytes | float | complex])
+    reveal_type(value)  # E: revealed type: list[bytes | complex | float | int | str]
+    result: list[None] = value  # E: `list[bytes | complex | float | int | str]` is not assignable to `list[None]`
+    "#,
+);
+
+testcase!(
+    test_alias_display_collapsed_generic_extra,
+    r#"
+from typing import assert_type, reveal_type
+
+type Alias = int | str | bytes
+
+def pair[T](x: T) -> list[Alias | T]:
+    return [x]
+
+def probe(x: Alias) -> None:
+    value = pair(x)
+    assert_type(value, list[Alias])
+    reveal_type(value)  # E: revealed type: list[bytes | int | str]
+    "#,
+);
+
+fn env_with_shared_display_alias() -> TestEnv {
+    let mut env = TestEnv::new();
+    env.add("a", "type TA = int | str | bytes");
+    env.add("b", "from a import TA\ndef need(x: list[TA]) -> None: ...");
+    env.add("c", "from a import TA\ndef make() -> set[TA]: ...");
+    env
+}
+
+testcase!(
+    test_alias_display_imported_identity,
+    env_with_shared_display_alias(),
+    r#"
+from b import need
+from c import make
+
+need(make())  # E: Argument `set[TA]` is not assignable to parameter `x` with type `list[TA]` in function `b.need`
+    "#,
+);
+
+testcase!(
     test_named_expression_in_type_alias,
     r#"
 # Named expressions (walrus operator) are not allowed inside type aliases (PEP 695).
@@ -1145,6 +1286,74 @@ def bad_type_aliases(
     p12: BadTypeAlias12,  # E: `BadTypeAlias12` is not a valid type alias: Boolean operation cannot be used in annotations
 ):
     pass
+"#,
+);
+
+testcase!(
+    test_bad_implicit_type_alias_in_alias_value,
+    r#"
+from typing import TypeAlias, TypeAliasType
+BadTypeAlias = int if 1 < 3 else str
+A: TypeAlias = BadTypeAlias  # E: `BadTypeAlias` is not a valid type alias: If expression cannot be used in annotations
+type B = list[BadTypeAlias]  # E: `BadTypeAlias` is not a valid type alias: If expression cannot be used in annotations
+C = TypeAliasType("C", BadTypeAlias)  # E: `BadTypeAlias` is not a valid type alias: If expression cannot be used in annotations
+
+class Outer:
+    Inner = int
+BadOuter = Outer if 1 < 3 else Outer
+D: TypeAlias = BadOuter.Inner
+"#,
+);
+
+testcase!(
+    test_bad_implicit_type_alias_in_type_parameters,
+    r#"
+from typing import Callable
+
+Bad = int if True else str
+
+class Bound[T: Bad]: ...  # E: `Bad` is not a valid type alias
+def constrained[T: (Bad, bytes)](x: T) -> T: return x  # E: `Bad` is not a valid type alias
+type Default[T = Bad] = list[T]  # E: `Bad` is not a valid type alias
+type NestedBound[T: list[Bad]] = T  # E: `Bad` is not a valid type alias
+type ForwardBound[T: "Bad"] = T  # E: `Bad` is not a valid type alias
+type ParamSpecDefault[**P = [Bad]] = Callable[P, None]  # E: `Bad` is not a valid type alias
+type TupleDefault[*Ts = *tuple[Bad, ...]] = tuple[*Ts]  # E: `Bad` is not a valid type alias
+"#,
+);
+
+testcase!(
+    test_static_type_and_value_positions,
+    r#"
+from typing import Annotated, Callable, Literal
+from typing_extensions import TypeForm
+
+Bad = int if True else str
+class Base[T]: ...
+DynamicBase = Base if True else Base
+class Derived(DynamicBase[list[Bad]]): ...  # E: `Bad` is not a valid type alias
+
+list[Bad]([])  # E: `Bad` is not a valid type alias
+Annotated[Bad, Bad]  # E: `Bad` is not a valid type alias
+Callable[[Bad], None]  # E: `Bad` is not a valid type alias
+form: TypeForm = "Bad"  # E: `Bad` is not a valid type alias
+
+class Namespace:
+    Inner = int
+DynamicNamespace = Namespace if True else Namespace
+type Alias = DynamicNamespace.Inner
+
+def values(x: Annotated[int, Bad], y: Literal["Bad"]) -> None: ...
+"#,
+);
+
+testcase!(
+    test_static_generic_type_arguments,
+    r#"
+from __future__ import annotations
+Bad = int if True else str
+class Base[T]: ...
+Base[Bad]  # E: `Bad` is not a valid type alias
 "#,
 );
 
@@ -1396,3 +1605,48 @@ X: TypeAlias = int | str
 X()  # E: Expected a callable
     "#,
 );
+
+testcase!(
+    test_class_type_alias_is_not_instance_variable,
+    TestEnv::new().enable_instance_var_assign_error(),
+    r#"
+from typing import TypeAlias
+
+class Base:
+    Alias: TypeAlias = int
+
+class Child(Base):
+    pass
+
+Base.Alias = Base.Alias
+Child.Alias = Child.Alias
+    "#,
+);
+
+/// Type variables from different modules can be declared at the same offset. As parameters of one
+/// alias they are still different type parameters.
+#[test]
+fn test_type_alias_type_params_declared_at_same_offset_are_distinct() {
+    let mut env = TestEnv::new();
+    env.add("foo", "from typing import TypeVar\nT = TypeVar('T')\n");
+    env.add("bar", "from typing import TypeVar\nU = TypeVar('U')\n");
+    env.add(
+        "main",
+        r#"
+from typing import TypeAliasType
+from foo import T
+from bar import U
+X = TypeAliasType("X", int, type_params=(T, U))
+"#,
+    );
+    let (state, handle) = env.to_state();
+    let transaction = state.transaction();
+    let solutions = transaction.get_solutions(&handle("main")).unwrap();
+    let Type::Forall(forall) = solutions.get(&KeyExport(Name::new_static("X"))) else {
+        panic!("`X` should be a generic type alias");
+    };
+    let [t, u] = forall.tparams.as_vec() else {
+        panic!("`X` should have two type parameters");
+    };
+    assert_ne!(t, u, "`T` and `U` must not be the same type parameter");
+}

@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """
 Wi-Fi power saving on the interface a robot sends its requests over: detected, and reported with how to disable it.
-Linux only, read-only.
+Read on Linux, read-only. On macOS, where it cannot be read, a robot whose requests go over Wi-Fi is told that it was
+not checked (mac_wifi_iface, mac_words).
 
     from sequence_ai.network import wifi_power
 
@@ -107,16 +108,41 @@ def check(route: str = _ROUTE, **kw) -> Optional[str]:
     return iface
 
 
-def check_once(*, linux: bool = sys.platform.startswith("linux")) -> Optional[threading.Thread]:
-    """Run the check once per process, on its own thread (the module's docstring). Returns the thread, or None when
-    nothing was started."""
-    if not linux or _STARTED.is_set():
+def mac_wifi_iface(run: Callable[..., subprocess.CompletedProcess] = subprocess.run) -> Optional[str]:
+    """macOS: the Wi-Fi device (`networksetup -listallhardwareports`) when the default route goes over it (`route -n
+    get default`); None when it does not, or when either cannot be read."""
+    try:
+        route = run(["/sbin/route", "-n", "get", "default"], capture_output=True, text=True, timeout=2.0,
+                    check=False).stdout
+        ports = run(["/usr/sbin/networksetup", "-listallhardwareports"], capture_output=True, text=True, timeout=2.0,
+                    check=False).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    found = re.search(r"interface:\s*(\S+)", route or "")
+    wifi = re.findall(r"Hardware Port:\s*(?:Wi-Fi|AirPort)\s*\n\s*Device:\s*(\S+)", ports or "")
+    return found.group(1) if found and found.group(1) in wifi else None
+
+
+def mac_words(iface: str) -> str:
+    """What a robot on macOS is told when its requests go over Wi-Fi (`iface`)."""
+    return (f"this robot's requests go over Wi-Fi ({iface}), and whether Wi-Fi saves power - which can hold its packets "
+            "back - is read on Linux only, so it was not checked on this Mac; a wired connection takes the question "
+            "away")
+
+
+def check_once(*, linux: bool = sys.platform.startswith("linux"),
+               darwin: bool = sys.platform == "darwin") -> Optional[threading.Thread]:
+    """Run the check once per process, on its own thread (the module's docstring): on Linux, the warning when power
+    saving is on; on macOS, the note that it was not checked, when the robot's requests go over Wi-Fi. Returns the
+    thread, or None when nothing was started."""
+    if not (linux or darwin) or _STARTED.is_set():
         return None
     with _LOCK:
         if _STARTED.is_set():
             return None
         _STARTED.set()
-    thread = threading.Thread(target=_check_quietly, daemon=True, name="sequence-ai-wifi-power")
+    thread = threading.Thread(target=_check_quietly if linux else _say_unchecked_quietly, daemon=True,
+                              name="sequence-ai-wifi-power")
     thread.start()
     return thread
 
@@ -124,5 +150,14 @@ def check_once(*, linux: bool = sys.platform.startswith("linux")) -> Optional[th
 def _check_quietly() -> None:
     try:
         check()
+    except Exception:  # noqa: BLE001 (a robot must not fail because of a hint)
+        pass
+
+
+def _say_unchecked_quietly() -> None:
+    try:
+        iface = mac_wifi_iface()
+        if iface is not None:
+            warn(mac_words(iface))
     except Exception:  # noqa: BLE001 (a robot must not fail because of a hint)
         pass

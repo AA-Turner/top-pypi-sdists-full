@@ -104,6 +104,10 @@ services:
     ports: !override
       - "127.0.0.1:43436:5432"
   redpanda:
+    # OMN-17427: this lane declares its own broker image. The dev lane moved
+    # to v24.3.18, and a broker upgrade is one-way on its data volume, so a
+    # dev pin move must never reach this broker by inheritance.
+    image: redpandadata/redpanda:v24.2.7
     container_name: omnibase-infra-dev-105-redpanda
     command: !override
       - redpanda
@@ -142,10 +146,13 @@ services:
       - "127.0.0.1:43181:18081"
       - "127.0.0.1:43644:9644"
   redpanda-scram-user:
+    image: redpandadata/redpanda:v24.2.7
     container_name: omnibase-infra-dev-105-redpanda-scram-user
   redpanda-sasl-enable:
+    image: redpandadata/redpanda:v24.2.7
     container_name: omnibase-infra-dev-105-redpanda-sasl-enable
   redpanda-partition-cap:
+    image: redpandadata/redpanda:v24.2.7
     container_name: omnibase-infra-dev-105-redpanda-partition-cap
     environment:
       REDPANDA_PROFILE_MEMORY: ${DEV_105_REDPANDA_MEMORY:-2G}
@@ -159,6 +166,12 @@ services:
     profiles: !override ["dev-105-disabled"]
   infisical:
     profiles: !override ["dev-105-disabled"]
+  # OMN-24714: docker-compose.dev-lane.yml empties this service's profile list so
+  # the dev lane's core phase starts the architecture graph's store. This lane
+  # layers that file and runs no graph (4 GiB it does not have, ports on every
+  # interface on a host whose overlay publishes loopback only), so it is fenced.
+  omnibase-infra-memgraph:
+    profiles: !override ["graph-store-fenced"]
   forward-migration:
     container_name: omnibase-infra-dev-105-forward-migration
     labels:
@@ -167,23 +180,6 @@ services:
     container_name: omnibase-infra-dev-105-migration-gate
   intelligence-migration:
     container_name: omnibase-infra-dev-105-intelligence-migration
-  cloud-migration-files:
-    container_name: omnibase-infra-dev-105-cloud-migration-files
-    profiles: !override ["dev-105-disabled"]
-    labels:
-      com.omninode.lane: dev-105
-  cloud-migration:
-    container_name: omnibase-infra-dev-105-cloud-migration
-    profiles: !override ["dev-105-disabled"]
-    labels:
-      com.omninode.lane: dev-105
-  onex-api:
-    container_name: onex-api-dev-105
-    profiles: !override ["dev-105-disabled"]
-    ports: !override
-      - "127.0.0.1:43090:8000"
-    labels:
-      com.omninode.lane: dev-105
   autoheal:
     container_name: omnibase-infra-dev-105-autoheal
   phoenix:
@@ -198,6 +194,10 @@ services:
   omninode-runtime:
     container_name: omninode-dev-105-runtime
     environment:
+      # OMN-21551: docker-compose.dev-lane.yml names the dev lane's own tenant
+      # (the house tenant) as this runtime's ONEX_TENANT_ID. This lane is not
+      # that lane, so it keeps none: blank is unset to omnimarket.
+      ONEX_TENANT_ID: ""
       ONEX_TRAJECTORY_EVALUATION_BACKEND: "off"
       ONEX_RUNTIME_LANE: "compose-dev-105"
       BIFROST_LANE_OVERLAY_PATH: /app/config/delegation/lane.bifrost.yaml
@@ -213,6 +213,10 @@ services:
   runtime-effects:
     container_name: omninode-dev-105-runtime-effects
     environment:
+      # OMN-21551: docker-compose.dev-lane.yml names the dev lane's own tenant
+      # (the house tenant) as this runtime's ONEX_TENANT_ID. This lane is not
+      # that lane, so it keeps none: blank is unset to omnimarket.
+      ONEX_TENANT_ID: ""
       # OMN-19812: effects names its lane too (lane-scoped effects contracts, OMN-19408).
       ONEX_RUNTIME_LANE: "compose-dev-105"
       ONEX_TRAJECTORY_EVALUATION_BACKEND: "off"
@@ -288,18 +292,10 @@ services:
     container_name: omninode-dev-105-context-audit-consumer
     ports: !override
       - "127.0.0.1:43093:8093"
-  intelligence-api:
-    container_name: omnibase-dev-105-intelligence-api
-    ports: !override
-      - "127.0.0.1:43053:8053"
   omninode-contract-resolver:
     container_name: omninode-dev-105-contract-resolver
     ports: !override
       - "127.0.0.1:43091:8091"
-  infra-routing-decisions-consumer:
-    container_name: omninode-dev-105-infra-routing-decisions-consumer
-    labels:
-      com.omninode.lane: dev-105
   projection-tenant-registry-writer:
     container_name: omnimarket-dev-105-projection-tenant-registry-writer
     labels:
@@ -324,6 +320,13 @@ services:
     container_name: omnimarket-dev-105-projection-live-events-writer
     labels:
       com.omninode.lane: dev-105
+  # OMN-19513: the claude hook-events projection writer belongs to the primary
+  # dev lane. This lane's runtime names a lane outside the node's own
+  # `runtime_lanes` scope, so its main runtime never attaches the node and a
+  # writer here would wire zero contracts, which strict wiring turns into a boot
+  # failure. Back to the inert profile the base file declares.
+  projection-claude-hook-events-writer:
+    profiles: !override ["profile-carrier-optin"]
 networks:
   omnibase-infra-network:
     name: omnibase-infra-dev-105-network
@@ -339,8 +342,6 @@ volumes:
     name: omnibase-infra-dev-105-keycloak-data
   phoenix_data:
     name: omnibase-infra-dev-105-phoenix-data
-  cloud_migrations:
-    name: omnibase-infra-dev-105-cloud-migrations
   runtime_logs:
     name: omninode-dev-105-runtime-logs
   runtime_data:

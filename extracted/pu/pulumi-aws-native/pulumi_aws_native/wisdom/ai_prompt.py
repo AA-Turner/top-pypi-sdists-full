@@ -29,6 +29,7 @@ class AiPromptArgs:
                  type: pulumi.Input['AiPromptAiPromptType'],
                  assistant_id: pulumi.Input[Optional[_builtins.str]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
+                 inference_configuration: pulumi.Input[Optional['AiPromptAiPromptInferenceConfigurationArgs']] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
@@ -71,6 +72,8 @@ class AiPromptArgs:
             pulumi.set(__self__, "assistant_id", assistant_id)
         if description is not None:
             pulumi.set(__self__, "description", description)
+        if inference_configuration is not None:
+            pulumi.set(__self__, "inference_configuration", inference_configuration)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if tags is not None:
@@ -179,6 +182,15 @@ class AiPromptArgs:
         pulumi.set(self, "description", value)
 
     @_builtins.property
+    @pulumi.getter(name="inferenceConfiguration")
+    def inference_configuration(self) -> pulumi.Input[Optional['AiPromptAiPromptInferenceConfigurationArgs']]:
+        return pulumi.get(self, "inference_configuration")
+
+    @inference_configuration.setter
+    def inference_configuration(self, value: pulumi.Input[Optional['AiPromptAiPromptInferenceConfigurationArgs']]):
+        pulumi.set(self, "inference_configuration", value)
+
+    @_builtins.property
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
@@ -212,10 +224,11 @@ class AiPrompt(pulumi.CustomResource):
                  api_format: pulumi.Input[Optional['AiPromptAiPromptApiFormat']] = None,
                  assistant_id: pulumi.Input[Optional[_builtins.str]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
+                 inference_configuration: pulumi.Input[Optional[Union['AiPromptAiPromptInferenceConfigurationArgs', 'AiPromptAiPromptInferenceConfigurationArgsDict', 'outputs.AiPromptAiPromptInferenceConfiguration']]] = None,
                  model_id: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 template_configuration: pulumi.Input[Optional[Union['AiPromptAiPromptTemplateConfigurationArgs', 'AiPromptAiPromptTemplateConfigurationArgsDict']]] = None,
+                 template_configuration: pulumi.Input[Optional[Union['AiPromptAiPromptTemplateConfigurationArgs', 'AiPromptAiPromptTemplateConfigurationArgsDict', 'outputs.AiPromptAiPromptTemplateConfiguration']]] = None,
                  template_type: pulumi.Input[Optional['AiPromptAiPromptTemplateType']] = None,
                  type: pulumi.Input[Optional['AiPromptAiPromptType']] = None,
                  __props__=None):
@@ -248,7 +261,7 @@ class AiPrompt(pulumi.CustomResource):
                - `us.anthropic.claude-3-haiku-20240307-v1:0`
         :param pulumi.Input[_builtins.str] name: The name of the AI Prompt
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: The tags used to organize, track, or control access for this resource.
-        :param pulumi.Input[Union['AiPromptAiPromptTemplateConfigurationArgs', 'AiPromptAiPromptTemplateConfigurationArgsDict']] template_configuration: The configuration of the prompt template for this AI Prompt.
+        :param pulumi.Input[Union['AiPromptAiPromptTemplateConfigurationArgs', 'AiPromptAiPromptTemplateConfigurationArgsDict', 'outputs.AiPromptAiPromptTemplateConfiguration']] template_configuration: The configuration of the prompt template for this AI Prompt.
         :param pulumi.Input['AiPromptAiPromptTemplateType'] template_type: The type of the prompt template for this AI Prompt.
         :param pulumi.Input['AiPromptAiPromptType'] type: The type of this AI Prompt.
         """
@@ -279,10 +292,11 @@ class AiPrompt(pulumi.CustomResource):
                  api_format: pulumi.Input[Optional['AiPromptAiPromptApiFormat']] = None,
                  assistant_id: pulumi.Input[Optional[_builtins.str]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
+                 inference_configuration: pulumi.Input[Optional[Union['AiPromptAiPromptInferenceConfigurationArgs', 'AiPromptAiPromptInferenceConfigurationArgsDict', 'outputs.AiPromptAiPromptInferenceConfiguration']]] = None,
                  model_id: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 template_configuration: pulumi.Input[Optional[Union['AiPromptAiPromptTemplateConfigurationArgs', 'AiPromptAiPromptTemplateConfigurationArgsDict']]] = None,
+                 template_configuration: pulumi.Input[Optional[Union['AiPromptAiPromptTemplateConfigurationArgs', 'AiPromptAiPromptTemplateConfigurationArgsDict', 'outputs.AiPromptAiPromptTemplateConfiguration']]] = None,
                  template_type: pulumi.Input[Optional['AiPromptAiPromptTemplateType']] = None,
                  type: pulumi.Input[Optional['AiPromptAiPromptType']] = None,
                  __props__=None):
@@ -299,6 +313,7 @@ class AiPrompt(pulumi.CustomResource):
             __props__.__dict__["api_format"] = api_format
             __props__.__dict__["assistant_id"] = assistant_id
             __props__.__dict__["description"] = description
+            __props__.__dict__["inference_configuration"] = inference_configuration
             if model_id is None and not opts.urn:
                 raise TypeError("Missing required property 'model_id'")
             __props__.__dict__["model_id"] = model_id
@@ -347,6 +362,7 @@ class AiPrompt(pulumi.CustomResource):
         __props__.__dict__["assistant_arn"] = None
         __props__.__dict__["assistant_id"] = None
         __props__.__dict__["description"] = None
+        __props__.__dict__["inference_configuration"] = None
         __props__.__dict__["model_id"] = None
         __props__.__dict__["modified_time_seconds"] = None
         __props__.__dict__["name"] = None
@@ -355,6 +371,12 @@ class AiPrompt(pulumi.CustomResource):
         __props__.__dict__["template_type"] = None
         __props__.__dict__["type"] = None
         return AiPrompt(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:wisdom:AiPrompt', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="aiPromptArn")
@@ -403,6 +425,11 @@ class AiPrompt(pulumi.CustomResource):
         The description of the AI Prompt.
         """
         return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="inferenceConfiguration")
+    def inference_configuration(self) -> pulumi.Output[Optional['outputs.AiPromptAiPromptInferenceConfiguration']]:
+        return pulumi.get(self, "inference_configuration")
 
     @_builtins.property
     @pulumi.getter(name="modelId")

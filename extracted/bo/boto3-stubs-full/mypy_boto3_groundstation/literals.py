@@ -193,6 +193,7 @@ VersionFailureReasonCodeType = Literal[
 VersionStatusType = Literal["ACTIVE", "FAILED_TO_UPDATE", "SUPERSEDED", "UPDATING"]
 GroundStationServiceName = Literal["groundstation"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

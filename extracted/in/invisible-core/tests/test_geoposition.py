@@ -120,7 +120,7 @@ PINNED_LAT, PINNED_LON, PINNED_ACC = 44.991972, 9.005186, 2866.0
 
 @pytest.fixture
 def exit_at_base(monkeypatch):
-    import invisible_core.download as dl
+    import invisible_core._geo as dl
     monkeypatch.setattr(_geo, "discover_egress_ip", lambda proxy=None, **kw: "203.0.113.7")
     monkeypatch.setattr(_geo, "ip_to_timezone", lambda ip, mmdb: "Europe/Rome")
     monkeypatch.setattr(_geo, "ip_to_country", lambda ip, mmdb: "IT")

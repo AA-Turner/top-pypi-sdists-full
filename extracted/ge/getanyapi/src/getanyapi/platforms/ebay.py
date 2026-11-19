@@ -15,6 +15,33 @@ if TYPE_CHECKING:
     from .._client import AnyAPI
 
 
+class EbayAcceptedOffersInput(TypedDict, total=False):
+    """Input for eBay Accepted Offer Prices."""
+
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    condition: NotRequired[Literal["any", "new", "used"]]
+    """Item condition filter (e.g. used). Default: any."""
+    endDate: NotRequired[str]
+    """Last sale day to include, as YYYY-MM-DD (e.g. 2026-10-31)."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    limit: NotRequired[int]
+    """Maximum number of sales to return (1-240, default 240). Sales without a listing title or image are left out, so a page can hold fewer. Range: 1 to 240. Default: 240."""
+    maxPrice: NotRequired[float]
+    """Optional maximum price paid, in USD (e.g. 2000). It trims the returned page; it does not search all history for sales at that price. Minimum: 0."""
+    minPrice: NotRequired[float]
+    """Optional minimum price paid, in USD (e.g. 200). It trims the returned page; it does not search all history for sales at that price. Minimum: 0."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    query: Required[str]
+    """Search keyword for completed eBay sales (e.g. Gibson Les Paul Standard 60s)."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    startDate: NotRequired[str]
+    """First sale day to include, as YYYY-MM-DD (e.g. 2026-10-01). History is available back to December 2023. With neither date set, the last 90 days are searched."""
+
+
 class EbayProductInput(TypedDict, total=False):
     """Input for eBay Product."""
 
@@ -121,7 +148,7 @@ class EbaySoldListingsInput(TypedDict, total=False):
     returnsAccepted: NotRequired[bool]
     """Not supported by the current sources: only false (no filter) is accepted; true is refused without charge."""
     seller: NotRequired[str]
-    """Not supported by the current sources: a request that sets it is refused without charge."""
+    """Only this eBay seller's sold listings (eBay username)."""
     site: NotRequired[Literal["ebay.com"]]
     """eBay country site to search. Sold-listing coverage is currently US only. Default: ebay.com."""
     sort: NotRequired[Literal["ended_recently", "price_low", "price_high"]]
@@ -159,6 +186,77 @@ class EbaySoldListingsThinInput(TypedDict, total=False):
     """Result sort order; omitted means ended_recently (e.g. price_high sorts by highest sold price plus shipping first)."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
+class EbayAcceptedOffersData(BaseModel):
+    items: list[EbayAcceptedOffersItem] = Field(
+        description="Completed eBay sales, newest first: title, the price the buyer actually paid, sale date, units sold, shipping, format, and item URL. Populated whenever the provider has data for the entity."
+    )
+
+
+class EbayAcceptedOffersItem(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    best_offer_accepted: bool | None = Field(
+        default=None,
+        alias="bestOfferAccepted",
+        description="True when the sale was identified as a Best Offer the seller accepted, so soldPrice is the accepted offer (on a multi-unit listing, the rounded average paid per unit). Auctions are never Best Offers, so it is true only on fixed-price sales. False when it was not identified as one, which does not prove a full-price sale; sales from the last few hours are often not flagged yet. Absent when it could not be determined: on busy searches some older date windows come back with no Best Offer flag at all.",
+    )
+    bid_count: int | None = Field(
+        default=None,
+        alias="bidCount",
+        description="Number of bids the listing received, for auction sales.",
+    )
+    condition: str | None = Field(
+        default=None,
+        description="Item condition (new or used), returned only when the request filtered by condition.",
+    )
+    image: str = Field(
+        description="Primary listing image URL. Populated whenever the provider has data for the entity."
+    )
+    item_id: str = Field(
+        alias="itemId",
+        description="eBay item identifier. Populated whenever the provider has data for the entity.",
+    )
+    listing_type: str | None = Field(
+        default=None,
+        alias="listingType",
+        description="Sale format: Auction or Fixed price.",
+    )
+    shipping_cost: str | None = Field(
+        default=None,
+        alias="shippingCost",
+        description='Shipping the buyer paid, in USD (e.g. "$18"; "$0" is free shipping).',
+    )
+    sold_currency: str | None = Field(
+        default=None,
+        alias="soldCurrency",
+        description="ISO currency code of the price paid (USD).",
+    )
+    sold_price: float | None = Field(
+        default=None,
+        alias="soldPrice",
+        description="Price the buyer actually paid, in USD. On a Best Offer sale this is the accepted offer where available; when a listing sold more than one unit it is the average per unit (see unitsSold and totalSales).",
+    )
+    sold_utc: float | None = Field(
+        default=None,
+        alias="soldUtc",
+        description="UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+    title: str = Field(
+        description="Listing title as it appeared on eBay. Populated whenever the provider has data for the entity."
+    )
+    total_sales: float = Field(
+        alias="totalSales",
+        description="Total paid across all units sold, in USD, as the listing reported it. soldPrice is this total divided by unitsSold, rounded, so their product can differ slightly.",
+    )
+    units_sold: int = Field(
+        alias="unitsSold",
+        description="Units sold in this sale; above 1 for a multi-unit listing.",
+    )
+    url: str = Field(
+        description="Canonical listing URL. Populated whenever the provider has data for the entity."
+    )
 
 
 class EbayProductData(BaseModel):
@@ -665,6 +763,32 @@ class EbayNamespace:
     def __init__(self, client: "AnyAPI") -> None:
         self._client = client
 
+    def accepted_offers(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[EbayAcceptedOffersInput],
+    ) -> RunResult[EbayAcceptedOffersData]:
+        """eBay Accepted Offer Prices
+
+        Retrieve completed eBay sales for any keyword with the price the buyer
+        actually paid, including accepted Best Offer amounts where available, plus
+        the sale date, units sold, shipping, and format. History is available back
+        to December 2023. Auctions are never Best Offers, so look at fixed-price
+        sales. Results come back newest first, so with a small limit the sales can
+        cover only the last few days of a date window; raise limit (up to 240) to
+        cover more of it.
+
+        Price: $0.003 per request.
+
+        Example:
+            res = client.ebay.accepted_offers(condition="used", limit=10, query="Gibson Les Paul Standard 60s")
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "ebay.accepted_offers", dict(input), options
+        )
+        return RunResult[EbayAcceptedOffersData].model_validate(raw)
+
     def product(
         self,
         *,
@@ -781,6 +905,32 @@ class AsyncEbayNamespace:
 
     def __init__(self, client: "AsyncAnyAPI") -> None:
         self._client = client
+
+    async def accepted_offers(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[EbayAcceptedOffersInput],
+    ) -> RunResult[EbayAcceptedOffersData]:
+        """eBay Accepted Offer Prices
+
+        Retrieve completed eBay sales for any keyword with the price the buyer
+        actually paid, including accepted Best Offer amounts where available, plus
+        the sale date, units sold, shipping, and format. History is available back
+        to December 2023. Auctions are never Best Offers, so look at fixed-price
+        sales. Results come back newest first, so with a small limit the sales can
+        cover only the last few days of a date window; raise limit (up to 240) to
+        cover more of it.
+
+        Price: $0.003 per request.
+
+        Example:
+            res = client.ebay.accepted_offers(condition="used", limit=10, query="Gibson Les Paul Standard 60s")
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "ebay.accepted_offers", dict(input), options
+        )
+        return RunResult[EbayAcceptedOffersData].model_validate(raw)
 
     async def product(
         self,

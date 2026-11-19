@@ -37,7 +37,7 @@
 #
 # What it does (in order):
 #   1. Fetch a fresh GitHub Actions registration token (valid 1 hour)
-#   2. Base64-encode token for safe SSH passing
+#   2. Hand the token to the host on ssh stdin (never in the ssh command string)
 #   3. Rsync runner artifacts to 192.168.86.201:~/.omnibase/runners/
 #   4. Build the versioned runner image via scripts/ci/build_runner_image.sh
 #   5. Deploy via SSH: docker compose up -d --force-recreate --remove-orphans
@@ -48,6 +48,12 @@
 #   9. Retry once with fresh token if poll times out
 #   10. Print stale runner report (offline runners with no host container)
 #
+# --artifacts-only mode (OMN-19998; the runner hook directory only):
+#   1. Rsync runner artifacts to the host, or the --host host
+#   Touches no container, image, token or cron. A runner reads the hook file from
+#   its bind mount at each job start, so a hook change is live at the next job.
+#   Rollback: rerun from the previous revision. Wins over every other mode flag.
+#
 # --soft mode (entrypoint-only update, no recreate):
 #   1. Rsync runner artifacts to host
 #   2. Rebuild the Docker image (for future containers)
@@ -56,34 +62,30 @@
 #   Skips: registration token fetch, force-recreate, cron installs
 #   Use when: updating entrypoint logic without needing fresh registration
 #
-# --rolling mode (one runner at a time, busy-checked, fail-closed):
+# --rolling on the primary host (one runner at a time, busy-checked):
 #   1. Rsync runner artifacts to host
 #   2. For each fleet service in turn: confirm it is idle on TWO independent
 #      signals, recreate that ONE service, wait for it to come back online
 #   3. Skip (and retry later) any runner executing a job; HALT if a recreated
 #      runner does not return
+#   Before each recreate it waits until `docker ps -a` on the host lists no Dead
+#   container (OMN-21807): a pending layer delete holds containerd's metadata lock
+#   and blocks every docker rm, so a second removal queued behind it only
+#   lengthens the stall. It HALTS, recreating nothing more, if one is still
+#   listed after ROLL_DEAD_MAX_SECONDS (default 3600).
 #   Skips: image build, cron installs, --remove-orphans
 #   Use when: a container-env change must reach live runners. Env is frozen at
 #   container creation, so a recreate is the only way; --soft cannot carry one.
-#   Cost: roughly 60-100s per runner, serial by nature (see the mode's own
-#   comment block below).
-#   --limit=N stops after N successful recreates: --limit=1 is the canary
-#   step, proven before the rest of the fleet is touched.
-#   Requires DEPLOY_RUNNER_TOKEN or --token-file before any remote action,
-#   including in --dry-run. The supplied token reaches each recreated runner;
-#   a credential-cache directory alone is not proof of a usable registration.
-#   A fleet service with no container at all (retired by --retire-surplus, or
-#   never created) is idle by construction and is CREATED on this path, but
-#   only with a supplied token: its kept creds volume may hold credentials for a
-#   registration GitHub already deleted. Without a supplied token,
-#   the whole roll refuses before any container is recreated.
-#   --only=NAME converges exactly one fleet service. A runner that is busy
-#   through every retry pass is reported and left alone, which is correct --
-#   but without a way to come back for it later, the residual would have to be
-#   cleared by a hand-typed compose call, i.e. by the exact recipe this mode
-#   exists to replace.
-#   With --dry-run the READ-ONLY busy probes still run -- a rolling dry run is
-#   how you see which runners are executing jobs -- but nothing is recreated.
+#   --limit=N stops after N successful recreates. --only=NAME selects exactly
+#   one declared service. Primary dry runs still read the busy signals.
+#   Requires DEPLOY_RUNNER_TOKEN or --token-file, including for --dry-run.
+#   A retired or absent runner is created with the supplied token.
+#
+# --host/--pool with --rolling: roll an existing secondary CI pool onto the
+#   checked-in image lock using its installed Compose configuration. Requires
+#   --token-file before SSH or registry access. --dry-run plans locally.
+#   --limit counts verified recreates. --skip-build requires the bound image
+#   to exist on the host. Unreadable and busy runners stay untouched.
 #
 # --add=<service>[,...] mode (additive stand-up of declared NON-pool services):
 #   1. Rsync runner artifacts to host (the compose file must reach the host
@@ -92,6 +94,14 @@
 #   3. docker compose up -d --no-deps <service>...  -- with NEITHER
 #      --force-recreate NOR --remove-orphans
 #   4. Wait for exactly those runners to come online
+#   IDLE FIRST, TOKEN SUPPLIED (OMN-22604). Every target that already exists
+#   must read idle on the container's own evidence (running, no Runner.Worker in
+#   `docker top`, no unfinished "Running job:" in its listener log) before
+#   compose touches it, waiting up to RELABEL_DRAIN_TIMEOUT_SECONDS (default
+#   1800); a target still busy or unreadable is left running and the run ends
+#   non-zero. The registration token is the supplied one (DEPLOY_RUNNER_TOKEN or
+#   --token-file); this mode does not mint one through gh and refuses, naming the
+#   operator's command, when none is given.
 #   Skips: the fleet-wide poll, every cron install, the stale report.
 #   Use when: standing up or converging ONE non-general-pool runner
 #   (omninode-deploy-runner, omninode-verify-runner-1, the customer-plane pair).
@@ -124,12 +134,14 @@
 #      would recreate a removed runner it still believes should exist)
 #   2. Install and read back the runner slice (install_runner_slice)
 #   3. For each ${RUNNER_NAME_PREFIX}-N container on the host with N greater
-#      than expected_count, one at a time: two-signal idle check (the same
-#      runner_is_idle the rolling mode uses; a STOPPED container runs no job
-#      and counts as idle), re-checked immediately before stop, then
+#      than expected_count, one at a time: idle on the container's own evidence
+#      (relabel_container_idle, no GitHub read, OMN-24864: a STOPPED container
+#      counts as idle; a RUNNING one needs no Runner.Worker and no unfinished
+#      "Running job:" in its listener log), re-checked immediately before stop, then
 #      `docker stop` + `docker rm` of that ONE container. Never `rm -v`: the
 #      runner's named creds volume is left in place (volumes are data).
-#   4. Once GitHub reports that runner offline, delete ITS registration by id.
+#   4. Once GitHub reports that runner offline, delete ITS registration by id
+#      (best effort: left in place when gh cannot read it).
 #      Only a runner this invocation just removed is deregistered, which is why
 #      this is not the blanket auto-delete the stale report below refuses.
 #   Skips: image build, token fetch, every cron install, --remove-orphans.
@@ -142,7 +154,7 @@
 #   renders, which carries <label> (default omnibase-ci-multiarch), at an
 #   UNCHANGED runner count. Works on the primary host's general pool and, with
 #   --host (and --pool), on a secondary host, where the default stand-up path
-#   deliberately never touches an online runner and --rolling is refused.
+#   deliberately never touches an online runner.
 #   1. Rsync the compose declarations only (never the entrypoint, healthcheck or
 #      monitor the containers bind-mount: a relabel changes the registration and
 #      nothing else)
@@ -177,7 +189,7 @@
 #
 # Trap for on-host operators (OMN-15142): this script is written to run from
 # an OPERATOR WORKSTATION that SSHes into the runner host (see run_ssh/
-# run_local below). It cannot be run directly ON the runner host targeting
+# the ssh helpers below). It cannot be run directly ON the runner host targeting
 # itself via its own Tailscale MagicDNS hostname -- self-ssh fails "Host key
 # verification failed" (no known_hosts entry for the box's own hostname).
 # Run the rsync/build/compose steps directly on-host instead in that case.
@@ -356,7 +368,7 @@ runner_pool_field() {
 
 RUNNER_HOST="$(runner_config_field runner_host)"
 # Remote path on the CI host — NOT local $HOME (which differs between macOS and Linux)
-RUNNER_HOST_DIR="/home/jonah/.omnibase/runners"
+RUNNER_HOST_DIR="${RUNNER_HOST_HOME:-/home/jonah}/.omnibase/runners"
 RUNNER_ORG="$(runner_config_field github_org)"
 RUNNER_GROUP="$(runner_config_field runner_group)"
 RUNNER_NAME_PREFIX="$(runner_config_field runner_name_prefix)"
@@ -437,6 +449,7 @@ SYNC_PATHS=(
 DRY_RUN=false
 SKIP_BUILD=false
 SOFT_DEPLOY=false
+ARTIFACTS_ONLY=false
 ROLLING_DEPLOY=false
 # OMN-19077: scale the general pool DOWN to expected_count, one idle runner at
 # a time. See the --retire-surplus block in the header.
@@ -455,8 +468,7 @@ TARGET_HOST=""
 # OMN-19895: one of the target host row's `pools:`, by prefix. Empty means the
 # row's own prefix.
 TARGET_POOL=""
-# OMN-19895: true when --host names a host other than the primary. Such a host
-# is deployed by secondary_deploy and nothing else.
+# True when --host names a host other than the primary.
 SECONDARY_HOST=false
 # OMN-19895: the slice unit a pool declares, when it has one.
 POOL_SLICE_SOURCE=""
@@ -475,6 +487,7 @@ for arg in "$@"; do
         --dry-run)    DRY_RUN=true ;;
         --skip-build) SKIP_BUILD=true ;;
         --soft)       SOFT_DEPLOY=true ;;
+        --artifacts-only) ARTIFACTS_ONLY=true ;;
         --rolling)    ROLLING_DEPLOY=true ;;
         --retire-surplus) RETIRE_SURPLUS=true ;;
         --relabel)    RELABEL_ROLL=true; RELABEL_LABEL="${RELABEL_DEFAULT_LABEL}" ;;
@@ -492,19 +505,12 @@ for arg in "$@"; do
             echo "  --skip-build  Skip docker build (use existing image)"
             echo "  --soft        Update entrypoint in-place without destroying containers"
             echo "                (preserves cached credentials, skips registration token)"
-            echo "  --rolling     Recreate the fleet ONE runner at a time, skipping any"
-            echo "                runner executing a job. The only supported way to apply"
-            echo "                a container-env change (env is frozen at creation)."
-            echo "                Requires DEPLOY_RUNNER_TOKEN or --token-file, also"
-            echo "                in --dry-run, before any remote action."
-            echo "  --limit=N     With --rolling: stop after N successful recreates."
-            echo "                --limit=1 is the canary step of a fleet roll."
-            echo "  --only=NAME   With --rolling: converge exactly one fleet service,"
-            echo "                for a runner that stayed busy through every pass."
-            echo "  --token-file=PATH  With --rolling: a file holding a GitHub Actions"
-            echo "                registration token, used instead of DEPLOY_RUNNER_TOKEN."
-            echo "                Passed to each recreated runner, still busy-checked;"
-            echo "                the token value is never logged or written by this script."
+            echo "  --rolling     Recreate one idle runner at a time and wait for it online."
+            echo "                On the primary host: DEPLOY_RUNNER_TOKEN or --token-file."
+            echo "                On secondary hosts: a 0600 --token-file, including for --dry-run."
+            echo "  --limit=N     With --rolling: stop after N recreates. Use 1 for a canary."
+            echo "  --only=NAME   With --rolling: converge one declared pool service."
+            echo "  --token-file=PATH  Registration token file. Passed over SSH stdin."
             echo "  --add=LIST    Additively stand up the named DECLARED non-general-pool"
             echo "                services: 'up -d --no-deps LIST' with NEITHER"
             echo "                --force-recreate NOR --remove-orphans, no cron installs,"
@@ -523,14 +529,9 @@ for arg in "$@"; do
             echo "                Works on the primary host and with --host/--pool."
             echo "  --drain-timeout=SECONDS  With --relabel: how long to wait for busy"
             echo "                runners to go idle (default 1800)."
-            echo "  --host=NAME   Target one declared host from config/runner_fleet.yaml's"
-            echo "                hosts: inventory. Default: the primary host, which is"
-            echo "                what every invocation meant before the fleet had more"
-            echo "                than one machine. A non-primary host is stood up"
-            echo "                additively (see the header): --limit=N brings up only"
-            echo "                <prefix>-1..N, which is the canary step."
-            echo "  --pool=PREFIX With a non-primary --host: target one of that host"
-            echo "                row's pools: instead of the row's own prefix."
+            echo "  --host=NAME   Select a declared fleet host. Defaults to the primary."
+            echo "                Secondary hosts stand up additively unless --rolling is set."
+            echo "  --pool=PREFIX Select a declared additional pool of a secondary host."
             exit 0
             ;;
         *)
@@ -586,8 +587,8 @@ if [[ -n "${TARGET_HOST}" && "${TARGET_HOST}" != "${RUNNER_HOST}" ]]; then
     # the same path on a Linux host and a macOS host. Resolve it rather than
     # assuming, and fail if it cannot be resolved -- a wrong path here rsyncs
     # the fleet's artifacts into a directory nothing reads.
-    # --relabel probes the host even under --dry-run, so it needs the real path.
-    if ! "${DRY_RUN}" || "${RELABEL_ROLL}"; then
+    # The image roll resolves its host paths through its own handler.
+    if ! "${ROLLING_DEPLOY}" && { ! "${DRY_RUN}" || "${RELABEL_ROLL}"; }; then
         remote_home="$(ssh "${RUNNER_HOST}" 'printf %s "$HOME"')" || {
             echo "[deploy-runners] ERROR: cannot resolve \$HOME on ${RUNNER_HOST}" >&2
             exit 1
@@ -632,15 +633,6 @@ run_ssh() {
     ssh "${RUNNER_HOST}" "$1"
 }
 
-run_local() {
-    # Run a local command (suppressed in dry-run)
-    if "${DRY_RUN}"; then
-        log "[DRY RUN] local: $*"
-        return 0
-    fi
-    "$@"
-}
-
 # ---------------------------------------------------------------------------
 # Step 1: Fetch registration token
 # ---------------------------------------------------------------------------
@@ -651,20 +643,34 @@ fetch_registration_token() {
     local token
     token=$(gh api --method POST "/orgs/${RUNNER_ORG}/actions/runners/registration-token" --jq .token) \
         || err "gh api failed. Check gh auth and org admin permissions (need admin:org scope)."
-    if [[ -z "${token}" ]]; then
-        err "Registration token is empty. Check gh auth and org admin permissions."
-    fi
+    [[ -n "${token}" ]] || err "Registration token is empty. Check gh auth and org admin permissions."
     echo "${token}"
 }
 
 # ---------------------------------------------------------------------------
-# Step 2: Base64-encode token for safe SSH passing
+# Step 2: Hand the token to the host on ssh stdin (OMN-21765)
 # ---------------------------------------------------------------------------
+# The command string given to `ssh` becomes the argv of the remote shell, and
+# `ps` shows every argv to every login on the host for as long as the process
+# lives. A registration token (or a base64 of it, which is the same secret)
+# inside that string was therefore readable for the whole image build and
+# compose up. The token now travels on ssh stdin, which is not in any argv, and
+# is read into the remote shell's environment, where /proc/<pid>/environ is
+# mode 400 for its owner. printf is a builtin, so it is not in the local argv
+# either. The remote script text carries only the read, never a value.
 
-encode_token() {
-    local token="${1}"
-    # -w 0 prevents line wrapping (macOS base64 wraps at 76 chars by default)
-    echo -n "${token}" | base64 -w 0 2>/dev/null || echo -n "${token}" | base64 -b 0 2>/dev/null || echo -n "${token}" | base64
+# Remote shell fragment: read the token from stdin into RUNNER_TOKEN and export
+# it. Single-quoted on purpose: it is expanded by the REMOTE shell.
+REMOTE_READ_TOKEN='RUNNER_TOKEN=$(cat); if [ -z "${RUNNER_TOKEN}" ]; then echo "[deploy-runners] no registration token arrived on stdin" >&2; exit 64; fi; export RUNNER_TOKEN'
+
+# ssh_token_stdin <token> <remote script> [<prefix for the remote script>]
+ssh_token_stdin() {
+    local token="${1}" script="${2}" prefix="${3:-}"
+    if "${DRY_RUN}"; then
+        log "[DRY RUN] ssh ${RUNNER_HOST}: ${script} (registration token on stdin)"
+        return 0
+    fi
+    printf '%s' "${token}" | ssh "${RUNNER_HOST}" "${prefix}${script}"
 }
 
 # ---------------------------------------------------------------------------
@@ -859,8 +865,7 @@ install_runner_slice() {
 # ---------------------------------------------------------------------------
 
 deploy_runners() {
-    local token_b64="${1}"
-    local remote_token_b64="${token_b64}"
+    local token="${1}"
 
     # Keep the inactive candidate overlay on the normal deploy path as well as
     # the monitor repair path. Its defaults preserve the generic fleet, while
@@ -872,15 +877,11 @@ deploy_runners() {
 
     log "Deploying runners on ${RUNNER_HOST} (force-recreate ensures fresh env)..."
 
-    if "${DRY_RUN}"; then
-        remote_token_b64="<redacted-token-b64>"
-    fi
-
-    # Decode token on remote side to avoid shell metacharacter issues
-    run_ssh "
+    # The token arrives on stdin (see ssh_token_stdin); no metacharacter in it
+    # can reach a shell parser, so no encoding is needed either.
+    ssh_token_stdin "${token}" "
         set -euo pipefail
-        RUNNER_TOKEN=\$(echo '${remote_token_b64}' | base64 -d)
-        export RUNNER_TOKEN
+        ${REMOTE_READ_TOKEN}
         cd ${RUNNER_HOST_DIR}
         if [ '${SKIP_BUILD}' = 'false' ]; then
             bash scripts/ci/build_runner_image.sh --tag omninode-runner:latest
@@ -1131,12 +1132,10 @@ deploy_with_retry() {
         else
             token=$(fetch_registration_token)
         fi
-        local token_b64
-        token_b64=$(encode_token "${token}")
 
         rsync_artifacts
         install_runner_slice
-        deploy_runners "${token_b64}"
+        deploy_runners "${token}"
         install_prune_cron
         install_monitor_timers
         install_health_cron
@@ -1315,7 +1314,7 @@ install_host_artifact_freshness_cron() {
     log "Installing LOCAL runner host artifact-freshness cron..."
 
     if "${DRY_RUN}"; then
-        log "[DRY RUN] Would install local runner-host-artifact-freshness-check cron (every 30 min)."
+        log "[DRY RUN] Would install local runner-host-artifact-freshness-check cron (every 30 min) and the hook mount drift cron (every 15 min)."
         return 0
     fi
 
@@ -1336,14 +1335,20 @@ install_host_artifact_freshness_cron() {
     # the fleet; the fetch is part of the entry so the ref is not itself stale.
     local converge_line="*/30 * * * * cd ${repo_root} && git fetch --quiet origin dev && uv run python scripts/ci/check_runner_host_artifact_freshness.py --mode converge --ref origin/dev --runner-host ${RUNNER_HOST} --runner-host-dir ${RUNNER_HOST_DIR} >> ${log_dir}/converge.log 2>&1 # runner-host-hook-converge"
 
+    # OMN-22478: the hook mount drift check, tracked here. It reads the hook
+    # path each runner container EXECUTES (not the unused copy baked into the
+    # image) and alerts on a change in the finding count, as the host-only
+    # script it replaces did. That script's crontab entry (tag hook-mount-drift)
+    # is dropped below in the same write, so the alert has one source.
+    local drift_line="*/15 * * * * cd ${repo_root} && (uv run python -m omnibase_infra.nodes.node_deploy_runners.runtime_hook_mount_drift --hook-dir ${RUNNER_HOST_DIR}/docker/runners --container-match '^omninode-(runner-|deploy-runner$|verify-runner-|customer-plane-runner-)' --state-file ${log_dir}/hook-mount-drift.state --alert-env-file ${RUNNER_HOST_DIR}/.monitor-env --docker-timeout 60 --notify-timeout 20) >> ${log_dir}/hook-mount-drift.log 2>&1 # runner-host-hook-mount-drift"
+
     local existing
     existing=$(crontab -l 2>/dev/null || true)
     echo "${existing}" \
-        | grep -v 'runner-host-artifact-freshness-check' \
-        | grep -v 'runner-host-hook-converge' \
-        | { cat; echo "${cron_line}"; echo "${converge_line}"; } | crontab -
+        | grep -Ev 'runner-host-artifact-freshness-check|runner-host-hook-converge|runner-host-hook-mount-drift|# hook-mount-drift$' \
+        | { cat; echo "${cron_line}"; echo "${converge_line}"; echo "${drift_line}"; } | crontab -
 
-    log "Runner host artifact-freshness + hook-converge crons installed locally (every 30 minutes)."
+    log "Runner host artifact-freshness + hook-converge crons installed locally (every 30 minutes), hook mount drift every 15."
 }
 
 # ---------------------------------------------------------------------------
@@ -1376,19 +1381,30 @@ validate_add_services() {
     done
 }
 
+add_wait_target_idle() {
+    local name="${1}" waited=0
+    [[ "$(runner_container_state "${name}")" == "absent" ]] && return 0
+    until relabel_container_idle "${name}"; do
+        [[ "${waited}" -lt "${RELABEL_DRAIN_TIMEOUT_SECONDS}" ]] || return 1
+        sleep "${RELABEL_DRAIN_INTERVAL_SECONDS}"; waited=$((waited + RELABEL_DRAIN_INTERVAL_SECONDS))
+    done
+}
+
 add_services_deploy() {
     log "=== Additive deploy of: ${ADD_SERVICES} ==="
     validate_add_services
 
-    local reg_handle token_b64
-    if "${DRY_RUN}"; then
-        reg_handle="dry-run-handle"
-    else
-        # A brand-new container has NO cached registration to restore from, so
-        # unlike --rolling this path does need a real handle.
-        reg_handle="$(fetch_registration_token)"
+    # A brand-new container has NO cached registration to restore from, so
+    # unlike --rolling this path does need a real handle. It is the supplied one:
+    # this mode does not mint a token through gh (OMN-22604). The operator's
+    # command: gh api --method POST /orgs/OmniNode-ai/actions/runners/registration-token --jq .token > <token-file>
+    local reg_handle="dry-run-handle"
+    if ! "${DRY_RUN}"; then
+        reg_handle="${DEPLOY_RUNNER_TOKEN:-}"
+        # supplied_registration_token: --token-file when given, else DEPLOY_RUNNER_TOKEN.
+        [[ -z "${TOKEN_FILE}" ]] || reg_handle=$(<"${TOKEN_FILE}") || err "Cannot read --token-file=${TOKEN_FILE}."
+        [[ -n "${reg_handle//[[:space:]]/}" ]] || err "--add requires DEPLOY_RUNNER_TOKEN or --token-file with an org registration token (it mints none through gh). The operator mints one: gh api --method POST /orgs/${RUNNER_ORG}/actions/runners/registration-token --jq .token > <token-file>, then --token-file=<token-file>."
     fi
-    token_b64=$(encode_token "${reg_handle}")
 
     rsync_artifacts
 
@@ -1401,10 +1417,6 @@ add_services_deploy() {
     fi
 
     local compose_cmd="docker compose -f ${RUNNER_HOST_DIR}/docker/docker-compose.runners.yml -f ${RUNNER_HOST_DIR}/docker/docker-compose.model-review-canary.yml"
-    local remote_token_b64="${token_b64}"
-    if "${DRY_RUN}"; then
-        remote_token_b64="<redacted-token-b64>"
-    fi
 
     # No --force-recreate: additive means a converged container is left running.
     # No --remove-orphans: compose evaluates it against the WHOLE project even
@@ -1433,25 +1445,25 @@ add_services_deploy() {
     # Both want the same treatment. This is the one place `--add` is allowed to
     # recreate, and it can never reach a general-pool runner -- those are
     # refused at flag-validation time, before this runs.
-    local name state flags
+    # IDLE FIRST (OMN-22604): `up -d` recreates a running container whose
+    # rendered config changed, and a not-online one is forced to recreate, so
+    # either could kill a running job. Each existing target must read idle on the
+    # container's own evidence (relabel_container_idle, fail closed); one that
+    # stays busy or unreadable is left running and the run ends non-zero. The
+    # probe is read-only, so --dry-run runs it too, as --rolling's busy probes do.
+    local name state flags rc=0
     for name in ${ADD_SERVICES}; do
-        flags="--no-deps"
-        if "${DRY_RUN}"; then
-            state="$(github_runner_state "${name}" 2>/dev/null || echo "unknown unknown")"
-        else
-            state="$(github_runner_state "${name}")"
+        if ! add_wait_target_idle "${name}"; then
+            warn "  ${name} stayed busy or unreadable for ${RELABEL_DRAIN_TIMEOUT_SECONDS}s -- left running and untouched; rerun when it is idle."
+            rc=1; continue
         fi
-        if [[ "${state%% *}" == "online" ]]; then
-            log "  ${name} is already registered and online -- converging without recreate."
-        else
-            log "  ${name} is not registered (state: ${state%% *}) -- recreating so it re-reads its env."
-            flags="${flags} --force-recreate"
-        fi
+        state="$(github_runner_state "${name}")"
+        [[ "${state%% *}" == "online" ]] && flags="--no-deps" || flags="--no-deps --force-recreate"
+        log "  ${name} reads ${state%% *} on GitHub -- compose up -d ${flags} (an online runner is converged without recreate; one not registered is recreated so it re-reads its env)."
 
-        run_ssh "
+        ssh_token_stdin "${reg_handle}" "
         set -euo pipefail
-        RUNNER_TOKEN=\$(echo '${remote_token_b64}' | base64 -d)
-        export RUNNER_TOKEN
+        ${REMOTE_READ_TOKEN}
         # The non-general-pool services interpolate DEPLOY_RUNNER_TOKEN, not
         # RUNNER_TOKEN. Both are ORG registration tokens for the same org.
         DEPLOY_RUNNER_TOKEN=\"\${RUNNER_TOKEN}\"
@@ -1463,7 +1475,6 @@ add_services_deploy() {
 
     # Service name == container_name == RUNNER_NAME for every non-pool runner
     # in the compose file, which is what makes this an identity, not a lookup.
-    local name rc=0
     for name in ${ADD_SERVICES}; do
         if "${DRY_RUN}"; then
             log "[DRY RUN] would wait for ${name} to come online."
@@ -1510,6 +1521,13 @@ add_services_deploy() {
 ROLL_ONLINE_MAX_SECONDS="${ROLL_ONLINE_MAX_SECONDS:-240}"
 ROLL_ONLINE_INTERVAL_SECONDS="${ROLL_ONLINE_INTERVAL_SECONDS:-10}"
 ROLL_SKIP_RETRY_PASSES="${ROLL_SKIP_RETRY_PASSES:-2}"
+# OMN-21807: a recreate deletes the old container's layer, and containerd's
+# garbage collector holds its metadata write lock for that whole delete, so
+# every `docker rm` on the host blocks behind it. Docker lists the container
+# as Dead while that delete is pending. The roll waits for none to be listed
+# before it removes the next runner; the cap is generous because the measured
+# delete of a cache-filled layer took about 28 minutes (lane dev-restore-1515).
+ROLL_DEAD_MAX_SECONDS="${ROLL_DEAD_MAX_SECONDS:-3600}"
 
 fleet_services() {
     # Enumerate fleet services from the compose file itself, then cross-check
@@ -1618,12 +1636,10 @@ runner_is_idle() {
 }
 
 wait_for_runner_online() {
-    local name="${1}"
-    local elapsed=0
+    local name="${1}" elapsed=0 state
     while [[ "${elapsed}" -lt "${ROLL_ONLINE_MAX_SECONDS}" ]]; do
         sleep "${ROLL_ONLINE_INTERVAL_SECONDS}"
         elapsed=$((elapsed + ROLL_ONLINE_INTERVAL_SECONDS))
-        local state
         state=$(github_runner_state "${name}")
         if [[ "${state%% *}" == "online" ]]; then
             log "  ${name} back online after ~${elapsed}s."
@@ -1633,10 +1649,25 @@ wait_for_runner_online() {
     return 1
 }
 
+wait_for_no_dead_containers() {
+    # OMN-21807: block until `docker ps -a` on the runner host lists no Dead
+    # container, so a roll never queues a second removal behind the previous
+    # one's pending layer delete. Read-only, so it runs for real under --dry-run
+    # like the busy probes. A listing that cannot be read counts as not empty
+    # (fail closed): the lock that holds a delete can also stall the listing.
+    local elapsed=0
+    until [[ -z "$(ssh "${RUNNER_HOST}" "docker ps -a --filter status=dead --format '{{.Names}}'" 2>/dev/null || echo unreadable)" ]]; do
+        [[ "${elapsed}" -lt "${ROLL_DEAD_MAX_SECONDS}" ]] || return 1
+        log "  ${RUNNER_HOST} lists a Dead container (a layer delete is pending) or the listing is unreadable; waiting ..."
+        sleep "${ROLL_ONLINE_INTERVAL_SECONDS}"
+        elapsed=$((elapsed + ROLL_ONLINE_INTERVAL_SECONDS))
+    done
+}
+
 roll_one_runner() {
     local name="${1}"
     local compose_cmd="docker compose -f ${RUNNER_HOST_DIR}/docker/docker-compose.runners.yml -f ${RUNNER_HOST_DIR}/docker/docker-compose.model-review-canary.yml"
-    local mig_token="${2:-${DEPLOY_RUNNER_TOKEN:-}}" mig_token_b64
+    local mig_token="${2:-${DEPLOY_RUNNER_TOKEN:-}}"
     if [[ -z "${2:-}" && -n "${TOKEN_FILE}" ]]; then
         mig_token=$(<"${TOKEN_FILE}") || return 3
     fi
@@ -1644,6 +1675,11 @@ roll_one_runner() {
         warn "  ${name}: DEPLOY_RUNNER_TOKEN or --token-file is required -- refusing to recreate."
         return 3
     fi
+
+    # OMN-21807: wait for the previous runner's layer delete to finish BEFORE the
+    # idle re-check, which must stay immediately ahead of the stop: the wait can
+    # take most of an hour and a job can start in that time. Exit 4: not recreated.
+    wait_for_no_dead_containers || return 4
 
     # Re-check immediately before stopping: a job can start between the
     # selection pass and this call.
@@ -1690,11 +1726,9 @@ roll_one_runner() {
     # would delete containers this pass has not reached yet.
     # Pass the supplied handle at recreate time, without obtaining or persisting
     # one. The entrypoint can register even when its cache cannot be restored.
-    mig_token_b64=$(encode_token "${mig_token}")
-    ssh "${RUNNER_HOST}" "
+    ssh_token_stdin "${mig_token}" "
         set -euo pipefail
-        RUNNER_TOKEN=\$(echo '${mig_token_b64}' | base64 -d)
-        export RUNNER_TOKEN
+        ${REMOTE_READ_TOKEN}
         cd ${RUNNER_HOST_DIR}
         ${compose_cmd} up -d --force-recreate --no-deps --no-build ${name}
     " || return 1
@@ -1715,9 +1749,8 @@ rolling_deploy() {
     rsync_artifacts
     install_runner_slice
 
-    local services
+    local services total
     services=$(fleet_services)
-    local total
     total=$(printf '%s\n' "${services}" | grep -c .)
     log "Rolling ${total} fleet services on ${RUNNER_HOST}. Expect roughly $((total * 100 / 60)) minutes."
 
@@ -1740,8 +1773,7 @@ rolling_deploy() {
         log "Converging a single runner: ${ROLL_ONLY}."
     fi
 
-    local pass=0 done_count=0 failed="" rc
-    local skip_migration=()
+    local pass=0 done_count=0 failed="" rc skip_migration=()
     while [[ "${#pending[@]}" -gt 0 ]] && [[ "${pass}" -le "${ROLL_SKIP_RETRY_PASSES}" ]]; do
         [[ "${pass}" -eq 0 ]] || log "--- retry pass ${pass} for ${#pending[@]} runner(s) that were busy earlier ---"
         local next=()
@@ -1773,7 +1805,7 @@ rolling_deploy() {
     done
 
     if [[ -n "${failed}" ]]; then
-        err "HALTED at ${failed}: it did not come back online within ${ROLL_ONLINE_MAX_SECONDS}s. ${done_count}/${total} rolled; the rest still carry the previous container env. Investigate that container before resuming -- do NOT retry blindly, a wedged removal spawns another wedged container."
+        err "HALTED at ${failed}: it did not come back online within ${ROLL_ONLINE_MAX_SECONDS}s, or the host still lists a Dead container (an earlier removal is still deleting its layer) after ${ROLL_DEAD_MAX_SECONDS}s, in which case nothing was recreated. ${done_count}/${total} rolled; the rest still carry the previous container env. Investigate that container before resuming -- do NOT retry blindly, a wedged removal spawns another wedged container."
     fi
 
     log "Rolled ${done_count}/${total} runners."
@@ -1809,29 +1841,14 @@ host_surplus_runners() {
         | sort -n | cut -d' ' -f2 || true
 }
 
-container_is_running() {
-    # 0 running, 1 not running, 2 unknown (fail closed: callers treat 2 as busy).
-    local state
-    state=$(ssh "${RUNNER_HOST}" "docker inspect -f '{{.State.Running}}' ${1}" 2>/dev/null) || return 2
-    state="${state//[$'\r\n ']/}"
-    case "${state}" in
-        true) return 0 ;;
-        false) return 1 ;;
-        *) return 2 ;;
-    esac
-}
-
 surplus_runner_is_idle() {
-    # A stopped container runs no job. A running one must pass the SAME
-    # two-signal check --rolling uses (runner_is_idle): GitHub online and not
-    # busy, and no Runner.Worker in the container's process list.
-    local rc=0
-    container_is_running "${1}" || rc=$?
-    case "${rc}" in
-        0) runner_is_idle "${1}" ;;
-        1) return 0 ;;
-        *) return 1 ;;
-    esac
+    # Judged on the container's own evidence (OMN-24864), as --relabel and --add
+    # do: a stopped container runs no job; a running one needs no Runner.Worker
+    # in `docker top` AND no unfinished "Running job:" in its listener log.
+    # No GitHub read, so a caller without org admin read (a lane, a host timer)
+    # can retire a surplus runner, and a dead listener (OMN-22478, GitHub
+    # "offline") reads idle on the same evidence. Unreadable is not idle.
+    relabel_container_idle "${1}"
 }
 
 github_runner_id() {
@@ -1984,10 +2001,6 @@ secondary_ssh() {
 # The compose variables this file reads a registration token from. The .200 and
 # .202 verify files predate this function and each named their own; reading the
 # names from the file keeps them working without editing a live runner's file.
-secondary_token_vars() {
-    grep -oE 'RUNNER_TOKEN:[[:space:]]*\$\{[A-Z0-9_]+' "${REPO_ROOT}/${COMPOSE_FILE}" \
-        | sed -E 's/.*\$\{//' | sort -u
-}
 
 secondary_target_names() {
     local count="${RUNNER_COUNT}" i
@@ -1997,6 +2010,11 @@ secondary_target_names() {
     for i in $(seq 1 "${count}"); do
         echo "${RUNNER_NAME_PREFIX}-${i}"
     done
+}
+
+# OMN-19998: dispatch preparation through the contract-backed effect.
+ensure_runner_tmp_dirs() {
+    jq -n --arg host "${RUNNER_HOST}" --arg host_dir "${RUNNER_HOST_DIR}" --arg compose_file "${REPO_ROOT}/${COMPOSE_FILE}" --arg prefix "${RUNNER_NAME_PREFIX}" --argjson count "${RUNNER_COUNT}" --argjson dry_run "${DRY_RUN}" --argjson secondary "${SECONDARY_HOST}" --arg fleet_config "${RUNNER_FLEET_CONFIG}" --arg clone_root "${OMNI_HOME:-}" '$ARGS.named | with_entries(select(.value != ""))' | uv run --frozen --project "${REPO_ROOT}" python -c 'from omnibase_infra.cli.cli_node import run_node_by_name; run_node_by_name()' node_deploy_runners --contract "${REPO_ROOT}/src/omnibase_infra/nodes/node_deploy_runners/contract.yaml" --input /dev/stdin --backend event_bus=inmemory --state-root "${ONEX_STATE_DIR:-${REPO_ROOT}/.onex_state}/runner-tmp"
 }
 
 # One registry read, then "<name> <status>" per target name ("unknown" when the
@@ -2021,7 +2039,7 @@ secondary_deploy() {
     log "=== Secondary-host stand-up: ${RUNNER_NAME_PREFIX} on ${RUNNER_HOST} ==="
     [[ -f "${REPO_ROOT}/${COMPOSE_FILE}" ]] || err "missing ${COMPOSE_FILE}"
     local token_vars
-    token_vars=$(secondary_token_vars)
+    token_vars=$(relabel_token_vars)
     [[ -n "${token_vars}" ]] || err "${COMPOSE_FILE} reads no RUNNER_TOKEN variable; refusing to create runners that cannot register."
 
     local names
@@ -2040,6 +2058,8 @@ secondary_deploy() {
         log "[DRY RUN] rsync ${COMPOSE_FILE}${POOL_SLICE_SOURCE:+ and ${POOL_SLICE_SOURCE#${REPO_ROOT}/}} -> ${RUNNER_HOST}:${RUNNER_HOST_DIR}/"
     fi
 
+    ensure_runner_tmp_dirs
+
     if ! "${SKIP_BUILD}"; then
         secondary_ssh "set -euo pipefail; cd ${RUNNER_HOST_DIR} && bash scripts/ci/build_runner_image.sh --tag omninode-runner:latest"
     fi
@@ -2048,11 +2068,7 @@ secondary_deploy() {
 
     local compose_cmd="docker compose -p ${RUNNER_NAME_PREFIX} -f ${RUNNER_HOST_DIR}/${COMPOSE_FILE}"
 
-    # Fail closed on the host's own variable contract (docker/.env beside the
-    # file, lab credentials) BEFORE a token is minted.
-    secondary_ssh "set -euo pipefail; $(for v in ${token_vars}; do printf 'export %s=preflight; ' "${v}"; done) ${compose_cmd} config -q" \
-        || err "${COMPOSE_FILE} does not render on ${RUNNER_HOST}; a required variable (docker/.env beside it) or file is missing there."
-
+    # The preparation effect already rendered the host variable contract.
     local states
     if "${DRY_RUN}"; then
         states=$(printf '%s unknown\n' ${names})
@@ -2061,15 +2077,12 @@ secondary_deploy() {
         [[ -n "${states}" ]] || err "the org runner registry read came back empty; refusing to decide what to create"
     fi
 
-    local reg_handle token_b64 remote_token_b64
+    local reg_handle
     if "${DRY_RUN}"; then
         reg_handle="dry-run-handle"
     else
         reg_handle="$(fetch_registration_token)"
     fi
-    token_b64=$(encode_token "${reg_handle}")
-    remote_token_b64="${token_b64}"
-    "${DRY_RUN}" && remote_token_b64="<redacted-token-b64>"
     local exports=""
     local v
     for v in ${token_vars}; do
@@ -2091,12 +2104,15 @@ secondary_deploy() {
         fi
         log "  ${name} is ${status} -- creating it so it registers with a fresh token."
         flags="--no-deps --force-recreate"
-        secondary_ssh "
+        # stdin carries the token, so the here-string loop's own stdin is not
+        # inherited by this ssh (see secondary_ssh for why that matters).
+        ssh_token_stdin "${reg_handle}" "
             set -euo pipefail
-            handle=\$(echo '${remote_token_b64}' | base64 -d)
+            handle=\$(cat)
+            if [ -z \"\${handle}\" ]; then echo '[deploy-runners] no registration token arrived on stdin' >&2; exit 64; fi
             ${exports}
             ${compose_cmd} up -d ${flags} ${name}
-        " || err "compose up failed for ${name} on ${RUNNER_HOST}"
+        " "${SECONDARY_PATH_PREAMBLE} " || err "compose up failed for ${name} on ${RUNNER_HOST}"
     done <<< "${states}"
 
     if "${DRY_RUN}"; then
@@ -2177,7 +2193,7 @@ relabel_compose_cmd() {
 # The compose variables the file reads a registration token from.
 relabel_token_vars() {
     if "${SECONDARY_HOST}"; then
-        secondary_token_vars
+        grep -oE 'RUNNER_TOKEN:[[:space:]]*\$\{[A-Z0-9_]+' "${REPO_ROOT}/${COMPOSE_FILE}" | sed -E 's/.*\$\{//' | sort -u
     else
         echo "RUNNER_TOKEN"
     fi
@@ -2450,6 +2466,7 @@ relabel_roll() {
     log "Targets (${total}): ${targets[*]}"
 
     relabel_sync_compose
+    ensure_runner_tmp_dirs
 
     RELABEL_SNAPSHOT_FILE=$(mktemp)
     RELABEL_PLAN_FILE=$(mktemp)
@@ -2540,12 +2557,19 @@ relabel_roll() {
 
 main() {
     log "Starting deploy-runners.sh (dry_run=${DRY_RUN}, skip_build=${SKIP_BUILD}, soft=${SOFT_DEPLOY}, rolling=${ROLLING_DEPLOY}, retire_surplus=${RETIRE_SURPLUS}, add=${ADD_SERVICES:-<none>})"
-    log "Target host: ${RUNNER_HOST} | Org: ${RUNNER_ORG} | Group: ${RUNNER_GROUP}"
-    log "Runner count: ${RUNNER_COUNT} | Compose file: ${COMPOSE_FILE}"
+    log "Target host: ${RUNNER_HOST} | Org: ${RUNNER_ORG} | Group: ${RUNNER_GROUP} | Runner count: ${RUNNER_COUNT} | Compose file: ${COMPOSE_FILE}"
 
-    if "${DRY_RUN}"; then
-        log "[DRY RUN MODE] No remote commands will be executed."
+    if "${DRY_RUN}"; then log "[DRY RUN MODE] No remote commands will be executed."; fi
+
+    if "${SECONDARY_HOST}" && "${ROLLING_DEPLOY}"; then
+        if "${RELABEL_ROLL}" || "${SOFT_DEPLOY}" || "${RETIRE_SURPLUS}" || "${ARTIFACTS_ONLY}" || [[ -n "${ADD_SERVICES}" ]]; then err "Secondary --rolling is mutually exclusive with every other deploy mode."; fi
+        [[ -n "${TOKEN_FILE}" ]] || err "Secondary --rolling requires --token-file, including for --dry-run."
+        jq -n --arg host "${RUNNER_HOST}" --arg prefix "${RUNNER_NAME_PREFIX}" --arg repo_root "${REPO_ROOT}" --arg fleet_config "${RUNNER_FLEET_CONFIG}" --arg token_path "${TOKEN_FILE}" --arg only "${ROLL_ONLY}" --arg limit "${ROLL_LIMIT}" --argjson dry_run "${DRY_RUN}" --argjson skip_build "${SKIP_BUILD}" '$ARGS.named | .limit |= tonumber' |
+            uv run --frozen --project "${REPO_ROOT}" python -c 'from omnibase_infra.cli.cli_node import run_node_by_name; run_node_by_name()' node_runner_image_roll --contract "${REPO_ROOT}/src/omnibase_infra/nodes/node_runner_image_roll/contract.yaml" --input /dev/stdin --backend event_bus=inmemory --timeout 9600 --state-root "${ONEX_STATE_DIR:-${REPO_ROOT}/.onex_state}/runner-image-roll"
+        return
     fi
+
+    if "${ARTIFACTS_ONLY}"; then rsync_artifacts; return 0; fi
 
     if "${RELABEL_ROLL}"; then
         if "${SOFT_DEPLOY}" || "${ROLLING_DEPLOY}" || "${RETIRE_SURPLUS}" || [[ -n "${ADD_SERVICES}" ]]; then
@@ -2557,8 +2581,8 @@ main() {
     fi
 
     if "${SECONDARY_HOST}"; then
-        if "${SOFT_DEPLOY}" || "${ROLLING_DEPLOY}" || "${RETIRE_SURPLUS}" || [[ -n "${ADD_SERVICES}" ]]; then
-            err "--soft, --rolling, --retire-surplus and --add are written against the primary host's compose file; a non-primary --host is stood up by the secondary path only (see the header)."
+        if "${SOFT_DEPLOY}" || "${RETIRE_SURPLUS}" || [[ -n "${ADD_SERVICES}" ]]; then
+            err "--soft, --retire-surplus and --add require the primary host."
         fi
         secondary_deploy
         log "=== deploy-runners.sh complete (${RUNNER_NAME_PREFIX} on ${RUNNER_HOST}) ==="

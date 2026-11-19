@@ -26,7 +26,11 @@ INACCURATE_SPLINE_EXTRAPOLATION = False
 
 
 class KnowWhatYouAreDoingWarning(PipelineWarning):
-    pass
+    """Used when results are computed with a discouraged method
+
+    E.g. issued by :func:`extrapolate_emodulus` when the Young's
+    modulus is extrapolated outside of the look-up table.
+    """
 
 
 class YoungsModulusLookupTableExceededWarning(PipelineWarning):
@@ -44,12 +48,12 @@ def extrapolate_emodulus(lut: npt.NDArray,
 
     When points (`datax`, `deform`) are outside the convex
     hull of the lut, then :func:`scipy.interpolate.griddata` returns
-    nan-valules.
+    nan-values.
 
     With this function, some of these nan-values are extrapolated
     using :class:`scipy.interpolate.SmoothBivariateSpline`. The
     supported extrapolation values are currently limited to those
-    where the deformation is above 0.05.
+    where the deformation is above `deform_thresh` (0.05 by default).
 
     A warning will be issued, because this is not really
     recommended.
@@ -64,7 +68,7 @@ def extrapolate_emodulus(lut: npt.NDArray,
     deform: ndarray of size N
         The normalized deform (corresponding to `lut[:, 1]`)
     emod: ndarray of size N
-        The emodulus (corresponding to `lut[:, 2]`); If `emod`
+        The emodulus (corresponding to `lut[:, 2]`); if `emod`
         does not contain nan-values, there is nothing to do here.
     deform_norm
         The normalization value used to normalize `lut[:, 1]` and
@@ -78,6 +82,12 @@ def extrapolate_emodulus(lut: npt.NDArray,
     inplace
         If True (default), replaces nan values in `emod` in-place.
         If False, `emod` is not modified.
+
+    Returns
+    -------
+    emod: ndarray
+        `emod` with extrapolated values (the input array if `inplace`
+        is True, otherwise a copy)
     """
     if not inplace:
         emod = np.array(emod, copy=True)
@@ -90,7 +100,7 @@ def extrapolate_emodulus(lut: npt.NDArray,
         return emod
 
     warnings.warn("LUT extrapolation is barely tested and may yield "
-                  + "unphysical values!",
+                  "unphysical values!",
                   KnowWhatYouAreDoingWarning)
 
     lut_crop = lut[lut[:, 1] > deform_thresh/deform_norm, :]
@@ -104,6 +114,16 @@ def extrapolate_emodulus(lut: npt.NDArray,
     return emod
 
 
+def _float_array(data, copy: bool) -> npt.NDArray:
+    """Return `data` as a float array, copy only if necessary or `copy`"""
+    if copy:
+        return np.array(data, dtype=float)
+    else:
+        # Note that `np.array(data, copy=False)` raises a ValueError
+        # in NumPy 2 if a copy is required (e.g. for lists).
+        return np.asarray(data, dtype=float)
+
+
 def get_emodulus(deform: float | npt.NDArray,
                  area_um: float | npt.NDArray | None = None,
                  volume: float | npt.NDArray | None = None,
@@ -114,11 +134,11 @@ def get_emodulus(deform: float | npt.NDArray,
                  temperature: float | npt.NDArray | None = 23.0,
                  lut_data: (str | pathlib.Path |
                             tuple[npt.NDArray, dict]) = "LE-2D-FEM-19",
-                 visc_model: Literal['herold-2017',
-                                     'herold-2017-fallback',
-                                     'buyukurganci-2022',
-                                     'kestin-1978',
-                                     None] = "herold-2017-fallback",
+                 visc_model: (Literal["herold-2017",
+                                      "herold-2017-fallback",
+                                      "buyukurganci-2022",
+                                      "kestin-1978"]
+                              | None) = "herold-2017-fallback",
                  extrapolate: bool = INACCURATE_SPLINE_EXTRAPOLATION,
                  copy: bool = True) -> npt.NDArray:
     """Compute apparent Young's modulus using a look-up table
@@ -148,7 +168,7 @@ def get_emodulus(deform: float | npt.NDArray,
         Set to zero to disable.
     temperature
         Temperature [°C] of the event(s)
-    lut_data: str, path, or tuple of (np.ndarray of shape (N, 3), dict)
+    lut_data: str, pathlib.Path, or tuple of (np.ndarray of shape (N, 3), dict)
         The LUT data to use. If it is a built-in identifier,
         then the respective LUT will be used. Otherwise, a path to a
         file on disk or a tuple (LUT array, metadata) is possible.
@@ -164,7 +184,8 @@ def get_emodulus(deform: float | npt.NDArray,
         is discouraged!
     copy
         Copy input arrays. If set to False, input arrays are
-        overridden.
+        overwritten (only applies to float arrays, other input
+        data are always copied).
 
     Returns
     -------
@@ -173,14 +194,14 @@ def get_emodulus(deform: float | npt.NDArray,
 
     Notes
     -----
-    - The look-up table used was computed with finite elements methods
+    - The look-up table used was computed with finite element methods
       according to :cite:`Mokbel2017` and complemented with analytical
       isoelastics from :cite:`Mietke2015`. The original simulation
       results are available on figshare :cite:`FigshareWittwer2020`.
     - The computation of the Young's modulus takes into account
       a correction for the viscosity (medium, channel width, flow rate,
       and temperature) :cite:`Mietke2015` and a correction for
-      pixelation for the deformation which were derived
+      pixelation of the deformation, which is derived
       from a (pixelated) image :cite:`Herold2017`.
     - Note that while deformation is pixelation-corrected, area_um and
       volume are scaled to match the LUT data. This is somewhat
@@ -201,15 +222,15 @@ def get_emodulus(deform: float | npt.NDArray,
     featx, featy, _ = lut_meta["column features"]
     if featx == "area_um" and featy == "deform":
         assert volume is None, "Don't define area_um and volume at same time!"
-        datax = np.array(area_um, dtype=float, copy=copy)
+        datax = _float_array(area_um, copy)
     elif featx == "volume" and featy == "deform":
         assert area_um is None, "Don't define area_um and volume at same time!"
-        datax = np.array(volume, dtype=float, copy=copy)
+        datax = _float_array(volume, copy)
     else:
-        raise KeyError("No recipe for '{}' and '{}'!".format(featx, featy))
+        raise KeyError(f"No recipe for '{featx}' and '{featy}'!")
 
     # copy deform so we can use in-place pixel correction
-    deform = np.array(deform, dtype=float, copy=copy)
+    deform = _float_array(deform, copy)
     if px_um:
         # Correct deformation for pixelation effect (subtract ddelt).
         # It is important to do this before scaling datax (area_um/volume).
@@ -222,10 +243,10 @@ def get_emodulus(deform: float | npt.NDArray,
     if isinstance(medium, numbers.Number):
         visco = medium
         if temperature is not None:
-            raise ValueError("If `medium` is given in Pa*s, then "
-                             + "`temperature` must be set to None!")
+            raise ValueError("If `medium` is given in mPa*s, then "
+                             "`temperature` must be set to None!")
         if visc_model is not None:
-            warnings.warn("If `medium` is given in Pa*s, then `visc_model` "
+            warnings.warn("If `medium` is given in mPa*s, then `visc_model` "
                           "must be set to None. An exception will be raised "
                           "in future versions of dclab.",
                           DeprecationWarning)
@@ -241,7 +262,7 @@ def get_emodulus(deform: float | npt.NDArray,
                     "channel_width_out": lut_meta["channel_width"],
                     "inplace": False}
         datax_4lut = scale_feature(feat=featx, data=datax, **scale_kw)
-        deform_4lut = np.array(deform, dtype=float, copy=copy)
+        deform_4lut = _float_array(deform, copy)
 
         # Normalize interpolation data such that the spacing for
         # area and deformation is about the same during interpolation.
@@ -256,7 +277,7 @@ def get_emodulus(deform: float | npt.NDArray,
         # Perform interpolation
         emod = spint.griddata((lut[:, 0], lut[:, 1]), lut[:, 2],
                               (datax_4lut, deform_4lut),
-                              method='linear')
+                              method="linear")
 
         if extrapolate:
             # New in dclab 0.23.0: Perform extrapolation outside of the LUT
@@ -308,7 +329,7 @@ def get_emodulus(deform: float | npt.NDArray,
         # Perform interpolation
         emod = spint.griddata((lut[:, 0], lut[:, 1]), lut[:, 2],
                               (datax, deform),
-                              method='linear')
+                              method="linear")
 
         if extrapolate:
             # New in dclab 0.23.0: Perform extrapolation outside of the LUT
@@ -324,9 +345,9 @@ def get_emodulus(deform: float | npt.NDArray,
     nans = np.sum(np.isnan(emod))
     if nans / emod.size > 0.1:
         warnings.warn("The Young's modulus could not be computed for "
-                      + "{:.0f}% of the data. ".format(nans/emod.size*100)
-                      + "This is because they are not covered by the "
-                      + "look-up table '{}'.".format(lut_data),
+                      f"{nans/emod.size*100:.0f}% of the data. "
+                      "This is because they are not covered by the "
+                      f"look-up table '{lut_data}'.",
                       YoungsModulusLookupTableExceededWarning)
 
     return emod

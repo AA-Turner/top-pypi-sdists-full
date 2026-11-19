@@ -15,35 +15,11 @@ import pytest
 from invisible_core.constants import (
     ARCHIVE_NAME,
     BINARY_BASENAME,
-    BINARY_ENTRY_REL,
     BINARY_VERSION,
-    BROKEN_VERSIONS,
     FIREFOX_UPSTREAM_VERSION,
     RELEASE_URL_TEMPLATE,
 )
-from invisible_core.seal import SUPPORTED_LEGS, active_seal
-
-
-@pytest.mark.unit
-def test_broken_versions_is_retired_but_still_importable():
-    """BROKEN_VERSIONS is an empty frozenset by design and stays exported only so
-    an older import site does not break.
-
-    It used to carry firefox-8, published without the juggler and therefore
-    undrivable by Playwright. Two things replaced it, and neither is a list:
-    ensure_binary refuses every tag but the sealed one, and verify_engine refuses
-    any tree with no juggler directory on every route into a launch. The assertion
-    that a superseded build cannot be handed to a user now lives in
-    invisible_core/tests/test_seal_engine_guard.py::test_tree_without_juggler_is_refused
-    and invisible_core/tests/test_seal_cache.py
-    ::test_pin_to_another_tag_is_refused_without_touching_the_network.
-
-    Kept as an emptiness assertion rather than deleted: a non-empty
-    BROKEN_VERSIONS would mean someone re-introduced a blacklist that nothing
-    reads, which is worse than not having one.
-    """
-    assert BROKEN_VERSIONS == frozenset()
-    assert BINARY_VERSION not in BROKEN_VERSIONS
+from invisible_core.seal import DEFAULT_ENTRY_REL, SUPPORTED_LEGS, active_seal
 
 
 @pytest.mark.unit
@@ -161,14 +137,14 @@ def test_archive_name_rejects_unsupported_platforms(platform_key):
         ARCHIVE_NAME(platform_key, "x86_64")
 
 
-# ---- ARCHIVE_NAME â†” BINARY_ENTRY_REL invariant ---------------------------- #
-# For every supported platform there MUST be an entry in BINARY_ENTRY_REL,
+# ---- ARCHIVE_NAME â†” DEFAULT_ENTRY_REL invariant ---------------------------- #
+# For every supported platform there MUST be an entry in DEFAULT_ENTRY_REL,
 # otherwise ensure_binary() will raise NotImplementedError AFTER having
 # already downloaded a 110 MB tarball - terrible UX.
 
 @pytest.mark.unit
 def test_binary_entry_rel_covers_every_supported_platform():
-    """If ARCHIVE_NAME accepts a platform key, BINARY_ENTRY_REL must declare
+    """If ARCHIVE_NAME accepts a platform key, DEFAULT_ENTRY_REL must declare
     where the executable lives inside the archive for it.
 
     ⛔ The platform list used to be hand-written - `["win32", "linux",
@@ -180,8 +156,8 @@ def test_binary_entry_rel_covers_every_supported_platform():
     """
     for plat, arch in SUPPORTED_LEGS:
         ARCHIVE_NAME(plat, arch)  # must not raise
-        assert plat in BINARY_ENTRY_REL, (
-            f"ARCHIVE_NAME accepts {plat!r} but BINARY_ENTRY_REL has no entry "
+        assert plat in DEFAULT_ENTRY_REL, (
+            f"ARCHIVE_NAME accepts {plat!r} but DEFAULT_ENTRY_REL has no entry "
             f"- ensure_binary() will fail late after a 110 MB download."
         )
 
@@ -189,10 +165,9 @@ def test_binary_entry_rel_covers_every_supported_platform():
 @pytest.mark.unit
 def test_binary_entry_rel_extension_matches_platform():
     """firefox.exe on Windows, plain `firefox` on Linux."""
-    assert BINARY_ENTRY_REL["win32"].endswith(".exe")
-    assert not BINARY_ENTRY_REL["linux"].endswith(".exe")
-    assert BINARY_ENTRY_REL["linux"] == "firefox"
-    assert BINARY_ENTRY_REL["darwin"].endswith(".app/Contents/MacOS/firefox")
+    assert DEFAULT_ENTRY_REL["win32"].endswith(".exe")
+    assert not DEFAULT_ENTRY_REL["linux"].endswith(".exe")
+    assert DEFAULT_ENTRY_REL["linux"] == "firefox"
 
 
 # ---- RELEASE_URL_TEMPLATE shape ------------------------------------------- #

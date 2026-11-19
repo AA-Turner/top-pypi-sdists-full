@@ -40,6 +40,7 @@ ListHumanLoopsPaginatorName = Literal["list_human_loops"]
 SortOrderType = Literal["Ascending", "Descending"]
 AugmentedAIRuntimeServiceName = Literal["sagemaker-a2i-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

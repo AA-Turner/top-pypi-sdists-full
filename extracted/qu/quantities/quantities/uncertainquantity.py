@@ -1,13 +1,22 @@
 """
 """
 
-import numpy as np
 import warnings
 
-from . import markup, QuantitiesDeprecationWarning
-from .quantity import Quantity, scale_other_units
-from .registry import unit_registry
+import numpy as np
+
+from . import QuantitiesDeprecationWarning, markup
 from .decorators import with_doc
+from .quantity import Quantity, scale_other_units
+
+
+def _uncertainty_of(q):
+    """Return the uncertainty of a Quantity, which is zero if it has none."""
+    try:
+        return q.uncertainty
+    except AttributeError:
+        return Quantity(np.zeros(q.shape), q._dimensionality)
+
 
 class UncertainQuantity(Quantity):
 
@@ -26,10 +35,7 @@ class UncertainQuantity(Quantity):
         if uncertainty is not None:
             ret.uncertainty = Quantity(uncertainty, ret._dimensionality)
         elif isinstance(data, UncertainQuantity):
-            is_copy = id(data) == id(ret)
-            if is_copy or ret._dimensionality != uncertainty._dimensionality:
-                uncertainty = data.uncertainty.rescale(ret.units)
-            ret.uncertainty = uncertainty
+            ret.uncertainty = data.uncertainty.rescale(ret.units)
 
         return ret
 
@@ -91,7 +97,7 @@ class UncertainQuantity(Quantity):
     @scale_other_units
     def __add__(self, other):
         res = super().__add__(other)
-        u = (self.uncertainty**2+other.uncertainty**2)**0.5
+        u = (self.uncertainty**2+_uncertainty_of(other)**2)**0.5
         return UncertainQuantity(res, uncertainty=u)
 
     @with_doc(Quantity.__radd__, use_header=False)
@@ -103,7 +109,7 @@ class UncertainQuantity(Quantity):
     @scale_other_units
     def __sub__(self, other):
         res = super().__sub__(other)
-        u = (self.uncertainty**2+other.uncertainty**2)**0.5
+        u = (self.uncertainty**2+_uncertainty_of(other)**2)**0.5
         return UncertainQuantity(res, uncertainty=u)
 
     @with_doc(Quantity.__rsub__, use_header=False)
@@ -188,11 +194,7 @@ class UncertainQuantity(Quantity):
             dims = self.dimensionality.unicode
         else:
             dims = self.dimensionality.string
-        s = '%s %s\n+/-%s (1 sigma)'%(
-            str(self.magnitude),
-            dims,
-            str(self.uncertainty)
-        )
+        s = f'{str(self.magnitude)} {dims}\n+/-{str(self.uncertainty)} (1 sigma)'
         if markup.config.use_unicode:
             return s.replace('+/-', '±').replace(' sigma', 'σ')
         return s

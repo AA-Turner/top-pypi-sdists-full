@@ -36,7 +36,7 @@ flow_editor/org_id,ws_id,flow_folder_id:
     - dh_viewer_sandbox/org_id,ws_id
     - w:flows/org_id,ws_id,flow_folder_id,{env=*}
     - d:flows/org_id,ws_id,flow_folder_id,{env=*}
-    - w:jobs/org_id,ws_id,flow_folder_id
+    - w+d:jobs/org_id,ws_id,flow_folder_id
     - d:job_run/org_id,ws_id,flow_folder_id,{env=sandbox}
     - d:job_run/org_id,ws_id,flow_folder_id,{env=test}
 flow_deployer/org_id,ws_id,flow_folder_id:

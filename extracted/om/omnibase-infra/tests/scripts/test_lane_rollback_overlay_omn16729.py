@@ -53,6 +53,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "runtime_build"))
 
 INFRA_YML = "docker-compose.infra.yml"
 DEV_LANE_YML = "docker-compose.dev-lane.yml"
+DEV_TENANT_FOLD_YML = "docker-compose.dev-tenant-fold.yml"
 STABILITY_YML = "docker-compose.stability-test.yml"
 
 
@@ -84,6 +85,14 @@ def _print_rollback_cmd(tmp_path: Path) -> list[str]:
     # This is a print-only fixture; its deployment command is never executed.
     env["DEPLOY_RUNTIME"] = "true"
     env.pop("OMNIBASE_INFRA_COMPOSE_PROJECT", None)
+    # The refresh renders the embedding address from the llm_endpoints overlay and
+    # refuses without one (OMN-24081): a synthetic root, a documentation-range address.
+    overlay_root = tmp_path / "overlay-root"
+    (overlay_root / "llm_endpoints").mkdir(parents=True)
+    (overlay_root / "llm_endpoints" / "overlay.yaml").write_text(
+        "schema_version: 1\nendpoint_urls:\n  embeddings-201: http://192.0.2.50:8100\n"
+    )
+    env["ONEX_SKILL_OVERLAY_ROOTS"] = str(overlay_root)
     # The script requires docker/git/curl/jq on PATH before it will print.
     result = subprocess.run(
         ["bash", str(REFRESH_DEV), "--print-rollback-cmd"],
@@ -123,7 +132,7 @@ def test_dev_rollback_command_carries_both_compose_files(tmp_path: Path) -> None
 
     assert argv[:2] == ["docker", "compose"], argv
     files = _f_paths(argv)
-    assert files == [INFRA_YML, DEV_LANE_YML], (
+    assert files == [INFRA_YML, DEV_LANE_YML, DEV_TENANT_FOLD_YML], (
         "the rollback recreate must layer the dev-lane overlay -- it is the sole "
         f"declaration of the runtime family's KAFKA_SASL_* env. Got {files} from {argv}"
     )
@@ -163,14 +172,14 @@ def test_red_control_pre_fix_rollback_command_carries_only_one_compose_file(
     ]
     assert _f_paths(pre_fix_argv) == [INFRA_YML]
     with pytest.raises(AssertionError):
-        assert _f_paths(pre_fix_argv) == [INFRA_YML, DEV_LANE_YML]
+        assert _f_paths(pre_fix_argv) == [INFRA_YML, DEV_LANE_YML, DEV_TENANT_FOLD_YML]
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("compose_project", "expected"),
     [
-        ("omnibase-infra", [INFRA_YML, DEV_LANE_YML]),
+        ("omnibase-infra", [INFRA_YML, DEV_LANE_YML, DEV_TENANT_FOLD_YML]),
         ("omnibase-infra-stability-test", [INFRA_YML, STABILITY_YML]),
         ("omnibase-infra-prod", [INFRA_YML, "docker-compose.prod.yml"]),
         ("omnibase-infra-judge", [INFRA_YML, "docker-compose.judge.yml"]),

@@ -273,6 +273,15 @@ def test_float_as_bool() -> None:
     check_states(f, CONFIRMED)
 
 
+def test_int_beyond_digit_limit(space, small_int_str_digit_limit):
+    value = 10**700 + 123
+    x = proxy_for_type(int, "x")
+    with ResumedTracing():
+        assert space.is_possible(x < value)
+        space.add(x == value)
+        assert realize(x) == value
+
+
 def test_int_reverse_operators() -> None:
     def f(i: int) -> float:
         """
@@ -439,9 +448,9 @@ def test_int_eq_ieee_negative_zero():
     # promotes the int to a float and dispatches through numeric_binop/apply_smt.
     with standalone_statespace as space:
         with NoTracing():
-            space.extra(ModelingDirector).global_representations[
-                float
-            ] = PreciseIeeeSymbolicFloat
+            space.extra(ModelingDirector).global_representations[float] = (
+                PreciseIeeeSymbolicFloat
+            )
             zero_int = SymbolicInt("zero_int")
             neg_zero = PreciseIeeeSymbolicFloat(
                 smt.fp_val(-0.0, PreciseIeeeSymbolicFloat._ch_smt_sort())
@@ -465,9 +474,9 @@ def test_int_eq_ieee_negative_zero():
     ],
 )
 def test_ieee_int_to_float_overflow_boundary(space, value, overflows):
-    space.extra(ModelingDirector).global_representations[
-        float
-    ] = PreciseIeeeSymbolicFloat
+    space.extra(ModelingDirector).global_representations[float] = (
+        PreciseIeeeSymbolicFloat
+    )
     x = SymbolicInt("x")
     space.add(x.var == value)
     with ResumedTracing():
@@ -491,9 +500,9 @@ def test_ieee_int_to_float_overflow_boundary(space, value, overflows):
     "op", [operator.eq, operator.ne, operator.lt, operator.le, operator.gt, operator.ge]
 )
 def test_ieee_int_float_comparisons_are_exact(space, int_value, float_value, op):
-    space.extra(ModelingDirector).global_representations[
-        float
-    ] = PreciseIeeeSymbolicFloat
+    space.extra(ModelingDirector).global_representations[float] = (
+        PreciseIeeeSymbolicFloat
+    )
     symbolic_int = SymbolicInt("symbolic_int")
     symbolic_float = PreciseIeeeSymbolicFloat(
         z3.FPVal(float_value, PreciseIeeeSymbolicFloat._ch_smt_sort())
@@ -508,9 +517,9 @@ def test_ieee_int_float_comparisons_are_exact(space, int_value, float_value, op)
 
 
 def test_ieee_huge_int_pow_raises_overflow(space):
-    space.extra(ModelingDirector).global_representations[
-        float
-    ] = PreciseIeeeSymbolicFloat
+    space.extra(ModelingDirector).global_representations[float] = (
+        PreciseIeeeSymbolicFloat
+    )
     exponent = SymbolicInt("exponent")
     space.add(exponent.var == 1 << 1100)
     with (
@@ -534,9 +543,9 @@ def test_ieee_huge_int_pow_raises_overflow(space):
     ],
 )
 def test_ieee_int_truediv_converts_result(space, numerator, denominator):
-    space.extra(ModelingDirector).global_representations[
-        float
-    ] = PreciseIeeeSymbolicFloat
+    space.extra(ModelingDirector).global_representations[float] = (
+        PreciseIeeeSymbolicFloat
+    )
     symbolic_numerator = _pin_symbolic_to(space, "numerator", numerator)
     symbolic_denominator = _pin_symbolic_to(space, "denominator", denominator)
     with ResumedTracing():
@@ -1198,9 +1207,9 @@ _DIVISION_OPERANDS = [
 @pytest.mark.parametrize("a", _DIVISION_OPERANDS, ids=repr)
 @pytest.mark.parametrize("b", _DIVISION_OPERANDS, ids=repr)
 def test_ieee_float_division_ops_match_cpython(space, op, symbolic_side, a, b):
-    space.extra(ModelingDirector).global_representations[
-        float
-    ] = PreciseIeeeSymbolicFloat
+    space.extra(ModelingDirector).global_representations[float] = (
+        PreciseIeeeSymbolicFloat
+    )
     args = []
     for side, val in (("left", a), ("right", b)):
         if symbolic_side in (side, "both"):
@@ -4023,6 +4032,23 @@ def test_type_instance_creation(space: StateSpace) -> None:
         assert inst.size() > 0
 
 
+class Annotated2d:
+    x: int
+    y: int
+
+
+def test_type_annotations_delegate_to_realized_type(space) -> None:
+    t = proxy_for_type(Type[Annotated2d], "t")
+    with ResumedTracing():
+        assert t.__annotations__ == {"x": int, "y": int}
+
+
+def test_callable_annotations_are_empty(space) -> None:
+    f = proxy_for_type(Callable[[int], int], "f")
+    with ResumedTracing():
+        assert f.__annotations__ == {}
+
+
 def test_type_comparison() -> None:
     def f(t: Type) -> bool:
         """post: _"""
@@ -4711,9 +4737,9 @@ def test_deep_realization(space, typ):
 
 
 def test_float_round_to_zero(space):
-    space.extra(ModelingDirector).global_representations[
-        float
-    ] = PreciseIeeeSymbolicFloat
+    space.extra(ModelingDirector).global_representations[float] = (
+        PreciseIeeeSymbolicFloat
+    )
     n = proxy_for_type(float, "n")
     d = proxy_for_type(float, "d")
     with ResumedTracing():
@@ -4724,9 +4750,9 @@ def test_float_round_to_zero(space):
 
 
 def test_float_neg_zero_is_falsey(space):
-    space.extra(ModelingDirector).global_representations[
-        float
-    ] = PreciseIeeeSymbolicFloat
+    space.extra(ModelingDirector).global_representations[float] = (
+        PreciseIeeeSymbolicFloat
+    )
     x = proxy_for_type(float, "x")
     with ResumedTracing():
         space.add(x == -10.0)
@@ -4742,9 +4768,9 @@ def test_float_neg_zero_is_falsey(space):
 )
 @pytest.mark.parametrize("val", [math.inf, -math.inf, math.nan])
 def test_float_is_integer_nonfinite(space, val):
-    space.extra(ModelingDirector).global_representations[
-        float
-    ] = PreciseIeeeSymbolicFloat
+    space.extra(ModelingDirector).global_representations[float] = (
+        PreciseIeeeSymbolicFloat
+    )
     x = PreciseIeeeSymbolicFloat("x")
     space.add(x.var == smt.fp_val(val, x.var.sort()))
     with ResumedTracing():
@@ -4767,11 +4793,73 @@ def TODO_test_can_generate_integral():
         proxy_for_type(Integral, "x")
 
 
-def TODO_test_deepcopy_independence():
-    # (snapshotting should take care of this for us(?), but it doesn't seem to)
-    with standalone_statespace as space:
-        ls = proxy_for_type(List[List[int]], "ls")
-        lscopy = copy.deepcopy(ls)
-        with NoTracing():
-            assert ls[0] is not lscopy[0]
-        # Next try mutation on one and test the other...
+def _only_value(container):
+    (value,) = container.values() if isinstance(container, dict) else container
+    return value
+
+
+@pytest.mark.parametrize(
+    "typ",
+    [
+        List[List[int]],
+        Tuple[List[int], ...],
+        Dict[int, List[int]],
+        List[Set[int]],
+        List[List[List[int]]],
+    ],
+)
+def test_deepcopy_independence(space, typ):
+    container = proxy_for_type(typ, "container")
+    with ResumedTracing():
+        space.add(len(container) == 1)
+        container_copy = copy.deepcopy(container)
+        inner = _only_value(container)
+        inner_copy = _only_value(container_copy)
+        assert inner is not inner_copy
+        space.add(len(inner) == 1)
+        inner.clear()
+        assert len(inner_copy) == 1
+
+
+def test_deepcopy_preserves_aliasing_of_inputs():
+    def f(xs: List[List[int]]) -> bool:
+        """
+        pre: len(xs) == 2
+        post: not _
+        """
+        ys = copy.deepcopy(xs)
+        return xs[0] is xs[1] and ys[0] is ys[1] and ys[0] is not xs[0]
+
+    check_states(f, POST_FAIL)
+
+
+def test_deepcopy_preserves_aliasing_from_mutation(space):
+    xs = proxy_for_type(List[List[int]], "xs")
+    with ResumedTracing():
+        space.add(len(xs) == 1)
+        xs.append(xs[0])
+        xs[0].append(7)
+        ys = copy.deepcopy(xs)
+        assert ys[0] is ys[1]
+        assert ys[0] is not xs[0]
+        assert ys[0] == xs[0]
+
+
+@pytest.mark.parametrize(
+    "typ,shallow_copy",
+    [
+        (List[List[int]], copy.copy),
+        (List[List[int]], lambda c: c[:]),
+        (List[List[int]], list),
+        (List[List[int]], lambda c: [*c]),
+        (Dict[int, List[int]], copy.copy),
+        (Dict[int, List[int]], lambda c: c.copy()),
+        (Dict[int, List[int]], dict),
+    ],
+)
+def test_shallow_copy_shares_inner_objects(space, typ, shallow_copy):
+    container = proxy_for_type(typ, "container")
+    with ResumedTracing():
+        space.add(len(container) == 1)
+        container_copy = shallow_copy(container)
+        assert _only_value(container_copy) is _only_value(container)

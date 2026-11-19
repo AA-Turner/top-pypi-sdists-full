@@ -487,7 +487,7 @@ jobs:
           set -euo pipefail
           # contract_loader_effect.yaml deny_patterns include "/home", which
           # blocks the default contracts/ path when the runner CWD is under
-          # /home/runner/... (GitHub-hosted and self-hosted CI). Copy the
+          # a runner home directory (GitHub-hosted and self-hosted CI). Copy the
           # contracts tree to /tmp so path.resolve() lands outside the deny list.
           rm -rf /tmp/onex-contracts
           cp -r "${{ github.workspace }}/contracts" /tmp/onex-contracts
@@ -969,13 +969,20 @@ jobs:
   # way its documentation tells a new engineer to -- `make local-env`, then
   # `make up-local` -- and fail unless the migration gate is healthy, both
   # runtime kernels report /health status "healthy" with is_running true, and
-  # a consumer group is live on the delegate-skill command topic.
+  # the runtime's dynamic contract listener has a live consumer group (OMN-20820)
+  # whenever the runtime config opts in to contract hot loading (OMN-20079).
   #
   # No self-skip: a runner without Docker Compose FAILS this job, as it fails
   # the `compose` mode's boot job since OMN-20147 (OMN-18811 AC4). Probes run through `docker exec`, never a host port, so they
   # hold on a runner that shares the host Docker daemon from inside a container.
   # ===========================================================================
   boot-catalog-local:
+    # OMN-21279: the omnimarket half of this gate (delegate-skill consumer group,
+    # projection-api and omnimarket projection writers, omnimarket version in
+    # each kernel on the dev-lane class) moved to omnimarket
+    # .github/workflows/runtime-boot-composed.yml
+    # job composed-runtime-boot, at least as strict; this job asserts only what
+    # this repo's image owns.
     name: runtime-boot (mode=catalog-local)
     if: inputs.mode == 'catalog-local'
     # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to ubuntu-latest; public forks default to ubuntu-latest
@@ -989,11 +996,10 @@ jobs:
     # Image build (cold) plus a cold runtime boot; the runtime's own
     # start_period is 1800s, so the health wait below is bounded at 30 minutes.
     # OMN-17427: +20 for the dev-lane class phase (a warm rebuild of the
-    # omnimarket layer and later, a 900 s health budget and a 120 s hold).
+    # runtime image, a 900 s health budget and a 120 s hold).
     timeout-minutes: 80
     env:
       LOCAL_PROJECT: omnibase-infra-local
-      DELEGATE_COMMAND_TOPIC: onex.cmd.omnimarket.delegate-skill.v1
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -1210,7 +1216,7 @@ jobs:
           sys.stdout.write(hits[0]["run"])
           PY
           [ -s "$step_file" ] || { echo "::error::could not read the health step text"; exit 1; }
-          for svc in projection-api omnimarket-projection-llm-cost consumer-health-projection tenant-projection-writer; do
+          for svc in consumer-health-projection tenant-projection-writer; do
             container="${LOCAL_PROJECT}-${svc}"
             before="$(docker inspect --format '{{.State.Health.Status}}' "$container")"
             if [ "$before" != "healthy" ]; then
@@ -1236,14 +1242,59 @@ jobs:
             echo "${svc}: stopped -> step failed naming it; started -> step passed"
           done
 
-      - name: Delegate-skill command topic has a live consumer group
+      - name: Runtime dynamic contract listener has a live consumer group
+        env:
+          LISTENER_TOPIC: onex.evt.platform.node-registration.v1
         run: |
           set -euo pipefail
           broker="${LOCAL_PROJECT}-redpanda"
-          # The runtime names each consumer group after the node that owns it
-          # and the topic it consumes (...node_delegate_skill_orchestrator.
-          # consume.<version>.__t.<topic>), so the owner is read from the name
-          # and its liveness from describe: a group with no member is not live.
+          # OMN-20079: the dynamic contract listener, and the group it opens, exist
+          # only when the runtime config opts in with contract_hotload.enabled
+          # (default off). The opt-in is read from the runtime config the
+          # running kernel loaded, in its own container. An opt-in that is
+          # absent or false means the runtime opens no listener, so there is no
+          # group to find and the step says so; a value that is not a boolean, a
+          # block that is not a mapping, or a config the container cannot read
+          # fails the step, as does an enabled runtime with no live group.
+          runtime="${LOCAL_PROJECT}-omninode-runtime"
+          if ! hotload="$(docker exec "$runtime" /app/.venv/bin/python -c '
+          import os, sys
+          import yaml
+          path = os.path.join(os.environ.get("ONEX_CONTRACTS_DIR", "/app/contracts"), "runtime", "runtime_config.yaml")
+          with open(path, encoding="utf-8") as handle:
+              config = yaml.safe_load(handle) or {}
+          block = config.get("contract_hotload") if isinstance(config, dict) else None
+          if block is None:
+              print("false")
+          elif isinstance(block, dict) and isinstance(block.get("enabled", False), bool):
+              print(str(block.get("enabled", False)).lower())
+          else:
+              sys.exit("contract_hotload in " + path + " is malformed")
+          ' </dev/null)"; then
+            echo "::error::could not read contract_hotload from the runtime config in ${runtime}"
+            exit 1
+          fi
+          case "$hotload" in
+            true) echo "contract_hotload.enabled is true in ${runtime}: the dynamic contract listener must hold a live group" ;;
+            false)
+              echo "contract_hotload.enabled is not true in ${runtime}: the runtime opens no dynamic contract listener, so there is no listener group to assert (OMN-20079)"
+              exit 0
+              ;;
+            *)
+              echo "::error::unreadable contract_hotload opt-in from ${runtime}: ${hotload}"
+              exit 1
+              ;;
+          esac
+          # OMN-20820: omnibase_infra#5261 removed this job's delegate-skill
+          # consumer-group probe, because the local bundle no longer runs an
+          # omnimarket orchestrator. This probe reads a group omnibase_infra's
+          # own runtime opens instead: its post-freeze dynamic contract
+          # listener (runtime_host_process.py, _start_dynamic_contract_listener),
+          # named {env}.{service}.{node_name}-dynamic-contract-listener.consume.
+          # {version}, plus .__i.<instance> when KAFKA_INSTANCE_ID is set, then
+          # .__t.<topic>. The owner and the topic are read from the name, env,
+          # service and instance are not pinned, and liveness comes from
+          # describe: a group with no member is not live.
           #
           # Each listing is captured whole before anything reads it, and every
           # read is a here-string: under pipefail a reader that stops early
@@ -1253,38 +1304,50 @@ jobs:
           # tests/ci/test_runtime_boot_catalog_local_probe_omn19496.py runs
           # this step's own text against a stub broker.
           #
-          # OMN-20820: the broker requires SASL, so every rpk call here
-          # authenticates as the local superuser. The password is read from the
-          # env file and handed to docker by name, never on a command line.
+          # The broker requires SASL, so every rpk call here authenticates as
+          # the local superuser. The password is read from the env file and
+          # handed to docker by name, never on a command line. Its stdin is
+          # /dev/null so it can never swallow the candidate list read below.
           pass="$(sed -n 's/^REDPANDA_SUPERUSER_PASSWORD=//p' "$LOCAL_ENV_FILE")"
           if [ -z "$pass" ]; then
             echo "::error::REDPANDA_SUPERUSER_PASSWORD is absent from the laptop env file"
             exit 1
           fi
           broker_rpk() {
-            RPK_PASS="$pass" docker exec -e RPK_USER=onex-local -e RPK_PASS -e RPK_SASL_MECHANISM=SCRAM-SHA-256 "$broker" rpk "$@"
+            RPK_PASS="$pass" docker exec -e RPK_USER=onex-local -e RPK_PASS -e RPK_SASL_MECHANISM=SCRAM-SHA-256 "$broker" rpk "$@" </dev/null
           }
+          # Every matching group is described, not only the first: the bus adds
+          # .__i.<instance> per process when KAFKA_INSTANCE_ID is set, so more
+          # than one group can match, and the first may be the one with no
+          # member. A group that vanishes between list and describe is retried,
+          # not fatal.
+          groups=""
           for _ in $(seq 1 30); do
             if ! groups="$(broker_rpk group list)"; then
               echo "rpk group list failed; retrying"
               groups=""
             fi
-            group="$(awk -v topic="__t.${DELEGATE_COMMAND_TOPIC}" \
-                '$2 ~ /node_delegate_skill_orchestrator/ && index($2, topic) && $3 == "Stable" {print $2; exit}' \
+            candidates="$(awk -v suffix=".__t.${LISTENER_TOPIC}" \
+                'index($2, "-dynamic-contract-listener.consume.") && length($2) > length(suffix) && substr($2, length($2) - length(suffix) + 1) == suffix && $3 == "Stable" {print $2}' \
                 <<< "$groups")"
-            if [ -n "$group" ]; then
-              describe="$(broker_rpk group describe "$group")"
+            while IFS= read -r group; do
+              [ -n "$group" ] || continue
+              if ! describe="$(broker_rpk group describe "$group")"; then
+                echo "rpk group describe ${group} failed; retrying"
+                continue
+              fi
               head -12 <<< "$describe"
               members="$(awk '$1 == "MEMBERS" {print $2}' <<< "$describe")"
               if [ "${members:-0}" -ge 1 ]; then
-                echo "live consumer group ${group} (${members} member) on ${DELEGATE_COMMAND_TOPIC}"
+                echo "live consumer group ${group} (${members} member) on ${LISTENER_TOPIC}"
                 exit 0
               fi
-            fi
+            done <<< "$candidates"
             sleep 10
           done
-          broker_rpk group list | grep -i delegate || true
-          echo "::error::no live node_delegate_skill_orchestrator consumer group on ${DELEGATE_COMMAND_TOPIC}"
+          # every group the broker listed last, so a real boot shows the names
+          printf '%s\n' "$groups"
+          echo "::error::no live dynamic-contract-listener consumer group on ${LISTENER_TOPIC}"
           exit 1
 
       # =====================================================================
@@ -1298,7 +1361,7 @@ jobs:
       # quarantined in a non-strict CI boot. This phase recreates both kernels
       # with the dev lane's bindings, READ from the dev lane's own compose
       # files so a change cannot pass here by teaching CI a configuration the
-      # lane does not have, on the current omnimarket release, and fails on a
+      # lane does not have, using this repo's runtime image, and fails on a
       # restart. Regression test: tests/ci/test_runtime_boot_dev_lane_class_omn17427.py.
       # =====================================================================
       - name: Dev-lane class -- derive the kernel environment from the dev lane's compose files
@@ -1395,28 +1458,16 @@ jobs:
           echo "DEV_LANE_CLASS_OVERRIDE=${DEV_LANE_CLASS_OVERRIDE}" >> "${GITHUB_ENV:-/dev/null}"
           cat "$DEV_LANE_CLASS_OVERRIDE"
 
-      - name: Dev-lane class -- resolve the current omnimarket release
-        run: |
-          set -euo pipefail
-          tag="$(git ls-remote --tags --refs https://github.com/OmniNode-ai/omnimarket 'v*' \
-            | sed 's#.*refs/tags/##' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)"
-          if [ -z "$tag" ]; then
-            echo "::error::could not resolve an omnimarket release tag"
-            exit 1
-          fi
-          echo "current omnimarket release: ${tag}"
-          echo "OMNIMARKET_RELEASE_REF=${tag}" >> "$GITHUB_ENV"
-
-      - name: Dev-lane class -- rebuild the runtime image on that release
+      - name: Dev-lane class -- rebuild the runtime image
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # Same image name the laptop job built, so this replaces it rather
           # than adding a per-run image; the job's own teardown removes the
-          # project. Only the omnimarket layer and the layers after it rebuild.
+          # project. Docker reuses the cached runtime image layers.
           sha="$(git rev-parse HEAD)"
-          OMNIMARKET_REF="$OMNIMARKET_RELEASE_REF" docker compose \
+          docker compose \
             --env-file "$LOCAL_ENV_FILE" --env-file docker/runtime-policy.env \
             -f docker/docker-compose.generated.yml -f "$DEV_LANE_CLASS_OVERRIDE" \
             build --build-arg "GIT_SHA=${sha}" --build-arg "VCS_REF=${sha}" \
@@ -1428,7 +1479,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          OMNIMARKET_REF="$OMNIMARKET_RELEASE_REF" docker compose \
+          docker compose \
             --env-file "$LOCAL_ENV_FILE" --env-file docker/runtime-policy.env \
             -f docker/docker-compose.generated.yml -f "$DEV_LANE_CLASS_OVERRIDE" \
             up -d --no-deps --force-recreate omninode-runtime runtime-effects
@@ -1436,7 +1487,7 @@ jobs:
             container="${LOCAL_PROJECT}-${kernel}"
             docker exec "$container" sh -c 'echo "INFISICAL_ADDR set: ${INFISICAL_ADDR:+yes} strict=${ONEX_WIRING_STRICT_MODE:-unset}"'
             docker exec "$container" /app/.venv/bin/python -c \
-              'import importlib.metadata as m; print("omnimarket", m.version("omnimarket"))'
+              'import importlib.metadata as m; print("omnibase_infra", m.version("omnibase_infra"))'
           done
 
       - name: Dev-lane class -- both kernels stay healthy and running with no restart (crash-loop gate)
@@ -1496,7 +1547,7 @@ jobs:
         if: always()
         run: |
           docker ps -a --filter "name=${LOCAL_PROJECT}" --format 'table {{.Names}}\t{{.Status}}' || true
-          for svc in omninode-runtime runtime-effects migration-gate forward-migration redpanda-partition-cap redpanda-local-sasl projection-api omnimarket-projection-llm-cost consumer-health-projection; do
+          for svc in omninode-runtime runtime-effects migration-gate forward-migration redpanda-partition-cap redpanda-local-sasl consumer-health-projection; do
             echo "::group::${svc} logs (tail)"
             docker logs --tail 120 "${LOCAL_PROJECT}-${svc}" 2>&1 || true
             echo "::endgroup::"

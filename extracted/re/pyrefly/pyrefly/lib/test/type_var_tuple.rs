@@ -222,7 +222,7 @@ def test[*Ts, T](f: Callable[[*Ts], T], t: tuple[*Ts], *args: *Ts):
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/4609
+// https://github.com/pyrefly-org/pyrefly/issues/4609
 testcase!(
     test_type_var_tuple_callable_gradual_fixed_params,
     r#"
@@ -261,7 +261,7 @@ def g[*Ts](x: int, y: str, *xs: *Ts):
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/4832
+// https://github.com/pyrefly-org/pyrefly/issues/4832
 testcase!(
     test_type_var_tuple_callable_forward_fixed_params,
     r#"
@@ -645,5 +645,13 @@ from typing import TypeVarTuple
 Ts = TypeVarTuple('Ts')
 def func(*args: tuple[*Ts]): ...
 func((0,), (1, 2))  # E: `tuple[Literal[1], Literal[2]]` is not assignable to parameter `*args` with type `tuple[int]`
+    "#,
+);
+
+testcase!(
+    test_illegal_posargs,
+    r#"
+from typing import TypeVarTuple
+Ts = TypeVarTuple("Ts", int, str)  # E: Unexpected positional argument  # E: Unexpected positional argument
     "#,
 );

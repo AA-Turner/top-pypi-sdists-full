@@ -15,8 +15,7 @@
 # verbatim: "OK so it seems to me like we need to start using this for all PR's
 # not just one set change the runtime". The profile rows live in
 # config/lab_proof_profiles.yaml; this node renders the ones whose execution is
-# `node` (today: foundation_override, for omnibase_core, omnibase_spi and
-# omnibase_compat).
+# `node` (today: foundation_override, for omnibase_core and omnibase_spi).
 #
 # WHY THE BUNDLE FACTS ARE HERE. The proof boots the catalog's `local` bundle,
 # whose compose project, container names, image name and host ports are fixed
@@ -26,6 +25,7 @@
 # this block is what changes.
 #
 # Related tickets:
+#   - OMN-21623: step timeouts and the bus address are declared in the bundle block, not in the handler
 #   - OMN-19941: an undecidable verdict input fails closed (a planned but unobserved focused_tests step fails)
 #   - OMN-19572: the omnibase_core foundation_override profile
 #   - OMN-19565: the proof-profile registry
@@ -45,6 +45,9 @@ node_type: "COMPUTE_GENERIC"
 description: >
   Compute node with two pure handlers. lab_proof.plan renders one proof run from a registry profile row, the subject PR commit, the host's lane directory and the bundle facts below into ordered argv steps with working directories, timeouts, polling and mechanical expectations; it refuses a row that does not run by nodes, a proof kind with no plan, and a subject from another repository. lab_proof.verdict evaluates the row's mandatory checks from the run's observations and decides the outcome, with an optional base-control result that turns a FAIL reproduced at the merge base into DEV_INHERITED. lab_proof.verdict fails a mandatory check closed when a planned step has no observation.
 
+descriptor:
+  node_archetype: "compute"
+  purity: "pure"
 input_model:
   name: "ModelLabProofPlanRequest"
   module: "omnibase_infra.lab_proof.model_lab_proof_plan_request"
@@ -78,7 +81,7 @@ handler_routing:
       handler:
         name: "HandlerLabProofPlan"
         module: "omnibase_infra.nodes.node_lab_proof_plan_compute.handlers.handler_lab_proof_plan"
-      description: "Target-ref manifest, lock, Compose hashes and broker/fleet declarations to canonical desired state"
+      description: "Target-ref manifest, lane census host registry, lock, Compose hashes and broker/fleet declarations to canonical desired state (OMN-22152)"
       supported_operations: ["lab_desired_state.render"]
       input_model:
         name: "ModelLabDesiredStateRenderRequest"
@@ -136,13 +139,33 @@ config:
     # Every foundation package and both consumers of them, imported inside the
     # runtime containers after the override.
     consumer_modules:
-      - "omnibase_compat"
       - "omnibase_core"
       - "omnibase_spi"
       - "omnibase_infra"
       - "omnimarket"
     delegation_prompt: "Reply with the single word: ready"
     delegation_timeout_seconds: 300
+    # The bus address on the bundle's compose network (the redpanda service and
+    # its internal listener), which the delegation step in the effects container
+    # reaches. Not a host port: those are host_ports above.
+    bus_bootstrap_servers: "redpanda:9092"
+    # The wall-clock bound of each kind of step the plan renders (OMN-21623).
+    # The handler holds no number; a step takes its bound from here.
+    step_timeouts:
+      default_seconds: 120
+      git_fetch_seconds: 600
+      focused_tests_seconds: 1800
+      generate_seconds: 900
+      build_base_seconds: 3600
+      build_override_seconds: 1800
+      up_seconds: 1800
+      health_probe_seconds: 30
+      identity_seconds: 60
+      import_smoke_seconds: 180
+      wiring_logs_seconds: 60
+      down_seconds: 600
+      remove_images_seconds: 300
+      remove_workdir_seconds: 300
     # The uv the runtime image itself is built with (docker/Dockerfile.runtime
     # UV_VERSION), so the override installs with the same resolver.
     uv_image: "ghcr.io/astral-sh/uv:0.6.14"

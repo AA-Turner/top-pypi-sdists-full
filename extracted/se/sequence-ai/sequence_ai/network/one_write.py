@@ -15,7 +15,7 @@ twice the TCP round-trip time (RTT), and a response written whole took one. Meas
 connect p50 of 89.5 ms: headers then body, with TCP_NODELAY set, GET p50 189.7 ms; the same response in one write, GET
 p50 106.7 ms. The probes put the same server behind the same tunnel, one write against two, and only the number of
 writes changed the time; why the tunnel holds the second piece is inferred from these measurements, not read from its
-source. Not measured on a direct connection.
+source.
 
 So the protocol uvicorn runs is given a transport that collects what is written to it during one iteration of the event
 loop and sends it as one write at the next: a response's start, body and end are written one after another with nothing

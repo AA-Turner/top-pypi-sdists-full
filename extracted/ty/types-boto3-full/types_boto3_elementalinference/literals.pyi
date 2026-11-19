@@ -85,6 +85,7 @@ TranscriptionLanguageType = Literal[
 ]
 ElementalInferenceServiceName = Literal["elementalinference"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -2,16 +2,52 @@
 # SPDX-License-Identifier: MIT
 """Models for node_dev_tag_pin_mover_compute (OMN-19998)."""
 
+from omnimarket.nodes.node_dev_tag_pin_mover_compute.models.model_dev_tag_green_verdict import (
+    EnumDevTagGreenVerdict,
+    ModelDevTagCheckRun,
+    ModelDevTagGreenVerdictRequest,
+    ModelDevTagGreenVerdictResult,
+)
 from omnimarket.nodes.node_dev_tag_pin_mover_compute.models.model_dev_tag_pin_mover import (
     EnumConsumerTestOutcome,
     EnumPinMoveRefusal,
     ModelDevTagPinMoveRequest,
     ModelDevTagPinMoveResult,
 )
+from omnimarket.nodes.node_dev_tag_pin_mover_compute.models.model_dev_tag_pin_set import (
+    EnumPinSetOutcome,
+    ModelPinSetCandidate,
+    ModelPinSetConflict,
+    ModelPinSetHeldBack,
+    ModelPinSetMove,
+    ModelPinSetRequest,
+    ModelPinSetResult,
+    ModelPinSetSibling,
+)
+from omnimarket.nodes.node_dev_tag_pin_mover_compute.models.model_dev_tag_pin_train import (
+    EnumTrainStatus,
+    ModelResolveOutcome,
+    ModelTrainReport,
+)
 
 __all__ = [
     "EnumConsumerTestOutcome",
+    "EnumDevTagGreenVerdict",
     "EnumPinMoveRefusal",
+    "EnumPinSetOutcome",
+    "EnumTrainStatus",
+    "ModelDevTagCheckRun",
+    "ModelDevTagGreenVerdictRequest",
+    "ModelDevTagGreenVerdictResult",
     "ModelDevTagPinMoveRequest",
     "ModelDevTagPinMoveResult",
+    "ModelPinSetCandidate",
+    "ModelPinSetConflict",
+    "ModelPinSetHeldBack",
+    "ModelPinSetMove",
+    "ModelPinSetRequest",
+    "ModelPinSetResult",
+    "ModelPinSetSibling",
+    "ModelResolveOutcome",
+    "ModelTrainReport",
 ]

@@ -84,7 +84,13 @@ class ExecutionFormatter(base.MistralFormatter):
 class List(base.MistralExecutionLister):
     """List all executions."""
 
+    supports_all_projects = True
+    include_output = False
+
     def _get_format_function(self):
+        if self.include_output:
+            return base.with_output(ExecutionFormatter.format_list)
+
         return ExecutionFormatter.format_list
 
     def get_parser(self, parsed_args):
@@ -101,13 +107,27 @@ class List(base.MistralExecutionLister):
             help="return only root executions",
             action='store_true',
         )
+        parser.add_argument(
+            '--include-output',
+            help="Include the output of each execution.",
+            action='store_true',
+        )
 
         return parser
+
+    def _validate_parsed_args(self, parsed_args):
+        self.include_output = parsed_args.include_output
 
     def _get_resources(self, parsed_args):
         mistral_client = self.app.client_manager.workflow_engine
 
         none_fields = 'root_execution_id' if parsed_args.rootsonly else ''
+        fields = ExecutionFormatter.fields()
+        filters = base.get_filters(parsed_args)
+
+        if parsed_args.include_output:
+            fields.append('output')
+            filters['include_output'] = True
 
         return mistral_client.executions.list(
             nulls=none_fields,
@@ -116,8 +136,8 @@ class List(base.MistralExecutionLister):
             limit=parsed_args.limit,
             sort_keys=parsed_args.sort_keys,
             sort_dirs=parsed_args.sort_dirs,
-            fields=ExecutionFormatter.fields(),
-            **base.get_filters(parsed_args)
+            fields=fields,
+            **filters
         )
 
 
@@ -340,6 +360,32 @@ class GetOutput(command.Command):
             LOG.debug("Execution output is not JSON.")
 
         self.app.stdout.write(output or "\n")
+
+
+class GetParams(command.Command):
+    """Show execution params."""
+
+    def get_parser(self, prog_name):
+        parser = super(GetParams, self).get_parser(prog_name)
+
+        parser.add_argument('id', help='Execution ID')
+
+        return parser
+
+    def take_action(self, parsed_args):
+        mistral_client = self.app.client_manager.workflow_engine
+
+        params = getattr(
+            mistral_client.executions.get(parsed_args.id), 'params', None
+        )
+
+        try:
+            params = jsonutils.loads(params)
+            params = jsonutils.dumps(params, indent=4) + "\n"
+        except Exception:
+            LOG.debug("Execution params are not JSON.")
+
+        self.app.stdout.write(params or "\n")
 
 
 REPORT_ENTRY_INDENT = 4

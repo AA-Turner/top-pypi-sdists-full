@@ -5,6 +5,8 @@ by implementing better mocking strategies, timeouts, and process management.
 """
 # pyright: reportPrivateUsage=false
 
+import os
+import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
@@ -12,6 +14,7 @@ from unittest.mock import Mock
 from functools import partial
 
 import pytest
+from django.apps import apps
 from django.conf import LazySettings
 from django.core.management import CommandError, call_command
 from pytest import CaptureFixture
@@ -20,6 +23,8 @@ from pytest_mock import MockerFixture
 from semver import Version
 
 from django_tailwind_cli.config import get_config
+from django_tailwind_cli.management.commands._process import LIFELINE_ENV
+from django_tailwind_cli.management.commands.tailwind import _run_watch_loop_in_reloader_child
 from django_tailwind_cli.management.commands._source_css import (
     AUTO_SOURCE_COMMENT,
     DAISY_UI_SOURCE_CSS,
@@ -178,6 +183,8 @@ class TestSubprocessCommands:
         mock_process.wait.return_value = 0
         mock_process.terminate.return_value = None
         mock_process.kill.return_value = None
+        mock_process.returncode = 0
+        mock_process.stderr = None  # skip the stderr drain thread
         self.mock_subprocess_popen.return_value = mock_process
 
     @pytest.mark.timeout(5)  # Prevent hanging
@@ -238,24 +245,27 @@ class TestSubprocessCommands:
 
     @pytest.mark.timeout(5)
     def test_watch_subprocess_calls(self):
-        """Test watch command subprocess behavior."""
+        """One stylesheet gets one watcher process."""
+        self.mock_subprocess_popen.return_value.poll.return_value = 0
+
         call_command("tailwind", "watch")
 
-        # Should call subprocess for watch mode
-        assert self.mock_subprocess_run.call_count >= 1
+        self.mock_subprocess_popen.assert_called_once()
+        assert "--watch" in self.mock_subprocess_popen.call_args.args[0]
 
     @pytest.mark.timeout(5)
     def test_watch_streams_output(self):
-        """A single watcher writes straight to the terminal; captured output would never be shown."""
+        """The watcher writes rebuilds straight to the terminal; a captured stdout would never be shown."""
+        self.mock_subprocess_popen.return_value.poll.return_value = 0
+
         call_command("tailwind", "watch")
 
-        self.mock_subprocess_run.assert_called_once()
-        assert not self.mock_subprocess_run.call_args.kwargs.get("capture_output")
+        assert "stdout" not in self.mock_subprocess_popen.call_args.kwargs
 
     @pytest.mark.timeout(5)
     def test_watch_with_keyboard_interrupt(self, capsys: CaptureFixture[str]):
         """Test watch command handling of KeyboardInterrupt."""
-        self.mock_subprocess_run.side_effect = KeyboardInterrupt
+        self.mock_subprocess_popen.side_effect = KeyboardInterrupt
 
         call_command("tailwind", "watch")
         captured = capsys.readouterr()
@@ -347,12 +357,31 @@ class TestProcessManagementCommands:
         watch_cmd, server_cmd = mock_instance.start_concurrent_processes.call_args.args
         # Watch cmd is unchanged
         assert watch_cmd[-3:] == ["manage.py", "tailwind", "watch"]
-        # Server cmd ends with the runserver target followed by the user's argv in order
-        assert server_cmd[-4:] == ["runserver", "8080", "--noreload", "--nothreading"]
+        # Server cmd ends with the runserver target, then "--" and the user's argv in order
+        assert server_cmd[-5:] == ["runserver", "--", "8080", "--noreload", "--nothreading"]
 
     @pytest.mark.timeout(3)
-    def test_runserver_picks_runserver_plus_when_extensions_installed(self):
-        """With django-extensions + werkzeug available, runserver_plus is selected."""
+    def test_runserver_picks_runserver_plus_when_extensions_installed(self, mocker: MockerFixture):
+        """With django_extensions in INSTALLED_APPS and werkzeug available, runserver_plus is selected."""
+
+        def is_installed(name: str) -> bool:
+            return name == "django_extensions"
+
+        def mock_find_spec(name: str) -> object | None:
+            return Mock() if name == "werkzeug" else None
+
+        mocker.patch.object(apps, "is_installed", side_effect=is_installed)
+        self.mock_find_spec.side_effect = mock_find_spec
+
+        call_command("tailwind", "runserver")
+
+        mock_instance = self.mock_process_manager.return_value
+        _, server_cmd = mock_instance.start_concurrent_processes.call_args.args
+        assert server_cmd[server_cmd.index("--server-command") + 1] == "runserver_plus"
+
+    @pytest.mark.timeout(3)
+    def test_runserver_needs_django_extensions_in_installed_apps(self):
+        """django-extensions in the environment alone does not register runserver_plus."""
 
         def mock_find_spec(name: str) -> object | None:
             return Mock() if name in ["django_extensions", "werkzeug"] else None
@@ -363,8 +392,7 @@ class TestProcessManagementCommands:
 
         mock_instance = self.mock_process_manager.return_value
         _, server_cmd = mock_instance.start_concurrent_processes.call_args.args
-        # server_cmd: [python, "manage.py", "runserver_plus", ...]
-        assert server_cmd[2] == "runserver_plus"
+        assert server_cmd[server_cmd.index("--server-command") + 1] == "runserver"
 
     @pytest.mark.timeout(3)
     def test_runserver_respects_force_default_runserver(self):
@@ -379,9 +407,25 @@ class TestProcessManagementCommands:
 
         mock_instance = self.mock_process_manager.return_value
         _, server_cmd = mock_instance.start_concurrent_processes.call_args.args
-        assert server_cmd[2] == "runserver"
+        assert server_cmd[server_cmd.index("--server-command") + 1] == "runserver"
         # The tailwind-specific flag is never forwarded to Django
         assert "--force-default-runserver" not in server_cmd
+
+    @pytest.mark.timeout(3)
+    def test_runserver_server_command_runs_the_server_with_a_lifeline(self, mocker: MockerFixture):
+        """The server subprocess watches the lifeline, then runs Django's command with the user's argv."""
+        calls = Mock()
+        mocker.patch("django_tailwind_cli.management.commands.tailwind.stop_with_lifeline", calls.stop_with_lifeline)
+        mocker.patch("django_tailwind_cli.management.commands.tailwind.execute_from_command_line", calls.execute)
+
+        call_command("tailwind", "runserver", "--server-command", "runserver_plus", "--", "8080", "--nothreading")
+
+        # In this order: the server blocks until it exits.
+        assert calls.mock_calls == [
+            mocker.call.stop_with_lifeline(),
+            mocker.call.execute([sys.argv[0], "runserver_plus", "8080", "--nothreading"]),
+        ]
+        self.mock_process_manager.assert_not_called()
 
 
 class TestTemplateScanning:
@@ -598,10 +642,31 @@ class TestAutoSourceExternalApps:
         call_command("tailwind", "watch")
 
         run_with_reloader.assert_called_once()
-        # The first positional arg is the reloadable callable.
-        assert run_with_reloader.call_args.args[0] is run_watch_loop
+        # The first positional arg is the reloadable callable, which runs the watch loop.
+        run_with_reloader.call_args.args[0](verbose=False)
+        run_watch_loop.assert_called_once_with(verbose=False)
         # ...and verbose=False is forwarded through kwargs.
         assert run_with_reloader.call_args.kwargs == {"verbose": False}
+        # The lifeline for the reloader child must not stay behind in this process.
+        assert LIFELINE_ENV not in os.environ
+
+    def test_reloader_child_reports_a_missing_file_like_noreload(
+        self, mocker: MockerFixture, capsys: CaptureFixture[str]
+    ):
+        """Under the reloader a FileNotFoundError gets the same report and exit code as with --noreload."""
+        mocker.patch(
+            "django_tailwind_cli.management.commands.tailwind.run_watch_loop",
+            side_effect=FileNotFoundError("source.css"),
+        )
+        exit_process = mocker.patch("django_tailwind_cli.management.commands.tailwind.os._exit", side_effect=SystemExit)
+
+        with pytest.raises(SystemExit):
+            _run_watch_loop_in_reloader_child(verbose=False)
+
+        exit_process.assert_called_once_with(1)
+        err = capsys.readouterr().err
+        assert "❌ File not found: source.css" in err
+        assert "CommandError: source.css" in err
 
     def test_watch_with_noreload_calls_loop_directly(self, mocker: MockerFixture):
         """--noreload bypasses autoreload and runs the loop in the current process."""
@@ -708,6 +773,41 @@ pytestmark = [
     pytest.mark.filterwarnings("ignore::DeprecationWarning"),
     pytest.mark.filterwarnings("ignore::PendingDeprecationWarning"),
 ]
+
+
+class TestSourceCssEncoding:
+    @pytest.mark.parametrize("already_exists", [False, True])
+    def test_generated_unicode_source_is_written_once(self, tmp_path: Path, already_exists: bool):
+        from django_tailwind_cli.management.commands._source_css import _ensure_one_source_css
+
+        src_css = tmp_path / "source.css"
+        content = f'{DEFAULT_SOURCE_CSS}\n{AUTO_SOURCE_COMMENT}\n@source "/editable/\u0645\u0644\u0641\u0627\u062a";\n'
+        if already_exists:
+            src_css.write_bytes(content.encode("utf-8"))
+
+        assert _ensure_one_source_css(src_css, content, manages_the_file=True, verbose=False) is not already_exists
+        assert src_css.read_text(encoding="utf-8") == content
+        assert not _ensure_one_source_css(src_css, content, manages_the_file=True, verbose=False)
+        assert not src_css.with_suffix(".css.bak").exists()
+
+    @pytest.mark.parametrize(
+        "edited_bytes",
+        [
+            f'{DEFAULT_SOURCE_CSS}@source "../\u0645\u0644\u0641\u0627\u062a";\n'.encode(),
+            b'@import "tailwindcss";\n@source "../caf\xe9";\n',
+        ],
+        ids=["utf8", "legacy-encoding"],
+    )
+    def test_hand_edits_are_backed_up_without_changing_bytes(self, tmp_path: Path, edited_bytes: bytes):
+        from django_tailwind_cli.management.commands._source_css import _ensure_one_source_css
+
+        src_css = tmp_path / "source.css"
+        src_css.write_bytes(edited_bytes)
+
+        assert _ensure_one_source_css(src_css, DEFAULT_SOURCE_CSS, manages_the_file=True, verbose=False)
+
+        assert src_css.with_suffix(".css.bak").read_bytes() == edited_bytes
+        assert src_css.read_text(encoding="utf-8") == DEFAULT_SOURCE_CSS
 
 
 class TestSourceCssOverwriteWarning:

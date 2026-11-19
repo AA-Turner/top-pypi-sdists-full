@@ -21,9 +21,14 @@ from omnimarket.models.model_session_stream_barrier import (
     ModelSessionStreamBarrier,
     ModelSessionStreamBarrierProbe,
 )
+from omnimarket.nodes.node_context_compaction_orchestrator.container.container_context_compaction_orchestrator import (
+    create_handler_session_barrier_wait,
+)
 from omnimarket.nodes.node_context_compaction_orchestrator.handlers.handler_session_barrier_wait import (
     HandlerSessionBarrierWait,
 )
+
+from .reply_topics import REPLY_TOPICS
 
 pytestmark = pytest.mark.unit
 
@@ -44,6 +49,7 @@ def _request(barrier_id: str | None = BARRIER) -> ModelContextCompactionRequeste
         input_messages_hash=_sha("input"),
         newest_turn="turn-9",
         barrier_id=barrier_id,
+        **REPLY_TOPICS,
     )
 
 
@@ -116,7 +122,7 @@ class _Build:
 def _wait(
     source: _Source | _RaisingSource, clock: _Clock, deadline_s: float = 5.0
 ) -> HandlerSessionBarrierWait:
-    return HandlerSessionBarrierWait(
+    return create_handler_session_barrier_wait(
         source,
         deadline_s=deadline_s,
         poll_interval_s=1.0,

@@ -32,6 +32,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -314,13 +315,13 @@ def _good_render(slot: int = 1) -> dict[str, Any]:
 
 def test_positive_control_a_correct_render_reports_no_problems() -> None:
     """Without this, a verifier that never reports anything looks correct."""
-    assert verifier.check(_good_render(), policy.resolve_slot(1), False) == []
+    assert verifier.check(_good_render(), policy.resolve_slot(1)) == []
 
 
 def _mutate(fn: Any) -> list[str]:
     rendered = _good_render()
     fn(rendered)
-    return verifier.check(rendered, policy.resolve_slot(1), False)
+    return verifier.check(rendered, policy.resolve_slot(1))
 
 
 def test_an_ambient_kafka_environment_leak_is_caught() -> None:
@@ -399,6 +400,90 @@ def test_a_missing_slot_service_is_caught() -> None:
 def test_an_unfenced_shared_dependency_is_caught() -> None:
     problems = _mutate(lambda r: r["services"].update({"postgres": {}}))
     assert any("not the slot's" in p for p in problems)
+
+
+BUILD_ONLY_IMAGE = "dev-lane-infra-runtime-image"
+
+
+def test_the_build_only_infra_image_is_not_a_shared_dependency() -> None:
+    """OMN-21433: the render of a slot built on omnimarket's composed image.
+
+    OMN-21279 moved the dev overlay's build-only infra image onto the slot's
+    profile, because compose refuses a ``service:`` build context that names a
+    service outside the active profile. Its ``scale: 0`` means no container is
+    ever created, so the verifier must accept it. It refused it instead, and
+    every slot bring-up exited 12 on the dev head of 2026-10-28.
+    """
+    rendered = _good_render()
+    rendered["services"][BUILD_ONLY_IMAGE] = {
+        "profiles": ["prepr"],
+        "scale": 0,
+        "networks": {"omnibase-infra-network": None},
+    }
+    assert verifier.check(rendered, policy.resolve_slot(1)) == []
+
+
+def test_a_build_only_image_that_would_start_a_container_is_still_caught() -> None:
+    rendered = _good_render()
+    rendered["services"][BUILD_ONLY_IMAGE] = {"profiles": ["prepr"], "scale": 1}
+    problems = verifier.check(rendered, policy.resolve_slot(1))
+    assert any(BUILD_ONLY_IMAGE in p for p in problems)
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"ports": ["8085:8085"]},
+        {"privileged": True},
+        {"volumes": ["/:/host"]},
+        {"deploy": {"replicas": 1}},
+    ],
+)
+def test_a_build_only_image_with_extra_attributes_is_caught(
+    extra: dict[str, object],
+) -> None:
+    rendered = _good_render()
+    rendered["services"][BUILD_ONLY_IMAGE] = {
+        "profiles": ["prepr"],
+        "scale": 0,
+        "networks": {"omnibase-infra-network": None},
+        **extra,
+    }
+    problems = verifier.check(rendered, policy.resolve_slot(1))
+    assert any(BUILD_ONLY_IMAGE in p for p in problems)
+
+
+@pytest.mark.parametrize(
+    "svc",
+    [
+        {"profiles": ["prepr"], "networks": {"omnibase-infra-network": None}},
+        {
+            "profiles": ["prepr"],
+            "scale": 0,
+            "networks": {"omnibase-infra-network": None, "other": None},
+        },
+        {
+            "profiles": ["prepr", "extra"],
+            "scale": 0,
+            "networks": ["omnibase-infra-network"],
+        },
+    ],
+)
+def test_a_build_only_image_without_scale_or_on_wrong_network_is_caught(
+    svc: dict[str, object],
+) -> None:
+    rendered = _good_render()
+    rendered["services"][BUILD_ONLY_IMAGE] = svc
+    problems = verifier.check(rendered, policy.resolve_slot(1))
+    assert any(BUILD_ONLY_IMAGE in p for p in problems)
+
+
+def test_the_slot_overlay_attaches_the_build_only_image_to_the_dev_network() -> None:
+    """Without a ``networks`` entry compose invents a ``default`` network, and
+    the verifier (rightly) refuses any network a slot would create."""
+    svc = _overlay_for_slot(1)["services"][BUILD_ONLY_IMAGE]
+    assert svc["profiles"] == ["prepr"]
+    assert svc["networks"] == ["omnibase-infra-network"]
 
 
 def test_the_verifier_fails_closed_on_an_unreadable_render(tmp_path: Path) -> None:
@@ -495,10 +580,11 @@ def test_the_overlay_container_names_match_the_manifest_services(slot: int) -> N
 def test_every_overlay_container_carries_the_slot_marker(slot: int) -> None:
     """The render check accepts every container name the overlay renders.
 
-    The gateway is ``onex-api-prepr-<slot>``, which ends at the slot number.
-    The check required ``-prepr-<slot>-`` with a trailing dash, so it refused
-    the whole slot before anything booted (OMN-19972). This reads the overlay
-    through the verifier's own predicate.
+    A slot container name may end at the slot number. The check once required
+    ``-prepr-<slot>-`` with a trailing dash, so it refused the whole slot before
+    anything booted (OMN-19972). This reads the overlay through the verifier's
+    own predicate. OMN-24476 removed the slot gateway (``onex-api-prepr-<slot>``),
+    the container that ended at the slot number.
     """
     slot_policy = policy.resolve_slot(slot)
     overlay = _overlay_for_slot(slot)
@@ -507,7 +593,8 @@ def test_every_overlay_container_carries_the_slot_marker(slot: int) -> None:
         for name, svc in overlay["services"].items()
         if isinstance(svc, dict) and "container_name" in svc
     }
-    assert "onex-api" in named, "positive control: the gateway must be checked."
+    assert "omninode-runtime" in named, "positive control: the runtime must be checked."
+    assert "onex-api" not in named, "the slot runs no gateway (OMN-24476)."
     bare = {
         n: c
         for n, c in named.items()
@@ -520,11 +607,11 @@ def test_every_overlay_container_carries_the_slot_marker(slot: int) -> None:
 def test_the_slot_marker_is_a_whole_segment_not_a_substring(slot: int) -> None:
     slot_policy = policy.resolve_slot(slot)
     carries = verifier.carries_slot_marker
-    assert carries(f"onex-api-prepr-{slot}", slot_policy)
+    assert carries(f"example-prepr-{slot}", slot_policy)
     assert carries(f"omninode-prepr-{slot}-runtime", slot_policy)
-    assert not carries(f"onex-api-prepr-{slot}0", slot_policy)
+    assert not carries(f"example-prepr-{slot}0", slot_policy)
     assert not carries(f"omninode-prepr-{slot}0-runtime", slot_policy)
-    assert not carries("onex-api", slot_policy)
+    assert not carries("example", slot_policy)
     assert not carries(f"omninode-prepr-{slot + 1}-runtime", slot_policy)
 
 
@@ -889,14 +976,19 @@ def test_the_entrypoint_never_writes_a_rendered_configuration() -> None:
     )
 
 
-def test_a_dirty_sibling_is_refused_rather_than_recorded() -> None:
-    """Recording a discrepancy does not make an artifact reproducible."""
+def test_a_dirty_target_is_refused_twice_and_no_sibling_working_tree_is_read() -> None:
+    """The target is refused when dirty, early and again at staging.
+
+    A sibling is staged at a dev-merge tag out of the object store (OMN-21928),
+    so its working tree never reaches the image and its dirt is not a reason to
+    refuse; the target is archived from its commit and must still be clean.
+    """
     body = _entrypoint_code()
-    assert "EXIT_REFUSED_DIRTY_WORKTREE" in body
-    assert body.count("EXIT_REFUSED_DIRTY_WORKTREE") >= 2, (
-        "only one dirty-tree refusal exists. Both the target and each sibling "
-        "must be refused when dirty: a dirty sibling puts content belonging "
-        "to no commit into an image whose receipt names one."
+    assert body.count("EXIT_REFUSED_DIRTY_WORKTREE") >= 3, (
+        "the target must be refused when dirty both before staging and at staging."
+    )
+    assert "SIBLING_DIRTY" not in body, (
+        "a sibling working tree is tracked again; a sibling is staged from a tag."
     )
 
 
@@ -1167,11 +1259,249 @@ def test_every_slot_service_is_built_with_the_workspace_args_and_up_never_builds
     assert len(build_lines) == 1, build_lines
     assert '"${SLOT_BUILD_SERVICES[@]}"' in build_lines[0]
     assert 'SLOT_BUILD_SERVICES=("${SLOT_SERVICES[@]}")' in body
-    # onex-api is image-referenced and must be appended AFTER the build list is
-    # taken, or the build would try to build an image it only references.
-    assert body.index('SLOT_BUILD_SERVICES=("${SLOT_SERVICES[@]}")') < body.index(
-        "SLOT_SERVICES+=(onex-api)"
-    )
+    # OMN-24476: the slot runs no gateway, so nothing is appended to the list and
+    # no image-referenced service can reach the build.
+    assert "SLOT_SERVICES+=(" not in body
+    assert "onex-api" not in body
     up_lines = [ln for ln in body.splitlines() if " up -d " in ln]
     assert up_lines, "no `up -d` found; the pin would pass vacuously"
     assert all("--no-build" in ln for ln in up_lines), up_lines
+
+
+# ---------------------------------------------------------------------------
+# OMN-21928: siblings are staged at dev-merge tags, the target at its branch
+# ---------------------------------------------------------------------------
+
+FIRST_PARTY_CHECKER = (
+    REPO_ROOT / "src/omnibase_infra/validation/checker_first_party_sources.py"
+)
+fps = _load("checker_first_party_sources_omn21928_entrypoint", FIRST_PARTY_CHECKER)
+
+
+def _git_in(cwd: Path, *args: str) -> str:
+    from omnibase_core.validators.no_unguarded_git_subprocess import (
+        scrub_git_location_env,
+    )
+
+    done = subprocess.run(
+        ["git", "-c", "user.email=t@example.invalid", "-c", "user.name=t", *args],
+        cwd=cwd,
+        env=scrub_git_location_env(os.environ),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return done.stdout.strip()
+
+
+def _repo_with_tags(path: Path, name: str) -> dict[str, str]:
+    """A clone with an older dev-merge tag, a newer one, and a commit past both."""
+    path.mkdir(parents=True)
+    _git_in(path, "init", "-q", "-b", "dev")
+    commits: dict[str, str] = {}
+    for label, stamp in (("old", "20261030100000"), ("new", "20261031100000")):
+        _git_in(path, "commit", "-q", "--allow-empty", "-m", f"{name} {label}")
+        commits[label] = _git_in(path, "rev-parse", "HEAD")
+        _git_in(path, "tag", f"dev-{stamp}-{commits[label][:12]}")
+    _git_in(path, "commit", "-q", "--allow-empty", "-m", f"{name} past the tags")
+    commits["head"] = _git_in(path, "rev-parse", "HEAD")
+    commits["new_tag"] = f"dev-20261031100000-{commits['new'][:12]}"
+    return commits
+
+
+def _siblings_of_the_manifest() -> list[str]:
+    done = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f'source "{RUNTIME_BUILD / "sibling_clone_manifest.sh"}"; '
+            'printf "%s\\n" "${SIBLING_VENDORED_REPOS[@]}"',
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [line for line in done.stdout.splitlines() if line]
+
+
+def test_entrypoint_stages_siblings_at_dev_tag_not_at_the_clone_head(
+    tmp_path: Path,
+) -> None:
+    """The plan names, per sibling, the newest dev-merge tag and its commit.
+
+    Each canonical clone is left a commit past its newest tag, so staging the
+    clone's HEAD (the old behaviour, which the image audit refuses as ``branch``)
+    gives a different commit than staging the tag. The clones are unchanged.
+    """
+    registry = tmp_path / "registry_root"
+    clones = {
+        repo: _repo_with_tags(registry / repo, repo)
+        for repo in _siblings_of_the_manifest()
+    }
+    worktree = tmp_path / "ticket" / "omnibase_infra"
+    worktree.mkdir(parents=True)
+    _git_in(worktree, "init", "-q", "-b", "omn-21928-fixture")
+    _git_in(worktree, "commit", "-q", "--allow-empty", "-m", "target")
+    home = tmp_path / "home"
+    home.mkdir()
+    done = subprocess.run(
+        [
+            "bash",
+            str(ENTRYPOINT),
+            "--slot",
+            "1",
+            "--worktree",
+            str(worktree),
+            "--staging-root",
+            str(tmp_path / "stage"),
+            "--reason",
+            "OMN-21928 plan proof",
+            "--plan-only",
+        ],
+        env={
+            "PATH": os.environ["PATH"],
+            "HOME": str(home),
+            "OMNI_HOME": str(registry),
+            "ONEX_LANE_LOCK_DIR": str(tmp_path / "locks"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    lines = done.stdout.splitlines()
+    plan = json.loads("\n".join(lines[lines.index("{") :]))
+    assert plan["target_branch"] == "omn-21928-fixture"
+    assert set(plan["siblings"]) == set(clones)
+    for repo, commits in clones.items():
+        assert plan["siblings"][repo] == {
+            "tag": commits["new_tag"],
+            "commit": commits["new"],
+        }, repo
+        assert plan["siblings"][repo]["commit"] != commits["head"]
+        assert _git_in(registry / repo, "rev-parse", "HEAD") == commits["head"]
+
+
+def test_entrypoint_stages_siblings_at_dev_tag_refuses_a_clone_without_one(
+    tmp_path: Path,
+) -> None:
+    clone = tmp_path / "clone"
+    clone.mkdir()
+    _git_in(clone, "init", "-q", "-b", "dev")
+    _git_in(clone, "commit", "-q", "--allow-empty", "-m", "untagged")
+    with pytest.raises(ValueError, match="no dev-merge tag"):
+        fps.newest_dev_merge_tag_of(clone, fps.load_contract())
+
+
+def test_entrypoint_stages_siblings_at_dev_tag_refuses_a_tag_naming_another_commit(
+    tmp_path: Path,
+) -> None:
+    clone = tmp_path / "clone"
+    clone.mkdir()
+    _git_in(clone, "init", "-q", "-b", "dev")
+    _git_in(clone, "commit", "-q", "--allow-empty", "-m", "a")
+    _git_in(clone, "tag", "dev-20261031100000-" + "0" * 12)
+    with pytest.raises(ValueError, match="names"):
+        fps.newest_dev_merge_tag_of(clone, fps.load_contract())
+
+
+def test_entrypoint_stages_siblings_at_dev_tag_and_binds_the_target_to_its_branch(
+    tmp_path: Path,
+) -> None:
+    """The staging record the image audit reads: tags for siblings, a branch for the target."""
+    out = tmp_path / "sibling-vcs-provenance.json"
+    tag = "dev-20261031100000-" + "a" * 12
+    commit = "a" * 40
+    fps.write_slot_staging_record(
+        out,
+        target_commit="b" * 40,
+        target_branch="omn-18087-t6-carry",
+        siblings={"omnibase_core": (tag, commit)},
+    )
+    record = json.loads(out.read_text(encoding="utf-8"))
+    assert record["siblings"]["omnibase_core"] == {
+        "vcs_ref": commit,
+        "vcs_dirty": False,
+        "vcs_branch": "HEAD",
+        "dev_merge_tag": tag,
+    }
+    assert record["build_context"] == {
+        "omnibase_infra": {
+            "vcs_ref": "b" * 40,
+            "vcs_dirty": False,
+            "vcs_branch": "omn-18087-t6-carry",
+            "dev_merge_tag": "",
+        }
+    }
+
+
+def test_entrypoint_stages_siblings_at_dev_tag_and_names_the_declared_slot_context() -> (
+    None
+):
+    """The build arg carries the context the policy data declares, not a literal."""
+    body = _entrypoint_code()
+    assert "FIRST_PARTY_BUILD_CONTEXT=${SLOT_AUDIT_CONTEXT}" in body
+    assert "pre_pr_slot_context" in body
+    assert "pre-pr-slot" not in body, (
+        "the entrypoint spells the slot context name instead of reading it from "
+        "first_party_sources.yaml"
+    )
+
+
+def test_entrypoint_stages_siblings_at_dev_tag_with_a_branch_name_that_is_not_shell_safe(
+    tmp_path: Path,
+) -> None:
+    """The plan carries a quote branch name as data, not as source."""
+    registry = tmp_path / "registry_root"
+    for repo in _siblings_of_the_manifest():
+        _repo_with_tags(registry / repo, repo)
+    worktree = tmp_path / "ticket" / "omnibase_infra"
+    worktree.mkdir(parents=True)
+    branch = "omn-21928-q\"u'ote"
+    _git_in(worktree, "init", "-q", "-b", branch)
+    _git_in(worktree, "commit", "-q", "--allow-empty", "-m", "target")
+    home = tmp_path / "home"
+    home.mkdir()
+    done = subprocess.run(
+        [
+            "bash",
+            str(ENTRYPOINT),
+            "--slot",
+            "1",
+            "--worktree",
+            str(worktree),
+            "--staging-root",
+            str(tmp_path / "stage"),
+            "--reason",
+            "OMN-21928 plan proof",
+            "--plan-only",
+        ],
+        env={
+            "PATH": os.environ["PATH"],
+            "HOME": str(home),
+            "OMNI_HOME": str(registry),
+            "ONEX_LANE_LOCK_DIR": str(tmp_path / "locks"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    lines = done.stdout.splitlines()
+    plan = json.loads("\n".join(lines[lines.index("{") :]))
+    assert plan["target_branch"] == branch
+    assert plan["slot"] == 1
+    assert plan["with_gateway"] is False
+
+
+def test_entrypoint_stages_siblings_at_dev_tag_checks_every_pin_line_it_reads() -> None:
+    """A pin line is three fields, a listed repository and a literal commit."""
+    body = _entrypoint_code()
+    loop_at = body.index("while read -r repo tag commit extra")
+    loop = body[loop_at : body.index("done <<< ", loop_at)]
+    assert "[0-9a-f]{40}" in loop
+    assert '-z "${extra}"' in loop
+    assert "SIBLING_REPOS[*]" in loop
+    assert loop.count("fail ") == 1

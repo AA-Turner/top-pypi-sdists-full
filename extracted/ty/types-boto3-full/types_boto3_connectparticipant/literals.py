@@ -63,6 +63,7 @@ ScanDirectionType = Literal["BACKWARD", "FORWARD"]
 SortKeyType = Literal["ASCENDING", "DESCENDING"]
 ConnectParticipantServiceName = Literal["connectparticipant"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

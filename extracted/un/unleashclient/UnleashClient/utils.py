@@ -1,8 +1,7 @@
 import logging
 from enum import Enum
-from typing import Any, Dict, Optional
-
-import mmh3  # pylint: disable=import-error
+from typing import Any, Optional
+from urllib.parse import urlsplit
 
 LOGGER = logging.getLogger("UnleashClient")
 
@@ -11,16 +10,6 @@ class InstanceAllowType(Enum):
     BLOCK = 1
     WARN = 2
     SILENTLY_ALLOW = 3
-
-
-def normalized_hash(
-    identifier: str, activation_group: str, normalizer: int = 100, seed: int = 0
-) -> int:
-    return (
-        mmh3.hash(f"{activation_group}:{identifier}", signed=False, seed=seed)
-        % normalizer
-        + 1
-    )
 
 
 def get_identifier(context_key_name: str, context: dict) -> Any:
@@ -37,26 +26,56 @@ def get_identifier(context_key_name: str, context: dict) -> Any:
     return value
 
 
-def extract_environment_from_headers(
-    headers: Optional[Dict[str, str]],
-) -> Optional[str]:
-    if not headers:
+def extract_environment_from_api_key(api_key: Optional[str]) -> Optional[str]:
+    if not api_key:
         return None
 
-    auth_key = next(
-        (key for key in headers if key.lower() == "authorization"),
-        None,
-    )
-    if not auth_key:
-        return None
-
-    auth_value = headers.get(auth_key)
-    if not auth_value:
-        return None
-
-    _, sep, after_colon = auth_value.partition(":")
+    _, sep, after_colon = api_key.partition(":")
     if not sep:
         return None
 
     environment, _, _ = after_colon.partition(".")
     return environment or None
+
+
+def _validate_url(url: str) -> None:
+    """
+    Checks that ``url`` has the shape of an Unleash API url.
+
+    Only the shape is checked, not whether the host exists or answers: that is a
+    network failure, which the client reports.
+
+    :raises ValueError: if ``url`` is not an absolute http(s) url with a host.
+    """
+    if any(c.isspace() for c in url):
+        raise ValueError(f"Unleash URL contains whitespace: {url!r}")
+
+    try:
+        parts = urlsplit(url)
+        _ = parts.port
+    except ValueError as exc:
+        raise ValueError(f"Invalid Unleash URL {url!r}: {exc}") from exc
+
+    if parts.scheme not in ("http", "https"):
+        raise ValueError(
+            f"Unleash URL must start with http:// or https://, got {url!r}"
+        )
+    if not parts.hostname:
+        raise ValueError(f"Unleash URL has no host: {url!r}")
+
+
+def _validate_header_value(name: str, value: str) -> None:
+    """
+    Checks a value the client sends as the ``name`` header.
+
+    :raises TypeError: if ``value`` is not a str.
+    :raises ValueError: if ``value`` contains a line break.
+    """
+    if not isinstance(value, str):
+        raise TypeError(f"The {name} header must be a str.")
+
+    if "\r" in value or "\n" in value:
+        raise ValueError(
+            f"The {name} header contains a line break. If the value was read "
+            "from a file or an environment variable, strip it first."
+        )

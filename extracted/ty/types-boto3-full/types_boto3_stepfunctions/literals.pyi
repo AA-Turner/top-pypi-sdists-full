@@ -138,6 +138,7 @@ ValidateStateMachineDefinitionResultCodeType = Literal["FAIL", "OK"]
 ValidateStateMachineDefinitionSeverityType = Literal["ERROR", "WARNING"]
 SFNServiceName = Literal["stepfunctions"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

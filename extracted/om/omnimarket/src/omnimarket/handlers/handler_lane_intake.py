@@ -7,7 +7,7 @@ existing Linear key, so its author field reads as the operator's own (scorecard
 S3: 135 of 148 new items 2026-10-12..2026-10-16). The operator ruled the key
 stays, so the item itself carries the fact: a label and a first-line stamp.
 
-The vocabulary (label name, stamp prefix, per-day budget) is the omniclaude
+The vocabulary (label name, stamp prefix) is the omniclaude
 ticket-creation policy's ``lane_intake`` object, read from the same installed
 plugin the ticket-creation guard runs from. This module spells none of it, so
 the guard and the nodes cannot drift apart on what a lane-created item is.
@@ -18,8 +18,7 @@ the guard and the nodes cannot drift apart on what a lane-created item is.
 * :func:`stamp_description` -- put the stamp on the first line, once.
 * :func:`resolve_label_id` -- the Linear label id for a name, creating it once.
 * :func:`admit_lane_intake` -- the guard's lane-intake rules (identity, label,
-  stamp, daily budget) for a node whose create does not go through the full
-  admission gate; records the admission against the day's budget.
+  stamp) for a node whose create does not go through the full admission gate.
 """
 
 from __future__ import annotations
@@ -33,6 +32,8 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
+
+from omnimarket.handlers.ticket_guard_locator import locate_ticket_guard
 
 _LANE_ENV_KEYS = ("ONEX_LANE", "ONEX_REMOTE_LANE")
 #: Set in the environment of a session another session started (a workflow subagent).
@@ -149,7 +150,7 @@ def admit_lane_intake(
 ) -> None:
     """Run the guard's lane-intake rules for a node's create, or raise.
 
-    Exit 0 admits (and records one admission against today's budget), exit 3
+    Exit 0 admits, exit 3
     refuses with the reason as JSON, anything else is a guard that could not
     decide -- also a refusal.
     """
@@ -186,7 +187,7 @@ class LaneIntakeGate:
     """The lane-intake rules for a node whose create bypasses the full guard.
 
     ``guard_path`` is the installed ticket-creation guard; ``None`` locates the
-    enabled onex plugin the way ``node_create_ticket`` does. A seam for tests:
+    enabled onex plugin through ``ticket_guard_locator``. A seam for tests:
     both methods are what a fake replaces.
     """
 
@@ -195,10 +196,6 @@ class LaneIntakeGate:
 
     def _guard(self) -> Path:
         if self._guard_path is None:
-            from omnimarket.nodes.node_create_ticket.handlers.handler_create_ticket import (
-                locate_ticket_guard,
-            )
-
             self._guard_path = locate_ticket_guard()
         return self._guard_path
 

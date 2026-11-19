@@ -57,6 +57,7 @@ ResourceTypeType = Literal["CFN_STACK", "RESOURCE_TAG_VALUE"]
 SyncActionType = Literal["NO_ACTION", "START_SYNC"]
 AppRegistryServiceName = Literal["servicecatalog-appregistry"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

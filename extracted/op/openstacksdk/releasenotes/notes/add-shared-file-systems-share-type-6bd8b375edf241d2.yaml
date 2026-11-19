@@ -1,4 +1,0 @@
----
-features:
-  - Added list, show, update, delete and create methods for Share Types to
-    Shared File Systems service.

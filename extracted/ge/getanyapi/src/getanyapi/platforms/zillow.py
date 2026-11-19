@@ -124,7 +124,6 @@ class ZillowSearchInput(TypedDict, total=False):
     requireFields: NotRequired[
         list[
             Literal[
-                "brokerName",
                 "daysOnZillow",
                 "images",
                 "isZillowOwned",

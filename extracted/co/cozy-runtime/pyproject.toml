@@ -1,6 +1,6 @@
 [project]
 name = "cozy-runtime"
-version = "0.47.1"
+version = "0.48.0"
 description = "Cozy author surface and device executor"
 # The native wheels carry the kernels (`kernels/`): derived from comfy-kitchen, vLLM and SGLang
 # (Apache-2.0, comfy-kitchen's NOTICE), with CUTLASS and FlashAttention-3 (BSD-3-Clause). The
@@ -13,7 +13,11 @@ license-files = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "tensorfs>=0.26.1,<0.27",
+    # The open RC floors on a build of its own TensorFS (xs-216; docs/releases.md): `.dev<n>` is the first-parent count of the
+    # cozy-creator commit that merged the newest TensorFS API this Runtime calls. It holds where the RC builds TensorFS, Linux
+    # x86_64, which is every machine an RC Runtime runs models on; elsewhere the released line stays admitted until the release
+    # declares one range.
+    "tensorfs>=0.27.0,<0.28",
     "msgspec>=0.19",
     "numpy>=1.26",
     "packaging>=24",
@@ -139,7 +143,9 @@ media = [
 ]
 # Executors read and place weights through TensorFS (`tensorfs`, `tensorfs.varena`). Local
 # package environments select this capability; worker images provide the same range.
-model-execution = ["tensorfs>=0.26.1,<0.27"]
+model-execution = [
+    "tensorfs>=0.27.0,<0.28",
+]
 # peft takes any transformers. Without these floors a resolver that picks huggingface-hub 2.x
 # first backtracks to transformers 4.12, whose tokenizers has no wheel.
 adapters = [

@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
+from ..._http_log import log_error_response
 from ...client import Client, get_default_client
 from ...types import Response
 from ... import errors
@@ -115,6 +116,7 @@ def sync_detailed(
         kwargs["timeout"] = timeout
 
     response = httpx.request(verify=client.verify_ssl, **kwargs)
+    log_error_response(response)
     return _build_response(client=client, response=response)
 
 

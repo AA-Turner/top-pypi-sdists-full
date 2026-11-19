@@ -1,6 +1,7 @@
 import hashlib
 import json
 import sys
+import threading
 import time
 
 import dclab
@@ -411,13 +412,13 @@ def test_compress_basin_preserved_compress():
 
     with h5py.File(h5path_out) as h5_out, h5py.File(h5path_small) as h5_in:
         # check if h5path_out is empty
-        if 'events' in h5_out:
-            assert len(h5_out['events']) == 0
+        if "events" in h5_out:
+            assert len(h5_out["events"]) == 0
         # check if h5path_small basin is same as h5path_out basin
-        assert 'basins' in h5_in
-        assert 'basins' in h5_out
+        assert "basins" in h5_in
+        assert "basins" in h5_out
         assert np.all(
-            h5_in['basins'][bn_hash][:] == h5_out['basins'][bn_hash][:]
+            h5_in["basins"][bn_hash][:] == h5_out["basins"][bn_hash][:]
         )
 
     with new_dataset(h5path) as ds, new_dataset(h5path_out) as ds_out:
@@ -426,6 +427,21 @@ def test_compress_basin_preserved_compress():
         assert len(ds_out.features_innate) == 0
         for feat in ds.features_innate:
             assert feat in ds_out.features_basin
+
+
+def test_compress_error_stops_monitor_thread(monkeypatch):
+    """The progress monitor thread must stop if compression fails"""
+    path_in = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
+    path_out = path_in.with_name("compressed.rtdc")
+
+    def rtdc_copy_error(*args, **kwargs):
+        raise ValueError("Test error in rtdc_copy")
+
+    monkeypatch.setattr(cli.task_compress, "rtdc_copy", rtdc_copy_error)
+    threads_before = threading.enumerate()
+    with pytest.raises(ValueError, match="Test error in rtdc_copy"):
+        cli.compress(path_in=path_in, path_out=path_out)
+    assert threading.enumerate() == threads_before
 
 
 @pytest.mark.parametrize("suffix", [".rtdc", ""])
@@ -647,6 +663,41 @@ def test_compress_with_basin_mapped_and_chopped(basinmap):
 
         assert np.all(ds1["deform"][:] == ds0["deform"][basinmap])
         assert np.all(ds1["mask"][:] == ds0["mask"][:][basinmap])
+
+
+def test_compress_with_basin_and_chopped_image_in_referrer():
+    """The basin and the referrer both contain the "image" feature"""
+    path = retrieve_data("fmt-hdf5_reference_2025.zip")
+
+    path_referrer = path.with_name("level1.rtdc")
+    basinmap = np.array([1, 3, 4], dtype=np.int64)
+
+    with (dclab.new_dataset(path) as ds0,
+          dclab.RTDCWriter(path_referrer) as hw1):
+        hw1.store_metadata(ds0.config.as_dict(pop_filtering=True))
+        # The referrer stores its own (different) images
+        image_ref = 255 - ds0["image"][:][basinmap]
+        hw1.store_feature("image", image_ref)
+        hw1.store_basin(basin_name="level1",
+                        basin_type="file",
+                        basin_format="hdf5",
+                        basin_locs=[path],
+                        basin_map=basinmap
+                        )
+
+    path_comp = path.with_name("compressed.rtdc")
+    cli.compress(path_in=path_referrer,
+                 path_out=path_comp,
+                 basin_input=[path],
+                 crop_event_images=True,
+                 )
+
+    # The image data must be taken from the referrer
+    with new_dataset(path_comp) as dsc:
+        assert len(dsc) == len(basinmap)
+        for ii in range(len(dsc)):
+            mask = dsc["mask"][ii]
+            assert np.all(dsc["image"][ii][mask] == image_ref[ii][mask])
 
 
 def test_compress_with_basin_mapped_and_chopped_keep_version():

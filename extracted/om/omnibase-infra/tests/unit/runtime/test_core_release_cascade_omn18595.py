@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-"""The core 0.47.53 cascade reaches the resolved runtime (OMN-18595)."""
+"""The core 0.47.57 cascade reaches the resolved runtime (OMN-18595)."""
 
 from __future__ import annotations
 
@@ -13,11 +13,12 @@ from packaging.requirements import Requirement
 from packaging.version import Version
 
 from omnibase_infra.runtime.version_compatibility import check_version_compatibility
+from scripts.ci.check_sibling_compatible_range import violations
 
 pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-RELEASE_FLOOR = Version("0.47.53")
+RELEASE_FLOOR = Version("0.47.57")
 
 
 def test_core_cascade_resolves_at_least_the_triggering_release() -> None:
@@ -33,10 +34,7 @@ def test_core_cascade_resolves_at_least_the_triggering_release() -> None:
     assert locked_version >= RELEASE_FLOOR, (
         f"core cascade requires >= {RELEASE_FLOOR}; uv.lock resolves {locked_version}"
     )
-    assert (
-        f"omnibase-core=={locked_version}"
-        in manifest["tool"]["uv"]["override-dependencies"]
-    )
+    assert violations(manifest, "omnibase-core") == []
     core_requirements = [
         Requirement(spec)
         for spec in manifest["project"]["dependencies"]

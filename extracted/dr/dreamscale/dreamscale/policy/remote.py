@@ -308,6 +308,10 @@ class AsyncRemotePolicy:
                                  "the frames from earlier ticks of the episode")
             self.observation_history = TickHistory(contract.history_ticks,
                                                    start=contract.history_start)
+        elif contract.observation_frames is not None and contract.observation_frames > 1:
+            self.observation_history = ObservationHistory(
+                contract.observation_frames, 1.0 / self.native_action_hz,
+            )
         elif contract.history_anchor:
             if HISTORY_FRAMES_CAPABILITY not in capabilities:
                 raise ValueError("this deployment's server takes no history frames; it needs "
@@ -428,7 +432,8 @@ class AsyncRemotePolicy:
                 own.task_prepare_timeout_s if timeout_s is None else timeout_s),
                 **({"context": self.context} if self.context != "auto" else {}))
             self._require_open()
-            frames = getattr(self._connection.transport, "context_frames", None) or 1
+            frames = (own.observation_frames
+                      or getattr(self._connection.transport, "context_frames", None) or 1)
             if isinstance(self.observation_history, EpisodeTicks):
                 # A prepared task starts a new episode on the server and here.
                 self.observation_history.clear()

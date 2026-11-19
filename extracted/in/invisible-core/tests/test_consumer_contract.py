@@ -126,7 +126,7 @@ CONTRACT = {
         # it: the launch writes no TZ, and the engine takes the zone from the
         # prefs in every realm. BREAKING for a consumer that still imports it:
         # the wrapper drops its import in the release that moves its pin here.
-        # `tz_env` stays one release, deprecated and doing nothing.
+        # `tz_env` went in 66.76.0.
         "_geo", "_headless", "_proxy",
         "_webgl_personas", "config",
         "configure_proxy", "constants", "download", "ensure_binary",
@@ -156,8 +156,6 @@ CONTRACT = {
         # below: out of the contract, still in the package.
         "get_default_args", "get_default_stealth_prefs",
         "make_virtual_display", "prefs", "prepare_session_geo",
-        "resolve_session_timezone",
-        "tz_env",
         # `LaunchPlan`, `build_launch_plan` and `generate_profile` left on
         # 2026-08-18 with the deletion of `invisible_firefox`, which was the only
         # consumer that imported them: it launched the engine DIRECTLY, so the

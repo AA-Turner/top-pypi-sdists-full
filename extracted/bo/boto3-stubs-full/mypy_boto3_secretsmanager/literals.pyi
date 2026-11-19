@@ -47,6 +47,7 @@ SortOrderTypeType = Literal["asc", "desc"]
 StatusTypeType = Literal["Detached", "Failed", "InProgress", "InSync", "Pending"]
 SecretsManagerServiceName = Literal["secretsmanager"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1,6 +1,8 @@
 """
 GPU machines you run yourself: `sequence_ai.gpu.add` opens them near a place in the United States,
-`.list` shows those live and `.history` those over, `.logs` reads one's log, `.allow` changes who reaches their ports, `.remove`
+`.list` shows those live and `.history` those over, `.logs` reads one's log, `.allow` changes who reaches their ports,
+`.follow_token` makes one of your robots a token with which `.follow`, on the robot, lets its own address in as its
+network changes it, `.remove`
 shuts one down, `.save` keeps one's disk as a snapshot to start others from, and `.places` lists the
 US cities a place can be chosen from, each with its latitude and longitude. Each is said by the place
 you asked for, never a region of ours. A machine is a container you are root in, with its cards — 1, 2, 4 or 8 of
@@ -8,7 +10,8 @@ one kind —, reached over SSH
 (`seq gpu ssh`) — install and run what you like; the ports you publish are reached straight at its
 address, nothing of ours in between; `remove` ends the machine and its disk, and stops its billing.
 
-These are owner-scoped: a full key or a signed-in session, never a robot key. They count against
+These are owner-scoped: a full key or a signed-in session, never a robot key - all but `.follow`, which a robot calls
+with its follow token alone. They count against
 your account's GPU limit — the ceiling serving and evals share — a card each, and draw on its credit like any
 machine. A refusal is one of three of its own where it is one of these: GpuBadRequest, for what was
 asked; GpuOverLimit, at a limit of your account's or its credit; GpuNoCard, for a card not to be had -
@@ -111,9 +114,8 @@ def add(place: str, gpu: str, count: int = 1, *, snapshot: str | None = None, po
     cards in different places, add several, each a GPU of its own with its own id, address and bill.
     Waits until it runs and returns it, a list of one, as `list` says it — `"address"`, `"ports"`,
     `"image"` among them — with `"cards"`, how many it has; `"request"` and `"request_cards"`, its own
-    id and cards again; and `"expected_rtt"`: `{"ms", "probes", "within_km", "days"}`, the median round
-    trip measured from within `within_km` of `place` over the last `days` days (`"ms"` None where
-    nothing that near was measured), or None where it could not be read. `wait=False` returns once it
+    id and cards again; and `"expected_rtt"`: `{"ms"}`, the round trip expected from `place` (`"ms"`
+    None where none is known yet), or None where it could not be read. `wait=False` returns once it
     is asked for - seconds, where running takes a minute or two -, "starting". Each card costs the same
     alone or among eight: its `"usd_per_hour"` is its cards times one card's.
 
@@ -122,13 +124,15 @@ def add(place: str, gpu: str, count: int = 1, *, snapshot: str | None = None, po
 
     `place` is the exact spot you want it near, in the United States — a US city ("San Francisco,
     CA") or a lat,lon in the US ("37.77,-122.42"); `places` lists the US cities. The platform opens
-    it at the place quickest to reach from there that has its cards.
+    it at the closest GPU available.
 
     `ports`: the TCP ports your server listens on (1024-65535, not 22 or 8080, eight at most), reached
-    straight at the machine's address from the IPv4 ranges in `allow` alone — the address this call
+    straight at the machine's address from the ranges in `allow` alone — the address this call
     comes from, where you name none, the call then made over IPv4 (a machine that reaches the platform
     over IPv6 alone names them); `["0.0.0.0/0"]` opens them to every address, so authenticate in
-    your server. `allow` changes them later. `run`: a command run in the container as it starts (with
+    your server. IPv6 ranges ("2001:db8:42::/56") are taken where the GPU is given an IPv6 address,
+    its `"address6"`: a robot on a shared IPv4 address (CGNAT: Starlink, cellular lines) is let in
+    by its own IPv6 prefix there, which its network can still change. `allow` changes them later. `run`: a command run in the container as it starts (with
     bash, from /root, its output in /var/log/seq-run.log), started again each time it exits, and no
     more once it exits within 10 s five times running. `snapshot`: the name of a snapshot of yours
     (`save`) to start from, its `run` command with it unless you give one.
@@ -146,8 +150,8 @@ def add(place: str, gpu: str, count: int = 1, *, snapshot: str | None = None, po
     its cards and did not start, its words saying how it ended (`details["gpus"]` holds it as it ended;
     `seq gpu logs <id>` says the rest). A KeyboardInterrupt while it waits removes it if it does not run
     yet and is raised on: its `cancelled` the ids removed, its `billed` what each of those was billed, by
-    id, as the platform says it once removed - 0 for none, the seconds one of the places asked for it
-    held a card where one did, None where it could not be read -, and its `running` those left running,
+    id, as the platform says it once removed - 0 for none, the capacity it held while it started where
+    it held some, None where it could not be read -, and its `running` those left running,
     it where it ran by then. One while the add is asked - the seconds before the platform answers it -
     stops this call alone: what the platform adds then is yours all the same, and `list()` shows it.
     Owner-scoped: a full key or a signed-in session, never a robot key.
@@ -259,8 +263,8 @@ def _read(t: Transport, ids: list[str]) -> dict[str, dict[str, Any]]:
 def _cancel(t: Transport, ids: list[str], by: dict[str, dict[str, Any]], stop: BaseException) -> None:
     """Ctrl-C while waiting: each of `ids` not running, as the list says it now, removed, those that run left running;
     `stop` told which (its `cancelled`, `running`, and `not_cancelled`, those whose removal was not answered) and what each
-    removed was billed (`billed`, read once removed: _spent) - none of its own time, as it never ran, but the seconds one of
-    the places asked for it held a card, as each that held one is billed. A second Ctrl-C meanwhile stops none of it.
+    removed was billed (`billed`, read once removed: _spent) - none of its own time, as it never ran, but the capacity it held
+    while it started, where it held some. A second Ctrl-C meanwhile stops none of it.
     
 
 """
@@ -306,11 +310,9 @@ def _usd(v: Any) -> float | None:
 
 
 def _spent(t: Transport, ids: list[str]) -> dict[str, float | None]:
-    """What each of `ids` was billed, by id, as the platform says it now - its `usd_so_far`, which counts the seconds each
-    place asked for it held a card -, None where it could not be read. The DELETE's answer carries no amount, and its
-    platform bills those places as it removes a GPU, before it answers, so a read after it says the whole of it. {sequence-
-    gateway routes/gpus.remove: `return {"id": gpu_id, "status": gpu.SHUT_DOWN}`; machines/gpu._finish: "those of its pool
-    first, each billed for a card it held, then its own"}"""
+    """What each of `ids` was billed, by id, as the platform says it now - its `usd_so_far` -, None where it could not be
+    read. The DELETE's answer carries no amount, and the platform bills a GPU as it removes it, before it answers, so a
+    read after it says the whole of it."""
     if not ids:
         return {}
     try:
@@ -322,14 +324,14 @@ def _spent(t: Transport, ids: list[str]) -> dict[str, float | None]:
 
 def _billed(usd: float | None) -> str:
     """What a GPU that never ran was billed, in words: "not billed" for nothing, else the amount and what it is for - the
-    seconds one of the places asked for it held a card, which its owner pays -, or that it could not be read. Said as
+    capacity it held while it started, which its owner pays -, or that it could not be read. Said as
     the platform said it, never worked out here.
 """
     if usd is None:
         return "what was billed could not be read - seq gpu history says it"
     if not usd:
         return "not billed"
-    return f"billed {money(usd)} for the seconds one of the places asked for it held a card"
+    return f"billed {money(usd)} for the capacity it held while it started"
 
 
 def _ended_as(t: Transport, gpu_id: str) -> dict[str, Any]:
@@ -378,8 +380,9 @@ def _why(g: dict[str, Any], end: dict[str, Any] | None = None, waited: float = 0
 
 def allow(id: str, allow: list[str], *, api_key: str | None = None, base_url: str | None = None) -> dict[str, Any]:
     """
-    Who reaches a GPU's published ports from now on: the IPv4 ranges in `allow` ("203.0.113.0/24", or
-    an address alone), in place of those it had — for when your robot's or office's address changes.
+    Who reaches a GPU's published ports from now on: the ranges in `allow` ("203.0.113.0/24", or
+    an address alone; IPv6 ones too for a GPU with an `"address6"`), in place of those it had — for
+    when your robot's or office's address changes.
     The GPU is not restarted. Returns `{"id", "allow", "applied"}`: `applied` True once the machine
     said its ports are open to those alone, which a running one does within seconds; False where it
     had not by then (it is still told, a little longer — call again to be sure) or for one still
@@ -388,6 +391,146 @@ def allow(id: str, allow: list[str], *, api_key: str | None = None, base_url: st
     """
     with _owned(api_key, base_url) as t:
         return t.put(f"/v1/gpus/{segment(id, 'gpu id')}/allow", {"allow": [str(a) for a in allow]})
+
+
+
+
+
+
+FOLLOW_ENV = "SEQUENCES_FOLLOW_TOKEN"
+FOLLOW_CGNAT = ("followed over IPv4: on a network that shares one public IPv4 address among its users (CGNAT - "
+                "Starlink's default, most cellular lines), everyone behind that address reaches the GPU's ports too. "
+                "Give the GPU IPv6 and follow over IPv6, and authenticate in your server")
+
+
+def follow_token(id: str, robot: str, *, api_key: str | None = None, base_url: str | None = None) -> dict[str, Any]:
+    """
+    A follow token for one of your robots: put it on the robot, and the robot lets its own address
+    into this GPU's allow list as its network changes it (`follow`), and nothing else — never a range
+    it names, another GPU, or anything else of your account. Returns `{"id", "robot", "token"}`.
+    Made again for the same robot, the earlier token works no more and where it let the robot in from
+    is taken away at once (`"applied"`, as `allow` says it). At most 8 robots follow one GPU; the
+    GPU's other ranges stay yours (`allow`). Owner-scoped.
+    """
+    with _owned(api_key, base_url) as t:
+        return t.post(f"/v1/gpus/{segment(id, 'gpu id')}/follow-token", {"robot": str(robot)})
+
+
+def follow_revoke(id: str, robot: str, *, api_key: str | None = None, base_url: str | None = None) -> dict[str, Any]:
+    """
+    One robot follows a GPU's allow list no more: its follow token works no more, and where it was let
+    in from is taken away at once. Returns `{"id", "robot", "applied"}`. Owner-scoped.
+    """
+    with _owned(api_key, base_url) as t:
+        return t.delete(f"/v1/gpus/{segment(id, 'gpu id')}/follow/{segment(robot, 'robot name')}")
+
+
+def follow(token: str | None = None, *, to: str | None = None, line: str | None = None, base_url: str | None = None,
+           timeout_s: float | None = None) -> dict[str, Any]:
+    """
+    This machine's own address let into the allow list of the GPU its follow token is for, in place of
+    where it was let in from before — what a robot calls as it starts and when it cannot reach its GPU,
+    as its network changes its address. The platform lets in the address it is reached from, never one
+    named: its /32, or over IPv6 its network's /64 (for a GPU with an `"address6"`).
+
+    `token`: the robot's follow token (`follow_token`; `seq gpu follow-token ID --robot NAME`), default
+    $SEQUENCES_FOLLOW_TOKEN — no API key is sent. `to`: the address, name or URL the robot reaches the
+    GPU at. The follow then goes out from the address of this machine's that its packets to `to` go
+    out from, so the address let in is the one the GPU sees — a machine with two networks, or two IPv6
+    prefixes for a while, lets in the right one. With no `to`: over IPv6 first, then over IPv4.
+
+    `line`: one of this machine's network interfaces — one of a robot's uplinks, as `connect(url,
+    lines=[...])` names them. The follow goes out by it, from its address, and the GPU keeps where each
+    line is let in from apart: a robot with two uplinks is let in by both, each line's address in
+    place of that line's before. `connect(url, follow=..., lines=[...])` follows by each of its lines.
+
+    Returns `{"id", "robot", "range", "applied", "ports"}` (and `"line"`, given one), and while the GPU
+    runs, where it is reached: `"address"`, `"address6"` (reached over IPv6) and `"host"` (its fixed
+    name). `applied` is True once the GPU said its ports are open to it, within seconds; False for one
+    still starting, which takes it as it starts.
+
+    Over IPv4, a network that shares one public address among its users (CGNAT: Starlink's default, most
+    cellular lines) lets everyone behind that address in too: said once, as a warning. Give the GPU IPv6
+    and the robot follows over IPv6.
+
+    `timeout_s`: how long each try waits for the platform's answer (it waits up to 20 s for the GPU);
+    the client's default unset.
+    """
+    import os
+
+    import sequence_ai
+
+    from ._core.warn import warn
+
+    token = (token or os.environ.get(FOLLOW_ENV) or "").strip()
+    if not token:
+        raise InvalidRequest(f"no follow token: pass token=... or set {FOLLOW_ENV}; the GPU's owner makes one with "
+                             "seq gpu follow-token ID --robot NAME", details={"reason": "follow_token"})
+    if line:
+        from .network import bind
+
+        try:
+            bind.check(line)
+        except OSError as exc:
+            raise InvalidRequest(str(exc), details={"reason": "follow_line"}) from None
+    base = sequence_ai._resolve_base_url(base_url)
+    froms = [_source_toward(to, line)] if to else ["::", "0.0.0.0"]
+    last: SequencesError | None = None
+    for src in froms:
+        t = Transport(api_key=token, base_url=base, local_address=src, **({"interface": line} if line else {}))
+        try:
+            out = t.post("/v1/gpus/follow", {"line": line} if line else {}, timeout_s=timeout_s)
+        except (InvalidRequest, Unavailable) as exc:
+
+            closed = isinstance(exc, InvalidRequest) and exc.details.get("reason") == "gpu_ip6_closed"
+            if src == "::" and (closed or isinstance(exc, Unavailable)):
+                last = exc
+                continue
+            raise
+        finally:
+            t.close()
+        if ":" not in str(out.get("range") or ""):
+            warn(FOLLOW_CGNAT)
+        return out
+    assert last is not None
+    raise last
+
+
+def _source_toward(to: str, interface: str | None = None) -> str:
+    """The address of this machine's that its packets to `to` (an address, a name, or a URL) go out from, as the system
+    picks it - by `interface` alone, given one (network.bind): a UDP socket connected to it, no packet sent.
+    InvalidRequest for what names no host that resolves here; Unavailable for one this machine has no way out to."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlsplit
+
+    if interface:
+        from .network import bind
+
+    raw = str(to or "").strip()
+    try:
+        host: str | None = str(ipaddress.ip_address(raw.strip("[]")))
+    except ValueError:
+        try:
+            host = urlsplit(raw if "://" in raw else f"//{raw}").hostname
+        except ValueError:
+            host = None
+    try:
+        infos = socket.getaddrinfo(host, 9, type=socket.SOCK_DGRAM) if host else []
+    except (socket.gaierror, UnicodeError):
+        infos = []
+    if not infos:
+        raise InvalidRequest(f"{raw[:120]!r} is no address or name that resolves here", details={"reason": "follow_to"})
+    for family, _, _, _, sockaddr in infos:
+        try:
+            with socket.socket(family, socket.SOCK_DGRAM) as s:
+                for option in bind.options(interface, family) if interface else ():
+                    s.setsockopt(*option)
+                s.connect(sockaddr)
+                return str(s.getsockname()[0])
+        except OSError:
+            continue
+    raise Unavailable(f"this machine has no way out to {host}" + (f" by {interface}" if interface else ""))
 
 
 def places(q: str = "", limit: int = 8, *, api_key: str | None = None,

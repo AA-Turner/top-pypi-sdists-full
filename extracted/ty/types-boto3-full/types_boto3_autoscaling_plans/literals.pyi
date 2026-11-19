@@ -102,6 +102,7 @@ ScalingStatusCodeType = Literal["Active", "Inactive", "PartiallyActive"]
 ServiceNamespaceType = Literal["autoscaling", "dynamodb", "ec2", "ecs", "rds"]
 AutoScalingPlansServiceName = Literal["autoscaling-plans"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

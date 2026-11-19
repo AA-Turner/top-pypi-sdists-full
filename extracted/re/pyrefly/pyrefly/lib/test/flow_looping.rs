@@ -9,6 +9,78 @@ use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
+    test_for_trailing_expression_does_not_initialize_local,
+    r#"
+import time
+
+def f(xs: list[int]) -> int:
+    for x in xs:
+        y = x
+        time.sleep(1)
+    return y  # E: `y` may be uninitialized
+"#,
+);
+
+testcase!(
+    test_loop_body_ending_in_never_keeps_local_initialized,
+    r#"
+from typing import Never
+
+def stop() -> Never: ...
+def log() -> None: ...
+def c() -> bool: ...
+
+def for_never(xs: list[int]) -> int:
+    y = 0
+    for x in xs:
+        del y
+        stop()
+    return y
+
+def while_never() -> int:
+    y = 0
+    while c():
+        del y
+        stop()
+    return y
+
+def for_else_never(xs: list[int]) -> int:
+    y = 0
+    for x in xs:
+        del y
+        stop()
+    else:
+        pass
+    return y
+
+def for_returns(xs: list[int]) -> int:
+    y = 0
+    for x in xs:
+        del y
+        log()
+    return y  # E: `y` may be uninitialized
+
+def continue_path(xs: list[int]) -> int:
+    y = 0
+    for x in xs:
+        del y
+        if c():
+            continue
+        stop()
+    return y  # E: `y` may be uninitialized
+
+def break_path(xs: list[int]) -> int:
+    y = 0
+    for x in xs:
+        del y
+        if c():
+            break
+        stop()
+    return y  # E: `y` may be uninitialized
+"#,
+);
+
+testcase!(
     test_loop_with_generic_pin,
     r#"
 from typing import assert_type, Sequence
@@ -31,7 +103,7 @@ assert_type(z, int | str)
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/683
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/683
 testcase!(
     test_loop_with_sized_in_inner_iteration,
     r#"
@@ -42,7 +114,7 @@ def f(xs: list[list]):
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/812
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/812
 testcase!(
     test_loop_with_set_and_len,
     r#"
@@ -81,7 +153,7 @@ def f(condition) -> None:
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1701
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1701
 testcase!(
     test_while_condition_is_in_loop,
     r#"
@@ -420,6 +492,26 @@ def literal() -> int:
 "#,
 );
 
+// https://github.com/pyrefly-org/pyrefly/issues/5566
+testcase!(
+    test_possibly_unbound_after_loop_with_conditional_break,
+    r#"
+def f(xs: list[int]) -> int:
+    for x in xs:
+        y = x
+        if y == 0:
+            break
+    return y  # E: `y` may be uninitialized
+
+def g(xs: list[int]) -> int:
+    for x in [1, 2, 3]:
+        y = x
+        if y == 0:
+            break
+    return y
+"#,
+);
+
 testcase!(
     test_for_with_reassign,
     r#"
@@ -601,7 +693,7 @@ assert_type(f(True, True, True, True), int)
 testcase!(
     test_loop_defaulting,
     r#"
-# From https://github.com/facebook/pyrefly/issues/104
+# From https://github.com/pyrefly-org/pyrefly/issues/104
 from typing import assert_type
 class Foo:
     pass
@@ -618,7 +710,7 @@ def test(b: bool, x: Foo) -> None:
 testcase!(
     test_loop_enumerate,
     r#"
-# From https://github.com/facebook/pyrefly/issues/267
+# From https://github.com/pyrefly-org/pyrefly/issues/267
 def foo() -> list[int]:
     results: list[int] = [1, 2, 3]
     for i, x in enumerate(results):
@@ -677,7 +769,7 @@ else:
 "#,
 );
 
-// Test for https://github.com/facebook/pyrefly/issues/726
+// Test for https://github.com/pyrefly-org/pyrefly/issues/726
 testcase!(
     test_reassign_literal_str_to_str_in_loop,
     r#"
@@ -689,7 +781,7 @@ for x in ['home', 'other']:
     "#,
 );
 
-// Test for https://github.com/facebook/pyrefly/issues/747
+// Test for https://github.com/pyrefly-org/pyrefly/issues/747
 testcase!(
     test_benign_reassign_and_narrow_in_loop,
     r#"
@@ -723,7 +815,7 @@ while condition():
 "#,
 );
 
-// Test for https://github.com/facebook/pyrefly/issues/1505
+// Test for https://github.com/pyrefly-org/pyrefly/issues/1505
 testcase!(
     test_dict_get_self_assignment,
     r#"
@@ -734,7 +826,7 @@ for i in range(10):
     "#,
 );
 
-// Test for https://github.com/facebook/pyrefly/issues/1453
+// Test for https://github.com/pyrefly-org/pyrefly/issues/1453
 testcase!(
     test_against_regression_on_1453,
     r#"
@@ -751,7 +843,7 @@ def remove_common(x: int, g: int) -> int:
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1565
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1565
 testcase!(
     test_nested_while_int_assignment,
     r#"
@@ -917,7 +1009,7 @@ def foo(cond: bool):
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/714
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/714
 testcase!(
     test_loop_variable_type_with_cross_branch_reassignment,
     r#"
@@ -939,7 +1031,7 @@ for part in ['a', 'b', 'c', 'd']:
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/1561
+// https://github.com/pyrefly-org/pyrefly/issues/1561
 testcase!(
     test_divmod_loop_inference,
     r#"
@@ -956,5 +1048,51 @@ items: list[int] = []
 for item in items:
     last = item
 last  # E: `last` may be uninitialized
+"#,
+);
+
+testcase!(
+    test_unreachable_after_breakless_while_true,
+    r#"
+def retry(flag: bool) -> None:
+    while True:
+        if flag:
+            return
+    raise RuntimeError("unreachable")  # E: This code is unreachable
+
+def spin() -> None:
+    while True:
+        pass
+    raise RuntimeError("unreachable")  # E: This code is unreachable
+"#,
+);
+
+testcase!(
+    test_while_environment_dependent_fallthrough,
+    r#"
+import sys
+
+def configured_true() -> int:
+    while sys.version_info >= (3, 0):
+        pass
+    return 1
+
+def configured_false() -> int:
+    while sys.version_info < (3, 0):
+        pass
+    return 1
+"#,
+);
+
+testcase!(
+    test_while_true_raise_can_be_suppressed,
+    r#"
+from contextlib import suppress
+
+def f() -> int:
+    with suppress(ValueError):
+        while True:
+            raise ValueError()
+    return 1
 "#,
 );

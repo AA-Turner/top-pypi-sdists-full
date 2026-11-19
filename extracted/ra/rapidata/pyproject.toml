@@ -1,6 +1,6 @@
 [project]
 name = "rapidata"
-version = "3.31.4"
+version = "3.31.5"
 description = "Rapidata package containing the Rapidata Python Client to interact with the Rapidata Web API in an easy way."
 authors = [{ name = "Rapidata AG", email = "info@rapidata.ai" }]
 requires-python = ">=3.10,<4"
@@ -71,3 +71,12 @@ include = ["src/rapidata"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff]
+extend-exclude = ["src/rapidata/api_client"]
+
+[tool.ruff.lint]
+select = ["F", "B006", "B008", "B023"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]

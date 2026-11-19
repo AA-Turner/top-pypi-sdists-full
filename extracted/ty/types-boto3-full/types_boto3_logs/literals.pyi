@@ -216,6 +216,7 @@ SyslogSourceTypeType = Literal["VPCE"]
 TypeType = Literal["boolean", "double", "integer", "string"]
 CloudWatchLogsServiceName = Literal["logs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

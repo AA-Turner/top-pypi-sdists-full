@@ -93,6 +93,7 @@ UsageLimitUsageTypeType = Literal["cross-region-datasharing", "serverless-comput
 WorkgroupStatusType = Literal["AVAILABLE", "CREATING", "DELETING", "MODIFYING"]
 RedshiftServerlessServiceName = Literal["redshift-serverless"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

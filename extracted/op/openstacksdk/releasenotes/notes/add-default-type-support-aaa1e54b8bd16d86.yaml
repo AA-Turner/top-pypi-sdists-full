@@ -1,9 +1,0 @@
----
-features:
-  - |
-    Added support for the following operations:
-
-    * Set default volume type
-    * Get default volume type
-    * List default volume type
-    * Unset default volume type

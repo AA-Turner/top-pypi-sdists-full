@@ -71,6 +71,7 @@ __all__ = (
     "ListTestRunSourcesPaginatorName",
     "ListTestRunsPaginatorName",
     "ListTestSourcesPaginatorName",
+    "ListTestTemplatesPaginatorName",
     "ListTestsPaginatorName",
     "ListUserJourneysPaginatorName",
     "MultiAzDisasterRecoveryApproachType",
@@ -188,6 +189,7 @@ ListTestRunSourceEventsPaginatorName = Literal["list_test_run_source_events"]
 ListTestRunSourcesPaginatorName = Literal["list_test_run_sources"]
 ListTestRunsPaginatorName = Literal["list_test_runs"]
 ListTestSourcesPaginatorName = Literal["list_test_sources"]
+ListTestTemplatesPaginatorName = Literal["list_test_templates"]
 ListTestsPaginatorName = Literal["list_tests"]
 ListUserJourneysPaginatorName = Literal["list_user_journeys"]
 MultiAzDisasterRecoveryApproachType = Literal[
@@ -280,6 +282,7 @@ TestSourceTypeType = Literal["OBSERVABILITY", "SUCCESS_CRITERIA"]
 TopologyTypeType = Literal["CONTAINMENT", "DATA_FLOW", "OBSERVABILITY", "PERMISSIONS"]
 ResilienceHubV2ServiceName = Literal["resiliencehubv2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -745,6 +748,7 @@ PaginatorName = Literal[
     "list_test_run_sources",
     "list_test_runs",
     "list_test_sources",
+    "list_test_templates",
     "list_tests",
     "list_user_journeys",
 ]

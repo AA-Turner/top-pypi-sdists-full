@@ -43,6 +43,7 @@ RuleStatusType = Literal["available", "pending"]
 UnlockDelayUnitType = Literal["DAYS"]
 RecycleBinServiceName = Literal["rbin"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

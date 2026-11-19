@@ -9,11 +9,14 @@ import shlex
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import pytest
 import yaml
+from pydantic import ValidationError
 
 from omnibase_infra.observability.runner_health.model_runner_fleet_config import (
     load_runner_fleet_config,
 )
+from tests.ci._runner_compose_text import RUNNER_HOME, read_runner_compose
 
 REPO_ROOT = Path(__file__).parents[4]
 
@@ -37,18 +40,22 @@ def test_runner_fleet_config_loads_from_repo_config() -> None:
     # scalars are the primary host's 44, and .202's omnipc2-ci-runner pool
     # carries the other 16, so the action fleet's declared total stays 60.
     # OMN-19077 (operator consent ROLLING_WORK_LEDGER.md:66460) cut the
-    # primary host's share 44 -> 10, so the declared total is now 26.
-    assert config.expected_count == 10
-    assert config.burst_count == 10
-    assert config.declared_total("action") == 26
+    # primary host's share 44 -> 10, so the declared total was 26. OMN-22111
+    # declares h053's 8 `omnibase-ci` runners before the primary share is
+    # lowered (OMN-19998 resized it from 8 to 5), so it is 31 until `--retire-surplus` follows the proof.
+    # OMN-22898 (operator, 2026-11-09: the primary host swaps all the time, take
+    # its CI runners off first) cut the primary host's share 10 -> 0 once the
+    # 16 runners of the second amd64 host and the 5 `hp053-ci-runner` carried its labels, so
+    # the declared total is 16 + 5 = 21.
+    assert config.expected_count == 0
+    assert config.burst_count == 0
+    assert config.declared_total("action") == 21
 
 
 def test_runner_compose_matches_configured_count() -> None:
     config = load_runner_fleet_config(REPO_ROOT / "config" / "runner_fleet.yaml")
     compose = yaml.safe_load(
-        (REPO_ROOT / "docker" / "docker-compose.runners.yml").read_text(
-            encoding="utf-8"
-        )
+        read_runner_compose(REPO_ROOT / "docker" / "docker-compose.runners.yml")
     )
 
     services = compose["services"]
@@ -68,11 +75,41 @@ def test_runner_compose_matches_configured_count() -> None:
     assert len(all_runner_services) == config.burst_count
 
 
+def test_primary_host_declares_only_its_host_specific_runners() -> None:
+    """OMN-22898: the primary host declares no general runner, and every
+    host-specific runner it carries is still declared in the config and the
+    compose file, so removing the general pool took nothing else with it.
+    """
+    config = load_runner_fleet_config(REPO_ROOT / "config" / "runner_fleet.yaml")
+    compose = yaml.safe_load(
+        read_runner_compose(REPO_ROOT / "docker" / "docker-compose.runners.yml")
+    )
+    primary = config.primary_host()
+    assert primary.expected_count == 0
+    pools = {pool.runner_name_prefix: pool.expected_count for pool in primary.pools}
+    assert pools == {
+        "omninode-verify-runner": 3,
+        "omninode-customer-plane-runner": 2,
+    }
+    assert set(compose["services"]) == {
+        "omninode-deploy-runner",
+        "omninode-prod-deploy-runner-1",
+        *(f"omninode-verify-runner-{n}" for n in range(1, 4)),
+        *(f"omninode-customer-plane-runner-{n}" for n in range(1, 3)),
+    }
+    # The general runners are not gone from the fleet, they are on the hosts
+    # that carry the same labels.
+    action_hosts = {
+        host.host for host in config.hosts if host.declared_count("action") > 0
+    }
+    assert len(action_hosts) == 2
+    assert "h053" in action_hosts
+    assert config.runner_host not in action_hosts
+
+
 def test_runner_compose_resource_limits_match_live_capacity() -> None:
     compose = yaml.safe_load(
-        (REPO_ROOT / "docker" / "docker-compose.runners.yml").read_text(
-            encoding="utf-8"
-        )
+        read_runner_compose(REPO_ROOT / "docker" / "docker-compose.runners.yml")
     )
 
     base = compose["x-runner-base"]
@@ -94,9 +131,7 @@ def test_runner_compose_has_fleet_uv_concurrency_cap() -> None:
     built-in default. A fleet default of 2 would loosen the composite path.
     """
     compose = yaml.safe_load(
-        (REPO_ROOT / "docker" / "docker-compose.runners.yml").read_text(
-            encoding="utf-8"
-        )
+        read_runner_compose(REPO_ROOT / "docker" / "docker-compose.runners.yml")
     )
     env = compose["x-runner-base"]["environment"]
     assert env["UV_CONCURRENT_DOWNLOADS"] == "1"
@@ -112,9 +147,7 @@ def test_runner_compose_pypi_index_wiring_stays_inert() -> None:
     yet stood up. This guards against accidentally activating the egress cache
     from the design/canary PR.
     """
-    raw = (REPO_ROOT / "docker" / "docker-compose.runners.yml").read_text(
-        encoding="utf-8"
-    )
+    raw = read_runner_compose(REPO_ROOT / "docker" / "docker-compose.runners.yml")
     compose = yaml.safe_load(raw)
     env = compose["x-runner-base"]["environment"]
     # Not an active env key...
@@ -144,58 +177,51 @@ def test_runner_fleet_config_pypi_cache_is_recorded_but_fleet_inert() -> None:
     assert config.pypi_cache.fallback_index_url == "https://pypi.org/simple/"
 
 
-def test_pypi_canary_membership_matches_override_file() -> None:
-    """OMN-14027 C1: ``pypi_cache.canary_runners`` must name exactly the services
-    wired in docker/docker-compose.pypi-canary.yml.
+def test_pypi_canary_ended_with_its_runners() -> None:
+    """OMN-22898 retired omninode-runner-2/4/5, the only runners the C1 canary
+    wired at the cache, so the canary ended: ``pypi_cache.canary_runners`` is
+    empty and the override file that named those services is gone.
 
-    Without this gate the two drift silently and the recorded canary membership
-    stops describing what is actually wired — the same class of failure as the
-    canary that reverted unnoticed, just in the config plane instead of the
-    runtime plane.
+    A compose override that names a service the base file lacks renders a
+    service with no image, which fails `docker compose config` and so blocks
+    the monitor's auto-repair. This keeps the recorded canary membership, the
+    override file and the layering list agreeing that no canary exists.
     """
     config = load_runner_fleet_config(REPO_ROOT / "config" / "runner_fleet.yaml")
     assert config.pypi_cache is not None
+    assert config.pypi_cache.canary_runners == ()
 
-    override_path = REPO_ROOT / "docker" / "docker-compose.pypi-canary.yml"
-    override = yaml.safe_load(override_path.read_text(encoding="utf-8"))
-    wired = set(override["services"])
+    assert not (REPO_ROOT / "docker" / "docker-compose.pypi-canary.yml").exists()
 
-    assert set(config.pypi_cache.canary_runners) == wired, (
-        "config/runner_fleet.yaml pypi_cache.canary_runners "
-        f"({sorted(config.pypi_cache.canary_runners)}) does not match the services "
-        f"wired in {override_path.name} ({sorted(wired)})"
-    )
-
-    # Every canary member must be a real steady-state runner service.
     compose = yaml.safe_load(
-        (REPO_ROOT / "docker" / "docker-compose.runners.yml").read_text(
-            encoding="utf-8"
+        read_runner_compose(REPO_ROOT / "docker" / "docker-compose.runners.yml")
+    )
+    overrides_list = REPO_ROOT / "docker" / "compose-overrides.list"
+    entries = {
+        line.split("#", 1)[0].strip()
+        for line in overrides_list.read_text(encoding="utf-8").splitlines()
+        if line.split("#", 1)[0].strip()
+    }
+    for entry in sorted(entries):
+        override = yaml.safe_load(
+            (REPO_ROOT / "docker" / entry).read_text(encoding="utf-8")
         )
-    )
-    assert wired <= set(compose["services"]), (
-        "canary override names services absent from the fleet compose file: "
-        f"{sorted(wired - set(compose['services']))}"
-    )
-
-    # Each wired runner must actually carry the cache index env, pointed at the
-    # configured endpoint, with PyPI retained as the fallback so a cache
-    # miss/outage degrades rather than failing the job closed.
-    for name in sorted(wired):
-        env = override["services"][name]["environment"]
-        assert env["UV_DEFAULT_INDEX"] == config.pypi_cache.simple_index_url
-        assert env["PIP_INDEX_URL"] == config.pypi_cache.simple_index_url
-        assert env["PIP_EXTRA_INDEX_URL"] == config.pypi_cache.fallback_index_url
-        assert env["UV_INDEX_STRATEGY"] == "unsafe-best-match"
+        named = set(override.get("services") or {})
+        assert named <= set(compose["services"]), (
+            f"{entry} names services absent from the fleet compose file: "
+            f"{sorted(named - set(compose['services']))}"
+        )
 
 
-def test_pypi_canary_override_is_layered_by_auto_repair() -> None:
-    """OMN-14027 C1: the canary override must be listed in
-    docker/compose-overrides.list, and runner-monitor.sh must consume that list.
+def test_compose_overrides_are_layered_by_auto_repair() -> None:
+    """OMN-14027 C1: the override files listed in docker/compose-overrides.list
+    must be consumed by runner-monitor.sh.
 
     The auto-bounce cron recreates runner containers unattended. If it recreates
-    from docker-compose.runners.yml alone, canary wiring is stripped with no log
-    line and no alert, and the soak keeps reporting on runners that silently
-    reverted to direct egress. This gate keeps that path wired.
+    from docker-compose.runners.yml alone, override wiring is stripped with no
+    log line and no alert. This gate keeps that path wired. The C1 PyPI canary
+    entry itself was removed when the canary ended (OMN-22898); the model-review
+    overlay stays listed.
     """
     overrides_list = REPO_ROOT / "docker" / "compose-overrides.list"
     entries = {
@@ -203,16 +229,44 @@ def test_pypi_canary_override_is_layered_by_auto_repair() -> None:
         for line in overrides_list.read_text(encoding="utf-8").splitlines()
         if line.split("#", 1)[0].strip()
     }
-    assert "docker-compose.pypi-canary.yml" in entries
+    assert "docker-compose.pypi-canary.yml" not in entries
+    assert "docker-compose.model-review-canary.yml" in entries
 
     monitor = (REPO_ROOT / "docker" / "runners" / "runner-monitor.sh").read_text(
         encoding="utf-8"
     )
     assert "COMPOSE_OVERRIDES_LIST" in monitor
     # The force-recreate call sites must use the layered args, not COMPOSE_FILE
-    # alone — that regression is exactly what strips the canary.
+    # alone -- that regression is exactly what strips an override.
     assert 'docker compose "${COMPOSE_FILE_ARGS[@]}" up -d --force-recreate' in monitor
     assert 'docker compose -f "${COMPOSE_FILE}" up -d --force-recreate' not in monitor
+
+
+def test_a_primary_host_with_no_general_runners_is_a_valid_config(
+    tmp_path: Path,
+) -> None:
+    """OMN-22898: ``expected_count`` and ``burst_count`` of 0 are legal, so a
+    host can drop its general pool and keep its other pools. A negative count
+    is still refused."""
+    body = (
+        "version: '1.0'\n"
+        "github_org: OmniNode-ai\n"
+        "runner_host: example.ts.net\n"
+        "runner_group: omnibase-ci\n"
+        "runner_name_prefix: omninode-runner\n"
+        "expected_count: {count}\n"
+        "burst_count: {count}\n"
+    )
+    zero = tmp_path / "zero.yaml"
+    zero.write_text(body.format(count=0), encoding="utf-8")
+    config = load_runner_fleet_config(zero)
+    assert (config.expected_count, config.burst_count) == (0, 0)
+    assert config.declared_total("action") == 0
+
+    negative = tmp_path / "negative.yaml"
+    negative.write_text(body.format(count=-1), encoding="utf-8")
+    with pytest.raises(ValidationError):
+        load_runner_fleet_config(negative)
 
 
 def test_runner_fleet_config_pypi_cache_is_optional(tmp_path: Path) -> None:
@@ -256,12 +310,9 @@ def test_runner_fleet_config_git_mirror_is_recorded() -> None:
 
 def test_runner_fleet_config_git_mirror_covers_every_ci_repo() -> None:
     """OMN-16056: the C2 git mirror's original 5-repo set (OMN-16053) left
-    omniweb, omnimemory, omnibase_compat, and knowledge-base doing full remote
-    fetches -- exposed to the same GnuTLS/early-EOF checkout-failure class the
-    mirror exists to remove (one of the 21 pre-mirror OMN-16030 failures was
-    exactly a sibling fetch of one of these: omnimarket's `Clone
-    omnibase_compat` step). This asserts the fix's full coverage, not just
-    membership of one repo.
+    several CI repositories doing full remote fetches. Sibling checkouts
+    saw the same GnuTLS and early-EOF failures as primary checkouts
+    (OMN-16030). This test checks the full mirror set.
 
     OMN-20597: knowledge-base-internal was the largest gap of all. Over
     2026-10-04T18:09Z..10-05T11:05Z its unmirrored depth-1 checkout spent
@@ -279,7 +330,6 @@ def test_runner_fleet_config_git_mirror_covers_every_ci_repo() -> None:
         "omniclaude",
         "omniweb",
         "omnimemory",
-        "omnibase_compat",
         "knowledge_base",
         "knowledge-base-internal",
     }
@@ -511,9 +561,7 @@ def test_runner_compose_healthcheck_uses_egress_script() -> None:
     """OMN-12433: every runner service must run the egress healthcheck script,
     not the old pgrep-only test, and mount the script into the container."""
     compose = yaml.safe_load(
-        (REPO_ROOT / "docker" / "docker-compose.runners.yml").read_text(
-            encoding="utf-8"
-        )
+        read_runner_compose(REPO_ROOT / "docker" / "docker-compose.runners.yml")
     )
 
     base_test = compose["x-runner-base"]["healthcheck"]["test"]
@@ -542,7 +590,8 @@ def test_runner_compose_reconciled_to_the_spread_60_fleet() -> None:
     orphan-remove nor resurrect a runner, and every runner in both mounts the
     OMN-12433 egress healthcheck script and is steady (no burst profile).
     OMN-19077 (operator consent ROLLING_WORK_LEDGER.md:66460) cut the primary
-    file 44 -> 10, so the fleet is 26.
+    file 44 -> 10, so the fleet was 26. OMN-22898 cut it 10 -> 0, so the primary
+    file declares no general runner and the two files hold 16.
 
     Capped down from 88 (OMN-15978) after a CI burst drove one-minute load to
     100.9 on the 32-core `.201` host: idle runners cost nothing, so the
@@ -552,7 +601,7 @@ def test_runner_compose_reconciled_to_the_spread_60_fleet() -> None:
     hc_mount = "./runners:/opt/onex-runner-hooks:ro"
     total = 0
     for filename, prefix, volume_prefix, count in (
-        ("docker-compose.runners.yml", "omninode-runner", "runner", 10),
+        ("docker-compose.runners.yml", "omninode-runner", "runner", 0),
         (
             "docker-compose.runners-omnipc2-ci-runner.yml",
             "omnipc2-ci-runner",
@@ -560,9 +609,7 @@ def test_runner_compose_reconciled_to_the_spread_60_fleet() -> None:
             16,
         ),
     ):
-        compose = yaml.safe_load(
-            (REPO_ROOT / "docker" / filename).read_text(encoding="utf-8")
-        )
+        compose = yaml.safe_load(read_runner_compose(REPO_ROOT / "docker" / filename))
         runner_services = {
             name: definition
             for name, definition in compose["services"].items()
@@ -577,7 +624,7 @@ def test_runner_compose_reconciled_to_the_spread_60_fleet() -> None:
                 f"{name} missing healthcheck mount"
             )
             assert definition["volumes"][-1] == (
-                f"{volume_prefix}-{name.rsplit('-', 1)[1]}-creds:/home/runner/.runner-creds"
+                f"{volume_prefix}-{name.rsplit('-', 1)[1]}-creds:{RUNNER_HOME}/.runner-creds"
             )
         volume_names = {
             name
@@ -586,7 +633,7 @@ def test_runner_compose_reconciled_to_the_spread_60_fleet() -> None:
         }
         assert len(volume_names) == count
         total += count
-    assert total == 26
+    assert total == 16
 
 
 def test_every_general_pool_runner_runs_in_the_aggregate_slice() -> None:
@@ -597,9 +644,7 @@ def test_every_general_pool_runner_runs_in_the_aggregate_slice() -> None:
     customer-plane, prod-deploy) are deliberately not in it.
     """
     compose = yaml.safe_load(
-        (REPO_ROOT / "docker" / "docker-compose.runners.yml").read_text(
-            encoding="utf-8"
-        )
+        read_runner_compose(REPO_ROOT / "docker" / "docker-compose.runners.yml")
     )
     slice_unit = REPO_ROOT / "docker" / "runners" / "systemd" / "omnirunners.slice"
     assert slice_unit.is_file()
@@ -608,7 +653,9 @@ def test_every_general_pool_runner_runs_in_the_aggregate_slice() -> None:
         for name, definition in compose["services"].items()
         if re.fullmatch(r"omninode-runner-\d+", name)
     }
-    assert pool
+    # OMN-22898: the primary host declares no general pool, so there is none to
+    # check. The loop below still holds a general runner added back to the slice.
+    assert pool == {}
     for name, definition in pool.items():
         assert definition.get("cgroup_parent") == slice_unit.name, name
     for name, definition in compose["services"].items():

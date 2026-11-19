@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skfolio
-Version: 1.13.0
+Version: 1.14.1
 Summary: Portfolio optimization, factor model construction, and risk management built on top of scikit-learn
 Author-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>
 Maintainer-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>, Matteo Manzi <matteomanzi09@gmail.com>, Carlo Nicolini <c.nicolini@ipazia.com>
@@ -204,7 +204,7 @@ MVO out-of-sample (DeMiguel, 2007).
 Numerous approaches have been developed to alleviate these shortcomings (shrinkage,
 additional constraints, regularization, uncertainty set, higher moments, Bayesian
 approaches, coherent risk measures, left-tail risk optimization, distributionally robust
-optimization, factor model, risk-parity, hierarchical clustering, ensemble methods,
+optimization, factor model, risk-parity, hierarchical allocation, ensemble methods,
 pre-selection, etc.).
 
 Given the large number of methods, and the fact that they can be combined, there is a
@@ -228,7 +228,7 @@ Available models
         * Maximum Diversification
         * Distributionally Robust CVaR
         * Benchmark Tracker
-    * Clustering:
+    * Hierarchical Allocation:
         * Hierarchical Risk Parity
         * Hierarchical Equal Risk Contribution
         * Schur Complementary Allocation

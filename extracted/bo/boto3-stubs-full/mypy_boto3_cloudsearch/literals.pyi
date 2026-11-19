@@ -110,6 +110,7 @@ SuggesterFuzzyMatchingType = Literal["high", "low", "none"]
 TLSSecurityPolicyType = Literal["Policy-Min-TLS-1-0-2019-07", "Policy-Min-TLS-1-2-2019-07"]
 CloudSearchServiceName = Literal["cloudsearch"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

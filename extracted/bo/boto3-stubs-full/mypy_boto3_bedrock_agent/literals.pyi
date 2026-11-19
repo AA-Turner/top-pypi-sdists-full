@@ -370,6 +370,7 @@ VpcResolutionModeType = Literal["IN_VPC", "PUBLIC"]
 WebScopeTypeType = Literal["HOST_ONLY", "SUBDOMAINS"]
 AgentsforBedrockServiceName = Literal["bedrock-agent"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

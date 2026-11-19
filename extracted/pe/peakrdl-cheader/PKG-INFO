@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peakrdl-cheader
-Version: 1.1.0
+Version: 1.2.0
 Summary: Generate C Header files from a SystemRDL register model
 Author: Alex Mykyta, Keith Brady
 License: LGPLv3

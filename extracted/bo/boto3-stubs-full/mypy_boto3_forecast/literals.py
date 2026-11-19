@@ -112,6 +112,7 @@ TimePointGranularityType = Literal["ALL", "SPECIFIC"]
 TimeSeriesGranularityType = Literal["ALL", "SPECIFIC"]
 ForecastServiceServiceName = Literal["forecast"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

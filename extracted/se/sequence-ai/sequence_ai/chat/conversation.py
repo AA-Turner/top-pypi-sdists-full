@@ -43,6 +43,7 @@ class Conversation:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout_s: float | None = None,
+        server: str | None = None,
     ) -> None:
         self.model = model
         self.messages: list[dict[str, Any]] = []
@@ -54,6 +55,8 @@ class Conversation:
             "tools": tools, "tool_choice": tool_choice, "response_format": response_format,
             "max_tokens": max_tokens, "temperature": temperature, "cache": cache,
             "api_key": api_key, "base_url": base_url, "timeout_s": timeout_s,
+
+            **({"server": server} if server is not None else {}),
         }
 
     def send(self, content: str | list[dict[str, Any]] | None = None, **overrides: Any) -> ChatResult:

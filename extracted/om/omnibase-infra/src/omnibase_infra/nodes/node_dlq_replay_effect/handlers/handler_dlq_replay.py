@@ -27,8 +27,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections import OrderedDict
-from collections.abc import Mapping, Sequence
+from collections import OrderedDict, deque
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -65,6 +65,9 @@ from omnibase_infra.nodes.node_dlq_replay_effect.models.model_dlq_replay_result 
 )
 from omnibase_infra.nodes.node_dlq_replay_effect.models.model_dlq_replay_run_result import (
     ModelDlqReplayRunResult,
+)
+from omnibase_infra.nodes.node_dlq_replay_effect.models.model_dlq_target_replay_bound import (
+    ModelDlqTargetReplayBound,
 )
 from omnibase_infra.nodes.node_dlq_replay_effect.models.model_gateway_quarantined_dlq_record import (
     ModelGatewayQuarantinedDlqRecord,
@@ -103,12 +106,22 @@ class DlqConsumerDrainState:
 
     ``replayed_sources`` is OMN-20589: the source coordinates this consumer has
     already replayed, so the other dead letters of the same source record are
-    completed rather than replayed again. It lives here for the same reason:
+    completed rather than replayed again. OMN-22822: a replay is addressed to
+    the one consumer group that failed the record, so a coordinate is
+    remembered per target group (``None`` is an unaddressed replay, which
+    reached every group). It lives here for the same reason:
     the three dispatchers share the consumer, and siblings of one source record
     can arrive in different runs.
     """
 
-    __slots__ = ("failed_attempts", "halted", "lock", "replayed_sources")
+    __slots__ = (
+        "clock",
+        "failed_attempts",
+        "halted",
+        "lock",
+        "replayed_sources",
+        "target_replays",
+    )
 
     def __init__(self) -> None:
         self.lock = asyncio.Lock()
@@ -118,14 +131,55 @@ class DlqConsumerDrainState:
         self.halted: dict[int, int] = {}
         # (original topic, partition, offset) of every source record replayed,
         # oldest first, bounded by _MAX_REPLAYED_SOURCES.
-        self.replayed_sources: OrderedDict[tuple[str, int, str], None] = OrderedDict()
+        self.replayed_sources: OrderedDict[
+            tuple[tuple[str, int, str], str | None], None
+        ] = OrderedDict()
+        # OMN-24177: (original topic, target group) -> the times of its recent
+        # replays, oldest first. ``clock`` is a plain attribute so a test can
+        # move time.
+        self.target_replays: dict[tuple[str, str | None], deque[float]] = {}
+        self.clock: Callable[[], float] = time.monotonic
 
-    def already_replayed(self, source: tuple[str, int, str]) -> bool:
-        return source in self.replayed_sources
+    def admit_replay(
+        self, topic: str, group: str | None, bound: ModelDlqTargetReplayBound
+    ) -> bool:
+        """Count one replay of ``topic`` to ``group``; False when the bound is spent.
 
-    def mark_replayed(self, source: tuple[str, int, str]) -> None:
-        self.replayed_sources[source] = None
-        self.replayed_sources.move_to_end(source)
+        OMN-24177: at most ``bound.max_replays`` replays per (topic, group) in
+        any window of ``bound.window_seconds``. A node that fails every message
+        on a topic keeps producing fresh dead letters, each with a replay count
+        of zero, so the per-record cap never trips; this bounds the pair.
+        """
+        now = self.clock()
+        recent = self.target_replays.setdefault((topic, group), deque())
+        while recent and now - recent[0] >= bound.window_seconds:
+            recent.popleft()
+        if len(recent) >= bound.max_replays:
+            return False
+        recent.append(now)
+        return True
+
+    def already_replayed(
+        self, source: tuple[str, int, str], group: str | None = None
+    ) -> bool:
+        """Whether a confirmed replay already reached ``group`` for ``source``.
+
+        An unaddressed replay (``group`` None) reached every group, so it also
+        answers a dead letter that names one. An addressed replay answers only
+        its own group: another group's dead letter for the same source record
+        still needs its own replay (OMN-22822).
+        """
+        return (source, group) in self.replayed_sources or (
+            source,
+            None,
+        ) in self.replayed_sources
+
+    def mark_replayed(
+        self, source: tuple[str, int, str], group: str | None = None
+    ) -> None:
+        key = (source, group)
+        self.replayed_sources[key] = None
+        self.replayed_sources.move_to_end(key)
         while len(self.replayed_sources) > _MAX_REPLAYED_SOURCES:
             self.replayed_sources.popitem(last=False)
 
@@ -1071,11 +1125,22 @@ class HandlerDlqReplay:
         # runtime tick into 63 copies on the dev-202 lane (1/2/4/8/16/32 by
         # x-replay-count). Refusal is still decided per dead letter above, so a
         # sibling at the cap is quarantined, never skipped.
+        #
+        # OMN-22822: a replay is now addressed to the ONE consumer group that
+        # failed the record (``x-replay-target-group``), so it no longer
+        # re-delivers to the siblings' groups. The duplicate test is therefore
+        # per (source record, group): a sibling dead letter written by a
+        # DIFFERENT group is not answered by this replay and is replayed to its
+        # own group; a sibling of the SAME group (two subscriptions in one
+        # group) still is. A dead letter that names no group was replayed to
+        # everyone, and answers every sibling, exactly as before.
         source = _source_coordinate(message)
-        if source is not None and state.already_replayed(source):
+        if source is not None and state.already_replayed(
+            source, message.consumer_group
+        ):
             detail = (
                 f"source record {source[0]}/{source[1]}@{source[2]} was already "
-                "replayed for another subscriber's dead letter; that replay "
+                "replayed for this dead letter's subscriber; that replay "
                 "re-delivered it here too (OMN-20589)"
             )
             if self._config.dry_run:
@@ -1118,6 +1183,26 @@ class HandlerDlqReplay:
                 replay_correlation_id=replay_correlation_id,
             )
 
+        bound = config.target_replay_bound
+        if bound is not None and not state.admit_replay(
+            message.original_topic, message.consumer_group, bound
+        ):
+            logger.error(
+                "REPLAY BOUND topic=%s group=%s: more than %d replays in "
+                "%.0f s, quarantining (OMN-24177)",
+                message.original_topic,
+                message.consumer_group,
+                bound.max_replays,
+                bound.window_seconds,
+            )
+            return await self._quarantine(
+                message,
+                f"Replay bound: more than {bound.max_replays} replays of "
+                f"{message.original_topic} to group {message.consumer_group} "
+                f"in {bound.window_seconds:g} s; a subscriber that fails every "
+                "record is not retried without end (OMN-24177)",
+            )
+
         try:
             await self._producer.replay_message(message, replay_correlation_id)
         except Exception as exc:
@@ -1141,7 +1226,7 @@ class HandlerDlqReplay:
             )
 
         if source is not None:
-            state.mark_replayed(source)
+            state.mark_replayed(source, message.consumer_group)
         await self._record(message, EnumReplayStatus.COMPLETED, replay_correlation_id)
         return ModelDlqReplayResult(
             correlation_id=message.correlation_id,

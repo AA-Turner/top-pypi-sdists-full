@@ -123,6 +123,7 @@ QueryStateType = Literal["CANCELLING", "RUNNING", "WAITING"]
 SnapshotStatusType = Literal["AVAILABLE", "CREATING", "DELETING", "FAILED"]
 NeptuneGraphServiceName = Literal["neptune-graph"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

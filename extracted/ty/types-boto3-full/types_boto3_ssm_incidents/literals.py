@@ -78,6 +78,7 @@ WaitForReplicationSetActiveWaiterName = Literal["wait_for_replication_set_active
 WaitForReplicationSetDeletedWaiterName = Literal["wait_for_replication_set_deleted"]
 SSMIncidentsServiceName = Literal["ssm-incidents"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

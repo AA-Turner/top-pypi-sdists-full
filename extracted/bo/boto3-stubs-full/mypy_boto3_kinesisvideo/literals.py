@@ -94,6 +94,7 @@ UpdateDataRetentionOperationType = Literal["DECREASE_DATA_RETENTION", "INCREASE_
 UploaderStatusType = Literal["SUCCESS", "SYSTEM_ERROR", "USER_ERROR"]
 KinesisVideoServiceName = Literal["kinesisvideo"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

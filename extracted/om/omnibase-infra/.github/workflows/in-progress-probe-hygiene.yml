@@ -79,13 +79,7 @@ jobs:
     name: In-Progress Probe Hygiene (${{ github.event_name == 'schedule' && 'SCHEDULE - applies' || (github.event.inputs.apply == 'true' && 'DISPATCH APPLY' || 'DISPATCH DRY-RUN') }})
     # Trusted runner required: needs LINEAR_API_KEY.
     # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to ubuntu-latest; public forks default to ubuntu-latest
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    runs-on: ubuntu-latest
     # Measured, not guessed. The first live dry run (run 33988218390,
     # 2026-09-05) scanned 200 In-Progress tickets and took ~19 minutes: 97 have
     # a probe and cost one Linear page each, and the 100 that do not each cost
@@ -131,7 +125,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CONTRACT_REPOS: >-
-            omniclaude omnibase_compat omnibase_core omnibase_infra omnibase_spi
+            omniclaude omnibase_core omnibase_infra omnibase_spi
             omnidash omnidash-v2 omniintelligence omnimarket omnimemory
           CONTRACT_REPOS_PRIVATE: ${{ vars.ONEX_CONTRACT_REPOS_PRIVATE }}
         run: |

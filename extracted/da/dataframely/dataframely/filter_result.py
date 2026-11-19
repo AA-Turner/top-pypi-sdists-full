@@ -4,21 +4,15 @@
 from __future__ import annotations
 
 import json
-import sys
 from functools import cached_property
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Generic, TypeVar
+from typing import IO, TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 import polars as pl
 
 from dataframely._base_schema import BaseSchema
 
 from ._typing import DataFrame, LazyFrame
-
-if sys.version_info >= (3, 11):
-    from typing import NamedTuple
-else:
-    from typing_extensions import NamedTuple
 
 if TYPE_CHECKING:  # pragma: no cover
     from .schema import Schema
@@ -77,8 +71,7 @@ class LazyFilterResult(NamedTuple, Generic[S]):
 
 
 class FailureInfo:
-    """A container carrying information about rows failing validation in
-    :meth:`Schema.filter`."""
+    """A container carrying information about rows failing validation in :meth:`Schema.filter`."""
 
     #: The subset of the input data frame containing the *invalid* rows along with
     #: all boolean columns used for validation. Each of these boolean columns describes
@@ -114,8 +107,7 @@ class FailureInfo:
         return self._df.drop(self._rule_columns)
 
     def details(self) -> pl.DataFrame:
-        """Same as :meth:`invalid` but with additional columns indicating the results of
-        each individual rule.
+        """Same as :meth:`invalid` but with additional columns indicating the results of each individual rule.
 
         For each row, this includes:
             1. All columns of the original data frame.

@@ -474,6 +474,7 @@ ZendeskConnectorOperatorType = Literal[
 ]
 AppflowServiceName = Literal["appflow"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

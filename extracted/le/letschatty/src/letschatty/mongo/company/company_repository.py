@@ -16,6 +16,7 @@ from bson.objectid import ObjectId
 from ...domain.company.company import CompanyChangedMeanwhile
 from ...models.company.empresa import EmpresaModel
 from ...models.utils.custom_exceptions.custom_exceptions import NotFoundError
+from ...models.whatsapp.whatsapp_number import PLACEHOLDER_DIGITS
 from ...models.utils.types.deletion_type import DeletionType
 from ...models.utils.types.serializer_type import SerializerType
 
@@ -149,6 +150,11 @@ class MongoCompanyRepository:
 
     async def save_resolved_waba(self, company: EmpresaModel, *, only_if_phone: str) -> EmpresaModel:
         return await self._save(company, ["business_account_id"], only_if={"phone_number_id": only_if_phone})
+
+    async def release_number(self, company: EmpresaModel, record: Dict[str, Any]) -> EmpresaModel:
+        released = {"disconnected_whatsapp_number": record, "phone_number_id": None, "meta_token": None,
+                    "display_phone_number": PLACEHOLDER_DIGITS}
+        return await self._apply(company.id, {"$set": released}, only_if={"phone_number_id": company.phone_number_id})
 
     async def save_meta_profile(self, company: EmpresaModel, fields: Sequence[str], *,
                                 only_if_phone: str) -> EmpresaModel:

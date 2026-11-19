@@ -5,15 +5,157 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::fs;
+
 use lsp_types::Uri;
 use pyrefly_lsp_test::IndexingMode;
 use pyrefly_lsp_test::LspArgs;
 use pyrefly_lsp_test::object_model::InitializeSettings;
 use pyrefly_lsp_test::object_model::LspInteraction;
 use pyrefly_lsp_test::object_model::LspInteractionArgs;
+use pyrefly_lsp_test::object_model::TestTelemetry;
 use serde_json::json;
+use tempfile::TempDir;
 
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
+use crate::test::lsp::lsp_interaction::util::wait_for_disk_invalidation;
+
+// https://github.com/pyrefly-org/pyrefly/issues/5485
+#[test]
+fn test_references_to_class_member_after_defining_file_shifts() {
+    let root = TempDir::with_prefix("pyrefly_references_class_member_shift").unwrap();
+    let lib = "class Tools:\n    @staticmethod\n    def helper():\n        return 1\n";
+    fs::write(root.path().join("lib.py"), lib).unwrap();
+    fs::write(
+        root.path().join("user.py"),
+        r#"from lib import Tools
+
+Tools.helper()
+f = lambda: Tools.helper()
+
+class C:
+    x = Tools.helper()
+"#,
+    )
+    .unwrap();
+    let user_uri = Uri::from_file_path(root.path().join("user.py"))
+        .unwrap()
+        .to_string();
+    let user_references = json!([
+        {
+            "range": {"start":{"line":2,"character":6},"end":{"line":2,"character":12}},
+            "uri": user_uri
+        },
+        {
+            "range": {"start":{"line":3,"character":18},"end":{"line":3,"character":24}},
+            "uri": user_uri
+        },
+        {
+            "range": {"start":{"line":6,"character":14},"end":{"line":6,"character":20}},
+            "uri": user_uri
+        },
+    ]);
+
+    let telemetry = TestTelemetry::new();
+    let telemetry_events = telemetry.subscribe();
+    let mut interaction = LspInteraction::new_with_args(LspInteractionArgs {
+        telemetry: Box::new(telemetry),
+        ..Default::default()
+    });
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(Default::default()).unwrap();
+    interaction.client.did_open("lib.py");
+    interaction.client.did_open("user.py");
+    interaction
+        .client
+        .references("lib.py", 2, 9, false)
+        .expect_response(user_references.clone())
+        .unwrap();
+
+    // `user.py` imports the disk copy of `lib.py`, so save the edit as an editor does.
+    let shifted_lib = lib.replacen("\n", "\n\n", 1);
+    fs::write(root.path().join("lib.py"), &shifted_lib).unwrap();
+    interaction.client.did_change("lib.py", &shifted_lib);
+    interaction.client.did_save("lib.py");
+    wait_for_disk_invalidation(&telemetry_events);
+    interaction
+        .client
+        .references("lib.py", 3, 9, false)
+        .expect_response(user_references.clone())
+        .unwrap();
+
+    // A class above `Tools` changes the `ClassDefIndex` that the index of `user.py` stores.
+    let reindexed_lib = format!("class Other: ...\n{shifted_lib}");
+    fs::write(root.path().join("lib.py"), &reindexed_lib).unwrap();
+    interaction.client.did_change("lib.py", &reindexed_lib);
+    interaction.client.did_save("lib.py");
+    wait_for_disk_invalidation(&telemetry_events);
+    interaction
+        .client
+        .references("lib.py", 4, 9, false)
+        .expect_response(user_references)
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+// https://github.com/pyrefly-org/pyrefly/issues/5485
+#[test]
+fn test_references_to_parent_method_after_defining_file_shifts() {
+    let root = TempDir::with_prefix("pyrefly_references_parent_method_shift").unwrap();
+    let base = "class Base:\n    def method(self):\n        pass\n";
+    fs::write(root.path().join("base.py"), base).unwrap();
+    fs::write(
+        root.path().join("child.py"),
+        r#"from base import Base
+
+
+class Child(Base):
+    def method(self):
+        pass
+"#,
+    )
+    .unwrap();
+    let child_uri = Uri::from_file_path(root.path().join("child.py"))
+        .unwrap()
+        .to_string();
+    let child_override = json!([
+        {
+            "range": {"start":{"line":4,"character":8},"end":{"line":4,"character":14}},
+            "uri": child_uri
+        },
+    ]);
+
+    let telemetry = TestTelemetry::new();
+    let telemetry_events = telemetry.subscribe();
+    let mut interaction = LspInteraction::new_with_args(LspInteractionArgs {
+        telemetry: Box::new(telemetry),
+        ..Default::default()
+    });
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(Default::default()).unwrap();
+    interaction.client.did_open("base.py");
+    interaction.client.did_open("child.py");
+    interaction
+        .client
+        .references("base.py", 1, 9, false)
+        .expect_response(child_override.clone())
+        .unwrap();
+
+    // `child.py` imports the disk copy of `base.py`, so save the edit as an editor does.
+    let shifted_base = base.replacen("\n", "\n\n", 1);
+    fs::write(root.path().join("base.py"), &shifted_base).unwrap();
+    interaction.client.did_change("base.py", &shifted_base);
+    interaction.client.did_save("base.py");
+    wait_for_disk_invalidation(&telemetry_events);
+    interaction
+        .client
+        .references("base.py", 2, 9, false)
+        .expect_response(child_override)
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
 
 #[test]
 fn test_parameter_references_in_unopened_file() {
@@ -684,6 +826,141 @@ fn test_references_for_aliased_import_with_config() {
 }
 
 #[test]
+fn test_references_from_third_party_source_with_stub() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("references_third_party");
+    let scope_uri = Uri::from_file_path(root_path.clone()).unwrap();
+    let mut interaction = LspInteraction::new_with_args(LspInteractionArgs {
+        args: LspArgs {
+            indexing_mode: IndexingMode::LazyBlocking,
+            ..LspInteractionArgs::default().args
+        },
+        ..Default::default()
+    });
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings {
+            workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let library = root_path.join("venv/lib/python3.12/site-packages/third_party_lib.py");
+    let user_code = root_path.join("user.py");
+
+    interaction.client.did_open("user.py");
+    interaction
+        .client
+        .did_open("venv/lib/python3.12/site-packages/third_party_lib.py");
+
+    interaction
+        .client
+        .references(
+            "venv/lib/python3.12/site-packages/third_party_lib.py",
+            0,
+            6,
+            true,
+        )
+        .expect_response(json!([
+            {
+                "range": {"start":{"line":2,"character":11},"end":{"line":2,"character":16}},
+                "uri": Uri::from_file_path(&user_code).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":2,"character":23},"end":{"line":2,"character":28}},
+                "uri": Uri::from_file_path(&user_code).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":3,"character":12},"end":{"line":3,"character":17}},
+                "uri": Uri::from_file_path(&user_code).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":0,"character":6},"end":{"line":0,"character":11}},
+                "uri": Uri::from_file_path(&library).unwrap().to_string()
+            },
+        ]))
+        .unwrap();
+
+    interaction
+        .client
+        .references(
+            "venv/lib/python3.12/site-packages/third_party_lib.py",
+            1,
+            8,
+            true,
+        )
+        .expect_response(json!([
+            {
+                "range": {"start":{"line":4,"character":6},"end":{"line":4,"character":13}},
+                "uri": Uri::from_file_path(&user_code).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":1,"character":8},"end":{"line":1,"character":15}},
+                "uri": Uri::from_file_path(&library).unwrap().to_string()
+            },
+        ]))
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_references_from_third_party_source_with_stubs_package() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("references_stubs_package");
+    let scope_uri = Uri::from_file_path(root_path.clone()).unwrap();
+    let mut interaction = LspInteraction::new_with_args(LspInteractionArgs {
+        args: LspArgs {
+            indexing_mode: IndexingMode::LazyBlocking,
+            ..LspInteractionArgs::default().args
+        },
+        ..Default::default()
+    });
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings {
+            workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let library = root_path.join("venv/lib/python3.12/site-packages/mylib/__init__.py");
+    let user_code = root_path.join("user.py");
+
+    interaction.client.did_open("user.py");
+    interaction
+        .client
+        .did_open("venv/lib/python3.12/site-packages/mylib/__init__.py");
+
+    // `user.py` is checked against the separate `mylib-stubs` package.
+    interaction
+        .client
+        .references(
+            "venv/lib/python3.12/site-packages/mylib/__init__.py",
+            0,
+            4,
+            true,
+        )
+        .expect_response(json!([
+            {
+                "range": {"start":{"line":0,"character":18},"end":{"line":0,"character":22}},
+                "uri": Uri::from_file_path(&user_code).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":2,"character":0},"end":{"line":2,"character":4}},
+                "uri": Uri::from_file_path(&user_code).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":0,"character":4},"end":{"line":0,"character":8}},
+                "uri": Uri::from_file_path(&library).unwrap().to_string()
+            },
+        ]))
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
 fn test_references_after_file_modification_with_config() {
     let root = get_test_files_root();
     let root_path = root.path().join("tests_requiring_config");
@@ -1020,7 +1297,7 @@ fn test_references_for_metaclass_call_priority() {
     interaction.shutdown().unwrap();
 }
 
-/// Regression test for https://github.com/facebook/pyrefly/issues/3237:
+/// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3237:
 /// `textDocument/references` should find cross-file references even when the
 /// target module starts with a docstring and the on-disk files use CRLF line
 /// endings while the editor sends LF-normalized content via `did_open`.

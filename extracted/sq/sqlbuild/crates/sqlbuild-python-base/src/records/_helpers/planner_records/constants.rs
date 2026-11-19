@@ -98,6 +98,7 @@ const R_DEFERRAL_INPUTS: RecordSpec = RecordSpec {
     fields: &[
         FieldSpec::new("deferred_locations", FieldDefault::None),
         FieldSpec::new("deferred_relations", FieldDefault::None),
+        FieldSpec::new("defer_to", FieldDefault::None),
         FieldSpec::new("defer_sources_to", FieldDefault::None),
         FieldSpec::new("source_deferral_enabled", FieldDefault::True),
     ],
@@ -665,6 +666,13 @@ const R_MODEL_PLAN_ENTRY: RecordSpec = RecordSpec {
         FieldSpec::new("max_duration", FieldDefault::None),
         FieldSpec::new("max_duration_seconds", FieldDefault::None),
         FieldSpec::new("max_duration_source", FieldDefault::None),
+        FieldSpec::new("reinitialised_by", FieldDefault::None),
+        FieldSpec::new("target_lag", FieldDefault::None),
+        FieldSpec::new("refresh_mode", FieldDefault::None),
+        FieldSpec::new("refresh_warehouse", FieldDefault::None),
+        FieldSpec::new("refresh_on_build", FieldDefault::False),
+        FieldSpec::new("dynamic_readers", FieldDefault::EmptyTuple),
+        FieldSpec::new("dynamic_paused", FieldDefault::False),
     ],
 };
 const R_CLONE_SOURCE_PLAN_ENTRY: RecordSpec = RecordSpec {

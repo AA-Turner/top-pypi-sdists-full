@@ -74,6 +74,7 @@ SortOrderType = Literal["ASCENDING", "DESCENDING"]
 TenancyModelType = Literal["MULTI_TENANT", "SINGLE_TENANT"]
 PartnerCentralRevenueMeasurementAPIServiceName = Literal["partnercentral-revenue-measurement"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

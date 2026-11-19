@@ -29,25 +29,24 @@ if TYPE_CHECKING:
 MAX_ERRORS_DISPLAYED = 5  # Maximum errors shown before truncation in validation output
 
 
-def get_version() -> str:
-    """Get the package version with graceful fallback chain.
+def get_version(
+    distributions: tuple[str, ...] = ("omninode-onex", "omnibase_core"),
+) -> str:
+    """The version `onex --version` prints; never raises, so --version always works.
 
-    Version Resolution Order:
-        1. importlib.metadata.version("omnibase_core") - Reads from installed package metadata
-        2. omnibase_core.__version__ - Falls back to module-level __version__ attribute
-        3. "unknown" - Final fallback if all methods fail (never raises)
-
-    Returns:
-        The version string, or "unknown" if version cannot be determined.
-
-    Note:
-        This function is designed to never raise exceptions, ensuring
-        CLI --version flag always works even in degraded environments.
+    Order: the first installed of `distributions` (by default the customer package
+    omninode-onex, then omnibase_core), then omnibase_core.__version__, then "unknown".
     """
     try:
         from importlib.metadata import PackageNotFoundError, version
 
-        return version("omnibase_core")
+        # OMN-25070: a customer installs omninode-onex, so that is the version they see.
+        for distribution in distributions:
+            try:
+                return version(distribution)
+            except PackageNotFoundError:
+                continue
+        raise PackageNotFoundError("omnibase_core")
     except (ImportError, PackageNotFoundError):
         # Fallback to __init__.py version
         try:  # fallback-ok: version getter must never crash
@@ -191,6 +190,10 @@ class _LazyCoreCommandGroup(click.Group):
         return resolved
 
 
+def _interactive_terminal() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
 @click.group(cls=_LazyCoreCommandGroup, invoke_without_command=True)
 @click.option(
     "--version",
@@ -233,8 +236,9 @@ def cli(ctx: click.Context, verbose: bool) -> None:
     ctx.obj["verbose"] = verbose
 
     if ctx.invoked_subcommand is None:
-        # No subcommand provided, show help
-        click.echo(ctx.get_help())
+        # OMN-23413: in a terminal, `onex` alone opens a package's `tui`; else help.
+        tui = cli.get_command(ctx, "tui") if _interactive_terminal() else None
+        ctx.invoke(tui) if tui is not None else click.echo(ctx.get_help())
 
 
 # Populated post-construction (rather than via a decorator kwarg) so the
@@ -336,10 +340,7 @@ def validate(
             if not quiet:
                 click.echo(f"Validating {directory}...")
 
-            results = suite.run_all_validations(
-                directory,
-                strict=strict,
-            )
+            results = suite.run_all_validations(directory, strict=strict)
 
             for validation_type, result in results.items():
                 _display_validation_result(
@@ -427,7 +428,7 @@ def info(ctx: click.Context) -> None:
     """
     verbose = ctx.obj.get("verbose", False)
 
-    click.echo(f"omnibase_core version: {get_version()}")
+    click.echo(f"omnibase_core version: {get_version(('omnibase_core',))}")
     click.echo(f"Python version: {sys.version.split()[0]}")
 
     if verbose:
@@ -824,7 +825,7 @@ def _load_extension_command(entry_point: EntryPoint) -> click.Command:
         # boundary-ok: entry points are provided by pip-installed packages.
     except Exception as exc:
         raise ModelOnexError(
-            f"the '{_CLI_EXTENSION_GROUP}' entry point "
+            f"the '{getattr(entry_point, 'group', _CLI_EXTENSION_GROUP)}' entry point "
             f"'{entry_point.name}' (from {origin}) points at "
             f"'{entry_point.value}', which failed to load: "
             f"{type(exc).__name__}: {exc}. The command it advertises does "
@@ -835,7 +836,7 @@ def _load_extension_command(entry_point: EntryPoint) -> click.Command:
 
     if not isinstance(command, (click.Command, click.Group)):
         raise ModelOnexError(
-            f"the '{_CLI_EXTENSION_GROUP}' entry point "
+            f"the '{getattr(entry_point, 'group', _CLI_EXTENSION_GROUP)}' entry point "
             f"'{entry_point.name}' (from {origin}) resolved to "
             f"{type(command).__name__}, not a click.Command or click.Group. "
             f"'{entry_point.value}' must name a click command object.",
@@ -846,7 +847,7 @@ def _load_extension_command(entry_point: EntryPoint) -> click.Command:
 
 def _collision_error(entry_point: EntryPoint) -> ModelOnexError:
     return ModelOnexError(
-        f"the '{_CLI_EXTENSION_GROUP}' entry point "
+        f"the '{getattr(entry_point, 'group', _CLI_EXTENSION_GROUP)}' entry point "
         f"'{entry_point.name}' (from {_origin_of(entry_point)}) collides with a "
         f"command that is already registered. Entry points have no defined "
         f"order across distributions, so allowing this would make which "

@@ -83,6 +83,7 @@ ThresholdComparatorType = Literal["GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO"]
 VoteValueType = Literal["NO", "YES"]
 ManagedBlockchainServiceName = Literal["managedblockchain"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

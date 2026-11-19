@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
+from ..._http_log import log_error_response
 from ...client import Client, get_default_client
 from ...models.entity import Entity
 from ...types import Response, UNSET, Unset
@@ -104,6 +105,7 @@ def sync_detailed(
         order=order,
     )
     response = httpx.request(verify=client.verify_ssl, **kwargs)
+    log_error_response(response)
     return _build_response(client=client, response=response)
 
 

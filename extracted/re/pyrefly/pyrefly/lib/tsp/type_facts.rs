@@ -22,10 +22,12 @@ use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::Forallable;
 use pyrefly_types::types::OverloadType;
 use pyrefly_types::types::Type;
+use pyrefly_util::display::DisplayWithCtx;
 use serde::Deserialize;
 use serde::Serialize;
 
 use crate::state::state::Transaction;
+use crate::types::env::TypeEnv;
 
 pub const TYPE_FACTS_METHOD: &str = "pyrefly/typeFacts";
 
@@ -97,39 +99,56 @@ pub enum TypeFact {
 
 /// Describe `ty`, resolving MROs through `handle`'s transaction.
 pub fn type_fact(transaction: &Transaction, handle: &Handle, ty: &Type) -> TypeFact {
-    describe(transaction, handle, ty, NESTING)
+    describe(
+        transaction,
+        handle,
+        &transaction.type_env(handle),
+        ty,
+        NESTING,
+    )
 }
 
-fn describe(transaction: &Transaction, handle: &Handle, ty: &Type, depth: usize) -> TypeFact {
+fn describe(
+    transaction: &Transaction,
+    handle: &Handle,
+    env: &dyn TypeEnv,
+    ty: &Type,
+    depth: usize,
+) -> TypeFact {
     let nested = |types: &[Type]| -> Vec<TypeFact> {
         if depth == 0 {
             return Vec::new();
         }
         types
             .iter()
-            .map(|t| describe(transaction, handle, t, depth - 1))
+            .map(|t| describe(transaction, handle, env, t, depth - 1))
             .collect()
     };
     let function = |metadata: &FuncMetadata, ret: Option<&Type>| TypeFact::Function {
-        qname: function_qname(metadata),
+        qname: function_qname(env, metadata),
         returns: ret
             .filter(|_| depth > 0)
-            .map(|r| Box::new(describe(transaction, handle, r, depth - 1))),
+            .map(|r| Box::new(describe(transaction, handle, env, r, depth - 1))),
     };
     match ty {
         Type::ClassType(ct) => TypeFact::Instance {
-            qname: qname(ct.class_object().qname()),
+            qname: qname(ct.class_object().qname(env)),
             mro: mro(transaction, handle, ct.class_object()),
             type_args: nested(ct.targs().as_slice()),
         },
         Type::ClassDef(cls) => TypeFact::Class {
-            qname: qname(cls.qname()),
+            qname: qname(cls.qname(env)),
             mro: mro(transaction, handle, cls),
             type_args: Vec::new(),
         },
+        Type::SpecializedClassDef(ct) => TypeFact::Class {
+            qname: qname(ct.qname(env)),
+            mro: mro(transaction, handle, ct.class_object()),
+            type_args: nested(ct.targs().as_slice()),
+        },
         Type::Type(inner) => match inner.as_ref() {
             Type::ClassType(ct) => TypeFact::Class {
-                qname: qname(ct.class_object().qname()),
+                qname: qname(ct.class_object().qname(env)),
                 mro: mro(transaction, handle, ct.class_object()),
                 type_args: nested(ct.targs().as_slice()),
             },
@@ -141,12 +160,18 @@ fn describe(transaction: &Transaction, handle: &Handle, ty: &Type, depth: usize)
                     .members
                     .iter()
                     .map(|member| {
-                        describe(transaction, handle, &Type::type_of(member.clone()), depth)
+                        describe(
+                            transaction,
+                            handle,
+                            env,
+                            &Type::type_of(member.clone()),
+                            depth,
+                        )
                     })
                     .collect(),
             },
             _ => TypeFact::Other {
-                display: ty.to_string(),
+                display: ty.display_with(env).to_string(),
             },
         },
         Type::Module(module) => TypeFact::Module {
@@ -173,7 +198,7 @@ fn describe(transaction: &Transaction, handle: &Handle, ty: &Type, depth: usize)
         },
         Type::Any(_) => TypeFact::Any,
         _ => TypeFact::Other {
-            display: ty.to_string(),
+            display: ty.display_with(env).to_string(),
         },
     }
 }
@@ -191,10 +216,10 @@ fn qname(name: &QName) -> String {
     format!("{}.{}", name.module_name(), name.id())
 }
 
-fn function_qname(metadata: &FuncMetadata) -> Option<String> {
+fn function_qname(env: &dyn TypeEnv, metadata: &FuncMetadata) -> Option<String> {
     let symbol = metadata.kind.to_func_symbol()?;
     Some(match &symbol.cls {
-        Some(cls) => format!("{}.{}.{}", symbol.module.name(), cls.name(), symbol.name),
+        Some(cls) => format!("{}.{}.{}", symbol.module.name(), cls.name(env), symbol.name),
         None => format!("{}.{}", symbol.module.name(), symbol.name),
     })
 }
@@ -208,8 +233,39 @@ fn mro(transaction: &Transaction, handle: &Handle, cls: &Class) -> Vec<String> {
                 .get_mro_for_class(cls)
                 .ancestors_no_object()
                 .iter()
-                .map(|ancestor| qname(ancestor.class_object().qname()))
+                .map(|ancestor| qname(ancestor.class_object().qname(&solver)))
                 .collect()
         })
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::util::get_batched_lsp_operations_report;
+
+    #[test]
+    fn type_facts_specialized_class_def() {
+        let code = "class Box[T]: ...\ndef f():\n    X = Box[int]\n    X\n#   ^\n";
+        let report = get_batched_lsp_operations_report(
+            &[("main", code)],
+            |state, handle, position| {
+                let transaction = state.transaction();
+                let ty = transaction.get_type_at(handle, position).unwrap();
+                let fact = type_fact(&transaction, handle, &ty);
+                let TypeFact::Class {
+                    qname, type_args, ..
+                } = fact
+                else {
+                    panic!("Expected a class fact, got {fact:?}");
+                };
+                assert_eq!(qname, "main.Box");
+                assert!(
+                    matches!(type_args.as_slice(), [TypeFact::Instance { qname, .. }] if qname == "builtins.int")
+                );
+                String::new()
+            },
+        );
+        assert!(!report.is_empty());
+    }
 }

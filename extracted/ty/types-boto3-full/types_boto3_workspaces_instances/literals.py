@@ -99,6 +99,7 @@ TenancyEnumType = Literal["dedicated", "default", "host"]
 VolumeTypeEnumType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
 WorkspacesInstancesServiceName = Literal["workspaces-instances"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

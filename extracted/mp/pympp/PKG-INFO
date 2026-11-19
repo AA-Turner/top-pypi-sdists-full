@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pympp
-Version: 0.25.0
+Version: 0.26.0
 Summary: Python SDK for the Machine Payments Protocol (MPP)
 Project-URL: Homepage, https://github.com/tempoxyz/pympp
 Project-URL: Documentation, https://github.com/tempoxyz/pympp#readme

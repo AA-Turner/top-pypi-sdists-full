@@ -90,6 +90,7 @@ WorkspaceStatusType = Literal[
 ]
 ManagedGrafanaServiceName = Literal["grafana"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

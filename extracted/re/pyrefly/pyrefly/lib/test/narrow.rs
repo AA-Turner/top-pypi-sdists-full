@@ -160,6 +160,27 @@ def f2(x: E | int):
 );
 
 testcase!(
+    test_is_final_enum_literal,
+    r#"
+from typing import Final, Literal, assert_type, final
+import enum
+
+@final
+class UnsetType(enum.Enum):
+    UNSET = "UNSET"
+    def __bool__(self) -> Literal[False]: ...
+
+UNSET: Final = UnsetType.UNSET
+
+assert_type(UNSET, Literal[UnsetType.UNSET])
+
+def f(x: int | UnsetType) -> None:
+    if x is UNSET:
+        assert_type(x, Literal[UnsetType.UNSET])
+    "#,
+);
+
+testcase!(
     test_is_not_final_enum,
     r#"
 from enum import Enum
@@ -914,6 +935,84 @@ def foo(x: int | None) -> None:
 );
 
 testcase!(
+    test_type_eq_excludes_subclasses,
+    r#"
+import datetime
+from enum import Enum
+from typing import Literal, reveal_type
+
+class A: ...
+class B(A): ...
+class C(B): ...
+
+def exact(x: A | B | C):
+    if type(x) is B:
+        reveal_type(x)  # E: revealed type: B
+    else:
+        reveal_type(x)  # E: revealed type: A | B | C
+    if type(x) == A:
+        reveal_type(x)  # E: revealed type: A
+
+def from_supertype(x: object):
+    if type(x) is B:
+        reveal_type(x)  # E: revealed type: B
+
+def stdlib(x: datetime.datetime | datetime.date):
+    if type(x) is datetime.date:
+        reveal_type(x)  # E: revealed type: date
+
+def bool_is_not_int(x: Literal[True] | bool | int | str):
+    if type(x) is int:
+        reveal_type(x)  # E: revealed type: int
+
+class Color(Enum):
+    RED = 1
+
+def enum_literal(x: Literal[Color.RED] | int):
+    if type(x) is Color:
+        reveal_type(x)  # E: revealed type: Color
+
+class MyList[T](list[T]): ...
+
+def generic(x: MyList[int] | list[int]):
+    if type(x) is list:
+        reveal_type(x)  # E: revealed type: list[int]
+    "#,
+);
+
+testcase!(
+    test_type_eq_keeps_subclasses_when_unsure,
+    r#"
+from typing import NewType, Protocol, reveal_type, runtime_checkable
+
+class A: ...
+class B(A): ...
+
+def class_object(x: A | B, cls: type[A]):
+    # `cls` may hold `B` at runtime.
+    if type(x) is cls:
+        reveal_type(x)  # E: revealed type: A | B
+
+UserId = NewType("UserId", int)
+
+def new_type(x: UserId | str):
+    # At runtime, `type(UserId(1))` is `int`.
+    if type(x) is int:
+        reveal_type(x)  # E: revealed type: UserId
+
+@runtime_checkable
+class P(Protocol): ...
+class Q(P, Protocol): ...
+class Impl(P): ...
+
+def protocols(x: Q | Impl | int):
+    # Protocols are structural, so we leave these to `isinstance` narrowing.
+    if type(x) is P:
+        reveal_type(x)  # E: revealed type: Impl | P | int
+    "#,
+);
+
+testcase!(
     test_type_not_eq_final,
     r#"
 from typing import assert_type
@@ -1206,7 +1305,7 @@ from typing import Any, Iterable, assert_type
 # `Iterable[Any]` overlaps with both `str` and `bytes` (both are iterable).
 # In the negative branch of `isinstance(a, (str, bytes))` we should still
 # remove the `str` and `bytes` alternatives from the remaining union.
-# Regression test for facebook/pyrefly#3412.
+# Regression test for pyrefly-org/pyrefly#3412.
 def f(a: float | str | bytes | Iterable[Any]) -> None:
     if isinstance(a, (str, bytes)):
         pass
@@ -1286,6 +1385,53 @@ def f(cls: type[int], x: int | str) -> None:
         # cls might be a subclass of int, so x can still be an int here
         assert_type(x, int | str)
     "#,
+);
+
+testcase!(
+    test_is_not_instance_gradual_base,
+    r#"
+from typing import Any, Self, TypedDict, assert_type
+
+def make_base() -> Any:
+    return object
+
+class Mul: ...
+
+class FloorDiv(make_base()):
+    def check(self) -> None:
+        if not isinstance(self, Mul):
+            assert_type(self, Self)
+
+class Inherited(FloorDiv): ...
+
+class Data(TypedDict):
+    value: int
+
+def gradual_left(x: FloorDiv) -> None:
+    if not isinstance(x, Mul):
+        assert_type(x, FloorDiv)
+
+def gradual_right(x: str) -> None:
+    if not isinstance(x, FloorDiv):
+        assert_type(x, str)
+
+def inherited_base(x: Inherited) -> None:
+    if not isinstance(x, Mul):
+        assert_type(x, Inherited)
+
+def union_member(x: FloorDiv | Mul) -> None:
+    if not isinstance(x, Mul):
+        assert_type(x, FloorDiv)
+
+def typed_dict(x: Data) -> None:
+    if not isinstance(x, FloorDiv):
+        assert_type(x, Data)
+
+# An Any type argument does not make the runtime class uncertain.
+def generic_argument(x: list[Any] | int) -> None:
+    if not isinstance(x, list):
+        assert_type(x, int)
+"#,
 );
 
 testcase!(
@@ -2070,6 +2216,97 @@ def lookup_resource(registry: dict[str, str]) -> str | None:
 );
 
 testcase!(
+    test_in_mapping_preserves_operand_type,
+    r#"
+from typing import Any, Generic, Literal, Mapping, TypeVar, assert_type
+
+T = TypeVar("T")
+
+class Task(Generic[T]):
+    pass
+
+def test_any(x: Literal[1] | str, values: dict[Any, int], mapping: Mapping[Any, int]) -> None:
+    if x in values:
+        assert_type(x, Literal[1] | str)
+    if x in mapping:
+        assert_type(x, Literal[1] | str)
+
+def test_object(x: str | None, values: dict[object, int], mapping: Mapping[object, int]) -> None:
+    if x in values:
+        assert_type(x, str | None)
+    if x in mapping:
+        assert_type(x, str | None)
+
+def test_any_union(x: Literal[1] | bytes, values: dict[Any | str, int], mapping: Mapping[Any | str, int]) -> None:
+    if x in values:
+        assert_type(x, Literal[1] | bytes)
+    if x in mapping:
+        assert_type(x, Literal[1] | bytes)
+
+def test_nested_any(x: Task[int], values: dict[Task[Any], int], mapping: Mapping[Task[Any], int]) -> None:
+    if x in values:
+        assert_type(x, Task[int])
+    if x in mapping:
+        assert_type(x, Task[int])
+
+def test_gradual_operand(x: Task[Any], values: dict[Task[int], int], mapping: Mapping[Task[int], int]) -> None:
+    if x in values:
+        assert_type(x, Task[Any])
+    if x in mapping:
+        assert_type(x, Task[Any])
+
+def test_key_narrowing(x: str | None, values: dict[str, int], mapping: Mapping[str, int]) -> None:
+    if x in values:
+        assert_type(x, str)
+        assert_type(values[x], int)
+    if x not in mapping:
+        return
+    assert_type(x, str)
+    assert_type(mapping[x], int)
+"#,
+);
+
+testcase!(
+    test_in_mapping_preserves_any_operand,
+    r#"
+from typing import Any, Mapping, assert_type
+
+def test_explicit_any(x: Any, values: dict[str, int], mapping: Mapping[str, int]) -> None:
+    if x in values:
+        assert_type(x, Any)
+    if x in mapping:
+        assert_type(x, Any)
+    if x not in values:
+        return
+    assert_type(x, Any)
+
+def test_implicit_any(x, values: dict[str, int], mapping: Mapping[str, int]) -> None:
+    if x in values:
+        assert_type(x, Any)
+    if x in mapping:
+        assert_type(x, Any)
+    if x not in mapping:
+        return
+    assert_type(x, Any)
+"#,
+);
+
+testcase!(
+    bug = "Mapping membership does not preserve numeric equality",
+    test_in_mapping_numeric_equality,
+    r#"
+from typing import Mapping, assert_type
+
+def test(x: float | None, values: dict[int, str], mapping: Mapping[int, str]) -> None:
+    # A float can equal an integer key. For example, 1.0 in {1: ""} is true.
+    if x in values:
+        assert_type(x, int)
+    if x in mapping:
+        assert_type(x, int)
+"#,
+);
+
+testcase!(
     test_in_named_builtin_container_narrows_element_type,
     r#"
 from collections import deque
@@ -2239,6 +2476,133 @@ def test_literal(x: str | None, values: set[Literal["x"]]) -> None:
 def test_literal_string(x: str | None, values: set[LiteralString]) -> None:
     if x in values:
         assert_type(x, LiteralString)
+"#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5178
+testcase!(
+    test_positive_equality_non_literal,
+    r#"
+from datetime import date
+from typing import Any, assert_type
+
+def test_assert(x: date | None) -> None:
+    assert x == date(2024, 1, 3)
+    assert_type(x, date)
+
+def test_branch(x: date | None, y: date) -> None:
+    if x == y:
+        assert_type(x, date)
+    else:
+        assert_type(x, date | None)
+
+def test_not_equal(x: date | None, y: date) -> None:
+    if x != y:
+        assert_type(x, date | None)
+    else:
+        assert_type(x, date)
+
+def test_optional(x: date | None, y: date | None) -> None:
+    if x == y:
+        assert_type(x, date | None)
+
+def test_any(x: date | None, y: Any) -> None:
+    if x == y:
+        assert_type(x, date | None)
+
+def test_object(x: date | None, y: object) -> None:
+    if x == y:
+        assert_type(x, date | None)
+
+def test_numeric(x: float | None, y: int) -> None:
+    if x == y:
+        assert_type(x, float)
+
+def test_bytes_like(x: bytearray | None, y: bytes) -> None:
+    if x == y:
+        assert_type(x, bytearray)
+
+class EqualToInt:
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, int)
+
+def test_custom_equality(x: EqualToInt | int | None, y: int) -> None:
+    if x == y:
+        assert_type(x, EqualToInt | int)
+
+class Event:
+    when: date | None
+
+def test_attribute(event: Event) -> None:
+    assert event.when == date(2024, 1, 3)
+    assert_type(event.when, date)
+"#,
+);
+
+testcase!(
+    test_positive_equality_preserves_any_base,
+    r#"
+from typing import Any, reveal_type
+from unresolved_lib import Base  # type: ignore
+
+class C(Base): ...
+class ExplicitAny(Any): ...
+
+def test_unresolved_base(x: C, y: int) -> None:
+    if x == y:
+        reveal_type(x)  # E: revealed type: C
+
+def test_explicit_any_base(x: ExplicitAny, y: int) -> None:
+    if x == y:
+        reveal_type(x)  # E: revealed type: ExplicitAny
+
+def test_optional_any_base(x: C | None, y: int) -> None:
+    if x == y:
+        reveal_type(x)  # E: revealed type: C
+"#,
+);
+
+testcase!(
+    test_positive_equality_typevar,
+    r#"
+from typing import TypeVar, assert_type
+
+T = TypeVar("T")
+
+def test_unbound(x: int | None, y: T) -> T:
+    if x == y:
+        assert_type(x, int | None)
+    return y
+
+def test_union(x: int | None, y: T | str) -> T | str:
+    if x == y:
+        assert_type(x, int | None)
+    return y
+
+def test_bound[T: int | None](x: int | None, y: T) -> T:
+    if x == y:
+        assert_type(x, int | None)
+    return y
+
+def test_constraints[T: (int, None)](x: int | None, y: T) -> T:
+    if x == y:
+        assert_type(x, int | None)
+    return y
+
+def test_non_optional_bound[T: int](x: int | None, y: T) -> T:
+    if x == y:
+        assert_type(x, int)
+    return y
+
+def test_non_optional_constraints[T: (int, str)](x: int | None, y: T) -> T:
+    if x == y:
+        assert_type(x, int)
+    return y
+
+def test_typevar_subject(x: T, y: int) -> T:
+    if x == y:
+        assert_type(x, T)
+    return x
 "#,
 );
 
@@ -2684,7 +3048,7 @@ def test(x: tuple[int, int], y: tuple[int, *tuple[int, ...], int], z: tuple[int,
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1616
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1616
 testcase!(
     test_dict_literal_key_isinstance_narrowing,
     r#"
@@ -2925,7 +3289,7 @@ class C:
         return True
 
 class D:
-    def guard_missing_self() -> TypeGuard[int]: # E: Type guard functions must accept at least one positional argument
+    def guard_missing_self() -> TypeGuard[int]: # E: Type guard functions must accept at least one positional argument  # E: Instance method `guard_missing_self` must accept the instance as its first positional parameter
         return True
 "#,
 );
@@ -2993,7 +3357,7 @@ class C:
         return True
 
 class D:
-    def guard_missing_self() -> TypeIs[int]: # E: Type guard functions must accept at least one positional argument
+    def guard_missing_self() -> TypeIs[int]: # E: Type guard functions must accept at least one positional argument  # E: Instance method `guard_missing_self` must accept the instance as its first positional parameter
         return True
 "#,
 );
@@ -3372,7 +3736,7 @@ def f(x: int):
     "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/1592
+// https://github.com/pyrefly-org/pyrefly/issues/1592
 testcase!(
     test_disjoint_bases_subclasses,
     r#"
@@ -3784,11 +4148,11 @@ def f(x: A):
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1642
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1642
 testcase!(
     test_typed_dict_truthiness_narrowing,
     r#"
-from typing import TypedDict, assert_type, NotRequired
+from typing import TypedDict, assert_type, NotRequired, reveal_type
 class RequiredDict(TypedDict):
     val: int
 class EmptyDict(TypedDict):
@@ -3797,7 +4161,7 @@ def test_narrowing(x: RequiredDict | None, y: EmptyDict | None):
     xval = x and x['val']
     assert_type(xval, int | None)
     yval = y and y.get('val')
-    assert_type(yval, int | None | EmptyDict)
+    reveal_type(yval)  # E: revealed type: (EmptyDict & Falsy) | int | None
 "#,
 );
 
@@ -4005,7 +4369,7 @@ def f(inputs: Sequence[int]):
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1570
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1570
 testcase!(
     test_narrow_not_in_dict,
     r#"
@@ -4019,7 +4383,7 @@ def example(variable: str | None) -> str:
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/1575
+// https://github.com/pyrefly-org/pyrefly/issues/1575
 testcase!(
     test_typevar_isinstance_narrow_else,
     r#"
@@ -4060,7 +4424,7 @@ def test3(x: V) -> V:
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2607
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2607
 testcase!(
     test_narrow_sequence_to_tuple_return,
     r#"
@@ -4073,7 +4437,7 @@ def f(x: Sequence[int]) -> tuple[int, ...]:
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2607
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2607
 testcase!(
     test_narrow_sequence_to_tuple_assert_type,
     r#"
@@ -4154,6 +4518,22 @@ def b():
     if val is not None:
         def inner() -> None:
             assert_type(val, int)
+"#,
+);
+
+testcase!(
+    test_isclass_typeform_class_info,
+    r#"
+from inspect import isclass
+from typing import TypeVar
+from typing_extensions import TypeForm
+
+T = TypeVar("T")
+
+def matches(value: object, hint: TypeForm[T]) -> bool:
+    if isclass(hint):
+        return isinstance(value, hint)
+    return False
 "#,
 );
 
@@ -4500,14 +4880,14 @@ def g(x: A | B | C) -> None:
 testcase!(
     test_class_may_be_falsy,
     r#"
-from typing import assert_type
+from typing import reveal_type
 
 class MyClass:
     name: str
 
 def myfn(x: MyClass | None):
     # `x` could be a falsy instance of a subclass of `MyClass`
-    assert_type(x and x.name, MyClass | str | None)
+    reveal_type(x and x.name)  # E: (MyClass & Falsy) | str | None
     "#,
 );
 
@@ -4528,7 +4908,7 @@ def myfn(x: MyClass | None):
 testcase!(
     test_class_with_bool_may_be_falsy,
     r#"
-from typing import assert_type, final
+from typing import reveal_type, final
 
 @final
 class MyClass:
@@ -4536,7 +4916,7 @@ class MyClass:
     def __bool__(self) -> bool: ...
 
 def myfn(x: MyClass | None):
-    assert_type(x and x.name, MyClass | str | None)
+    reveal_type(x and x.name)  # E: (MyClass & Falsy) | str | None
     "#,
 );
 
@@ -4646,5 +5026,759 @@ def test_dict(x: dict[str, object] | dict[Never, object]):
     else:
         assert_type(x, dict[str, object] | dict[Never, object])
 
+    "#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5159
+testcase!(
+    test_truthiness_narrow_typevar,
+    r#"
+from typing import reveal_type
+
+def f[T: (float, float | None)](value: T) -> T:
+    if value:
+        reveal_type(value)  # E: revealed type: float & T
+        return value / 100.0
+    return value
+
+def g[T: float | None](value: T) -> float:
+    if value:
+        reveal_type(value)  # E: revealed type: float & T
+        return value / 100.0
+    return 0.0
+
+def h[T: (int, str, None)](value: T) -> T:
+    if value:
+        reveal_type(value)  # E: revealed type: (int & T) | (str & T)
+        return value
+    return value
+
+def k[T: int | None](value: T) -> T:
+    if value:
+        reveal_type(value)  # E: revealed type: int & T
+        return value
+    reveal_type(value)  # E: revealed type: (Literal[0] & T) | (T & None)
+    return value
+
+def chained[T: int | str | None](value: T) -> int:
+    if not isinstance(value, str):
+        if value:
+            reveal_type(value)  # E: revealed type: int & T
+            return value
+    return 0
+"#,
+);
+
+// Primitive truthiness narrowing assumes builtin boolean behavior. Overrides on
+// primitive subclasses are outside that model, including through TypeVar bounds.
+testcase!(
+    test_truthiness_primitive_override_out_of_scope,
+    r#"
+from typing import Literal, Never, assert_type
+
+class FalsyInt(int):
+    def __bool__(self) -> bool:
+        return False
+
+class FalsyStr(str):
+    def __bool__(self) -> bool:
+        return False
+
+class FalsyBytes(bytes):
+    def __bool__(self) -> bool:
+        return False
+
+def zero[T: int](value: T) -> Literal[0]:
+    if not value:
+        return value
+    return 0
+
+def empty_str[T: str](value: T) -> Literal[""]:
+    if not value:
+        return value
+    return ""
+
+def empty_bytes[T: bytes](value: T) -> Literal[b""]:
+    if not value:
+        return value
+    return b""
+
+# These calls can return nonzero or nonempty values at runtime. The static types
+# record the supported primitive-truthiness model, not the custom overrides.
+assert_type(zero(FalsyInt(1)), Literal[0])
+assert_type(empty_str(FalsyStr("nonempty")), Literal[""])
+assert_type(empty_bytes(FalsyBytes(b"nonempty")), Literal[b""])
+
+# Custom boolean behavior on nonprimitive classes remains supported.
+class Falsy:
+    def __bool__(self) -> Literal[False]:
+        return False
+
+def custom[T: Falsy](value: T) -> T:
+    if value:
+        assert_type(value, Never)  # E: This code is unreachable
+    return value
+"#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5544
+testcase!(
+    test_narrow_error_any_join,
+    r#"
+import missing_module  # pyrefly: ignore[missing-import]
+from typing import Any, assert_type, reveal_type
+
+def not_none() -> None:
+    value = missing_module.get()
+    if value is not None:
+        pass
+    assert_type(value, Any)
+    reveal_type(value)  # E: revealed type: Unknown
+    value[0]
+
+def is_none() -> None:
+    value = missing_module.get()
+    if value is None:
+        pass
+    assert_type(value, Any)
+    value[0]
+
+def instance() -> None:
+    value = missing_module.get()
+    if isinstance(value, int):
+        pass
+    assert_type(value, Any)
+    value[0]
+
+def alternatives() -> None:
+    value = missing_module.get()
+    if isinstance(value, int) or isinstance(value, str):
+        assert_type(value, int | str)
+    assert_type(value, Any)
+"#,
+);
+
+testcase!(
+    test_narrow_any_join_boundaries,
+    r#"
+import missing_module  # pyrefly: ignore[missing-import]
+from typing import Any, assert_type, reveal_type
+
+def explicit(value: Any) -> None:
+    if value is not None:
+        pass
+    assert_type(value, Any)
+    if isinstance(value, int) or isinstance(value, str):
+        assert_type(value, int | str)
+    assert_type(value, Any)
+
+def implicit(value) -> None:
+    if value is not None:
+        pass
+    assert_type(value, Any)
+    value[0]
+
+def reassigned(flag: bool) -> None:
+    value = missing_module.get()
+    if flag:
+        value = None
+    reveal_type(value)  # E: revealed type: Unknown | None
+    value[0]  # E: `None` is not subscriptable
+
+class Box:
+    value: object
+
+def facet_reassigned(box: Box, flag: bool) -> None:
+    box.value = missing_module.get()
+    if flag:
+        box.value = None
+    reveal_type(box.value)  # E: revealed type: Unknown | None
+    box.value[0]  # E: `None` is not subscriptable
+
+def annotated(value: Any | None) -> None:
+    assert_type(value, Any | None)
+    value[0]  # E: `None` is not subscriptable
+
+def terminated() -> None:
+    value = missing_module.get()
+    if value is not None:
+        return
+    assert_type(value, None)
+    value[0]  # E: `None` is not subscriptable
+"#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5255
+testcase!(
+    test_narrow_or_placeholder_gradual,
+    r#"
+from typing import Any, assert_type
+
+class A:
+    val: int | None
+
+class B(A):
+    pass
+
+def nested_flag_and(x, flag: bool) -> int:
+    flag = flag and x is not None
+    if x is not None:
+        if flag:
+            return 0
+        else:
+            assert_type(x, Any)
+            return x - 1
+    return 0
+
+def get_vmap_pattern(ref_dim, idx_is_batched: bool) -> int:
+    will_add_int_batcher = ref_dim is not None and idx_is_batched
+    if ref_dim is not None:
+        if will_add_int_batcher:
+            return 0
+        else:
+            assert_type(ref_dim, Any)
+            return ref_dim - 1
+    return 0
+
+def swap_vmap_pattern(ref_dim, val_dim, indexers: bool) -> int:
+    ref_is_batched = ref_dim is not None
+    val_is_batched = val_dim is not None
+    if not ref_is_batched:
+        raise ValueError()
+    if not indexers:
+        if ref_is_batched and not val_is_batched:
+            return 0
+        else:
+            assert_type(ref_dim, Any)
+            return ref_dim - 1
+    return 0
+
+def non_literal_eq_branch(x, y: int) -> None:
+    if x is not None and x != y:
+        pass
+    else:
+        assert_type(x, Any)
+
+def preserve_facets_and_subtypes(x: A, flag: bool) -> None:
+    if x.val is not None:
+        if x is not None and flag:
+            pass
+        else:
+            assert_type(x.val, int)
+    if not isinstance(x, B) and flag:
+        pass
+    else:
+        assert_type(x, A)
+    "#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5147
+testcase!(
+    test_isinstance_union_with_typevar_classinfo,
+    r#"
+from typing import assert_type, reveal_type
+
+def f[T](value: int | str, cls: type[T]) -> None:
+    if isinstance(value, cls):
+        reveal_type(value)  # E: revealed type: (int & T) | (str & T)
+    else:
+        assert_type(value, int | str)
+
+def g[T: int](value: int | str, cls: type[T]) -> None:
+    if isinstance(value, cls):
+        assert_type(value, T)
+
+def h[T](value: int, cls: type[T]) -> None:
+    if isinstance(value, cls):
+        reveal_type(value)  # E: revealed type: int & T
+
+def checked_cast[T](value: int | str, cls: type[T]) -> T:
+    if isinstance(value, cls):
+        return value
+    raise TypeError()
+    "#,
+);
+
+testcase!(
+    test_issubclass_narrows_union,
+    r#"
+from typing import assert_type
+class A: ...
+def f(x: int | type[A]):
+    if isinstance(x, type) and issubclass(x, A):
+        assert_type(x, type[A])
+    else:
+        assert_type(x, int)
+    "#,
+);
+
+testcase!(
+    test_eq_narrow_user_defined_eq,
+    r#"
+from typing import Literal, assert_type
+
+class C:
+    def __eq__(self, other: object) -> bool:
+        return True
+
+class A:
+    c: C
+    y: int | None
+
+def f(c: C, x: int | C, a: A) -> None:
+    if c == 3:
+        assert_type(c, C)
+    if x == 3:
+        assert_type(x, Literal[3] | C)
+    if a.c == 3 or a.y is not None:
+        assert_type(a.y, int | None)
+    "#,
+);
+
+testcase!(
+    test_eq_narrow_stdlib_cross_class_equality,
+    r#"
+from collections import UserString
+from fractions import Fraction
+from typing import assert_type
+
+def f(a: Fraction | str, b: UserString | int) -> None:
+    if a == 1:
+        assert_type(a, Fraction)
+    if b == "x":
+        assert_type(b, UserString)
+    "#,
+);
+
+testcase!(
+    test_narrow_tuple_elements_any_is_none,
+    r#"
+from typing import assert_type
+
+def f(a: int | None, b: str | None):
+    values = (a, b)
+    if any(v is None for v in values):
+        assert_type(values, tuple[int | None, str | None])
+        raise ValueError()
+    assert_type(values, tuple[int, str])
+
+def g(a: int | None, b: str | None):
+    values = (a, b)
+    if all(v is not None for v in values):
+        assert_type(values, tuple[int, str])
+    else:
+        assert_type(values, tuple[int | None, str | None])
+
+def h(a: int | None, b: str | None):
+    values = (a, b)
+    if any(v is None for v in values if v != 0):
+        raise ValueError()
+    assert_type(values, tuple[int | None, str | None])
+    "#,
+);
+
+testcase!(
+    test_narrow_tuple_elements_none_check_drops_impossible_members,
+    r#"
+from typing import assert_type
+
+def f(values: tuple[None, str] | tuple[int, int] | tuple[int | None]):
+    if any(v is None for v in values):
+        raise ValueError()
+    assert_type(values, tuple[int, int] | tuple[int])
+
+def g(values: tuple[None, str] | tuple[int, int] | tuple[int | None]):
+    if all(v is not None for v in values):
+        assert_type(values, tuple[int, int] | tuple[int])
+    "#,
+);
+
+testcase!(
+    test_narrow_tuple_elements_none_check_alias_and_shadowing,
+    r#"
+from typing import Iterable, assert_type
+
+def mixed_any(values: tuple[int | None, str | None], use_builtin: bool):
+    if use_builtin:
+        check = any
+    else:
+        def check(it: Iterable[bool]) -> bool:
+            return False
+    if check(v is None for v in values):
+        raise ValueError()
+    assert_type(values, tuple[int | None, str | None])
+
+def mixed_all(values: tuple[int | None, str | None], use_builtin: bool):
+    if use_builtin:
+        check = all
+    else:
+        def check(it: Iterable[bool]) -> bool:
+            return True
+    if check(v is not None for v in values):
+        assert_type(values, tuple[int | None, str | None])
+
+def shadowed(values: tuple[int | None, str | None]):
+    def any(it: Iterable[bool]) -> bool:
+        return False
+    if any(v is None for v in values):
+        raise ValueError()
+    assert_type(values, tuple[int | None, str | None])
+    "#,
+);
+
+testcase!(
+    test_narrow_tuple_elements_none_check_through_variable,
+    r#"
+from typing import assert_type
+
+def f(a: int | None, b: str | None):
+    values = (a, b)
+    ok = all(v is not None for v in values)
+    if ok:
+        assert_type(values, tuple[int, str])
+    "#,
+);
+
+// Every branch refers to the same builtin, including through shared alias bindings.
+testcase!(
+    test_special_export_phi_shared_ancestors,
+    r#"
+from typing import Any, assert_type, cast
+
+def merged_len(values: tuple[int] | tuple[int, int], flag: bool):
+    if flag:
+        size = len
+    else:
+        size = len
+    if size(values) == 1:
+        assert_type(values, tuple[int])
+
+def conditional_len(values: tuple[int] | tuple[int, int], flag: bool):
+    size = len
+    if flag:
+        size = len
+    if size(values) == 1:
+        assert_type(values, tuple[int])
+
+def nested_len(values: tuple[int] | tuple[int, int], a: bool, b: bool):
+    size = len
+    if a:
+        if b:
+            size = len
+    if size(values) == 1:
+        assert_type(values, tuple[int])
+
+def merged_cast(value: Any, flag: bool):
+    if flag:
+        convert = cast
+    else:
+        convert = cast
+    assert_type(convert("str", value), str)
+
+def merged_all(values: tuple[int | None, str | None], flag: bool):
+    if flag:
+        check = all
+    else:
+        check = all
+    if check(v is not None for v in values):
+        assert_type(values, tuple[int, str])
+    "#,
+);
+
+testcase!(
+    test_special_export_historical_callees,
+    r#"
+from typing import Any, Callable, Iterable, assert_type
+
+class Checks:
+    def all(self, it: Iterable[bool]) -> bool:
+        return True
+
+def custom_all_alias(values: tuple[int | None], fake: Callable[[Iterable[bool]], bool]):
+    check = fake
+    saved = check
+    check = all
+    if saved(v is not None for v in values):
+        assert_type(values, tuple[int | None])
+        return values[0] + 1  # E: `+` is not supported between `None` and `Literal[1]`
+
+def custom_any_alias(values: tuple[int | None], fake: Callable[[Iterable[bool]], bool]):
+    check = fake
+    saved = check
+    check = any
+    if saved(v is None for v in values):
+        raise ValueError()
+    assert_type(values, tuple[int | None])
+    return values[0] + 1  # E: `+` is not supported between `None` and `Literal[1]`
+
+def custom_all_saved(values: tuple[int | None], fake: Callable[[Iterable[bool]], bool]):
+    check = fake
+    ok = check(v is not None for v in values)
+    check = all
+    if ok:
+        assert_type(values, tuple[int | None])
+        return values[0] + 1  # E: `+` is not supported between `None` and `Literal[1]`
+
+def custom_any_saved(values: tuple[int | None], fake: Callable[[Iterable[bool]], bool]):
+    check = fake
+    missing = check(v is None for v in values)
+    check = any
+    if missing:
+        raise ValueError()
+    assert_type(values, tuple[int | None])
+    return values[0] + 1  # E: `+` is not supported between `None` and `Literal[1]`
+
+def builtin_all_alias(values: tuple[int | None], fake: Callable[[Iterable[bool]], bool]):
+    from builtins import all as check
+    saved = check
+    check = fake
+    if saved(v is not None for v in values):
+        assert_type(values, tuple[int])
+
+def builtin_all_saved(values: tuple[int | None], fake: Callable[[Iterable[bool]], bool]):
+    from builtins import all as check
+    ok = check(v is not None for v in values)
+    check = fake
+    if ok:
+        assert_type(values, tuple[int])
+
+def repeated_name(values: tuple[int | None]):
+    check = all
+    saved = check
+    check = saved
+    if check(v is not None for v in values):
+        assert_type(values, tuple[int])
+
+def qualified_custom_saved(values: tuple[int | None], fake: Checks):
+    b = fake
+    ok = b.all(v is not None for v in values)
+    import builtins as b
+    if ok:
+        assert_type(values, tuple[int | None])
+        return values[0] + 1  # E: `+` is not supported between `None` and `Literal[1]`
+
+def qualified_builtin_saved(values: tuple[int | None], fake: Checks):
+    import builtins as b
+    ok = b.all(v is not None for v in values)
+    b = fake
+    if ok:
+        assert_type(values, tuple[int])
+
+def qualified_cast(value: Any):
+    import typing as t
+    saved = t.cast
+    t = value
+    assert_type(saved("int", value), int)
+    "#,
+);
+
+testcase!(
+    test_special_export_loop_import_identity,
+    r#"
+import builtins as b
+from builtins import hasattr as has
+from typing import assert_type
+
+class Base:
+    pass
+
+def cold_hasattr(xs: list[Base]):
+    for x in xs:
+        if hasattr(x, "attr"):
+            return x.attr
+
+def warm_hasattr(xs: list[Base]):
+    for x in xs:
+        if hasattr(x, "attr"):
+            return x.attr
+
+def warm_while(xs: list[Base]):
+    while xs:
+        x = xs.pop()
+        if hasattr(x, "attr"):
+            return x.attr
+
+def cold_type(parts: list[int | str]):
+    for part in parts:
+        if type(part) is int:
+            assert_type(part, int)
+
+def warm_type(parts: list[int | str]):
+    for part in parts:
+        if type(part) is int:
+            assert_type(part, int)
+
+def qualified_capture(xs: list[Base]):
+    for x in xs:
+        if b.hasattr(x, "attr"):
+            return x.attr
+
+def imported_capture(xs: list[Base]):
+    for x in xs:
+        if has(x, "attr"):
+            return x.attr
+
+def qualified_local(xs: list[Base]):
+    import builtins as local_b
+    for x in xs:
+        if local_b.hasattr(x, "attr"):
+            return x.attr
+
+def plain_module(xs: list[Base]):
+    import builtins
+    for x in xs:
+        if builtins.hasattr(x, "attr"):
+            return x.attr
+
+def nested_loops(xs: list[Base], ys: list[int]):
+    import builtins as local_b
+    for x in xs:
+        for y in ys:
+            if local_b.hasattr(x, "attr"):
+                return x.attr
+            if y:
+                continue
+            break
+
+def tuple_guard(values: tuple[int | None], xs: list[int]):
+    for _ in xs:
+        if any(v is None for v in values):
+            raise ValueError()
+        assert_type(values, tuple[int])
+
+def saved_tuple_guard(values: tuple[int | None], xs: list[int]):
+    for _ in xs:
+        ok = all(v is not None for v in values)
+        if ok:
+            assert_type(values, tuple[int | None])
+    "#,
+);
+
+testcase!(
+    test_special_export_loop_rebinding,
+    r#"
+from typing import Iterable, assert_type
+
+def fake(it: Iterable[bool]) -> bool:
+    return True
+
+def reassigned(values: tuple[int | None], xs: list[int]):
+    from builtins import all as check
+    for _ in xs:
+        if check(v is not None for v in values):
+            assert_type(values, tuple[int | None])
+        check = fake
+
+def conditional(values: tuple[int | None], xs: list[int], flag: bool):
+    from builtins import all as check
+    for _ in xs:
+        if check(v is not None for v in values):
+            assert_type(values, tuple[int | None])
+        if flag:
+            check = fake
+
+def walrus(values: tuple[int | None], xs: list[int]):
+    from builtins import all as check
+    for _ in xs:
+        if check(v is not None for v in values):
+            assert_type(values, tuple[int | None])
+        _ = (check := fake)
+
+def loop_target(values: tuple[int | None]):
+    from builtins import all as check
+    for check in [fake]:
+        if check(v is not None for v in values):
+            assert_type(values, tuple[int | None])
+    "#,
+);
+
+testcase!(
+    test_tuple_none_check_matching_and_invalidation,
+    r#"
+from typing import AsyncIterable, assert_type
+
+def unsupported_predicates(values: tuple[int | None], other: int | None):
+    if any(v is not None for v in values):
+        assert_type(values, tuple[int | None])
+    if all(v is None for v in values):
+        assert_type(values, tuple[int | None])
+    if any(other is None for v in values):
+        raise ValueError()
+    assert_type(values, tuple[int | None])
+
+def filtered_all(values: tuple[int | None], flag: bool):
+    if all(v is not None for v in values if flag):
+        assert_type(values, tuple[int | None])
+
+def multiple_generators(values: tuple[int | None]):
+    if all(v is not None for row in [values] for v in row):
+        assert_type(values, tuple[int | None])
+
+async def asynchronous_generator(values: tuple[int | None] | AsyncIterable[int | None]):
+    if all(v is not None async for v in values):  # E: not assignable to parameter `iterable` # E: not an async iterable
+        assert_type(values, tuple[int | None] | AsyncIterable[int | None])
+
+def reassigned_subject(values: tuple[int | None], replacement: tuple[int | None]):
+    ok = all(v is not None for v in values)
+    values = replacement
+    if ok:
+        assert_type(values, tuple[int | None])
+
+def conditional_reassignment(values: tuple[int | None], replacement: tuple[int | None], flag: bool):
+    ok = all(v is not None for v in values)
+    if flag:
+        values = replacement
+    if ok:
+        assert_type(values, tuple[int | None])
+
+def shadowed_all(values: tuple[int | None]):
+    def all(it) -> bool:
+        return True
+    if all(v is not None for v in values):
+        assert_type(values, tuple[int | None])
+
+def different_builtins(values: tuple[int | None], flag: bool):
+    if flag:
+        check = any
+    else:
+        check = all
+    if check(v is not None for v in values):
+        assert_type(values, tuple[int | None])
+
+def empty_tuple(values: tuple[()] | tuple[None]):
+    if any(v is None for v in values):
+        raise ValueError()
+    assert_type(values, tuple[()])
+
+def asserted_all(values: tuple[int | None]):
+    assert all(v is not None for v in values)
+    assert_type(values, tuple[int])
+
+def negated_saved_any(values: tuple[int | None]):
+    missing = any(v is None for v in values)
+    if not missing:
+        assert_type(values, tuple[int])
+
+def unchanged_mutable(values: list[int | None]):
+    ok = all(v is not None for v in values)
+    values.append(None)
+    if ok:
+        assert_type(values, list[int | None])
+    "#,
+);
+
+testcase!(
+    test_tuple_none_check_keywords,
+    r#"
+from typing import assert_type
+
+def any_keywords(values: tuple[int | None]):
+    if any((v is None for v in values), unexpected=True):  # E: Unexpected keyword
+        raise ValueError()
+    assert_type(values, tuple[int | None])
+
+def all_keywords(values: tuple[int | None]):
+    if all((v is not None for v in values), unexpected=True):  # E: Unexpected keyword
+        assert_type(values, tuple[int | None])
     "#,
 );

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from ...domain.company.company import CompanyRepository, RoutingIndex
 from ...models.cache import CacheProtocol
@@ -144,6 +144,11 @@ class CachedCompanyRepository:
 
     async def save_resolved_waba(self, company: EmpresaModel, *, only_if_phone: str) -> EmpresaModel:
         return await self._changed(company.id, await self.inner.save_resolved_waba(company, only_if_phone=only_if_phone))
+
+    async def release_number(self, company: EmpresaModel, record: Dict[str, Any]) -> EmpresaModel:
+        fresh = await self.inner.release_number(company, record)
+        await self.forget_quietly(company)  # the copy AS IT WAS: its routing keys are the released number's
+        return await self._changed(company.id, fresh)
 
     async def save_meta_profile(self, company: EmpresaModel, fields: Sequence[str], *,
                                 only_if_phone: str) -> EmpresaModel:

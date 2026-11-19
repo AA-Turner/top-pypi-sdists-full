@@ -11,15 +11,18 @@ use pyrefly_python::dunder;
 use pyrefly_types::dimension::Int;
 use pyrefly_types::dimension::canonicalize;
 use pyrefly_types::dimension::int_type_is_provably_nonnegative;
+use pyrefly_types::function::BodyKind;
+use pyrefly_types::known_class::KnownClass;
 use pyrefly_types::lit_int::LitInt;
 use pyrefly_types::literal::LitStyle;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::quantified::QuantifiedKind;
+use pyrefly_types::quantified::TypeVarLike;
 use pyrefly_types::simplify::intersect;
 use pyrefly_types::type_var::Restriction;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::CmpOp;
-use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprCompare;
 use ruff_python_ast::ExprUnaryOp;
@@ -35,6 +38,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
 use crate::alt::expr::MAX_TUPLE_LENGTH;
+use crate::alt::narrow::IntersectFallback;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::unwrap::HintRef;
 use crate::binding::binding::KeyAnnotation;
@@ -43,9 +47,11 @@ use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
+use crate::module::typeshed::typeshed;
 use crate::types::class::Class;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
+use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -54,6 +60,30 @@ enum EqualityCompatibilityGroup {
     BytesLike,
     SetLike,
     Str,
+}
+
+enum BinaryOperatorOrder {
+    ForwardOnly,
+    ForwardFirst,
+    ReflectedFirst,
+}
+
+/// A value includes `Never`, which means that execution does not return.
+enum OperatorReturn {
+    Value(Type),
+    Declined,
+    ValueOrDecline(Type),
+}
+
+/// Failed signatures retain their diagnostics and recovery type until dispatch completes.
+enum OperatorCallOutcome {
+    Missing,
+    SignatureError {
+        callee_errors: ErrorCollector,
+        call_errors: ErrorCollector,
+        ret: Type,
+    },
+    Returned(OperatorReturn),
 }
 
 impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
@@ -176,10 +206,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 Type::TypeVar(tv) if tv.kind() == QuantifiedKind::IntVar => {
                     return Some(self.heap.mk_any_implicit());
                 }
-                Type::ClassType(cls) if cls.is_builtin("int") => {
+                Type::ClassType(cls) if cls.is(KnownClass::Int) => {
                     return Some(self.heap.mk_any_implicit());
                 }
-                Type::ClassType(cls) if cls.is_builtin("float") => {
+                Type::ClassType(cls) if cls.is(KnownClass::Float) => {
                     return Some(self.heap.mk_class_type(self.stdlib.float().clone()));
                 }
                 _ if self
@@ -223,49 +253,140 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         Some(result_ty)
     }
 
+    /// Interpret a successful call without selecting another operator or a completion rule.
+    fn interpret_operator_return(&self, ret: Type, inferred_placeholder: bool) -> OperatorReturn {
+        let is_not_implemented = |ty: &Type| matches!(ty, Type::ClassType(cls) if cls.is(KnownClass::NotImplementedType) || cls.is(KnownClass::TypesNotImplementedType));
+        match ret {
+            ret if is_not_implemented(&ret) => {
+                if inferred_placeholder {
+                    // A wrapper can inherit a sentinel inferred from a base helper, even when
+                    // a subclass overrides that helper. Its concrete result is unknown.
+                    OperatorReturn::Value(self.heap.mk_any_implicit())
+                } else {
+                    OperatorReturn::Declined
+                }
+            }
+            Type::Union(mut union) => {
+                if let Some(index) = union.members.iter().position(is_not_implemented) {
+                    union.members.remove(index);
+                    // Mixed inferred returns retain their concrete types. Identifying returns
+                    // delegated to an overridden helper requires per-return provenance.
+                    OperatorReturn::ValueOrDecline(self.unions(union.members))
+                } else {
+                    OperatorReturn::Value(Type::Union(union))
+                }
+            }
+            ret => OperatorReturn::Value(ret),
+        }
+    }
+
+    /// Report successful-call diagnostics immediately, including methods that decline.
+    fn call_operator(
+        &self,
+        dunder: &Name,
+        target: &Type,
+        arg: &Type,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: &dyn Fn() -> ErrorContext,
+    ) -> OperatorCallOutcome {
+        let Some(method) = self.type_of_magic_dunder_attr(
+            target,
+            dunder,
+            range,
+            errors,
+            Some(&context),
+            "Expr::binop_infer",
+            // Operator lookup must not use __getattr__ or __getattribute__.
+            false,
+        ) else {
+            return OperatorCallOutcome::Missing;
+        };
+        let inferred_placeholder = match &method {
+            Type::Overload(_) => false,
+            Type::BoundMethod(method) if matches!(method.func, BoundMethodType::Overload(_)) => {
+                false
+            }
+            _ => method.toplevel_func_metadata().is_some_and(|metadata| {
+                metadata.flags.is_return_inferred
+                    && metadata.flags.body_kind != BodyKind::ReturnNotImplemented
+            }),
+        };
+        let callee_errors = self.error_collector();
+        let call_errors = self.error_collector();
+        let ret = self.callable_dunder_helper(
+            method,
+            range,
+            &callee_errors,
+            &call_errors,
+            &context,
+            dunder,
+            arg,
+        );
+        // Soft errors must not reject an otherwise valid signature.
+        if call_errors.has_hard() {
+            OperatorCallOutcome::SignatureError {
+                callee_errors,
+                call_errors,
+                ret,
+            }
+        } else {
+            errors.extend(callee_errors);
+            OperatorCallOutcome::Returned(self.interpret_operator_return(ret, inferred_placeholder))
+        }
+    }
+
+    /// Callers distribute operand unions and supply the existing method order.
+    /// A definite value ends dispatch. Otherwise, completion uses `unresolved_result` or
+    /// recovers the first signature error when no concrete result is possible.
     fn try_binop_calls(
         &self,
         calls: &[(&Name, &Type, &Type)],
         range: TextRange,
         errors: &ErrorCollector,
         context: &dyn Fn() -> ErrorContext,
+        unresolved_result: Option<Type>,
     ) -> Type {
-        let mut first_call = None;
+        let mut first_error = None;
+        let mut concrete_result = None;
         for (dunder, target, arg) in calls {
-            let method_type_dunder = self.type_of_magic_dunder_attr(
-                target,
-                dunder,
-                range,
-                errors,
-                Some(&context),
-                "Expr::binop_infer",
-                // Magic method lookup for operators should ignore __getattr__/__getattribute__.
-                false,
-            );
-            let Some(method_type_dunder) = method_type_dunder else {
-                continue;
-            };
-            let callee_errors = self.error_collector();
-            let call_errors = self.error_collector();
-            let ret = self.callable_dunder_helper(
-                method_type_dunder,
-                range,
-                &callee_errors,
-                &call_errors,
-                &context,
-                dunder,
-                arg,
-            );
-            // Soft errors (e.g. unknown-argument-type) must not reject an otherwise
-            // valid dunder call, so gate on hard errors only.
-            if !call_errors.has_hard() {
-                errors.extend(callee_errors);
-                return ret;
-            } else if first_call.is_none() {
-                first_call = Some((callee_errors, call_errors, ret));
+            match self.call_operator(dunder, target, arg, range, errors, context) {
+                OperatorCallOutcome::Missing
+                | OperatorCallOutcome::Returned(OperatorReturn::Declined) => {}
+                OperatorCallOutcome::SignatureError {
+                    callee_errors,
+                    call_errors,
+                    ret,
+                } => {
+                    if first_error.is_none() {
+                        first_error = Some((callee_errors, call_errors, ret));
+                    }
+                }
+                OperatorCallOutcome::Returned(OperatorReturn::Value(ret)) => {
+                    return match concrete_result {
+                        Some(previous) => self.union(previous, ret),
+                        None => ret,
+                    };
+                }
+                OperatorCallOutcome::Returned(OperatorReturn::ValueOrDecline(ret)) => {
+                    concrete_result = Some(match concrete_result {
+                        Some(previous) => self.union(previous, ret),
+                        None => ret,
+                    });
+                }
             }
         }
-        if let Some((callee_errors, call_errors, ret)) = first_call {
+        if first_error.is_none()
+            && let Some(fallback) = unresolved_result
+        {
+            return match concrete_result {
+                Some(previous) => self.union(previous, fallback),
+                None => fallback,
+            };
+        }
+        if let Some(ret) = concrete_result {
+            ret
+        } else if let Some((callee_errors, call_errors, ret)) = first_error {
             errors.extend(callee_errors);
             errors.extend(call_errors);
             ret
@@ -399,6 +520,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         Some(self.heap.mk_concrete_tuple(repeated))
     }
 
+    fn as_hint_for_display(lhs: &Type) -> Option<HintRef<'_, '_>> {
+        // In an operation between `lhs` and a container display (e.g., `[3]`, `{"a": 0)]`), the
+        // type of the display should be inferred using `lhs` as a hint when the latter is a
+        // container type with a display syntax. Hinting is harmless when the types don't match.
+        (matches!(lhs, Type::ClassType(cls) if matches!(cls.class_object().known(), Some(KnownClass::List | KnownClass::Set | KnownClass::Dict)))).then(
+            || HintRef::soft(lhs))
+    }
+
     pub fn binop_infer(
         &self,
         x: &ExprBinOp,
@@ -418,32 +547,29 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             rhs = self
                 .expr_infer_impl(&x.right, None, errors, Some(member_context))
                 .into_ty();
-        } else if Ast::is_list_literal_or_comprehension(&x.left) && x.op == Operator::Mult {
-            // If the expression is of the form [X] * Y where Y is a number, pass down the contextual
-            // type hint when evaluating [X]
-            rhs = self.expr_infer(&x.right, errors);
-            if self.is_subset_eq(&rhs, &self.heap.mk_class_type(self.stdlib.int().clone())) {
+        } else {
+            let left_is_display = Ast::contains_only_container_displays(&x.left);
+            let right_is_display = Ast::contains_only_container_displays(&x.right);
+            if left_is_display && right_is_display {
+                // If both operands are literal container displays, pass the contextual hint down
                 lhs = self.expr_infer_with_hint(&x.left, hint, errors);
+                rhs = self.expr_infer_with_hint(&x.right, hint, errors);
+            } else if left_is_display && x.op == Operator::Mult {
+                // If the expression is of the form [X] * Y where Y is a number, pass down the contextual
+                // type hint when evaluating [X]. Hinting non-list displays is harmless.
+                rhs = self.expr_infer(&x.right, errors);
+                if self.is_subset_eq(&rhs, &self.heap.mk_class_type(self.stdlib.int().clone())) {
+                    lhs = self.expr_infer_with_hint(&x.left, hint, errors);
+                } else {
+                    lhs = self.expr_infer(&x.left, errors);
+                }
+            } else if right_is_display {
+                lhs = self.expr_infer(&x.left, errors);
+                rhs = self.expr_infer_with_hint(&x.right, Self::as_hint_for_display(&lhs), errors);
             } else {
                 lhs = self.expr_infer(&x.left, errors);
+                rhs = self.expr_infer(&x.right, errors);
             }
-        } else if x.op == Operator::Add
-            && Ast::is_list_literal_or_comprehension(&x.left)
-            && Ast::is_list_literal_or_comprehension(&x.right)
-        {
-            // If both operands are list literals, pass the contextual hint down
-            lhs = self.expr_infer_with_hint(&x.left, hint, errors);
-            rhs = self.expr_infer_with_hint(&x.right, hint, errors);
-        } else {
-            lhs = self.expr_infer(&x.left, errors);
-            rhs = if x.op == Operator::BitOr
-                && matches!(&*x.right, Expr::Dict(_))
-                && matches!(&lhs, Type::ClassType(cls) if cls.class_object().is_builtin("dict"))
-            {
-                self.expr_infer_with_hint(&x.right, Some(HintRef::soft(&lhs)), errors)
-            } else {
-                self.expr_infer(&x.right, errors)
-            };
         }
 
         // Optimisation: If we have `Union[a, b] | Union[c, d]`, instead of unioning
@@ -498,6 +624,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     intersect(
                         vec![q.clone().to_type(self.heap), res.clone()],
                         res,
+                        self,
                         self.heap,
                     )
                 } else {
@@ -507,7 +634,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         } else if let Some(narrowed_type) = narrowed_type {
             f(narrowed_type)
         } else {
-            f(&q.upper_bound(self.stdlib, self.heap))
+            f(&q.upper_bound(self, self.heap))
         }
     }
 
@@ -518,15 +645,63 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         f: &dyn Fn(&Type, &Type) -> Type,
     ) -> Option<Type> {
         match (left.as_quantified(), right.as_quantified()) {
-            (Some((left_q, left_narrow)), Some((right_q, right_narrow)))
-                if matches!(left_q.restriction(), Restriction::Constraints(_))
-                    && left_q == right_q =>
-            {
-                Some(
-                    self.on_quantified(left_q, left_narrow.or(right_narrow), &|constraint| {
-                        f(constraint, constraint)
-                    }),
-                )
+            (
+                Some((
+                    left_q @ Quantified {
+                        restriction: Restriction::Constraints(constraints),
+                        ..
+                    },
+                    left_narrow,
+                )),
+                Some((right_q, right_narrow)),
+            ) if left_q == right_q => {
+                if left_narrow.is_none() && right_narrow.is_none() {
+                    return Some(
+                        self.on_quantified(left_q, None, &|constraint| f(constraint, constraint)),
+                    );
+                }
+                let result = self.unions(
+                    constraints
+                        .iter()
+                        .map(|constraint| {
+                            let narrow_operand = |narrowed: Option<&Type>| {
+                                narrowed.map_or_else(
+                                    || constraint.clone(),
+                                    |narrowed| {
+                                        self.intersect_with_fallback(
+                                            constraint,
+                                            narrowed,
+                                            IntersectFallback::Right,
+                                        )
+                                    },
+                                )
+                            };
+                            // The constraint choice is shared; each operand's value facts are not.
+                            let left = narrow_operand(left_narrow);
+                            let right = narrow_operand(right_narrow);
+                            if left.is_never() || right.is_never() {
+                                self.heap.mk_never()
+                            } else {
+                                f(&left, &right)
+                            }
+                        })
+                        .collect(),
+                );
+                let value_refined = [left_narrow, right_narrow]
+                    .into_iter()
+                    .flatten()
+                    .any(|narrowed| matches!(narrowed, Type::Literal(_)));
+                if value_refined {
+                    // Literal input facts do not provide a result-TypeVar guarantee.
+                    Some(result)
+                } else {
+                    // Retain the existing class-level preservation check after inference.
+                    Some(
+                        self.on_quantified(left_q, left_narrow.or(right_narrow), &|_| {
+                            result.clone()
+                        }),
+                    )
+                }
             }
             // We skip non-union bounds to avoid accidentally erasing `Self` typevars.
             (Some((left_q, left_narrow)), _)
@@ -557,6 +732,69 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
     }
 
+    /// Equal nominal classes cannot use reflected arithmetic. Unchanged ordinary methods
+    /// do not get subclass priority; protocols and dynamic callables retain the approximation.
+    fn binary_operator_order(&self, op: Operator, lhs: &Type, rhs: &Type) -> BinaryOperatorOrder {
+        if let (Type::ClassType(lhs_cls), Type::ClassType(rhs_cls)) = (lhs, rhs) {
+            let lhs_obj = lhs_cls.class_object();
+            let rhs_obj = rhs_cls.class_object();
+            if lhs_obj == rhs_obj {
+                // Equal protocol annotations do not imply equal runtime classes.
+                return if self.get_metadata_for_class(lhs_obj).is_protocol() {
+                    BinaryOperatorOrder::ForwardFirst
+                } else {
+                    BinaryOperatorOrder::ForwardOnly
+                };
+            }
+            if self.has_superclass(rhs_obj, lhs_obj) {
+                if self.get_metadata_for_class(lhs_obj).is_protocol()
+                    || self.get_metadata_for_class(rhs_obj).is_protocol()
+                {
+                    return BinaryOperatorOrder::ReflectedFirst;
+                }
+                let reflected = Name::new_static(op.reflected_dunder());
+                let Some(right) = self.get_class_member_with_defining_class(rhs_obj, &reflected)
+                else {
+                    return BinaryOperatorOrder::ForwardFirst;
+                };
+                let Some(left) = self.get_class_member_with_defining_class(lhs_obj, &reflected)
+                else {
+                    return BinaryOperatorOrder::ReflectedFirst;
+                };
+                // Classmethods and descriptors can bind differently on the two classes.
+                if !(left.value.is_ordinary_instance_method() || left.value.is_staticmethod())
+                    || !(right.value.is_ordinary_instance_method() || right.value.is_staticmethod())
+                {
+                    return BinaryOperatorOrder::ReflectedFirst;
+                }
+                let left_ty = left.value.ty();
+                let right_ty = right.value.ty();
+                if matches!(left_ty, Type::BoundMethod(_))
+                    || matches!(right_ty, Type::BoundMethod(_))
+                {
+                    return BinaryOperatorOrder::ReflectedFirst;
+                }
+                if left.defining_class == right.defining_class {
+                    return BinaryOperatorOrder::ForwardFirst;
+                }
+                // Factory calls can create distinct functions from the same nested definition.
+                if let (Some(left_meta), Some(right_meta)) = (
+                    left_ty.toplevel_func_metadata(),
+                    right_ty.toplevel_func_metadata(),
+                ) && left_meta.kind == right_meta.kind
+                    && left_meta
+                        .kind
+                        .as_func_def_id()
+                        .is_some_and(|id| id.cls.is_some() || id.qname.parent().is_toplevel())
+                {
+                    return BinaryOperatorOrder::ForwardFirst;
+                }
+                return BinaryOperatorOrder::ReflectedFirst;
+            }
+        }
+        BinaryOperatorOrder::ForwardFirst
+    }
+
     fn binop_types(&self, x: &ExprBinOp, lhs: &Type, rhs: &Type, errors: &ErrorCollector) -> Type {
         if let Some(result) = Self::try_literal_int_binop(x.op, lhs, rhs) {
             return result;
@@ -581,27 +819,16 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             let reflected = Name::new_static(op.reflected_dunder());
             let forward_call = (&forward, lhs, rhs);
             let reflected_call = (&reflected, rhs, lhs);
-            // Python data model: when the right operand's type is a *proper* subclass of the
-            // left operand's type, the reflected dunder is tried first. This lets e.g.
-            // `int_val & some_IntFlag_member` resolve through `IntFlag.__rand__` (which returns
-            // the flag type) rather than `int.__and__` (which widens back to `int`). A subclass
-            // that does not override the reflected dunder inherits it unchanged, and
-            // `try_binop_calls` still falls back to the forward dunder, so non-overriding
-            // subclasses are unaffected.
-            let reflected_first = match (lhs, rhs) {
-                (Type::ClassType(lhs_cls), Type::ClassType(rhs_cls)) => {
-                    let lhs_obj = lhs_cls.class_object();
-                    let rhs_obj = rhs_cls.class_object();
-                    lhs_obj != rhs_obj && self.has_superclass(rhs_obj, lhs_obj)
+            let mut calls = [forward_call, reflected_call];
+            let calls_to_try = match self.binary_operator_order(op, lhs, rhs) {
+                BinaryOperatorOrder::ForwardOnly => &calls[..1],
+                BinaryOperatorOrder::ForwardFirst => &calls,
+                BinaryOperatorOrder::ReflectedFirst => {
+                    calls.swap(0, 1);
+                    &calls
                 }
-                _ => false,
             };
-            let calls_to_try = if reflected_first {
-                [reflected_call, forward_call]
-            } else {
-                [forward_call, reflected_call]
-            };
-            self.try_binop_calls(&calls_to_try, range, errors, &context)
+            self.try_binop_calls(calls_to_try, range, errors, &context, None)
         };
         self.distribute_over_union(lhs, |lhs| {
             self.distribute_over_union(rhs, |rhs| {
@@ -622,14 +849,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 // Then e1 + e2 should have a return type of Any since e2's __radd__  signature could be
                 // inconsistent with the signature of e1 __add__.
                 //
-                match (lhs, rhs) {
-                    (Type::Any(lstyle), Type::Any(rstyle)) => {
-                        return lstyle.merge(*rstyle);
-                    }
-                    (Type::Any(style), _) | (_, Type::Any(style)) => {
-                        return Type::Any(*style);
-                    }
-                    _ => {}
+                if let Some(any) = Type::merge_any_operands(lhs, rhs) {
+                    return any;
                 }
                 if x.op == Operator::BitOr
                     && let Some(l) = self.untype_opt(lhs.clone(), x.left.range(), errors)
@@ -674,22 +895,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                 self.heap.mk_class_type(self.stdlib.int().clone())
                             }
                         }
-                        _ => {
-                            let context = || {
-                                ErrorContext::BinaryOp(
-                                    x.op.as_str().to_owned(),
-                                    self.for_display(lhs.clone()),
-                                    self.for_display(rhs.clone()),
-                                    left_range,
-                                    right_range,
-                                )
-                            };
-                            let calls = [
-                                (&Name::new_static(x.op.dunder()), lhs, rhs),
-                                (&Name::new_static(x.op.reflected_dunder()), rhs, lhs),
-                            ];
-                            self.try_binop_calls(&calls, x.range, errors, &context)
-                        }
+                        _ => binop_call(x.op, lhs, rhs, x.range),
                     }
                 } else {
                     self.on_quantifieds(lhs, rhs, &|left, right| {
@@ -719,19 +925,25 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     value_range,
                 )
             };
-            let calls_to_try = [
+            let mut calls = [
                 (&Name::new_static(op.in_place_dunder()), lhs, rhs),
                 (&Name::new_static(op.dunder()), lhs, rhs),
                 (&Name::new_static(op.reflected_dunder()), rhs, lhs),
             ];
-            self.try_binop_calls(&calls_to_try, range, errors, &context)
+            // The inplace method precedes ordinary binary dispatch, even for subclasses.
+            let calls_to_try = match self.binary_operator_order(op, lhs, rhs) {
+                BinaryOperatorOrder::ForwardOnly => &calls[..2],
+                BinaryOperatorOrder::ForwardFirst => &calls,
+                BinaryOperatorOrder::ReflectedFirst => {
+                    calls.swap(1, 2);
+                    &calls
+                }
+            };
+            self.try_binop_calls(calls_to_try, range, errors, &context, None)
         };
         let base = self.expr_infer(&x.target, errors);
-        let rhs = if x.op == Operator::BitOr
-            && matches!(&*x.value, Expr::Dict(_))
-            && matches!(&base, Type::ClassType(cls) if cls.class_object().is_builtin("dict"))
-        {
-            self.expr_infer_with_hint(&x.value, Some(HintRef::soft(&base)), errors)
+        let rhs = if Ast::contains_only_container_displays(&x.value) {
+            self.expr_infer_with_hint(&x.value, Self::as_hint_for_display(&base), errors)
         } else {
             self.expr_infer(&x.value, errors)
         };
@@ -752,10 +964,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             &|| TypeCheckContext::of_kind(TypeCheckKind::AugmentedAssignment);
         let result = self.distribute_over_union(&base, |lhs| {
             self.distribute_over_union(&rhs, |rhs| {
-                if let Type::Any(style) = &lhs {
-                    style.propagate()
-                } else if let Type::Any(style) = &rhs {
-                    style.propagate()
+                if let Some(any) = Type::merge_any_operands(lhs, rhs) {
+                    any
                 } else if x.op == Operator::Add
                     && let Some(lhs_style) = lhs.lit_string_style()
                     && let Some(rhs_style) = rhs.lit_string_style()
@@ -875,10 +1085,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     // A rich comparison with an Any operand can return anything, but identity and
                     // membership tests always produce `bool`: `is` has no dunder method, and `in`
                     // converts the result of `__contains__` to `bool`.
-                    (Type::Any(style), _) | (_, Type::Any(style))
-                        if !matches!(op, CmpOp::Is | CmpOp::IsNot | CmpOp::In | CmpOp::NotIn) =>
+                    _ if !matches!(op, CmpOp::Is | CmpOp::IsNot | CmpOp::In | CmpOp::NotIn)
+                        && let Some(any) = Type::merge_any_operands(left, right) =>
                     {
-                        style.propagate()
+                        any
                     }
                     // If the RHS of a containment check isn't a quantified, it may contain a
                     // nested quantified that on_quantifieds would fail to detect.
@@ -925,7 +1135,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                 errors,
                                 x.range,
                                 ErrorKind::UnsupportedOperation,
-                                context().format(),
+                                context().format(self),
                             );
                             return self.heap.mk_class_type(self.stdlib.bool().clone());
                         }
@@ -982,8 +1192,15 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                     (&dunder::rich_comparison_dunder(op).unwrap(), left, right),
                                     (&dunder::rich_comparison_fallback(op).unwrap(), right, left),
                                 ];
-                                let ret =
-                                    self.try_binop_calls(&calls_to_try, x.range, errors, &context);
+                                let identity_fallback = matches!(op, CmpOp::Eq | CmpOp::NotEq)
+                                    .then(|| self.heap.mk_class_type(self.stdlib.bool().clone()));
+                                let ret = self.try_binop_calls(
+                                    &calls_to_try,
+                                    x.range,
+                                    errors,
+                                    &context,
+                                    identity_fallback,
+                                );
                                 if ret.is_error() {
                                     self.heap.mk_class_type(self.stdlib.bool().clone())
                                 } else {
@@ -1013,10 +1230,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 | Type::Int(_)
                 | Type::SelfType(_)
                 | Type::Quantified(_)
-                | Type::ShapedArray(_)
-                | Type::NNModule(_)
                 | Type::DataFrame(_)
-                | Type::Series(_) => {
+                | Type::Series(_)
+                | Type::Intersect(_) => {
                     self.call_method_or_error(t, method, x.range, &[], &[], errors, Some(&context))
                 }
                 Type::Literal(lit) if let Lit::Enum(lit_enum) = &lit.value => self
@@ -1029,12 +1245,13 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         errors,
                         Some(&context),
                     ),
-                Type::Any(style) => style.propagate(),
+                // A unary operator on an `Any` keeps its style, like a dunder call on one.
+                Type::Any(style) => Type::Any(*style),
                 _ => self.error(
                     errors,
                     x.range,
                     ErrorKind::UnsupportedOperation,
-                    context().format(),
+                    context().format(self),
                 ),
             }
         };
@@ -1136,21 +1353,21 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 // Explicit/implicit literal style is typing metadata, not runtime identity.
                 if l1.value != l2.value {
                     emit_literal_warning(
-                        &l1.value.to_string(),
-                        &l2.value.to_string(),
+                        &l1.value.display_with(self).to_string(),
+                        &l2.value.display_with(self).to_string(),
                         if is_op { "False" } else { "True" },
                     );
                 } else if is_bool_literal(&l1.value) {
                     emit_literal_warning(
-                        &l1.value.to_string(),
-                        &l2.value.to_string(),
+                        &l1.value.display_with(self).to_string(),
+                        &l2.value.display_with(self).to_string(),
                         if is_op { "True" } else { "False" },
                     );
                 }
             }
             (Type::Literal(l), Type::None) => {
                 emit_literal_warning(
-                    &l.value.to_string(),
+                    &l.value.display_with(self).to_string(),
                     "None",
                     if is_op { "False" } else { "True" },
                 );
@@ -1158,7 +1375,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             (Type::None, Type::Literal(l)) => {
                 emit_literal_warning(
                     "None",
-                    &l.value.to_string(),
+                    &l.value.display_with(self).to_string(),
                     if is_op { "False" } else { "True" },
                 );
             }
@@ -1169,8 +1386,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 if !self.is_subset_eq(cdef, ctype) =>
             {
                 emit_instance_is_class_warning(
-                    &ctype.to_string(),
-                    cdef_inner.name().as_str(),
+                    &ctype.display_with(self).to_string(),
+                    cdef_inner.name(self).as_str(),
                     is_op,
                 );
             }
@@ -1204,8 +1421,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         if left_group == right_group {
             return;
         }
-        let left_display = self.for_display(left.clone());
-        let right_display = self.for_display(right.clone());
+        let left_display = self.display(left.clone());
+        let right_display = self.display(right.clone());
         self.error(
             errors,
             range,
@@ -1230,21 +1447,42 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     fn equality_compatibility_group(&self, ty: &Type) -> Option<EqualityCompatibilityGroup> {
         let class = self.equality_class(ty)?;
-        match (class.qname().module_name().as_str(), class.name().as_str()) {
-            ("builtins", "bool" | "int" | "float" | "complex") | ("decimal", "Decimal") => {
-                Some(EqualityCompatibilityGroup::Numeric)
-            }
-            ("builtins", "bytes" | "bytearray" | "memoryview") => {
+        match class.known()? {
+            KnownClass::Bool
+            | KnownClass::Int
+            | KnownClass::Float
+            | KnownClass::Complex
+            | KnownClass::Decimal
+            | KnownClass::FractionsFraction => Some(EqualityCompatibilityGroup::Numeric),
+            KnownClass::Bytes | KnownClass::ByteArray | KnownClass::MemoryView => {
                 Some(EqualityCompatibilityGroup::BytesLike)
             }
-            ("builtins", "set" | "frozenset") => Some(EqualityCompatibilityGroup::SetLike),
-            ("builtins", "str") => Some(EqualityCompatibilityGroup::Str),
+            KnownClass::Set | KnownClass::FrozenSet => Some(EqualityCompatibilityGroup::SetLike),
+            KnownClass::Str | KnownClass::CollectionsUserString => {
+                Some(EqualityCompatibilityGroup::Str)
+            }
             _ => None,
         }
     }
 
-    /// Returns whether builtin equality may succeed without nominal type overlap.
+    /// Returns whether `left == right` may succeed without nominal type overlap: either side
+    /// gets `__eq__` from a module outside the standard library, or builtin equality relates
+    /// the two classes.
+    ///
+    /// This is a heuristic. It assumes that a standard library `__eq__` returns `True` only for
+    /// an operand of an overlapping class or of a class in the same compatibility group.
     pub(crate) fn equality_can_match_disjoint(&self, left: &Type, right: &Type) -> bool {
+        let has_user_defined_eq = |ty: &Type| {
+            self.equality_class(ty).is_some_and(|class| {
+                self.get_class_member_with_defining_class(class, &dunder::EQ)
+                    .is_some_and(|eq| {
+                        !typeshed().is_ok_and(|ts| ts.has_module(eq.defining_class.module_name()))
+                    })
+            })
+        };
+        if has_user_defined_eq(left) || has_user_defined_eq(right) {
+            return true;
+        }
         let compatibility_group = |ty: &Type| {
             self.equality_compatibility_group(ty).or_else(|| {
                 let class = self.equality_class(ty)?;

@@ -1569,7 +1569,7 @@ def _run_train(fn, **kwargs) -> dict:
 def _check_base(value: str | None) -> str | None:
     import re
 
-    from dreamscale_core import training_families
+    from dreamscale._training_families import families as training_families
 
     if value in (None, "auto"):
         return None

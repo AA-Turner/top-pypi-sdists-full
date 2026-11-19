@@ -1,5 +1,6 @@
 from __future__ import annotations
 import ast
+import re
 import sys
 from pathlib import Path
 from .danger_sql.sql_flow import scan as scan_sql
@@ -24,7 +25,13 @@ from .danger_logging import scan as scan_secret_logging
 from .pickle_provenance import safe_pickle_loads
 from .yaml_loader_provenance import yaml_loader_classes, yaml_load_call_name
 from .callable_bindings import callable_names
-from .python_security_gaps import scan as scan_python_security_gaps
+from .python_security_gaps import (
+    mentions_graph_query,
+    scan as scan_python_security_gaps,
+)
+from .regex_dos import scan as scan_regex_backtracking
+from skylos.rules.quality._test_code import is_python_test_file
+from .danger_fs.weak_path_defence import scan as scan_weak_path_defence
 from .weak_random_context import private_model_slug_evidence
 from skylos.security.command_guard import (
     findings_for_command,
@@ -615,6 +622,9 @@ def _contains_sensitive_file_open(node: ast.AST) -> bool:
     return False
 
 
+_DOT_DOT_LITERAL = re.compile(r"""['"][./\\]*\.\.[./\\]*['"]""")
+
+
 def _has_any(source: str, tokens: tuple[str, ...]) -> bool:
     return any(token in source for token in tokens)
 
@@ -648,25 +658,36 @@ def scan_file_with_tree(
     tree, file_path, findings, *, source: str | None = None, project_root=None
 ):
     """Run taint-flow scanners on an already-parsed AST (no re-read/re-parse)."""
-    if source is None or _has_any(
-        source.lower(),
-        (
-            "jinja",
-            "requests",
-            "httpx",
-            "urllib",
-            "importlib",
-            "__import__",
-            "gradio",
-            "/tmp/",
-            "makedirs",
-            "mkdir",
-            "url_for",
-            "subprocess",
-            "shlex",
-        ),
+    if (
+        source is None
+        or _has_any(
+            source.lower(),
+            (
+                "jinja",
+                "requests",
+                "httpx",
+                "urllib",
+                "importlib",
+                "__import__",
+                "gradio",
+                "/tmp/",
+                "makedirs",
+                "mkdir",
+                "url_for",
+                "subprocess",
+                "shlex",
+            ),
+        )
+        or mentions_graph_query(source)
     ):
         scan_python_security_gaps(tree, file_path, findings, project_root=project_root)
+    review = []
+    if source is None or "import re" in source or "from re " in source:
+        scan_regex_backtracking(tree, file_path, review)
+    if source is None or _DOT_DOT_LITERAL.search(source):
+        scan_weak_path_defence(tree, file_path, review)
+    if review and not is_python_test_file(file_path, project_root, source):
+        findings.extend(review)
     if source is None:
         scan_sql(tree, file_path, findings, project_root=project_root)
         scan_cmd(tree, file_path, findings, project_root=project_root)
@@ -685,7 +706,7 @@ def scan_file_with_tree(
         scan_agent_tool_privilege(tree, file_path, findings)
         scan_llm_consumption(tree, file_path, findings)
         scan_llm(tree, file_path, findings)
-        scan_ml_model_load(tree, file_path, findings)
+        scan_ml_model_load(tree, file_path, findings, project_root=project_root)
         findings.extend(scan_secret_logging(tree, {"filename": file_path}))
         _PythonCommandExfilChecker(file_path, findings).visit(tree)
         return
@@ -730,7 +751,7 @@ def scan_file_with_tree(
     if _has_any(source_lower, _LLM_TOKENS):
         scan_llm(tree, file_path, findings)
     if _has_any(source_lower, _ML_MODEL_LOAD_TOKENS):
-        scan_ml_model_load(tree, file_path, findings)
+        scan_ml_model_load(tree, file_path, findings, project_root=project_root)
     if _has_any(source_lower, ("print", "logging", "loguru")):
         findings.extend(scan_secret_logging(tree, {"filename": file_path}))
     if _has_any(

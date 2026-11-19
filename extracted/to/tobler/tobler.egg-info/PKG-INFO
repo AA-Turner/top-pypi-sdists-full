@@ -1,17 +1,22 @@
 Metadata-Version: 2.4
 Name: tobler
-Version: 0.14.0
+Version: 0.14.1
 Summary: Tobler is a Python library for areal interpolation.
 Author-email: Eli Knaap <ek@knaaptime.com>, Serge Rey <sjsrey@gmail.com>
 Maintainer: pysal contributors
-License: BSD 3-Clause
+License-Expression: BSD-3-Clause
 Project-URL: Home, https://github.com/pysal/tobler/
 Project-URL: Repository, https://github.com/pysal/tobler
 Keywords: dasymetric mapping, spatial analysis, interpolation, change of support
-Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: BSD License
-Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
@@ -46,10 +51,14 @@ Requires-Dist: myst-parser; extra == "docs"
 Requires-Dist: sphinx-immaterial; extra == "docs"
 Requires-Dist: myst_nb; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: pytidycensus; extra == "docs"
+Requires-Dist: contextily; extra == "docs"
+Requires-Dist: osmnx; extra == "docs"
+Requires-Dist: geodatasets; extra == "docs"
 Provides-Extra: tests
 Requires-Dist: codecov; extra == "tests"
 Requires-Dist: coverage; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest>=9.0; extra == "tests"
 Requires-Dist: pytest-mpl; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"

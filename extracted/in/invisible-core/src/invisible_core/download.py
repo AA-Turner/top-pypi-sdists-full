@@ -23,9 +23,10 @@ from . import environment
 # imported here, unused, ever since. They are not a back-compat re-export -
 # those are spelled out at the foot of this file with an explicit noqa - and
 # nothing in the three repositories reads them from this module.
-from .constants import BINARY_ENTRY_REL, RELEASE_URL_TEMPLATE
+from .constants import RELEASE_URL_TEMPLATE
 from .seal import (
     Asset,
+    DEFAULT_ENTRY_REL,
     EngineMismatch,
     SUPPORTED_LEGS,
     SUPPORTED_PLATFORMS,
@@ -112,15 +113,6 @@ def cache_dir_for_seal(seal: Seal | None = None) -> Path:
     """
     s = seal or active_seal()
     return engine_root() / f"{s.tag}_{s.upstream_version}_{s.build_id}"
-
-
-def cache_dir_for_version(version: str | None = None) -> Path:
-    """Back-compat shim. The sealed tag resolves to the content-keyed dir; any
-    other tag resolves to its legacy flat name (enumeration / cleanup only)."""
-    s = active_seal()
-    if version is None or version == s.tag:
-        return cache_dir_for_seal(s)
-    return engine_root() / version
 
 
 def release_asset_urls(owner: str, repo: str, tag: str, asset_name: str,
@@ -520,20 +512,6 @@ def _sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def _parse_checksums(text: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split()
-        if len(parts) >= 2:
-            # sha256sum uses ' *' or '  ' prefix for binary vs text mode
-            key = parts[-1].lstrip("*")
-            out[key] = parts[0]
-    return out
-
-
 def _extract(archive: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
     if archive.suffix == ".zip":
@@ -547,21 +525,13 @@ def _extract(archive: Path, dst: Path) -> None:
 
 
 def _adopt_existing_cache(seal: Seal, asset: Asset, version_dir: Path) -> Path | None:
-    """Use a tree that is already on disk if it IS the sealed build.
+    """Use the content-keyed tree already on disk if it IS the sealed build.
 
-    Covers every warm cache in the field (flat engine_root()/<tag> layout) and a
-    content-keyed tree whose stamp was lost. Verified -> moved onto the
-    content-keyed name and stamped, no download. Not verified -> left exactly
-    where it is (it may belong to the other product) and the cold path runs.
+    The only tree looked at is `version_dir`, `<tag>_<version>_<buildid>`: a
+    tree whose stamp was lost. Verified -> stamped, no download. Not verified
+    -> left exactly where it is and the cold path runs.
     """
-    candidates = []
-    if version_dir.exists():
-        candidates.append(version_dir)
-    legacy = engine_root() / seal.tag
-    if legacy != version_dir and legacy.exists():
-        candidates.append(legacy)
-
-    for d in candidates:
+    for d in ([version_dir] if version_dir.exists() else []):
         entry = d / asset.entry_rel
         if not entry.exists():
             continue
@@ -587,12 +557,6 @@ def _adopt_existing_cache(seal: Seal, asset: Asset, version_dir: Path) -> Path |
                   f"digest, so the payload bytes are not content-verified; adoption rests "
                   f"on application.ini, platform.ini and the juggler markers",
                   file=sys.stderr)
-        if d != version_dir:
-            try:
-                os.replace(d, version_dir)
-                d, entry = version_dir, version_dir / asset.entry_rel
-            except OSError:
-                pass  # in use, or another process moved it; it is verified, use it here
         write_stamp(d, seal, asset=asset.name, asset_sha256=None, adopted=True)
         print(f"invisible-core: adopted the engine already cached at {d} "
               f"({seal.describe()}); no download needed", file=sys.stderr)
@@ -693,18 +657,7 @@ def ensure_binary(version: str | None = None, progress=None, status=None,
     plat = sys.platform
     if plat not in SUPPORTED_PLATFORMS:
         # The CONDITION comes from the declaration in seal.py, not from a name
-        # written here: it used to be `plat == "darwin"`, which is the same fact
-        # in a second place. The message stays specific where there is something
-        # useful to say.
-        if plat == "darwin":
-            raise NotImplementedError(
-                "macOS is no longer a supported platform: no Mac binaries have been "
-                "published since firefox-21, and this package downloads none.\n"
-                "Seals from earlier releases still carry the macOS assets - they stay "
-                "readable as history - but a new start on a Mac stops here instead of "
-                "attempting a download that does not exist.\n"
-                "Nothing changes on Windows or Linux."
-            )
+        # written here.
         raise NotImplementedError(
             "this platform is not one we publish an engine for: %s. The declared "
             "legs are %s."
@@ -757,9 +710,6 @@ def ensure_binary(version: str | None = None, progress=None, status=None,
         _extract(archive_path, tmp_dir)
 
     tmp_entry = tmp_dir / asset.entry_rel
-    # (no post-extract step for darwin: macOS is refused at the boundary above,
-    #  so this path is no longer reachable for a Mac. The function went with the
-    #  end of macOS support on 2026-08-26.)
     if not tmp_entry.exists():
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise RuntimeError(f"binary not found after extraction: {tmp_entry}")
@@ -820,7 +770,7 @@ def iter_cached_engines():
         if not d.is_dir() or d.name in STATE_DIRS or d.name.startswith(".tmp-"):
             continue
         ident = None
-        for rel in set(BINARY_ENTRY_REL.values()):
+        for rel in set(DEFAULT_ENTRY_REL.values()):
             if (d / rel).exists():
                 try:
                     ident = read_engine_identity(d / rel)
@@ -833,12 +783,11 @@ def iter_cached_engines():
 def _tree_belongs_to_tag(name: str, tag: str) -> bool:
     """Does cache directory `name` hold the engine of release `tag`?
 
-    Two layouts, one predicate: the legacy flat `<tag>` and the content-keyed
-    `<tag>_<version>_<buildid>`. The separator is REQUIRED, otherwise a bare
-    startswith makes `firefox-180_...` a match for a seal on `firefox-18` and
-    clear_cache deletes another release's engine.
+    One layout: the content-keyed `<tag>_<version>_<buildid>`. The separator is
+    REQUIRED, otherwise a bare startswith makes `firefox-180_...` a match for a
+    seal on `firefox-18` and clear_cache deletes another release's engine.
     """
-    return name == tag or name.startswith(tag + "_")
+    return name.startswith(tag + "_")
 
 
 def clear_cache(tag: str | None = None, *, everything: bool = False) -> list:
@@ -850,31 +799,3 @@ def clear_cache(tag: str | None = None, *, everything: bool = False) -> list:
             shutil.rmtree(d, ignore_errors=True)
             removed.append(d)
     return removed
-
-
-# ─────────────────────────────────────────────────────────────────────────
-#  GeoIP mmdb (timezone="auto" → map egress IP → IANA zone)
-#
-#  daijro/geoip-all-in-one is rebuilt weekly and KEEPS ONLY the latest ~2
-#  releases - older tags are pruned and 404. So we NEVER pin a tag: on every
-#  launch we resolve the CURRENT latest tag from the `releases/latest/download`
-#  permalink (its 302 Location carries the tag - a plain CDN request, NOT the
-#  rate-limited GitHub API) and download it if it differs from the cached one.
-#  Offline → reuse the cached mmdb; cold cache + offline → raise (the caller can
-#  then fall back off timezone="auto"). No stale pinned tag to rot.
-# ─────────────────────────────────────────────────────────────────────────
-
-
-# ---------------------------------------------------------------------------
-# The GeoIP database moved to `_geoip_db` on 2026-07-27 - a different subject,
-# a different release cadence, a different cache root, and nothing in this file
-# calls it. These two names stay importable FROM HERE because they are public:
-# `from invisible_playwright.download import ensure_geoip_mmdb` is a path a user
-# can already have written, through the wrapper's aliasing shim, and a split for
-# our own readability is not a reason to break it.
-#
-# Imported at the BOTTOM on purpose. `_geoip_db` imports four helpers from this
-# module, so at the top this would be a cycle; here, everything it needs is
-# already defined and the partially-initialised module in sys.modules is enough.
-# ---------------------------------------------------------------------------
-from ._geoip_db import ensure_geoip_mmdb, geoip_mmdb_path  # noqa: E402,F401

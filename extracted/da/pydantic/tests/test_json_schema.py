@@ -2315,6 +2315,13 @@ def test_str_length_config() -> None:
     }
 
 
+def test_str_length_config_not_applied_to_decimal() -> None:
+    ta = TypeAdapter(Decimal, config=ConfigDict(str_min_length=3, str_max_length=5))
+
+    assert ta.json_schema() == {'anyOf': [{'type': 'number'}, {'type': 'string'}]}
+    assert ta.json_schema(mode='serialization') == {'type': 'string'}
+
+
 def test_model_subclass_metadata():
     class A(BaseModel):
         """A Model docstring"""
@@ -5570,6 +5577,34 @@ def test_serialization_schema_with_exclude_exclude_if():
     }
 
 
+def test_serialization_schema_excludes_init_var():
+    @dataclass
+    class User:
+        name: str
+        password: dataclasses.InitVar[str]
+
+        def __post_init__(self, password: str) -> None:
+            pass
+
+    assert TypeAdapter(User).dump_python(User(name='a', password='b')) == {'name': 'a'}
+
+    assert TypeAdapter(User).json_schema(mode='serialization') == {
+        'properties': {'name': {'title': 'Name', 'type': 'string'}},
+        'required': ['name'],
+        'title': 'User',
+        'type': 'object',
+    }
+    assert TypeAdapter(User).json_schema(mode='validation') == {
+        'properties': {
+            'name': {'title': 'Name', 'type': 'string'},
+            'password': {'title': 'Password', 'type': 'string'},
+        },
+        'required': ['name', 'password'],
+        'title': 'User',
+        'type': 'object',
+    }
+
+
 def test_serialization_schema_with_computed_field_exclude_if():
     class Model(BaseModel):
         a: int
@@ -6860,6 +6895,35 @@ def test_deprecated_subclasses_json_schema(cls):
         'title': 'Model',
         'type': 'object',
     }
+
+
+@pytest.mark.parametrize('cls', _generate_deprecated_classes())
+def test_deprecated_class_inheritance_json_schema(cls) -> None:
+    """https://github.com/pydantic/pydantic/issues/14322"""
+
+    if issubclass(cls, dict):
+        pytest.skip('TypedDict subclasses do not inherit `__deprecated__`')
+
+    with pytest.warns(DeprecationWarning):
+
+        class Sub(cls):
+            pass
+
+    assert 'deprecated' not in TypeAdapter(Sub).json_schema()
+
+
+def test_deprecated_class_json_schema_extra_override() -> None:
+    @deprecated('Old is deprecated')
+    class Old(BaseModel):
+        model_config = ConfigDict(json_schema_extra={'deprecated': False})
+
+    with pytest.warns(DeprecationWarning):
+
+        class Sub(Old):
+            model_config = ConfigDict(json_schema_extra={'deprecated': True})
+
+    assert Old.model_json_schema()['deprecated'] is False
+    assert Sub.model_json_schema()['deprecated'] is True
 
 
 @pytest.mark.parametrize('cls', _generate_deprecated_classes())

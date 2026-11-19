@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter-fsharp
-Version: 0.3.12
+Version: 0.3.13
 Summary: F# grammars (implementation and signature files) for tree-sitter
 Author: Nikolaj Sidorenco
 License: MIT

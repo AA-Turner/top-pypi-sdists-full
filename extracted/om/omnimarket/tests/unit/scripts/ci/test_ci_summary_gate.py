@@ -15,6 +15,7 @@ at the caller's deadline — never SUCCESS and never absence.
 
 from __future__ import annotations
 
+import ast
 import json
 from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime, timedelta
@@ -42,6 +43,7 @@ from scripts.ci.ci_summary_gate import (
     evaluate,
     evaluate_external,
 )
+from tests.unit.scripts.ci.registry_support import shipped_request, write_resolved
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
@@ -808,6 +810,11 @@ def test_red_replay_deploy_gate_red_now_fails() -> None:
 # self-declared staged/deferred promotion, or an explicitly time-boxed
 # deferral with a stated follow-up condition.
 EXEMPT_CONTEXTS: dict[tuple[str, str], str] = {
+    ("delegation-health-check.yml", "delegation-health-check"): (
+        "OMN-25514: a dev signal that reads lab and stability verdicts, in no "
+        "required list; its red row is admitted by a dated sweep exclusion "
+        "until its triggers move to schedule and push on dev."
+    ),
     ("omn20025-ac1-postgres-proof.yml", "ac1-postgres16"): (
         "advisory read-only PostgreSQL 16 proof scoped to one PR; emits "
         "evidence but is not a merge gate."
@@ -902,13 +909,6 @@ EXEMPT_CONTEXTS: dict[tuple[str, str], str] = {
         "compose dev lane (rule 24(a), OMN-18268); its own convergence guard "
         "and lab-pass receipt live in the called workflow and report on the "
         "post-merge run, not on any PR."
-    ),
-    ("runtime-rebuild-trigger.yml", "notify-omniclaude-pin"): (
-        "post-merge automation (if: pull_request.merged == true) — "
-        "structurally cannot gate the merge that already happened. It sends "
-        "one omnimarket-dev-moved repository_dispatch so omniclaude's git pin "
-        "follows omnimarket dev (OMN-19998); omniclaude's hourly schedule is "
-        "the fallback when the dispatch is lost."
     ),
     # --- self-declared staged / deliberately-deferred promotion.
     ("dep-health-gate.yml", "dep-health"): (
@@ -1013,6 +1013,11 @@ _CI_YML_STRUCTURALLY_COVERED_KEYS: frozenset[str] = frozenset(
         # would be wrong: it legitimately reports `skipped` on every non-docs
         # PR, which is exactly the state the gates are built to reject.
         "docs-only-marker",
+        # Overlay Main Load: unconditional, no skip path other than the fork
+        # guard; covered by the L3 default-deny sweep, not individually named
+        # (naming it in STRICT_GATE_JOBS changes the bytes the recorded-head
+        # replay pins).
+        "overlay-main-load",
     }
 )
 
@@ -2013,22 +2018,29 @@ class TestExternalSweepExclusions:
         )
 
     def test_registry_has_exactly_measured_valid_entries(self) -> None:
-        assert set(gate.EXTERNAL_SWEEP_EXCLUSIONS) == {
+        shipped = gate.load_resolved_registry(gate.REGISTRY_FILE)[0]
+        assert set(shipped) == {
             "AC1 exact revision row on PostgreSQL 16",
             "auto-tag",
+            DELEGATION_HEALTH_CONTEXT,
         }
-        assert gate.validate_sweep_exclusions(gate.EXTERNAL_SWEEP_EXCLUSIONS) == []
-        active, expired = gate.active_sweep_exclusions(
-            gate.EXTERNAL_SWEEP_EXCLUSIONS, now=self.NOW
-        )
-        assert active == frozenset(gate.EXTERNAL_SWEEP_EXCLUSIONS)
+        assert gate.validate_sweep_exclusions(shipped) == []
+        active, expired = gate.active_sweep_exclusions(shipped, now=self.NOW)
+        assert active == frozenset(shipped)
         assert expired == ()
         assert not active.intersection(EXPECTED_EXTERNAL_CONTEXTS)
-        for entry in gate.EXTERNAL_SWEEP_EXCLUSIONS.values():
-            assert entry.reason.strip()
-            assert entry.ticket == "OMN-17427"
-            assert entry.added == "2026-10-17"
-            assert entry.expires == "2026-12-20"
+        # OMN-23029: the shape of every entry is pinned, not the literal values of
+        # whichever entries happen to be shipped. Pinning ticket, added and expires
+        # to one tuple made the registry unextendable: a second owner's exception
+        # could not be added without editing an assertion that was never about it.
+        # What must hold of EVERY entry is that it is reasoned, carries a real
+        # ticket, is dated, and expires after it was added.
+        for name, entry in shipped.items():
+            assert entry.reason.strip(), name
+            assert gate._SWEEP_TICKET_RE.match(entry.ticket), (name, entry.ticket)
+            assert gate._SWEEP_DATE_RE.match(entry.added), (name, entry.added)
+            assert gate._SWEEP_DATE_RE.match(entry.expires), (name, entry.expires)
+            assert entry.expires > entry.added, (name, entry.added, entry.expires)
         with pytest.raises(FrozenInstanceError):
             self._entry().reason = "changed"
 
@@ -2379,17 +2391,27 @@ class TestSweepIsWiredIntoProductionPoller:
         assert gate.main(args) == EXIT_SUCCESS
 
     def test_main_rejects_malformed_registry(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str],
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(
-            gate, "EXTERNAL_SWEEP_EXCLUSIONS", {"X": {"reason": "untyped"}}
+        malformed = tmp_path / "malformed_registry.json"
+        malformed.write_text(
+            json.dumps(
+                {
+                    "exclusions": {"X": {"reason": "untyped"}},
+                    "check_modes": {},
+                    "refusals": [],
+                }
+            ),
+            encoding="utf-8",
         )
-        assert self._main(tmp_path, _healthy_check_runs(), []) == EXIT_FAILURE
-        assert "external sweep exclusion registry REFUSED" in capsys.readouterr().out
-        monkeypatch.setattr(gate, "EXTERNAL_SWEEP_EXCLUSIONS", {})
+        good = gate.REGISTRY_FILE
+        monkeypatch.setattr(gate, "REGISTRY_FILE", malformed)
+        with pytest.raises(TypeError):
+            self._main(tmp_path, _healthy_check_runs(), [])
+        monkeypatch.setattr(gate, "REGISTRY_FILE", tmp_path / "absent_registry.json")
+        with pytest.raises(FileNotFoundError):
+            self._main(tmp_path, _healthy_check_runs(), [])
+        monkeypatch.setattr(gate, "REGISTRY_FILE", good)
         assert self._main(tmp_path, _healthy_check_runs(), []) == EXIT_SUCCESS
 
     def test_main_keeps_unavailable_checks_pending(
@@ -2459,3 +2481,320 @@ class TestSweepIsWiredIntoProductionPoller:
             assert endpoint in step
         assert "--check-runs-file check_runs.json" in step
         assert "--head-workflow-runs-file head_workflow_runs.json" in step
+
+
+# OMN-21588: composed-runtime-boot job is asserted at layer 4 and the sweep event set moved to JSON
+COMPOSED_RUNTIME_BOOT_CONTEXT = "composed-runtime-boot (omnimarket on infra)"
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ("missing", EXIT_PENDING),
+        ("in_progress", EXIT_PENDING),
+        ("failure", EXIT_FAILURE),
+        ("success", EXIT_SUCCESS),
+    ],
+)
+def test_composed_runtime_boot_context_is_enforced(state: str, expected: int) -> None:
+    assert COMPOSED_RUNTIME_BOOT_CONTEXT in EXPECTED_EXTERNAL_CONTEXTS
+    producer = gate.EXTERNAL_CONTEXT_PRODUCERS[COMPOSED_RUNTIME_BOOT_CONTEXT]
+    assert producer.workflow == "runtime-boot-composed.yml"
+
+    runs = [
+        run
+        for run in _healthy_check_runs()
+        if run["name"] != COMPOSED_RUNTIME_BOOT_CONTEXT
+    ]
+    if state == "in_progress":
+        runs.append(
+            _check_run(
+                COMPOSED_RUNTIME_BOOT_CONTEXT,
+                status="in_progress",
+                conclusion=None,
+            )
+        )
+    elif state in ("failure", "success"):
+        runs.append(_check_run(COMPOSED_RUNTIME_BOOT_CONTEXT, conclusion=state))
+
+    code, report = evaluate_external(runs)
+    assert code == expected, report
+    if state == "missing":
+        assert COMPOSED_RUNTIME_BOOT_CONTEXT in report
+
+
+def test_sweep_non_pr_events_are_exactly_the_known_fifteen() -> None:
+    expected = frozenset(
+        {
+            "push",
+            "merge_group",
+            "schedule",
+            "workflow_dispatch",
+            "release",
+            "deployment",
+            "deployment_status",
+            "repository_dispatch",
+            "create",
+            "delete",
+            "fork",
+            "page_build",
+            "public",
+            "registry_package",
+            "watch",
+        }
+    )
+    assert expected == gate.SWEEP_NON_PR_EVENTS
+    assert "pull_request" not in gate.SWEEP_NON_PR_EVENTS
+    assert "pull_request_target" not in gate.SWEEP_NON_PR_EVENTS
+    assert gate.SWEEP_NON_PR_EVENTS_FILE.name == "ci_summary_sweep_non_pr_events.json"
+    assert gate.SWEEP_NON_PR_EVENTS_FILE.exists()
+
+
+def test_ci_summary_restores_every_gate_data_file_from_the_head() -> None:
+    text = CI_WORKFLOW.read_text()
+    for filename in (
+        "scripts/ci/ci_summary_external_producers.json",
+        "scripts/ci/ci_summary_sweep_non_pr_events.json",
+        "scripts/ci/ci_summary_sweep_exclusions.json",
+        "scripts/ci/ci_summary_external_check_modes.contract.json",
+        "scripts/ci/ci_summary_external_check_modes.json",
+        "scripts/ci/ci_summary_rules.json",
+    ):
+        assert text.count(filename) >= 2, (
+            f"{filename} must appear in both the head sparse-checkout "
+            "list and the restore cp line"
+        )
+
+
+# OMN-22126: the prompt cost estimate contract job is asserted at layer 4, so
+# the advisory-job gate finds it enforced and the workflow cannot be absent.
+PROMPT_COST_CONTEXT = "prompt-cost-estimate-contract"
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ("missing", EXIT_PENDING),
+        ("failure", EXIT_FAILURE),
+        ("success", EXIT_SUCCESS),
+    ],
+)
+def test_prompt_cost_estimate_contract_context_is_enforced(
+    state: str, expected: int
+) -> None:
+    assert PROMPT_COST_CONTEXT in EXPECTED_EXTERNAL_CONTEXTS
+    producer = gate.EXTERNAL_CONTEXT_PRODUCERS[PROMPT_COST_CONTEXT]
+    assert producer.workflow == "prompt-cost-estimate-contract.yml"
+
+    runs = [run for run in _healthy_check_runs() if run["name"] != PROMPT_COST_CONTEXT]
+    if state != "missing":
+        runs.append(_check_run(PROMPT_COST_CONTEXT, conclusion=state))
+
+    code, report = evaluate_external(runs)
+    assert code == expected, report
+    if state == "missing":
+        assert PROMPT_COST_CONTEXT in report
+
+
+def test_prompt_cost_estimate_contract_workflow_reports_on_every_shape() -> None:
+    doc = yaml.safe_load(
+        (WORKFLOWS_DIR / "prompt-cost-estimate-contract.yml").read_text()
+    )
+    triggers = _yaml_on_block(doc)
+    assert set(triggers) == {"pull_request", "merge_group"}
+    assert not triggers["pull_request"]
+    job = doc["jobs"][PROMPT_COST_CONTEXT]
+    assert job["name"] == PROMPT_COST_CONTEXT
+    assert "if" not in job
+
+
+# OMN-23505: the gate reads the registries the node resolved and holds no loader of them.
+
+# Code lines (neither blank nor comment) scripts/ci/ci_summary_gate.py held at the
+# baselined limit: the file may only shrink.
+GATE_BASELINE_CODE_LINES = 1504
+REGISTRY_LIST_FILES = (
+    "ci_summary_sweep_exclusions",
+    "ci_summary_external_check_modes",
+)
+
+
+def _gate_code_lines(source: str) -> int:
+    return sum(
+        1
+        for line in source.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
+
+
+def _registry_loader_sites(source: str) -> list[str]:
+    """Names of the strings in ``source`` that point at one of the two list files."""
+    return sorted(
+        node.value
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and any(name in node.value for name in REGISTRY_LIST_FILES)
+    )
+
+
+def test_registry_from_node_gate_holds_no_loader_of_the_two_lists() -> None:
+    source = Path(gate.__file__).read_text(encoding="utf-8")
+    assert _registry_loader_sites(source) == []
+    assert _gate_code_lines(source) <= GATE_BASELINE_CODE_LINES
+
+
+def test_registry_from_node_control_a_loader_in_the_source_is_found() -> None:
+    """The detector is not vacuous: a gate that opens either list file is caught."""
+    loader = 'raw = json.loads(Path("ci_summary_sweep_exclusions.json").read_text())'
+    assert _registry_loader_sites(loader) == ["ci_summary_sweep_exclusions.json"]
+
+
+def test_registry_from_node_answer_is_what_the_gate_reads(tmp_path: Path) -> None:
+    from omnimarket.nodes.node_ci_summary_registry_compute.handlers.handler_ci_summary_registry import (
+        HandlerCiSummaryRegistry,
+    )
+
+    request = shipped_request()
+    answer = HandlerCiSummaryRegistry().handle(request)
+    path = write_resolved(tmp_path / "resolved.json", request)
+    exclusions, check_modes, refusals = gate.load_resolved_registry(path)
+    assert refusals == [] == answer.refusals
+    assert check_modes == answer.check_modes
+    assert {n: vars(e) for n, e in exclusions.items()} == {
+        n: e.model_dump() for n, e in answer.exclusions.items()
+    }
+
+
+def test_registry_from_node_refusal_fails_the_gate_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bad_overlay = {"Tessl Reviewer": {"mode": "no-such-mode", "reason": "x"}}
+    path = write_resolved(
+        tmp_path / "resolved.json", shipped_request(check_modes_overlay=bad_overlay)
+    )
+    monkeypatch.setattr(gate, "REGISTRY_FILE", path)
+    code, report = gate.evaluate_external_sweep([])
+    assert code == EXIT_FAILURE, report
+    assert "CI Summary registry check-modes: Tessl Reviewer" in report
+
+
+DELEGATION_HEALTH_CONTEXT = "delegation-health-check / Delegation Health Check"
+
+
+class TestDelegationHealthCheckLeavesRequiredListsOmn25514:
+    """OMN-25514 (plan step S1-A): no PR or queue head waits on the signal."""
+
+    @staticmethod
+    def _main(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        rows: list[dict[str, object]],
+        event: str,
+    ) -> tuple[int, str]:
+        # Inside the exclusion window (added 2026-11-17, expires 2026-12-17).
+        observation = datetime(2026, 11, 18, 12, tzinfo=UTC)
+
+        class FixedClock(datetime):
+            @classmethod
+            def now(cls, tz: object = None) -> datetime:
+                assert tz is UTC
+                return observation
+
+        monkeypatch.setattr(gate, "datetime", FixedClock)
+        jobs = _healthy_jobs()
+        if event == "merge_group":
+            # OMN-19998: a merge_group run carries the full 20-split suite.
+            jobs = [
+                *(j for j in jobs if not str(j["name"]).startswith("Tests (Split ")),
+                *(
+                    _job(f"Tests (Split {i}/20)", conclusion="success")
+                    for i in range(1, 21)
+                ),
+            ]
+        (tmp_path / "jobs.json").write_text(json.dumps(jobs), encoding="utf-8")
+        (tmp_path / "check_runs.json").write_text(
+            json.dumps({"check_runs": rows}), encoding="utf-8"
+        )
+        (tmp_path / "workflow_runs.json").write_text("[]", encoding="utf-8")
+        code = gate.main(
+            [
+                "--jobs-file",
+                str(tmp_path / "jobs.json"),
+                "--check-runs-file",
+                str(tmp_path / "check_runs.json"),
+                "--head-workflow-runs-file",
+                str(tmp_path / "workflow_runs.json"),
+                "--event",
+                event,
+            ]
+        )
+        return code, ""
+
+    @staticmethod
+    def _required_rows() -> list[dict[str, object]]:
+        return [
+            _check_run(name)
+            for name in EXPECTED_EXTERNAL_CONTEXTS
+            if name != DELEGATION_HEALTH_CONTEXT
+        ]
+
+    def test_the_context_is_excluded_not_registered(self) -> None:
+        assert DELEGATION_HEALTH_CONTEXT not in EXPECTED_EXTERNAL_CONTEXTS
+        assert DELEGATION_HEALTH_CONTEXT not in gate.EXTERNAL_CONTEXT_PRODUCERS
+        shipped = gate.load_resolved_registry(gate.REGISTRY_FILE)[0]
+        entry = shipped[DELEGATION_HEALTH_CONTEXT]
+        assert (entry.ticket, entry.added, entry.expires) == (
+            "OMN-25514",
+            "2026-11-17",
+            "2026-12-17",
+        )
+
+    @pytest.mark.parametrize("event", ["pull_request", "merge_group"])
+    def test_a_head_without_the_row_reads_green(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        event: str,
+    ) -> None:
+        code, _ = self._main(tmp_path, monkeypatch, self._required_rows(), event)
+        report = capsys.readouterr().out
+        assert code == EXIT_SUCCESS, report
+        assert DELEGATION_HEALTH_CONTEXT not in report
+
+    @pytest.mark.parametrize("event", ["pull_request", "merge_group"])
+    def test_a_head_with_a_red_row_reads_green_and_excluded(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        event: str,
+    ) -> None:
+        rows = [
+            *self._required_rows(),
+            _check_run(DELEGATION_HEALTH_CONTEXT, conclusion="failure"),
+        ]
+        code, _ = self._main(tmp_path, monkeypatch, rows, event)
+        report = capsys.readouterr().out
+        assert code == EXIT_SUCCESS, report
+        if event == "pull_request":
+            assert f"exclusions applied: {DELEGATION_HEALTH_CONTEXT}" in report
+        else:
+            # Layer 5 does not sweep a queue head; layer 4 no longer asks.
+            assert "default-deny sweep: not applicable to this event" in report
+
+    def test_control_another_red_row_still_fails(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        rows = [
+            *self._required_rows(),
+            _check_run("Unregistered Gate", conclusion="failure"),
+        ]
+        code, _ = self._main(tmp_path, monkeypatch, rows, "pull_request")
+        report = capsys.readouterr().out
+        assert code == EXIT_FAILURE, report
+        assert "Unregistered Gate" in report

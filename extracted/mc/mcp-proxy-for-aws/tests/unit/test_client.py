@@ -14,9 +14,12 @@
 
 """Unit tests for the client, parameterized by internal call."""
 
+import asyncio
+import httpx2
 import pytest
 from botocore.credentials import Credentials
 from datetime import timedelta
+from mcp import ClientSession, MCPError
 from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -38,8 +41,8 @@ def mock_session():
 @pytest.fixture
 def mock_streams():
     """Mock stream components."""
-    # Returns (read_stream, write_stream, get_session_id) to mimic the client context manager.
-    return AsyncMock(), AsyncMock(), Mock(return_value='test-session-id')
+    # Returns (read_stream, write_stream) to mimic the client context manager.
+    return AsyncMock(), AsyncMock()
 
 
 @pytest.mark.asyncio
@@ -57,12 +60,12 @@ async def test_boto3_session_parameters(
 ):
     """Test the correctness of boto3.Session parameters: region and profile."""
     # Validate that aws_iam_streamablehttp_client passes region/profile correctly to boto3.Session.
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
 
     with patch('boto3.Session', return_value=mock_session) as mock_boto:
         with patch('mcp_proxy_for_aws.client.streamable_http_client') as mock_stream_client:
             mock_stream_client.return_value.__aenter__ = AsyncMock(
-                return_value=(mock_read, mock_write, mock_get_session)
+                return_value=(mock_read, mock_write)
             )
             mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -87,7 +90,7 @@ async def test_boto3_session_parameters(
 )
 async def test_sigv4_auth_is_created_and_used(mock_session, mock_streams, service_name, region):
     """Test the creation and wiring of SigV4HTTPXAuth with credentials, service, and region."""
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
 
     # Ensure the mocked session reflects the requested region
     mock_session.region_name = region
@@ -100,7 +103,7 @@ async def test_sigv4_auth_is_created_and_used(mock_session, mock_streams, servic
                 mock_http_client = Mock()
                 mock_factory = Mock(return_value=mock_http_client)
                 mock_stream_client.return_value.__aenter__ = AsyncMock(
-                    return_value=(mock_read, mock_write, mock_get_session)
+                    return_value=(mock_read, mock_write)
                 )
                 mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -126,27 +129,27 @@ async def test_sigv4_auth_is_created_and_used(mock_session, mock_streams, servic
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    'headers, timeout_value, sse_value, terminate_value',
+    'headers, timeout_value, terminate_value',
     [
-        (None, 30, 300, True),
-        ({'X-Custom': 'value'}, 60.5, 600.0, False),
-        ({'A': 'B'}, timedelta(minutes=2), timedelta(minutes=5), True),
+        (None, 30, True),
+        ({'X-Custom': 'value'}, 60.5, False),
+        ({'A': 'B'}, timedelta(minutes=2), True),
     ],
 )
 async def test_streamable_client_parameters(
-    mock_session, mock_streams, headers, timeout_value, sse_value, terminate_value
+    mock_session, mock_streams, headers, timeout_value, terminate_value
 ):
     """Test the correctness of streamablehttp_client parameters."""
     # Verify that connection settings are forwarded correctly to the httpx client factory
     # and streamable HTTP client.
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
 
     with patch('boto3.Session', return_value=mock_session):
         with patch('mcp_proxy_for_aws.client.streamable_http_client') as mock_stream_client:
             mock_http_client = Mock()
             mock_factory = Mock(return_value=mock_http_client)
             mock_stream_client.return_value.__aenter__ = AsyncMock(
-                return_value=(mock_read, mock_write, mock_get_session)
+                return_value=(mock_read, mock_write)
             )
             mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -155,7 +158,6 @@ async def test_streamable_client_parameters(
                 aws_service='bedrock-agentcore',
                 headers=headers,
                 timeout=timeout_value,
-                sse_read_timeout=sse_value,
                 terminate_on_close=terminate_value,
                 httpx_client_factory=mock_factory,
             ):
@@ -164,7 +166,7 @@ async def test_streamable_client_parameters(
             # Verify headers and auth are passed to the factory
             factory_call_kwargs = mock_factory.call_args[1]
             assert factory_call_kwargs['headers'] == headers
-            # Timeout is passed to the factory (converted to httpx.Timeout)
+            # Timeout is passed to the factory (converted to httpx2.Timeout)
             assert factory_call_kwargs['timeout'] is not None
 
             # Verify the created http client and other params are passed to streamable_http_client
@@ -178,7 +180,7 @@ async def test_streamable_client_parameters(
 async def test_custom_httpx_client_factory_is_passed(mock_session, mock_streams):
     """Test the passing of a custom HTTPX client factory."""
     # The factory should be used to create the http client.
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
     custom_factory = Mock()
     mock_http_client = Mock()
     custom_factory.return_value = mock_http_client
@@ -186,7 +188,7 @@ async def test_custom_httpx_client_factory_is_passed(mock_session, mock_streams)
     with patch('boto3.Session', return_value=mock_session):
         with patch('mcp_proxy_for_aws.client.streamable_http_client') as mock_stream_client:
             mock_stream_client.return_value.__aenter__ = AsyncMock(
-                return_value=(mock_read, mock_write, mock_get_session)
+                return_value=(mock_read, mock_write)
             )
             mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -207,7 +209,7 @@ async def test_custom_httpx_client_factory_is_passed(mock_session, mock_streams)
 async def test_context_manager_cleanup(mock_session, mock_streams):
     """Test the context manager cleanup."""
     # Replace __aexit__ to observe that it is invoked when exiting the async with-block.
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
     cleanup_called = False
 
     async def mock_aexit(*_):
@@ -217,7 +219,7 @@ async def test_context_manager_cleanup(mock_session, mock_streams):
     with patch('boto3.Session', return_value=mock_session):
         with patch('mcp_proxy_for_aws.client.streamable_http_client') as mock_stream_client:
             mock_stream_client.return_value.__aenter__ = AsyncMock(
-                return_value=(mock_read, mock_write, mock_get_session)
+                return_value=(mock_read, mock_write)
             )
             mock_stream_client.return_value.__aexit__ = mock_aexit
 
@@ -233,7 +235,7 @@ async def test_context_manager_cleanup(mock_session, mock_streams):
 @pytest.mark.asyncio
 async def test_credentials_parameter_with_region(mock_streams):
     """Test using provided credentials with aws_region."""
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
     creds = Credentials('test_key', 'test_secret', 'test_token')
 
     with patch('mcp_proxy_for_aws.client.SigV4HTTPXAuth') as mock_auth_cls:
@@ -241,7 +243,7 @@ async def test_credentials_parameter_with_region(mock_streams):
             mock_auth = Mock()
             mock_auth_cls.return_value = mock_auth
             mock_stream_client.return_value.__aenter__ = AsyncMock(
-                return_value=(mock_read, mock_write, mock_get_session)
+                return_value=(mock_read, mock_write)
             )
             mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -276,14 +278,14 @@ async def test_credentials_parameter_without_region_raises_error():
 @pytest.mark.asyncio
 async def test_credentials_parameter_bypasses_boto3_session(mock_streams):
     """Test that providing credentials bypasses boto3.Session creation."""
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
     creds = Credentials('test_key', 'test_secret', 'test_token')
 
     with patch('boto3.Session') as mock_boto:
         with patch('mcp_proxy_for_aws.client.SigV4HTTPXAuth'):
             with patch('mcp_proxy_for_aws.client.streamable_http_client') as mock_stream_client:
                 mock_stream_client.return_value.__aenter__ = AsyncMock(
-                    return_value=(mock_read, mock_write, mock_get_session)
+                    return_value=(mock_read, mock_write)
                 )
                 mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -317,14 +319,14 @@ async def test_http_endpoint_raises_security_error():
 @pytest.mark.asyncio
 async def test_http_localhost_endpoint_allowed(mock_session, mock_streams):
     """Test that HTTP localhost endpoints are allowed for local development."""
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
 
     with patch('boto3.Session', return_value=mock_session):
         with patch('mcp_proxy_for_aws.client.streamable_http_client') as mock_stream_client:
             mock_http_client = Mock()
             mock_factory = Mock(return_value=mock_http_client)
             mock_stream_client.return_value.__aenter__ = AsyncMock(
-                return_value=(mock_read, mock_write, mock_get_session)
+                return_value=(mock_read, mock_write)
             )
             mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -349,7 +351,7 @@ async def test_http_localhost_endpoint_allowed(mock_session, mock_streams):
 )
 async def test_metadata_adds_event_hook(mock_session, mock_streams, metadata):
     """Test that providing metadata adds a request event hook to the http client."""
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
 
     with patch('boto3.Session', return_value=mock_session):
         with patch('mcp_proxy_for_aws.client.streamable_http_client') as mock_stream_client:
@@ -357,7 +359,7 @@ async def test_metadata_adds_event_hook(mock_session, mock_streams, metadata):
             mock_http_client.event_hooks = {'request': []}
             mock_factory = Mock(return_value=mock_http_client)
             mock_stream_client.return_value.__aenter__ = AsyncMock(
-                return_value=(mock_read, mock_write, mock_get_session)
+                return_value=(mock_read, mock_write)
             )
             mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -384,7 +386,7 @@ async def test_metadata_adds_event_hook(mock_session, mock_streams, metadata):
 )
 async def test_metadata_falsy_no_hook_added(mock_session, mock_streams, metadata):
     """Test that falsy metadata (None or empty) does not add event hooks."""
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
     mock_http_client = Mock()
     mock_http_client.event_hooks = {'request': []}
     mock_factory = Mock(return_value=mock_http_client)
@@ -392,7 +394,7 @@ async def test_metadata_falsy_no_hook_added(mock_session, mock_streams, metadata
     with patch('boto3.Session', return_value=mock_session):
         with patch('mcp_proxy_for_aws.client.streamable_http_client') as mock_stream_client:
             mock_stream_client.return_value.__aenter__ = AsyncMock(
-                return_value=(mock_read, mock_write, mock_get_session)
+                return_value=(mock_read, mock_write)
             )
             mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -411,7 +413,7 @@ async def test_metadata_falsy_no_hook_added(mock_session, mock_streams, metadata
 @pytest.mark.asyncio
 async def test_metadata_preserves_factory_headers_and_auth(mock_session, mock_streams):
     """Test that headers and SigV4 auth are passed to the factory when metadata is set."""
-    mock_read, mock_write, mock_get_session = mock_streams
+    mock_read, mock_write = mock_streams
     headers = {'X-Custom-Header': 'test123'}
 
     with patch('boto3.Session', return_value=mock_session):
@@ -423,7 +425,7 @@ async def test_metadata_preserves_factory_headers_and_auth(mock_session, mock_st
                 mock_http_client.event_hooks = {'request': []}
                 mock_factory = Mock(return_value=mock_http_client)
                 mock_stream_client.return_value.__aenter__ = AsyncMock(
-                    return_value=(mock_read, mock_write, mock_get_session)
+                    return_value=(mock_read, mock_write)
                 )
                 mock_stream_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
@@ -439,3 +441,38 @@ async def test_metadata_preserves_factory_headers_and_auth(mock_session, mock_st
                 factory_kwargs = mock_factory.call_args[1]
                 assert factory_kwargs['headers'] == headers
                 assert factory_kwargs['auth'] is mock_auth
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('status', [401, 403])
+async def test_rejected_credentials_reach_the_caller_with_the_http_status(status):
+    """A 401/403 names its HTTP status in the error the library caller gets.
+
+    The SDK answers a failed POST with a stand-in error that drops the status, so the client
+    has to put it back. Driven through a real session and transport: a mocked client would
+    report success whether or not the status survived.
+    """
+
+    def reject(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(status, text='denied by the endpoint')
+
+    def factory(headers=None, timeout=None, auth=None) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(
+            transport=httpx2.MockTransport(reject), headers=headers, timeout=timeout, auth=auth
+        )
+
+    credentials = Credentials(access_key='AKIAIOSFODNN7EXAMPLE', secret_key='x' * 40)
+
+    async with aws_iam_streamablehttp_client(
+        'https://example.com/mcp',
+        'bedrock-agentcore',
+        aws_region='us-west-2',
+        credentials=credentials,
+        httpx_client_factory=factory,
+    ) as (read_stream, write_stream):
+        async with ClientSession(read_stream, write_stream) as session:
+            with pytest.raises(MCPError) as rejected:
+                await asyncio.wait_for(session.initialize(), timeout=10)
+
+    assert f'HTTP {status}' in str(rejected.value)
+    assert 'denied by the endpoint' in str(rejected.value)

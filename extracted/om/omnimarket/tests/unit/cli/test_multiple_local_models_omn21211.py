@@ -24,6 +24,10 @@ from click.testing import CliRunner
 
 from omnimarket.cli.cli_secret import models_group
 from omnimarket.enums.enum_delegation_failure_class import EnumDelegationFailureClass
+from omnimarket.handlers.routing.delegation_backend_resolution import (
+    ModelResolvedDelegationBackend,
+)
+from omnimarket.handlers.routing.local_byok_route import registered_local_model_routes
 from omnimarket.nodes.node_delegate_skill_orchestrator.ports.port_local_delegation_dispatch import (
     LocalDelegationDispatchPort,
 )
@@ -31,10 +35,6 @@ from omnimarket.nodes.node_llm_delegation_call_effect import (
     ModelLlmDelegationCallRequest,
     ModelLlmDelegationCallResult,
 )
-from omnimarket.routing.delegation_backend_resolution import (
-    ModelResolvedDelegationBackend,
-)
-from omnimarket.routing.local_byok_route import registered_local_model_routes
 from tests.unit.cli.test_model_setup_local_url_omn21162 import (
     _Delegations,
     delegations,
@@ -230,10 +230,13 @@ def test_multiple_local_models_are_tried_in_order_before_any_key(
         )
     )
 
-    assert [model for _, model in effect.calls] == [_FIRST, _SECOND, "key-model"]
+    # OMN-23413 AC22: the two local models are the whole selection here (the
+    # ladder's "key" route above is stubbed, never registered), so the run tries
+    # them in order and ends on the last one's failure; an unselected ladder
+    # responder is never reached.
+    assert [model for _, model in effect.calls] == [_FIRST, _SECOND]
     assert [a["backend_id"] for a in result["attempts"]] == [
         "local-url",
         "local-url-2",
-        _KEY_ROUTE,
     ]
-    assert result["status"] == "completed"
+    assert result["status"] == "failed"

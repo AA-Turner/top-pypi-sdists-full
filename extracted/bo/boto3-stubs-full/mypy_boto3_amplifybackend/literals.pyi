@@ -87,6 +87,7 @@ StatusType = Literal["LATEST", "STALE"]
 UnAuthenticatedElementType = Literal["CREATE_AND_UPDATE", "DELETE", "READ"]
 AmplifyBackendServiceName = Literal["amplifybackend"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

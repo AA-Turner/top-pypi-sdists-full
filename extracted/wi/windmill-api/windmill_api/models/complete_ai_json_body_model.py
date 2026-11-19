@@ -10,11 +10,12 @@ T = TypeVar("T", bound="CompleteAiJsonBodyModel")
 
 @_attrs_define
 class CompleteAiJsonBodyModel:
-    """defaults to the AI config's default model
+    """defaults to the AI config's default model. Must be enabled in the AI settings, or be the default, metadata or code-
+    completion model.
 
-    Attributes:
-        model (str):
-        provider (CompleteAiJsonBodyModelProvider):
+        Attributes:
+            model (str):
+            provider (CompleteAiJsonBodyModelProvider):
     """
 
     model: str

@@ -599,9 +599,9 @@ async def inspect(client, repo: str, revision: str | None, token: str | None, ba
         if base == NAME:
             raise errors.catalog("pi05_deployments_unavailable")
         # An older control plane read it as Isaac 0.5 (it ignores `model`).
-        return cmd.ISAAC, found
+        return cmd.BASE_MODEL, found
     try:
-        return cmd.ISAAC, await client.inspect_endpoint_repo(
+        return cmd.BASE_MODEL, await client.inspect_endpoint_repo(
             repo, revision=revision, hf_token=token
         )
     except errors.DreamscaleError:

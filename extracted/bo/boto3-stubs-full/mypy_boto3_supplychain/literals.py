@@ -93,6 +93,7 @@ ListDataLakeNamespacesPaginatorName = Literal["list_data_lake_namespaces"]
 ListInstancesPaginatorName = Literal["list_instances"]
 SupplyChainServiceName = Literal["supplychain"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

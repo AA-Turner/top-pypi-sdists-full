@@ -1553,13 +1553,16 @@ def _raise_on_discarded_parent_atoms(
 
 
 def _fold_constant_parents(
-    parents: list[StrategyNode], needed: set[str]
+    parents: list[StrategyNode],
+    needed: set[str],
+    folded: dict[int, set[str]] | None = None,
 ) -> list[StrategyNode]:
     """Fold a constant-only parent into a non-constant sibling instead of
     cross-joining it ON 1=1. A constant is a literal rendered inline, valid in
     any projection, so its needed constants are appended to a sibling's outputs
     and the constant scan is dropped. Constants not in `needed` (the `by
-    all_rows` grand-total marker) are just dropped."""
+    all_rows` grand-total marker) are just dropped. `folded` records what each
+    sibling took on: a column it holds that no group of its own states."""
     if len(parents) <= 1:
         return parents
     targets = [p for p in parents if not _is_constant_only(p)]
@@ -1573,6 +1576,8 @@ def _fold_constant_parents(
         keep = [c for c in p.output_concepts if c.address in needed]
         if keep:
             widen_projection(target, keep)
+            if folded is not None:
+                folded.setdefault(id(target), set()).update(c.address for c in keep)
         dropped.add(id(p))
     return [p for p in parents if id(p) not in dropped]
 
@@ -1611,6 +1616,8 @@ def _drop_finer_passengers(
     attrs: dict[str, GroupAttrs],
     origin: dict[int, str],
     environment: BuildEnvironment,
+    columns: Sequence[set[str]],
+    reads: Sequence[frozenset[str]],
 ) -> list[StrategyNode]:
     """An unfiltered row scan finer than an aggregate's input grain, beside
     parents supplying everything it would, adds only its multiplicity: a
@@ -1619,9 +1626,12 @@ def _drop_finer_passengers(
     the scan may be what pairs a member the others lack. A scan the WHERE
     filters is a passenger too when a root beside it applies the same atoms:
     the rows it keeps are the keys the other already kept
-    (`Rollup.filtered_passenger_multiplies`)."""
-    if any(region_reads(p) for p in parents):
+    (`Rollup.filtered_passenger_multiplies`). `columns` are what each parent
+    emits, as stated (`_emitted_columns`), and `reads` the regions each reads
+    (`_planned_region_reads`)."""
+    if any(reads):
         return parents
+    held = {id(p): cols for p, cols in zip(parents, columns)}
     kept = list(parents)
     for parent in parents:
         gid = _origin_group(parent, origin)
@@ -1634,7 +1644,7 @@ def _drop_finer_passengers(
         others = [p for p in kept if p is not parent]
         if not _filter_applied_beside(parent, gid, others, attrs, origin):
             continue
-        supplied = {o.address for p in others for o in p.usable_outputs}
+        supplied = set().union(*(held[id(p)] for p in others))
         own = {o.address for o in parent.usable_outputs} & needed
         if others and own <= supplied:
             kept = others
@@ -1665,7 +1675,9 @@ def _filter_applied_beside(
     return False
 
 
-def _drop_ancestor_parents(parents: list[StrategyNode]) -> list[StrategyNode]:
+def _drop_ancestor_parents(
+    parents: list[StrategyNode], reads: Mapping[int, frozenset[str]]
+) -> list[StrategyNode]:
     """Drop a parent that IS the relation another parent derives from.
 
     The planner can hand a consumer both a derived node and the very relation
@@ -1680,7 +1692,9 @@ def _drop_ancestor_parents(parents: list[StrategyNode]) -> list[StrategyNode]:
     neither filter nor fan out. The `<=` guard makes that exact: the
     descendant must already expose every column the ancestor would contribute,
     so dropping it removes a join and nothing else. Never a region's rows: a
-    descendant that paired the ancestor on solid keys holds fewer rows."""
+    descendant that paired the ancestor on solid keys holds fewer rows.
+    `reads` are the regions each parent reads, off its group
+    (`_region_reads_by_side`)."""
     if len(parents) <= 1:
         return parents
     dropped: set[int] = set()
@@ -1693,7 +1707,7 @@ def _drop_ancestor_parents(parents: list[StrategyNode]) -> list[StrategyNode]:
                 continue
             if not ancestor_outputs <= {c.address for c in descendant.output_concepts}:
                 continue
-            if not region_reads(ancestor) <= region_reads(descendant):
+            if not reads[id(ancestor)] <= reads[id(descendant)]:
                 continue
             if not _derives_from(descendant, ancestor):
                 continue
@@ -1811,10 +1825,14 @@ def _crosses_unsourced_aggregate(
 
 
 def _fold_passthrough_parents(
-    parents: list[StrategyNode], absorbed: dict[int, list[StrategyNode]] | None = None
+    parents: list[StrategyNode],
+    reads: Mapping[int, frozenset[str]],
+    absorbed: dict[int, list[StrategyNode]] | None = None,
 ) -> list[StrategyNode]:
     """Absorb a parent into a row-preserving sibling that can render it;
     `absorbed` takes each survivor's absorbed parents, by the survivor's id.
+    Only parents reading the same regions fold, as `reads` states them off
+    their groups (`_region_reads_by_side`).
 
     When a plain projection B (a non-grouping SelectNode) can render every one
     of another parent A's outputs from B's own source (each output is either
@@ -1843,11 +1861,11 @@ def _fold_passthrough_parents(
             continue
         available = parent_output_addresses(b)
         coalescing = b.environment.domain_graph.coalescing_relation_members()
-        b_regions = region_reads(b)
+        b_regions = reads[id(b)]
         for a in parents:
             if a is b or id(a) in dropped or not a.output_concepts:
                 continue
-            if region_reads(a) != b_regions:
+            if reads[id(a)] != b_regions:
                 continue
             # Never dissolve a row-shape barrier into a row sibling. Foldable:
             # a SelectNode or non-grouping MergeNode whose WHERE, if any, `b`'s
@@ -3326,15 +3344,23 @@ def _fold_covered_contributors(
     needed: set[str],
     cover_nodes: set[int],
     extent_owners: set[int],
+    columns: list[set[str]],
+    reads: list[frozenset[str]],
 ) -> list[StrategyNode]:
     """Drop a merge contributor a sibling can now render in full.
 
-    Election reads `output_concepts`, a projection boundary; join-key
-    materialization then widens a sibling PAST that boundary, down to the scan
-    that binds the key. A contributor elected as the only exposer of a key can
+    Election reads `output_concepts`, a projection boundary; the plan then
+    widens a sibling PAST that boundary to the keys it owes, down to the scan
+    that binds them. A contributor elected as the only exposer of a key can
     therefore end up rendering no column at all: the merge joins it to read
-    nothing. This is the first moment that is knowable, and it is still the
-    planner, so the join is never built rather than built and deleted.
+    nothing. The join is never built rather than built and deleted.
+
+    `columns` are what each side holds, as stated (`_side_columns`): what its
+    groups reach the merge with, what was folded into it or what a projection
+    kept, and what the plan owes it. `reads` are the regions each side reads,
+    off its group (`_planned_region_reads`). No built side's outputs or
+    regions are read; its resolved grain, partial bindings and restrictions
+    are.
 
     Rendering nothing is only the first condition; the rest are what make the
     drop row-identical rather than merely tidy:
@@ -3356,7 +3382,7 @@ def _fold_covered_contributors(
     if len(parents) <= 1:
         return parents
     relation_members = environment.all_scoped_join_group_members()
-    visible = [_visible_addresses(p) for p in parents]
+    visible = columns
     partials = [{c.address for c in p.partial_concepts} for p in parents]
     dropped: set[int] = set()
     for idx, parent in enumerate(parents):
@@ -3369,9 +3395,7 @@ def _fold_covered_contributors(
         live = [j for j in range(len(parents)) if j not in dropped]
         others = [j for j in live if j != idx]
         # its rows are a region's: only a survivor holding them can stand in
-        if (parent_spans := region_reads(parent)) and not any(
-            parent_spans <= region_reads(parents[j]) for j in others
-        ):
+        if reads[idx] and not any(reads[idx] <= reads[j] for j in others):
             continue
         contribution = visible[idx] & needed
         # Nothing at all in `needed` means this is an axis contributor whose
@@ -3464,11 +3488,14 @@ def _carries_through(
 
 
 def _pads_a_value_null_group(
-    stream: StrategyNode, contributor: StrategyNode, keys: set[str], keyspace: Keyspace
+    spans: frozenset[str],
+    contributor: StrategyNode,
+    keys: set[str],
+    keyspace: Keyspace,
 ) -> bool:
-    """`stream` NULLs one of `keys` on a region's rows it holds, and
-    `contributor`, holding no region, has a value-NULL group on it."""
-    regions = keyspace.live_regions_within(region_reads(stream))
+    """A stream reading the regions of `spans` NULLs one of `keys` on a
+    region's rows, and `contributor` has a value-NULL group on it."""
+    regions = keyspace.live_regions_within(spans)
     value_nulls = {c.address for c in contributor.nullable_concepts}
     return any(
         key in value_nulls
@@ -3482,6 +3509,8 @@ def _pair_inside_padding_streams(
     environment: BuildEnvironment,
     origin: dict[int, str],
     plan: JoinPlan,
+    columns: Callable[[StrategyNode], set[str]],
+    reads: list[frozenset[str]],
 ) -> list[StrategyNode]:
     """A grouping contributor holding no region pairs with a stream that
     padded one inside its own merge, there and not at FINAL.
@@ -3491,12 +3520,18 @@ def _pair_inside_padding_streams(
     bucket). FINAL can only keep them apart with a column NULL exactly on the
     padded rows, and the stream need not carry one. Inside the merge the
     padded side's own keys are columns, so the earlier-padding guard
-    (`join_resolution._padding_guards`) applies."""
+    (`join_resolution._padding_guards`) applies.
+
+    `columns` are what each side holds, as stated (`_side_columns`); a
+    stream also holds what it took in. `reads` are the regions each side
+    reads, off its group (`_planned_region_reads`)."""
     keyspace = environment.span_scope.keyspace
     out = list(parents)
+    held = {id(p): columns(p) for p in parents}
+    spans = {id(p): read for p, read in zip(parents, reads)}
     for stream in parents:
         path = _padding_path(stream)
-        if not path or not region_reads(stream):
+        if not path or not spans[id(stream)]:
             continue
         merge = path[-1]
         for other in list(out):
@@ -3506,15 +3541,15 @@ def _pair_inside_padding_streams(
                 or any(n is other for n in _iter_strategy_nodes(stream))
             ):
                 continue
-            shared = _visible_addresses(other) & _visible_addresses(stream)
+            shared = held[id(other)] & held[id(stream)]
             if not shared or not _pads_a_value_null_group(
-                stream, other, shared, keyspace
+                spans[id(stream)], other, shared, keyspace
             ):
                 continue
             carried = [
                 o
                 for o in other.output_concepts
-                if o.address in _visible_addresses(other) - _visible_addresses(stream)
+                if o.address in held[id(other)] - held[id(stream)]
             ]
             # the merge reads `other`'s outputs already; the nodes above it
             # dropped them
@@ -3526,7 +3561,7 @@ def _pair_inside_padding_streams(
                 not in_merge
                 and not (
                     isinstance(other, GroupNode)
-                    and not region_reads(other)
+                    and not spans[id(other)]
                     and _row_preserving(path)
                 )
             ) or not _carries_through(path, carried, environment):
@@ -3545,6 +3580,7 @@ def _pair_inside_padding_streams(
                 node.add_output_concepts(carried, rebuild=False)
             for node in reversed(path):
                 node.rebuild_cache()
+            held[id(stream)] |= {c.address for c in carried}
             out.remove(other)
     return out
 
@@ -3740,6 +3776,7 @@ def _reads_only_values_defined_everywhere(atom: BoolExpr, keyspace: Keyspace) ->
 def _pre_merge_parents(
     parents: list[StrategyNode],
     environment: BuildEnvironment,
+    reads: Mapping[int, frozenset[str]],
     carry_demands: Mapping[str, frozenset[str]] | None = None,
     needed: set[str] | None = None,
     group_graph: nx.DiGraph | None = None,
@@ -3752,6 +3789,8 @@ def _pre_merge_parents(
     bridges: Sequence[str] = (),
     joined: Sequence[str] = (),
     keying: frozenset[str] = frozenset(),
+    rendered: Mapping[str, frozenset[str]] | None = None,
+    narrowed: Mapping[int, frozenset[str]] | None = None,
 ) -> list[StrategyNode]:
     """Collapse a multi-parent set into a single MergeNode that auto-joins
     on shared output concepts. Non-merging generators (GroupNode for
@@ -3774,10 +3813,11 @@ def _pre_merge_parents(
     parents = _fold_constant_parents(parents, needed or set())
     if len(parents) <= 1:
         return parents
-    parents = _fold_passthrough_parents(parents)
+    absorbed: dict[int, list[StrategyNode]] = {}
+    parents = _fold_passthrough_parents(parents, reads, absorbed)
     if len(parents) <= 1:
         return parents
-    parents = _drop_ancestor_parents(parents)
+    parents = _drop_ancestor_parents(parents, reads)
     if len(parents) <= 1:
         return parents
     plan = _merge_plan(
@@ -3805,9 +3845,20 @@ def _pre_merge_parents(
             environment,
             [built[gid] for gid in candidates if built and gid in built],
         )
-        if attrs is not None:
+        if attrs is not None and rendered is not None:
             parents = _hold_lookup_sides(
-                parents, attrs, origin, plan, needed, environment
+                parents,
+                attrs,
+                origin,
+                plan,
+                needed,
+                environment,
+                [
+                    _side_columns(
+                        parent, origin, plan, rendered, narrowed or {}, absorbed
+                    )
+                    for parent in parents
+                ],
             )
     # After widening, not before: a parent that has just been handed the join
     # key it was missing needs no bridge.
@@ -3849,6 +3900,116 @@ def _pre_merge_parents(
     return [merged]
 
 
+def _side_columns(
+    side: StrategyNode,
+    origin: dict[int, str],
+    plan: JoinPlan,
+    rendered: Mapping[str, frozenset[str]],
+    narrowed: Mapping[int, frozenset[str]],
+    absorbed: Mapping[int, list[StrategyNode]],
+) -> set[str]:
+    """What a merge side holds, as stated (`_held_columns`), and what the
+    plan widens it to carry (`_carry_planned_keys`)."""
+    groups = _held_groups(side, origin, absorbed)
+    owed = set().union(*(plan.owed_by(gid) for gid in groups))
+    return owed | _held_columns(side, origin, rendered, narrowed, absorbed)
+
+
+def _held_groups(
+    side: StrategyNode,
+    origin: dict[int, str],
+    absorbed: Mapping[int, list[StrategyNode]],
+) -> frozenset[str]:
+    return (side_members(side, origin) or frozenset()) | frozenset(
+        side_groups(absorbed.get(id(side), []), origin)
+    )
+
+
+def _held_columns(
+    side: StrategyNode,
+    origin: dict[int, str],
+    rendered: Mapping[str, frozenset[str]],
+    narrowed: Mapping[int, frozenset[str]],
+    absorbed: Mapping[int, list[StrategyNode]],
+) -> set[str]:
+    """What a merge side holds before any planned widening, as stated: what
+    its groups render, a sibling folded into it included, or what the
+    consumer's input contract projected it to."""
+    if id(side) in narrowed:
+        return set(narrowed[id(side)])
+    groups = _held_groups(side, origin, absorbed)
+    return set().union(*(rendered.get(gid, frozenset()) for gid in groups))
+
+
+def _emitted_columns(
+    side: StrategyNode,
+    origin: dict[int, str],
+    attrs: dict[str, GroupAttrs],
+    narrowed: Mapping[int, frozenset[str]],
+) -> set[str]:
+    """What a merge side emits, as stated: its groups' outputs, or what the
+    consumer's input contract projected it to. Not what its groups could
+    render: a dimension read by `order_id` renders `user_id` off the same
+    rows, but supplies it only once something widens it to."""
+    if id(side) in narrowed:
+        return set(narrowed[id(side)])
+    return set().union(
+        *(attrs[gid].output_concepts for gid in side_members(side, origin) or ())
+    )
+
+
+def _final_supply(
+    side: StrategyNode,
+    origin: dict[int, str],
+    plan: JoinPlan,
+    rendered: Mapping[str, frozenset[str]],
+    narrowed: Mapping[int, frozenset[str]],
+    environment: BuildEnvironment,
+) -> set[str]:
+    """What a FINAL side supplies its siblings' projection: what it holds as
+    stated, widening included, less an authored relation member it does not
+    hold before it. That member pairs through the relation, never as a
+    column (a rowset's `wc` meets `customer_id` on `union join`)."""
+    held = _held_columns(side, origin, rendered, narrowed, {})
+    authored = environment.all_scoped_join_group_members() - held
+    return _side_columns(side, origin, plan, rendered, narrowed, {}) - authored
+
+
+def _final_side_columns(
+    side: StrategyNode,
+    origin: dict[int, str],
+    plan: JoinPlan,
+    reaches: Mapping[str, frozenset[str]],
+    narrowed: Mapping[int, frozenset[str]],
+    absorbed: Mapping[int, list[StrategyNode]],
+    constants: Mapping[int, set[str]],
+) -> set[str]:
+    """`_side_columns` at FINAL, with the constants folded onto the side. A
+    planned key is held only once a widening delivered it: one neither
+    `_carry_planned_keys` nor `_project_planned_keys` could source (`tag`
+    owed to a value by `city, tag` computed off aggregates alone) is owed,
+    not held, and a sibling rendering it must stay."""
+    groups = _held_groups(side, origin, absorbed)
+    owed = set().union(*(plan.owed_by(gid) for gid in groups))
+    undelivered = owed - {o.address for o in side.output_concepts}
+    stated = _side_columns(side, origin, plan, reaches, narrowed, absorbed)
+    return (stated - undelivered) | constants.get(id(side), set())
+
+
+def _folded_constants(
+    folded: Mapping[int, set[str]],
+    replaced: Iterable[tuple[StrategyNode, StrategyNode]],
+    absorbed: Mapping[int, list[StrategyNode]],
+) -> dict[int, set[str]]:
+    """The constants `_fold_constant_parents` widened onto each side, keyed
+    by the side as it now stands: projected in its place, or absorbing it."""
+    out = {id(new): set(folded.get(id(old), set())) for new, old in replaced}
+    for key, nodes in absorbed.items():
+        for node in nodes:
+            out.setdefault(key, set()).update(out.get(id(node), set()))
+    return {key: cols for key, cols in out.items() if cols}
+
+
 def _hold_lookup_sides(
     parents: list[StrategyNode],
     attrs: dict[str, GroupAttrs],
@@ -3856,13 +4017,19 @@ def _hold_lookup_sides(
     plan: JoinPlan,
     needed: set[str] | None,
     environment: BuildEnvironment,
+    columns: list[set[str]],
 ) -> list[StrategyNode]:
     """A row step claiming a coarser grain than the rows it reads, paired on
     keys that hold that grain, is a lookup on them: it holds each of their
     rows once. Left one row per source row, every row of a key meets every
     other (a class by species off the trees beside the per-tree step it is
     joined to on species, #977). It keeps what the keys determine; anything
-    finer the reader needs, another side has to supply, or it stays whole."""
+    finer the reader needs, another side has to supply, or it stays whole.
+
+    `columns` are what each side holds (`_side_columns`); a side held before
+    supplies only what its keys determine. Whether the built rows are finer
+    than the keys is the one physical read: it follows the datasource the
+    scan resolved to."""
     held = list(parents)
     for idx, parent in enumerate(parents):
         gid = _origin_group(parent, origin)
@@ -3879,17 +4046,12 @@ def _hold_lookup_sides(
             or not _rows_finer_than(parent, keys, environment)
         ):
             continue
-        exposed = {o.address: o for o in parent.usable_outputs}
-        supplied = set().union(
-            *(
-                {o.address for o in other.usable_outputs}
-                for j, other in enumerate(held)
-                if j != idx
-            )
-        )
-        wanted = set(exposed) if needed is None else set(exposed) & needed
+        supplied = set().union(*(c for j, c in enumerate(columns) if j != idx))
+        wanted = columns[idx] if needed is None else columns[idx] & needed
         if wanted - determined - supplied:
             continue
+        columns[idx] &= determined
+        exposed = {o.address: o for o in parent.usable_outputs}
         concepts = [c for address, c in exposed.items() if address in determined]
         held[idx] = _forced_dedup(parent, concepts, environment, determined)
     return held
@@ -4040,12 +4202,14 @@ def _union_arm_parents(
     by_arm: dict[str, list[StrategyNode]] = {}
     for parent in parent_builds:
         by_arm.setdefault(attrs[parent.group_id].label, []).append(parent.node)
+    origin = {id(parent.node): parent.group_id for parent in parent_builds}
     arms: list[StrategyNode] = []
     for arm_parents in by_arm.values():
         arms.extend(
             _pre_merge_parents(
                 arm_parents,
                 environment,
+                _region_reads_by_side(group_graph, attrs, arm_parents, origin),
                 needed=needed,
                 group_graph=group_graph,
                 built=built,
@@ -4119,6 +4283,7 @@ def _apply_input_contracts(
     attrs: dict[str, GroupAttrs],
     group_attrs: GroupAttrs,
     needed: set[str],
+    rendered: Mapping[str, frozenset[str]],
     environment: BuildEnvironment,
 ) -> list[StrategyNode]:
     parent_group_ids = {parent.group_id for parent in parent_builds}
@@ -4134,6 +4299,7 @@ def _apply_input_contracts(
         needed,
         projection_grain_components,
         environment,
+        [set(rendered.get(parent.group_id, frozenset())) for parent in parent_builds],
     )
 
 
@@ -4174,6 +4340,7 @@ def _satisfy_parent_projection_contract(
     needed: set[str],
     projection_grain_components: frozenset[str],
     environment: BuildEnvironment,
+    supplied: list[set[str]],
 ) -> list[StrategyNode]:
     """Physically satisfy a declared parent projection-grain contract.
 
@@ -4182,6 +4349,8 @@ def _satisfy_parent_projection_contract(
     already-shaped sibling; it must not infer a target grain from sibling
     outputs or group attrs. `shaped[i]` says parent `i`'s rows are already
     shaped: it is never projected, and with none shaped nothing is.
+    `supplied[i]` is what parent `i` supplies its siblings: in a per-group
+    merge, what its group renders (`renders`), not what its node outputs.
     """
     if len(parents) <= 1 or not projection_grain_components:
         return parents
@@ -4195,17 +4364,6 @@ def _satisfy_parent_projection_contract(
     if not any(shaped):
         return parents
 
-    # Two different questions, two different sets. "What is available TO this
-    # parent" is its own parents' outputs (`parent_output_addresses`): that is
-    # what `parent_needed` asks, and a leaf scan's empty answer keeps leaf
-    # scans out of this projection entirely. "What does a SIBLING supply to
-    # the merge" is that sibling's own projection: a WINDOW sibling READS
-    # `event_time` and emits only `lag(event_time)`, so crediting it with its
-    # inputs would strip `event_time` off the dimension parent and leave the
-    # consumer computing `event_time - prior_event_time` with no source.
-    own_outputs_by_parent = [
-        {output.address for output in parent.usable_outputs} for parent in parents
-    ]
     # A leaf scan reports no inputs, which keeps it whole: its rows are the
     # sibling's join partner. Beside only one-row constants (a `by *` total,
     # joined on 1=1) nothing pairs on its rows, so it is projected like a
@@ -4215,129 +4373,156 @@ def _satisfy_parent_projection_contract(
         for parent, is_shaped in zip(parents, shaped)
         if is_shaped
     )
-    outputs_by_parent = [
-        (
-            own
-            if constants_only and not parent.parents
-            else parent_output_addresses(parent)
-        )
-        for parent, own in zip(parents, own_outputs_by_parent)
-    ]
     projected: list[StrategyNode] = []
     for idx, parent in enumerate(parents):
         if shaped[idx]:
             projected.append(parent)
             continue
-        parent_needed = outputs_by_parent[idx] & needed
-        other_outputs = set().union(
-            *(outputs for j, outputs in enumerate(own_outputs_by_parent) if j != idx)
+        # What is available TO this parent is its own parents' outputs, not
+        # what a sibling supplies: a WINDOW sibling READS `event_time` and
+        # supplies only `lag(event_time)`, so crediting it with its inputs
+        # would strip `event_time` off the dimension parent.
+        own = {output.address for output in parent.usable_outputs}
+        decision = _projection_for(
+            parent,
+            needed,
+            projection_grain_components,
+            environment,
+            own if constants_only and not parent.parents else None,
+            set().union(*(held for j, held in enumerate(supplied) if j != idx)),
         )
-        fd_candidates = {
-            addr
-            for addr in parent_needed
-            if (c := _concept_at(environment, addr)) is not None
-            and _fd_at_grain(c, projection_grain_components, environment)
-        }
-        # A sibling supplies a grain key, and an attribute this parent only
-        # reads (#972: the species' fit beside a class computed off the trees):
-        # neither is this parent's to project, and a projection to a column it
-        # does not output cannot render.
-        fd_needed = {
-            addr
-            for addr in fd_candidates
-            if addr not in other_outputs
-            or (
-                addr not in projection_grain_components
-                and addr in own_outputs_by_parent[idx]
-            )
-        }
-        non_fd_needed = parent_needed - fd_candidates
-        concepts = _concepts_at(environment, sorted(fd_needed))
-        if non_fd_needed:
+        if decision is None:
             projected.append(parent)
-            continue
-        # `parent_needed` is measured off the parent's INPUTS, so a value the
-        # parent computes itself (a BASIC sibling's `revenue`, a date
-        # projection) is invisible to it, and the projection below would strip
-        # it, leaving the consuming aggregate with no source for that output.
-        # Carry those through. Restricted to FD-at-grain so the projection's
-        # row count is unchanged, and to what no sibling parent already
-        # supplies, so this never re-shapes a plain dimension re-join. One
-        # that is NOT FD at the grain (`quantity as q` beside `count(...) by
-        # item_desc`) cannot be projected to it at all: the parent stays as
-        # built, like an input in `non_fd_needed`.
-        own_needed = {
-            output.address
-            for output in parent.usable_outputs
-            if output.address in needed
-            and output.address not in parent_needed
-            and output.address not in other_outputs
-        }
-        carry = {
-            addr
-            for addr in own_needed
-            if (c := _concept_at(environment, addr)) is not None
-            and _fd_at_grain(c, projection_grain_components, environment)
-        }
-        # a value computed over finer rows, FD at the grain, is projected to
-        # it (a class by species off the trees, #972); a leaf scan reports no
-        # inputs and stays whole (see above), and rows at the grain already
-        # need no projection
-        if own_needed - carry or not (
-            concepts
-            or (
-                carry
-                and parent.parents
-                and _rows_finer_than(parent, projection_grain_components, environment)
-            )
-        ):
-            projected.append(parent)
-            continue
-        concepts.extend(_concepts_at(environment, sorted(carry)))
-        # When the dimension's projected grain (fd_needed) shares NO key with the
-        # barrier sibling, the post-projection merge has nothing to join on and
-        # cross-joins ON 1=1: the bridge between the two is a projection-grain
-        # key the sibling outputs but fd_needed dropped (an aggregate's
-        # input-grain key, `ride_date` linking `start_station.id` to the inner
-        # `daily_rides` aggregate). Keep that bridge by grouping to the combined
-        # grain, a per-(dim,key) dedup CTE. Guarded on disjointness so the
-        # normal case (a dimension that already shares its keys with the
-        # aggregate) is left to `_wrap_for_grain` untouched. The bridge may only
-        # be DERIVABLE here (the dimension carries `ride_start_time`, from which
-        # `ride_date` projects), so test satisfiability.
-        join_keys = {
-            addr
-            for addr in projection_grain_components
-            if addr not in fd_needed
-            and addr in other_outputs
-            and (c := _concept_at(environment, addr)) is not None
-            and concept_satisfiable(c, outputs_by_parent[idx])
-        }
-        if join_keys and fd_needed.isdisjoint(other_outputs):
-            # The GroupNode reads from `parent`, so its grain may only include
-            # concepts the parent actually outputs. `fd_needed` is derived from
-            # what is available to the parent (its own parents' outputs) and can
-            # contain an FD attribute the parent drops, e.g. a row key that is
-            # FD-determined by the row grain but lives only as a WHERE filter
-            # applied at the scan, never as a column here. Grouping on it would
-            # fail input validation; keep only real outputs.
-            parent_outputs = {o.address for o in parent.usable_outputs}
-            grain_concepts = _concepts_at(
-                environment, sorted((fd_needed | join_keys | carry) & parent_outputs)
-            )
+        elif decision.regroup:
             projected.append(
                 GroupNode(
-                    output_concepts=grain_concepts,
-                    input_concepts=grain_concepts,
+                    output_concepts=decision.concepts,
+                    input_concepts=decision.concepts,
                     environment=environment,
                     parents=[parent],
                 )
             )
-            continue
-        projected.extend(
-            _wrap_for_grain(parent, concepts, environment, projection_grain_components)
-        )
+        else:
+            projected.extend(
+                _wrap_for_grain(
+                    parent, decision.concepts, environment, projection_grain_components
+                )
+            )
     return projected
+
+
+@dataclass(frozen=True)
+class _ParentProjection:
+    concepts: list[BuildConcept]
+    # group to the concepts themselves, keeping a bridge key, rather than wrap
+    regroup: bool = False
+
+
+def _projection_for(
+    parent: StrategyNode,
+    needed: set[str],
+    projection_grain_components: frozenset[str],
+    environment: BuildEnvironment,
+    available: set[str] | None,
+    other_outputs: set[str],
+) -> _ParentProjection | None:
+    """How one unshaped parent is projected to the contract grain beside
+    siblings supplying `other_outputs`; None keeps it as built. `available`
+    overrides what the parent's own parents offer it."""
+    own_outputs = {output.address for output in parent.usable_outputs}
+    if available is None:
+        available = parent_output_addresses(parent)
+    parent_needed = available & needed
+    fd_candidates = {
+        addr
+        for addr in parent_needed
+        if (c := _concept_at(environment, addr)) is not None
+        and _fd_at_grain(c, projection_grain_components, environment)
+    }
+    # A sibling supplies a grain key, and an attribute this parent only
+    # reads (#972: the species' fit beside a class computed off the trees):
+    # neither is this parent's to project, and a projection to a column it
+    # does not output cannot render.
+    fd_needed = {
+        addr
+        for addr in fd_candidates
+        if addr not in other_outputs
+        or (addr not in projection_grain_components and addr in own_outputs)
+    }
+    if parent_needed - fd_candidates:
+        return None
+    concepts = _concepts_at(environment, sorted(fd_needed))
+    # `parent_needed` is measured off the parent's INPUTS, so a value the
+    # parent computes itself (a BASIC sibling's `revenue`, a date
+    # projection) is invisible to it, and the projection below would strip
+    # it, leaving the consuming aggregate with no source for that output.
+    # Carry those through. Restricted to FD-at-grain so the projection's
+    # row count is unchanged, and to what no sibling parent already
+    # supplies, so this never re-shapes a plain dimension re-join. One
+    # that is NOT FD at the grain (`quantity as q` beside `count(...) by
+    # item_desc`) cannot be projected to it at all: the parent stays as
+    # built, like an input in `non_fd_needed`.
+    own_needed = {
+        address
+        for address in own_outputs
+        if address in needed
+        and address not in parent_needed
+        and address not in other_outputs
+    }
+    carry = {
+        addr
+        for addr in own_needed
+        if (c := _concept_at(environment, addr)) is not None
+        and _fd_at_grain(c, projection_grain_components, environment)
+    }
+    # a value computed over finer rows, FD at the grain, is projected to
+    # it (a class by species off the trees, #972); a leaf scan reports no
+    # inputs and stays whole (see above), and rows at the grain already
+    # need no projection
+    if own_needed - carry or not (
+        concepts
+        or (
+            carry
+            and parent.parents
+            and _rows_finer_than(parent, projection_grain_components, environment)
+        )
+    ):
+        return None
+    concepts.extend(_concepts_at(environment, sorted(carry)))
+    # When the dimension's projected grain (fd_needed) shares NO key with the
+    # barrier sibling, the post-projection merge has nothing to join on and
+    # cross-joins ON 1=1: the bridge between the two is a projection-grain
+    # key the sibling outputs but fd_needed dropped (an aggregate's
+    # input-grain key, `ride_date` linking `start_station.id` to the inner
+    # `daily_rides` aggregate). Keep that bridge by grouping to the combined
+    # grain, a per-(dim,key) dedup CTE. Guarded on disjointness so the
+    # normal case (a dimension that already shares its keys with the
+    # aggregate) is left to `_wrap_for_grain` untouched. The bridge may only
+    # be DERIVABLE here (the dimension carries `ride_start_time`, from which
+    # `ride_date` projects), so test satisfiability.
+    join_keys = {
+        addr
+        for addr in projection_grain_components
+        if addr not in fd_needed
+        and addr in other_outputs
+        and (c := _concept_at(environment, addr)) is not None
+        and concept_satisfiable(c, available)
+    }
+    if join_keys and fd_needed.isdisjoint(other_outputs):
+        # The GroupNode reads from `parent`, so its grain may only include
+        # concepts the parent actually outputs. `fd_needed` is derived from
+        # what is available to the parent (its own parents' outputs) and can
+        # contain an FD attribute the parent drops, e.g. a row key that is
+        # FD-determined by the row grain but lives only as a WHERE filter
+        # applied at the scan, never as a column here. Grouping on it would
+        # fail input validation; keep only real outputs.
+        return _ParentProjection(
+            _concepts_at(
+                environment, sorted((fd_needed | join_keys | carry) & own_outputs)
+            ),
+            regroup=True,
+        )
+    return _ParentProjection(concepts)
 
 
 def _topological_order(group_graph: nx.DiGraph, group_edges: EdgeMap) -> list[str]:
@@ -5365,6 +5550,24 @@ def _widen_to_gate_keys(
     )
 
 
+def _bridged_carryable(
+    group_graph: nx.DiGraph,
+    attrs: dict[str, GroupAttrs],
+    gid: str,
+    keys: frozenset[str],
+    environment: BuildEnvironment,
+) -> frozenset[str]:
+    """Of `keys`, what `gid` can carry, or a bridge its merge joins can: the
+    merge's rows are that bridge's (a value by `city, tree_form` paired
+    through the tree rows carries their `species`)."""
+    return frozenset().union(
+        *(
+            carryable(group_graph, attrs, side, keys, environment)
+            for side in (gid, *attrs[gid].joined_bridges)
+        )
+    )
+
+
 def _gate_grain_keys(concepts: list[BuildConcept]) -> frozenset[str]:
     return frozenset(
         key
@@ -5562,10 +5765,10 @@ def _join_gate_hosts(
     extras: _FinalExtras,
     built: dict[str, StrategyNode],
 ) -> list[StrategyNode]:
-    """`parents` plus the row stream the plan elected for each gate key none
-    of them carries (a key pinned to columns their rows lack)."""
-    carried = _output_addresses(parents)
-    for address in sorted(gate_keys - carried):
+    """`parents` plus the row stream the plan elected for each of `gate_keys`,
+    which the plan has none of them carry (a key pinned to columns their rows
+    lack)."""
+    for address in sorted(gate_keys):
         host = extras.gate_hosts.get(address)
         if host and (node := _planned_side(built, host)) not in parents:
             parents = parents + [node]
@@ -5589,6 +5792,27 @@ def _group_region_reads(
             continue
         stack.extend(group_graph.predecessors(g))
     return frozenset(out)
+
+
+def _region_reads_by_side(
+    group_graph: nx.DiGraph,
+    attrs: dict[str, GroupAttrs],
+    parents: Sequence[StrategyNode],
+    origin: dict[int, str],
+) -> dict[int, frozenset[str]]:
+    """The region domains each side reads, off the groups it holds
+    (`side_members`): a merge assembled below the consumer reads its sides'."""
+    reads: dict[int, frozenset[str]] = {}
+    for parent in parents:
+        if (members := side_members(parent, origin)) is None:
+            raise ValueError(
+                f"[v4] {type(parent).__name__} parent maps to no planned group; "
+                "its region reads are unplanned."
+            )
+        reads[id(parent)] = frozenset().union(
+            *(_group_region_reads(group_graph, attrs, gid) for gid in members)
+        )
+    return reads
 
 
 def _planned_region_reads(
@@ -6244,14 +6468,14 @@ def _assemble_sole_contributor(
         # a gate's producer pairs on its grain, which the dedup would strip
         missing = _concepts_at(environment, filter_only_addrs - sole_avail)
         gate_keys = _gate_grain_keys(missing)
-        held = {o.address for o in sole_node.output_concepts}
         # a gate pairs on its whole grain: one key short, it keeps the rows
         # it rejected on another (`SelectGrain.gate_paired_short_of_its_grain`)
         # the all-rows marker of a `by *` gate is no key to carry
-        widened = _widen_to_gate_keys(
-            sole_node, pairing_keys(gate_keys - held), environment
+        asked = _bridged_carryable(
+            group_graph, attrs, gid, pairing_keys(gate_keys - sole_avail), environment
         )
-        gate_paired_feeders = bool(gate_keys & (held | widened))
+        _widen_to_gate_keys(sole_node, asked, environment)
+        gate_paired_feeders = bool(gate_keys & (sole_avail | asked))
         feeder_outs = [
             carries(attrs[feeder], frozenset(), frozenset(), environment)
             for feeder in _filter_arg_producers(
@@ -6394,8 +6618,6 @@ def _apply_final_conditions(
             group_graph,
             attrs,
             environment,
-            # the contributor as built: widened to a gate key its rows hold
-            {gid: asks & {o.address for o in node.output_concepts}},
         )
         if asks:
             _carry_asked_keys([node, *arg_nodes], origin, plan, environment)
@@ -6457,11 +6679,10 @@ def _condition_join_plan(
     group_graph: nx.DiGraph,
     attrs: dict[str, GroupAttrs],
     environment: BuildEnvironment,
-    built_holds: dict[str, frozenset[str]] | None = None,
 ) -> JoinPlan:
     """The join plan of a merge hosting a FINAL condition: `cover` beside the
-    `extras` joined to filter it, each side contracted to the `asks`, or to
-    the asks `built_holds` says its built node already carries."""
+    `extras` joined to filter it, each side contracted to the `asks` it or a
+    bridge its merge joins can carry."""
     return plan_final_join(
         group_graph,
         attrs,
@@ -6470,8 +6691,7 @@ def _condition_join_plan(
         environment,
         _required_final_contract(attrs).authored_axes,
         contracted={
-            side: carryable(group_graph, attrs, side, asks, environment)
-            | (built_holds or {}).get(side, frozenset())
+            side: _bridged_carryable(group_graph, attrs, side, asks, environment)
             for side in (*cover, *extras)
         },
         extras=extras,
@@ -6735,6 +6955,7 @@ def _assemble_final_node(
     parents: list[StrategyNode] = []
     # the ROOT contributors the FINAL itself grouped to the merge grain
     projected: set[int] = set()
+    wrapped: dict[int, frozenset[str]] = {}
     for gid in contributing:
         node = built[gid]
         if attrs[gid].derivation != Derivation.ROOT:
@@ -6774,6 +6995,11 @@ def _assemble_final_node(
         )
         origin.update((id(wrap), gid) for wrap in wraps)
         projected.update(id(wrap) for wrap in wraps if wrap is not source)
+        wrapped.update(
+            (id(wrap), frozenset(o.address for o in wrap.usable_outputs))
+            for wrap in wraps
+            if wrap is not source
+        )
         parents.extend(wraps)
 
     parents = [
@@ -6800,17 +7026,38 @@ def _assemble_final_node(
     # joining (same passthrough logic the per-group `_pre_merge_parents`
     # uses).
     final_needed = set(mandatory_addresses) | set(final_merge_grain)
-    parents = _fold_constant_parents(parents, final_needed)
+    folded: dict[int, set[str]] = {}
+    parents = _fold_constant_parents(parents, final_needed, folded)
     # the FINAL WHERE reads its filter-only args off these parents
+    contracted = parents
+    reaches = {gid: cover.holds(gid) for gid in built}
     parents = _satisfy_parent_projection_contract(
         parents,
         [_final_parent_shaped(p, origin, attrs, projected) for p in parents],
         final_needed | filter_only_addrs,
         final_merge_grain,
         environment,
+        [
+            _final_supply(p, origin, plan, reaches, wrapped, environment)
+            for p in parents
+        ],
     )
+    # what each side holds, as stated (`_side_columns`): a side the FINAL
+    # wrapped or projected holds what that projection kept, else what its
+    # groups reach the FINAL with
+    narrowed = wrapped | {
+        id(new): frozenset(o.address for o in new.usable_outputs)
+        for new, old in zip(parents, contracted)
+        if new is not old
+    }
+    replaced = list(zip(parents, contracted))
     absorbed: dict[int, list[StrategyNode]] = {}
-    parents = _fold_passthrough_parents(parents, absorbed)
+    parents = _fold_passthrough_parents(
+        parents, _region_reads_by_side(group_graph, attrs, parents, origin), absorbed
+    )
+    # a folded constant is held by the side it was widened onto, through any
+    # projection or fold that side went through since
+    constants = _folded_constants(folded, replaced, absorbed)
     # a survivor holds its absorbed sibling's rows, and pairs as it did (the
     # trees folded into a class step still pair with a flag by city, species)
     also_holds = {
@@ -6843,12 +7090,23 @@ def _assemble_final_node(
         ),
     )
     parents = [_rows_once(p, plan, origin, environment) for p in parents]
+    side_cols = partial(
+        _final_side_columns,
+        origin=origin,
+        plan=plan,
+        reaches=reaches,
+        narrowed=narrowed,
+        absorbed=absorbed,
+        constants=constants,
+    )
     parents = _fold_covered_contributors(
         parents,
         environment,
         final_needed | filter_only_addrs | _final_gate_keys(attrs, environment),
         {id(built[gid]) for gid, concepts in per_group.items() if concepts},
         {id(built[gid]) for gid in ownership.owner_by_span.values() if gid in built},
+        [side_cols(p) for p in parents],
+        _planned_region_reads(group_graph, attrs, parents, origin),
     )
     parents = _join_elected_bridges(
         parents,
@@ -6859,7 +7117,14 @@ def _assemble_final_node(
             for gid in bridged.keying | _sole_partners(plan, contributing)
         ),
     )
-    parents = _pair_inside_padding_streams(parents, environment, origin, plan)
+    parents = _pair_inside_padding_streams(
+        parents,
+        environment,
+        origin,
+        plan,
+        side_cols,
+        _planned_region_reads(group_graph, attrs, parents, origin),
+    )
     _raise_if_rowset_islanded(parents, mandatory_list, environment, graph)
 
     available = _output_addresses(parents)
@@ -6936,22 +7201,28 @@ def _assemble_final_node(
     # A gate keyed by a column no contributor projects (`count(id) by genus`,
     # genus derived from a scanned column) pairs on that key, as in
     # `_apply_final_conditions`: carried hidden, or the merge joins on nothing.
-    if arg_nodes and (gate_keys := _gate_grain_keys(arg_concepts) - available):
-        _carry_asked_keys(
-            [*parents, *arg_nodes],
-            origin,
-            _condition_join_plan(
-                per_group,
-                [*bridges, *extras.groups],
-                gate_keys,
-                mandatory_list,
-                group_graph,
-                attrs,
-                environment,
-            ),
+    stated = set().union(
+        *(_side_columns(p, origin, plan, reaches, narrowed, absorbed) for p in parents)
+    )
+    if arg_nodes and (gate_keys := _gate_grain_keys(arg_concepts) - stated):
+        asks = _condition_join_plan(
+            per_group,
+            [*bridges, *extras.groups],
+            gate_keys,
+            mandatory_list,
+            group_graph,
+            attrs,
             environment,
         )
-        parents = _join_gate_hosts(parents, gate_keys, extras, built)
+        _carry_asked_keys([*parents, *arg_nodes], origin, asks, environment)
+        carried = frozenset().union(
+            *(
+                asks.carry_demands.get(gid, frozenset())
+                for parent in parents
+                for gid in side_members(parent, origin) or ()
+            )
+        )
+        parents = _join_gate_hosts(parents, gate_keys - carried, extras, built)
     parents = _dedup_beside_resummed_gates(
         parents,
         arg_nodes,
@@ -7098,10 +7369,13 @@ def _at_declared_identity(
 ) -> StrategyNode:
     """A row stream built off rows finer than the identity its group declares
     (a filter of an item attribute sourced off the sale lines), deduplicated
-    to that identity when an independent sibling exposes the finer row key
-    too: the two would pair on the stream's row key, which no plan states. Its
-    outputs are functions of the identity, so nothing is lost. `identity`
-    holds the keys the plan pairs the stream on: they are no unstated key."""
+    to that identity when an independent sibling's rows are at that finer row
+    key too: paired on the planned keys alone, each of the stream's rows would
+    meet each of the sibling's. Its outputs are functions of the identity, so
+    nothing is lost. `identity` holds the keys the plan pairs the stream on.
+
+    Both reads are of rows, not columns: the resolved grain follows the
+    datasource each scan resolved to, which stage 2 does not choose."""
     if (
         group.derivation in GROUPING_DERIVATIONS
         or group.derivation == Derivation.ROWSET
@@ -7115,16 +7389,16 @@ def _at_declared_identity(
     closure = strict_fd_closure(environment, keys)
     finer = _resolved_grain(node) - closure
     # a sibling the stream is built on, or built on it, holds the same rows
-    exposed = set().union(
+    sibling_rows = set().union(
         *(
-            _visible_addresses(other)
+            _resolved_grain(other)
             for other in siblings
             if other is not node
             and not _derives_from(node, other)
             and not _derives_from(other, node)
         )
     )
-    if not finer & exposed or not set(group.output_concepts) <= closure:
+    if not finer & sibling_rows or not set(group.output_concepts) <= closure:
         return node
     kept = [o for o in node.usable_outputs if o.address in closure]
     return _forced_dedup(node, kept, environment, closure)
@@ -7414,13 +7688,27 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
             and edge_kind(group_edges, parent.group_id, gid) == EdgeKind.CONSTRAINT
             for parent in parent_builds
         )
-        parents = _apply_input_contracts(parent_builds, attrs, a, needed, environment)
+        parents = _apply_input_contracts(
+            parent_builds, attrs, a, needed, ctx.folds.rendered, environment
+        )
+        narrowed = {
+            id(parent): frozenset(o.address for o in parent.usable_outputs)
+            for parent, build in zip(parents, parent_builds)
+            if parent is not build.node
+        }
         origin = {id(node): pgid for pgid, node in built.items()} | {
             id(build.node): build.group_id for build in parent_builds
         }
         if derivation == Derivation.AGGREGATE and a.aggregate_input_grain and not atoms:
             parents = _drop_finer_passengers(
-                parents, needed, a.aggregate_input_grain, attrs, origin, environment
+                parents,
+                needed,
+                a.aggregate_input_grain,
+                attrs,
+                origin,
+                environment,
+                [_emitted_columns(p, origin, attrs, narrowed) for p in parents],
+                _planned_region_reads(group_graph, attrs, parents, origin),
             )
         # A ROOT scan hosting a null-rejecting request atom emits exactly
         # the atom's population, so the merge may claim it. A grouping
@@ -7474,9 +7762,13 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
                     group_scope, extent_free=group_scope.extent_free | domain_spans
                 ),
             ):
+                solid_parents = [
+                    p for p in parents if p not in domains and p not in feeders
+                ]
                 solid = _pre_merge_parents(
-                    [p for p in parents if p not in domains and p not in feeders],
+                    solid_parents,
                     environment,
+                    _region_reads_by_side(group_graph, attrs, solid_parents, origin),
                     carry_demands=carry_demands,
                     needed=needed,
                     group_graph=group_graph,
@@ -7488,6 +7780,8 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
                     bridges=a.bridges,
                     joined=a.joined_bridges,
                     keying=a.keying_bridges,
+                    rendered=ctx.folds.rendered,
+                    narrowed=narrowed,
                 )
             outputs, named_arguments = _name_inline_arguments(
                 outputs, primary_addrs, domain_spans, environment
@@ -7517,9 +7811,11 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
             element_filters = _element_filters(
                 parents, parent_builds, a, group_edges, gid
             )
+        merged = [p for p in parents if p not in element_filters]
         parents = _pre_merge_parents(
-            [p for p in parents if p not in element_filters],
+            merged,
             environment,
+            _region_reads_by_side(group_graph, attrs, merged, origin),
             carry_demands=carry_demands,
             needed=needed,
             group_graph=group_graph,
@@ -7532,6 +7828,8 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
             bridges=a.bridges,
             joined=a.joined_bridges,
             keying=a.keying_bridges,
+            rendered=ctx.folds.rendered,
+            narrowed=narrowed,
         )
     # ROOT scans source columns from datasources directly, not from their
     # group-graph predecessors. A `constraint`-edge predecessor (e.g. a

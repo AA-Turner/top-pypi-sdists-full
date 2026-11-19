@@ -25,7 +25,7 @@ class InspectionRule(resource.Resource):
     allow_delete = True
     allow_list = True
     allow_patch = True
-    commit_method = 'PATCH'
+    commit_opts = resource.CommitOpts(method='PATCH')
 
     _query_mapping = resource.QueryParameters(
         'detail',
@@ -33,7 +33,9 @@ class InspectionRule(resource.Resource):
     )
 
     # Inspection rules is available since 1.96
+    _min_microversion = '1.96'
     _max_microversion = '1.96'
+
     #: The actions to be executed when the rule conditions are met.
     actions = resource.Body('actions', type=list)
     #: A brief explanation about the inspection rule.

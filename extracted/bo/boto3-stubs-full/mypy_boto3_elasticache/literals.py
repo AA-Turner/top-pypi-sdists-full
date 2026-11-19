@@ -176,6 +176,7 @@ UpdateActionStatusType = Literal[
 ]
 ElastiCacheServiceName = Literal["elasticache"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -44,13 +44,11 @@ FORK_PR_PREDICATE = (
     "github.event.pull_request.head.repo.full_name!=github.repository"
 )
 DEV_BASE_SHORTCUT = "github.event_name=='pull_request'&&github.base_ref=='dev'"
-# OMN-20074: the base-branch pull request trigger is banned in every workflow
-# (OMN-15699: untrusted fork code must never reach self-hosted runners). The
-# policy file may name ONE workflow as the exception, by exact path, citing the
-# operator ruling that admitted it; a glob, a directory or a list is refused.
+# OMN-15699: the base-branch pull request trigger is banned in every workflow
+# so untrusted fork code cannot reach self-hosted runners through that trigger.
 PULL_REQUEST_TARGET_TRIGGER = "pull_request_target"
-PULL_REQUEST_TARGET_EXCEPTION_KEY = "pull_request_target_exception"
-EXCEPTION_PATH_RE = re.compile(r"^\.github/workflows/[A-Za-z0-9._-]+\.ya?ml$")
+REPO_EVIDENCE_CALLER = ".github/workflows/call-repo-evidence-gate.yml"
+PRIVATE_HOSTED_EXCEPTION_KEY = "private_repo_hosted_exception"
 PINNED_REUSABLE_RE = re.compile(r"^[^@\s]+/\.github/workflows/[^@\s]+@[0-9a-f]{40}$")
 READ_ONLY_PERMISSION_LEVELS = frozenset({"read", "none"})
 # OMN-18031: the per-run routing consumer shape. A job whose runs-on resolves
@@ -272,7 +270,9 @@ def _variable_value(values: list[dict[str, Any]], name: str) -> str | None:
 
 
 def _audit_trusted_style_variable(
-    variable: dict[str, Any], repositories: list[Any]
+    variable: dict[str, Any],
+    repositories: list[Any],
+    is_private_fleet_shadow: Callable[[str, str], bool] | None = None,
 ) -> list[Finding]:
     """Audit one org+per-repo variable declaration of the trusted-seam shape.
 
@@ -348,6 +348,10 @@ def _audit_trusted_style_variable(
             findings.append(Finding(repo_name, f"{name} is not valid JSON: {actual!r}"))
             continue
         if normalized != repo_expected:
+            if is_private_fleet_shadow is not None and is_private_fleet_shadow(
+                repo_name, normalized
+            ):
+                continue
             findings.append(
                 Finding(
                     repo_name,
@@ -355,6 +359,46 @@ def _audit_trusted_style_variable(
                 )
             )
     return findings
+
+
+def _private_fleet_shadow_check(policy: dict[str, Any]) -> Callable[[str, str], bool]:
+    """Accept a private repository's public-PR shadow equal to its trusted fleet value.
+
+    OMN-20413: private repositories never run CI on GitHub-hosted runners
+    (RULING 2026-10-16T07:07:09Z), so a fork pull request in one -- opened by an
+    account that can already read it -- belongs on the same fleet as its trusted
+    jobs. A repo shadow of the public-PR variable that equals the trusted-seam
+    override the policy declares for that repository is that placement, not the
+    OMN-16683 drift this audit exists to catch. Without this, the audit and a
+    private repository's own placement gate demand opposite values of one
+    variable, and every flip turns one of them red for every pull request.
+
+    Nothing else is accepted: a public repository, a repository with no declared
+    trusted override, or any other value is still drift. Visibility is read live,
+    once, and only when a shadow would otherwise be reported.
+    """
+    trusted = policy.get("trusted_runner_variable") or {}
+    overrides = trusted.get("repository_overrides") or {}
+    fleet_values = {
+        str(repo): _canonical_json(str(override["expected_json"]))
+        for repo, override in overrides.items()
+        if isinstance(override, dict) and "expected_json" in override
+    }
+    private: set[str] = set()
+    read = False
+
+    def check(repo_name: str, normalized: str) -> bool:
+        nonlocal read
+        if fleet_values.get(repo_name) != normalized:
+            return False
+        if not read:
+            private.update(
+                name for name, is_private in _live_repository_visibility() if is_private
+            )
+            read = True
+        return repo_name in private
+
+    return check
 
 
 def audit_github_variables(policy: dict[str, Any]) -> list[Finding]:
@@ -367,10 +411,17 @@ def audit_github_variables(policy: dict[str, Any]) -> list[Finding]:
     # at all. It has no repository_overrides declared in the live policy today
     # (every repository is expected to inherit the org value), so any repo
     # carrying a value is drift by construction, which is exactly the
-    # OMN-16683 shape this closes.
+    # OMN-16683 shape this closes -- except, since OMN-20413, a private
+    # repository's shadow equal to its own declared trusted fleet value.
     public_pr_variable = policy.get("public_pr_runner_variable")
     if public_pr_variable is not None:
-        findings.extend(_audit_trusted_style_variable(public_pr_variable, repositories))
+        findings.extend(
+            _audit_trusted_style_variable(
+                public_pr_variable,
+                repositories,
+                _private_fleet_shadow_check(policy),
+            )
+        )
     return findings
 
 
@@ -728,6 +779,30 @@ def _default_branch_workflow_texts_batch(
     return {name: _default_branch_workflow_texts(name, org) for name in repo_names}
 
 
+# OMN-18365 AC3: private repositories never run on GitHub-hosted runners.
+#
+# Authority: operator ruling 2026-09-14, firm, recorded at
+# ``docs/tracking/ROLLING_WORK_LEDGER.md:7777`` -- private repositories
+# never run on GitHub-hosted Actions runners; their CI runs on the lab
+# fleet. Hosted runners are for public repositories only, where minutes are
+# free.
+#
+# Deliberately does NOT consult ``hosted_runner_allowlist``: that allowlist
+# is scoped to this repository's own workflows and their pre-existing,
+# individually-justified hosted pins (ECR pushes, fork isolation, and so
+# on). Extending it across every other repository in the org is a separate
+# claim this check does not make -- a private repository with a
+# legitimately-hosted job reports here as advisory drift until it earns its
+# own exception, the same way this repository's own bare hosted pins did
+# before they were allowlisted.
+#
+# ADVISORY, like the rest of this script's ``--github-vars`` pass: it is
+# read by a scheduled workflow, not a merge gate (OMN-18365 AC5 -- this
+# layer only reports; it cannot itself stop a job from starting).
+#
+# OMN-22478: the one exception is the policy's private_repo_hosted_exception,
+# which names a single repository, workflow path and job, each exact, and cites
+# the rulings that admitted it (see audit_private_repo_hosted_exception below).
 def audit_private_repo_hosted_placement(
     visibility_fn: Callable[
         [str], list[tuple[str, bool]]
@@ -738,27 +813,7 @@ def audit_private_repo_hosted_placement(
         [list[str], str], dict[str, dict[str, str]]
     ] = _default_branch_workflow_texts_batch,
 ) -> list[Finding]:
-    """OMN-18365 AC3: private repositories never run on GitHub-hosted runners.
-
-    Authority: operator ruling 2026-09-14, firm, recorded at
-    ``docs/tracking/ROLLING_WORK_LEDGER.md:7777`` -- private repositories
-    never run on GitHub-hosted Actions runners; their CI runs on the lab
-    fleet. Hosted runners are for public repositories only, where minutes are
-    free.
-
-    Deliberately does NOT consult ``hosted_runner_allowlist``: that allowlist
-    is scoped to this repository's own workflows and their pre-existing,
-    individually-justified hosted pins (ECR pushes, fork isolation, and so
-    on). Extending it across every other repository in the org is a separate
-    claim this check does not make -- a private repository with a
-    legitimately-hosted job reports here as advisory drift until it earns its
-    own exception, the same way this repository's own bare hosted pins did
-    before they were allowlisted.
-
-    ADVISORY, like the rest of this script's ``--github-vars`` pass: it is
-    read by a scheduled workflow, not a merge gate (OMN-18365 AC5 -- this
-    layer only reports; it cannot itself stop a job from starting).
-    """
+    """OMN-18365 AC3: private repositories never run on GitHub-hosted runners."""
     findings: list[Finding] = []
     # OMN-19998: workflow content comes from sparse default-branch Git reads.
     private_repos = [name for name, is_private in visibility_fn(org) if is_private]
@@ -803,71 +858,34 @@ def audit_private_repo_hosted_placement(
     return findings
 
 
-def _pull_request_target_exception(
-    policy: dict[str, Any],
-) -> tuple[str | None, list[Finding]]:
-    """The one workflow path the policy exempts from the trigger ban, if valid.
-
-    An invalid entry grants no exemption and is itself a finding, so a typo or
-    a broad pattern fails closed: the ban then applies to the named file too.
-    """
-    if PULL_REQUEST_TARGET_EXCEPTION_KEY not in policy:
-        return None, []
-    scope = f"{DEFAULT_POLICY.as_posix()}:{PULL_REQUEST_TARGET_EXCEPTION_KEY}"
-    entry = policy[PULL_REQUEST_TARGET_EXCEPTION_KEY]
-    if not isinstance(entry, dict):
-        return None, [
-            Finding(
-                scope,
-                f"{PULL_REQUEST_TARGET_EXCEPTION_KEY} must be a single mapping "
-                "with path, ruling and reason, not a list or a scalar",
-            )
-        ]
-    path = entry.get("path")
-    if not isinstance(path, str) or not EXCEPTION_PATH_RE.fullmatch(path):
-        return None, [
-            Finding(
-                scope,
-                f"{PULL_REQUEST_TARGET_EXCEPTION_KEY}.path must be the exact path "
-                "of one workflow file under .github/workflows/, never a pattern",
-            )
-        ]
-    for field in ("ruling", "reason"):
-        value = entry.get(field)
-        if not isinstance(value, str) or not value.strip():
-            return None, [
-                Finding(
-                    scope,
-                    f"{PULL_REQUEST_TARGET_EXCEPTION_KEY}.{field} must be a "
-                    "non-empty string citing the operator ruling",
-                )
-            ]
-    return path, []
+def audit_private_repo_hosted_exception(policy: dict[str, Any]) -> list[Finding]:
+    """The private-placement findings, less the one job the policy excepts."""
+    entry = policy.get(PRIVATE_HOSTED_EXCEPTION_KEY)
+    fields = ("repository", "path", "job", "ruling", "reason")
+    valid = isinstance(entry, dict) and all(
+        isinstance(entry.get(k), str) and entry[k].strip() for k in fields
+    )
+    scope = ":".join(entry[k] for k in fields[:3]) if valid else None
+    return [f for f in audit_private_repo_hosted_placement() if f.scope != scope]
 
 
-def _audit_pull_request_target_caller(rel: str, workflow: Any) -> list[Finding]:
-    """Hold the exempted workflow to the shape that makes the exception safe.
-
-    The trigger runs the workflow definition from the base branch, with the
-    base repository's token, on pull request content. That is acceptable only
-    for a file that does nothing but call a pinned reusable workflow with
-    read-only permissions and no secrets: no checkout, no inline steps.
-    """
+def _audit_repo_evidence_caller(rel: str, workflow: Any) -> list[Finding]:
+    """Require the evidence caller to use a pinned, read-only reusable."""
     findings: list[Finding] = []
     if not isinstance(workflow, dict):
-        return [Finding(rel, "exempted workflow is not a mapping")]
+        return [Finding(rel, "the repo-evidence caller must be a mapping")]
     triggers = workflow.get("on", workflow.get(True))
-    if not isinstance(triggers, dict) or set(triggers) != {PULL_REQUEST_TARGET_TRIGGER}:
+    if not isinstance(triggers, dict) or set(triggers) != {"pull_request"}:
         findings.append(
             Finding(
                 rel,
-                f"the exempted workflow must declare only the {PULL_REQUEST_TARGET_TRIGGER} trigger",
+                "the repo-evidence caller must declare only the pull_request trigger",
             )
         )
     permission_blocks = [("workflow", workflow.get("permissions"))]
     jobs = workflow.get("jobs", {})
     if not isinstance(jobs, dict) or not jobs:
-        return [*findings, Finding(rel, "the exempted workflow declares no jobs")]
+        return [*findings, Finding(rel, "the repo-evidence caller declares no jobs")]
     for job_name, job in jobs.items():
         if not isinstance(job, dict):
             findings.append(Finding(f"{rel}:{job_name}", "job is not a mapping"))
@@ -883,7 +901,7 @@ def _audit_pull_request_target_caller(rel: str, workflow: Any) -> list[Finding]:
             findings.append(
                 Finding(
                     f"{rel}:{job_name}",
-                    "the exempted workflow may only call a reusable workflow "
+                    "the repo-evidence caller may only call a reusable workflow "
                     "pinned by full-SHA, with no inline steps or runner",
                 )
             )
@@ -891,13 +909,15 @@ def _audit_pull_request_target_caller(rel: str, workflow: Any) -> list[Finding]:
             findings.append(
                 Finding(
                     f"{rel}:{job_name}",
-                    "the exempted workflow must not pass or inherit secrets",
+                    "the repo-evidence caller must not pass or inherit secrets",
                 )
             )
     for owner, permissions in permission_blocks:
         if permissions is None and owner == "workflow":
             findings.append(
-                Finding(rel, "the exempted workflow must declare read-only permissions")
+                Finding(
+                    rel, "the repo-evidence caller must declare read-only permissions"
+                )
             )
         elif isinstance(permissions, dict) and not all(
             level in READ_ONLY_PERMISSION_LEVELS for level in permissions.values()
@@ -916,20 +936,20 @@ def audit_local_workflows(policy: dict[str, Any], repo_root: Path) -> list[Findi
         for item in policy.get("hosted_runner_allowlist", [])
         if isinstance(item, dict) and "path" in item
     }
-    exempt_path, findings = _pull_request_target_exception(policy)
+    findings: list[Finding] = []
     for path in _workflow_paths(repo_root):
         rel = path.relative_to(repo_root).as_posix()
         text = path.read_text(encoding="utf-8")
         workflow = yaml.safe_load(text)
-        if rel == exempt_path:
-            findings.extend(_audit_pull_request_target_caller(rel, workflow))
-        elif PULL_REQUEST_TARGET_TRIGGER in text:
+        if PULL_REQUEST_TARGET_TRIGGER in text:
             findings.append(
                 Finding(
                     rel,
                     "pull_request_target is prohibited because untrusted fork code must never reach self-hosted runners",
                 )
             )
+        if rel == REPO_EVIDENCE_CALLER:
+            findings.extend(_audit_repo_evidence_caller(rel, workflow))
 
         jobs = workflow.get("jobs", {}) if isinstance(workflow, dict) else {}
         if not isinstance(jobs, dict):
@@ -1282,7 +1302,7 @@ def main() -> int:
             # OMN-18365 AC3, additive and inside the same step for the same
             # reason: resolves its repository universe from live visibility
             # rather than the policy's hand-curated `repositories:` list.
-            audit_private_repo_hosted_placement,
+            lambda: audit_private_repo_hosted_exception(policy),
         ]
         for live_pass in live_passes:
             # OMN-19998: a failed live read is reported as infrastructure and

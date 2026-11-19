@@ -167,12 +167,19 @@ def send_through(make: Optional[Callable[..., httpx.BaseTransport]]) -> None:
     _THROUGH = make
 
 
-def _through(ipv4: bool) -> httpx.BaseTransport:
-    """The transport a Transport's client is given: this process's (send_through), made to connect from FROM_IPV4 where
-    `ipv4`; where the process has none - asked for `ipv4` alone -, httpx's own, connecting from FROM_IPV4."""
+def _through(ipv4: bool, local_address: str | None = None, interface: str | None = None) -> httpx.BaseTransport:
+    """The transport a Transport's client is given: this process's (send_through), made to connect from `local_address`,
+    or from FROM_IPV4 where `ipv4`; where the process has none - asked for one of those alone -, httpx's own, connecting
+    from it. With `interface`, each connection bound to that network interface before it connects (network.bind): a
+    robot's follow by one of its uplinks, which goes out by it whatever the default route."""
+    src = local_address or (FROM_IPV4 if ipv4 else None)
+    if interface is not None:
+        from sequence_ai.network import bind
+
+        return bind.transport(httpx, interface, **({"local_address": src} if src else {}))
     if _THROUGH is not None:
-        return _THROUGH(local_address=FROM_IPV4) if ipv4 else _THROUGH()
-    return httpx.HTTPTransport(local_address=FROM_IPV4)
+        return _THROUGH(local_address=src) if src else _THROUGH()
+    return httpx.HTTPTransport(local_address=src)
 
 
 class Transport:
@@ -196,6 +203,8 @@ class Transport:
         person: bool = False,
         robot_of: str | None = None,
         ipv4: bool = False,
+        local_address: str | None = None,
+        interface: str | None = None,
     ) -> None:
         self._base = (base_url or os.environ.get("SEQUENCES_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
 
@@ -246,7 +255,10 @@ class Transport:
 
 
 
-            **({"transport": _through(ipv4)} if ipv4 or _THROUGH is not None else {}),
+
+
+            **({"transport": _through(ipv4, local_address, interface)}
+               if ipv4 or local_address or interface or _THROUGH is not None else {}),
 
             **({"auth": LoginAuth(signed_in)} if signed_in is not None else {}),
         )

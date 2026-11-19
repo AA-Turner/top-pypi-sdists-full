@@ -5,8 +5,6 @@ TTY-aware project / org pickers and the structured stdout success line.
 All other orchestration (auth-type detection, region probe, name
 derivation, atomic publish, re-login state machine) lives in the
 library.
-
-Reference: ``specs/043-frictionless-auth/contracts/cli-commands.md`` §1.
 """
 
 from __future__ import annotations
@@ -217,7 +215,7 @@ def login(
     # ``InvalidArgumentError`` (subclass of ``ConfigError``) with a
     # ``violation`` discriminator the @handle_errors decorator maps to
     # exit 3. Keeping the rules in the orchestrator means non-CLI
-    # callers (Cowork, JSON consumers) get the same protection without
+    # callers (JSON consumers) get the same protection without
     # having to re-implement the matrix.
     # Wrap the orchestrator's /me fetch in a Rich spinner. /me is the
     # slowest single call in the login flow (multi-second when an

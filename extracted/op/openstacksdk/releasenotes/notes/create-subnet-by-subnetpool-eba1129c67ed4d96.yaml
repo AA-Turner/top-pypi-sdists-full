@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added support for specifying the subnetpool to use when creating subnets
-    (``subnetpool_name_or_id``)

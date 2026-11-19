@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.1843
+Version: 1.4.1890
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -257,6 +257,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.get_all_accounts_health()` | Check accounts health |
 | `accounts.list_accounts()` | List accounts |
 | `accounts.list_business_partners()` | List partner businesses of the Page |
+| `accounts.list_hub_spot_contact_properties()` | List HubSpot contact properties |
 | `accounts.list_tik_tok_commercial_music()` | List trending commercial music |
 | `accounts.get_account_health()` | Check account health |
 | `accounts.get_account_posts()` | List posts published on the platform |
@@ -493,6 +494,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.connect_open_ai_ads_credentials()` | Connect an OpenAI Ads account |
 | `connect.connect_shopify_with_token()` | Connect a Shopify store with a custom-app Admin token |
 | `connect.connect_slack_channel()` | Connect a Slack channel |
+| `connect.connect_snapchat_ads_credentials()` | Connect a Snapchat Ads pixel |
 | `connect.connect_webflow_with_site_token()` | Connect Webflow with a site API token |
 | `connect.connect_wechat_credentials()` | Connect WeChat Official Account |
 | `connect.connect_whats_app_credentials()` | Connect WhatsApp via credentials |
@@ -641,9 +643,15 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 |--------|-------------|
 | `ad_campaign_results.list_campaign_result_metrics()` | List your result metrics |
 | `ad_campaign_results.list_campaign_results()` | List your results per campaign |
+| `ad_campaign_results.get_campaign_result_events()` | List the events that count as campaign results |
+| `ad_campaign_results.get_campaign_result_profit()` | Get your profit setting |
 | `ad_campaign_results.get_campaign_results_totals()` | Get your results totals |
 | `ad_campaign_results.get_campaign_results_upload()` | Check a results upload |
+| `ad_campaign_results.get_tag_new_ads()` | Get the Tag new ads setting |
+| `ad_campaign_results.set_campaign_result_events()` | Choose the events that count as campaign results |
 | `ad_campaign_results.set_campaign_result_metric()` | Name a result metric or define a formula |
+| `ad_campaign_results.set_campaign_result_profit()` | Set your margin and cost per order |
+| `ad_campaign_results.set_tag_new_ads()` | Turn Tag new ads on or off |
 | `ad_campaign_results.upload_campaign_results()` | Upload your results per campaign |
 
 ### Ad Campaigns
@@ -1129,10 +1137,14 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `conversions.get_ad_conversion_metrics()` | Get attribution metrics |
 | `conversions.get_conversion_destination()` | Get a conversion destination |
 | `conversions.get_conversion_metrics()` | Get attribution metrics |
+| `conversions.get_conversion_paths()` | List the touch paths that lead to conversions |
 | `conversions.get_conversions_quality()` | Get Event Match Quality |
 | `conversions.get_event()` | Get one stored event and its deliveries |
+| `conversions.get_events_accuracy()` | Get delivery accuracy per destination |
 | `conversions.get_events_overview()` | Get today's tracking overview |
 | `conversions.get_events_overview_daily()` | Get daily tracking figures |
+| `conversions.get_ltv_cohorts()` | Get buyer cohorts by first purchase month and first channel |
+| `conversions.get_survey_answers()` | Get post-purchase survey answers |
 | `conversions.get_tracking_site()` | Get a tracking site |
 | `conversions.update_ad_conversion_destination()` | Update a conversion destination |
 | `conversions.update_ad_conversion_goals()` | Update account conversion goals |
@@ -1643,6 +1655,17 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `support_assistant.list_support_answers()` | List a thread's support answers |
 | `support_assistant.get_support_answer()` | Get a support answer |
 | `support_assistant.ask_support_question()` | Ask a support question |
+
+### Tracking links
+| Method | Description |
+|--------|-------------|
+| `tracking_links.list_tracking_links()` | List tracking links |
+| `tracking_links.create_tracking_link()` | Create a tracking link |
+| `tracking_links.get_tracking_link()` | Get a tracking link |
+| `tracking_links.get_tracking_link_stats()` | Get a tracking link's results |
+| `tracking_links.update_tracking_link()` | Update a tracking link |
+| `tracking_links.delete_tracking_link()` | Delete a tracking link |
+| `tracking_links.rotate_tracking_link_postback_token()` | Rotate a tracking link's postback URL |
 
 ### Tracking Tags
 | Method | Description |

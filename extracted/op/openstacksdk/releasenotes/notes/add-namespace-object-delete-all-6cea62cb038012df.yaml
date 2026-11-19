@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add support for deleting all objects inside
-    a namespace.

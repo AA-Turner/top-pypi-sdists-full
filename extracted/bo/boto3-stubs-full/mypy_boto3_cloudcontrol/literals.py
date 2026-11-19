@@ -65,6 +65,7 @@ OperationType = Literal["CREATE", "DELETE", "UPDATE"]
 ResourceRequestSuccessWaiterName = Literal["resource_request_success"]
 CloudControlApiServiceName = Literal["cloudcontrol"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

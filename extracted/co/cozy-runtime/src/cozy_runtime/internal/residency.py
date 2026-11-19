@@ -19,7 +19,7 @@ import weakref
 from collections.abc import Callable, Collection, Hashable, Iterable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext, suppress
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any, NotRequired, Protocol, TypedDict, Unpack, cast
 
@@ -315,7 +315,9 @@ def paging(module: nn.Module) -> tuple[str, list[str]]:
         for path, sub in module.named_modules()
         if path and any(kind.__name__ in names for kind in type(sub).__mro__)
     ]
-    found = [a for a in found if not any(b.startswith(a + ".") for b in found)]
+    # The innermost units: an outer one (a layer holding its experts) gives way to them.
+    outer = {prefix for path in found for prefix in _prefixes(path)}
+    found = [path for path in found if path not in outer]
     if found:
         return rule, found
     best, most = [], 0
@@ -338,13 +340,17 @@ _SPLIT_UNIT = 1 << 30
 _TABLE_UNIT = 64 << 20
 
 
-def _unit(name: str, blocks: Collection[str]) -> str:
-    """The block holding tensor `name` (its longest dotted prefix that is a block), "" for common."""
-    while name:
+def _prefixes(name: str) -> Iterator[str]:
+    """`name`'s proper dotted prefixes, longest first: `a.b.c` gives `a.b`, then `a`."""
+    while "." in name:
         name = name.rpartition(".")[0]
-        if name in blocks:
-            return name
-    return ""
+        yield name
+
+
+def _unit(name: str, blocks: Collection[str]) -> str:
+    """The block holding tensor `name` (its longest dotted prefix that is a block), "" for common.
+    `blocks` is a set or a mapping: a lookup per prefix, never a scan of the blocks."""
+    return next((prefix for prefix in _prefixes(name) if prefix in blocks), "")
 
 
 def split(module: nn.Module, paths: Sequence[str], sizes: Mapping[str, int]) -> list[str]:
@@ -353,16 +359,20 @@ def split(module: nn.Module, paths: Sequence[str], sizes: Mapping[str, int]) -> 
     largest children that hold no block, one at a time, until under. A new block over the bound splits
     the same way, down to single layers; one tensor over it stays whole. `sizes` are the stored bytes
     by module-relative tensor name. Hunyuan-Image-3 kept 10 GB of attention and dense layers in common
-    beside its expert blocks."""
+    beside its expert blocks. Linear in tensors and modules: each module's bytes are summed once,
+    and a unit's bytes move with its blocks (Qwen3.6's 10,240 expert blocks were a scan each)."""
     modules = dict(module.named_modules())
     blocks = set(paths)
-
-    def held() -> dict[str, int]:
-        units: dict[str, int] = {}
-        for name, n in sizes.items():
-            unit = _unit(name, blocks)
-            units[unit] = units.get(unit, 0) + n
-        return units
+    #: each module path's stored bytes below it; the paths that hold a block (it and its parents)
+    below: dict[str, int] = {}
+    for name, n in sizes.items():
+        for prefix in _prefixes(name):
+            below[prefix] = below.get(prefix, 0) + n
+    holding = {prefix for block in blocks for prefix in (block, *_prefixes(block))}
+    units: dict[str, int] = {}
+    for name, n in sizes.items():
+        unit = _unit(name, blocks)
+        units[unit] = units.get(unit, 0) + n
 
     def free(path: str) -> list[tuple[int, str]]:
         """`path`'s weighted child modules that hold no block, through children that hold one."""
@@ -371,31 +381,41 @@ def split(module: nn.Module, paths: Sequence[str], sizes: Mapping[str, int]) -> 
             parent = stack.pop()
             for name, _ in modules[parent].named_children():
                 child = f"{parent}.{name}" if parent else name
-                if any(b == child or b.startswith(child + ".") for b in blocks):
+                if child in holding:
                     if child not in blocks:
                         stack.append(child)
-                elif size := sum(n for t, n in sizes.items() if t.startswith(child + ".")):
+                elif size := below.get(child, 0):
                     found.append((size, child))
         return sorted(found, reverse=True)
 
-    units = held()
+    def block(child: str, size: int, owner: str) -> None:
+        """`child`, which holds no block and lies in unit `owner`, becomes a block of its own."""
+        blocks.add(child)
+        holding.update((child, *_prefixes(child)))
+        units[owner] -= size
+        units[child] = size
+
     queue = [unit for unit, n in units.items() if n > _SPLIT_UNIT]
     while queue:
         unit = queue.pop()
-        if held().get(unit, 0) <= _SPLIT_UNIT:
+        if units.get(unit, 0) <= _SPLIT_UNIT:
             continue
         if unit:
             children = free(unit)
             if not children:
                 continue
+            # Its own tensors join the unit around it; its children's become theirs.
             blocks.discard(unit)
-            blocks.update(child for _, child in children)
+            around = _unit(unit + ".", blocks)
+            units[around] = units.get(around, 0) + units.pop(unit)
+            for size, child in children:
+                block(child, size, around)
             queue += ["", *(child for size, child in children if size > _SPLIT_UNIT)]
             continue
         for size, child in free(""):
-            if held().get("", 0) <= _SPLIT_UNIT:
+            if units.get("", 0) <= _SPLIT_UNIT:
                 break
-            blocks.add(child)
+            block(child, size, "")
             if size > _SPLIT_UNIT:
                 queue.append(child)
     # A table pages as its own unit, so one that does not fit the room gathers its rows on the
@@ -482,6 +502,9 @@ class _Block:
     )
     #: where its forward's allocations are born in the escaped-memory tally (`vt.set_site`)
     escape_site: int = 0
+    #: its raw Region's Use from a binding's fill of all its blocks together (`Memory._fill`),
+    #: which its next `_ensure` binds instead of filling it alone
+    prefilled: varena.Use | None = None
     #: the birth site its entry replaced, back at its exit: what runs after it is not its
     born_before: int | None = None
 
@@ -599,12 +622,15 @@ class Model:
         #: its loop's head site in the escaped-memory tally, and one block's weights with its common
         self.escape_site = 0
         self.escape_floor: int | None = None
+        #: loops streaming it (`gathering`): an embedding table of it that left the device gathers
+        #: its rows on the host instead of filling whole again
+        self.gathers = 0
 
     def sites_in(self, groups: Iterable[_Block]) -> list[_Site]:
         """The weight sites `groups` hold, mapped once: a LoRA bake binds one source block per
         linear, and walking every site for each took 6 s of Qwen's first step (cr-245)."""
         if self._block_sites is None:
-            paths = list(self.blocks)
+            paths = self.blocks
             held: dict[int, tuple[str, list[_Site]]] = {}
             for name, sites in self.sites.items():
                 path = _block_of(name, paths)
@@ -666,7 +692,8 @@ class Model:
         `reserve` bytes and room for the largest of the rest to stream through, largest first. A
         binding over them, which the caller prepares and holds while the loop runs, so each
         forward reads only the others again; with the bytes kept and those still read a forward.
-        None when none fits. An embedding table is no block a forward reads whole (`_Block.table`)."""
+        None when none fits. An embedding table is no block a forward reads whole: under the loop
+        it gathers its rows on the host (`gathering`)."""
         if self.memory.native is None:
             return None
         # The common group (embeddings, the head, final norms) serves every forward, entered
@@ -695,6 +722,21 @@ class Model:
             return Binding(self, kept), held, sum(b.least_bytes for b in used) - held
         finally:
             self._release()
+
+    @contextmanager
+    def gathering(self) -> Iterator[None]:
+        """While a loop streams it (`keep`): its embedding tables, which `keep` leaves no room,
+        serve from their device page while varena keeps it and otherwise gather their rows on the
+        host (`Memory._gather`), never filling whole again. Filled whole, a table took the room
+        the loop's working memory had, which took it back the next token: MiniMax-H3-Image's
+        expander on a 4090 refilled its 2.37 GiB table 685 times in 1,573 tokens (cr-332)."""
+        with self.memory.lock:
+            self.gathers += 1
+        try:
+            yield
+        finally:
+            with self.memory.lock:
+                self.gathers -= 1
 
     def retain(self, paths: Collection[str] = ("",)) -> Binding:
         self._claim()
@@ -989,6 +1031,7 @@ class Binding:
                             assert self.regions is not None
                             uses.update((region, region.pin()) for region in self.regions)
                         else:
+                            memory._fill(self.groups)
                             for block in self.groups:
                                 memory._enter(block)
                                 entered.append(block)
@@ -1004,6 +1047,8 @@ class Binding:
                             uses.clear()
                             for block in reversed(entered):
                                 memory._exit(block)
+                            for block in self.groups:
+                                block.prefilled = None  # a failure's: its pin goes
                             with memory.lock:
                                 for block in self.groups:
                                     block.retained -= 1
@@ -1143,6 +1188,9 @@ class Memory:
         self.models: dict[nn.Module, Model] = {}
         self._working_phase_owners: dict[str, set[Model | Request]] = {}
         self.regions: weakref.WeakSet[Region] = weakref.WeakSet()
+        #: what holds weights only for speed (a streamed decode's kept blocks, `lm._Keeper`): asked
+        #: to let them go when a block it doesn't hold is refused room, before the refusal stands
+        self.sheds: list[Callable[[int], bool]] = []
         self.requests: set[Request] = set()
         self.last: RequestStats | None = None
         self.native: varena.Device | None = None
@@ -1161,6 +1209,8 @@ class Memory:
         )
         self._phase_plan_keys: dict[frozenset[str], str] = {}
         self._phase_plan_models: set[Model] = set()
+        #: what the active plan was built from (`_phase_stamp`): the same stamp is the same plan
+        self._phase_plan_stamp: tuple[object, ...] | None = None
         self._phase_plan_status: tuple[object, ...] | None = None
         self._phase_names: frozenset[str] | None = None
         self._phase_request: str | None = None
@@ -1352,18 +1402,23 @@ class Memory:
         tables = [p for p, sub in module.named_modules() if p and isinstance(sub, nn.Embedding)]
         sizes: dict[str, int] = {}
         by_path: dict[str, dict[str, dict[str, _Part]]] = {}
+        blocks = frozenset(paths)
+        #: each site group's names, once (a tied tensor's are several)
+        named: dict[int, list[str]] = {}
+        for name, sites in model.sites.items():
+            named.setdefault(id(sites), []).append(name)
         for key in tensors:
             if w.keys is not None and key not in w.keys:
                 continue
             bound = w.bound.get(key, key) if w.bound else key
-            path = _block_of(bound, paths)
+            path = _block_of(bound, blocks)
             # A tied tensor used by distinct modules stays common, so either forward sees
             # one live parameter. The declared encoded bind routes must name their targets.
             group = model.sites.get(bound)
-            if group is not None:
-                aliases = [name for name, sites in model.sites.items() if sites is group]
-                if any(_block_of(name, paths) != path for name in aliases):
-                    path = ""
+            if group is not None and any(
+                _block_of(name, blocks) != path for name in named[id(group)]
+            ):
+                path = ""
             parts = {}
             for role, part in stored_parts(w.ck, w.component, key).items():
                 parts[role or "value"] = _Part(part.dtype, tuple(part.shape), part.length, role)
@@ -1872,7 +1927,9 @@ class Memory:
         if region is None:
             size = block.final_bytes if final else block.storage_bytes
             source = self._source(block, final=final)
-            region = self._device_native().region(size, source)
+            # Its set: varena packs a component's small units into shared pages (cr-317).
+            set_ = f"{block.model.content}/final" if final else block.model.content
+            region = self._device_native().region(size, source, set_)
             setattr(block, field, region)
             if not final:
                 self._sources[region] = source
@@ -1941,6 +1998,9 @@ class Memory:
 
     def _use(self, block: _Block, *, final: bool = False) -> varena.Use:
         """`block`'s bytes pinned for this stream. An idle request takes only what is resident."""
+        if not final and (prefilled := block.prefilled) is not None:
+            block.prefilled = None
+            return prefilled
         request = _REQUEST.get()
         if request is not None and request.idle:
             region = block.final_region if final else block.region
@@ -1949,6 +2009,49 @@ class Memory:
                 raise StaleBinding("idle graph preparation cannot fill native weight backing")
             return use
         return self._native_region(block, final=final).use(self._cuda_stream().cuda_stream)
+
+    def _fill(self, groups: list[_Block]) -> None:
+        """`groups`' absent raw Regions filled together before their blocks bind (cr-318): one
+        store read for all TensorFS can read so, pieces pipelined across Regions, where a block at a
+        time read each alone, serialized (Qwen3.6's 10,541 expert blocks: 37.6 GB at ~1.3 GB/s).
+        Each one's Use waits on its block (`_use`). A model whose fill bakes (LoRAs) fills block by
+        block: its bake runs on the thread that binds it."""
+        together = getattr(varena, "fill", None)  # a newer TensorFS's
+        request = _REQUEST.get()
+        if together is None or not self.cuda or (request is not None and request.idle):
+            return
+        wanted = [
+            block
+            for block in groups
+            if block.model.fill is None
+            and block.data is None
+            and block.prefilled is None
+            and block.storage_bytes
+            and not block.final_only()
+            and not block.cached()
+        ]
+        if len(wanted) < 2:
+            return
+        pairs = [(block, self._native_region(block)) for block in wanted]
+        found = [(block, region, self._sources.get(region)) for block, region in pairs]
+        bound = [(block, region, source) for block, region, source in found if source is not None]
+        if len(bound) < 2:
+            return
+        wanted = [block for block, _, _ in bound]
+        regions = [region for _, region, _ in bound]
+        sources = [source for _, _, source in bound]
+        if request is not None:
+            for block in wanted:
+                request.first_read(block)
+        model = wanted[0].model
+        with _phases.loading(
+            model.component,
+            sum(block.nbytes for block in wanted),
+            functools.partial(self._unread, model),
+        ):
+            uses = together(regions, sources, self._cuda_stream().cuda_stream)
+        for block, use in zip(wanted, uses, strict=True):
+            block.prefilled = use
 
     def _note_phase_plan(self, status: str, reason: str = "", **facts: Unpack[_PlanNote]) -> None:
         request = _REQUEST.get()
@@ -1969,6 +2072,7 @@ class Memory:
                 self._phase_plan.deactivate()
                 self._phase_plan = None
                 self._phase_plan_signature = None
+                self._phase_plan_stamp = None
                 self._phase_plan_keys = {}
                 self._phase_plan_models.clear()
                 self._note_phase_plan("unplanned", reason)
@@ -2017,6 +2121,15 @@ class Memory:
         request = _REQUEST.get()
         steps = [] if request is None else [frozenset(step) for step in request.steps]
         order = list(dict.fromkeys(names if names & step else step for step in steps))
+        stamp = self._phase_stamp(names, order)
+        if self._phase_plan is not None and stamp == self._phase_plan_stamp:
+            # Its Regions can't have changed: every change of one retires the plan. Each forward
+            # re-plans in O(models), not O(blocks) (cr-307: 10,541 of them for Qwen3.6).
+            try:
+                self._phase_plan.activate(self._phase_plan_keys[names])
+            except NotImplementedError:
+                self._retire_phase_plan("multiple_arenas")
+            return
         phases = [] if names in order else [(names, *self._phase_regions(names))]
         phases += [(step, *self._phase_regions(step)) for step in order]
         reason = next((why for step, _, _, why in phases if step == names), "")
@@ -2048,10 +2161,28 @@ class Memory:
                 if any(model.name in step for step, _ in planned)
             }
             self._note_phase_plan("active", native=self._phase_plan.facts())
+        self._phase_plan_stamp = stamp
         try:
             self._phase_plan.activate(self._phase_plan_keys[names])
         except NotImplementedError:
             self._retire_phase_plan("multiple_arenas")
+
+    def _phase_stamp(
+        self, names: frozenset[str], order: list[frozenset[str]]
+    ) -> tuple[object, ...]:
+        """What a plan of `names` among `order` is built from, short of its Regions: the phases,
+        and each model in them with its representation (`_phase_regions` reads the same)."""
+        named = names.union(*order)
+        return (
+            names,
+            tuple(order),
+            tuple(
+                (id(model), model.identity, model.wanted_identity(), model.layout_identity,
+                 model.generation, model.closed, model.retiring)
+                for model in self.models.values()
+                if model.name in named
+            ),
+        )
 
     def _activate_phase(self, model: Model) -> None:
         """Declare a component-phase boundary; native policy retains/evicts actual pages."""
@@ -2226,6 +2357,21 @@ class Memory:
                 request.read(block, read_ns, read_bytes, bake=bake)
         return data
 
+    def _placed_after_shed(self, block: _Block, overlay: Hashable) -> bool:
+        """`block` placed after what holds weights only for speed let them go (`sheds`): False
+        when nothing did, or it still has no room. A refused block beside them is the refusal
+        that gives way first (cr-319: Klein's upsampler at a 6 GiB cap held 4.0 GiB of its 10.1
+        to decode streamed, and a 0.2 GiB layer it streams had no room; gate 44062127052)."""
+        need = block.allocation_bytes
+        if not any([shed(need) for shed in list(self.sheds)]):
+            return False
+        try:
+            self._ensure(block, True, overlay)
+        except Exhausted:
+            return False
+        block.gathered = None
+        return True
+
     def _gather(self, block: _Block, overlay: Hashable) -> None:
         """An embedding table that does not fit the room stays on the host: its forward looks up
         there and moves only the rows it read (`_gathering`), so a room below the table never
@@ -2307,14 +2453,28 @@ class Memory:
                 if block.escape_site and request is not None and not request.idle and not capturing:
                     block.born_before = self._entered(block, request)
                 try:
-                    self._ensure(block, reclaim, overlay)
-                    block.gathered = None
-                except Exhausted:  # varena refused its region before its forward ran
-                    if not (block.table and reclaim and self.cuda and not capturing):
-                        raise
                     gathered = block.gathered is not None and block.gathered[0] == overlay
-                    with nullcontext() if gathered else self._read_told(block):
-                        self._gather(block, overlay)
+                    if (
+                        block.table
+                        and model.gathers
+                        and self.native is not None
+                        and not capturing
+                        and (gathered or not block.cached())
+                    ):  # `Model.gathering`: on the host, it stays there to the loop's end
+                        with nullcontext() if gathered else self._read_told(block):
+                            self._gather(block, overlay)
+                    else:
+                        self._ensure(block, reclaim, overlay)
+                        block.gathered = None
+                except Exhausted:  # varena refused its region before its forward ran
+                    if not (reclaim and self.cuda and not capturing):
+                        raise
+                    if not self._placed_after_shed(block, overlay):
+                        if not block.table:
+                            raise
+                        gathered = block.gathered is not None and block.gathered[0] == overlay
+                        with nullcontext() if gathered else self._read_told(block):
+                            self._gather(block, overlay)
             # A cached Hold can keep count > 0 across sequential threads or streams.
             # Every consumer needs readiness in addition to storage ownership.
             # Capture's owner joined the prepared stream before capture began. Waiting on
@@ -2453,9 +2613,8 @@ class Memory:
                 with torch.inference_mode(False):
                     use = pin()
                     if use is not None:
-                        value = (
-                            use.tensor[offset : offset + part.nbytes].view(stored).view(part.shape)
-                        )
+                        raw = use.tensor[offset : offset + part.nbytes]
+                        value = _view(site.name, part.role, part, raw)
                         if widen is not None:
                             value = value.to(widen)
                         block.last = time.monotonic_ns()
@@ -2465,15 +2624,15 @@ class Memory:
                         return nn.Parameter(value, requires_grad=False) if site.parameter else value
             self._enter(block)
             try:
-                value = site.table[site.name]
-                if isinstance(value, Placeholder):
+                held = site.table[site.name]
+                if isinstance(held, Placeholder):
                     raise ResidencyError(
                         f"{model.name}: {site.name} has no value: no stored tensor binds it. A "
                         "buffer no checkpoint stores keeps its constructed value only when "
                         "construction computed one (from config or a constant), not from a "
                         "weightless parameter"
                     )
-                return cast(Tensor, value)  # a site is a slot that held a tensor
+                return cast(Tensor, held)  # a site is a slot that held a tensor
             finally:
                 self._exit(block)
         finally:
@@ -3026,9 +3185,9 @@ class Request:
         #: refusals the Runtime answered by running again another way (a pure op's finer split, an LM
         #: token decoded eagerly for a capture its pool couldn't hold): zero in a normal run
         self.retries = 0
-        #: split sites whose whole output the card had no room for, kept in host memory (cr-305): the
-        #: card's room when its allocation was refused there, else whether selection judged the
-        #: package's estimate of it or its measure (`execution.cuts._hosted`)
+        #: split sites whose whole output the card had no room for, kept in host memory (cr-305):
+        #: the card's room when its allocation was refused there, else whether selection judged
+        #: the package's estimate of it or its measure (`execution.cuts._hosted`)
         self.hosted: dict[str, str] = {}
         #: refusals a CUDA graph capture answered by recording again with room for them
         #: (`graphs.capture`): what runs is the same
@@ -3260,8 +3419,10 @@ def _ahead(memory: Memory) -> dict[str, int]:
     }
 
 
-def _block_of(name: str, paths: Sequence[str]) -> str:
-    return max((p for p in paths if name == p or name.startswith(p + ".")), key=len, default="")
+def _block_of(name: str, paths: Collection[str]) -> str:
+    """The block holding `name` (itself, or its longest dotted prefix in `paths`), "" for common.
+    `paths` is a set or a mapping: a lookup per prefix, never a scan of the blocks."""
+    return name if name in paths else _unit(name, paths)
 
 
 def _sites(module: nn.Module) -> dict[str, list[_Site]]:
@@ -3390,6 +3551,8 @@ def _layout(
         return  # An arbitrary binder has not declared immutable final bytes.
     aliases: dict[str, dict[str, str]] = {}
     finals: dict[str, dict[str, _Part]] = {}
+    #: each alias's final geometry, should the block hold all its targets as finals
+    whole: dict[str, dict[str, _Part]] = {}
     codes = {kind: code for code, kind in _DTYPES.items() if code != "F4"}
     for key, parts in block.parts.items():
         if binding is not None:
@@ -3411,6 +3574,7 @@ def _layout(
             }
         row_aliases = aliases[key] = {}
         row_finals = finals[key] = {}
+        row_whole = whole[key] = {}
         for name, layout in declared.items():
             if name not in model.sites:
                 raise ResidencyError(f"{model.name}: final layout names no target {name}")
@@ -3432,6 +3596,11 @@ def _layout(
             dtype = getattr(torch, _DTYPES[layout.dtype])
             width = int(torch.empty((), dtype=dtype, device="meta").element_size())
             source = parts.get(layout.source) if layout.source is not None else None
+            if source is not None and source.dtype == "F4":
+                # Packed two a byte: a stored F4 [..., C] is the U8 [..., C/2] its leaves read
+                # (`_view`), not a second copy of it (cr-319).
+                carrier = (*source.shape[:-1], source.shape[-1] // 2)
+                source = replace(source, dtype="U8", shape=carrier)
             if (
                 source is not None
                 and source.dtype == layout.dtype
@@ -3441,8 +3610,17 @@ def _layout(
             ):
                 assert layout.source is not None
                 row_aliases[name] = layout.source
+                row_whole[name] = _Part(layout.dtype, shape, count * width, "", strides)
             else:
                 row_finals[name] = _Part(layout.dtype, shape, count * width, "", strides)
+    if any(finals.values()) and any(aliases.values()):
+        # A block with a final holds every target there and none of its stored bytes beside it:
+        # aliased, its stored region stayed resident whole, its swizzled or cast parts' stored
+        # bytes too (cr-319: Qwen3.6-27B nvfp4's row-major scales, 1.0 GiB, beside their blocked
+        # finals). Its finals are copied from the stored bytes once a fill, or kept on the host.
+        for key, row in whole.items():
+            finals[key].update(row)
+            aliases[key] = {}
     block.aliases = aliases
     block.finals = {key: row for key, row in finals.items() if row}
     if model.fill is None and not block.finals:
@@ -3484,15 +3662,18 @@ def _placeholder(
 
 def _placeholders(model: Model) -> None:
     done: set[int] = set()
+    #: each stored key's group, once: a lookup per site, where a scan of every group was 10,240
+    #: of them per site on Qwen3.6 (cr-307)
+    stored = {key: block for block in reversed(model.groups()) for key in block.parts}
     for name, sites in model.sites.items():
         meta = sites[0].table[sites[0].name]
         assert meta is not None  # a site is a slot that held a tensor
         if id(meta) in done or meta.device.type != "meta":
             continue
         done.add(id(meta))
-        block = next((b for b in model.groups() if name in b.parts), None)
+        block = stored.get(name)
         if block is None:
-            path = _block_of(name, list(model.blocks))
+            path = _block_of(name, model.blocks)
             block = model.blocks.get(path) or model.common
         if block is None:
             raise ResidencyError(f"{model.name}: no stored group for {name}")

@@ -1,7 +1,5 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-# ruff: noqa: S104
-# S104 disabled: Binding to 0.0.0.0 is intentional for Docker/K8s health checks
 """HTTP Health Service for ONEX Runtime.
 
 A minimal HTTP service for exposing health check endpoints.
@@ -19,8 +17,7 @@ Configuration:
 
 Exports:
     ServiceHealth: HTTP health check service class
-    DEFAULT_HTTP_HOST: Default bind address ("0.0.0.0")
-    DEFAULT_HTTP_PORT: Default HTTP port (8085)
+    DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT: Bind address and port from the endpoint defaults
 
 Example (Direct Runtime Injection):
     >>> from omnibase_infra.services.health_checker import ServiceHealth
@@ -58,6 +55,7 @@ See Also:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from datetime import UTC, datetime
@@ -86,6 +84,9 @@ from omnibase_infra.errors import (
 from omnibase_infra.event_bus.enum_runtime_readiness_state import (
     EnumRuntimeReadinessState,
 )
+from omnibase_infra.handlers.http_mount import AsgiMounts
+from omnibase_infra.handlers.mixin_shared_listener import MixinSharedListener
+from omnibase_infra.models.endpoint_defaults import load_endpoint_defaults
 from omnibase_infra.runtime.health.runtime_health_block import (
     RUNTIME_HEALTH_DETAIL_KEY,
     build_runtime_health_block,
@@ -123,8 +124,8 @@ logger = logging.getLogger(__name__)
 
 # Default configuration - hardcoded to avoid import-time crashes from invalid env vars
 # Environment variable override is handled safely in ServiceHealth.__init__
-DEFAULT_HTTP_PORT: int = 8085
-DEFAULT_HTTP_HOST = "0.0.0.0"
+DEFAULT_HTTP_PORT: int = load_endpoint_defaults().runtime_health_port
+DEFAULT_HTTP_HOST = load_endpoint_defaults().bind_all_address
 
 
 def _get_port_from_env(default: int) -> int:
@@ -183,7 +184,7 @@ def _read_runtime_health_verdict(
         return None
 
 
-class ServiceHealth:
+class ServiceHealth(MixinSharedListener):
     """Minimal HTTP server for liveness and readiness endpoints.
 
     This server provides separate liveness (``/health``) and readiness
@@ -341,6 +342,8 @@ class ServiceHealth:
         self._version: str = version
 
         # Server state
+        self._http_mounts = AsgiMounts()
+        self._mount_task: asyncio.Task[None] | None = None
         self._app: web.Application | None = None
         self._runner: web.AppRunner | None = None
         self._site: web.TCPSite | None = None
@@ -366,24 +369,13 @@ class ServiceHealth:
         # OMN-519: Track last successful health check timestamps per component
         self._last_healthy_timestamps: dict[str, str] = {}
         # Track health phase transitions so frequent probes do not flood logs.
-        self._last_health_probe_signature: (
-            tuple[
-                str,
-                bool,
-                bool,
-                bool,
-                bool,
-            ]
-            | None
-        ) = None
+        self._last_health_probe_signature: tuple[str, bool, bool, bool, bool] | None = (
+            None
+        )
 
         logger.debug(
             "ServiceHealth initialized",
-            extra={
-                "port": self._port,
-                "host": self._host,
-                "version": self._version,
-            },
+            extra={"port": self._port, "host": self._host, "version": self._version},
         )
 
     @property
@@ -481,8 +473,17 @@ class ServiceHealth:
         )
 
     def attach_manifest(self, manifest: ModelAutoWiringManifest) -> None:
-        """Attach the auto-wiring manifest for the introspection endpoint (OMN-11198)."""
+        """Attach the auto-wiring manifest for the introspection endpoint (OMN-11198).
+
+        Also mounts the contracts' ``http_mount`` apps (OMN-21288); the kernel
+        attaches before wiring, and a later call mounts nothing again.
+        """
         self._manifest = manifest
+        if self._app is not None:
+            self._mount_task = (
+                self._http_mounts.attach(manifest.contracts, self._app.router)
+                or self._mount_task
+            )
         logger.info(
             "ServiceHealth attached manifest (%d contracts)",
             manifest.total_discovered,
@@ -523,9 +524,7 @@ class ServiceHealth:
         if not callable(try_resolve):
             return False
 
-        from omnibase_infra.runtime.runtime_host_process import (
-            RuntimeHostProcess,
-        )
+        from omnibase_infra.runtime.runtime_host_process import RuntimeHostProcess
 
         try:
             resolution = try_resolve(RuntimeHostProcess)
@@ -636,9 +635,7 @@ class ServiceHealth:
             ProtocolConfigurationError: Failed to resolve RuntimeHostProcess from container: ...
             (correlation_id: 123e4567-e89b-12d3-a456-426614174000)
         """
-        from omnibase_infra.runtime.runtime_host_process import (
-            RuntimeHostProcess,
-        )
+        from omnibase_infra.runtime.runtime_host_process import RuntimeHostProcess
 
         correlation_id = generate_correlation_id()
         try:
@@ -655,9 +652,7 @@ class ServiceHealth:
             logger.exception(
                 "Failed to resolve RuntimeHostProcess from container (correlation_id=%s)",
                 correlation_id,
-                extra={
-                    "error_type": type(e).__name__,
-                },
+                extra={"error_type": type(e).__name__},
             )
             raise ProtocolConfigurationError(
                 f"Failed to resolve RuntimeHostProcess from container: {e}",
@@ -665,11 +660,7 @@ class ServiceHealth:
             ) from e
 
         return cls(
-            container=container,
-            runtime=runtime,
-            port=port,
-            host=host,
-            version=version,
+            container=container, runtime=runtime, port=port, host=host, version=version
         )
 
     async def start(self) -> None:
@@ -758,34 +749,18 @@ class ServiceHealth:
         )
 
         try:
-            # Create aiohttp application
-            self._app = web.Application()
-
-            # Register routes (OMN-1931: /ready has its own handler)
-            self._app.router.add_get("/health", self._handle_health)
-            self._app.router.add_get("/ready", self._handle_readiness)
-            # OMN-519: Detailed diagnostics endpoint
-            self._app.router.add_get("/health/detailed", self._handle_health_detailed)
-            # OMN-10860: Skill dispatch endpoint
-            self._app.router.add_post("/skill", self._handle_skill)
-            # OMN-11198: Manifest introspection endpoint (internal only)
-            self._app.router.add_get(
-                "/v1/introspection/manifest", self._handle_introspection_manifest
-            )
+            self._app = self._build_app()
 
             # Create and start runner
             self._runner = web.AppRunner(self._app)
             await self._runner.setup()
 
             # Create site and start listening
-            self._site = web.TCPSite(
-                self._runner,
-                self._host,
-                self._port,
-            )
+            self._site = web.TCPSite(self._runner, self._host, self._port)
             await self._site.start()
 
             self._is_running = True
+            await self._start_shared_listener()
 
             logger.info(
                 "ServiceHealth started (correlation_id=%s)",
@@ -818,10 +793,7 @@ class ServiceHealth:
                     "errno": e.errno if hasattr(e, "errno") else None,
                 },
             )
-            raise RuntimeHostError(
-                error_msg,
-                context=context,
-            ) from e
+            raise RuntimeHostError(error_msg, context=context) from e
 
         except Exception as e:
             # Unexpected error during server startup
@@ -830,14 +802,9 @@ class ServiceHealth:
                 "%s (correlation_id=%s)",
                 error_msg,
                 correlation_id,
-                extra={
-                    "error_type": type(e).__name__,
-                },
+                extra={"error_type": type(e).__name__},
             )
-            raise RuntimeHostError(
-                error_msg,
-                context=context,
-            ) from e
+            raise RuntimeHostError(error_msg, context=context) from e
 
     async def stop(self) -> None:
         """Stop the HTTP health server gracefully.
@@ -889,10 +856,9 @@ class ServiceHealth:
             return
 
         correlation_id = generate_correlation_id()
-        logger.info(
-            "Stopping ServiceHealth (correlation_id=%s)",
-            correlation_id,
-        )
+        logger.info("Stopping ServiceHealth (correlation_id=%s)", correlation_id)
+        await self.drain_shared_listener()
+        await self._http_mounts.stop()
 
         # Cleanup in reverse order of creation
         # Stop TCPSite first to reject new connections
@@ -903,10 +869,7 @@ class ServiceHealth:
                 logger.warning(
                     "Error stopping TCPSite during shutdown (correlation_id=%s)",
                     correlation_id,
-                    extra={
-                        "error_type": type(e).__name__,
-                        "error": str(e),
-                    },
+                    extra={"error_type": type(e).__name__, "error": str(e)},
                 )
             self._site = None
 
@@ -918,10 +881,7 @@ class ServiceHealth:
                 logger.warning(
                     "Error cleaning up AppRunner during shutdown (correlation_id=%s)",
                     correlation_id,
-                    extra={
-                        "error_type": type(e).__name__,
-                        "error": str(e),
-                    },
+                    extra={"error_type": type(e).__name__, "error": str(e)},
                 )
             self._runner = None
 
@@ -930,13 +890,11 @@ class ServiceHealth:
         self._is_running = False
 
         logger.info(
-            "ServiceHealth stopped successfully (correlation_id=%s)",
-            correlation_id,
+            "ServiceHealth stopped successfully (correlation_id=%s)", correlation_id
         )
 
     def set_runtime_health_provider(
-        self,
-        provider: Callable[[], ModelRuntimeHealthCheckEvent | None] | None,
+        self, provider: Callable[[], ModelRuntimeHealthCheckEvent | None] | None
     ) -> None:
         """Attach the runtime health monitor verdict source (OMN-15217).
 
@@ -1238,10 +1196,7 @@ class ServiceHealth:
             logger.exception(
                 "Health check failed with exception (correlation_id=%s)",
                 correlation_id,
-                extra={
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                },
+                extra={"error": str(e), "error_type": type(e).__name__},
             )
 
             error_response = ModelHealthCheckResponse.failure(
@@ -1332,7 +1287,7 @@ class ServiceHealth:
                 )
 
             readiness_details = await self.runtime.readiness_check(
-                correlation_id=correlation_id,
+                correlation_id=correlation_id
             )
 
             if not isinstance(readiness_details, dict):
@@ -1356,7 +1311,9 @@ class ServiceHealth:
             response = ModelHealthCheckResponse.success(
                 status=status,
                 version=self._version,
-                details=cast("dict[str, JsonType]", readiness_details),
+                details=self._with_listener_fields(
+                    cast("dict[str, JsonType]", readiness_details)
+                ),
             )
 
             return web.Response(
@@ -1424,8 +1381,7 @@ class ServiceHealth:
                 command_name="unknown",
                 correlation_id=correlation_id,
                 error=ModelRuntimeSkillError(
-                    code="validation_error",
-                    message=f"Invalid JSON body: {exc}",
+                    code="validation_error", message=f"Invalid JSON body: {exc}"
                 ),
             )
             return web.Response(
@@ -1444,8 +1400,7 @@ class ServiceHealth:
                 else "unknown",
                 correlation_id=correlation_id,
                 error=ModelRuntimeSkillError(
-                    code="validation_error",
-                    message=f"Invalid skill request: {exc}",
+                    code="validation_error", message=f"Invalid skill request: {exc}"
                 ),
             )
             return web.Response(
@@ -1476,8 +1431,7 @@ class ServiceHealth:
                 command_name=skill_request.command_name,
                 correlation_id=correlation_id,
                 error=ModelRuntimeSkillError(
-                    code="dispatch_error",
-                    message=f"Skill dispatch failed: {exc}",
+                    code="dispatch_error", message=f"Skill dispatch failed: {exc}"
                 ),
             )
             return web.Response(
@@ -1644,10 +1598,7 @@ class ServiceHealth:
             logger.exception(
                 "Detailed health check failed with exception (correlation_id=%s)",
                 correlation_id,
-                extra={
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                },
+                extra={"error": str(e), "error_type": type(e).__name__},
             )
 
             error_response = ModelDetailedHealthResponse.failure(

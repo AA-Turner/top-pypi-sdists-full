@@ -372,6 +372,8 @@ class ConversionsResource:
         source: str | None = None,
         platform: str | None = None,
         delivery_status: str | None = None,
+        from_ad: bool | None = None,
+        campaign_id: str | None = None,
         cursor: str | None = None,
     ) -> dict[str, Any]:
         """List stored events"""
@@ -385,6 +387,8 @@ class ConversionsResource:
                 "source": source,
                 "platform": platform,
                 "deliveryStatus": delivery_status,
+                "fromAd": from_ad,
+                "campaignId": campaign_id,
                 "cursor": cursor,
             }
         )
@@ -417,6 +421,63 @@ class ConversionsResource:
             headers["Idempotency-Key"] = idempotency_key
         return self._client._post("/v1/events", data=payload, headers=headers)
 
+    def get_conversion_paths(
+        self,
+        from_date: str,
+        to_date: str,
+        *,
+        profile_id: str | None = None,
+        limit: int | None = 10,
+    ) -> dict[str, Any]:
+        """List the touch paths that lead to conversions"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "fromDate": from_date,
+                "toDate": to_date,
+                "limit": limit,
+            }
+        )
+        return self._client._get("/v1/events/paths", params=params)
+
+    def get_survey_answers(
+        self, from_date: str, to_date: str, *, profile_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get post-purchase survey answers"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "fromDate": from_date,
+                "toDate": to_date,
+            }
+        )
+        return self._client._get("/v1/events/survey", params=params)
+
+    def get_ltv_cohorts(
+        self, from_month: str, to_month: str, *, profile_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get buyer cohorts by first purchase month and first channel"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "fromMonth": from_month,
+                "toMonth": to_month,
+            }
+        )
+        return self._client._get("/v1/events/ltv", params=params)
+
+    def get_events_accuracy(
+        self, *, profile_id: str | None = None, period: str | None = "7d"
+    ) -> dict[str, Any]:
+        """Get delivery accuracy per destination"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "period": period,
+            }
+        )
+        return self._client._get("/v1/events/accuracy", params=params)
+
     def get_events_overview(self, *, profile_id: str | None = None) -> dict[str, Any]:
         """Get today's tracking overview"""
         params = self._build_query(
@@ -427,13 +488,22 @@ class ConversionsResource:
         return self._client._get("/v1/events/overview", params=params)
 
     def get_events_overview_daily(
-        self, *, profile_id: str | None = None, period: str | None = "7d"
+        self,
+        *,
+        profile_id: str | None = None,
+        period: str | None = "7d",
+        event_name: str | None = None,
+        sources: str | None = None,
+        platform: str | None = None,
     ) -> dict[str, Any]:
         """Get daily tracking figures"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "period": period,
+                "eventName": event_name,
+                "sources": sources,
+                "platform": platform,
             }
         )
         return self._client._get("/v1/events/overview/daily", params=params)
@@ -601,6 +671,7 @@ class ConversionsResource:
         consent_mode: Any | None = None,
         custom_hostname: Any | None = None,
         proxy_path: Any | None = None,
+        google_tag_ids: Any | None = None,
     ) -> dict[str, Any]:
         """Update a tracking site"""
         payload = self._build_body(
@@ -610,6 +681,7 @@ class ConversionsResource:
                 "consentMode": consent_mode,
                 "customHostname": custom_hostname,
                 "proxyPath": proxy_path,
+                "googleTagIds": google_tag_ids,
             }
         )
         return self._client._patch(f"/v1/tracking-sites/{site_id}", data=payload)
@@ -1301,6 +1373,8 @@ class ConversionsResource:
         source: str | None = None,
         platform: str | None = None,
         delivery_status: str | None = None,
+        from_ad: bool | None = None,
+        campaign_id: str | None = None,
         cursor: str | None = None,
     ) -> dict[str, Any]:
         """List stored events (async)"""
@@ -1314,6 +1388,8 @@ class ConversionsResource:
                 "source": source,
                 "platform": platform,
                 "deliveryStatus": delivery_status,
+                "fromAd": from_ad,
+                "campaignId": campaign_id,
                 "cursor": cursor,
             }
         )
@@ -1346,6 +1422,63 @@ class ConversionsResource:
             headers["Idempotency-Key"] = idempotency_key
         return await self._client._apost("/v1/events", data=payload, headers=headers)
 
+    async def aget_conversion_paths(
+        self,
+        from_date: str,
+        to_date: str,
+        *,
+        profile_id: str | None = None,
+        limit: int | None = 10,
+    ) -> dict[str, Any]:
+        """List the touch paths that lead to conversions (async)"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "fromDate": from_date,
+                "toDate": to_date,
+                "limit": limit,
+            }
+        )
+        return await self._client._aget("/v1/events/paths", params=params)
+
+    async def aget_survey_answers(
+        self, from_date: str, to_date: str, *, profile_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get post-purchase survey answers (async)"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "fromDate": from_date,
+                "toDate": to_date,
+            }
+        )
+        return await self._client._aget("/v1/events/survey", params=params)
+
+    async def aget_ltv_cohorts(
+        self, from_month: str, to_month: str, *, profile_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get buyer cohorts by first purchase month and first channel (async)"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "fromMonth": from_month,
+                "toMonth": to_month,
+            }
+        )
+        return await self._client._aget("/v1/events/ltv", params=params)
+
+    async def aget_events_accuracy(
+        self, *, profile_id: str | None = None, period: str | None = "7d"
+    ) -> dict[str, Any]:
+        """Get delivery accuracy per destination (async)"""
+        params = self._build_query(
+            {
+                "profileId": profile_id,
+                "period": period,
+            }
+        )
+        return await self._client._aget("/v1/events/accuracy", params=params)
+
     async def aget_events_overview(
         self, *, profile_id: str | None = None
     ) -> dict[str, Any]:
@@ -1358,13 +1491,22 @@ class ConversionsResource:
         return await self._client._aget("/v1/events/overview", params=params)
 
     async def aget_events_overview_daily(
-        self, *, profile_id: str | None = None, period: str | None = "7d"
+        self,
+        *,
+        profile_id: str | None = None,
+        period: str | None = "7d",
+        event_name: str | None = None,
+        sources: str | None = None,
+        platform: str | None = None,
     ) -> dict[str, Any]:
         """Get daily tracking figures (async)"""
         params = self._build_query(
             {
                 "profileId": profile_id,
                 "period": period,
+                "eventName": event_name,
+                "sources": sources,
+                "platform": platform,
             }
         )
         return await self._client._aget("/v1/events/overview/daily", params=params)
@@ -1540,6 +1682,7 @@ class ConversionsResource:
         consent_mode: Any | None = None,
         custom_hostname: Any | None = None,
         proxy_path: Any | None = None,
+        google_tag_ids: Any | None = None,
     ) -> dict[str, Any]:
         """Update a tracking site (async)"""
         payload = self._build_body(
@@ -1549,6 +1692,7 @@ class ConversionsResource:
                 "consentMode": consent_mode,
                 "customHostname": custom_hostname,
                 "proxyPath": proxy_path,
+                "googleTagIds": google_tag_ids,
             }
         )
         return await self._client._apatch(f"/v1/tracking-sites/{site_id}", data=payload)

@@ -59,18 +59,18 @@ DEPLOY_RUNTIME_SCRIPT = (
 
 SIBLING_REPOS = (
     "omnibase_core",
-    "omnibase_compat",
     "onex_change_control",
     "omnimarket",
+    "omniintelligence",
 )
 LAB_REF_REPOS = ("omnibase_infra", *SIBLING_REPOS)
 _DIST_NAME = {
     "omnibase_core": "omnibase-core",
-    "omnibase_compat": "omnibase-compat",
     "onex_change_control": "onex-change-control",
     "omnimarket": "omnimarket",
     "omnibase_infra": "omnibase-infra",
     "omnibase_spi": "omnibase-spi",
+    "omniintelligence": "omninode-intelligence",
 }
 _PIN_VERSION = "9.9.9"
 _FAKE_APP_VERSION = "0.99.0"
@@ -94,6 +94,12 @@ def _init_repo(path: Path, dist: str) -> None:
     (path / "pyproject.toml").write_text(
         f"[project]\nname = '{dist}'\nversion = '{_PIN_VERSION}'\n", encoding="utf-8"
     )
+    if dist == "omnimarket":
+        # OMN-21279: stage_workspace.sh copies the delegation routing ladder out
+        # of the staged omnimarket tree into the build context.
+        ladder = path / "src" / "omnimarket" / "configs"
+        ladder.mkdir(parents=True)
+        (ladder / "routing_tiers.yaml").write_text("tiers: []\n", encoding="utf-8")
     _git(path, "add", "-A")
     _git(path, "commit", "-q", "-m", "init")
 
@@ -101,7 +107,8 @@ def _init_repo(path: Path, dist: str) -> None:
 def _write_consumer_lock(omni_home: Path) -> None:
     blocks = [
         f'[[package]]\nname = "{dist}"\nversion = "{_PIN_VERSION}"\n'
-        for dist in _DIST_NAME.values()
+        for repo, dist in _DIST_NAME.items()
+        if repo != "omniintelligence"  # no lock pins it (OMN-22153)
     ]
     market = omni_home / "omnimarket"
     (market / "uv.lock").write_text("\n".join(blocks), encoding="utf-8")

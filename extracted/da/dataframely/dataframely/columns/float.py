@@ -40,7 +40,8 @@ class _BaseFloat(OrdinalMixin[float], Column):
         metadata: dict[str, Any] | None = None,
         description: str | None = None,
     ):
-        """
+        """Initialize the column and its validation constraints.
+
         Args:
             nullable: Whether this column may contain null values.
                 Explicitly set `nullable=True` if you want your column to be nullable.
@@ -149,6 +150,14 @@ class _BaseFloat(OrdinalMixin[float], Column):
             result["inf"] = ~expr.is_infinite()
         if not self.allow_nan:
             result["nan"] = ~expr.is_nan()
+        else:
+            # Ordered comparisons do not accept NaN. Polars ranks NaN above every
+            # number, so upper bounds reject it while lower bounds do not. When NaN
+            # is allowed, bound rules must pass it through and leave the decision
+            # to `allow_nan`.
+            for name in ("min", "min_exclusive", "max", "max_exclusive"):
+                if name in result:
+                    result[name] = result[name] | expr.is_nan()
         return result
 
     def _sample_unchecked(self, generator: Generator, n: int) -> pl.Series:

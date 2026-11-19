@@ -30,6 +30,7 @@ from qtpy.QtGui import QDragEnterEvent
 from qtpy.QtGui import QDropEvent
 from qtpy.QtWidgets import QAction
 from qtpy.QtWidgets import QCheckBox
+from qtpy.QtWidgets import QDoubleSpinBox
 from qtpy.QtWidgets import QFrame
 from qtpy.QtWidgets import QGestureEvent
 from qtpy.QtWidgets import QMenuBar
@@ -59,6 +60,8 @@ from pyvistaqt.editor import Editor
 from pyvistaqt.plotting import Counter
 from pyvistaqt.plotting import QTimer
 from pyvistaqt.plotting import QVTKRenderWindowInteractor
+from pyvistaqt.plotting import _ndarray_to_qpixmap
+from pyvistaqt.plotting import resample_image
 from pyvistaqt.utils import _TERMINAL_OUTPUT_GUARDS
 from pyvistaqt.utils import _check_type
 from pyvistaqt.utils import _create_menu_bar
@@ -268,7 +271,7 @@ def test_mouse_interactions(qtbot, debug_log_level) -> None:  # noqa: D103,ARG00
     point = QPoint(0, 0)
     if not BAD_INTERACTION:
         qtbot.mouseMove(interactor, point)
-        qtbot.mouseClick(interactor, QtCore.Qt.LeftButton)
+        qtbot.mouseClick(interactor, QtCore.Qt.MouseButton.LeftButton)
     plotter.close()
 
 
@@ -321,6 +324,58 @@ def test_screenshot_unrealized(qtbot) -> None:
     assert img.shape == (round(size[1] * dpr), round(size[0] * dpr), 3)
     assert 0.0 < img.any(-1).mean() < 1.0  # the sphere actually rendered
     plotter.close()
+
+
+def test_window_size(qtbot, plotting) -> None:  # noqa: ARG001
+    """``window_size`` accepts a list and follows the actual window size."""
+    plotter = BackgroundPlotter(show=False, off_screen=False, window_size=[500, 400])
+    qtbot.addWidget(plotter.app_window)
+    assert plotter.window_size == (500, 400)
+    plotter.app_window.resize(600, 450)
+    assert plotter.window_size == (600, 450)
+    plotter.window_size = [550, 420]
+    assert plotter.window_size == (550, 420)
+    plotter.close()
+
+
+@pytest.mark.parametrize("size", [10, 400, 401, 799, 800, 1024, 1200])
+def test_resample_image(size) -> None:
+    """``resample_image`` keeps the last row/column and fits non-divisible sizes."""
+    arr = np.full((size, size, 3), 255, dtype=np.uint8)
+    img = resample_image(arr)
+    max_size = min(400, size)
+    assert img.shape == (max_size, max_size, 3)
+    stride = int(np.ceil(size / max_size))
+    n = len(range(0, size, stride))
+    lo = (max_size - n) // 2
+    covered = img[lo : lo + n, lo : lo + n]
+    assert (covered == 255).all()
+    # the sampled image is centered, everything else is padding
+    assert (img == 255).sum() == covered.size
+    if n == max_size:  # fully covered: no black last row/column
+        assert (img[-1] == 255).all()
+        assert (img[:, -1] == 255).all()
+
+
+@pytest.mark.parametrize("n_channels", [3, 4])
+def test_ndarray_to_qpixmap(qapp, n_channels) -> None:  # noqa: ARG001
+    """Odd-width RGB(A) arrays must not be skewed (bytesPerLine)."""
+    img = np.zeros((5, 5, n_channels), dtype=np.uint8)
+    img[..., 0] = 255  # red
+    img[1, 3, :3] = (0, 255, 0)  # one green pixel at row 1, column 3
+    if n_channels == 4:
+        img[..., 3] = 255
+        img[4, 4, 3] = 0  # one fully transparent pixel
+    image = _ndarray_to_qpixmap(img).toImage()
+    assert (image.width(), image.height()) == (5, 5)
+    for row in range(5):
+        for col in range(5):
+            color = image.pixelColor(col, row)
+            if n_channels == 4 and (row, col) == (4, 4):
+                assert color.alpha() == 0
+                continue
+            expected = (0, 255, 0) if (row, col) == (1, 3) else (255, 0, 0)
+            assert (color.red(), color.green(), color.blue(), color.alpha()) == (*expected, 255), (row, col)
 
 
 def test_close_removes_vtk_observers(qtbot) -> None:
@@ -384,6 +439,209 @@ def test_default_surface_format(qtbot) -> None:
     assert (fmt.majorVersion(), fmt.minorVersion()) >= (3, 2)
     assert fmt.profile() == QSurfaceFormat.OpenGLContextProfile.CoreProfile
     assert fmt.renderableType() == QSurfaceFormat.RenderableType.OpenGL
+    plotter.close()
+
+
+def test_default_surface_format_respects_application(qtbot) -> None:
+    """Our format replaces an unsuitable default but not a suitable one the application chose."""
+    from qtpy.QtGui import QSurfaceFormat  # noqa: PLC0415
+
+    from pyvistaqt.rwi import _default_format  # noqa: PLC0415
+    from pyvistaqt.rwi import _is_suitable_format  # noqa: PLC0415
+
+    # Earlier tests have already installed our format, so start from what a
+    # fresh application reports, and restore whatever was there afterward.
+    previous = QSurfaceFormat.defaultFormat()
+    try:
+        QSurfaceFormat.setDefaultFormat(QSurfaceFormat())
+        assert not _is_suitable_format(QSurfaceFormat.defaultFormat())
+        plotter = QtInteractor(off_screen=True)
+        qtbot.addWidget(plotter)
+        plotter.close()
+        assert QSurfaceFormat.defaultFormat() == _default_format()
+
+        app_format = QSurfaceFormat()
+        app_format.setRenderableType(QSurfaceFormat.RenderableType.OpenGL)
+        app_format.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
+        app_format.setVersion(4, 1)
+        app_format.setSamples(2)
+        QSurfaceFormat.setDefaultFormat(app_format)
+        plotter = QtInteractor(off_screen=True)
+        qtbot.addWidget(plotter)
+        plotter.close()
+        fmt = QSurfaceFormat.defaultFormat()
+        assert fmt == app_format
+        assert fmt.samples() == 2
+    finally:
+        QSurfaceFormat.setDefaultFormat(previous)
+
+
+def test_stereo_warns(qtbot) -> None:
+    """Quad-buffer stereo is not available in the FBO widget, so asking for it warns."""
+    with pytest.warns(UserWarning, match="stereo is not supported"):
+        plotter = QtInteractor(off_screen=True, stereo=True)
+    qtbot.addWidget(plotter)
+    plotter.close()
+
+
+def test_wflags(qtbot) -> None:
+    """``wflags`` reaches the QOpenGLWidget."""
+    plotter = QtInteractor(off_screen=True, wflags=Qt.WindowType.Tool)
+    qtbot.addWidget(plotter)
+    assert plotter.windowType() == Qt.WindowType.Tool
+    plotter.close()
+
+
+@pytest.mark.parametrize("off_screen", [True, False])
+def test_capture_reflects_scene(qtbot, off_screen) -> None:
+    """
+    Screenshots and movie frames show the scene as it is when they are taken.
+
+    Two things went wrong without the event loop running in between. Where
+    ``render`` is deferred to the event loop (macOS), ``screenshot`` read back
+    the previous frame; and ``write_frame`` relies on ``update()``, which for
+    a Qt widget only schedules a repaint, so every frame of a movie written
+    from a loop was the same image. An off-screen plotter also never rendered
+    at all, because its interactor is not enabled, and returned garbage.
+    """
+    if _no_gl():
+        pytest.skip("Qt did not provide a GL context (macOS software GL)")
+    plotter = BackgroundPlotter(show=False, off_screen=off_screen, window_size=(200, 150), auto_update=False, update_app_icon=False)
+    qtbot.addWidget(plotter.app_window)
+    plotter.set_background("black")
+    plotter.add_mesh(pyvista.Sphere(), color="white")
+
+    img = plotter.screenshot()
+    assert 0.0 < img.any(-1).mean() < 1.0  # the sphere on its background
+    np.testing.assert_array_equal(img[0, 0], [0, 0, 0])
+    # and reproducibly, up to the last bit: with multisampling, some Linux GPU
+    # drivers (NVIDIA) resolve a few edge pixels one gray level differently
+    # from one render of the same scene to the next
+    np.testing.assert_allclose(plotter.screenshot().astype(int), img.astype(int), atol=1)
+
+    # render explicitly: before PyVista 0.50, screenshot() does not render
+    plotter.renderer.SetBackground(1.0, 0.0, 0.0)
+    plotter.render()
+    np.testing.assert_array_equal(plotter.screenshot()[0, 0], [255, 0, 0])
+
+    frames = []
+
+    class Writer:
+        def append_data(self, frame) -> None:
+            frames.append(frame[0, 0].tolist())
+
+        def close(self) -> None:
+            pass
+
+    plotter.mwriter = Writer()
+    for color in [(0.0, 1.0, 0.0), (0.0, 0.0, 1.0)]:
+        plotter.renderer.SetBackground(*color)
+        plotter.write_frame()
+    assert frames == [[0, 255, 0], [0, 0, 255]]
+    plotter.close()
+
+
+def test_render_renders_once(qtbot, plotting) -> None:  # noqa: ARG001
+    """
+    A render is shown by blitting it, not by rendering the scene a second time.
+
+    A finished VTK render schedules a paint to put its frame on screen. That
+    paint used to render again, so every ``render()`` and every interaction
+    cost two VTK renders. Paints with any other cause must still render.
+    """
+    if _no_gl():
+        pytest.skip("Qt did not provide a GL context (macOS software GL)")
+    plotter = BackgroundPlotter(off_screen=False, update_app_icon=False, auto_update=False, window_size=(300, 300))
+    qtbot.addWidget(plotter.app_window)
+    plotter.set_background("black")
+    with wait_exposed(qtbot, plotter.app_window):
+        plotter.app_window.show()
+    qtbot.wait(10)  # let pending paints go through
+    if plotter._ctx is None:  # noqa: SLF001
+        pytest.skip("Qt did not provide a GL context (macOS software GL)")
+    renders = []
+    plotter.renderer.AddObserver("StartEvent", lambda *_: renders.append(1))
+
+    # the paint scheduled by a finished render shows that render's frame
+    plotter.renderer.SetBackground(1.0, 0.0, 0.0)
+    plotter._render()  # noqa: SLF001
+    assert len(renders) == 1
+    image = plotter.grabFramebuffer()  # paints synchronously
+    assert len(renders) == 1
+    color = image.pixelColor(image.width() // 2, image.height() // 2)
+    assert (color.red(), color.green(), color.blue()) == (255, 0, 0)
+
+    # The scheduled paints do not render again either. The window system can
+    # ask for a repaint of its own at any time, which legitimately renders, so
+    # allow a few of those: rendering twice per call would give 2 * n_render.
+    renders.clear()
+    n_render = 10
+    for _ in range(n_render):
+        plotter.render()
+        qtbot.wait(20)
+    assert n_render <= len(renders) <= n_render + 3
+
+    # a paint with another cause renders, as the scene may have changed.
+    # Wayland delivers no paints to a window that the compositor is not
+    # showing (one that opened behind another window, say), so the paint
+    # scheduled by the last render can still be pending: flush it first.
+    plotter.grabFramebuffer()
+    renders.clear()
+    plotter.renderer.SetBackground(0.0, 0.0, 1.0)
+    image = plotter.grabFramebuffer()
+    assert len(renders) == 1
+    color = image.pixelColor(image.width() // 2, image.height() // 2)
+    assert (color.red(), color.green(), color.blue()) == (0, 0, 255)
+
+    # a frame rendered before a resize is not reused at the new size
+    renders.clear()
+    plotter._render()  # noqa: SLF001
+    plotter.app_window.resize(360, 340)
+    qtbot.wait(50)
+    assert len(renders) >= 2
+    plotter.close()
+
+
+def test_render_returns_none_and_renders(qtbot, plotting, monkeypatch) -> None:  # noqa: ARG001
+    """
+    ``render`` returns None everywhere and the scene is rendered on the GUI thread.
+
+    On macOS the render is deferred to the event loop (rendering synchronously
+    from inside VTK callbacks segfaulted there), without spawning a thread.
+    """
+    if _no_gl():
+        pytest.skip("Qt did not provide a GL context (macOS software GL)")
+    plotter = BackgroundPlotter(off_screen=False, update_app_icon=False, auto_update=False)
+    qtbot.addWidget(plotter.app_window)
+    plotter.add_mesh(pyvista.Sphere())
+    with wait_exposed(qtbot, plotter.app_window):
+        plotter.app_window.show()
+    qtbot.wait(10)  # let pending paints go through
+
+    # The slot calls BasePlotter.render, which renders the render window.
+    from pyvistaqt import plotting as plotting_module  # noqa: PLC0415
+
+    base_render = plotting_module.BasePlotter.render
+    calls: list[bool] = []
+
+    def counting_render(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        calls.append(threading.current_thread() is threading.main_thread())
+        return base_render(self, *args, **kwargs)
+
+    monkeypatch.setattr(plotting_module.BasePlotter, "render", counting_render)
+    render_window = plotter.render_window
+    ends: list[bool] = []
+    tag = render_window.AddObserver("EndEvent", lambda *_: ends.append(True))
+    threads_before = threading.active_count()
+    try:
+        assert plotter.render() is None
+        assert threading.active_count() <= threads_before  # no thread spawned
+        if sys.platform == "darwin":
+            assert calls == []  # deferred, not rendered synchronously
+        qtbot.waitUntil(lambda: bool(calls) and bool(ends))
+    finally:
+        render_window.RemoveObserver(tag)
+    assert all(calls)  # on the GUI thread
     plotter.close()
 
 
@@ -609,6 +867,52 @@ def test_editor(qtbot, plotting) -> None:  # noqa: ARG001, D103
     plotter.close()
 
 
+def test_editor_actor_widget(qtbot, plotting) -> None:  # noqa: ARG001
+    """The actor page controls must act on the actor, and pages must not pile up."""
+    plotter = BackgroundPlotter(show=False, off_screen=False)
+    qtbot.addWidget(plotter.app_window)
+    actor = plotter.add_mesh(pyvista.Sphere())
+    editor = plotter.editor
+    editor.update()
+    n_pages = editor.stacked_widget.count()
+    assert n_pages == 2  # one renderer, one actor
+    for _ in range(3):
+        editor.update()
+    assert editor.stacked_widget.count() == n_pages
+
+    child_item = editor.tree_widget.topLevelItem(0).child(0)
+    page = editor.stacked_widget.widget(child_item.data(0, Qt.ItemDataRole.UserRole))
+    visibility = page.findChild(QCheckBox)
+    opacity = page.findChild(QDoubleSpinBox)
+    assert visibility.isChecked()
+    assert actor.GetVisibility()
+    visibility.setChecked(False)
+    assert not actor.GetVisibility()
+    visibility.setChecked(True)
+    assert actor.GetVisibility()
+    assert actor.GetProperty().GetOpacity() == 1.0
+    opacity.setValue(0.5)
+    assert actor.GetProperty().GetOpacity() == 0.5
+    plotter.close()
+
+
+def test_add_editor_without_menu_bar(qtbot, plotting) -> None:  # noqa: ARG001
+    """``add_editor`` must work without a menu bar (no menu action added)."""
+    plotter = BackgroundPlotter(show=False, off_screen=False, menu_bar=False)
+    qtbot.addWidget(plotter.app_window)
+    assert plotter.main_menu is None
+    assert plotter.editor is None
+    plotter.add_editor()
+    assert_hasattr(plotter, "editor", Editor)
+    assert plotter._editor_action is None  # noqa: SLF001
+    editor = plotter.editor
+    with wait_exposed(qtbot, editor):
+        editor.toggle()
+    assert editor.isVisible()
+    plotter.close()
+    assert not editor.isVisible()
+
+
 @pytest.fixture
 def ensure_closed():  # noqa: ANN201
     """Ensure all plotters are closed."""
@@ -785,6 +1089,25 @@ def test_background_plotting_axes_scale(qtbot, show_plotter, plotting) -> None: 
     assert not dlg.isVisible()
 
 
+def test_scale_axes_dialog_no_layout_warning(qtbot, plotting) -> None:  # noqa: ARG001
+    """Building the dialog must not make Qt warn about re-parented layouts."""
+    plotter = BackgroundPlotter(show=False, off_screen=False)
+    qtbot.addWidget(plotter.app_window)
+    messages = []
+
+    def _handler(mode, context, message) -> None:  # noqa: ARG001
+        messages.append(message)
+
+    previous = QtCore.qInstallMessageHandler(_handler)
+    try:
+        dlg = plotter.scale_axes_dialog(show=False)
+    finally:
+        QtCore.qInstallMessageHandler(previous)
+    assert not [msg for msg in messages if "QLayout" in msg]
+    assert dlg.x_slider_group.parent() is not None  # adopted by the form layout
+    plotter.close()
+
+
 def test_background_plotting_camera(qtbot, plotting) -> None:  # noqa: ARG001, D103
     plotter = BackgroundPlotter(off_screen=False, title="Testing Window")
     plotter.add_mesh(pyvista.Sphere())
@@ -799,9 +1122,56 @@ def test_background_plotting_camera(qtbot, plotting) -> None:  # noqa: ARG001, D
     plotter.saved_cameras_tool_bar.actions()[2].trigger()
     assert plotter.camera_position == cpos
 
+    # the number key shortcut loads the saved position too
+    key_callbacks = plotter.iren._key_press_event_callbacks  # noqa: SLF001
+    assert len(key_callbacks["1"]) == 1
+    plotter.camera_position = [(0.0, 0.0, 3.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0)]
+    key_callbacks["1"][0]()
+    assert plotter.camera_position == cpos
+
+    # a callback of the user's own on the same key survives clearing
+    calls = []
+    plotter.add_key_event("1", lambda: calls.append(1))
+    assert len(key_callbacks["1"]) == 2
+
     plotter.clear_camera_positions()
     # 2 because the first two buttons are save and clear
     assert len(plotter.saved_cameras_tool_bar.actions()) == 2
+    assert plotter.saved_camera_positions == []
+    # and the number key no longer jumps to the cleared position
+    cpos_2 = [(0.0, 0.0, 3.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0)]
+    plotter.camera_position = cpos_2
+    assert len(key_callbacks["1"]) == 2
+    for callback in key_callbacks["1"]:
+        callback()
+    assert plotter.camera_position == cpos_2
+    assert calls == [1]
+
+    # saving again reuses the key binding rather than stacking another one
+    plotter.save_camera_position()
+    assert len(key_callbacks["1"]) == 2
+    plotter.camera_position = cpos
+    key_callbacks["1"][0]()
+    assert plotter.camera_position == cpos_2
+    plotter.close()
+
+
+def test_background_plotting_camera_off_screen_or_no_toolbar(qtbot, plotting) -> None:  # noqa: ARG001
+    """Saving and clearing cameras works off screen (no iren) and without a toolbar."""
+    plotter = BackgroundPlotter(off_screen=True, update_app_icon=False)
+    assert plotter.iren is None
+    plotter.save_camera_position()
+    assert len(plotter.saved_camera_positions) == 1
+    assert len(plotter.saved_cameras_tool_bar.actions()) == 3
+    plotter.clear_camera_positions()
+    assert plotter.saved_camera_positions == []
+    assert len(plotter.saved_cameras_tool_bar.actions()) == 2
+    plotter.close()
+
+    plotter = BackgroundPlotter(off_screen=False, toolbar=False, update_app_icon=False)
+    plotter.save_camera_position()  # a no-op without the camera toolbar
+    assert plotter.saved_camera_positions is None
+    assert "1" not in plotter.iren._key_press_event_callbacks  # noqa: SLF001
     plotter.close()
 
 
@@ -838,7 +1208,7 @@ def test_background_plotting_close_gc(qtbot, plotting) -> None:  # noqa: ARG001
     assert ref() is None
 
 
-@pytest.mark.parametrize("other_views", [None, 0, [0]])
+@pytest.mark.parametrize("other_views", [None, 0, [0], np.array([0], dtype=np.int32)])
 def test_link_views_across_plotters(other_views) -> None:  # noqa: D103
     def _to_array(camera_position):  # noqa: ANN202
         return np.asarray([list(row) for row in camera_position])
@@ -1003,12 +1373,7 @@ def test_background_plotter_export_vtkjs(qtbot, tmpdir, plotting, trame_array_ca
     dlg = plotter._qt_export_vtkjs(show=False)  # FileDialog  # noqa: SLF001
     qtbot.addWidget(dlg)  # register the dialog
 
-    if _HAS_TRAME_COMPONENT or hasattr(plotter, "export_vtksz"):
-        ext = ".vtksz"
-        filename = str(os.path.join(output_dir, f"tmp{ext}"))  # noqa: PTH118
-    else:
-        ext = ".vtkjs"
-        filename = str(os.path.join(output_dir, "tmp"))  # noqa: PTH118
+    filename = str(os.path.join(output_dir, "tmp.vtksz"))  # noqa: PTH118
     dlg.selectFile(filename)
 
     # show the dialog
@@ -1026,10 +1391,7 @@ def test_background_plotter_export_vtkjs(qtbot, tmpdir, plotting, trame_array_ca
     plotter.close()
     assert not window.isVisible()
 
-    if ext == ".vtksz":
-        assert os.path.isfile(filename)  # noqa: PTH113
-    else:
-        assert os.path.isfile(filename + ext)  # noqa: PTH113
+    assert os.path.isfile(filename)  # noqa: PTH113
 
 
 def test_background_plotting_orbit(qtbot, plotting) -> None:  # noqa: ARG001, D103
@@ -1040,12 +1402,11 @@ def test_background_plotting_orbit(qtbot, plotting) -> None:  # noqa: ARG001, D1
     plotter.orbit_on_path(threaded=True, step=0.0)
     plotter.close()
     # Released pyvista's threaded orbit is fire-and-forget and close() does
-    # not stop it (pyvista#8804 does); on macOS every render() also spawns a
-    # thread. A still-running thread's frame holds the plotter, tripping
+    # not stop it (pyvista#8804 does). A still-running thread's frame holds the plotter, tripping
     # check_gc on runners slow enough for the orbit to outlive the test
     # (macOS Intel), so wait (best effort) for the threads the orbit spawned.
     for thread in set(threading.enumerate()) - threads_before:
-        # Only pyvista's render/orbit worker threads (plain Thread) can hold
+        # Only pyvista's orbit worker thread (a plain Thread) can hold
         # the plotter; a stray stdlib threading.Timer from test infrastructure
         # never does and may outlive the wait, so skip it.
         if isinstance(thread, threading.Timer):
@@ -1063,7 +1424,6 @@ def test_background_plotting_orbit(qtbot, plotting) -> None:  # noqa: ARG001, D1
                 break
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="#508")
 def test_background_plotting_toolbar(qtbot, plotting) -> None:  # noqa: ARG001, D103
     with pytest.raises(TypeError, match="toolbar"):  # noqa: PT012
         p = BackgroundPlotter(off_screen=False, toolbar="foo")
@@ -1157,16 +1517,24 @@ def test_drop_event(tmpdir, qtbot) -> None:  # noqa: D103
     with wait_exposed(qtbot, plotter.app_window):
         plotter.app_window.show()
     point = QPointF(0, 0)
-    data = QMimeData()
-    data.setUrls([QUrl(filename)])
-    event = QDropEvent(
-        point,
-        Qt.DropAction.IgnoreAction,
-        data,
-        Qt.MouseButton.NoButton,
-        Qt.KeyboardModifier.NoModifier,
-    )
-    plotter.dropEvent(event)
+    for url, loaded in (
+        (QUrl.fromLocalFile(filename + ".missing"), False),
+        (QUrl.fromLocalFile(filename), True),  # a file:// URL, as a real drop delivers
+    ):
+        n_actors = len(plotter.renderer.actors)
+        data = QMimeData()
+        data.setUrls([url])
+        event = QDropEvent(
+            point,
+            Qt.DropAction.IgnoreAction,
+            data,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        event.ignore()
+        plotter.dropEvent(event)
+        assert event.isAccepted() is loaded
+        assert len(plotter.renderer.actors) == n_actors + loaded
     plotter.close()
 
 
@@ -1177,14 +1545,20 @@ def test_drag_event(tmpdir) -> None:  # noqa: D103
     mesh.save(filename)
     assert os.path.isfile(filename)  # noqa: PTH113
     plotter = BackgroundPlotter(update_app_icon=False)
-    data = QMimeData()
-    data.setUrls([QUrl(filename)])
-    args = (Qt.DropAction.IgnoreAction, data, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
-    try:  # Qt >= 6.12 deprecates the QPoint overload
-        event = QDragEnterEvent(QPointF(0, 0), *args)
-    except TypeError:
-        event = QDragEnterEvent(QPoint(0, 0), *args)
-    plotter.dragEnterEvent(event)
+    for url, accepted in (
+        (QUrl.fromLocalFile(filename + ".missing"), False),
+        (QUrl.fromLocalFile(filename), True),  # a file:// URL, as a real drag delivers
+    ):
+        data = QMimeData()
+        data.setUrls([url])
+        args = (Qt.DropAction.IgnoreAction, data, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        try:  # Qt >= 6.12 deprecates the QPoint overload
+            event = QDragEnterEvent(QPointF(0, 0), *args)
+        except TypeError:
+            event = QDragEnterEvent(QPoint(0, 0), *args)
+        event.ignore()
+        plotter.dragEnterEvent(event)
+        assert event.isAccepted() is accepted
     plotter.close()
 
 
@@ -1277,9 +1651,30 @@ def test_background_plotting_add_callback(qtbot, monkeypatch, plotting) -> None:
                 pass
         assert not callback_timer.isActive()  # counter stops the callback
 
-    plotter.add_callback(mycallback, interval=200)
+    returned_timer = plotter.add_callback(mycallback, interval=200)
     callback_timer = plotter._callback_timer  # QTimer  # noqa: SLF001
+    assert returned_timer is callback_timer
     assert callback_timer.isActive()
+
+    # Each call returns its own timer, so an earlier one can still be stopped
+    # after a later add_callback replaced ``_callback_timer``.
+    calls = [0]
+
+    def count_calls() -> None:
+        calls[0] += 1
+
+    first_timer = plotter.add_callback(count_calls, interval=10)
+    later_timer = plotter.add_callback(lambda: None, interval=200)
+    assert plotter._callback_timer is later_timer  # noqa: SLF001
+    assert first_timer is not later_timer
+    assert first_timer.isActive()
+    qtbot.waitUntil(lambda: calls[0] > 0, timeout=10000)
+    first_timer.stop()
+    assert not first_timer.isActive()
+    assert later_timer.isActive()
+    n_calls = calls[0]
+    qtbot.wait(100)
+    assert calls[0] == n_calls  # stopped: no more callbacks
 
     if not BAD_INTERACTION:
         print("ensure that self.callback_timer send a signal")
@@ -1568,7 +1963,7 @@ def test_background_plotting_plots(qtbot, plotting, ensure_closed, aa) -> None: 
         if skip_reason:
             plotter.close()
             pytest.skip(skip_reason)
-    # `image` grabs the buffer as-is, and `plotter.render()` is threaded on Darwin, so draw synchronously
+    # `image` grabs the buffer as-is, and `plotter.render()` is deferred on Darwin, so draw synchronously
     plotter.render_window.Render()
     img = np.array(plotter.image)
     drawn = img.any(-1)

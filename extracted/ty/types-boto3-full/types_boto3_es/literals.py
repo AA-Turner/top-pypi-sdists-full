@@ -256,6 +256,7 @@ VpcEndpointStatusType = Literal[
 ]
 ElasticsearchServiceServiceName = Literal["es"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

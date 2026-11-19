@@ -32,6 +32,7 @@ __all__ = (
 UsageRecordResultStatusType = Literal["CustomerNotSubscribed", "DuplicateRecord", "Success"]
 MarketplaceMeteringServiceName = Literal["meteringmarketplace"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

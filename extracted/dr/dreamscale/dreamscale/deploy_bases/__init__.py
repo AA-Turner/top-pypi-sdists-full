@@ -17,7 +17,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from dreamscale_transport import families as manifest
+from dreamscale import _deployment_families as manifest
 
 
 class _Module:
@@ -176,6 +176,8 @@ class DeployBase:
     # robot -> ``module:function(rig, runner)`` returning the rig's observe for its deployments
     # (their cameras under the deployment's own names; ``runner``: () -> the task runner).
     robot_observe: Mapping[str, str] = field(default_factory=dict)
+    # Serving model IDs identifying deployments created before rows had a base model.
+    row_models: tuple[str, ...] = ()
 
 
 def _load_bases() -> tuple[DeployBase, ...]:
@@ -183,11 +185,14 @@ def _load_bases() -> tuple[DeployBase, ...]:
     for family in manifest.FAMILIES:
         if family.deploy is None:
             continue
-        module = getattr(family, "sdk_module", None) or f"{__name__}.{family.id}"
-        base = importlib.import_module(module).BASE
+        path = getattr(family, "sdk_module", None) or f"{__name__}.{family.id}"
+        module = importlib.import_module(path)
+        base = module.BASE
         if not isinstance(base, DeployBase) or base.family != family.id:
-            raise RuntimeError(f"{module}.BASE is not its DeployBase")
+            raise RuntimeError(f"{path}.BASE is not its DeployBase")
         out.append(base)
+        # Previously deployed rows and clients keep their own host and request contract.
+        out.extend(getattr(module, "LEGACY_BASES", ()))
     aliases = [alias for base in out for alias in (base.name, *base.aliases)]
     if len(set(aliases)) != len(aliases):
         raise RuntimeError("two deployment bases share a name")
@@ -229,7 +234,7 @@ def of_model(model: str | None) -> DeployBase | None:
     alias), else None."""
     for base in bases():
         deploy = manifest.family(base.family).deploy
-        if model in (deploy.base, deploy.public_id):
+        if model in (base.name, deploy.base, deploy.public_id):
             return base
     return None
 

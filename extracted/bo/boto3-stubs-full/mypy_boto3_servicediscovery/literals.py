@@ -80,6 +80,7 @@ ServiceTypeOptionType = Literal["HTTP"]
 ServiceTypeType = Literal["DNS", "DNS_HTTP", "HTTP"]
 ServiceDiscoveryServiceName = Literal["servicediscovery"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

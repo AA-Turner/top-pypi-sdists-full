@@ -71,6 +71,7 @@ TrainingDataSourceEnumType = Literal["EXTERNAL_EVENTS", "INGESTED_EVENTS"]
 UnlabeledEventsTreatmentType = Literal["AUTO", "FRAUD", "IGNORE", "LEGIT"]
 FraudDetectorServiceName = Literal["frauddetector"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

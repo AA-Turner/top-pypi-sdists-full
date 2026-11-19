@@ -16,17 +16,17 @@
 //!
 //! The following transformations are applied to make expressions safe for evaluation:
 //!
-//! 1. **Variable access** - `my_var` → `variable(context, source, token, "my_var")` where `token` is `(start_index, end_index)`
-//! 2. **Function calls** - `foo(1, 2, a=3, *args, **kwargs)` → `call(context, source, token, foo, 1, 2, a=x, *args, **kwargs)`
-//! 3. **Attribute access** - `obj.attr` → `attribute(context, source, token, obj, "attr")`
-//! 4. **Subscript access** - `obj[key]` → `subscript(context, source, token, obj, key)`
-//! 5. **Walrus operator** - `(x := value)` → `assign(context, source, token, "x", value)` where `token` contains the entire expression range
+//! 1. **Variable access** - `my_var` → `_sx_variable(_sx_context, _sx_source, token, "my_var")` where `token` is `(start_index, end_index)`
+//! 2. **Function calls** - `foo(1, 2, a=3, *args, **kwargs)` → `_sx_call(_sx_context, _sx_source, token, foo, 1, 2, a=x, *args, **kwargs)`
+//! 3. **Attribute access** - `obj.attr` → `_sx_attribute(_sx_context, _sx_source, token, obj, "attr")`
+//! 4. **Subscript access** - `obj[key]` → `_sx_subscript(_sx_context, _sx_source, token, obj, key)`
+//! 5. **Walrus operator** - `(x := value)` → `_sx_assign(_sx_context, _sx_source, token, "x", value)` where `token` contains the entire expression range
 //!
 //! Because of the changes above, we also need to transform:
 //!
-//! 6. **Slice notation** - `obj[1:10:2]` → `subscript(context, source, token, obj, slice(context, source, token, 1, 10, 2))` - Because slice syntax is valid only inside square brackets.
-//! 7. **F-strings** - `f"Hello {price!r:.2f}"` → `format(context, source, token, "Hello {}", (variable(context, source, token, "price"), "r", ".2f"))` - To avoid issues with quote escaping and enable error reporting
-//! 8. **T-strings** - `t"Hello {name!r:>10}"` → `template(context, source, token, "Hello ", interpolation(context, source, token, variable(context, source, token, "name"), "expr", "r", ">10"))` - To avoid issues with quote escaping
+//! 6. **Slice notation** - `obj[1:10:2]` → `_sx_subscript(_sx_context, _sx_source, token, obj, _sx_slice(_sx_context, _sx_source, token, 1, 10, 2))` - Because slice syntax is valid only inside square brackets.
+//! 7. **F-strings** - `f"Hello {price!r:.2f}"` → `_sx_format(_sx_context, _sx_source, token, "Hello {}", (_sx_variable(_sx_context, _sx_source, token, "price"), "r", ".2f"))` - To avoid issues with quote escaping and enable error reporting
+//! 8. **T-strings** - `t"Hello {name!r:>10}"` → `_sx_template(_sx_context, _sx_source, token, "Hello ", _sx_interpolation(_sx_context, _sx_source, token, _sx_variable(_sx_context, _sx_source, token, "name"), "expr", "r", ">10"))` - To avoid issues with quote escaping
 //!
 //! ## Variable Scoping
 //!
@@ -34,11 +34,11 @@
 //!
 //! ### Comprehensions
 //! Variables introduced in comprehensions are local to the comprehension and NOT transformed:
-//! - `[x for x in items]` → `[x for x in variable(context, source, token, "items")]`
+//! - `[x for x in items]` → `[x for x in _sx_variable(_sx_context, _sx_source, token, "items")]`
 //! - The variable `x` is NOT transformed because it's local to the comprehension
 //!
 //! Walrus assignments in comprehensions ARE transformed and DO leak out (matching Python behavior):
-//! - `[y for x in items if (y := x + 1)]` → `[assign(context, source, token, "y", x + 1) for x in variable(context, source, token, "items")]`
+//! - `[y for x in items if (y := x + 1)]` → `[_sx_assign(_sx_context, _sx_source, token, "y", x + 1) for x in _sx_variable(_sx_context, _sx_source, token, "items")]`
 //! - the variable `y` is accessible after the comprehension
 //!
 //! If you define walrus variable with the same name as comprehension variables,
@@ -146,7 +146,7 @@
 // - 🔵✅ Dict             - ExprDict
 //
 // Variables:
-// - 🔵⚠️ Name           - ExprName           (variable name) - Wrap in `variable(context, source, token, "name")`
+// - 🔵⚠️ Name           - ExprName           (variable name) - Wrap in `_sx_variable(_sx_context, _sx_source, token, "name")`
 // - 🔵✅ Load           - ExprContext::Load  (x)
 // - 🔵❌ Store          - ExprContext::Store (x = 1)
 // - 🔵❌ Del            - ExprContext::Del   (del x)
@@ -250,17 +250,28 @@
 // - ❌                - StmtIpyEscapeCommand
 // - ❌                - ExprIpyEscapeCommand
 
+use crate::codegen::generate_python_code;
 use crate::comments::extract_comments;
+use crate::nesting::check_code_nesting;
+use crate::parse::parse_expression;
+use crate::stack::with_enough_stack;
+use crate::utils::literal_source::{
+    escape_format_braces, has_surrogate_escape, interpolated_text_as_plain_body,
+    plain_literal_text, source_text,
+};
+pub use crate::utils::python_ast::{GENERATED_NAME_PREFIX, GENERATED_NAMES};
 use crate::utils::python_ast::{
     attribute, call, get_expr_range, interceptor_call, none_literal, string_literal,
 };
 use regex::Regex;
 use ruff_python_ast::visitor::transformer::Transformer;
 use ruff_python_ast::{self as ast, Expr, Stmt};
-use ruff_python_parser::{parse_expression, Parsed};
+use ruff_python_parser::{Parsed, TokenKind};
 use ruff_source_file::LineIndex;
+use ruff_text_size::Ranged;
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::rc::Rc;
 
 /// Metadata of a matched token with its position information
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -295,6 +306,9 @@ pub struct TransformResult {
     pub assigned_vars: Vec<Token>,
     /// Comments found in the original source
     pub comments: Vec<Comment>,
+    /// The transformed expression as Python code, already checked by
+    /// `nesting::check_code_nesting`
+    pub code: String,
 }
 
 /// Adjust byte ranges in error messages to account for source wrapping
@@ -360,7 +374,11 @@ fn adjust_token_position(
     (adjusted_start, adjusted_end, adjusted_line, adjusted_col)
 }
 
-pub fn parse_expression_with_adjusted_error_ranges(wrapped_source: &str, source: &str, wrap_prefix_len: usize) -> Result<Parsed<ast::ModExpression>, String> {
+pub fn parse_expression_with_adjusted_error_ranges(
+    wrapped_source: &str,
+    source: &str,
+    wrap_prefix_len: usize,
+) -> Result<Parsed<ast::ModExpression>, String> {
     parse_expression(&wrapped_source).map_err(|e| {
         let error_msg = format!("Parse error: {}", e);
         adjust_error_ranges(&error_msg, wrap_prefix_len, source)
@@ -370,6 +388,12 @@ pub fn parse_expression_with_adjusted_error_ranges(wrapped_source: &str, source:
 /// The main entry point for transforming an expression string.
 /// Returns the transformed expression along with tokens for variables used and assigned.
 pub fn transform_expression_string(source: &str) -> Result<TransformResult, String> {
+    // The transformer calls itself once per tree level, so give it enough
+    // stack on any thread (see `stack.rs`).
+    with_enough_stack(|| transform_expression_source(source))
+}
+
+fn transform_expression_source(source: &str) -> Result<TransformResult, String> {
     // Wrap the expression in (\n{}\n) to allow multi-line expressions and trailing comments.
     // This is because in Python when we're inside an expression like inside `(...)`, `[...]`, or `{...}`,
     // then Python does care about the newlines and whitespace indentation.
@@ -385,8 +409,25 @@ pub fn transform_expression_string(source: &str) -> Result<TransformResult, Stri
     let wrapped_source = format!("(\n{}\n)", source);
     let wrap_prefix_len = 2; // "(\n" = 2 characters
 
-    let transformer = SandboxTransformer::new(wrap_prefix_len);
-    let ast = parse_expression_with_adjusted_error_ranges(&wrapped_source, source, wrap_prefix_len )?;
+    let ast =
+        parse_expression_with_adjusted_error_ranges(&wrapped_source, source, wrap_prefix_len)?;
+    // The text Python keeps for an interpolation (a t-string's `expression`,
+    // the `x=` of a self-documenting one) is found from the parser's tokens:
+    // they mark where an expression ends and which comments belong to it.
+    // The crate's `extract_comments` scanner reads everything inside an
+    // f-string or t-string as string text, so it cannot.
+    let tokens = ast
+        .tokens()
+        .iter()
+        .map(|token| {
+            (
+                token.kind(),
+                token.start().to_usize(),
+                token.end().to_usize(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let transformer = SandboxTransformer::new(wrap_prefix_len, &wrapped_source, tokens);
 
     // Create a LineIndex to convert byte offsets to line/column positions
     let line_index = LineIndex::from_source_text(&wrapped_source);
@@ -488,21 +529,29 @@ pub fn transform_expression_string(source: &str) -> Result<TransformResult, Stri
         comment.value.line_col = (adjusted_line, adjusted_col);
     }
 
+    // CPython compiles this code later, and its compiler can crash a small
+    // thread on code that nests too deeply, so check the code itself here.
+    // `parse_tag` calls this function too, so a tag never holds an
+    // expression that `safe_eval()` would refuse for its depth.
+    let code = generate_python_code(&expr);
+    check_code_nesting(&code)?;
+
     Ok(TransformResult {
         expression: expr,
         used_vars,
         assigned_vars,
         comments,
+        code,
     })
 }
 
 /// Our custom AST transformer that validates and transforms Python expressions
 /// to make them safe for evaluation in a sandboxed environment.
 pub struct SandboxTransformer {
-    // Track variables introduced by comprehensions that should NOT be transformed to `variable("name", context)` calls
+    // Track variables introduced by comprehensions that should NOT be transformed to `_sx_variable(...)` calls
     // Using RefCell so we can modify it during traversal
     comprehension_variables: RefCell<HashSet<String>>,
-    // Track variables introduced by lambda parameters that should NOT be transformed to `variable("name", context)` calls
+    // Track variables introduced by lambda parameters that should NOT be transformed to `_sx_variable(...)` calls
     // Using RefCell so we can modify it during traversal
     lambda_variables: RefCell<HashSet<String>>,
     // Track validation errors instead of panicking
@@ -522,8 +571,8 @@ pub struct SandboxTransformer {
     // Each tuple is (variable_name, start_index, end_index).
     assignments: RefCell<Vec<(String, usize, usize)>>,
     // Track variables that are needed from the outside context (not local).
-    // These are variables that need to be accessed via variable(context, source, token, "name").
-    // When we transform `var_name` to `variable(context, source, token, "var_name")`, we record
+    // These are variables that need to be accessed via _sx_variable(_sx_context, _sx_source, token, "name").
+    // When we transform `var_name` to `_sx_variable(_sx_context, _sx_source, token, "var_name")`, we record
     // that `var_name` is needed. This helps determine what variables the expression
     // requires from the context in which it's evaluated.
     // We use a Vec to store all occurrences with their positions.
@@ -531,10 +580,21 @@ pub struct SandboxTransformer {
     used_variables: RefCell<Vec<(String, usize, usize)>>,
     // Offset to adjust ranges from wrapped source back to original source
     wrap_prefix_len: usize,
+    // The wrapped source the AST ranges point into. A literal the parser
+    // cannot decode as Python does is written from this text (see
+    // `utils::literal_source`).
+    source: Rc<str>,
+    // The parser's tokens for `source`, in order, as (kind, start, end) byte
+    // offsets (see `interpolation_expression_text`).
+    tokens: Rc<[(TokenKind, usize, usize)]>,
 }
 
 impl SandboxTransformer {
-    pub fn new(wrap_prefix_len: usize) -> Self {
+    pub fn new(
+        wrap_prefix_len: usize,
+        source: &str,
+        tokens: Vec<(TokenKind, usize, usize)>,
+    ) -> Self {
         Self {
             comprehension_variables: RefCell::new(HashSet::new()),
             lambda_variables: RefCell::new(HashSet::new()),
@@ -542,7 +602,118 @@ impl SandboxTransformer {
             assignments: RefCell::new(Vec::new()),
             used_variables: RefCell::new(Vec::new()),
             wrap_prefix_len,
+            source: Rc::from(source),
+            tokens: Rc::from(tokens),
         }
+    }
+
+    /// The text Python stores as a t-string interpolation's `expression`.
+    ///
+    /// It runs from just after the `{` to the `=`, `!`, `:` or `}` that ends
+    /// the expression, so it keeps the whitespace around the expression, a
+    /// backslash line continuation, and the parentheses the parser leaves
+    /// out of the expression's range (`t'{ (x) }'` gives `' (x) '`). The end
+    /// is the first token after the parsed expression that is not a closing
+    /// parenthesis, a comment or a line break, because an `==` or `!=`
+    /// inside the expression does not end it.
+    fn interpolation_expression_text(&self, interpolation: &ast::InterpolatedElement) -> String {
+        let start = interpolation.range.start().to_usize() + 1;
+        let expression_end = interpolation.expression.range().end().to_usize();
+        let mut index = self
+            .tokens
+            .partition_point(|&(_, token_start, _)| token_start < expression_end);
+        while self.tokens.get(index).is_some_and(|&(kind, _, _)| {
+            matches!(
+                kind,
+                TokenKind::Rpar | TokenKind::Comment | TokenKind::NonLogicalNewline
+            )
+        }) {
+            index += 1;
+        }
+        // The closing `}` is always a token; without one, stop before it.
+        let end = self.tokens.get(index).map_or(
+            interpolation.range.end().to_usize() - 1,
+            |&(_, token_start, _)| token_start,
+        );
+        self.text_without_comments(start, end)
+    }
+
+    /// The source between `start` and `end` without the comments written
+    /// directly in it, as Python writes an interpolation's text. A comment
+    /// inside a nested f-string or t-string belongs to that string's own
+    /// text, and Python keeps it there.
+    fn text_without_comments(&self, start: usize, end: usize) -> String {
+        let mut text = String::with_capacity(end.saturating_sub(start));
+        let mut position = start;
+        // How many f-strings or t-strings that started inside the text are
+        // still open.
+        let mut depth = 0usize;
+        let first = self
+            .tokens
+            .partition_point(|&(_, token_start, _)| token_start < start);
+        for &(kind, token_start, token_end) in &self.tokens[first..] {
+            if token_start >= end {
+                break;
+            }
+            match kind {
+                TokenKind::FStringStart | TokenKind::TStringStart => depth += 1,
+                TokenKind::FStringEnd | TokenKind::TStringEnd => depth = depth.saturating_sub(1),
+                TokenKind::Comment if depth == 0 => {
+                    text.push_str(&self.source[position..token_start]);
+                    position = token_end;
+                }
+                _ => {}
+            }
+        }
+        text.push_str(&self.source[position..end]);
+        text
+    }
+
+    /// The text a self-documenting interpolation (`{x=}`) writes before its
+    /// value: the source from after the `{` through the `=` and the
+    /// whitespace after it, without its comments, as Python writes it.
+    ///
+    /// Call this before transforming the expression: the transform replaces
+    /// the expression's node, and with it the source range this reads.
+    fn debug_text_without_comments(
+        &self,
+        interpolation: &ast::InterpolatedElement,
+    ) -> Option<String> {
+        let debug_text = interpolation.debug_text.as_ref()?;
+        let start = interpolation.range.start().to_usize() + 1;
+        // The parser keeps the source after the expression, through the `=`
+        // and its whitespace, as `trailing`.
+        let end = interpolation.expression.range().end().to_usize() + debug_text.trailing.len();
+        Some(self.text_without_comments(start, end))
+    }
+
+    /// The source text of the node at `range`.
+    fn source_at(&self, range: ruff_text_size::TextRange) -> &str {
+        &self.source[range]
+    }
+
+    /// The literal's source text, when the parser's decoded value would give
+    /// Python another string (it holds a lone surrogate escape). Raw strings
+    /// have no escapes, so they always decode alike.
+    fn literal_needing_source(&self, literal: &ast::StringLiteral) -> Option<&str> {
+        let text = self.source_at(literal.range);
+        (!literal.flags.prefix().is_raw() && has_surrogate_escape(text)).then_some(text)
+    }
+
+    /// The text between an f-string's or t-string's interpolations, as an
+    /// ordinary literal written from its source, when the parser's decoded
+    /// value would give Python a different string.
+    fn interpolated_text_needing_source(
+        &self,
+        element: &ast::InterpolatedStringLiteralElement,
+        flags: impl ast::StringFlags,
+    ) -> Option<Expr> {
+        let text = self.source_at(element.range);
+        if flags.prefix().is_raw() || !has_surrogate_escape(text) {
+            return None;
+        }
+        let body = interpolated_text_as_plain_body(text);
+        Some(source_text(plain_literal_text(&body, flags), element.range))
     }
 
     /// Adjust a TextRange from wrapped source coordinates to original source coordinates
@@ -582,6 +753,8 @@ impl SandboxTransformer {
             assignments: RefCell::new(Vec::new()),
             wrap_prefix_len: self.wrap_prefix_len,
             used_variables: RefCell::new(Vec::new()),
+            source: Rc::clone(&self.source),
+            tokens: Rc::clone(&self.tokens),
         }
     }
 
@@ -621,7 +794,7 @@ impl SandboxTransformer {
     }
 
     /// Record a variable that is needed from the outside context.
-    /// This is called when we transform a variable access to variable(context, source, token, "name").
+    /// This is called when we transform a variable access to _sx_variable(_sx_context, _sx_source, token, "name").
     /// Records all occurrences of each variable name.
     fn add_used_variable(&self, var_name: String, start_index: usize, end_index: usize) {
         self.used_variables
@@ -659,7 +832,7 @@ impl SandboxTransformer {
         // because the variable should be available after assignment, e.g. `(x := 2) and x > 1`.
         // HOWEVER, we actually replace the walrus operator with call to `assign(...)`,
         // and thus the variable is not assigned in THIS scope.
-        // So we still need to replace later references with `variable("name", context)` calls.
+        // So we still need to replace later references with `_sx_variable(...)` calls.
         self.comprehension_variables.borrow().contains(name)
             || self.lambda_variables.borrow().contains(name)
     }
@@ -676,40 +849,95 @@ impl SandboxTransformer {
         self.propagate_from_child(&child_transformer);
     }
 
-    /// Visit a comprehension with additional local variables from the generator targets
-    fn visit_comprehension_with_locals(
+    /// Visit one `for` clause of a comprehension. Its iterable sees only the variables
+    /// of the clauses before it, and its `if` conditions also see its own variables.
+    ///
+    /// This matches how Python evaluates a comprehension: the first iterable runs in the
+    /// enclosing scope, before any loop variable exists, and each later iterable runs once
+    /// the earlier clauses have bound theirs. A name the iterable reads that is not bound
+    /// yet must go through `_sx_variable()`. Left as a plain name, Python would look it up
+    /// in the generated code's globals, where the sandbox's own helpers live.
+    fn visit_comprehension_clause(
         &self,
         comprehension: &mut ast::Comprehension,
-        new_comprehension_vars: HashSet<String>,
+        earlier_vars: &HashSet<String>,
+        own_vars: &HashSet<String>,
+        all_vars: &HashSet<String>,
     ) {
-        let child_transformer = self.with_locals(new_comprehension_vars, HashSet::new());
-        child_transformer.visit_comprehension(comprehension);
+        let iter_transformer = self.with_locals(earlier_vars.clone(), HashSet::new());
+        iter_transformer.visit_expr(&mut comprehension.iter);
+        // A walrus in an iterable that writes one of this comprehension's loop variables
+        // stays refused, as it is everywhere else in the comprehension. The variable is not
+        // bound yet while the iterable runs, so the check in `Expr::Named` cannot see it.
+        let rebound = iter_transformer
+            .get_assignments()
+            .into_iter()
+            .find(|(name, _, _)| all_vars.contains(name));
+        if let Some((name, _, _)) = rebound {
+            self.set_error(format!(
+                "SyntaxError: assignment expression cannot rebind comprehension iteration variable '{}'",
+                name
+            ));
+            return;
+        }
         // Comprehensions propagate walrus assignments (they leak out in Python)
-        self.propagate_from_child(&child_transformer);
+        self.propagate_from_child(&iter_transformer);
+
+        let mut condition_vars = earlier_vars.clone();
+        condition_vars.extend(own_vars.iter().cloned());
+        let condition_transformer = self.with_locals(condition_vars, HashSet::new());
+        for if_expr in comprehension.ifs.iter_mut() {
+            condition_transformer.visit_expr(if_expr);
+        }
+        self.propagate_from_child(&condition_transformer);
     }
 
-    /// Extract variable names from a target expression (for comprehensions)
-    fn extract_target_variables(target: &Expr) -> HashSet<String> {
-        let mut vars = HashSet::new();
+    /// Refuse a name that a lambda or comprehension introduces when it starts with the
+    /// prefix the generated code uses for its own helpers and arguments
+    /// (`GENERATED_NAME_PREFIX`).
+    ///
+    /// Python binds a lambda parameter or comprehension variable directly, without the
+    /// `_sx_variable()` check that refuses `_` names. Inside a lambda that introduces
+    /// `_sx_attribute`, the call that guards `obj.name` would call the template's own
+    /// value instead, and hand it the real context mapping. Returns true when the name was
+    /// refused, so the caller can stop visiting the scope.
+    ///
+    /// Ruff, like Python, rewrites look-alike Unicode spellings of an identifier to their
+    /// plain form (NFKC), so `_ｓｘ_` arrives here as `_sx_`.
+    fn refuse_generated_name(&self, name: &str, what: &str) -> bool {
+        if !name.starts_with(GENERATED_NAME_PREFIX) {
+            return false;
+        }
+        self.set_error(format!(
+            "SyntaxError: '{}' starts with '{}', which the sandbox keeps for its own checks, so it cannot be a {}. Use a different name.",
+            name, GENERATED_NAME_PREFIX, what
+        ));
+        true
+    }
+
+    /// Collect the variable names a comprehension target introduces, in source order.
+    /// Returns an error message for a target the sandbox does not support.
+    fn extract_target_variables(target: &Expr, names: &mut Vec<String>) -> Result<(), String> {
         match target {
             // E.g. `x` in `[x+1 for x in range(10)]`
             Expr::Name(name) => {
-                vars.insert(name.id.as_str().to_string());
+                names.push(name.id.as_str().to_string());
+                Ok(())
             }
             // E.g. `(x, y)` in `[x+1 for x, y in range(10)]`
             Expr::Tuple(tuple) => {
                 for elt in &tuple.elts {
-                    vars.extend(Self::extract_target_variables(elt));
+                    Self::extract_target_variables(elt, names)?;
                 }
+                Ok(())
             }
-            _ => {
-                panic!(
-                    "Validation Error: Unsupported target type in comprehension: {:?}",
-                    target
-                );
-            }
+            // Python also allows `[a, b]`, `*rest`, `obj.attr` and `obj[0]` here. The last
+            // two assign into an object, so every such target gets a `SyntaxError`.
+            _ => Err(
+                "SyntaxError: a comprehension variable must be a name or a tuple of names"
+                    .to_string(),
+            ),
         }
-        vars
     }
 
     /// Helper function to handle comprehension logic common to ListComp, SetComp, DictComp, and Generator
@@ -733,18 +961,33 @@ impl SandboxTransformer {
             }
         }
 
-        // Extract all comprehension variables from all generators
-        let mut comprehension_vars = HashSet::new();
+        // Extract the variables of each `for` clause, in source order
+        let mut clause_vars: Vec<HashSet<String>> = Vec::with_capacity(generators.len());
         for generator in generators.iter() {
-            comprehension_vars.extend(Self::extract_target_variables(&generator.target));
+            let mut names = Vec::new();
+            if let Err(error) = Self::extract_target_variables(&generator.target, &mut names) {
+                self.set_error(error);
+                return;
+            }
+            // Check in source order so the same expression always reports the same name.
+            for name in &names {
+                if self.refuse_generated_name(name, "comprehension variable") {
+                    return;
+                }
+            }
+            clause_vars.push(names.into_iter().collect());
         }
 
         // IMPORTANT: Visit generators FIRST (including if conditions where walrus might occur)
         // This way, any walrus assignments in the if conditions will be tracked and propagated
-        // before we visit the element
-        for generator in generators.iter_mut() {
-            self.visit_comprehension_with_locals(generator, comprehension_vars.clone());
+        // before we visit the element. Each clause sees only the variables bound before it.
+        let all_vars: HashSet<String> = clause_vars.iter().flatten().cloned().collect();
+        let mut earlier_vars: HashSet<String> = HashSet::new();
+        for (generator, own_vars) in generators.iter_mut().zip(&clause_vars) {
+            self.visit_comprehension_clause(generator, &earlier_vars, own_vars, &all_vars);
+            earlier_vars.extend(own_vars.iter().cloned());
         }
+        let comprehension_vars = earlier_vars;
 
         // Transform the element(s) with comprehension variables
         // This includes the variables introduced by generators (like 'x' in [x+1 for x in items])
@@ -753,13 +996,139 @@ impl SandboxTransformer {
     }
 }
 
+/// The format spec of one f-string or t-string interpolation, rebuilt for
+/// the generated code.
+enum FormatSpec {
+    /// A spec with no interpolations (`:>10`), passed on as one string.
+    Static(Expr),
+    /// A spec with interpolations (`:{width}`): a `str.format` template and
+    /// the arguments for its `{}` placeholders, in order.
+    Dynamic { template: String, args: Vec<Expr> },
+}
+
+/// A piece of an f-string's text passed as an argument to the sandbox's
+/// `format()` function, which the generated code calls in place of
+/// `str.format`. It takes every placeholder's argument as a
+/// `(value, conversion, format_spec)` tuple; with no conversion and no spec,
+/// the text is used as it is.
+fn format_text_argument(text: Expr) -> Expr {
+    let range = text.range();
+    Expr::Tuple(ast::ExprTuple {
+        node_index: Default::default(),
+        range,
+        ctx: ast::ExprContext::Load,
+        parenthesized: false,
+        elts: vec![text, none_literal(range), string_literal("", range)],
+    })
+}
+
+/// The conversion an interpolation applies. A self-documenting
+/// interpolation (`{x=}`) with neither a conversion nor a format spec shows
+/// the value's `repr()`, as Python does.
+fn interpolation_conversion(interpolation: &ast::InterpolatedElement) -> ast::ConversionFlag {
+    if interpolation.debug_text.is_some()
+        && interpolation.conversion == ast::ConversionFlag::None
+        && interpolation.format_spec.is_none()
+    {
+        ast::ConversionFlag::Repr
+    } else {
+        interpolation.conversion
+    }
+}
+
+impl SandboxTransformer {
+    /// Transform the expressions in a format spec and rebuild its text.
+    ///
+    /// A static spec reaches Python's `format()` as it is. A dynamic spec
+    /// becomes a `str.format` template, so its literal text goes in with
+    /// braces doubled. Text the parser cannot decode as Python does is
+    /// written from its source: the whole static spec, or one `{}`
+    /// argument of the dynamic template.
+    fn visit_format_spec(
+        &self,
+        format_spec: &mut ast::InterpolatedStringFormatSpec,
+        flags: impl ast::StringFlags,
+        range: ruff_text_size::TextRange,
+    ) -> FormatSpec {
+        let is_dynamic = format_spec
+            .elements
+            .iter()
+            .any(|element| matches!(element, ast::InterpolatedStringElement::Interpolation(_)));
+        if !is_dynamic {
+            let literals = format_spec
+                .elements
+                .iter()
+                .filter_map(|element| match element {
+                    ast::InterpolatedStringElement::Literal(lit) => Some(lit),
+                    ast::InterpolatedStringElement::Interpolation(_) => None,
+                });
+            let needs_source = !flags.prefix().is_raw()
+                && literals
+                    .clone()
+                    .any(|lit| has_surrogate_escape(self.source_at(lit.range)));
+            if needs_source {
+                let body = literals
+                    .map(|lit| interpolated_text_as_plain_body(self.source_at(lit.range)))
+                    .collect::<String>();
+                return FormatSpec::Static(source_text(plain_literal_text(&body, flags), range));
+            }
+            let value = literals.map(|lit| lit.value.as_ref()).collect::<String>();
+            return FormatSpec::Static(string_literal(&value, range));
+        }
+
+        let mut template = String::new();
+        let mut args = Vec::new();
+        for element in format_spec.elements.iter_mut() {
+            match element {
+                ast::InterpolatedStringElement::Literal(lit) => {
+                    match self.interpolated_text_needing_source(lit, flags) {
+                        Some(text) => {
+                            template.push_str("{}");
+                            args.push(text);
+                        }
+                        None => template.push_str(&escape_format_braces(&lit.value)),
+                    }
+                }
+                ast::InterpolatedStringElement::Interpolation(spec_interp) => {
+                    // Format specs with expressions, e.g. f"{value:{width}.{precision}f}"
+                    self.visit_expr(&mut spec_interp.expression);
+                    template.push_str("{}");
+                    args.push(*spec_interp.expression.clone());
+                }
+            }
+        }
+        FormatSpec::Dynamic { template, args }
+    }
+}
+
 impl Transformer for SandboxTransformer {
     /// Override the default visit_expr to implement our validation and transformation logic
     fn visit_expr(&self, expr: &mut Expr) {
         match expr {
             // ✅ ALLOWED - Literals
-            Expr::StringLiteral(_)
-            | Expr::BytesLiteral(_)
+            // A string literal the parser cannot decode as Python does is
+            // written from its source text, so Python decodes it when the
+            // generated code runs. Bytes literals need no such step: `\u`
+            // is not an escape in them.
+            Expr::StringLiteral(literal) => {
+                if literal
+                    .value
+                    .iter()
+                    .any(|part| self.literal_needing_source(part).is_some())
+                {
+                    // Every part is written from its source, joined as
+                    // implicit concatenation, so each keeps its own prefix
+                    // and quotes.
+                    let text = literal
+                        .value
+                        .iter()
+                        .map(|part| self.source_at(part.range))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    *expr = source_text(text, literal.range);
+                }
+            }
+            Expr::BytesLiteral(_)
             | Expr::NumberLiteral(_)
             | Expr::BooleanLiteral(_)
             | Expr::NoneLiteral(_)
@@ -878,18 +1247,18 @@ impl Transformer for SandboxTransformer {
                 });
             }
 
-            // ⚠️ Variable names transform from `my_var` to `variable(context, source, token, "my_var")`
+            // ⚠️ Variable names transform from `my_var` to `_sx_variable(_sx_context, _sx_source, token, "my_var")`
             Expr::Name(name) => {
                 // Check if this is a locally introduced variable (from comprehensions, lambdas, etc.)
                 // or if it was assigned via walrus operator
                 let var_name = name.id.as_str();
                 if self.is_local_variable(var_name) {
-                    // This is a local variable, don't transform it to variable(context, source, token, "name")
+                    // This is a local variable, don't transform it to _sx_variable(_sx_context, _sx_source, token, "name")
                     // Just allow it as-is
                 } else {
-                    // Transform `var_name` to `variable(context, source, token, "var_name")`.
+                    // Transform `var_name` to `_sx_variable(_sx_context, _sx_source, token, "var_name")`.
                     // That way, when evaluating the modified expression, we can plug in
-                    // the definition of `variable()` and safely handle the variable access.
+                    // the definition of `_sx_variable()` and safely handle the variable access.
                     // The token tuple contains (start_index, end_index) for error reporting.
                     // We need to replace the current Expr::Name with Expr::Call
                     let var_name = name.id.as_str().to_string();
@@ -904,7 +1273,7 @@ impl Transformer for SandboxTransformer {
                     // Create a StringLiteral for the variable name
                     let var_name_literal = string_literal(&var_name, range);
 
-                    // `variable(context, source, (start_index, end_index), "var_name")`
+                    // `_sx_variable(_sx_context, _sx_source, (start_index, end_index), "var_name")`
                     let adjusted_range = self.adjust_range(range);
                     let call_expr = interceptor_call(
                         "variable",
@@ -932,7 +1301,7 @@ impl Transformer for SandboxTransformer {
                 let mut args = vec![*call_expr.func.clone()];
                 args.extend(call_expr.arguments.args.to_vec());
 
-                // `call(context, source, (start_index, end_index), fn, *args, **kwargs)`
+                // `_sx_call(_sx_context, _sx_source, (start_index, end_index), fn, *args, **kwargs)`
                 let adjusted_range = self.adjust_range(call_expr.range);
                 let wrapper_call = interceptor_call(
                     "call",
@@ -963,7 +1332,7 @@ impl Transformer for SandboxTransformer {
                 // Create a StringLiteral for the attribute name
                 let attr_name_literal = string_literal(&attr_name, range);
 
-                // `attribute(context, source, (start_index, end_index), obj, "attr_name")`
+                // `_sx_attribute(_sx_context, _sx_source, (start_index, end_index), obj, "attr_name")`
                 let adjusted_range = self.adjust_range(range);
                 let wrapper_call = interceptor_call(
                     "attribute",
@@ -986,7 +1355,7 @@ impl Transformer for SandboxTransformer {
                 // Now wrap the subscript access in subscript(obj, key)
                 let range = subscript.range;
 
-                // `subscript(context, source, (start_index, end_index), obj, key)`
+                // `_sx_subscript(_sx_context, _sx_source, (start_index, end_index), obj, key)`
                 let adjusted_range = self.adjust_range(range);
                 let wrapper_call = interceptor_call(
                     "subscript",
@@ -1039,7 +1408,7 @@ impl Transformer for SandboxTransformer {
                         .unwrap_or_else(|| none_literal(range)),
                 ];
 
-                // `slice(context, source, (start_index, end_index), lower, upper, step)`
+                // `_sx_slice(_sx_context, _sx_source, (start_index, end_index), lower, upper, step)`
                 let adjusted_range = self.adjust_range(range);
                 let slice_call = interceptor_call("slice", slice_args, vec![], adjusted_range);
 
@@ -1047,7 +1416,7 @@ impl Transformer for SandboxTransformer {
                 *expr = slice_call;
             }
 
-            // ⚠️ Walrus operator transform from `x := y` to `assign(context, source, token, "x", y)`
+            // ⚠️ Walrus operator transform from `x := y` to `_sx_assign(_sx_context, _sx_source, token, "x", y)`
             // We always transform to assign() even in lambdas, so assignments leak out to the context
             // This allows patterns like: fn_with_callback(on_done=lambda res: (data:= res))
             // However, we raise SyntaxError if the assignment conflicts with comprehension or lambda variables
@@ -1100,7 +1469,7 @@ impl Transformer for SandboxTransformer {
                 // Create a StringLiteral for the variable name
                 let var_name_literal = string_literal(&var_name, range);
 
-                // `assign(context, source, (start_index, end_index), "var_name", value)`
+                // `_sx_assign(_sx_context, _sx_source, (start_index, end_index), "var_name", value)`
                 let adjusted_range = self.adjust_range(range);
                 let wrapper_call = interceptor_call(
                     "assign",
@@ -1113,7 +1482,7 @@ impl Transformer for SandboxTransformer {
                 *expr = wrapper_call;
             }
 
-            // ⚠️ F-string transform from `f"Hello {price!r:.2f}"` to `format(context, source, token, "Hello {}", (variable(context, source, token, "price"), "r", ".2f"))`
+            // ⚠️ F-string transform from `f"Hello {price!r:.2f}"` to `_sx_format(_sx_context, _sx_source, token, "Hello {}", (_sx_variable(_sx_context, _sx_source, token, "price"), "r", ".2f"))`
             Expr::FString(f_string) => {
                 // Transform f-strings to .format() calls to avoid quote escaping issues
                 // f"Hello {name}" becomes "Hello {}".format(name)
@@ -1124,117 +1493,113 @@ impl Transformer for SandboxTransformer {
 
                 // Process all parts of the f-string
                 for part in &mut f_string.value {
-                    if let ast::FStringPart::FString(f_str) = part {
-                        // Process each element in the f-string
-                        for element in f_str.elements.iter_mut() {
-                            match element {
-                                ast::InterpolatedStringElement::Literal(lit) => {
-                                    // Add literal text to template
-                                    template_parts.push(lit.value.to_string());
+                    let f_str = match part {
+                        ast::FStringPart::FString(f_str) => f_str,
+                        // An ordinary literal joined to the f-string by
+                        // implicit concatenation (`'a' f'{x}'`) is part of
+                        // the text too.
+                        ast::FStringPart::Literal(literal) => {
+                            match self.literal_needing_source(literal) {
+                                Some(text) => {
+                                    template_parts.push("{}".to_string());
+                                    format_args.push(format_text_argument(source_text(
+                                        text.to_owned(),
+                                        literal.range,
+                                    )));
                                 }
-                                ast::InterpolatedStringElement::Interpolation(interpolation) => {
-                                    // Transform the expression
-                                    self.visit_expr(&mut interpolation.expression);
+                                None => template_parts.push(escape_format_braces(&literal.value)),
+                            }
+                            continue;
+                        }
+                    };
+                    let flags = f_str.flags;
+                    // Process each element in the f-string
+                    for element in f_str.elements.iter_mut() {
+                        match element {
+                            ast::InterpolatedStringElement::Literal(lit) => {
+                                // The template is a `str.format` template, so
+                                // literal text goes in with its braces doubled.
+                                // Text the parser cannot decode as Python does
+                                // is passed as an argument written from its
+                                // source, in a `{}` placeholder.
+                                match self.interpolated_text_needing_source(lit, flags) {
+                                    Some(text) => {
+                                        template_parts.push("{}".to_string());
+                                        format_args.push(format_text_argument(text));
+                                    }
+                                    None => template_parts.push(escape_format_braces(&lit.value)),
+                                }
+                            }
+                            ast::InterpolatedStringElement::Interpolation(interpolation) => {
+                                let debug_text = self.debug_text_without_comments(interpolation);
 
-                                    // Get range from the expression before cloning
-                                    let expr_range =
-                                        get_expr_range(&interpolation.expression, range);
-                                    let value_expr = *interpolation.expression.clone();
+                                // Transform the expression
+                                self.visit_expr(&mut interpolation.expression);
 
-                                    // Build conversion flag string ("r", "s", "a", or None)
-                                    let conversion_flag = match interpolation.conversion {
-                                        ast::ConversionFlag::None => none_literal(expr_range),
-                                        ast::ConversionFlag::Str => string_literal("s", expr_range),
-                                        ast::ConversionFlag::Ascii => {
-                                            string_literal("a", expr_range)
-                                        }
-                                        ast::ConversionFlag::Repr => {
-                                            string_literal("r", expr_range)
-                                        }
-                                    };
+                                // Get range from the expression before cloning
+                                let expr_range = get_expr_range(&interpolation.expression, range);
+                                let value_expr = *interpolation.expression.clone();
 
-                                    // Build format spec. Either:
-                                    // - static string (`:.2f`, `:>10`, etc.)
-                                    // - dynamic expression (`{width}.{precision}f`)
-                                    // We don't call built-in `format()` here; we pass the format spec as metadata
-                                    // and let our `format()` interceptor handle it.
-                                    let format_spec_expr =
-                                        if let Some(format_spec) = &mut interpolation.format_spec {
-                                            // Build the format spec - can be static or dynamic
-                                            let mut spec_template_parts = Vec::new();
-                                            let mut spec_format_args = Vec::new();
+                                // Build conversion flag string ("r", "s", "a", or None)
+                                let conversion_flag = match interpolation_conversion(interpolation)
+                                {
+                                    ast::ConversionFlag::None => none_literal(expr_range),
+                                    ast::ConversionFlag::Str => string_literal("s", expr_range),
+                                    ast::ConversionFlag::Ascii => string_literal("a", expr_range),
+                                    ast::ConversionFlag::Repr => string_literal("r", expr_range),
+                                };
 
-                                            for spec_element in format_spec.elements.iter_mut() {
-                                                match spec_element {
-                                                ast::InterpolatedStringElement::Literal(lit) => {
-                                                    spec_template_parts.push(lit.value.to_string());
-                                                }
-                                                ast::InterpolatedStringElement::Interpolation(
-                                                    spec_interp,
-                                                ) => {
-                                                    // Format specs with expressions!
-                                                    // e.g., f"{value:{width}.{precision}f}"
-                                                    // Transform the expression in the format spec
-                                                    self.visit_expr(&mut spec_interp.expression);
-
-                                                    // Add {} placeholder
-                                                    spec_template_parts.push("{}".to_string());
-
-                                                    // Add the transformed expression to spec args
-                                                    spec_format_args
-                                                        .push(*spec_interp.expression.clone());
-                                                }
-                                            }
-                                            }
-
-                                            let spec_template_str = spec_template_parts.join("");
-
-                                            // Build the format spec expression
-                                            if spec_format_args.is_empty() {
-                                                // Static format spec - just use a string literal
-                                                string_literal(&spec_template_str, expr_range)
-                                            } else {
-                                                // Dynamic format spec - we need to pass both template and args
-                                                // We'll pass this as a tuple: (template, *args)
-                                                let spec_template_literal =
-                                                    string_literal(&spec_template_str, expr_range);
-                                                // Create a tuple: (template, arg1, arg2, ...)
+                                // Build format spec. Either:
+                                // - static string (`:.2f`, `:>10`, etc.)
+                                // - dynamic expression (`{width}.{precision}f`)
+                                // We don't call built-in `format()` here; we pass the format spec as metadata
+                                // and let our `format()` interceptor handle it.
+                                let format_spec_expr = match &mut interpolation.format_spec {
+                                    Some(format_spec) => {
+                                        match self.visit_format_spec(format_spec, flags, expr_range)
+                                        {
+                                            FormatSpec::Static(spec) => spec,
+                                            // Dynamic format spec - we pass both template and
+                                            // args as a tuple: (template, arg1, arg2, ...)
+                                            FormatSpec::Dynamic { template, args } => {
+                                                let mut elts =
+                                                    vec![string_literal(&template, expr_range)];
+                                                elts.extend(args);
                                                 Expr::Tuple(ast::ExprTuple {
                                                     node_index: Default::default(),
                                                     range: expr_range,
                                                     ctx: ast::ExprContext::Load,
                                                     parenthesized: false,
-                                                    elts: {
-                                                        let mut tuple_elts =
-                                                            vec![spec_template_literal];
-                                                        tuple_elts.extend(spec_format_args);
-                                                        tuple_elts.into()
-                                                    },
+                                                    elts,
                                                 })
                                             }
-                                        } else {
-                                            // No format spec - use empty string
-                                            string_literal("", expr_range)
-                                        };
+                                        }
+                                    }
+                                    // No format spec - use empty string
+                                    None => string_literal("", expr_range),
+                                };
 
-                                    // Add simple placeholder to template
-                                    template_parts.push("{}".to_string());
-
-                                    // Pass each interpolation as a tuple: (value, conversion_flag, format_spec)
-                                    // This allows our format() interceptor to apply conversion and format_spec
-                                    // instead of calling built-in functions that won't be caught by error handling
-                                    let interpolation_tuple = Expr::Tuple(ast::ExprTuple {
-                                        node_index: Default::default(),
-                                        range: expr_range,
-                                        ctx: ast::ExprContext::Load,
-                                        parenthesized: false,
-                                        elts: vec![value_expr, conversion_flag, format_spec_expr]
-                                            .into(),
-                                    });
-
-                                    // Add the tuple to format args
-                                    format_args.push(interpolation_tuple);
+                                // Add simple placeholder to template
+                                // `f'{x=}'` writes its own source text (`x=`) before
+                                // the value, as Python does.
+                                if let Some(debug_text) = &debug_text {
+                                    template_parts.push(escape_format_braces(debug_text));
                                 }
+                                template_parts.push("{}".to_string());
+
+                                // Pass each interpolation as a tuple: (value, conversion_flag, format_spec)
+                                // This allows our format() interceptor to apply conversion and format_spec
+                                // instead of calling built-in functions that won't be caught by error handling
+                                let interpolation_tuple = Expr::Tuple(ast::ExprTuple {
+                                    node_index: Default::default(),
+                                    range: expr_range,
+                                    ctx: ast::ExprContext::Load,
+                                    parenthesized: false,
+                                    elts: vec![value_expr, conversion_flag, format_spec_expr],
+                                });
+
+                                // Add the tuple to format args
+                                format_args.push(interpolation_tuple);
                             }
                         }
                     }
@@ -1246,7 +1611,7 @@ impl Transformer for SandboxTransformer {
                 // Create a string literal for the template
                 let template_literal = string_literal(&template_str, range);
 
-                // `format(context, source, token, "template {}", *args)`
+                // `_sx_format(_sx_context, _sx_source, token, "template {}", *args)`
                 // We use an intercepted format() function instead of the built-in .format() method
                 // so that errors inside f-strings get nice error reporting with underlining
                 let mut format_args_with_template = vec![template_literal];
@@ -1260,7 +1625,7 @@ impl Transformer for SandboxTransformer {
                 *expr = format_call;
             }
 
-            // ⚠️ T-string transform from `t"Hello {name!r:>10}"` to `template(context, source, token, "Hello ", interpolation(context, source, token, variable(context, source, token, "name"), "expr", "r", ">10"))`
+            // ⚠️ T-string transform from `t"Hello {name!r:>10}"` to `_sx_template(_sx_context, _sx_source, token, "Hello ", _sx_interpolation(_sx_context, _sx_source, token, _sx_variable(_sx_context, _sx_source, token, "name"), "expr", "r", ">10"))`
             Expr::TString(t_string) => {
                 // Transform t-strings to Template() constructor calls
                 // t"Hello {name}" becomes Template("Hello ", Interpolation(name, "name", None, ""), "")
@@ -1271,30 +1636,36 @@ impl Transformer for SandboxTransformer {
 
                 // Process all parts of the t-string (TString doesn't have wrapper, just TString directly)
                 for t_str in &mut t_string.value {
+                    let flags = t_str.flags;
                     // Process each element in the t-string
                     for element in t_str.elements.iter_mut() {
                         match element {
                             ast::InterpolatedStringElement::Literal(lit) => {
-                                // Add literal string to Template args
-                                let string_lit_literal = string_literal(&lit.value, lit.range);
+                                // Add literal string to Template args, written
+                                // from its source when the parser cannot decode
+                                // it as Python does.
+                                let string_lit_literal = self
+                                    .interpolated_text_needing_source(lit, flags)
+                                    .unwrap_or_else(|| string_literal(&lit.value, lit.range));
                                 template_args.push(string_lit_literal);
                             }
                             ast::InterpolatedStringElement::Interpolation(interpolation) => {
+                                // Read the expression's source text before the
+                                // transform replaces the expression. Python stores
+                                // it as the Interpolation's `expression`; see
+                                // https://docs.python.org/3.14/library/string.templatelib.html#string.templatelib.Interpolation.expression
+                                let expr_text = self.interpolation_expression_text(interpolation);
+                                let debug_text = self.debug_text_without_comments(interpolation);
+
                                 // Transform the expression
                                 self.visit_expr(&mut interpolation.expression);
 
                                 // Use the interpolation expression's range for token info
                                 let expr_range = get_expr_range(&interpolation.expression, range);
 
-                                // Get the expression text (we'll use a placeholder for now)
-                                // In a real implementation, we'd preserve the original expression text from source
-                                // Python docs recommend to use an empty string in manually-created
-                                // Interpolations.
-                                // See https://docs.python.org/3.14/library/string.templatelib.html#string.templatelib.Interpolation.expression
-                                let expr_text = "".to_string(); // TODO: preserve original expression text
-
                                 // Build conversion argument
-                                let conversion_expr = match interpolation.conversion {
+                                let conversion_expr = match interpolation_conversion(interpolation)
+                                {
                                     ast::ConversionFlag::None => none_literal(interpolation.range),
                                     ast::ConversionFlag::Str => {
                                         string_literal("s", interpolation.range)
@@ -1308,58 +1679,30 @@ impl Transformer for SandboxTransformer {
                                 };
 
                                 // Build format spec - can be static string or dynamic expression
-                                let format_spec_expr = if let Some(format_spec) =
-                                    &mut interpolation.format_spec
-                                {
-                                    let mut spec_template_parts = Vec::new();
-                                    let mut spec_format_args = Vec::new();
-
-                                    for spec_element in format_spec.elements.iter_mut() {
-                                        match spec_element {
-                                            ast::InterpolatedStringElement::Literal(lit) => {
-                                                spec_template_parts.push(lit.value.to_string());
-                                            }
-                                            ast::InterpolatedStringElement::Interpolation(
-                                                spec_interp,
-                                            ) => {
-                                                // Dynamic format spec with expressions!
-                                                self.visit_expr(&mut spec_interp.expression);
-                                                spec_template_parts.push("{}".to_string());
-                                                spec_format_args
-                                                    .push(*spec_interp.expression.clone());
-                                            }
-                                        }
-                                    }
-
-                                    let spec_template_str = spec_template_parts.join("");
-
-                                    // Build the format spec expression
-                                    // Use interpolation.range for consistency with conversion expressions
-                                    if spec_format_args.is_empty() {
-                                        // Static format spec - just use a string literal
-                                        string_literal(&spec_template_str, interpolation.range)
-                                    } else {
-                                        // Dynamic format spec - use "{}".format(args...)
-                                        let spec_template_literal =
-                                            string_literal(&spec_template_str, interpolation.range);
-                                        // `"{}".format(args...)`
-                                        call(
+                                let format_spec_expr = match &mut interpolation.format_spec {
+                                    Some(format_spec) => match self.visit_format_spec(
+                                        format_spec,
+                                        flags,
+                                        interpolation.range,
+                                    ) {
+                                        FormatSpec::Static(spec) => spec,
+                                        // Dynamic format spec - `"{}".format(args...)`
+                                        FormatSpec::Dynamic { template, args } => call(
                                             attribute(
-                                                spec_template_literal,
+                                                string_literal(&template, interpolation.range),
                                                 "format",
                                                 interpolation.range,
                                             ),
-                                            spec_format_args,
+                                            args,
                                             vec![],
                                             interpolation.range,
-                                        )
-                                    }
-                                } else {
+                                        ),
+                                    },
                                     // No format spec - use empty string
-                                    string_literal("", interpolation.range)
+                                    None => string_literal("", interpolation.range),
                                 };
 
-                                // `interpolation(context, source, token, value, expression, conversion, format_spec)`
+                                // `_sx_interpolation(_sx_context, _sx_source, token, value, expression, conversion, format_spec)`
                                 // Use interpolation.range for error reporting to point to the exact {expression!r:format} location
                                 let adjusted_interpolation_range =
                                     self.adjust_range(interpolation.range);
@@ -1375,13 +1718,19 @@ impl Transformer for SandboxTransformer {
                                     adjusted_interpolation_range,
                                 );
 
+                                // `t'{x=}'` holds its own source text (`x=`) before the
+                                // interpolation, as Python's template does.
+                                if let Some(debug_text) = &debug_text {
+                                    template_args
+                                        .push(string_literal(debug_text, interpolation.range));
+                                }
                                 template_args.push(interpolation_call);
                             }
                         }
                     }
                 }
 
-                // `template(context, source, token, ...)`
+                // `_sx_template(_sx_context, _sx_source, token, ...)`
                 let adjusted_range = self.adjust_range(range);
                 let template_call =
                     interceptor_call("template", template_args, vec![], adjusted_range);
@@ -1417,28 +1766,36 @@ impl Transformer for SandboxTransformer {
                     }
                 }
 
-                // Now extract lambda parameter names into lambda variables
-                let mut lambda_vars = HashSet::new();
+                // Now extract lambda parameter names into lambda variables, in source order
+                let mut parameter_names: Vec<String> = Vec::new();
                 if let Some(parameters) = &lambda.parameters {
                     for param in &parameters.posonlyargs {
-                        lambda_vars.insert(param.name().to_string());
+                        parameter_names.push(param.name().to_string());
                     }
                     for param in &parameters.args {
-                        lambda_vars.insert(param.name().to_string());
-                    }
-                    for param in &parameters.kwonlyargs {
-                        lambda_vars.insert(param.name().to_string());
+                        parameter_names.push(param.name().to_string());
                     }
                     if let Some(vararg) = &parameters.vararg {
-                        lambda_vars.insert(vararg.name().to_string());
+                        parameter_names.push(vararg.name().to_string());
+                    }
+                    for param in &parameters.kwonlyargs {
+                        parameter_names.push(param.name().to_string());
                     }
                     if let Some(kwarg) = &parameters.kwarg {
-                        lambda_vars.insert(kwarg.name().to_string());
+                        parameter_names.push(kwarg.name().to_string());
                     }
                 }
+                // A parameter with the generated code's prefix could replace a helper for the
+                // whole body (see `refuse_generated_name`), so stop before the body.
+                for name in &parameter_names {
+                    if self.refuse_generated_name(name, "lambda parameter") {
+                        return;
+                    }
+                }
+                let lambda_vars: HashSet<String> = parameter_names.into_iter().collect();
 
                 // Transform the lambda body with the parameter names as lambda variables
-                // This ensures lambda parameters are not transformed to variable("param", context) calls
+                // This ensures lambda parameters are not transformed to `_sx_variable(...)` calls
                 // Walrus assignments inside lambdas are transformed to assign() and leak out to context
                 // This allows patterns like: fn_with_callback(on_done=lambda res: (data:= res))
                 // However, walrus assignments cannot rebind lambda parameters (SyntaxError)
@@ -1446,7 +1803,9 @@ impl Transformer for SandboxTransformer {
             }
 
             _ => {
-                panic!("Validation Error: Unsupported expression: {:?}", expr);
+                self.set_error(format!(
+                    "Validation Error: Unsupported expression: {expr:?}"
+                ));
             }
         }
     }

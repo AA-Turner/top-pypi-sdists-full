@@ -21,7 +21,8 @@ so each replay can check it still has that value.
 from __future__ import annotations
 
 import bisect
-from collections.abc import Iterable, Sequence
+import functools
+from collections.abc import Callable, Iterable, Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -68,6 +69,8 @@ class Observed:
         self.retained: dict[int, object] = {}
         #: the ops that read a host tensor: a graph replays the value it had at capture
         self.host: set[str] = set()
+        #: each op it ran (`step`), set beside its call's as written when a replay differs
+        self.ops: list[tuple[object, ...]] = []
 
     def answer(self, tensor: Tensor) -> object:
         """The value the call as written read at this read, or `HostRead`."""
@@ -125,6 +128,113 @@ def merge(spans: Iterable[tuple[int, int]]) -> list[tuple[int, int]]:
         else:
             merged.append((start, end))
     return merged
+
+
+def step(torch: ModuleType, func: object, args: object) -> tuple[object, ...]:
+    """One op as a trace keeps it: the op and each argument, a tensor by its shape and dtype."""
+    plain = (bool, int, float, str, type(None), torch.dtype, torch.device)
+    return (
+        func,
+        *(
+            (tuple(v.shape), v.dtype)
+            if isinstance(v, torch.Tensor)
+            else v
+            if isinstance(v, plain)
+            else type(v).__name__
+            for v in torch.utils._pytree.tree_leaves(args)
+        ),
+    )
+
+
+def trace(
+    torch: ModuleType, writes: list[Tensor] | None = None
+) -> tuple[object, list[tuple[object, ...]]]:
+    """A dispatch mode over a call and each op it ran (`step`): what a capture's ops are set
+    beside (`diverged`). With `writes`, each tensor it writes in place whose storage it didn't
+    make, once by layout: the state a check of its graph puts back (cr-283). The mode holds
+    `writes` itself and its class nothing: a class goes only when the cycle collector runs, and
+    one that closed over the list kept a decode's slots allocated after their engine dropped them
+    (cr-333)."""
+    ops: list[tuple[object, ...]] = []
+    return _tracer(torch)(ops, writes), ops
+
+
+@functools.cache
+def _tracer(
+    torch: ModuleType,
+) -> Callable[[list[tuple[object, ...]], list[Tensor] | None], object]:
+    """`trace`'s mode: its ops, write set, and the storages and layouts it has seen are its own."""
+    from torch.utils._python_dispatch import TorchDispatchMode
+    from torch.utils._pytree import tree_leaves
+
+    tensor_type = torch.Tensor
+
+    def ptr(tensor: Tensor) -> int:
+        try:
+            return int(tensor.untyped_storage().data_ptr())
+        except (RuntimeError, NotImplementedError):  # a wrapper with no storage
+            return 0
+
+    class Trace(TorchDispatchMode):
+        def __init__(self, ops: list[tuple[object, ...]], writes: list[Tensor] | None) -> None:
+            super().__init__()  # type: ignore[no-untyped-call]  # TorchDispatchMode's __init__
+            self.ops, self.writes = ops, writes
+            self.made: set[int] = set()
+            self.seen: set[tuple[object, ...]] = set()
+
+        def __torch_dispatch__(
+            self,
+            func: object,
+            types: tuple[type, ...],
+            args: tuple[object, ...] = (),
+            kwargs: dict[str, object] | None = None,
+        ) -> object:
+            kwargs = kwargs or {}
+            writes, made = self.writes, self.made
+            self.ops.append(step(torch, func, (args, kwargs)))
+            if writes is not None:
+                schema = func._schema  # type: ignore[attr-defined]  # an OpOverload
+                for at, argument in enumerate(schema.arguments):
+                    alias = argument.alias_info
+                    if alias is None or not alias.is_write:
+                        continue
+                    value = (
+                        kwargs.get(argument.name)
+                        if argument.kwarg_only or at >= len(args)
+                        else args[at]
+                    )
+                    for tensor in tree_leaves(value):
+                        if not isinstance(tensor, tensor_type) or (where := ptr(tensor)) in made:
+                            continue
+                        layout = (where, tensor.storage_offset(), tuple(tensor.shape),
+                                  tuple(tensor.stride()), tensor.dtype)  # fmt: skip
+                        if where and layout not in self.seen:
+                            self.seen.add(layout)
+                            writes.append(tensor)
+            out = func(*args, **kwargs)  # type: ignore[operator]  # an OpOverload
+            if writes is not None:  # storages new here: an in-place op's output is its input's
+                given = {ptr(t) for t in tree_leaves((args, kwargs)) if isinstance(t, tensor_type)}
+                made.update(
+                    where for t in tree_leaves(out)
+                    if isinstance(t, tensor_type) and (where := ptr(t)) not in given
+                )  # fmt: skip
+            return out
+
+    return Trace
+
+
+def diverged(written: Sequence[tuple[object, ...]], captured: Sequence[tuple[object, ...]]) -> str:
+    """Where a call as written and its capture ran other ops: the first that differs ("" alike)."""
+
+    def said(op: tuple[object, ...]) -> str:
+        return f"{op[0]}{op[1:]}"[:160]
+
+    for at, (a, b) in enumerate(zip(written, captured, strict=False)):
+        if a != b:
+            return f"op {at + 1} of {len(written)}: as written {said(a)}, captured {said(b)}"
+    if len(written) != len(captured):
+        return f"as written {len(written)} ops, captured {len(captured)}"
+    return ""
 
 
 def reads(torch: ModuleType) -> tuple[object, list[object]]:
@@ -215,6 +325,7 @@ def observer(
             kwargs: dict[str, object] | None = None,
         ) -> object:
             kwargs = kwargs or {}
+            seen.ops.append(step(torch, func, (args, kwargs)))
             if func is scalar and isinstance(args[0], tensor_type) and args[0].is_cuda:
                 return seen.answer(args[0])  # reading it would end the capture
             if any(

@@ -38,6 +38,7 @@ ReportFrequencyType = Literal["ALL", "DAILY", "MONTHLY"]
 S3BucketRegionType = Literal["af-south-1", "ap-east-1", "eu-south-1", "me-south-1"]
 ApplicationCostProfilerServiceName = Literal["applicationcostprofiler"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

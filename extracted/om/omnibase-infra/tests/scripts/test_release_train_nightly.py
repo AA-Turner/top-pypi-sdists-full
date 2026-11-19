@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _MODULE = _REPO_ROOT / "scripts" / "ci" / "release_train.py"
@@ -98,6 +99,9 @@ def _policy(**overrides: Any) -> Any:
         "lab_evidence_note": "the compose dev lane on the lab host",
         "mode": rt.EnumTrainMode.CUT,
         "mode_note": "",
+        "dependency_refresh": rt.EnumDependencyRefresh.LOCKED,
+        "dependency_refresh_note": "",
+        "first_party_lock_prefixes": ("omni", "onex"),
     }
     fields.update(overrides)
     return rt.ModelRepoReleasePolicy(**fields)
@@ -252,9 +256,9 @@ class TestLiveState:
                 "entry is the only durable record a later reader has"
             )
         assert "deliberate minor release" in note, (
-            "the surviving blocker -- the unreleased-commit backlog that makes "
-            "a patch cut the wrong shape -- must stay stated, because it is "
-            "what still holds this repo at report_only"
+            "the backlog blocker -- the unreleased-commit backlog that made a "
+            "patch cut the wrong shape -- must stay on record with the minor "
+            "release that cleared it (OMN-21164)"
         )
 
     def test_infra_counts_docker_migrations_as_release_relevant(self) -> None:
@@ -284,7 +288,7 @@ class TestLiveState:
             "omnibase_compat is excluded by operator ruling and must not appear"
         )
 
-    def test_exactly_the_five_reviewed_repos_are_armed_to_cut(self) -> None:
+    def test_exactly_the_six_reviewed_repos_are_armed_to_cut(self) -> None:
         """Arming a repo is one field, and this test is what keeps it a
         deliberate, visible act rather than a side effect of another change.
 
@@ -306,6 +310,10 @@ class TestLiveState:
         (OMN-20715) after release-on-merge.yml was retired (omnimarket#3037,
         2026-09-28), leaving nothing releasing it. Its premise is a lab receipt,
         not green CI alone.
+
+        omniintelligence was armed (OMN-21164) once the deliberate minor
+        release its entry asked for had shipped: 0.25.0, tagged by
+        auto-tag-on-merge and published by a push-event release.yml run.
         """
         policies = rt.load_policy(_POLICY)
         armed = sorted(
@@ -315,6 +323,7 @@ class TestLiveState:
             "omnibase_core",
             "omnibase_infra",
             "omnibase_spi",
+            "omniintelligence",
             "omnimarket",
             "omnimemory",
         ]
@@ -448,7 +457,7 @@ class TestOmnimarketIsArmedOnItsLabPremise:
     def test_the_shipped_row_is_cut_on_its_existing_lab_premise(self) -> None:
         policy = rt.load_policy(_POLICY)["omnimarket"]
         assert policy.mode is rt.EnumTrainMode.CUT
-        assert policy.lab_evidence is rt.EnumLabEvidence.COMPOSE_DEV_OR_INSTANCE
+        assert policy.lab_evidence is rt.EnumLabEvidence.DEV_REQUIRED_GREEN
         assert policy.release_relevant_paths == ("src", "pyproject.toml")
 
     def test_the_note_no_longer_claims_release_on_merge_races_the_train(
@@ -489,7 +498,10 @@ class TestOmnimarketIsArmedOnItsLabPremise:
     ) -> None:
         """A dev version level with the tag needs the next patch, and a bump."""
         decision = rt.decide(
-            policy=rt.load_policy(_POLICY)["omnimarket"],
+            policy=replace(
+                rt.load_policy(_POLICY)["omnimarket"],
+                lab_evidence=rt.EnumLabEvidence.COMPOSE_DEV_OR_INSTANCE,
+            ),
             facts=_facts(
                 repo="omnimarket",
                 latest_tag="v0.4.302",
@@ -514,7 +526,10 @@ class TestOmnimarketIsArmedOnItsLabPremise:
     def test_the_same_inputs_without_unreleased_source_work_do_not_cut(self) -> None:
         """One input flipped. The shipped cut mode does not invent work."""
         decision = rt.decide(
-            policy=rt.load_policy(_POLICY)["omnimarket"],
+            policy=replace(
+                rt.load_policy(_POLICY)["omnimarket"],
+                lab_evidence=rt.EnumLabEvidence.COMPOSE_DEV_OR_INSTANCE,
+            ),
             facts=_facts(
                 repo="omnimarket",
                 latest_tag="v0.4.302",
@@ -534,7 +549,10 @@ class TestOmnimarketIsArmedOnItsLabPremise:
 
     def test_the_same_inputs_with_a_failing_receipt_do_not_cut(self) -> None:
         decision = rt.decide(
-            policy=rt.load_policy(_POLICY)["omnimarket"],
+            policy=replace(
+                rt.load_policy(_POLICY)["omnimarket"],
+                lab_evidence=rt.EnumLabEvidence.COMPOSE_DEV_OR_INSTANCE,
+            ),
             facts=_facts(
                 repo="omnimarket",
                 latest_tag="v0.4.302",
@@ -555,7 +573,10 @@ class TestOmnimarketIsArmedOnItsLabPremise:
     def test_the_same_inputs_without_receipt_artifacts_do_not_cut(self) -> None:
         """Green CI alone does not satisfy the shipped row's lab premise."""
         decision = rt.decide(
-            policy=rt.load_policy(_POLICY)["omnimarket"],
+            policy=replace(
+                rt.load_policy(_POLICY)["omnimarket"],
+                lab_evidence=rt.EnumLabEvidence.COMPOSE_DEV_OR_INSTANCE,
+            ),
             facts=_facts(
                 repo="omnimarket",
                 latest_tag="v0.4.302",
@@ -597,7 +618,10 @@ class TestOmnimarketIsArmedOnItsLabPremise:
 
     def test_the_report_for_the_shipped_omnimarket_row_is_a_cut(self) -> None:
         decision = rt.decide(
-            policy=rt.load_policy(_POLICY)["omnimarket"],
+            policy=replace(
+                rt.load_policy(_POLICY)["omnimarket"],
+                lab_evidence=rt.EnumLabEvidence.COMPOSE_DEV_OR_INSTANCE,
+            ),
             facts=_facts(
                 repo="omnimarket",
                 latest_tag="v0.4.302",
@@ -748,10 +772,12 @@ class TestConfigurationErrorsRefuse:
     ) -> None:
         policy_file = tmp_path / "policy.yaml"
         policy_file.write_text(
+            "dependency_refresh_first_party_prefixes: [omni, onex]\n"
             "repos:\n"
             "  omnibase_infra:\n"
             "    package: omnibase-infra\n"
             "    default_branch: dev\n"
+            "    dependency_refresh: locked\n"
             "    release_relevant_paths: [src, pyproject.toml]\n"
             "    lab_evidence: compose-dev\n"
             "    lab_evidence_note: the compose dev lane\n"
@@ -768,10 +794,12 @@ class TestConfigurationErrorsRefuse:
     ) -> None:
         policy_file = tmp_path / "policy.yaml"
         policy_file.write_text(
+            "dependency_refresh_first_party_prefixes: [omni, onex]\n"
             "repos:\n"
             "  omnimemory:\n"
             "    package: omnimemory\n"
             "    default_branch: dev\n"
+            "    dependency_refresh: locked\n"
             "    release_relevant_paths: [src]\n"
             "    lab_evidence: none\n"
             "    lab_evidence_note: ''\n"
@@ -787,10 +815,12 @@ class TestConfigurationErrorsRefuse:
     ) -> None:
         policy_file = tmp_path / "policy.yaml"
         policy_file.write_text(
+            "dependency_refresh_first_party_prefixes: [omni, onex]\n"
             "repos:\n"
             "  omnimemory:\n"
             "    package: omnimemory\n"
             "    default_branch: dev\n"
+            "    dependency_refresh: locked\n"
             "    release_relevant_paths: [src]\n"
             "    lab_evidence: compose-dev\n"
             "    lab_evidence_note: the compose dev lane\n"
@@ -1278,6 +1308,208 @@ class TestTheGreenCIPremiseGuardsEveryCutPath:
         assert gate_asked == [("omnibase_infra", _INFRA_SHA)]
         assert seen == [("omnibase_infra", GATE)]
         assert branches == [("omnibase_infra", "trunk")]
+
+
+class TestDevRequiredGreenSignsOffOnGreenRequiredChecks:
+    """OMN-25646, decision 2 of the 2026-11-18T16:26:04Z ruling.
+
+    Under ``dev-required-green`` the premise is ``classify_ci_green`` alone, which
+    ``decide`` applies before any lab arm. The lab-pass receipt is read and printed
+    as a signal and never refuses. Each "cuts" assertion has a sibling that flips
+    the one input that matters, so a green default cannot be masking the premise.
+    """
+
+    def test_dev_required_green_cuts_without_a_receipt_and_compose_dev_refuses(
+        self,
+    ) -> None:
+        green = rt.decide(
+            policy=_policy(lab_evidence=rt.EnumLabEvidence.DEV_REQUIRED_GREEN),
+            facts=_facts(),
+            **_lab_seam(),
+            **_ci_seam(),
+        )
+        assert green.verdict is rt.EnumTrainVerdict.CUT
+        assert green.reason is rt.EnumTrainReason.UNRELEASED_WORK_DEV_REQUIRED_GREEN
+        assert "lab-pass receipt signal: absent" in green.detail
+
+        gated = rt.decide(
+            policy=_policy(lab_evidence=rt.EnumLabEvidence.COMPOSE_DEV),
+            facts=_facts(),
+            **_lab_seam(),
+            **_ci_seam(),
+        )
+        assert gated.verdict is rt.EnumTrainVerdict.SKIP
+        assert gated.reason is rt.EnumTrainReason.LAB_RECEIPT_ABSENT
+
+    @pytest.mark.parametrize(
+        ("result", "signal"),
+        [
+            (rt.lab_pass_receipt.EnumLabPassResult.PASS, "found"),
+            (rt.lab_pass_receipt.EnumLabPassResult.FAIL, "failed"),
+        ],
+    )
+    def test_dev_required_green_prints_a_receipt_as_a_signal_and_still_cuts(
+        self, result: Any, signal: str
+    ) -> None:
+        decision = rt.decide(
+            policy=_policy(lab_evidence=rt.EnumLabEvidence.DEV_REQUIRED_GREEN),
+            facts=_facts(),
+            **_lab_seam(
+                artifacts=[{"id": 1, "created_at": "2026-11-18T14:00:00Z"}],
+                receipt=_receipt(_INFRA_SHA, result),
+            ),
+            **_ci_seam(),
+        )
+        assert decision.verdict is rt.EnumTrainVerdict.CUT
+        assert f"lab-pass receipt signal: {signal}" in decision.detail
+
+    def test_dev_required_green_refuses_a_head_whose_required_context_is_not_success(
+        self,
+    ) -> None:
+        decision = rt.decide(
+            policy=_policy(lab_evidence=rt.EnumLabEvidence.DEV_REQUIRED_GREEN),
+            facts=_facts(),
+            **_lab_seam(),
+            **_ci_seam(
+                runs=[
+                    {
+                        "name": "CI Summary",
+                        "status": "completed",
+                        "conclusion": "failure",
+                    }
+                ]
+            ),
+        )
+        assert decision.verdict is rt.EnumTrainVerdict.SKIP
+        assert decision.reason is rt.EnumTrainReason.CI_NOT_GREEN
+        assert "'CI Summary'" in decision.detail
+
+    @pytest.mark.parametrize("repo", ["omnibase_infra", "omnimarket"])
+    def test_policy_prints_the_receipt_and_never_requires_it_for_both_repos(
+        self, repo: str
+    ) -> None:
+        """The committed rows, not a hand-built policy: absent, found, failed."""
+        policy = rt.load_policy(_POLICY)[repo]
+        assert policy.lab_evidence is rt.EnumLabEvidence.DEV_REQUIRED_GREEN
+        facts = _facts(repo=repo, dev_head_sha=_RECEIPTED_SHA)
+        PASS = rt.lab_pass_receipt.EnumLabPassResult.PASS
+        FAIL = rt.lab_pass_receipt.EnumLabPassResult.FAIL
+        for result, signal in ((None, "absent"), (PASS, "found"), (FAIL, "failed")):
+            seam = (
+                _lab_seam()
+                if result is None
+                else _lab_seam(
+                    artifacts=[{"id": 1, "created_at": "2026-11-18T14:00:00Z"}],
+                    receipt=_receipt(_RECEIPTED_SHA, result),
+                )
+            )
+            decision = rt.decide(policy=policy, facts=facts, **seam, **_ci_seam())
+            assert decision.verdict is rt.EnumTrainVerdict.CUT, (repo, signal)
+            assert f"lab-pass receipt signal: {signal}" in decision.detail
+        # Positive control: the same absent receipt DOES refuse where it is required.
+        required = replace(policy, lab_evidence=rt.EnumLabEvidence.COMPOSE_DEV)
+        gated = rt.decide(policy=required, facts=facts, **_lab_seam(), **_ci_seam())
+        assert gated.verdict is rt.EnumTrainVerdict.SKIP
+
+    def test_policy_declares_dev_required_green_for_both_repos_with_the_decision(
+        self,
+    ) -> None:
+        policies = rt.load_policy(_POLICY)
+        for name in ("omnibase_infra", "omnimarket"):
+            policy = policies[name]
+            assert policy.lab_evidence is rt.EnumLabEvidence.DEV_REQUIRED_GREEN
+            assert policy.mode is rt.EnumTrainMode.CUT
+            assert "decision 2" in policy.lab_evidence_note
+            assert "2026-11-18T16:26:04Z" in policy.lab_evidence_note
+        assert "PASS receipt" not in policies["omnimarket"].mode_note
+        for other in set(policies) - {"omnibase_infra", "omnimarket"}:
+            assert (
+                policies[other].lab_evidence
+                is not rt.EnumLabEvidence.DEV_REQUIRED_GREEN
+            )
+
+
+class TestLabEvidenceBehaviourIsReadFromOneTable:
+    """Each value's behaviour is a row of ``lab_evidence_modes``, not a branch."""
+
+    def test_policy_table_has_a_row_for_every_enum_value(self) -> None:
+        fields = {
+            "read_compose_dev",
+            "read_instance_lanes",
+            "receipt_required",
+            "note_required",
+            "instance_proof_required",
+            "cut_reason",
+        }
+        for evidence in rt.EnumLabEvidence:
+            row = rt.lab_evidence_row(evidence)
+            assert set(row) == fields, evidence
+            assert rt.EnumTrainReason(row["cut_reason"]), evidence
+
+    def test_policy_table_rows_state_what_each_value_requires(self) -> None:
+        row, evidence = rt.lab_evidence_row, rt.EnumLabEvidence
+        compose = row(evidence.COMPOSE_DEV)
+        assert compose["receipt_required"] and compose["read_compose_dev"]
+        assert not compose["read_instance_lanes"]
+        either = row(evidence.COMPOSE_DEV_OR_INSTANCE)
+        assert either["instance_proof_required"] and either["read_instance_lanes"]
+        assert either["receipt_required"]
+        none = row(evidence.NONE)
+        assert none["note_required"]
+        assert not (none["receipt_required"] or none["read_compose_dev"])
+        green = row(evidence.DEV_REQUIRED_GREEN)
+        assert green["note_required"] and green["read_compose_dev"]
+        assert not green["receipt_required"]
+
+    def test_policy_table_refuses_a_missing_row_and_an_unknown_row(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        raw = yaml.safe_load(_POLICY.read_text(encoding="utf-8"))
+        modes = raw["lab_evidence_modes"]
+        broken = tmp_path / "policy.yaml"
+        monkeypatch.setattr(rt, "DEFAULT_POLICY_PATH", broken)
+        try:
+            for table, named in (
+                ({k: v for k, v in modes.items() if k != "NONE"}, "NONE"),
+                ({**modes, "made-up": modes["NONE"]}, "made-up"),
+            ):
+                broken.write_text(
+                    yaml.safe_dump({**raw, "lab_evidence_modes": table}),
+                    encoding="utf-8",
+                )
+                rt.lab_evidence_row.cache_clear()
+                with pytest.raises(rt.ReleaseTrainConfigError, match=named):
+                    rt.lab_evidence_row(rt.EnumLabEvidence.NONE)
+            # Positive control: the committed table is accepted.
+            broken.write_text(yaml.safe_dump(raw), encoding="utf-8")
+            rt.lab_evidence_row.cache_clear()
+            assert rt.lab_evidence_row(rt.EnumLabEvidence.NONE)["note_required"]
+        finally:
+            rt.lab_evidence_row.cache_clear()
+
+    def test_policy_loader_refuses_an_unknown_lab_evidence_value(
+        self, tmp_path: Path
+    ) -> None:
+        raw = yaml.safe_load(_POLICY.read_text(encoding="utf-8"))
+        raw["repos"]["omnibase_infra"]["lab_evidence"] = "dev-whenever"
+        bad = tmp_path / "policy.yaml"
+        bad.write_text(yaml.safe_dump(raw), encoding="utf-8")
+        with pytest.raises(rt.ReleaseTrainConfigError, match="dev-whenever"):
+            rt.load_policy(bad)
+        # Positive control: the same copy with the value restored loads.
+        raw["repos"]["omnibase_infra"]["lab_evidence"] = "dev-required-green"
+        bad.write_text(yaml.safe_dump(raw), encoding="utf-8")
+        assert "omnibase_infra" in rt.load_policy(bad)
+
+    def test_policy_loader_refuses_a_note_required_value_with_no_note(
+        self, tmp_path: Path
+    ) -> None:
+        raw = yaml.safe_load(_POLICY.read_text(encoding="utf-8"))
+        raw["repos"]["omnibase_infra"]["lab_evidence_note"] = ""
+        bad = tmp_path / "policy.yaml"
+        bad.write_text(yaml.safe_dump(raw), encoding="utf-8")
+        with pytest.raises(rt.ReleaseTrainConfigError, match="lab_evidence_note"):
+            rt.load_policy(bad)
 
 
 class TestThereIsNoWayToAssertTheCIFact:
@@ -1896,10 +2128,12 @@ class TestPathsDownstreamReposCloneByTagAreReleaseRelevant:
     def _write(tmp_path: Path, consumed: str) -> Path:
         policy_file = tmp_path / "policy.yaml"
         policy_file.write_text(
+            "dependency_refresh_first_party_prefixes: [omni, onex]\n"
             "repos:\n"
             "  omnibase_core:\n"
             "    package: omnibase-core\n"
             "    default_branch: dev\n"
+            "    dependency_refresh: locked\n"
             "    release_relevant_paths: [src, pyproject.toml]\n"
             "    lab_evidence: none\n"
             "    lab_evidence_note: no lab lane\n"

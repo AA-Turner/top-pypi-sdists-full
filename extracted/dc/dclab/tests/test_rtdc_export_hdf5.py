@@ -12,7 +12,7 @@ import pytest
 
 import dclab
 from dclab import dfn, new_dataset, RTDCWriter
-from dclab.rtdc_dataset import rtdc_copy, writer
+from dclab.rtdc_dataset import export, rtdc_copy, writer
 from dclab.rtdc_dataset.export import (
     ContourNotExportedWarning,
     store_filtered_feature,
@@ -212,6 +212,31 @@ def test_hdf5_contour_ignored():
         assert "contour" not in h5["events"]
 
 
+def test_hdf5_contour_ignored_features_not_modified():
+    """The list of features passed by the user must not be modified"""
+    keys = ["contour", "deform", "image"]
+    ddict = example_data_dict(size=10, keys=keys)
+    ds1 = dclab.new_dataset(ddict)
+
+    edest = tempfile.mkdtemp()
+    f1 = join(edest, "dclab_test_export_hdf5_features.rtdc")
+    features = ["contour", "deform"]
+    with pytest.warns(ContourNotExportedWarning,
+                      match="not exported to output file"):
+        ds1.export.hdf5(f1, features, filtered=False)
+    assert features == ["contour", "deform"]
+
+    # tuples are supported as well
+    f2 = join(edest, "dclab_test_export_hdf5_features_tuple.rtdc")
+    with pytest.warns(ContourNotExportedWarning,
+                      match="not exported to output file"):
+        ds1.export.hdf5(f2, ("contour", "deform"), filtered=False)
+
+    for ff in [f1, f2]:
+        with h5py.File(ff) as h5:
+            assert sorted(h5["events"].keys()) == ["deform"]
+
+
 def test_hdf5_duplicate_feature_for_export():
     keys = ["area_um", "deform", "time", "frame", "fl3_width"]
     ddict = example_data_dict(size=127, keys=keys)
@@ -380,24 +405,22 @@ def test_hdf5_filtered_full(dataset):
 
     # 3. via RTDC writer
     path_out3 = tdir / "out3.rtdc"
-    with dclab.new_dataset(path_in) as ds:
-        with RTDCWriter(path_out3) as hw:
-            config = ds.config.as_dict(pop_filtering=True)
-            hw.store_metadata(config)
-            for feat in ds.features_innate:
-                hw.store_feature(feat, ds[feat])
+    with dclab.new_dataset(path_in) as ds, RTDCWriter(path_out3) as hw:
+        config = ds.config.as_dict(pop_filtering=True)
+        hw.store_metadata(config)
+        for feat in ds.features_innate:
+            hw.store_feature(feat, ds[feat])
 
     # 4. via export filtered function
     path_out4 = tdir / "out4.rtdc"
-    with dclab.new_dataset(path_in) as ds:
-        with RTDCWriter(path_out4) as hw:
-            config = ds.config.as_dict(pop_filtering=True)
-            hw.store_metadata(config)
-            for feat in ds.features_innate:
-                store_filtered_feature(rtdc_writer=hw,
-                                       feat=feat,
-                                       data=ds[feat],
-                                       filtarr=np.ones(len(ds), dtype=bool))
+    with dclab.new_dataset(path_in) as ds, RTDCWriter(path_out4) as hw:
+        config = ds.config.as_dict(pop_filtering=True)
+        hw.store_metadata(config)
+        for feat in ds.features_innate:
+            store_filtered_feature(rtdc_writer=hw,
+                                   feat=feat,
+                                   data=ds[feat],
+                                   filtarr=np.ones(len(ds), dtype=bool))
 
     with dclab.new_dataset(path_in) as ds0:
         for path in [path_out1, path_out2, path_out3, path_out4]:
@@ -896,6 +919,40 @@ def test_hdf5_hierarchy_basin_export_relative_path(tmp_path):
         assert np.all(dse["deform"][:] == ds["deform"][5:][1::2][:-1]), "sane"
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason="`Path.relative_to(.., walk_up)` requires python3.12 or higher")
+def test_hdf5_basin_export_relative_path(tmp_path):
+    """The relative basin path is also stored for non-hierarchy datasets"""
+    h5path = retrieve_data("fmt-hdf5_image-mask-blood_2021.zip")
+
+    path_in = tmp_path / "workdir" / "input" / "incomming.rtdc"
+    path_out = tmp_path / "workdir" / "output" / "exported.rtdc"
+
+    path_in.parent.mkdir(parents=True)
+    path_out.parent.mkdir(parents=True)
+
+    shutil.copy2(h5path, path_in)
+
+    with dclab.new_dataset(path_in) as ds:
+        ds.filter.manual[:5] = False
+        ds.apply_filter()
+        ds.export.hdf5(path_out,
+                       filtered=True,
+                       features=[],
+                       basins=True,
+                       )
+
+    # rename the entire directory
+    (tmp_path / "workdir").rename(tmp_path / "holidaydir")
+    path_out_2 = tmp_path / "holidaydir" / "output" / "exported.rtdc"
+
+    with dclab.new_dataset(path_out_2) as dse, dclab.new_dataset(h5path) as ds:
+        assert "image" in dse.features_basin
+        assert "image" not in dse.features_innate
+        assert np.all(dse["deform"][:] == ds["deform"][5:])
+
+
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 def test_hdf5_identifier_different():
@@ -1164,8 +1221,8 @@ def test_hdf5_tables(tables):
 
     # generate a table
     columns = ["bread", "beer", "chocolate"]
-    ds_dt = np.dtype({'names': columns,
-                      'formats': [np.float64] * len(columns)})
+    ds_dt = np.dtype({"names": columns,
+                      "formats": [np.float64] * len(columns)})
     tab_data = np.zeros((10, len(columns)))
     tab_data[:, 0] = np.arange(10)
     tab_data[:, 1] = 1000
@@ -1361,3 +1418,28 @@ def test_hdf5_traces_filter2():
     assert np.all(ds["trace"]["fl1_raw"][3] == ds2["trace"]["fl1_raw"][0])
     assert np.all(ds["trace"]["fl1_raw"][5] == ds2["trace"]["fl1_raw"][1])
     assert np.all(ds["trace"]["fl1_raw"][6] == ds2["trace"]["fl1_raw"][2])
+
+
+@pytest.mark.parametrize("path_type", [str, pathlib.Path, "h5py"])
+def test_hdf5_autocomplete_config_deprecated(tmp_path, path_type):
+    """The deprecated `hdf5_autocomplete_config` works with paths"""
+    path = tmp_path / "test.rtdc"
+    with dclab.RTDCWriter(path) as hw:
+        hw.store_metadata({"experiment": {"sample": "test",
+                                          "run index": 1}})
+        hw.store_feature("deform", np.linspace(0.01, 0.1, 10))
+    with h5py.File(path, "a") as h5:
+        del h5.attrs["experiment:event count"]
+
+    if path_type == "h5py":
+        with h5py.File(path, "a") as h5:
+            with pytest.warns(DeprecationWarning, match="deprecated"):
+                export.hdf5_autocomplete_config(h5)
+            # the file object passed by the user is not closed
+            assert h5.id.valid
+    else:
+        with pytest.warns(DeprecationWarning, match="deprecated"):
+            export.hdf5_autocomplete_config(path_type(path))
+
+    with h5py.File(path, "r") as h5:
+        assert h5.attrs["experiment:event count"] == 10

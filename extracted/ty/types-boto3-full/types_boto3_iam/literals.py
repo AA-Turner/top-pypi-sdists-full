@@ -230,6 +230,7 @@ SummaryStateTypeType = Literal["AVAILABLE", "FAILED", "NOT_AVAILABLE", "NOT_SUPP
 UserExistsWaiterName = Literal["user_exists"]
 IAMServiceName = Literal["iam"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

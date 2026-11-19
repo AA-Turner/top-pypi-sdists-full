@@ -25,6 +25,7 @@ __all__ = ("PersonalizeRuntimeServiceName", "ResourceServiceName", "ServiceName"
 
 PersonalizeRuntimeServiceName = Literal["personalize-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

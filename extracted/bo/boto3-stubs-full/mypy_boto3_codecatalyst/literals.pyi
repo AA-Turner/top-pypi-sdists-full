@@ -86,6 +86,7 @@ WorkflowRunStatusType = Literal[
 WorkflowStatusType = Literal["ACTIVE", "INVALID"]
 CodeCatalystServiceName = Literal["codecatalyst"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

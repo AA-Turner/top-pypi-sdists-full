@@ -457,6 +457,7 @@ TransitGatewayAttachmentStatusType = Literal[
 TransparentFilteringNatScopeType = Literal["NAT_ALL", "NAT_NONE"]
 NetworkFirewallServiceName = Literal["network-firewall"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

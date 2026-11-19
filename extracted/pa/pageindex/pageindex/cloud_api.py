@@ -1,4 +1,4 @@
-"""Cloud mode of the PageIndex SDK, based on the 0.2.8 client."""
+"""Cloud mode of the PageIndex SDK: the client of the PageIndex Cloud API."""
 import os
 import requests
 from pathlib import Path
@@ -55,6 +55,7 @@ class CloudAPI:
         metadata: Optional[Dict[str, Any]] = None,
         collection_id: Optional[str] = None,
         index: bool = True,
+        extract: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Upload a PDF document for processing; the tree is built in the background,
@@ -63,18 +64,26 @@ class CloudAPI:
 
         Args:
             file_path (str): Path to the PDF file.
-            mode (str, optional): None (default), the OCR-based cloud pipeline, or "flash".
+            mode (str, optional): None (default), the default cloud pipeline, or "flash".
             beta_headers (List[str], optional): Beta feature headers (e.g., ["block_reference"]
                 to enable block-level content with bounding boxes). Defaults to None.
             folder_id (str, optional): Folder (workspace) ID to assign the document to. Defaults to None.
             metadata (dict, optional): Your own JSON-serializable tags for the document;
                 returned in get_tree/get_ocr responses and list_documents entries. Defaults to None.
             collection_id (str, optional): Collection ID to store the document in, in place of a folder. Defaults to None.
+            extract (dict, optional): With ``index=False``, an extract job's
+                configuration, as ``create_extract()`` takes it: the job
+                starts on the document, and only its extraction is charged,
+                once it completes. A job that does not complete leaves the
+                document this upload made failed, with its name and file but
+                no pages, until you delete it.
 
         Returns:
             dict: {'doc_id': ...} — plus 'name', the stored document name
                 (a taken name gains a numeric suffix), when the server
-                returns it.
+                returns it, and with ``extract`` 'extract_job_id'. A file
+                stored already whose pages are not ready starts no job:
+                {'doc_id', 'duplicate': True}.
         """
         if mode not in (None, "flash"):
             raise PageIndexAPIError(
@@ -96,6 +105,8 @@ class CloudAPI:
             data['metadata'] = json.dumps(metadata)
         if collection_id is not None:
             data['collection_id'] = collection_id
+        if extract is not None:
+            data['extract'] = json.dumps(extract)
 
         with open(file_path, "rb") as f:
             response = self._http.post(
@@ -105,6 +116,13 @@ class CloudAPI:
                 data=data
             )
 
+        if response.status_code == 409 and extract is not None:
+            try:
+                stored = response.json()["detail"]["doc_id"]
+            except (ValueError, KeyError, TypeError):
+                stored = None
+            if stored:
+                return {"doc_id": stored, "duplicate": True}
         if response.status_code != 200:
             raise PageIndexAPIError(
                 f"Failed to submit document: {response.text}",
@@ -269,7 +287,7 @@ class CloudAPI:
                 status_code=response.status_code)
         return response.json()
 
-    def build_index(self, doc_id: str) -> Dict[str, Any]:
+    def build_outline_index(self, doc_id: str) -> Dict[str, Any]:
         """
         Build the tree of a document stored without one.
 

@@ -1,4 +1,5 @@
 //-*-C++-*-
+// SPDX-License-Identifier: MIT
 
 #ifndef PDF_PAGE_FONT_RESOURCE_H
 #define PDF_PAGE_FONT_RESOURCE_H
@@ -533,7 +534,15 @@ namespace pdflib
 
         auto& bfont = *(matched_base_font().font);
 
-        if(bfont.has(c))
+        // AFM metrics are numbered in the font's built-in encoding, so a
+        // font that declares an /Encoding (or /Differences) is looked up by
+        // the glyph name that encoding gives the code (docling-parse#403).
+        const std::string glyph_name = get_glyph_name(c);
+        if(not glyph_name.empty() and bfont.has_glyph_name(glyph_name))
+          {
+            return bfont.get_glyph_width(glyph_name);
+          }
+        else if(bfont.has(c))
           {
             return bfont.get_width(c);
           }
@@ -655,7 +664,13 @@ namespace pdflib
       {
         auto& bfont = *(matched_base_font().font);
 
-        if(bfont.has(c) and bfont.get_width(c)>0)
+        const std::string glyph_name = get_glyph_name(c);
+        if(not glyph_name.empty() and bfont.has_glyph_name(glyph_name) and
+           bfont.get_glyph_width(glyph_name)>0)
+          {
+            return bfont.get_glyph_width(glyph_name);
+          }
+        else if(bfont.has(c) and bfont.get_width(c)>0)
           {
             return bfont.get_width(c);
           }
@@ -725,7 +740,22 @@ namespace pdflib
   {
     if(matched_base_font().font)
       {
-        return matched_base_font().font->has_char_bbox(c);
+        auto& bfont = *(matched_base_font().font);
+
+        const std::string glyph_name = get_glyph_name(c);
+        if(not glyph_name.empty() and bfont.has_glyph_bbox(glyph_name))
+          {
+            // Some AFM entries, including Euro, have placeholder bounds.
+            // Preserve blank spaces; use font metrics for other empty bounds.
+            const auto bbox = bfont.get_glyph_bbox(glyph_name);
+            return glyph_name == "space" or bbox[3] > bbox[1];
+          }
+
+        // Composite-font codes address CIDs, not AFM character slots. A
+        // subset CID 32 may draw a letter rather than the standard space.
+        // The same applies to simple fonts using their builtin encoding.
+        return subtype != TYPE_0 and not uses_builtin_encoding() and
+               bfont.has_char_bbox(c);
       }
 
     return false;
@@ -740,7 +770,15 @@ namespace pdflib
         return bfonts.get("Unknown")->get_char_bbox(c);
       }
 
-    return matched_base_font().font->get_char_bbox(c);
+    auto& bfont = *(matched_base_font().font);
+
+    const std::string glyph_name = get_glyph_name(c);
+    if(not glyph_name.empty() and bfont.has_glyph_bbox(glyph_name))
+      {
+        return bfont.get_glyph_bbox(glyph_name);
+      }
+
+    return bfont.get_char_bbox(c);
   }
 
   bool pdf_resource<PAGE_FONT>::has_char_bbox(const std::string& c)

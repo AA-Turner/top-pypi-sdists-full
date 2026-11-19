@@ -9,8 +9,8 @@ from mashumaro.exceptions import InvalidFieldValue
 from music_assistant_models.auth import Scope
 from music_assistant_models.enums import (
     MediaType,
-    ProviderFeature,
     ProviderIconVariant,
+    ProviderOffering,
     ProviderTier,
     ProviderType,
 )
@@ -260,8 +260,8 @@ def test_menu_actions_last_field() -> None:
         "credits",
         "menu_actions",
         "mcp_tools",
-        "features",
         "page",
+        "provides",
     ]
 
 
@@ -314,23 +314,38 @@ def test_page_wrong_type_fails(page: str) -> None:
         )
 
 
-def test_features_missing_key_defaults_empty() -> None:
-    """Test that a manifest without features declares none."""
+def test_provides_missing_key_defaults_empty() -> None:
+    """Test that a manifest without provides declares nothing."""
     restored = ProviderManifest.from_json(
-        '{"type":"plugin","domain":"d","name":"N","description":"x","codeowners":[]}'
+        '{"type":"music","domain":"d","name":"N","description":"x","codeowners":[]}'
     )
-    assert restored.features == set()
+    assert restored.provides == set()
 
 
-def test_features_parsed() -> None:
-    """Test that declared features parse and survive a roundtrip, an unknown one as UNKNOWN."""
+def test_provides_parsed() -> None:
+    """Test that declared offerings parse and survive a roundtrip, an unknown one as UNKNOWN."""
     restored = ProviderManifest.from_json(
         '{"type":"plugin","domain":"d","name":"N","description":"x","codeowners":[],'
-        '"features":["audio_source","not_a_feature"]}'
+        '"provides":["audio_source","scrobble","not_an_offering"]}'
     )
-    assert restored.features == {ProviderFeature.AUDIO_SOURCE, ProviderFeature.UNKNOWN}
-    manifest = _manifest(features={ProviderFeature.AUDIO_SOURCE})
-    assert ProviderManifest.from_json(manifest.to_json()).features == {ProviderFeature.AUDIO_SOURCE}
+    assert restored.provides == {
+        ProviderOffering.AUDIO_SOURCE,
+        ProviderOffering.SCROBBLE,
+        ProviderOffering.UNKNOWN,
+    }
+    manifest = _manifest(provides={ProviderOffering.RADIO})
+    assert ProviderManifest.from_json(manifest.to_json()).provides == {ProviderOffering.RADIO}
+    assert manifest.to_dict()["provides"] == ["radio"]
+
+
+def test_stale_media_types_key_ignored() -> None:
+    """Test that a manifest that still has media_types parses, without offerings."""
+    restored = ProviderManifest.from_json(
+        '{"type":"music","domain":"d","name":"N","description":"x","codeowners":[],'
+        '"media_types":["radio"]}'
+    )
+    assert restored.provides == set()
+    assert "media_types" not in restored.to_dict()
 
 
 def test_mcp_tools_missing_key_defaults_empty() -> None:

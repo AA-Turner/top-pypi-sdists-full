@@ -64,6 +64,7 @@ WaterAllocationTypeType = Literal["TOTAL_WATER_WITHDRAWALS"]
 WaterAllocationUnitType = Literal["m3"]
 SustainabilityServiceName = Literal["sustainability"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

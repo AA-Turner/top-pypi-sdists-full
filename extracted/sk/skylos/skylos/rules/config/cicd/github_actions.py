@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from skylos.core.safe_cache_io import read_project_text_no_symlink, read_text_no_symlink
+from skylos.rules.config.cicd.release_context import has_release_context
 from skylos.rules.config.cicd.runner_labels import runner_may_be_self_hosted
 from skylos.rules.config.cicd.template_injection import interpolates_untrusted
 from skylos.rules.config.cicd.workflow_references import local_workflow_reference
@@ -844,6 +845,28 @@ def _iter_steps(data: dict[str, Any], *, is_workflow: bool) -> Iterator[dict[str
         yield from _steps_from_action(data)
 
 
+def _steps_with_paths(
+    data: dict[str, Any], *, is_workflow: bool
+) -> Iterator[tuple[dict[str, Any], tuple[Any, ...]]]:
+    """Each step with its original YAML path, including alias occurrences."""
+    if is_workflow:
+        sequences = (
+            (("jobs", job_id, "steps"), job.get("steps"))
+            for job_id, job in _jobs(data)
+        )
+    else:
+        runs = data.get("runs")
+        sequences = (
+            (("runs", "steps"), runs.get("steps") if isinstance(runs, dict) else None),
+        )
+    for prefix, steps in sequences:
+        if not isinstance(steps, list):
+            continue
+        for index, step in enumerate(steps):
+            if isinstance(step, dict):
+                yield step, (*prefix, index)
+
+
 def _steps_with_jobs(
     data: dict[str, Any], *, is_workflow: bool
 ) -> Iterator[tuple[dict[str, Any], dict[str, Any] | None]]:
@@ -1227,6 +1250,36 @@ def _line_for_yaml_path(lines: list[str], path: tuple[Any, ...]) -> int | None:
     return source.line_for_path(path) if source is not None else None
 
 
+def _grants_write(permissions: Any, permission: str) -> bool:
+    if isinstance(permissions, str):
+        return permissions != "read-all"
+    if isinstance(permissions, dict):
+        return str(permissions.get(permission, "")).lower() == "write"
+    return True
+
+
+def _called_workflow_drops_write(job: dict[str, Any], path: Path, permission: str) -> bool:
+    """The job calls a workflow file beside this one whose own ``permissions``
+    leave ``permission`` without write in every job. A called workflow can
+    only lower the token it is handed, so the caller's write scope does not
+    reach its steps. An unreadable, remote or permission-less target proves
+    nothing."""
+    target = local_workflow_reference(job.get("uses"))
+    if target is None:
+        return False
+    loaded = _load_yaml(path.parent / Path(target).name)
+    if loaded is None:
+        return False
+    called = loaded[0]
+    if "permissions" not in called or _grants_write(called["permissions"], permission):
+        return False
+    return not any(
+        "permissions" in called_job
+        and _grants_write(called_job["permissions"], permission)
+        for _job_id, called_job in _jobs(called)
+    )
+
+
 def _scan_permissions(
     data: dict[str, Any],
     path: Path,
@@ -1290,6 +1343,14 @@ def _scan_permissions(
         for permission, level in permissions.items():
             if str(level).lower() != "write":
                 continue
+            reached = [
+                str(job_id)
+                for job_id, job in _jobs(data)
+                if "permissions" not in job
+                and not _called_workflow_drops_write(job, path, str(permission))
+            ]
+            if len(reached) <= 1:
+                continue
             severity = WRITE_PERMISSION_SEVERITY.get(str(permission), "MEDIUM")
             _add_finding(
                 findings,
@@ -1299,7 +1360,7 @@ def _scan_permissions(
                     name="github-actions-broad-permissions",
                     message=(
                         f"Workflow-level permission {permission}: write reaches "
-                        f"{_job_list(inheriting)}. Grant write access only on the "
+                        f"{_job_list(reached)}. Grant write access only on the "
                         "job that needs it."
                     ),
                     file=path,
@@ -1705,6 +1766,53 @@ def _scan_persisted_checkout_credentials(
             )
 
 
+def _run_steps_with_paths(
+    data: dict[str, Any], *, is_workflow: bool
+) -> Iterator[tuple[dict[str, Any], dict[str, Any] | None, tuple[Any, ...]]]:
+    if is_workflow:
+        jobs = ((job_id, job, job.get("steps")) for job_id, job in _jobs(data))
+    else:
+        runs = data.get("runs")
+        jobs = ((None, None, runs.get("steps") if isinstance(runs, dict) else None),)
+    for job_id, job, steps in jobs:
+        if not isinstance(steps, list):
+            continue
+        for index, step in enumerate(steps):
+            if not isinstance(step, dict):
+                continue
+            path = (
+                ("jobs", job_id, "steps", index, "run")
+                if is_workflow
+                else ("runs", "steps", index, "run")
+            )
+            yield step, job, path
+
+
+def _line_for_run_command(
+    lines: list[str],
+    source: YamlSource | None,
+    run_path: tuple[Any, ...],
+    run_body: str,
+    run_line: int | None,
+) -> int:
+    """Locate a command inside its own run value, never elsewhere in the file."""
+    if source is None or not run_line:
+        return _line_for_value(lines, run_body)
+    span = source.scalar_lines_for_path(run_path)
+    stripped = run_body.strip()
+    if span is None or not stripped:
+        return run_line
+    needle = stripped.splitlines()[0]
+    search_lines = lines
+    if isinstance(lines, _WorkflowLines):
+        search_lines = lines.parsed_lines
+    first, last = span
+    for lineno in range(first, min(last, len(search_lines)) + 1):
+        if needle in search_lines[lineno - 1]:
+            return lineno
+    return run_line
+
+
 def _scan_run_blocks(
     data: dict[str, Any],
     path: Path,
@@ -1716,11 +1824,15 @@ def _scan_run_blocks(
     root: Path | None = None,
 ) -> None:
     rule_id = "SKY-D294"
+    source = _source_for_lines(lines)
 
-    for step, job in _steps_with_jobs(data, is_workflow=is_workflow):
+    for step, job, run_path in _run_steps_with_paths(data, is_workflow=is_workflow):
         run_body = step.get("run")
         if not isinstance(run_body, str):
             continue
+        run_line = None
+        if source is not None:
+            run_line = source.line_for_path(run_path)
         for risk in scan_shell_command(
             run_body,
             cwd_in_project=_run_starts_in_workspace(data, job, step),
@@ -1728,6 +1840,15 @@ def _scan_run_blocks(
         ):
             if risk.rule_id in ignore:
                 continue
+            if (
+                risk.rule_id == "SKY-D340"
+                and is_workflow
+                and has_release_context(data, job, step, source)
+            ):
+                continue
+            line = _line_for_run_command(lines, source, run_path, run_body, run_line)
+            if risk.rule_id == "SKY-D340" and run_line:
+                line = run_line
             _add_finding(
                 findings,
                 lines,
@@ -1736,10 +1857,11 @@ def _scan_run_blocks(
                     name="github-actions-shell-command-risk",
                     message=risk.message,
                     file=path,
-                    line=_line_for_value(lines, run_body),
+                    line=line,
                     severity=risk.severity,
                     value=risk.rule_id,
                 ),
+                yaml_only=line == run_line,
             )
     if rule_id not in ignore:
         _scan_template_injection(
@@ -2142,7 +2264,7 @@ def _scan_secrets_inherit(
                         "Pass only the specific secrets it needs."
                     ),
                     file=path,
-                    line=_line_for_contains(lines, "secrets"),
+                    line=_line_for_job_field(lines, job_id, "secrets"),
                     severity="MEDIUM",
                     value=f"{job_id}:inherit",
                 ),
@@ -2204,7 +2326,18 @@ _CREDENTIAL_NAME_PARTS = frozenset(
     }
 )
 _NON_CREDENTIAL_NAME_ENDINGS = frozenset(
-    {"URL", "URI", "HOST", "HOSTNAME", "ENDPOINT", "DOMAIN", "REGION", "MODEL", "PORT"}
+    {
+        "URL",
+        "URI",
+        "HOST",
+        "HOSTNAME",
+        "ENDPOINT",
+        "DOMAIN",
+        "REGION",
+        "MODEL",
+        "PORT",
+        "ID",
+    }
 )
 
 
@@ -2271,6 +2404,11 @@ def _scan_secrets_outside_env(
                 _add_finding(findings, lines, finding)
 
 
+_LITERAL_ECHO_RE = re.compile(
+    r"echo\s+(?:'[^'$`]*'|\"[^\"$`]*\"|[A-Za-z0-9_./:\\@+=-]+)\s*"
+)
+
+
 def _run_line_writes_env_unsafely(line: str) -> bool:
     if not GITHUB_ENV_DEST_RE.search(line):
         return False
@@ -2290,6 +2428,8 @@ def _run_line_writes_env_unsafely(line: str) -> bool:
     stripped = before.strip()
     if re.fullmatch(r"echo\s+['\"][A-Za-z_][A-Za-z0-9_]*=[^$`]*['\"]\s*", stripped):
         return False
+    if _LITERAL_ECHO_RE.fullmatch(stripped):
+        return False
     return True
 
 
@@ -2305,7 +2445,8 @@ def _scan_github_env_writes(
     rule_id = "SKY-D300"
     if rule_id in ignore:
         return
-    for step in _iter_steps(data, is_workflow=is_workflow):
+    source = _source_for_lines(lines)
+    for step, step_path in _steps_with_paths(data, is_workflow=is_workflow):
         run_body = step.get("run")
         if not isinstance(run_body, str):
             continue
@@ -2321,10 +2462,16 @@ def _scan_github_env_writes(
                         "GITHUB_ENV/GITHUB_PATH."
                     ),
                     file=path,
-                    line=_line_for_key(lines, "run"),
+                    line=(
+                        source.line_for_path((*step_path, "run"))
+                        if source is not None
+                        else None
+                    )
+                    or 1,
                     severity="MEDIUM",
                     value="github_env_write",
                 ),
+                yaml_only=True,
             )
 
 
@@ -2681,23 +2828,28 @@ def _scan_broad_secret_env(
             ]
             if not matches:
                 continue
-            _add_finding(
-                findings,
-                lines,
-                _finding(
-                    rule_id=rule_id,
-                    name="github-actions-broad-secret-env",
-                    message=(
-                        f"{location} environment variable {name} exposes secret "
-                        f"{matches[0]} to every nested step. Move it to the one step "
-                        "that needs it."
-                    ),
-                    file=path,
-                    line=_line_for_value(lines, value),
-                    severity=severity,
-                    value=f"{location}:{name}",
+            finding = _finding(
+                rule_id=rule_id,
+                name="github-actions-broad-secret-env",
+                message=(
+                    f"{location} environment variable {name} exposes secret "
+                    f"{matches[0]} to every nested step. Move it to the one step "
+                    "that needs it."
                 ),
+                file=path,
+                line=_line_for_value(lines, value),
+                severity=severity,
+                value=f"{location}:{name}",
             )
+            if all(_names_non_credential_secret(match) for match in matches):
+                finding["low_risk_context"] = {
+                    "reason": "non-credential-secret",
+                    "detail": (
+                        f"{matches[0]} names a location, setting or identifier, "
+                        "not a credential"
+                    ),
+                }
+            _add_finding(findings, lines, finding)
 
     check_env(data.get("env"), "workflow", "HIGH")
     for job_id, job in _jobs(data):

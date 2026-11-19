@@ -118,7 +118,7 @@ def test_byproducts_survive_until_the_last_build_has_consumed_them(
     monkeypatch.setattr(DeployExecutor, "_compose_build", compose_build)
     monkeypatch.setattr(DeployExecutor, "_build_dev_lane_only_services", dev_build)
     _rebuild(Scope.RUNTIME)
-    assert seen_by_dev_build == [_REAL, _REAL]
+    assert seen_by_dev_build == [_REAL] * len(SELF_UPDATE_KNOWN_BYPRODUCT_PATHS)
     assert _tracked_status(build_clone) == ""
 
 
@@ -165,6 +165,7 @@ def test_a_build_context_that_is_not_a_git_clone_does_not_fail_the_rebuild(
 
 
 @pytest.mark.gateway_lane
+@pytest.mark.usefixtures("gateway_phase_available")
 @pytest.mark.parametrize("script_exit", [0, 1])
 def test_gateway_deploy_restores_what_its_own_staging_rewrote(
     script_exit: int, build_clone: Path, monkeypatch: pytest.MonkeyPatch

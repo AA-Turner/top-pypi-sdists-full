@@ -6,6 +6,7 @@
  */
 
 use std::num::NonZeroU32;
+use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -14,14 +15,15 @@ use dupe::Dupe;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use lsp_types::Contents;
+use lsp_types::DiagnosticTag;
 use lsp_types::SemanticTokens;
 use lsp_types::SemanticTokensLegend;
 use lsp_types::TextEdit;
 use pyrefly_build::handle::Handle;
 use pyrefly_build::source_db::map_db::MapDatabase;
-use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::DisplayPos;
@@ -38,7 +40,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
 use crate::config::config::toml_error_span;
-use crate::config::error_kind::Severity;
+use crate::config::error_kind::ShownSeverity;
 use crate::config::finder::ConfigFinder;
 use crate::lsp::wasm::hover::get_hover;
 use crate::memory_project::memory_config;
@@ -101,17 +103,17 @@ impl Range {
         }
     }
 
+    /// Returns `None` for a range that is not valid, including one that ends before it starts.
     fn to_display_range(&self) -> Option<DisplayRange> {
-        Some(DisplayRange {
-            start: DisplayPos::Source {
-                line: LineNumber::new(u32::try_from(self.start_line).ok()?)?,
-                column: NonZeroU32::new(u32::try_from(self.start_col).ok()?)?,
-            },
-            end: DisplayPos::Source {
-                line: LineNumber::new(u32::try_from(self.end_line).ok()?)?,
-                column: NonZeroU32::new(u32::try_from(self.end_col).ok()?)?,
-            },
-        })
+        let start = DisplayPos::Source {
+            line: LineNumber::new(u32::try_from(self.start_line).ok()?)?,
+            column: NonZeroU32::new(u32::try_from(self.start_col).ok()?)?,
+        };
+        let end = DisplayPos::Source {
+            line: LineNumber::new(u32::try_from(self.end_line).ok()?)?,
+            column: NonZeroU32::new(u32::try_from(self.end_col).ok()?)?,
+        };
+        (start <= end).then_some(DisplayRange { start, end })
     }
 }
 
@@ -152,6 +154,8 @@ pub struct Diagnostic {
     pub message_details: String,
     pub kind: String,
     pub severity: i32,
+    /// Monaco marker tags, which use the same numbers as LSP diagnostic tags.
+    pub tags: Vec<DiagnosticTag>,
     pub filename: String,
 }
 
@@ -165,13 +169,21 @@ pub struct CompletionTextEdit {
 #[derive(Serialize)]
 pub struct AutoCompletionItem {
     label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     detail: Option<String>,
     /// A Monaco `CompletionItemKind`, whose numbering differs from LSP's.
+    #[serde(skip_serializing_if = "Option::is_none")]
     kind: Option<i32>,
-    #[serde(rename(serialize = "sortText"))]
+    #[serde(
+        rename(serialize = "sortText"),
+        skip_serializing_if = "Option::is_none"
+    )]
     sort_text: Option<String>,
     /// Without these, accepting an import completion does nothing visible.
-    #[serde(rename(serialize = "additionalTextEdits"))]
+    #[serde(
+        rename(serialize = "additionalTextEdits"),
+        skip_serializing_if = "Option::is_none"
+    )]
     import_edits: Option<Vec<CompletionTextEdit>>,
 }
 
@@ -206,6 +218,18 @@ fn to_monaco_completion_kind(kind: CompletionItemKind) -> i32 {
         CompletionItemKind::Snippet => 27,
         _ => unreachable!("unknown LSP CompletionItemKind"),
     }
+}
+
+/// A definition, in a sandbox file or in a file that comes with Pyrefly.
+#[derive(Serialize)]
+pub struct Location {
+    /// The sandbox filename, or the path of a stub that comes with Pyrefly.
+    filename: String,
+    range: Range,
+    /// The text of a file that is not a sandbox file, so that the sandbox can show it.
+    /// Set only when the caller asks for it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    contents: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -275,6 +299,7 @@ impl Playground {
                         kind: "parse-error".to_owned(),
                         // MarkerSeverity.Error (8)
                         severity: 8,
+                        tags: Vec::new(),
                         filename: "pyrefly.toml".to_owned(),
                     });
                     if !force_update {
@@ -313,11 +338,16 @@ impl Playground {
                 ".py"
             };
             // Use from_relative_path to properly convert file paths like "folder/file.py"
-            // to module names like "folder.file" (instead of incorrectly creating "folder/file")
-            let module_name = ModuleName::from_relative_path(Path::new(filename.as_str()))
-                .unwrap_or_else(|_| {
-                    ModuleName::from_str(filename.strip_suffix(suffix).unwrap_or(filename))
-                });
+            // to module names like "folder.file" (instead of incorrectly creating "folder/file").
+            // Only the normal components count, so `./folder//file.py` and `/folder/file.py`
+            // give the same module name.
+            let relative_path: PathBuf = Path::new(filename.as_str())
+                .components()
+                .filter(|component| matches!(component, Component::Normal(_)))
+                .collect();
+            let module_name = ModuleName::from_relative_path(&relative_path).unwrap_or_else(|_| {
+                ModuleName::from_str(filename.strip_suffix(suffix).unwrap_or(filename))
+            });
             let module_path = PathBuf::from(filename.clone());
             let memory_path = ModulePath::memory(module_path.clone());
 
@@ -410,11 +440,14 @@ impl Playground {
             let collected = errors.collect_errors();
             let unused = errors.collect_unused_ignore_errors_for_display(&collected);
             let mut output_errors = collected.ordinary;
+            output_errors.extend(collected.hints);
             output_errors.extend(collected.directives);
             output_errors.extend(unused.ordinary);
-            let file_errors = output_errors.into_map(|e| {
+            output_errors.extend(unused.hints);
+            let file_errors = output_errors.into_iter().filter_map(|e| {
+                let severity = e.severity().shown()?;
                 let range = e.display_range();
-                Diagnostic {
+                Some(Diagnostic {
                     start_line: range.start.line_within_file().get() as i32,
                     start_col: range.start.column().get() as i32,
                     end_line: range.end.line_within_file().get() as i32,
@@ -423,128 +456,24 @@ impl Playground {
                     message_details: e.msg_details().unwrap_or("").to_owned(),
                     kind: e.error_kind().to_name().to_owned(),
                     // Severity values defined here: https://github.com/microsoft/vscode/blob/main/src/vs/editor/common/standalone/standaloneEnums.ts
-                    severity: match e.severity() {
-                        Severity::Error => 8,
-                        Severity::Warn => 4,
-                        Severity::Info => 2,
-                        Severity::Ignore => 1,
+                    severity: match severity {
+                        ShownSeverity::Error => 8,
+                        ShownSeverity::Warn => 4,
+                        ShownSeverity::Info => 2,
+                        // As in the LSP, a hint without its own editor look is shown like `info`.
+                        ShownSeverity::Hint if e.editor_tag().is_none() => 2,
+                        ShownSeverity::Hint => 1,
                     },
+                    tags: e.editor_tag().into_iter().collect(),
                     filename: filename.clone(),
-                }
+                })
             });
             all_diagnostics.extend(file_errors);
-
-            // Add unused diagnostics
-            Self::append_unused_import_diagnostics(
-                &transaction,
-                handle,
-                filename,
-                &mut all_diagnostics,
-            );
-            Self::append_unused_variable_diagnostics(
-                &transaction,
-                handle,
-                filename,
-                &mut all_diagnostics,
-            );
-            Self::append_unused_parameter_diagnostics(
-                &transaction,
-                handle,
-                filename,
-                &mut all_diagnostics,
-            );
         }
 
         // Include any diagnostics gathered while loading config
         all_diagnostics.extend(self.config_diagnostics.iter().cloned());
         all_diagnostics
-    }
-
-    fn append_unused_import_diagnostics(
-        transaction: &Transaction<'_>,
-        handle: &Handle,
-        filename: &str,
-        items: &mut Vec<Diagnostic>,
-    ) {
-        if let Some(answers) = transaction.get_answers(handle) {
-            let bindings = answers.bindings();
-            let module_info = bindings.module();
-            for unused in bindings.unused_imports() {
-                let range = module_info.display_range(unused.range);
-                items.push(Diagnostic {
-                    start_line: range.start.line_within_file().get() as i32,
-                    start_col: range.start.column().get() as i32,
-                    end_line: range.end.line_within_file().get() as i32,
-                    end_col: range.end.column().get() as i32,
-                    message_header: format!("Import `{}` may be unused", unused.name.as_str()),
-                    message_details: String::new(),
-                    kind: "unused-import".to_owned(),
-                    // MarkerSeverity.Hint (1)
-                    severity: 1,
-                    filename: filename.to_owned(),
-                });
-            }
-        }
-    }
-
-    fn append_unused_variable_diagnostics(
-        transaction: &Transaction<'_>,
-        handle: &Handle,
-        filename: &str,
-        items: &mut Vec<Diagnostic>,
-    ) {
-        if let Some(answers) = transaction.get_answers(handle) {
-            let bindings = answers.bindings();
-            let module_info = bindings.module();
-            for unused in bindings.unused_variables() {
-                if Ast::is_intentionally_unused(unused.name.as_str()) {
-                    continue;
-                }
-                let range = module_info.display_range(unused.range);
-                items.push(Diagnostic {
-                    start_line: range.start.line_within_file().get() as i32,
-                    start_col: range.start.column().get() as i32,
-                    end_line: range.end.line_within_file().get() as i32,
-                    end_col: range.end.column().get() as i32,
-                    message_header: format!("Variable `{}` is unused", unused.name.as_str()),
-                    message_details: String::new(),
-                    kind: "unused-variable".to_owned(),
-                    // MarkerSeverity.Hint (1)
-                    severity: 1,
-                    filename: filename.to_owned(),
-                });
-            }
-        }
-    }
-
-    fn append_unused_parameter_diagnostics(
-        transaction: &Transaction<'_>,
-        handle: &Handle,
-        filename: &str,
-        items: &mut Vec<Diagnostic>,
-    ) {
-        if let Some(answers) = transaction.get_answers(handle) {
-            let bindings = answers.bindings();
-            let module_info = bindings.module();
-            for unused in bindings.unused_parameters() {
-                if Ast::is_intentionally_unused(unused.name.as_str()) {
-                    continue;
-                }
-                let range = module_info.display_range(unused.range);
-                items.push(Diagnostic {
-                    start_line: range.start.line_within_file().get() as i32,
-                    start_col: range.start.column().get() as i32,
-                    end_line: range.end.line_within_file().get() as i32,
-                    end_col: range.end.column().get() as i32,
-                    message_header: format!("Parameter `{}` is unused", unused.name.as_str()),
-                    message_details: String::new(),
-                    kind: "unused-parameter".to_owned(),
-                    // MarkerSeverity.Hint (1)
-                    severity: 1,
-                    filename: filename.to_owned(),
-                });
-            }
-        }
     }
 
     fn to_text_size(&self, transaction: &Transaction, pos: Position) -> Option<TextSize> {
@@ -584,7 +513,9 @@ impl Playground {
         SemanticTokensLegends::lsp_semantic_token_legends()
     }
 
-    pub fn goto_definition(&mut self, pos: Position) -> Vec<Range> {
+    /// Returns the definitions at `pos`. With `with_contents`, a definition in a
+    /// file that is not a sandbox file comes with the text of that file.
+    pub fn goto_definition(&mut self, pos: Position, with_contents: bool) -> Vec<Location> {
         let handle = match self.handles.get(&self.active_filename) {
             Some(handle) => handle,
             None => return Vec::new(),
@@ -598,7 +529,39 @@ impl Playground {
             .goto_definition(handle, position)
             .unwrap_or_default()
             .into_iter()
-            .map(|r| Range::new(r.module.display_range(r.range)))
+            .filter_map(|r| {
+                // Bundled stubs keep the path relative to their own root, so the
+                // root goes in front of it to make the filename unique.
+                let (filename, is_sandbox_file) = match r.module.path().details() {
+                    ModulePathDetails::Memory(path) => (path.to_path_buf(), true),
+                    ModulePathDetails::FileSystem(path) => (path.to_path_buf(), false),
+                    ModulePathDetails::BundledTypeshed(path) => {
+                        (Path::new("typeshed/stdlib").join(path.as_path()), false)
+                    }
+                    ModulePathDetails::BundledTypeshedThirdParty(path) => {
+                        (Path::new("typeshed/stubs").join(path.as_path()), false)
+                    }
+                    ModulePathDetails::BundledThirdParty(path) => {
+                        (Path::new("stubs").join(path.as_path()), false)
+                    }
+                    // A namespace package is a directory, with no text to show.
+                    ModulePathDetails::Namespace(_) => return None,
+                };
+                let filename = filename.to_string_lossy();
+                // A stub path uses the native separator, but the sandbox reads the
+                // filename of a stub as a URI path.
+                let filename = if is_sandbox_file {
+                    filename.into_owned()
+                } else {
+                    filename.replace('\\', "/")
+                };
+                Some(Location {
+                    filename,
+                    range: Range::new(r.module.display_range(r.range)),
+                    contents: (with_contents && !is_sandbox_file)
+                        .then(|| r.module.contents().to_string()),
+                })
+            })
             .collect()
     }
 
@@ -699,6 +662,111 @@ mod tests {
                 .inlay_hint(true)
                 .iter()
                 .any(|hint| hint.label == "value= ")
+        );
+    }
+
+    #[test]
+    fn test_goto_definition_in_other_files() {
+        let mut state = Playground::new(None).unwrap();
+        let mut files = SmallMap::new();
+        files.insert(
+            "sandbox.py".to_owned(),
+            "import os\nfrom utils import helper\nhelper()\nos.getcwd()\n".to_owned(),
+        );
+        files.insert(
+            "utils.py".to_owned(),
+            "\n\ndef helper() -> None: ...\n".to_owned(),
+        );
+        state.update_sandbox_files(files, true);
+        state.set_active_file("sandbox.py");
+
+        let definitions = state.goto_definition(Position::new(3, 1), true);
+        assert_eq!(definitions.len(), 1);
+        assert_eq!(definitions[0].filename, "utils.py");
+        assert_eq!(definitions[0].range.start_line, 3);
+        assert_eq!(definitions[0].range.start_col, 5);
+        assert!(
+            definitions[0].contents.is_none(),
+            "a sandbox file needs no contents"
+        );
+
+        let definitions = state.goto_definition(Position::new(4, 4), true);
+        assert_eq!(definitions.len(), 1);
+        assert_eq!(definitions[0].filename, "typeshed/stdlib/os/__init__.pyi");
+        assert!(
+            definitions[0]
+                .contents
+                .as_ref()
+                .expect("a stub should come with its contents")
+                .contains("def getcwd()")
+        );
+
+        let definitions = state.goto_definition(Position::new(4, 4), false);
+        assert_eq!(definitions.len(), 1);
+        assert!(
+            definitions[0].contents.is_none(),
+            "a stub should come without its contents when the caller does not ask"
+        );
+    }
+
+    #[test]
+    fn test_import_file_with_unnormalized_name() {
+        let mut state = Playground::new(None).unwrap();
+        let mut files = SmallMap::new();
+        files.insert(
+            "sandbox.py".to_owned(),
+            "from utils import helper\nfrom pkg.mod import value\nhelper()\nprint(value)\n"
+                .to_owned(),
+        );
+        files.insert(
+            "./utils.py".to_owned(),
+            "def helper() -> None: ...\n".to_owned(),
+        );
+        files.insert("/pkg//mod.py".to_owned(), "value = 1\n".to_owned());
+        state.update_sandbox_files(files, true);
+
+        let errors = state.get_errors();
+        assert!(
+            errors.is_empty(),
+            "`./utils.py` and `/pkg//mod.py` should be importable as `utils` and `pkg.mod`, got: {:?}",
+            errors.iter().map(|e| &e.message_header).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_semantic_tokens_ignores_reversed_range() {
+        let mut state = Playground::new(None).unwrap();
+        let mut files = SmallMap::new();
+        files.insert("sandbox.py".to_owned(), "x = 1\ny = 2\n".to_owned());
+        state.update_sandbox_files(files, true);
+        state.set_active_file("sandbox.py");
+
+        let reversed = Range {
+            start_line: 2,
+            start_col: 1,
+            end_line: 1,
+            end_col: 1,
+        };
+        assert_eq!(
+            state.semantic_tokens(Some(reversed)).unwrap().data,
+            state.semantic_tokens(None).unwrap().data,
+            "a reversed range should give the tokens of the whole file"
+        );
+    }
+
+    #[test]
+    fn test_autocomplete_json_omits_unset_fields() {
+        let item = AutoCompletionItem {
+            label: "x".to_owned(),
+            detail: None,
+            kind: None,
+            sort_text: None,
+            import_edits: None,
+        };
+        assert_eq!(
+            serde_json::to_value(item).unwrap(),
+            serde_json::json!({ "label": "x" }),
+            "a field that is `None` should be absent, not `null`"
         );
     }
 
@@ -1202,5 +1270,49 @@ mod tests {
             "Parameter `age` is unused"
         );
         assert_eq!(unused_parameters[0].severity, 1); // MarkerSeverity.Hint
+    }
+
+    #[test]
+    fn test_unused_parameter_suppressed_by_ignore() {
+        let mut state = Playground::new(None).unwrap();
+        let mut files = SmallMap::new();
+        files.insert(
+            "main.py".to_owned(),
+            "def greet(name: str, age: int) -> str:  # pyrefly: ignore[unused-parameter]\n    return name"
+                .to_owned(),
+        );
+        state.update_sandbox_files(files, true);
+        state.set_active_file("main.py");
+
+        let kinds: Vec<_> = state.get_errors().into_iter().map(|e| e.kind).collect();
+        assert!(kinds.is_empty(), "unexpected diagnostics: {kinds:?}");
+    }
+
+    // https://github.com/pyrefly-org/pyrefly/issues/5113
+    #[test]
+    fn test_kind_set_to_hint_in_config() {
+        let mut state = Playground::new(None).unwrap();
+        let mut files = SmallMap::new();
+        files.insert(
+            "main.py".to_owned(),
+            "import os\nx: int = \"wrong\"\n".to_owned(),
+        );
+        files.insert(
+            "pyrefly.toml".to_owned(),
+            "[errors]\nbad-assignment = \"hint\"\n".to_owned(),
+        );
+        state.update_sandbox_files(files, true);
+        state.set_active_file("main.py");
+
+        let errors = state.get_errors();
+        // The severity and the serialized tags are what Monaco receives.
+        let marker = |kind: &str| {
+            let e = errors.iter().find(|e| e.kind == kind).unwrap();
+            (e.severity, serde_json::to_string(&e.tags).unwrap())
+        };
+        // MarkerSeverity.Hint with MarkerTag.Unnecessary, drawn greyed out.
+        assert_eq!(marker("unused-import"), (1, "[1]".to_owned()));
+        // MarkerSeverity.Info, with no tag.
+        assert_eq!(marker("bad-assignment"), (2, "[]".to_owned()));
     }
 }

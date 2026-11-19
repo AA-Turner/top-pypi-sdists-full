@@ -108,6 +108,90 @@ class PaymentOutcomeUnknownError(PaymentError, RuntimeError):
         )
 
 
+class ZoneSettlementPendingError(PaymentError, RuntimeError):
+    """A client withdrew from a Zone to pay a challenge, but the withdrawal did not
+    settle on Tempo before the client stopped waiting.
+
+    The withdrawal cannot be undone and may still settle. Retry with
+    ``challenge``: passing it to the same Tempo charge client method's
+    ``create_credential`` resumes waiting without withdrawing again. A newly
+    issued challenge for the same payment never starts a second withdrawal: from
+    the origin that issued ``challenge_id`` it resumes this withdrawal and returns a
+    credential for that challenge; otherwise it raises this error again.
+    The settlement can also be found by ``sender_tag`` on the Zone's portal.
+    The error that ended the wait is its ``__cause__``.
+
+    With ``redeemed_late``, the withdrawal settled and its credential was returned
+    after its challenge expired, so the server may still accept or refuse it: only a
+    retry with ``challenge`` gets that credential again, and a new challenge for the
+    same payment raises this error until the redemption window ends.
+    """
+
+    def __init__(
+        self,
+        *,
+        challenge_id: str,
+        sender_tag: str | None = None,
+        zone_id: int,
+        challenge: Any = None,
+        redeemed_late: bool = False,
+    ) -> None:
+        self.challenge = challenge
+        """The pending Challenge (``mpp.Challenge``): retry with it to resume the wait."""
+        self.redeemed_late = redeemed_late
+        """Whether the withdrawal settled and its credential was returned after its
+        challenge expired."""
+        self.challenge_id = challenge_id
+        """ID of the challenge the withdrawal pays."""
+        self.sender_tag = sender_tag
+        """Sender tag of the withdrawal, as the portal's ``WithdrawalProcessed`` event has it,
+        or ``None`` when not yet read."""
+        self.zone_id = zone_id
+        """ID of the Zone the withdrawal left."""
+        withdrawal = f"{sender_tag} " if sender_tag else ""
+        if redeemed_late:
+            message = (
+                f"Zone {zone_id} withdrawal {withdrawal}for challenge {challenge_id!r} "
+                "settled, and its credential was returned after the challenge expired. "
+                "Retry with this error's challenge to get that credential again instead "
+                "of paying again."
+            )
+        else:
+            message = (
+                f"Zone {zone_id} withdrawal {withdrawal}for challenge {challenge_id!r} has "
+                "not settled on Tempo yet. Retry with this error's challenge to resume "
+                "waiting instead of paying again."
+            )
+        super().__init__(message)
+
+
+class ZoneWithdrawalBouncedError(PaymentError, RuntimeError):
+    """A client withdrew from a Zone to pay a challenge, but the withdrawal bounced.
+
+    The portal processed the withdrawal on Tempo, but its callback failed, so it
+    returned the amount to the payer's Zone balance instead of paying the
+    recipient. The withdrawal fees are spent. Nothing was paid, so no credential
+    was sent; paying the challenge again withdraws again.
+    """
+
+    def __init__(
+        self, *, challenge_id: str, sender_tag: str, zone_id: int, challenge: Any = None
+    ) -> None:
+        self.challenge = challenge
+        """The Challenge (``mpp.Challenge``) the withdrawal tried to pay."""
+        self.challenge_id = challenge_id
+        """ID of the challenge the withdrawal tried to pay."""
+        self.sender_tag = sender_tag
+        """Sender tag of the withdrawal, as the portal's ``WithdrawalProcessed`` event has it."""
+        self.zone_id = zone_id
+        """ID of the Zone the withdrawal left."""
+        super().__init__(
+            f"Zone {zone_id} withdrawal {sender_tag} for challenge {challenge_id!r} bounced: "
+            "the amount returned to the payer's Zone balance and nothing was paid. "
+            "Paying again withdraws again."
+        )
+
+
 class NoMethodFoundError(PaymentError, ValueError):
     """No configured client method can pay any offered challenge.
 

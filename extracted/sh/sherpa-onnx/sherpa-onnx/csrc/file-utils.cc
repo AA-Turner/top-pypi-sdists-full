@@ -5,6 +5,7 @@
 #include "sherpa-onnx/csrc/file-utils.h"
 
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -13,8 +14,9 @@
 #include <windows.h>
 #else
 #include <sys/stat.h>
-#include <limits.h>
-#include <stdlib.h>
+
+#include <climits>
+#include <cstdlib>
 #endif
 
 #include "sherpa-onnx/csrc/macros.h"
@@ -46,10 +48,28 @@ bool FileExists(const std::string &filename) {
   return attributes != INVALID_FILE_ATTRIBUTES &&
          !(attributes & FILE_ATTRIBUTE_DIRECTORY);
 #else
-  struct stat file_stat;
+  struct stat file_stat = {};
   return stat(filename.c_str(), &file_stat) == 0 && S_ISREG(file_stat.st_mode);
 #endif
 }
+
+#if __ANDROID_API__ >= 9
+bool FileExists(AAssetManager *mgr, const std::string &filename) {
+  std::unique_ptr<AAsset, decltype(&AAsset_close)> asset(
+      AAssetManager_open(mgr, filename.c_str(), AASSET_MODE_BUFFER),
+      AAsset_close);
+  return asset != nullptr;
+}
+#endif
+
+#if __OHOS__
+bool FileExists(NativeResourceManager *mgr, const std::string &filename) {
+  std::unique_ptr<RawFile, decltype(&OH_ResourceManager_CloseRawFile)> fp(
+      OH_ResourceManager_OpenRawFile(mgr, filename.c_str()),
+      OH_ResourceManager_CloseRawFile);
+  return fp != nullptr;
+}
+#endif
 
 void AssertFileExists(const std::string &filename) {
   if (!FileExists(filename)) {
@@ -63,7 +83,8 @@ std::vector<char> ReadFile(const std::string &filename) {
     return {};
   }
 
-  std::ifstream file = OpenInputFile(filename, std::ios::binary | std::ios::ate);
+  std::ifstream file =
+      OpenInputFile(filename, std::ios::binary | std::ios::ate);
   if (!file.is_open()) {
     return {};
   }
@@ -98,20 +119,19 @@ std::vector<char> ReadFile(AAssetManager *mgr, const std::string &filename) {
         "See also https://github.com/k2-fsa/sherpa-onnx/issues/2562");
   }
 
-  AAsset *asset = AAssetManager_open(mgr, filename.c_str(), AASSET_MODE_BUFFER);
+  std::unique_ptr<AAsset, decltype(&AAsset_close)> asset(
+      AAssetManager_open(mgr, filename.c_str(), AASSET_MODE_BUFFER),
+      AAsset_close);
   if (!asset) {
     __android_log_print(ANDROID_LOG_FATAL, "sherpa-onnx",
                         "Read binary file: Load '%s' failed", filename.c_str());
     SHERPA_ONNX_EXIT(-1);
   }
 
-  auto p = reinterpret_cast<const char *>(AAsset_getBuffer(asset));
-  size_t asset_length = AAsset_getLength(asset);
+  auto p = reinterpret_cast<const char *>(AAsset_getBuffer(asset.get()));
+  size_t asset_length = AAsset_getLength(asset.get());
 
-  std::vector<char> buffer(p, p + asset_length);
-  AAsset_close(asset);
-
-  return buffer;
+  return std::vector<char>(p, p + asset_length);
 }
 #endif
 
@@ -155,23 +175,20 @@ std::string ResolveAbsolutePath(const std::string &path) {
   try {
 #ifdef _WIN32
     std::wstring wide_path = ToWideString(path);
-    DWORD required_size = GetFullPathNameW(wide_path.c_str(), 0, nullptr, nullptr);
+    DWORD required_size =
+        GetFullPathNameW(wide_path.c_str(), 0, nullptr, nullptr);
     if (required_size == 0) {
       return path;
     }
-    
+
     std::vector<wchar_t> buffer(required_size);
-    DWORD actual_size = GetFullPathNameW(
-        wide_path.c_str(),
-        required_size,
-        buffer.data(),
-        nullptr
-    );
-    
+    DWORD actual_size = GetFullPathNameW(wide_path.c_str(), required_size,
+                                         buffer.data(), nullptr);
+
     if (actual_size == 0 || actual_size >= required_size) {
       return path;
     }
-    
+
     std::wstring resolved_wide(buffer.data(), actual_size);
     return ToString(resolved_wide);
 #else
@@ -181,7 +198,7 @@ std::string ResolveAbsolutePath(const std::string &path) {
     }
     return std::string(resolved_path);
 #endif
-  } catch (const std::exception&) {
+  } catch (const std::exception &) {
     return path;
   }
 }

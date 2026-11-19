@@ -14,16 +14,12 @@ the release's own checksums.txt and the cache key off the bare tag:
          ::test_stamped_matching_tree_is_served_with_no_network, and
          ::test_half_extracted_tree_is_never_reused for the predicate that
          replaced Path.exists()
-  refusing a tag this core is not sealed to (was: BROKEN_VERSIONS)
+  refusing a tag this core is not sealed to
       -> invisible_core/tests/test_seal_cache.py
          ::test_pin_to_another_tag_is_refused_without_touching_the_network, and
          invisible_core/tests/test_seal_engine_guard.py
          ::test_tree_without_juggler_is_refused for the undrivable engine itself
 
-The _parse_checksums cases below outlive their caller: ensure_binary no longer
-reads checksums.txt at all, so they now guard the parser for the live-release
-check in test_release_e2e.py and for anything that reads a published
-checksums.txt by hand.
 """
 # MOVED FROM invisible_playwright/tests/ ON 2026-07-27.
 #
@@ -52,11 +48,9 @@ from invisible_core.download import (
     _download_file,
     _extract,
     _github_token,
-    _parse_checksums,
     _parse_owner_repo,
     _resolve_asset_urls,
     _sha256_file,
-    cache_dir_for_version,
     cache_root,
 )
 
@@ -85,159 +79,6 @@ def test_extract_tar_gz(tmp_path):
     assert (dst / "firefox").exists()
     assert (dst / "firefox").read_bytes() == b"ELF!"
 
-
-# DL3: checksum line with comment (#) is skipped
-@pytest.mark.unit
-def test_parse_checksums_skips_comments_and_blanks():
-    text = (
-        "# this is a comment\n"
-        "\n"
-        "   # indented comment\n"
-        "abc123  file1.zip\n"
-        "def456  file2.tar.gz\n"
-    )
-    out = _parse_checksums(text)
-    assert out == {"file1.zip": "abc123", "file2.tar.gz": "def456"}
-
-
-# DL3 sibling: malformed lines (fewer than 2 fields) are silently ignored
-@pytest.mark.unit
-def test_parse_checksums_ignores_single_field_lines():
-    text = "loner\nabc123  file.zip\n"
-    out = _parse_checksums(text)
-    assert out == {"file.zip": "abc123"}
-
-
-# DL3 sibling: last field is treated as filename (supports trailing whitespace tokens)
-@pytest.mark.unit
-def test_parse_checksums_uses_last_token_as_filename():
-    text = "abc123  some/nested/file.zip\n"
-    out = _parse_checksums(text)
-    assert "some/nested/file.zip" in out
-
-
-# DL3 regression - issue #15 (LostBoxArt).
-# GNU coreutils `sha256sum` (and `shasum -b`) print filenames in BINARY MODE
-# with a leading `*`: "hash *filename". The parser used parts[-1] verbatim
-# so the key became "*filename" and lookups by bare filename returned None,
-# raising `RuntimeError: no SHA256 for {asset}` on every first-time fetch.
-@pytest.mark.unit
-def test_parse_checksums_strips_star_prefix_binary_mode():
-    """`sha256sum -b` format (default on Linux when reading actual files)."""
-    text = "abc123 *firefox.tar.gz\n"
-    out = _parse_checksums(text)
-    assert out == {"firefox.tar.gz": "abc123"}, (
-        "binary-mode '*' prefix must be stripped from the filename key"
-    )
-
-
-@pytest.mark.unit
-def test_parse_checksums_handles_mixed_binary_and_text_mode():
-    """A single checksums.txt with one binary-mode line and one text-mode line.
-    Both keys must be normalized (no `*` prefix) so consumers can use the bare
-    filename as the lookup key regardless of how each line was produced."""
-    text = (
-        "aaa111 *firefox-win.zip\n"
-        "bbb222  firefox-linux.tar.gz\n"
-    )
-    out = _parse_checksums(text)
-    assert out == {"firefox-win.zip": "aaa111", "firefox-linux.tar.gz": "bbb222"}
-
-
-@pytest.mark.unit
-def test_parse_checksums_handles_multiple_leading_stars():
-    """`.lstrip("*")` strips any run of leading asterisks. Not a real sha256sum
-    format but defensive - guarantees no `*` survives in any key."""
-    text = "abc123 **doubled.zip\n"
-    out = _parse_checksums(text)
-    assert "doubled.zip" in out
-    assert "**doubled.zip" not in out
-
-
-@pytest.mark.unit
-def test_parse_checksums_handles_crlf_line_endings():
-    """sha256sum.exe on Windows writes CRLF. The .strip() on each line should
-    consume the \\r so the key doesn't end up as 'firefox.zip\\r'."""
-    text = "abc123 *firefox.zip\r\ndef456  other.tar.gz\r\n"
-    out = _parse_checksums(text)
-    assert out == {"firefox.zip": "abc123", "other.tar.gz": "def456"}
-
-
-@pytest.mark.unit
-def test_parse_checksums_handles_utf8_bom_at_start():
-    """Some Windows tools prepend a UTF-8 BOM. The first line shouldn't be lost."""
-    text = "﻿abc123 *firefox.zip\n"
-    out = _parse_checksums(text)
-    # The BOM stays attached to the hash field as a non-fatal artifact;
-    # what matters is that the FILENAME key is parsed and normalized.
-    keys = list(out.keys())
-    assert "firefox.zip" in keys, f"BOM caused first line to be lost: keys={keys}"
-
-
-@pytest.mark.unit
-def test_parse_checksums_handles_indented_lines():
-    """Leading whitespace on a data line must not break parsing."""
-    text = "   abc123 *indented.zip\n"
-    out = _parse_checksums(text)
-    assert out == {"indented.zip": "abc123"}
-
-
-@pytest.mark.unit
-def test_parse_checksums_handles_trailing_whitespace():
-    """Trailing spaces on a line shouldn't end up in the key."""
-    text = "abc123 *trailing.zip   \n"
-    out = _parse_checksums(text)
-    # After .strip() the trailing spaces are gone, so the key is clean
-    assert out == {"trailing.zip": "abc123"}
-
-
-@pytest.mark.unit
-def test_parse_checksums_real_world_sha256sum_b_output(tmp_path):
-    """End-to-end: invoke the actual `sha256sum` (or its Python equivalent)
-    on a real file and verify the parser handles that output verbatim.
-
-    We can't depend on sha256sum being on PATH on Windows, so we synthesize
-    the exact byte sequence that GNU coreutils 9.x produces."""
-    fake_archive = tmp_path / "release.tar.gz"
-    fake_archive.write_bytes(b"some content")
-    sha = hashlib.sha256(fake_archive.read_bytes()).hexdigest()
-    # Exact format coreutils prints in binary mode (default for files):
-    #   "<hash><SP>*<filename>\n"
-    coreutils_output = f"{sha} *{fake_archive.name}\n"
-
-    out = _parse_checksums(coreutils_output)
-    assert out == {"release.tar.gz": sha}
-
-
-@pytest.mark.unit
-def test_parse_checksums_text_mode_two_space_separator():
-    """`sha256sum --text` format uses two spaces. Must also parse cleanly
-    and the key must be identical to the binary-mode case."""
-    text = "abc123  textmode.zip\n"
-    out = _parse_checksums(text)
-    assert out == {"textmode.zip": "abc123"}
-
-
-@pytest.mark.unit
-def test_parse_checksums_empty_file_returns_empty_dict():
-    assert _parse_checksums("") == {}
-    assert _parse_checksums("\n\n\n") == {}
-    assert _parse_checksums("   \n\t\n") == {}
-
-
-@pytest.mark.unit
-def test_parse_checksums_all_comment_file_returns_empty_dict():
-    """A file with only comments shouldn't crash and shouldn't produce keys."""
-    text = "# generated by release script\n# 2026-05-20\n"
-    assert _parse_checksums(text) == {}
-
-
-# DL3 regression - the #15 sentinel that ran the parser through ensure_binary
-# retired with the checksums.txt contract: the fetcher no longer downloads or
-# parses checksums.txt, so there is no integration form of this test left to
-# write. The parser cases above still guard the format, and
-# test_release_e2e.py::test_fetch_against_live_release still hits the live
-# release. What is gone is the unit-level coupling of the two.
 
 
 # DL4: unknown archive format (.rar) raises RuntimeError
@@ -600,7 +441,7 @@ def test_download_file_does_not_send_auth_for_non_api_urls(monkeypatch, tmp_path
 
 
 # ========================================================================== #
-# cache_root + cache_dir_for_version - path resolution
+# cache_root - path resolution
 # ========================================================================== #
 
 @pytest.mark.unit
@@ -616,32 +457,6 @@ def test_cache_root_contains_package_name():
     it without nuking other tools' caches."""
     p = cache_root()
     assert "invisible-playwright" in str(p).lower()
-
-
-@pytest.mark.unit
-def test_cache_dir_for_version_appends_version_segment():
-    """Each binary version gets its own subdir so multiple versions can
-    coexist (useful for downgrade / A-B testing)."""
-    p = cache_dir_for_version("firefox-99")
-    assert p.name == "firefox-99"
-    assert p.parent == cache_root()
-
-
-# The no-arg call no longer names cache_root()/<BINARY_VERSION>: the cache key is
-# content-addressed (tag + base version + the BuildID of this host's leg), so the
-# assertion moved with it, to
-# invisible_core/tests/test_seal_download.py
-# ::test_cache_dir_for_version_no_arg_is_the_sealed_content_key.
-
-
-@pytest.mark.unit
-def test_cache_dir_isolation_between_versions():
-    """firefox-3 and firefox-4 must NEVER share a directory - extraction
-    would clobber one with the other and break downgrade."""
-    a = cache_dir_for_version("firefox-3")
-    b = cache_dir_for_version("firefox-4")
-    assert a != b
-    assert a.parent == b.parent  # but they share the same root
 
 
 # ========================================================================== #

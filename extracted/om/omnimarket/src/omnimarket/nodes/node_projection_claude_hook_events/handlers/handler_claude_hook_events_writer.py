@@ -25,13 +25,19 @@ Idempotency, by construction rather than by assumption:
 
 from __future__ import annotations
 
-import asyncio
 import json
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from omnimarket.handlers.writer_pool_host import (
+    WriterPoolHost,
+    build_pool_adapter,
+    load_writer_pool_settings,
+)
+from omnimarket.models.model_projection_request import ModelProjectionRequest
+from omnimarket.models.model_writer_pool_settings import ModelWriterPoolSettings
 from omnimarket.nodes.node_projection_claude_hook_events.handlers.handler_projection_claude_hook_events import (
     HandlerProjectionClaudeHookEvents,
 )
@@ -43,7 +49,10 @@ from omnimarket.nodes.node_projection_claude_hook_events.models import (
     ModelClaudeHookProjectionRequest,
     ModelKnownParentToolCall,
 )
-from omnimarket.projection.runner import BaseProjectionRunner, MessageMeta
+from omnimarket.projection.runner import (
+    BaseProjectionRunner,
+    MessageMeta,
+)
 
 TABLE_EVENTS = "omninode_internal.claude_hook_events"
 TABLE_SPANS = "omninode_internal.claude_agent_spans"
@@ -223,19 +232,39 @@ class ClaudeHookEventsProjectionWriter(BaseProjectionRunner):
     """
 
     #: Dispatched IN-PROCESS by the runtime auto-wiring, once per consumed
-    #: message. Declaring it is a promise that every loop-bound resource is
-    #: opened and closed inside the loop ``handle()`` opens. Undeclared, the
+    #: message. Declaring it is a promise that every loop-bound resource lives
+    #: on the one loop the writer's pool host runs. Undeclared, the
     #: shared runtime treats this as a standalone runner and never dispatches
     #: it, and no dedicated writer Deployment exists for this node: zero rows,
     #: no error.
     onex_runtime_inprocess_dispatch = True
 
-    def __init__(self, contract_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        contract_path: Path | None = None,
+        pool_settings: ModelWriterPoolSettings | None = None,
+    ) -> None:
         super().__init__()
         _path = contract_path or Path(__file__).parent.parent / "contract.yaml"
         with open(_path) as handle:
             self._contract: dict[str, Any] = yaml.safe_load(handle)
         self._derive = HandlerProjectionClaudeHookEvents()
+        # The pool is sized by the contract's writer_pool, and opened by the
+        # first message because the runtime binds the DSN after construction.
+        self._pool_host = WriterPoolHost(
+            "claude_hook_events_writer",
+            lambda: build_pool_adapter(self.db, self._pool_host.settings),
+            pool_settings
+            or load_writer_pool_settings("node_projection_claude_hook_events"),
+        )
+
+    def start_pool(self) -> None:
+        """Open the one pool now rather than on the first message."""
+        self._pool_host.start()
+
+    def close_pool(self) -> None:
+        """Close the pool; a message after this raises ``WriterPoolClosedError``."""
+        self._pool_host.close()
 
     @property
     def subscribe_topics(self) -> list[str]:
@@ -249,55 +278,26 @@ class ClaudeHookEventsProjectionWriter(BaseProjectionRunner):
     def poison_dlq_topics(self) -> list[str]:
         return list(self._contract.get("event_bus", {}).get("dlq_topics", []))
 
-    def handle(self, input_data: dict[str, Any]) -> dict[str, Any]:
-        """RuntimeLocal handler protocol shim: one message, one loop, one pool."""
-        topics = self.subscribe_topics
-        topic = str(input_data.pop("_topic", topics[0] if topics else ""))
-        meta = MessageMeta(
-            partition=int(input_data.pop("_partition", 0)),
-            offset=int(input_data.pop("_offset", 0)),
-            fallback_id=str(input_data.pop("_fallback_id", "")),
-            topic=topic,
-        )
-        return asyncio.run(self._project_one_message(topic, input_data, meta))
-
-    async def _project_one_message(
-        self, topic: str, data: dict[str, Any], meta: MessageMeta
-    ) -> dict[str, Any]:
-        """Project one runtime-dispatched message and report what it wrote.
+    def project_request(self, request: ModelProjectionRequest) -> dict[str, Any]:
+        """RuntimeLocal handler protocol shim: one message on the writer's one pool.
 
         The mapping carries a real row count, which the runtime's write-path
         guard reads: a redelivered main-thread event writes nothing and says
         so, rather than acknowledging a write that did not happen.
-        """
-        db = self._message_db()
-        await db.connect()
-        try:
-            return await self._project(db, topic, data)
-        finally:
-            await db.close()
-
-    def _message_db(self) -> Any:
-        """The adapter that one runtime-dispatched message writes through.
 
         The contract declares ``consume_concurrency``, so the runtime may run
-        several messages at once, each in its own thread and event loop. A
-        pool belongs to the loop that opened it. When concurrent messages
-        shared the writer's adapter, they closed each other's pool in the
-        middle of a statement. On the dev lane on 2026-10-22 this showed
-        as ``call connect() first`` and ``pool is closed`` (OMN-19513).
-        Each message therefore gets its own adapter on the DSN the runtime
-        bound. It has one connection, because its statements run one after
-        another. A test double is not an ``AsyncpgAdapter`` and is used as
-        given.
+        several messages at once, each on its own worker thread. A pool belongs
+        to the loop that opened it, so the pool host runs every message on its
+        one loop, each holding one connection for its statements. On the dev
+        lane on 2026-10-22, messages that shared an adapter but opened loops of
+        their own closed each other's pool (``call connect() first``,
+        ``pool is closed``; OMN-19513), and opening a pool per message instead
+        cost a connect each (OMN-23257).
         """
-        # Lazy import, as in BaseProjectionRunner (OMN-15800 AC6).
-        from omnimarket.adapters.asyncpg_adapter import AsyncpgAdapter
-
-        db = self.db
-        if isinstance(db, AsyncpgAdapter):
-            return AsyncpgAdapter(dsn=db.dsn, min_size=1, max_size=1)
-        return db
+        topics = self.subscribe_topics
+        topic = request.topic_or(topics[0] if topics else "")
+        payload = request.payload
+        return self._pool_host.run(lambda db: self._project(db, topic, payload))
 
     async def project_event(
         self, topic: str, data: dict[str, Any], meta: MessageMeta

@@ -33,6 +33,10 @@ the table, takes the DEFAULT instance. The default is pinned by a test to
 ``dev-201``, so every version of the table agrees on it, which keeps that case a
 pure function of the command too.
 
+An instance may declare ``available: false`` (OMN-21402). A route naming it
+takes the default instance, which must remain available. An absent key means
+available. The switch is read at the command's ref, like the route itself.
+
 RESIDUAL, STATED
 ----------------
 A sha the clone cannot resolve even after a fetch takes the default, with a
@@ -52,7 +56,7 @@ import subprocess
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal
 
 import yaml
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
@@ -92,6 +96,7 @@ class ModelAgentInstance(BaseModel):
     name: str
     hostnames: tuple[str, ...]
     consumer_group: str
+    available: bool = True
 
 
 class ModelRoute(BaseModel):
@@ -113,13 +118,18 @@ class ModelRoutingTable(BaseModel):
     excluded_hosts: dict[str, str] = Field(default_factory=dict)
 
     def route(self, runtime_lane: EnumRuntimeLane, requested_by: str) -> str:
-        """The instance that runs a command, from this table alone."""
+        """The instance that runs a command, from this table alone.
+
+        A route naming an unavailable instance takes the default instance.
+        """
         repository = requester_repository(requested_by)
         for route in self.routes:
             if (
                 route.runtime_lane is runtime_lane
                 and route.requester_repository == repository
             ):
+                if self.instances[route.instance].available is False:
+                    return self.default_instance
                 return route.instance
         return self.default_instance
 
@@ -149,6 +159,9 @@ def parse_routing_table(text: str) -> ModelRoutingTable:
     for name, spec in raw_instances.items():
         if not isinstance(spec, dict):
             raise RoutingTableError(f"instance {name!r} must be a mapping")
+        available = spec.get("available", True)
+        if not isinstance(available, bool):
+            raise RoutingTableError(f"instance {name!r} available must be a bool")
         group = str(spec.get("consumer_group") or "").strip()
         if not group:
             raise RoutingTableError(f"instance {name!r} declares no consumer_group")
@@ -169,7 +182,7 @@ def parse_routing_table(text: str) -> ModelRoutingTable:
                 raise RoutingTableError(f"hostname {host!r} names two instances")
             hostnames.add(host)
         instances[str(name)] = ModelAgentInstance(
-            name=str(name), hostnames=names, consumer_group=group
+            name=str(name), hostnames=names, consumer_group=group, available=available
         )
 
     default = str(raw.get("default_instance") or "").strip()
@@ -181,6 +194,11 @@ def parse_routing_table(text: str) -> ModelRoutingTable:
         )
     if default not in instances:
         raise RoutingTableError(f"default_instance {default!r} is not an instance")
+    if instances[default].available is False:
+        raise RoutingTableError(
+            f"default_instance {default!r} is declared unavailable; "
+            "a command must always have an instance"
+        )
 
     routes: list[ModelRoute] = []
     seen: set[tuple[EnumRuntimeLane, str]] = set()
@@ -460,7 +478,7 @@ def build_router_from_env(deploy_source_dir: str) -> DeployRouter:
 # * idle converge (OMN-19509) does not start (verdict ``frozen``).
 #
 # A promotion is a command published with ``--requested-by promotion/<who>``
-# through the existing trigger CLI (``python -m deploy_agent.trigger``); it runs
+# through ``node_branch_deploy_command_effect`` (omnimarket); it runs
 # as any other job. The freeze expires by itself at ``until``: no flag outlives
 # its declared window, so a forgotten freeze cannot silently pin a lane forever.
 #
@@ -471,11 +489,29 @@ def build_router_from_env(deploy_source_dir: str) -> DeployRouter:
 # probe windows, and the agent publishes a dev-lane drift event naming the
 # running image, the head and the lag (deploy_agent.idle_converge).
 #
+# THE THIRD FLAG: ``disabled_phases`` (OMN-21629)
+# -----------------------------------------------
+# The phases of the instance's deploy that it never runs, as data. The dev lane
+# (dev-201) declares no ``lane:`` block (its composition is the executor's
+# historical one), so a ``lane:`` block's ``disabled_phases`` cannot reach it;
+# this flag does, and is read for every instance. A lane block's list and this
+# one are unioned. Declaring ``gateway-deploy`` here stops the gateway forwarder
+# phase and subtracts the gateway services from the lane's scope, so the boot
+# guard judges only the lab runtime and never a cloud edge. An instance that
+# omits the flag keeps every phase. The names are the executor's
+# ``EnumInstancePhase`` values; the ``PhaseName`` literal below rejects an
+# unknown one when the table is parsed (this module cannot import the executor's
+# enum, so a test keeps the literal equal to it).
+#
 # An unknown key or a naive ``until`` refuses the table, and the agent reading
 # its own table then refuses to start, as it does for a malformed load gate.
 
 #: The key an instance's flags sit under in the routing table.
 LANE_FLAGS_KEY: Final = "flags"
+
+#: The phase names a table may turn off: the executor's ``EnumInstancePhase``
+#: values, checked equal to it by a test (this module cannot import the executor).
+PhaseName = Literal["gateway-deploy", "lab-overlay", "onex-api-pin", "infisical-seed"]
 
 #: ``requested_by`` prefix of a deliberate promotion, the one way onto a frozen lane.
 PROMOTION_REQUESTER_PREFIX: Final = "promotion/"
@@ -506,18 +542,20 @@ class ModelLaneFlags(BaseModel):
     #: probe windows, and the agent publishes a dev-lane drift event. ``None``:
     #: no bound, the converge waits as before (deploy_agent.idle_converge).
     max_dev_lag_minutes: int | None = Field(default=None, gt=0)
+    #: OMN-21629. Phases this instance never runs (executor
+    #: ``EnumInstancePhase`` values), unioned with its ``lane:`` block's list.
+    #: Empty: the instance runs every phase its composition carries.
+    disabled_phases: tuple[PhaseName, ...] = ()
 
     def max_dev_lag(self) -> timedelta | None:
         """The declared lag bound, or ``None`` when the instance declares none."""
-        if self.max_dev_lag_minutes is None:
-            return None
-        return timedelta(minutes=self.max_dev_lag_minutes)
+        minutes = self.max_dev_lag_minutes
+        return None if minutes is None else timedelta(minutes=minutes)
 
     def frozen_reason(self, now: datetime) -> str | None:
         """The FROZEN reason in force at ``now``, or ``None``."""
-        if self.freeze is not None and self.freeze.active(now):
-            return self.freeze.describe()
-        return None
+        freeze = self.freeze
+        return freeze.describe() if freeze and freeze.active(now) else None
 
 
 def is_promotion(requested_by: str) -> bool:

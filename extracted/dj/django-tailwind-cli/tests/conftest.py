@@ -1,6 +1,7 @@
 """Shared fixtures for the test suite."""
 
 import hashlib
+import os
 import socket
 from collections.abc import Iterator
 from pathlib import Path
@@ -186,6 +187,52 @@ def no_writes_into_the_checkout() -> Iterator[None]:
         f"the test wrote into the checkout — created {created}, deleted {deleted}, "
         f"changed {changed}. Point settings.BASE_DIR at tmp_path, as the tmp_project fixture does."
     )
+
+
+@pytest.fixture
+def tmp_project_with_css_map(tmp_project: Path, settings: Any, mocker: MockerFixture) -> Path:
+    """``tmp_project`` with a two-entry ``TAILWIND_CLI_CSS_MAP``, ``admin`` and ``web``.
+
+    Writes both source files, and sets the spawn stagger between watchers to 0 so tests with real
+    watcher processes do not wait for it. Returns the project root.
+    """
+    for name in ("TAILWIND_CLI_SRC_CSS", "TAILWIND_CLI_DIST_CSS"):
+        if hasattr(settings, name):
+            delattr(settings, name)
+    settings.TAILWIND_CLI_CSS_MAP = [("admin.css", "admin.output.css"), ("web.css", "web.output.css")]
+    for src in ("admin.css", "web.css"):
+        (tmp_project / src).write_text('@import "tailwindcss";')
+    mocker.patch("django_tailwind_cli.management.commands._process._WATCH_SPAWN_STAGGER_S", 0)
+    return tmp_project
+
+
+@pytest.fixture
+def stub_watch_popen(mocker: MockerFixture) -> MagicMock:
+    """A `subprocess.Popen` whose process has already exited with code 0 and has no stderr pipe.
+
+    The watch manager then returns at once and starts no stderr drain thread.
+    """
+    process = Mock(returncode=0, stderr=None)
+    process.poll.return_value = 0
+    return mocker.patch("subprocess.Popen", return_value=process)
+
+
+@pytest.fixture
+def stdin_from_dev_null() -> Iterator[None]:
+    """Point file descriptor 0 at /dev/null, as a task runner without a terminal does.
+
+    pytest's default fd capture does the same. Under ``-s``, fd 0 is the terminal instead.
+    This fixture makes the test independent of the capture mode.
+    """
+    saved = os.dup(0)
+    devnull = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(devnull, 0)
+    os.close(devnull)
+    try:
+        yield
+    finally:
+        os.dup2(saved, 0)
+        os.close(saved)
 
 
 @pytest.fixture

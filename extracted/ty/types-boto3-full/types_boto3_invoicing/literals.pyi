@@ -96,6 +96,7 @@ SupplierDomainType = Literal["NetworkID"]
 TaxAuthorityStatusType = Literal["CANCELLED", "ISSUED"]
 InvoicingServiceName = Literal["invoicing"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

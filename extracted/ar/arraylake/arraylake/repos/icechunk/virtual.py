@@ -33,6 +33,7 @@ def _ensure_utc(expiration: datetime | None) -> datetime | None:
     return expiration.astimezone(UTC)
 
 
+# Server copy: server/arraylake_api/services/icechunk_storage.py
 def get_icechunk_container_credentials(
     bucket_platform: str,
     credentials: S3Credentials | GSCredentials | None,

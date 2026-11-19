@@ -16,6 +16,36 @@ class TestSoupSieve(util.TestCase):
         with self.assertRaises(sv.SelectorSyntaxError):
             sv.compile('*:has(a)', ignore=[':has'])
 
+    def test_ignore_escaped_and_cased_names(self):
+        """Test that an ignored pseudo-class can't be used by writing its name with escapes or another case."""
+
+        for ignore, selector in (
+            ([':has'], '*:h\\61 s(a)'),
+            ([':has'], '*:\\68 as(a)'),
+            ([':has'], '*:HAS(a)'),
+            ([':HAS'], '*:has(a)'),
+            ([':has'], 'div:not(:h\\61 s(span))'),
+            ([':lang'], ':l\\61 ng(en)'),
+            ([':lang'], ':is(:LANG(en))'),
+            ([':nth-child'], 'p:n\\74 h-child(2)'),
+            ([':-soup-contains'], ':-soup-\\63 ontains(text)'),
+            ([':l\\61 ng'], ':lang(en)')
+        ):
+            sv.purge()
+            with self.assertRaises(sv.SelectorSyntaxError, msg=selector):
+                sv.compile(selector, ignore=ignore)
+
+    def test_ignore_aliases(self):
+        """Test that an alias of a pseudo-class must be ignored separately."""
+
+        sv.purge()
+        with self.assertWarns(FutureWarning):
+            sv.compile(':contains(text)', ignore=[':-soup-contains'])
+        sv.compile(':matches(p)', ignore=[':is'])
+        for selector in (':contains(text)', ':-soup-contains(text)'):
+            with self.assertRaises(sv.SelectorSyntaxError, msg=selector):
+                sv.compile(selector, ignore=[':-soup-contains', ':contains'])
+
     def test_select(self):
         """Test select."""
 
@@ -296,6 +326,69 @@ class TestSoupSieve(util.TestCase):
         nodes = sv.filter('pre#\\36', list(soup.html.body.children))
         self.assertEqual(len(nodes), 1)
         self.assertEqual(nodes[0].attrs['id'], '6')
+
+    def test_filter_list_mixed(self):
+        """Test filtering a list of tags from different documents, detached tags, and the contents of a `template`."""
+
+        soup1 = self.soup(
+            '<div id="1" lang="en"><p id="2">ab</p><template><p id="3">ab</p></template></div>', 'html.parser'
+        )
+        soup2 = self.soup('<div id="4" lang="fr"><p id="5">ab</p></div><p id="6">cd</p>', 'html.parser')
+        detached = self.soup('<p id="7">ab</p>', 'html.parser').p.extract()
+        nodes = [
+            soup2.find(id='5'), soup1, detached, soup1.find(id='2'), soup2.find(id='6'), soup1.template.p,
+            soup1.div, soup1.find(id='2').string, soup2.div
+        ]
+
+        self.assertEqual([n['id'] for n in sv.filter('p:-soup-contains(ab)', nodes)], ['5', '7', '2', '3'])
+        self.assertEqual([n['id'] for n in sv.filter(':lang(en)', nodes)], ['2', '1'])
+        self.assertEqual([n['id'] for n in sv.filter(':has(> p)', nodes)], ['1', '4'])
+        # Each top level element of a fragment is a root, and so is a detached tag.
+        self.assertEqual([n['id'] for n in sv.filter(':root', nodes)], ['7', '1'])
+        # Each tag is its own scope.
+        self.assertEqual([n['id'] for n in sv.filter(':scope', nodes)], ['5', '7', '2', '6', '3', '1', '4'])
+        self.assertEqual([n['id'] for n in sv.filter('div:has(:scope)', nodes)], [])
+
+    def test_filter_list_shares_matcher(self):
+        """Test that the tags of a list that have the same top level element share one matcher and its caches."""
+
+        from bs4 import BeautifulSoup
+        from unittest import mock
+
+        n = 32
+        soup = BeautifulSoup('<ul>' + '<li>x' * n, 'html.parser')
+        other = BeautifulSoup('<ul>' + '<li>x' * n, 'html.parser')
+        nodes = soup.find_all(True) + other.find_all(True)
+        init = sv.css_match.CSSMatch.__init__
+        for selector, matches, matchers in (
+            ('li:-soup-contains(x)', 2 * n, 2),
+            (':has(li)', 2 * (n - 1) + 2, 2),
+            (':scope', 2 * (n + 1), 2 * (n + 1))
+        ):
+            with mock.patch.object(sv.css_match.CSSMatch, '__init__', autospec=True, side_effect=init) as patched:
+                self.assertEqual(len(sv.filter(selector, nodes)), matches)
+            self.assertEqual(patched.call_count, matchers)
+
+    def test_uses_scope(self):
+        """Test finding `:scope` or `&` in any part of a selector, nested ones included."""
+
+        custom = {':--div': 'div', ':--scoped': ':scope > p'}
+        for selector, expected in (
+            ('p', False),
+            (':scope', True),
+            ('& > p', True),
+            ('div p > span ~ b', False),
+            (':is(div, :not(:scope p))', True),
+            ('div:has(> :scope)', True),
+            ('p:nth-child(2n of :scope li)', True),
+            ('p:nth-child(2n of li)', False),
+            (':is()', False),
+            (':is(), :scope', True),
+            (':--div p :--div', False),
+            (':--div, :--scoped, :--scoped', True)
+        ):
+            pattern = sv.compile(selector, custom=custom, flags=sv.NOSTRICT)
+            self.assertEqual(sv.css_match.uses_scope(pattern.selectors), expected, selector)
 
     def test_closest_match_parent(self):
         """Test match parent closest."""
@@ -611,6 +704,46 @@ class TestSoupSieve(util.TestCase):
         self.assertTrue(sv.cp._cached_css_compile.cache_info().currsize == 500)
         sv.purge()
         self.assertEqual(sv.cp._cached_css_compile.cache_info().currsize, 0)
+
+    def test_nocache_tree_changes_during_iselect(self):
+        """With `NOCACHE`, each element is matched against the tree as it is at that point of an `iselect()`."""
+
+        from bs4 import BeautifulSoup
+
+        # The content language in the header.
+        soup = BeautifulSoup(
+            '<html><head><meta http-equiv="content-language" content="en"></head>'
+            '<body><p id="1"></p><p id="2"></p></body></html>',
+            'html.parser'
+        )
+        found = []
+        for el in sv.iselect('p:lang(en)', soup, flags=sv.NOCACHE):
+            found.append(el['id'])
+            soup.meta['content'] = 'fr'
+        self.assertEqual(found, ['1'])
+
+        # The checked radio button of a group, which ends it being indeterminate.
+        soup = BeautifulSoup(
+            '<form><input id="1" type="radio" name="a"><input id="2" type="radio" name="a">'
+            '<input id="3" type="radio" name="a"></form>',
+            'html.parser'
+        )
+        found = []
+        for el in sv.iselect(':indeterminate', soup, flags=sv.NOCACHE):
+            found.append(el['id'])
+            soup.find(id='3')['checked'] = ''
+        self.assertEqual(found, ['1'])
+
+        # The selected option of a `select`.
+        soup = BeautifulSoup(
+            '<select><option id="1">a</option><option id="2">b</option><option id="3">c</option></select>',
+            'html.parser'
+        )
+        found = []
+        for el in sv.iselect('option:checked', soup, flags=sv.NOCACHE):
+            found.append(el['id'])
+            soup.find(id='3')['selected'] = ''
+        self.assertEqual(found, ['1', '3'])
 
     def test_recompile(self):
         """If you feed through the same object, it should pass through unless you change parameters."""

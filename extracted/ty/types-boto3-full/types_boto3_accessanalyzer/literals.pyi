@@ -216,6 +216,7 @@ ValidatePolicyResourceTypeType = Literal[
 ]
 AccessAnalyzerServiceName = Literal["accessanalyzer"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

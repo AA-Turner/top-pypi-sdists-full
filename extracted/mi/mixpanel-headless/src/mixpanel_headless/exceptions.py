@@ -456,7 +456,7 @@ class InvalidArgumentError(ConfigError):
     """Raised when a public API call combines mutually incompatible arguments.
 
     Carries a ``violation`` discriminator and the resolved
-    ``detected_auth_type`` so non-CLI callers (Cowork's ``auth_manager.py``,
+    ``detected_auth_type`` so non-CLI callers (the plugin's ``auth_manager.py``,
     JSON consumers) can dispatch programmatically without parsing the
     human message. The CLI ``handle_errors`` decorator maps this subclass
     to ``ExitCode.INVALID_ARGS`` (3) instead of the generic
@@ -680,8 +680,13 @@ class RateLimitError(APIError):
     Raised when the API returns a 429 status. The retry_after property
     indicates when the request can be retried. The client's retry loops
     report at most 3600 seconds there: Mixpanel rate limits over a rolling
-    one-hour window, so a larger server ``Retry-After`` is clamped. Inherits
-    from APIError to provide full request context for debugging.
+    one-hour window, so a larger server ``Retry-After`` is clamped. The
+    client retries a 429 when its ``Retry-After`` is 60 seconds or less, and
+    with exponential backoff when the header is missing or invalid. A longer
+    ``Retry-After`` stops the retries at once, on the first attempt or after
+    earlier retries; at the Query API's hourly limit, that is the time until
+    the next query slot frees, up to 3600 seconds. Inherits from APIError to
+    provide full request context for debugging.
 
     Example:
         ```python
@@ -776,18 +781,21 @@ class RateLimitError(APIError):
 
 
 class EventNotFoundError(MixpanelHeadlessError):
-    """Event name not found in Mixpanel project.
+    """The server rejected an event name.
 
-    Raised when an event name is not found. Includes suggestions for
-    similar event names based on case-insensitive and substring matching
-    to help users correct typos or case mismatches.
+    Raised by ``Workspace.properties()`` when the server answers the
+    property request with a 400. The error lists similar event names, from
+    a case-insensitive match and a substring match.
+
+    A name that the project does not track, for example a typo, is not
+    rejected: the call returns an empty list and does not raise this error.
 
     Example:
         ```python
         try:
-            properties = discovery.list_properties("sign up")
+            properties = ws.properties(event_name)
         except EventNotFoundError as e:
-            print(f"Event '{e.event_name}' not found.")
+            print(f"The server rejected event '{e.event_name}'.")
             if e.similar_events:
                 print(f"Did you mean: {', '.join(e.similar_events)}")
         ```
@@ -801,7 +809,7 @@ class EventNotFoundError(MixpanelHeadlessError):
         """Initialize EventNotFoundError.
 
         Args:
-            event_name: The event name that was not found.
+            event_name: The event name that the server rejected.
             similar_events: List of similar event names to suggest.
         """
         self._event_name = event_name
@@ -821,7 +829,7 @@ class EventNotFoundError(MixpanelHeadlessError):
 
     @property
     def event_name(self) -> str:
-        """The event name that was not found."""
+        """The event name that the server rejected."""
         return self._event_name
 
     @property
@@ -1633,9 +1641,7 @@ class ReportLinkError(MixpanelHeadlessError):
         """Initialize a report-link error.
 
         Args:
-            message: Human-readable error message; see
-                ``specs/045-report-links/contracts/error-messages.md`` for the
-                stable wording per code.
+            message: Human-readable error message.
             code: Machine-readable error code. Defaults to the subclass's
                 ``_DEFAULT_CODE``.
             details: Parsed link fields that are available (``kind``,
@@ -2075,11 +2081,10 @@ CODED_GUARD_REGISTRY: Final[frozenset[str]] = frozenset(
 )
 """Every full error code minted by the E2 uncoded-raise coding pass.
 
-Single source of truth for the codes newly introduced by the coding pass
-(design ``context/phase1/addendum/coding-pass-design.md`` §1), importable by
-tests (code-uniqueness guard) and the conformance recorder. Reused twin
-codes are listed separately in :data:`CODED_GUARD_TWIN_CODES` — they
-pre-exist in the registry and are deliberately NOT minted here.
+Single source of truth for the codes newly introduced by the coding pass,
+importable by tests (code-uniqueness guard) and the conformance recorder.
+Reused twin codes are listed separately in :data:`CODED_GUARD_TWIN_CODES` —
+they pre-exist in the registry and are deliberately NOT minted here.
 """
 
 CODED_GUARD_TWIN_CODES: Final[frozenset[str]] = frozenset(

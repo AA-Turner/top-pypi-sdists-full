@@ -39,6 +39,7 @@ hex = "opaque_keys.tests.test_opaque_keys:HexKey"
 dict = "opaque_keys.tests.test_opaque_keys:DictKey"
 
 [project.entry-points."context_key"]
+ccx-v1 = "ccx_keys.locator:CCXLocator"
 course-v1 = "opaque_keys.edx.locator:CourseLocator"
 library-v1 = "opaque_keys.edx.locator:LibraryLocator"
 lib = "opaque_keys.edx.locator:LibraryLocatorV2"
@@ -46,6 +47,7 @@ lib = "opaque_keys.edx.locator:LibraryLocatorV2"
 slashes = "opaque_keys.edx.locator:CourseLocator"
 
 [project.entry-points."usage_key"]
+ccx-block-v1 = "ccx_keys.locator:CCXBlockUsageLocator"
 block-v1 = "opaque_keys.edx.locator:BlockUsageLocator"
 lib-block-v1 = "opaque_keys.edx.locator:LibraryUsageLocator"
 lb = "opaque_keys.edx.locator:LibraryUsageLocatorV2"
@@ -79,25 +81,21 @@ fallback_version = "0.0.0"
 [tool.setuptools]
 include-package-data = true
 # Package lives in src/ but is installed without the src prefix,
-# e.g. src/opaque_keys/ is installed as opaque_keys.
+# e.g. src/opaque_keys/ is installed as opaque_keys and src/ccx_keys/ as ccx_keys.
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-# Includes opaque_keys's own tests, since other libraries import test mixins
-# from them (see setup.py's original comment to that effect). The top-level
-# `settings` test-settings package that setup.py's bare find_packages() used
-# to also bundle is no longer included now that packages are only
-# discovered under src/ -- it lives at the repo root for local test runs
-# only, which is the correct scope for it.
-include = ["opaque_keys*"]
+# opaque_keys's tests are packaged, because consumers import test mixins from
+# them. ccx_keys's tests are not packaged.
+include = ["opaque_keys*", "ccx_keys"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["tests*", "*.tests*", "spec*", "*.spec*"]
 
 [tool.coverage.run]
 branch = true
-source = ["src/opaque_keys"]
+source = ["src/opaque_keys", "src/ccx_keys"]
 omit = [
     "*/tests/*",
     "*/migrations/*",
@@ -177,6 +175,9 @@ package = true
 constraint-dependencies = [
     "Django<6.0",
     "elasticsearch<7.14.0",
+    "social-auth-app-django<6.0.0",
+    "social-auth-core<5.0.0",
+    "pip<26.2.1",
 ]
 [tool.edx_lint]
 uv_constraints = []

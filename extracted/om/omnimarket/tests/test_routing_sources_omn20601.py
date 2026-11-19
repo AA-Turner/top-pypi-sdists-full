@@ -282,7 +282,7 @@ def _probe_routing_tiers_ladder(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from omnimarket.handlers.node_overlay_reader import OVERLAY_ROOTS_ENV
-    from omnimarket.routing.routing_tiers_path import (
+    from omnimarket.handlers.routing.routing_tiers_path import (
         ROUTING_TIERS_OVERLAY_NODE,
         ROUTING_TIERS_PACKAGED_DEFAULT_PATH,
         ROUTING_TIERS_PATH_ENV_KEY,
@@ -308,16 +308,19 @@ def _probe_routing_tiers_ladder(
 def _probe_harness_routing_overlay(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from omnimarket.models.delegation.model_delegation_routing_overlay import (
-        EMPTY_DELEGATION_ROUTING_OVERLAY,
-    )
-    from omnimarket.routing.routing_tiers_path import (
+    from omnimarket.handlers.node_overlay_reader import OVERLAY_ROOTS_ENV
+    from omnimarket.handlers.routing.routing_tiers_path import (
         DELEGATION_ROUTING_OVERLAY_PATH_ENV_KEY,
+        ROUTING_OVERLAY_STORE_ID,
         load_delegation_routing_overlay,
         load_harness_tiers,
     )
+    from omnimarket.models.delegation.model_delegation_routing_overlay import (
+        EMPTY_DELEGATION_ROUTING_OVERLAY,
+    )
 
     monkeypatch.delenv(DELEGATION_ROUTING_OVERLAY_PATH_ENV_KEY, raising=False)
+    monkeypatch.delenv(OVERLAY_ROOTS_ENV, raising=False)
     assert load_delegation_routing_overlay() is EMPTY_DELEGATION_ROUTING_OVERLAY
     assert load_harness_tiers() == ()
 
@@ -353,6 +356,17 @@ def _probe_harness_routing_overlay(
     monkeypatch.setenv(DELEGATION_ROUTING_OVERLAY_PATH_ENV_KEY, str(path))
     assert [tier.name for tier in load_harness_tiers()] == ["harness_probe"]
 
+    # The overlay store's document (OMN-23826) is read first: it wins over the pinned file.
+    store_root = tmp_path / "store"
+    (store_root / ROUTING_OVERLAY_STORE_ID).mkdir(parents=True)
+    stored = yaml.safe_load(path.read_text(encoding="utf-8"))
+    stored["harness_tiers"][0]["name"] = "harness_store"
+    (store_root / ROUTING_OVERLAY_STORE_ID / "overlay.yaml").write_text(
+        yaml.safe_dump(stored), encoding="utf-8"
+    )
+    monkeypatch.setenv(OVERLAY_ROOTS_ENV, str(store_root))
+    assert [tier.name for tier in load_harness_tiers()] == ["harness_store"]
+
 
 def _probe_bifrost_backend_contract(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -360,7 +374,7 @@ def _probe_bifrost_backend_contract(
     from omnimarket.adapters.llm.bifrost.config_loader_bifrost_delegation import (
         load_bifrost_delegation_config,
     )
-    from omnimarket.routing import delegation_backend_resolution as resolution
+    from omnimarket.handlers.routing import delegation_backend_resolution as resolution
 
     contract = tmp_path / "bifrost_delegation.yaml"
     contract.write_text(_BIFROST_ONE_TIER, encoding="utf-8")
@@ -399,12 +413,12 @@ def _probe_bifrost_backend_contract(
 
 
 def _probe_task_class_contract(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    from omnimarket.nodes.node_delegation_routing_reducer.handlers import (
-        handler_delegation_routing as routing,
-    )
-    from omnimarket.routing.task_class_contract_path import (
+    from omnimarket.handlers.routing.task_class_contract_path import (
         TASK_CLASS_CONTRACT_PACKAGED_DEFAULT_PATH,
         TASK_CLASS_CONTRACT_PATH_ENV_KEY,
+    )
+    from omnimarket.nodes.node_delegation_routing_reducer.handlers import (
+        handler_delegation_routing as routing,
     )
 
     monkeypatch.delenv(TASK_CLASS_CONTRACT_PATH_ENV_KEY, raising=False)
@@ -431,6 +445,7 @@ def _probe_task_class_contract(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
 def _probe_tenant_routing_overlay(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    from omnimarket.handlers.routing.customer_key_terminus import EnumDelegationSurface
     from omnimarket.nodes.node_delegation_orchestrator.models.model_delegation_request import (
         ModelDelegationRequest,
     )
@@ -438,7 +453,6 @@ def _probe_tenant_routing_overlay(
         handler_delegation_routing as routing,
     )
     from omnimarket.projection.protocol_database import InmemoryDatabaseAdapter
-    from omnimarket.routing.customer_key_terminus import EnumDelegationSurface
     from omnimarket.routing.tenant_overlay_resolver import (
         TENANT_OVERLAY_TABLE,
         resolve_tenant_overlay,
@@ -547,6 +561,25 @@ def _adr_segmentation_bridge_key(
         segmentation._segmentation_model_key(config.name)
 
 
+def _probe_model_scope_local_tiers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from omnimarket.handlers.delegation_model_scope import (
+        MODEL_SCOPE_CONFIG_PATH_ENV_KEY,
+        local_scope_tiers,
+    )
+
+    monkeypatch.delenv(MODEL_SCOPE_CONFIG_PATH_ENV_KEY, raising=False)
+    assert local_scope_tiers() == frozenset({"local"})
+    pinned = tmp_path / "model_scope.yaml"
+    pinned.write_text(
+        "schema: delegation_model_scope.v1\nlocal_tiers:\n  - deployment_tier\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(MODEL_SCOPE_CONFIG_PATH_ENV_KEY, str(pinned))
+    assert local_scope_tiers() == frozenset({"deployment_tier"})
+
+
 PROBES: dict[str, Probe] = {
     "adr_segmentation_bridge_key": _adr_segmentation_bridge_key,
     "routing_tiers_ladder": _probe_routing_tiers_ladder,
@@ -556,6 +589,7 @@ PROBES: dict[str, Probe] = {
     "tenant_routing_overlay": _probe_tenant_routing_overlay,
     "build_loop_model_policy": _probe_build_loop_model_policy,
     "inference_bridge_endpoints": _probe_inference_bridge_endpoints,
+    "model_scope_local_tiers": _probe_model_scope_local_tiers,
 }
 
 

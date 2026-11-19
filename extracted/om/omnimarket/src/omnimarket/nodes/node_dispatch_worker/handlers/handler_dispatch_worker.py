@@ -21,6 +21,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+from omnimarket.handlers.runtime_paths import runtime_dir
 from omnimarket.nodes.node_dispatch_worker.handlers.dispatch_record_writer import (
     write_dispatch_record,
 )
@@ -162,9 +163,9 @@ _ROLE_WATCHER = """\
 Monitor {targets} for state transitions. You do NOT make code changes.
 
 Loop:
-1. gh pr checks {target_pr} --repo {target_repo} → classify as PASSING / FAILING / PENDING / MERGED
+1. onex scm pr-checks OmniNode-ai/{target_repo}#{target_pr} → classify as PASSING / FAILING / PENDING / MERGED
 2. If MERGED → mark task completed, report, stop.
-3. If FAILING → capture first failure reason (gh run view --log-failed). Include in report. Do not fix.
+3. If FAILING → capture first failure reason (onex scm job-log OmniNode-ai/{target_repo} --job-id <id>, the job id from the failing check). Include in report. Do not fix.
 4. If PENDING → wait 5 min. Recheck. Cap at {wall_clock_cap_min} min total.
 5. If still FAILING at cap → mark in_progress + blocker note, report failure reason, stop.
 
@@ -282,9 +283,9 @@ Wait for DMs from {reports_to} via inbox. Each DM is an admin request. Execute i
 Audit log: append every action to {omni_home}/.onex_state/{name}/actions-{date}.log
   Format: ISO timestamp | request summary | command | exit code | stdout first line
 
-Supported actions: gh pr ready, gh pr merge, gh pr comment, gh pr edit, gh pr view,
-  gh pr checks, gh run view, gh pr list, gh pr close, gh pr reopen, and any
-  documented in {scope}.
+Supported actions: onex scm pr-ready, pr-comment, pr-edit, pr-close (writes), onex scm pr-view,
+  pr-checks, run-view, pr-list (reads from the read-only mirror; never gh), gh pr merge
+  (the one direct gh call: merging is the landing controller's), and any documented in {scope}.
 
 Rules:
 - NEVER modify code. gh commands only.
@@ -324,7 +325,6 @@ _CANONICAL_REPOS = {
     "omnibase_core",
     "omnibase_infra",
     "omnibase_spi",
-    "omnibase_compat",
     "omnimarket",
     "omnidash",
     "omniintelligence",
@@ -382,11 +382,7 @@ def _query_active_fences(
     collision_fences are a dispatch-time snapshot, not a live lock.
     """
     if tasks_dir is None:
-        tasks_dir = Path(
-            os.environ.get(  # contract-config-ok: config
-                "CLAUDE_TASKS_DIR", "~/.claude/tasks"
-            )
-        ).expanduser()
+        tasks_dir = Path(runtime_dir("claude.tasks_dir", "CLAUDE_TASKS_DIR"))
 
     team_dir = tasks_dir / team
     if not team_dir.exists():
@@ -766,11 +762,7 @@ class HandlerDispatchWorker:
     ) -> list[str]:
         """Read in_progress task subjects from team task dir."""
         if tasks_dir is None:
-            tasks_dir = Path(
-                os.environ.get(  # contract-config-ok: config
-                    "CLAUDE_TASKS_DIR", "~/.claude/tasks"
-                )
-            ).expanduser()
+            tasks_dir = Path(runtime_dir("claude.tasks_dir", "CLAUDE_TASKS_DIR"))
 
         team_dir = tasks_dir / team
         if not team_dir.exists():

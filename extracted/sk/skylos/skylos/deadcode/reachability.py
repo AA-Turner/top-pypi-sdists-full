@@ -125,6 +125,9 @@ class PythonReachabilityReport:
         self.protected_keys: set[str] = set()
         self.protected_callback_keys: set[str] = set()
         self.dynamic_lookup_keys: set[str] = set()
+        self.opaque_lookup = False
+        self.name_exposed_keys: set[str] = set()
+        self._referenced_names: frozenset[str] | None = None
         self.reasons: dict[str, str] = {}
         self._data_names: frozenset[str] | None = None
         self._cog_imports: frozenset[tuple[str, str]] | None = None
@@ -173,6 +176,7 @@ class PythonReachabilityReport:
             candidates,
             uncertainty=False,
         ).intersection(candidates)
+        self.name_exposed_keys = data_named | spelled | self.graph.spelled_targets
         exposed_receivers = set(self.graph.receiver_roots) | data_named | spelled
         for owner in reached:
             exposed_receivers.update(self.graph.receiver_edges.get(owner, ()))
@@ -193,7 +197,43 @@ class PythonReachabilityReport:
             - self.proven_reachable_keys
         )
         self.unreachable_keys = set(candidates) - reached if self.complete else set()
+        if self.complete:
+            explicit_roots = {
+                "package_entrypoint",
+                "test_entrypoint",
+                "trace_hit",
+                "coverage_hit",
+            }
+            if any(
+                explicit_roots.intersection(getattr(d, "heuristic_refs", {}))
+                for d in self._definitions.values()
+            ):
+                for key in getattr(self, "_closed_type_registry_unused", ()):
+                    definition = self._definitions.get(key)
+                    if definition is not None:
+                        definition.heuristic_refs.pop(
+                            "closed_type_registry_unused", None
+                        )
+                        definition.heuristic_refs.pop("unreachable_group", None)
+                        definition.heuristic_refs["unresolved_callback"] = 1.0
+                        definition.references = max(1, definition.references)
+                self._closed_type_registry_unused = set()
+            if not hasattr(self, "_closed_type_registry_unused"):
+                from skylos.deadcode.closed_type_registries import (
+                    closed_type_registry_unused,
+                )
+
+                self._closed_type_registry_unused = closed_type_registry_unused(
+                    self._definitions, list(self.index.modules), self.project_root
+                )
+            closed_unused = self._closed_type_registry_unused
+            self.reachable_keys.difference_update(closed_unused)
+            self.proven_reachable_keys.difference_update(closed_unused)
+            self.protected_keys.difference_update(closed_unused)
+            self.protected_callback_keys.difference_update(closed_unused)
+            self.unreachable_keys.update(closed_unused)
         opaque = self._has_opaque_lookup(reached | protected)
+        self.opaque_lookup = opaque
         self.dynamic_lookup_keys = set()
         if opaque:
             self.dynamic_lookup_keys = set(self.unreachable_keys)
@@ -207,6 +247,89 @@ class PythonReachabilityReport:
         }
         return self
 
+    def unnamed_receiver_methods(self) -> set[str]:
+        """Protected methods that no spelling in the project can select.
+
+        An escaped instance exposes a method only to code that names it: an
+        attribute access, a lookup pattern, a string or a data file. A method
+        whose name appears nowhere has no caller that an unresolved receiver
+        could hide.
+        """
+        if self.graph.unread_text:
+            return set()
+        named = self._names_in_source()
+        methods = self.index.method_classes
+        unnamed = set()
+        retained = self.protected_keys | self.protected_callback_keys
+        for key in retained - self.name_exposed_keys:
+            if key not in methods:
+                continue
+            definition = self.index.candidates[key]
+            name = definition.simple_name
+            if name in named or (name.startswith("__") and name.endswith("__")):
+                continue
+            if getattr(definition, "decorators", None):
+                continue
+            unnamed.add(key)
+        return unnamed
+
+    def direct_call_sites(self, names: set[str]) -> tuple[set[str], set[str]]:
+        """Names the project only calls as ``name(...)``, and only as ``self.name(...)``.
+
+        A value use, a string spelling, argument unpacking at a call site or a
+        call on any other receiver leaves the callee or its arguments unknown.
+        """
+        bare: set[str] = set()
+        on_self: set[str] = set()
+        unknown: set[str] = set()
+        for module in self.index.modules.values():
+            nodes = list(ast.walk(module.tree))
+            calls = {
+                id(node.func): node for node in nodes if isinstance(node, ast.Call)
+            }
+            for node in nodes:
+                if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    if len(node.value) > 65_536:
+                        return set(), set()
+                    unknown.update(re.findall(r"\w+", node.value))
+                    continue
+                if not isinstance(node, (ast.Name, ast.Attribute)):
+                    continue
+                if not isinstance(node.ctx, ast.Load):
+                    continue
+                call = calls.get(id(node))
+                if isinstance(node, ast.Name):
+                    if call is None or _unpacks_arguments(call):
+                        unknown.add(node.id)
+                    else:
+                        bare.add(node.id)
+                elif call is None or _unpacks_arguments(call):
+                    unknown.add(node.attr)
+                elif isinstance(node.value, ast.Name) and node.value.id in (
+                    "self",
+                    "cls",
+                ):
+                    on_self.add(node.attr)
+                else:
+                    unknown.add(node.attr)
+        wanted = names - unknown
+        return wanted & (bare - on_self), wanted & (on_self - bare)
+
+    def _names_in_source(self) -> frozenset[str]:
+        if self._referenced_names is None:
+            names: set[str] = set()
+            for module in self.index.modules.values():
+                for node in ast.walk(module.tree):
+                    if isinstance(node, ast.Attribute):
+                        names.add(node.attr)
+                    elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                        names.add(node.id)
+                    elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                        if len(node.value) <= 65_536:
+                            names.update(re.findall(r"\w+", node.value))
+            self._referenced_names = frozenset(names)
+        return self._referenced_names
+
     def _receiver_spelled_targets(self, reached: set[str]) -> set[str]:
         patterns = {
             spelling
@@ -217,7 +340,9 @@ class PythonReachabilityReport:
         if not patterns:
             return set()
         matcher = re.compile(
-            "|".join(f"(?:{fnmatch.translate(pattern)})" for pattern in sorted(patterns))
+            "|".join(
+                f"(?:{fnmatch.translate(pattern)})" for pattern in sorted(patterns)
+            )
         )
         return {
             key
@@ -303,7 +428,8 @@ class PythonReachabilityReport:
             for attr in _EXTERNAL_EVIDENCE
             if key not in self.index.nested_parents
             or attr not in {"is_closure", "decorators"}
-            if attr != "decorators" or not getattr(definition, "_fastapi_inactive", False)
+            if attr != "decorators"
+            or not getattr(definition, "_fastapi_inactive", False)
         )
         class_key = self.index.method_classes.get(key)
         if class_key is not None:
@@ -385,6 +511,12 @@ class PythonReachabilityReport:
             for ref in self.graph.references.get((path, line), ())
             if ref.name in {name, "*"} or ref.target == target
         ]
+
+
+def _unpacks_arguments(call: ast.Call) -> bool:
+    return any(isinstance(argument, ast.Starred) for argument in call.args) or any(
+        keyword.arg is None for keyword in call.keywords
+    )
 
 
 def _source_paths(files: Iterable[str | Path], root: Path) -> tuple[list[Path], bool]:
@@ -580,7 +712,10 @@ def analyze_python_reachability(
     identities = {id(definition): key for key, definition in definitions.items()}
     for target, caller in dispatch_edges:
         target_key, caller_key = identities[id(target)], identities[id(caller)]
-        if target_key in report.index.candidates and caller_key in report.index.candidates:
+        if (
+            target_key in report.index.candidates
+            and caller_key in report.index.candidates
+        ):
             report.graph.edges[caller_key].add(target_key)
             report.graph.observed[target_key] += 1
     return report.refresh()
@@ -589,7 +724,10 @@ def analyze_python_reachability(
 def _imports_pytest(tree: ast.Module) -> bool:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            if any(alias.name.split(".", 1)[0] in ("pytest", "_pytest") for alias in node.names):
+            if any(
+                alias.name.split(".", 1)[0] in ("pytest", "_pytest")
+                for alias in node.names
+            ):
                 return True
         elif isinstance(node, ast.ImportFrom) and node.module:
             if node.module.split(".", 1)[0] in ("pytest", "_pytest"):
@@ -597,7 +735,18 @@ def _imports_pytest(tree: ast.Module) -> bool:
     return False
 
 
-_COG_SUFFIXES = (".rst", ".md", ".txt", ".html", ".py", ".cfg", ".toml", ".yml", ".yaml", ".in")
+_COG_SUFFIXES = (
+    ".rst",
+    ".md",
+    ".txt",
+    ".html",
+    ".py",
+    ".cfg",
+    ".toml",
+    ".yml",
+    ".yaml",
+    ".in",
+)
 
 
 def _cog_block_imports(root: Path) -> frozenset[tuple[str, str]]:
@@ -639,7 +788,7 @@ def _cog_blocks(text: str) -> list[str]:
         while index < len(lines) and "]]]" not in lines[index]:
             line = lines[index]
             if prefix.strip() and line.startswith(prefix):
-                line = line[len(prefix):]
+                line = line[len(prefix) :]
             body.append(line)
             index += 1
         blocks.append(textwrap.dedent("\n".join(body)))

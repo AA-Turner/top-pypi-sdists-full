@@ -39,7 +39,11 @@ from scripts.preflight_lane_deploy_attribution import (
     GOVERNED_LANES,
     GRANT_INTERLOCK_LANES,
 )
-from tests.helpers.lane_census_fixtures import LAB_MANIFEST
+from tests.helpers.lane_census_fixtures import (
+    LAB_MANIFEST,
+    lab_registry,
+    lanes_declared_on_host,
+)
 from tests.helpers.lane_overlay_fixtures import (
     LANE_OVERLAY_MOUNT,
     LANE_OVERLAY_TARGET,
@@ -59,8 +63,7 @@ HOSTNAME_ON_HOST = "omnibook"
 COMPOSE_PROJECT = "omnibase-infra-dev-105"
 NETWORK = "omnibase-infra-dev-105-network"
 
-#: The declared block. 61090 (onex-api) is published by a disabled service, so
-#: it is reserved and never bound; it is still in the block.
+#: The declared block.
 EXPECTED_PUBLISHED_PORTS = {
     "43085",  # runtime main
     "43086",  # runtime effects
@@ -69,9 +72,7 @@ EXPECTED_PUBLISHED_PORTS = {
     "43091",  # contract resolver
     "43092",  # skill lifecycle consumer
     "43093",  # context audit consumer
-    "43053",  # intelligence API
     "43006",  # phoenix
-    "43090",  # onex-api (disabled here, reserved)
     "43436",  # Postgres
     "43379",  # Valkey
     "43192",  # Redpanda Kafka (external listener)
@@ -108,34 +109,34 @@ REDPANDA_MEMORY_DEFAULT = "${DEV_105_REDPANDA_MEMORY:-2G}"
 FORBIDDEN_SERVICE_FRAGMENTS = ("keycloak", "infisical")
 
 #: The .201 dev lane's declared service -> its dev-105 name. AC1.
+#: The projection API, the runtime effects role and the delegation writer are
+#: folded into the dev main runtime and no longer declared by the dev lane's
+#: manifest, so the dev lane has nothing of theirs to map here.
 DEV_TO_DEV_105 = {
     "omnibase-infra-postgres": "omnibase-infra-dev-105-postgres",
     "omnibase-infra-redpanda": "omnibase-infra-dev-105-redpanda",
     "omnibase-infra-valkey": "omnibase-infra-dev-105-valkey",
-    "omnimarket-projection-api": "omnimarket-dev-105-projection-api",
     "omninode-runtime": "omninode-dev-105-runtime",
-    "omninode-runtime-effects": "omninode-dev-105-runtime-effects",
     "omnimarket-projection-tenant-registry-writer": "omnimarket-dev-105-projection-tenant-registry-writer",
-    "omnimarket-projection-delegation-writer": "omnimarket-dev-105-projection-delegation-writer",
     "omnimarket-projection-registration-writer": "omnimarket-dev-105-projection-registration-writer",
     "omnimarket-projection-savings-writer": "omnimarket-dev-105-projection-savings-writer",
     "omnimarket-projection-tenant-credentials-writer": "omnimarket-dev-105-projection-tenant-credentials-writer",
     "omnimarket-projection-live-events-writer": "omnimarket-dev-105-projection-live-events-writer",
     "omnimarket-tenant-projection-writer": "omnimarket-dev-105-tenant-projection-writer",
     "omnibase-infra-forward-migration": "omnibase-infra-dev-105-forward-migration",
-    "omnibase-infra-cloud-migration": "omnibase-infra-dev-105-cloud-migration",
-    "omnibase-infra-cloud-migration-files": "omnibase-infra-dev-105-cloud-migration-files",
-    "onex-api": "onex-api-dev-105",
-    "omninode-infra-routing-decisions-consumer": "omninode-dev-105-infra-routing-decisions-consumer",
 }
 
-#: Declared but disabled on .105: the cloud image only the .201 lab-overlay pin
-#: delivers.
-PROFILE_GATED = {
-    "omnibase-infra-dev-105-cloud-migration",
-    "omnibase-infra-dev-105-cloud-migration-files",
-    "onex-api-dev-105",
-}
+#: No service is declared but disabled on this lane: the cloud API and its
+#: one-shots were removed from the dev lane (OMN-24476).
+PROFILE_GATED: set[str] = set()
+
+
+#: OMN-21481: dev services this lane does not mirror. The cost estimator page
+#: sits in its own compose profile, which this lane never enables, so its
+#: overlay declares no container for it.
+DEV_ONLY_UNMIRRORED = frozenset({"omninode-cost-estimator-web"})
+#: The same page by compose service name, for the relabel check below.
+DEV_ONLY_UNMIRRORED_SERVICES = frozenset({"cost-estimator-web"})
 
 
 def _manifest() -> dict[str, Any]:
@@ -162,7 +163,7 @@ def test_dev_105_lane_boundary_is_not_in_the_prod_grant_interlock() -> None:
 @pytest.mark.lab_overlay
 def test_dev_105_lane_boundary_manifest_declares_lab_105_only() -> None:
     lane = _manifest()["lanes"][LANE]
-    assert lane["hosts"] == [HOST_ID]
+    assert lab_registry().hosts_of(LANE) == [HOST_ID]
     assert lane["compose_project"] == COMPOSE_PROJECT
     assert lane["network"] == NETWORK
     assert lane["compose_file"] == "docker/docker-compose.dev-105.yml"
@@ -176,7 +177,9 @@ def test_dev_105_lane_boundary_manifest_declares_lab_105_only() -> None:
 def test_dev_105_lane_boundary_declares_every_dev_service_under_its_name() -> None:
     """AC1. The .201 dev lane's declared set maps one to one onto dev-105."""
     manifest = _manifest()
-    dev_declared = {s["name"] for s in manifest["lanes"]["dev"]["services"]}
+    dev_declared = {
+        s["name"] for s in manifest["lanes"]["dev"]["services"]
+    } - DEV_ONLY_UNMIRRORED
     assert dev_declared == set(DEV_TO_DEV_105), (
         "the .201 dev lane's declared services changed; map the new one to its "
         f"dev-105 name here and in the overlay. dev declares {sorted(dev_declared)}"
@@ -267,7 +270,9 @@ def test_dev_105_lane_boundary_broker_is_sized_for_the_host() -> None:
     assert f"- {DEV_202_REDPANDA_MEMORY_DEFAULT}" in dev_202, "positive control"
     block = re.search(r"^  redpanda-partition-cap:\n((?:    .*\n)+)", raw, re.MULTILINE)
     assert block is not None
+    # OMN-17427: the lane declares its own image so a dev pin move never reaches it.
     assert block.group(1).strip() == (
+        "image: redpandadata/redpanda:v24.2.7\n    "
         "container_name: omnibase-infra-dev-105-redpanda-partition-cap\n"
         "    environment:\n"
         f"      REDPANDA_PROFILE_MEMORY: {REDPANDA_MEMORY_DEFAULT}"
@@ -351,7 +356,8 @@ def test_dev_105_lane_boundary_relabels_every_dev_lane_label() -> None:
             current = m.group(1)
         elif current and re.match(r"^\s+com\.omninode\.lane: dev-105\s*$", line):
             relabelled.add(current)
-    assert labelled_in_dev <= relabelled, sorted(labelled_in_dev - relabelled)
+    mirrored = labelled_in_dev - DEV_ONLY_UNMIRRORED_SERVICES
+    assert mirrored <= relabelled, sorted(mirrored - relabelled)
 
 
 # --- the census on .105 -------------------------------------------------------
@@ -384,17 +390,15 @@ def _plan_on_105(rows: list[dict[str, Any]], networks: list[str]) -> dict[str, A
         "networks": networks,
         "runtime_tag": None,
     }
-    return build_plan(envelope, _manifest())
+    return build_plan(envelope, _manifest(), lab_registry())
 
 
 @pytest.mark.lab_overlay
 def test_dev_105_lane_boundary_host_resolves_and_carries_dev_105() -> None:
     manifest = _manifest()
-    validate_hosts(manifest)
-    assert resolve_host(HOSTNAME_ON_HOST, manifest) == HOST_ID
-    lanes_on_host = sorted(
-        name for name, spec in manifest["lanes"].items() if HOST_ID in spec["hosts"]
-    )
+    validate_hosts(manifest, lab_registry())
+    assert resolve_host(HOSTNAME_ON_HOST, manifest, lab_registry()) == HOST_ID
+    lanes_on_host = sorted(lanes_declared_on_host(lab_registry(), HOST_ID))
     assert lanes_on_host == ["dev-105", "dogfood"]
 
 

@@ -128,9 +128,19 @@ services:
   # keep-list under `redpandadata/redpanda`, and a second Redpanda generation on
   # one host is a second set of upgrade semantics nobody asked for.
   #
-  # `--smp 1` and a 1 GB memory reservation, against the lanes' 8 G: this broker
-  # carries sixteen low-volume CI and lab topics, not a runtime. Sizing it like
-  # a lane would take 8 GB from a host that ran out of headroom this morning.
+  # `--smp 1` and a 4 GB memory budget, against the lanes' 8-12 G: this broker
+  # carries sixteen low-volume CI and lab topics, not a runtime, so it is still
+  # sized well below a lane.
+  #
+  # OMN-21717: the budget was 1 G and that was too small. Seastar aborts the
+  # whole process when its `--memory` budget is spent, and on 2026-10-31 the
+  # broker spent 1 G (`Used memory: 1G / Free memory: 0B`, `Failed to allocate
+  # 64 bytes`, `Aborting on shard 0`, exit 139) a few seconds after every start,
+  # while `kafka::group_manager` replayed a 383 MB `__consumer_offsets` log, and
+  # crash-looped about every 15 s (restart count 518) while client reconnects
+  # landed on each fresh start. Measured on a copy of the live data volume: 1 G
+  # aborts at 20 s, 4 G is healthy at 20 s and holds at 2.2 GiB resident. Do not
+  # lower it again without replaying a copy of the live volume at the new value.
   redpanda:
     image: redpandadata/redpanda:v24.2.7
     container_name: omninode-ci-bus-redpanda
@@ -151,7 +161,9 @@ services:
       - --advertise-rpc-addr redpanda:33145
       - --mode dev-container
       - --smp 1
-      - --memory ${CI_BUS_REDPANDA_MEMORY:-1G}
+      # A stale operator .env must not restore the 1G crash loop (OMN-21717).
+      # Changing the recovery budget requires a measured replay and a code change.
+      - --memory 4G
       - --default-log-level=warn
     ports:
       - "${CI_BUS_REDPANDA_EXTERNAL_PORT:-21092}:21092"
@@ -187,7 +199,15 @@ services:
       service: redpanda-settings
     container_name: omninode-ci-bus-redpanda-partition-cap
     environment:
-      REDPANDA_PROFILE_MEMORY: ${CI_BUS_REDPANDA_MEMORY:-1G}
+      REDPANDA_PROFILE_MEMORY: 4G
+      # OMN-21717: lab-run opens a fresh consumer group per call
+      # (`lab_work_client.consume.v1.<12 hex>.cap.__t.<topic>`), so the
+      # `__consumer_offsets` log held about 15,000 distinct group ids on
+      # 2026-10-31 and the broker replays all of them into heap on every start.
+      # A day after the last member the offsets, and with them the group, expire
+      # (the dev lane's OMN-19998 value). A long-lived consumer is unaffected: a
+      # group with a member never expires.
+      REDPANDA_GROUP_OFFSET_RETENTION_SEC: ${CI_BUS_GROUP_OFFSET_RETENTION_SEC:-86400}
       RPK_USER: ${CI_BUS_KAFKA_SASL_USERNAME:?CI_BUS_KAFKA_SASL_USERNAME must be set}
       RPK_PASS: ${CI_BUS_KAFKA_SASL_PASSWORD:?CI_BUS_KAFKA_SASL_PASSWORD must be set}
     depends_on:
@@ -270,7 +290,8 @@ services:
         /usr/bin/rpk cluster config set topic_partitions_per_shard 7000 $$ADMIN
         CI_TOPICS="onex.cmd.omnimarket.occ-autobind.v1 onex.cmd.omnimarket.occ-companion-effect-requested.v1 onex.evt.github.pr-merged.v1 onex.cmd.omnimarket.redeploy-start.v1 onex.evt.deploy.rebuild-completed.v1"
         LAB_TOPICS="onex.cmd.omnimarket.lab-work-unit-requested.v1 onex.evt.omnimarket.lab-work-unit-completed.v1 onex.evt.omnimarket.lab-work-unit-failed.v1 onex.evt.omnimarket.lab-host-capacity-advertised.v1 onex.cmd.omnimarket.focused-test-run-requested.v1 onex.evt.omnimarket.focused-test-run-completed.v1 onex.evt.omnimarket.focused-test-run-failed.v1 onex.cmd.omnimarket.push-validation-requested.v1 onex.evt.omnimarket.push-validation-completed.v1 onex.evt.omnimarket.push-validation-failed.v1 onex.dlq.omnimarket.push-validation.v1 onex.evt.omnimarket.repo-merged.v1 onex.evt.omnimarket.canonical-clone-refreshed.v1 onex.cmd.omnimarket.lab-job-submitted.v1 onex.cmd.omnibase_internal.pr-watcher-tick-requested.v1 onex.evt.omnibase_internal.pr-watcher-tick-completed.v1 onex.evt.omnibase_internal.pr-watcher-tick-failed.v1 onex.evt.omnimarket.pr-state-observed.v1"
-        TOPICS="$$CI_TOPICS $$LAB_TOPICS"
+        REDEPLOY_TOPICS="onex.evt.omnimarket.dev-merge-redeploy-receipt.v1"
+        TOPICS="$$CI_TOPICS $$LAB_TOPICS $$REDEPLOY_TOPICS"
         for t in $$TOPICS; do
           if /usr/bin/rpk topic list $$BROKER | awk '{print $$1}' | grep -qx "$$t"; then
             echo "OMN-18691 + OMN-20213: topic already present: $$t"
@@ -288,7 +309,7 @@ services:
         for t in $$TOPICS; do
           /usr/bin/rpk topic list $$BROKER | awk '{print $$1}' | grep -qx "$$t"
         done
-        echo "OMN-18691 + OMN-20213: readback confirms all twenty-three topics exist"
+        echo "OMN-18691 + OMN-20213: readback confirms all twenty-four topics exist"
     depends_on:
       redpanda:
         condition: service_healthy
@@ -488,7 +509,8 @@ services:
         echo "OMN-20213: lab-work principal is not a superuser"
         # Kafka ACL creation is idempotent: an identical binding is a no-op.
         LAB_TOPICS="onex.cmd.omnimarket.lab-work-unit-requested.v1 onex.evt.omnimarket.lab-work-unit-completed.v1 onex.evt.omnimarket.lab-work-unit-failed.v1 onex.evt.omnimarket.lab-host-capacity-advertised.v1 onex.cmd.omnimarket.focused-test-run-requested.v1 onex.evt.omnimarket.focused-test-run-completed.v1 onex.evt.omnimarket.focused-test-run-failed.v1 onex.cmd.omnimarket.push-validation-requested.v1 onex.evt.omnimarket.push-validation-completed.v1 onex.evt.omnimarket.push-validation-failed.v1 onex.dlq.omnimarket.push-validation.v1 onex.evt.omnimarket.repo-merged.v1 onex.evt.omnimarket.canonical-clone-refreshed.v1 onex.cmd.omnimarket.lab-job-submitted.v1 onex.cmd.omnibase_internal.pr-watcher-tick-requested.v1 onex.evt.omnibase_internal.pr-watcher-tick-completed.v1 onex.evt.omnibase_internal.pr-watcher-tick-failed.v1 onex.evt.omnimarket.pr-state-observed.v1"
-        for t in $$LAB_TOPICS; do
+        REDEPLOY_TOPICS="onex.evt.omnimarket.dev-merge-redeploy-receipt.v1"
+        for t in $$LAB_TOPICS $$REDEPLOY_TOPICS; do
           su_rpk security acl create --allow-principal "User:$$CI_BUS_LABWORK_SASL_USERNAME" \
             --resource-pattern-type literal --topic "$$t" \
             --operation read --operation write --operation describe $$BROKER
@@ -502,7 +524,8 @@ services:
         # contract's literal group_id; EventBusKafka appends .__t.<topic> (and .__i.<instance>
         # when KAFKA_INSTANCE_ID is set), so the prefix ends in a dot (OMN-20682).
         GROUP_PREFIXES="local.omnimarket.node_lab_work_unit_effect.consume.v1. local.omnimarket.lab_work_client.consume.v1. local.omnimarket.node_focused_test_run_effect.consume.v1 local.omnimarket.delegated_test_loop_client.consume.v1. local.omnimarket.node_canonical_clone_refresh_effect.consume.v1. local.omnibase_internal.host_drift_sync.hub. onex.omnibase_internal.node_pr_watcher_effect."
-        for g in $$GROUP_PREFIXES; do
+        NODE_GROUP_PREFIXES="local.omnimarket.node_dev_merge_redeploy_trigger_effect.consume.v1"
+        for g in $$GROUP_PREFIXES $$NODE_GROUP_PREFIXES; do
           su_rpk security acl create --allow-principal "User:$$CI_BUS_LABWORK_SASL_USERNAME" \
             --resource-pattern-type prefixed --group "$$g" \
             --operation read --operation describe $$BROKER
@@ -513,10 +536,10 @@ services:
         su_rpk security acl create --allow-principal "User:$$CI_BUS_LABWORK_SASL_USERNAME" \
           --cluster --operation idempotent_write $$BROKER
         ACLS=$$(su_rpk security acl list --allow-principal "User:$$CI_BUS_LABWORK_SASL_USERNAME" $$BROKER)
-        for t in $$LAB_TOPICS; do
+        for t in $$LAB_TOPICS $$REDEPLOY_TOPICS; do
           printf '%s\n' "$$ACLS" | grep -q "$$t"
         done
-        echo "OMN-20213 + OMN-20496 + OMN-20682: ACL readback confirms all eighteen lab topics"
+        echo "OMN-20213 + OMN-20496 + OMN-20682: ACL readback confirms all eighteen pool topics and the redeploy receipt topic"
         # A down broker also hides topics, so the negative alone proves nothing.
         # Capture once as the lab-work login: the positive proves authentication
         # and authorization, and the negative proves a CI topic is invisible.

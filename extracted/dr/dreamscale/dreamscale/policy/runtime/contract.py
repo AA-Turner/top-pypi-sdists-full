@@ -6,9 +6,9 @@ from math import isfinite
 from typing import Any
 
 from dreamscale_transport import _catalog_client as catalog
-from dreamscale_transport import families
 from dreamscale_transport.images import WireImage
 
+from dreamscale import _deployment_families as families
 from dreamscale.model_names import internal_model, public_model
 from dreamscale.policy.deployment import session_base
 from dreamscale.policy.exported_deployments import exported_base
@@ -98,6 +98,9 @@ class RuntimeContract:
     # rows already due (None: no limit): each then adds fewer rows than the next round trip takes.
     async_max_stale_rows: int | None = None
 
+    # Number of consecutive camera observations sealed by the deployment.
+    observation_frames: int | None = None
+
     def __post_init__(self) -> None:
         if not isfinite(self.task_prepare_timeout_s) or self.task_prepare_timeout_s <= 0:
             raise ValueError("task_prepare_timeout_s must be finite and positive")
@@ -139,6 +142,15 @@ class RuntimeContract:
         if ticks and (offsets or self.history_anchor or self.state_history
                       or self.measured_state_steps):
             raise ValueError("a tick history takes no other observation history")
+        if self.observation_frames is not None and (
+            type(self.observation_frames) is not int or not 1 <= self.observation_frames <= 3
+        ):
+            raise ValueError("observation_frames must be 1-3")
+        if self.observation_frames is not None and (
+            ticks or offsets or self.history_anchor or self.state_history
+            or self.measured_state_steps or self.episode_tick_steps
+        ):
+            raise ValueError("a contiguous observation window takes no other history")
         if self.history_start and not ticks:
             raise ValueError("history_start needs a tick history")
         if type(self.measured_state_steps) is not int or not 0 <= self.measured_state_steps <= 31:
@@ -257,7 +269,7 @@ def _base_previews() -> dict[str, RuntimeContract]:
     from dreamscale import deploy_bases
 
     return {
-        families.family(base.family).deploy.base: RuntimeContract(**base.preview_contract)
+        internal_model(base.name): RuntimeContract(**base.preview_contract)
         for base in deploy_bases.bases() if base.preview_contract is not None
     }
 

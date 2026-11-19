@@ -28,6 +28,7 @@ EventTypeType = Literal[
 ]
 PinpointSMSVoiceServiceName = Literal["pinpoint-sms-voice"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

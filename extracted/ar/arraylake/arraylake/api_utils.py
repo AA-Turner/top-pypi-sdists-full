@@ -5,6 +5,7 @@ import functools
 import json
 import os
 import random
+import re
 import uuid
 import warnings
 import weakref
@@ -28,6 +29,7 @@ from arraylake.exceptions import (
     ArraylakeHttpError,
     ArraylakeServerError,
     ArraylakeValidationError,
+    AuthException,
 )
 from arraylake.log_util import get_logger
 from arraylake.types import ApiTokenInfo, UserInfo
@@ -160,6 +162,7 @@ async def get_client(
     verify_ssl: bool,
     ssl_cafile: str | None,
     proxy: str | None = None,
+    anonymous: bool = False,
 ) -> httpx.AsyncClient:
     """
     Attempt to get an httpx client for a specific event loop and set of parameters.
@@ -169,7 +172,10 @@ async def get_client(
     auth: httpx.Auth
 
     # we need to set up auth every time this function is called in case the user has logged out
-    if token is None:
+    if anonymous:
+        auth = AnonymousReadAuth()
+        auth_key = ANONYMOUS_AUTH_KEY
+    elif token is None:
         # if a token is presented, just use that token for all all Authentication headers
         auth = UserAuth(api_url)
         auth_key = hash(auth._token_handler.tokens)
@@ -336,9 +342,10 @@ class ArraylakeHttpClient:
     _clients: dict[asyncio.AbstractEventLoop, httpx.AsyncClient]
     _OPEN: bool
 
-    def __init__(self, api_url: str, token: str | None = None, proxy: str | None = None):
+    def __init__(self, api_url: str, token: str | None = None, proxy: str | None = None, anonymous: bool = False):
         self.api_url = api_url
         self.token = token
+        self.anonymous = anonymous
         self.proxy = proxy or _get_proxy_from_env()
         self.timeout = int(config.get("http.timeout", 300))
         self.max_keepalive_connections = int(config.get("http.max_keepalive_connections", 100))
@@ -369,6 +376,7 @@ class ArraylakeHttpClient:
             self.max_keepalive_connections,
             self.keepalive_expiry,
             self._default_headers,
+            self.anonymous,
         )
 
     def __setstate__(self, state):
@@ -380,6 +388,7 @@ class ArraylakeHttpClient:
             self.max_keepalive_connections,
             self.keepalive_expiry,
             self._default_headers,
+            self.anonymous,
         ) = state
         self._async_lock = asyncio.Lock()
         self._clients = {}
@@ -409,6 +418,7 @@ class ArraylakeHttpClient:
                         self.verify_ssl,
                         self.ssl_cafile,
                         self.proxy,
+                        anonymous=self.anonymous,
                     )
                     self._clients[loop] = client
         return await client.request(method, path, **kwargs)
@@ -432,6 +442,7 @@ class ArraylakeHttpClient:
                         self.verify_ssl,
                         self.ssl_cafile,
                         self.proxy,
+                        anonymous=self.anonymous,
                     )
                     self._clients[loop] = client
         return client.stream(method, path, **kwargs)
@@ -535,6 +546,27 @@ def handle_response(response: httpx.Response):
                 raise ArraylakeClientError(error_msg, request_id=request_id, status_code=exc.response.status_code) from exc
             else:
                 raise ArraylakeServerError(error_msg, request_id=request_id, status_code=exc.response.status_code) from exc
+
+
+ANONYMOUS_AUTH_KEY = hash("arraylake-anonymous")
+
+_ANONYMOUS_READ_PATH = re.compile(r"/repos/[^/]+/[^/]+(?:/open)?$")
+
+
+def is_anonymous_read(method: str, path: str) -> bool:
+    """Whether a request is one the server serves to callers with no token."""
+    return method == "GET" and _ANONYMOUS_READ_PATH.search(path) is not None
+
+
+@dataclass(frozen=True)
+class AnonymousReadAuth(httpx.Auth):
+    """Sends no Authorization header, and only for the routes that accept anonymous callers."""
+
+    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
+        if not is_anonymous_read(request.method, request.url.path):
+            raise AuthException("Not logged in, please log in with `al auth login`")
+        request.headers.pop("Authorization", None)
+        yield request
 
 
 @dataclass(frozen=True)

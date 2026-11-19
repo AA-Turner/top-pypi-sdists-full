@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: invisible_core
-Version: 66.75.0
+Version: 66.76.0
 Summary: Pure config for a stealth Firefox profile: seed -> fingerprint -> prefs, engine download, proxy, geo, and the Juggler client the wrappers drive it with. Zero Playwright.
 Project-URL: Homepage, https://github.com/oss-invisible/core
 Project-URL: Repository, https://github.com/oss-invisible/core
@@ -12,7 +12,6 @@ License-File: LICENSE-APACHE
 Keywords: anti-detect,automation,browser,fingerprint,firefox,privacy,stealth
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3

@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added revert share to snapshot to shared
-    file system service.

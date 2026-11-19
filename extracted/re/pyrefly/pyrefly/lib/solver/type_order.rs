@@ -30,13 +30,16 @@ use crate::solver::solver::QuantifiedHandle;
 use crate::solver::solver::SubsetError;
 use crate::types::callable::Required;
 use crate::types::class::Class;
+use crate::types::class::ClassDef;
 use crate::types::class::ClassType;
+use crate::types::env::TypeEnv;
 use crate::types::quantified::Quantified;
 use crate::types::stdlib::Stdlib;
-use crate::types::typed_dict::TypedDict;
+use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDictField;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 
 /// `TypeOrder` provides a minimal API allowing `Subset` to request additional
@@ -47,6 +50,29 @@ use crate::types::types::Type;
 /// subset relations.
 #[derive(Clone_, Copy_, Dupe_)]
 pub struct TypeOrder<'solver, Ans: LookupAnswer>(&'solver AnswersSolver<'solver, 'solver, Ans>);
+
+/// Every method delegates to the solver, so a `TypeOrder` reads the same data as its solver.
+impl<Ans: LookupAnswer> TypeEnv for TypeOrder<'_, Ans> {
+    fn stdlib(&self) -> &Stdlib {
+        self.0.stdlib
+    }
+
+    fn class_def<'a>(&'a self, cls: &'a Class) -> &'a ClassDef {
+        self.0.class_def(cls)
+    }
+
+    fn class_tparams<'a>(&'a self, cls: &'a Class) -> &'a TParams {
+        self.0.class_tparams(cls)
+    }
+
+    fn type_var_restriction<'a>(&'a self, q: &'a Quantified) -> &'a Restriction {
+        self.0.type_var_restriction(q)
+    }
+
+    fn type_var_default<'a>(&'a self, q: &'a Quantified) -> Option<&'a Type> {
+        self.0.type_var_default(q)
+    }
+}
 
 impl<'solver, Ans: LookupAnswer> TypeOrder<'solver, Ans> {
     pub fn new(solver: &'solver AnswersSolver<'solver, 'solver, Ans>) -> Self {
@@ -60,6 +86,10 @@ impl<'solver, Ans: LookupAnswer> TypeOrder<'solver, Ans> {
 
     pub fn has_active_scc(self) -> bool {
         self.0.has_active_scc()
+    }
+
+    pub fn scc_local_reads(self) -> u64 {
+        self.0.stack().scc_local_reads()
     }
 
     pub fn stdlib(self) -> &'solver Stdlib {
@@ -78,10 +108,6 @@ impl<'solver, Ans: LookupAnswer> TypeOrder<'solver, Ans> {
         self.0.as_class_type_unchecked(class)
     }
 
-    pub fn shaped_array_shape_for_class_type(self, cls: &ClassType) -> Option<Quantified> {
-        self.0.shaped_array_shape_for_class_type(cls)
-    }
-
     pub fn has_metaclass(self, cls: &Class, metaclass: &ClassType) -> bool {
         let metadata = self.0.get_metadata_for_class(cls);
         self.0
@@ -91,7 +117,7 @@ impl<'solver, Ans: LookupAnswer> TypeOrder<'solver, Ans> {
     }
 
     pub fn is_protocol(self, cls: &Class) -> bool {
-        cls.is_protocol()
+        cls.is_protocol(&self)
     }
 
     pub fn is_subclassable(self, cls: &Class) -> bool {
@@ -111,8 +137,12 @@ impl<'solver, Ans: LookupAnswer> TypeOrder<'solver, Ans> {
         }
     }
 
-    pub fn get_enum_member_count(self, cls: &Class) -> Option<usize> {
-        self.0.get_enum_member_count(cls)
+    pub fn enum_literal_covers_class(self, cls: &Class, member: &Name) -> bool {
+        self.0.enum_literal_covers_class(cls, member)
+    }
+
+    pub fn get_expandable_enum_member_count(self, cls: &Class) -> Option<usize> {
+        self.0.get_expandable_enum_member_count(cls)
     }
 
     pub fn instance_as_dunder_call(self, class_type: &ClassType) -> Option<Type> {
@@ -150,25 +180,37 @@ impl<'solver, Ans: LookupAnswer> TypeOrder<'solver, Ans> {
         self.0.promote_silently(cls)
     }
 
-    pub fn typed_dict_fields(self, typed_dict: &TypedDict) -> SmallMap<Name, TypedDictField> {
+    pub fn is_typed_dict_class(self, cls: &Class) -> bool {
+        self.0.is_typed_dict_class(cls)
+    }
+
+    pub fn typed_dict_fields(self, typed_dict: &ClassType) -> SmallMap<Name, TypedDictField> {
         self.0.typed_dict_fields(typed_dict)
     }
 
-    pub fn typed_dict_kw_param_info(self, typed_dict: &TypedDict) -> Vec<(Name, Type, Required)> {
+    pub fn typed_dict_field(self, typed_dict: &ClassType, name: &Name) -> Option<TypedDictField> {
+        self.0.typed_dict_field(typed_dict, name)
+    }
+
+    pub fn typed_dict_field_requiredness(self, typed_dict: &ClassType) -> SmallMap<Name, bool> {
+        self.0.typed_dict_field_requiredness(typed_dict)
+    }
+
+    pub fn typed_dict_kw_param_info(self, typed_dict: &ClassType) -> Vec<(Name, Type, Required)> {
         self.0.typed_dict_kw_param_info(typed_dict)
     }
 
-    pub fn typed_dict_extra_items(self, typed_dict: &TypedDict) -> ExtraItems {
+    pub fn typed_dict_extra_items(self, typed_dict: &ClassType) -> ExtraItems {
         self.0.typed_dict_extra_items(typed_dict)
     }
 
-    pub fn get_typed_dict_value_type(self, typed_dict: &TypedDict) -> Type {
+    pub fn get_typed_dict_value_type(self, typed_dict: &ClassType) -> Type {
         self.0.get_typed_dict_value_type(typed_dict)
     }
 
     pub fn get_typed_dict_value_type_as_builtins_dict(
         self,
-        typed_dict: &TypedDict,
+        typed_dict: &ClassType,
     ) -> Option<Type> {
         self.0
             .get_typed_dict_value_type_as_builtins_dict(typed_dict)
@@ -186,6 +228,10 @@ impl<'solver, Ans: LookupAnswer> TypeOrder<'solver, Ans> {
 
     pub fn constructor_to_callable_for_class_def(self, cls: &Class) -> Type {
         self.0.constructor_to_callable_for_class_def(cls)
+    }
+
+    pub fn constructor_to_callable_for_type_of(self, inner: &Type) -> Option<Type> {
+        self.0.constructor_to_callable_for_type_of(inner)
     }
 
     pub fn instantiate_fresh_forall(self, forall: Forall<Forallable>) -> (QuantifiedHandle, Type) {

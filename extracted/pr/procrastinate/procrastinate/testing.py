@@ -162,6 +162,7 @@ class InMemoryConnector(connector.BaseAsyncConnector):
 
         if duplicate is not None:
             raise exceptions.UniqueViolation(
+                f"Key (queueing_lock)=({duplicate}) already exists.",
                 constraint_name=manager.QUEUEING_LOCK_CONSTRAINT,
                 queueing_lock=duplicate,
             )
@@ -176,6 +177,7 @@ class InMemoryConnector(connector.BaseAsyncConnector):
                 "task_name": job.task_name,
                 "priority": job.priority,
                 "lock": job.lock,
+                "lock_mode": job.lock_mode,
                 "queueing_lock": job.queueing_lock,
                 "args": job.args,
                 "status": "todo",
@@ -208,6 +210,7 @@ class InMemoryConnector(connector.BaseAsyncConnector):
         args: types.JSONDict,
         defer_timestamp: int,
         lock: str | None,
+        lock_mode: str,
         queueing_lock: str | None,
         periodic_id: str,
     ) -> JobRow:
@@ -223,6 +226,7 @@ class InMemoryConnector(connector.BaseAsyncConnector):
                     task_name=task_name,
                     priority=priority,
                     lock=lock,
+                    lock_mode=lock_mode,
                     queueing_lock=queueing_lock,
                     args=args,
                     scheduled_at=None,
@@ -236,6 +240,34 @@ class InMemoryConnector(connector.BaseAsyncConnector):
         return {
             job["lock"] for job in self.jobs.values() if job["status"] == "doing"
         } - {None}
+
+    def _is_blocked_by_waiting_job(self, candidate: JobRow) -> bool:
+        # Mirrors the lock-blocking subquery of procrastinate_fetch_job_v2: a job is
+        # rejected when another job with the same lock comes first (higher priority, or
+        # same priority and queued earlier), even when that job is not runnable yet.
+        # This is what guarantees jobs sharing a lock are started in order.
+        # An 'ordered' lock is reserved even by a job that cannot run yet; a 'mutex'
+        # lock is only reserved while its job is actually runnable, so a job scheduled
+        # for later steps aside.
+        if candidate["lock"] is None:
+            return False
+        return any(
+            other["lock"] == candidate["lock"]
+            and other["status"] == "todo"
+            and (
+                other.get("lock_mode", "ordered") == "ordered"
+                or not other["scheduled_at"]
+                or other["scheduled_at"] <= utils.utcnow()
+            )
+            and (
+                other["priority"] > candidate["priority"]
+                or (
+                    other["priority"] == candidate["priority"]
+                    and other["id"] < candidate["id"]
+                )
+            )
+            for other in self.jobs.values()
+        )
 
     @property
     def finished_jobs(self) -> list[JobRow]:
@@ -298,6 +330,7 @@ class InMemoryConnector(connector.BaseAsyncConnector):
                 and (queues is None or job["queue_name"] in queues)
                 and (not job["scheduled_at"] or job["scheduled_at"] <= utils.utcnow())
                 and job["lock"] not in self.current_locks
+                and not self._is_blocked_by_waiting_job(job)
             )
         ]
 
@@ -318,8 +351,9 @@ class InMemoryConnector(connector.BaseAsyncConnector):
             return
 
         job_row = self.jobs[job_id]
+        if job_row["status"] == "doing":
+            job_row["attempts"] += 1
         job_row["status"] = status
-        job_row["attempts"] += 1
         job_row["abort_requested"] = False
         self.events[job_id].append({"type": status, "at": utils.utcnow()})
 
@@ -334,9 +368,11 @@ class InMemoryConnector(connector.BaseAsyncConnector):
                 return {"id": job_id}
 
             job_row["status"] = "cancelled"
+            if abort:
+                job_row["abort_requested"] = True
             return {"id": job_id}
 
-        if abort:
+        if abort and job_row["status"] == "doing":
             job_row["abort_requested"] = True
             await self._notify(
                 job_row["queue_name"],
@@ -362,6 +398,27 @@ class InMemoryConnector(connector.BaseAsyncConnector):
         new_lock: str | None = None,
     ) -> None:
         job_row = self.jobs[job_id]
+        if job_row["status"] == "doing" and job_row["abort_requested"]:
+            job_row["status"] = "failed"
+            self.events[job_id].append({"type": "failed", "at": utils.utcnow()})
+            return
+
+        queueing_lock = job_row["queueing_lock"]
+        if queueing_lock is not None and any(
+            job["queueing_lock"] == queueing_lock and job["status"] == "todo"
+            for job in self.jobs.values()
+        ):
+            if job_row["status"] != "doing":
+                raise exceptions.UniqueViolation(
+                    f"Key (queueing_lock)=({queueing_lock}) already exists.",
+                    constraint_name=manager.QUEUEING_LOCK_CONSTRAINT,
+                    queueing_lock=queueing_lock,
+                )
+            job_row["status"] = "failed"
+            job_row["attempts"] += 1
+            self.events[job_id].append({"type": "failed", "at": utils.utcnow()})
+            return
+
         job_row["status"] = "todo"
         job_row["attempts"] += 1
         job_row["scheduled_at"] = retry_at
@@ -399,7 +456,7 @@ class InMemoryConnector(connector.BaseAsyncConnector):
             and (
                 self.workers.get(
                     job["worker_id"],
-                    datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                    datetime.datetime.min.replace(tzinfo=datetime.UTC),
                 )
                 < utils.utcnow() - datetime.timedelta(seconds=seconds_since_heartbeat)
             )
@@ -425,10 +482,10 @@ class InMemoryConnector(connector.BaseAsyncConnector):
     async def apply_schema_run(self) -> None:
         pass
 
-    async def list_jobs_all(self, **kwargs: Any):
+    async def list_jobs_all(self, ids: list[int] | None = None, **kwargs: Any):
         jobs: list[JobRow] = []
         for job in self.jobs.values():
-            if all(
+            if (ids is None or job["id"] in ids) and all(
                 expected is None or str(job[key]) == str(expected)
                 for key, expected in kwargs.items()
             ):

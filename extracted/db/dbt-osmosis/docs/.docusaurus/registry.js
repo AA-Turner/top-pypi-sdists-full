@@ -34,4 +34,5 @@ export default {
   "e7c08c8c": [() => import(/* webpackChunkName: "e7c08c8c" */ "@generated/docusaurus-plugin-content-docs/default/p/dbt-osmosis-docs-fea.json"), "@generated/docusaurus-plugin-content-docs/default/p/dbt-osmosis-docs-fea.json", require.resolveWeak("@generated/docusaurus-plugin-content-docs/default/p/dbt-osmosis-docs-fea.json")],
   "f263b9c0": [() => import(/* webpackChunkName: "f263b9c0" */ "@site/docs/tutorial-yaml/workflow.md"), "@site/docs/tutorial-yaml/workflow.md", require.resolveWeak("@site/docs/tutorial-yaml/workflow.md")],
   "f2710c27": [() => import(/* webpackChunkName: "f2710c27" */ "@site/docs/migrating.md"), "@site/docs/migrating.md", require.resolveWeak("@site/docs/migrating.md")],
+  "faa9f496": [() => import(/* webpackChunkName: "faa9f496" */ "@site/docs/reference/artifacts.md"), "@site/docs/reference/artifacts.md", require.resolveWeak("@site/docs/reference/artifacts.md")],
   "fea1970e": [() => import(/* webpackChunkName: "fea1970e" */ "@site/docs/tutorials/index.md"), "@site/docs/tutorials/index.md", require.resolveWeak("@site/docs/tutorials/index.md")],};

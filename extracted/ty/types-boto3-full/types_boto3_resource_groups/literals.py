@@ -74,6 +74,7 @@ SearchResourcesPaginatorName = Literal["search_resources"]
 TagSyncTaskStatusType = Literal["ACTIVE", "ERROR"]
 ResourceGroupsServiceName = Literal["resource-groups"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

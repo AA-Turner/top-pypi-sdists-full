@@ -1,3 +1,4 @@
+"""Access .rtdc files in S3-compatible object stores"""
 import functools
 import hashlib
 # import multiprocessing BaseManager here, because there is some kind
@@ -7,20 +8,30 @@ import os
 import pathlib
 import re
 import socket
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 import warnings
 
 
-try:
+if TYPE_CHECKING:
+    # Type checkers assume that the optional dependencies are available.
     import boto3
     import botocore
     import botocore.client
     import botocore.exceptions
     import botocore.session
-except ModuleNotFoundError:
-    BOTO3_AVAILABLE = False
-else:
     BOTO3_AVAILABLE = True
+else:
+    try:
+        import boto3
+        import botocore
+        import botocore.client
+        import botocore.exceptions
+        import botocore.session
+    except ModuleNotFoundError:
+        BOTO3_AVAILABLE = False
+    else:
+        BOTO3_AVAILABLE = True
 
 from ..http_utils import HTTPFile
 
@@ -29,7 +40,7 @@ from .feat_basin import Basin
 from .fmt_hdf5 import RTDC_HDF5
 
 
-#: Regular expression for matching a DCOR resource URL
+#: Regular expression for matching a full S3 object URL
 REGEXP_S3_URL = re.compile(
     r"^(https?:\/\/)"  # protocol (http or https or omitted)
     r"([a-z0-9-\.]*)(\:[0-9]*)?\/"  # host:port
@@ -50,13 +61,36 @@ def get_s3_session_client(access_key_id: str,
                           verify_ssl: bool,
                           endpoint_url: str
                           ):
+    """Return a botocore session, a boto3 session, and an S3 client
+
+    The return value is cached for each combination of arguments.
+
+    Parameters
+    ----------
+    access_key_id: str
+        S3 access key ID
+    secret_access_key: str
+        S3 secret access key
+    use_ssl: bool
+        Whether to use SSL to connect to the endpoint
+    verify_ssl: bool
+        Whether to verify the SSL certificate of the endpoint
+    endpoint_url: str
+        Endpoint URL of the S3 object store
+
+    Returns
+    -------
+    botocore_session: botocore.session.Session
+    s3_session: boto3.Session
+    s3_client: botocore.client.BaseClient
+    """
     botocore_session = botocore.session.get_session()
     s3_session = boto3.Session(
         aws_access_key_id=access_key_id,
         aws_secret_access_key=secret_access_key,
         botocore_session=botocore_session)
     s3_client = s3_session.client(
-        service_name='s3',
+        service_name="s3",
         use_ssl=use_ssl,
         verify=verify_ssl,
         endpoint_url=endpoint_url,
@@ -65,7 +99,7 @@ def get_s3_session_client(access_key_id: str,
 
 
 class S3File(HTTPFile):
-    """Monkeypatched `HTTPFile` to support authenticated access to S3"""
+    """Subclass of :class:`.HTTPFile` with (authenticated) access to S3"""
     def __init__(self,
                  object_path: str,
                  endpoint_url: str,
@@ -84,17 +118,17 @@ class S3File(HTTPFile):
         access_key_id:
             S3 access key
         secret_access_key:
-            secret S3 key mathcing `access_key_id`
+            secret S3 key matching `access_key_id`
         use_ssl: bool
             use SSL to connect to the endpoint, only disabled for testing
         verify_ssl: bool
-            make sure the SSL certificate is sound, only used for testing
+            make sure the SSL certificate is sound, only disabled for testing
         """
         if endpoint_url is None:
             raise ValueError(
                 "The S3 endpoint URL is empty. This could mean that you did "
                 "not specify the full S3 URL or that you forgot to set "
-                "the `S3_ENDPOINT_URL` environment variable.")
+                "the `DCLAB_S3_ENDPOINT_URL` environment variable.")
         endpoint_url = endpoint_url.strip().rstrip("/")
         self.botocore_session, self.s3_session, self.s3_client = \
             get_s3_session_client(
@@ -110,7 +144,7 @@ class S3File(HTTPFile):
         if not secret_access_key:
             config = botocore.client.Config(
                 signature_version=botocore.UNSIGNED,
-                region_name='us-east-1')
+                region_name="us-east-1")
         else:
             config = None
 
@@ -126,7 +160,7 @@ class S3File(HTTPFile):
             bucket_name=bucket_name,
             key=object_name)
 
-        super(S3File, self).__init__(f"{endpoint_url}/{object_path}")
+        super().__init__(f"{endpoint_url}/{object_path}")
 
     def _parse_header(self):
         if self._len is None:
@@ -134,7 +168,7 @@ class S3File(HTTPFile):
             self._etag = self.s3_object.e_tag.strip("'").strip('"')
 
     def close(self):
-        super(S3File, self).close()
+        super().close()
         self.s3_client.close()
 
     def download_range(self, start, stop):
@@ -142,16 +176,16 @@ class S3File(HTTPFile):
 
         `stop` is not inclusive (In the HTTP range request it normally is).
         """
-        stream = self.s3_object.get(Range=f"bytes={start}-{stop-1}")['Body']
+        stream = self.s3_object.get(Range=f"bytes={start}-{stop-1}")["Body"]
         return stream.read()
 
 
 class RTDC_S3(RTDC_HDF5):
     def __init__(self,
                  url: str,
-                 endpoint_url: str = None,
-                 access_key_id: str = None,
-                 secret_access_key: str = None,
+                 endpoint_url: str | None = None,
+                 access_key_id: str | None = None,
+                 secret_access_key: str | None = None,
                  use_ssl: bool = True,
                  *args, **kwargs):
         """Access RT-DC measurements in an S3-compatible object store
@@ -164,16 +198,21 @@ class RTDC_S3(RTDC_HDF5):
         url: str
             URL to an object in an S3 instance; this can be either a full
             URL (including the endpoint), or just `bucket/key`
+        endpoint_url: str
+            Endpoint URL of the S3 object store; defaults to the endpoint
+            in `url` or the ``DCLAB_S3_ENDPOINT_URL`` environment variable
         access_key_id: str
-            S3 access identifier
+            S3 access identifier; defaults to the
+            ``DCLAB_S3_ACCESS_KEY_ID`` environment variable
         secret_access_key: str
-            Secret S3 access key
+            Secret S3 access key; defaults to the
+            ``DCLAB_S3_SECRET_ACCESS_KEY`` environment variable
         use_ssl: bool
             Whether to enforce SSL (defaults to True)
         *args:
-            Arguments for `RTDCBase`
+            Arguments for :class:`.RTDC_HDF5` (the first one is `h5kwargs`)
         **kwargs:
-            Keyword arguments for `RTDCBase`
+            Keyword arguments for :class:`.RTDC_HDF5`
         """
         if not BOTO3_AVAILABLE:
             raise ModuleNotFoundError(
@@ -200,16 +239,18 @@ class RTDC_S3(RTDC_HDF5):
             verify_ssl=use_ssl,
             )
         # Initialize the HDF5 dataset
-        super(RTDC_S3, self).__init__(
-            h5path=self._s3file,
-            *args,
-            **kwargs)
+        super().__init__(self._s3file, *args, **kwargs)
         # Override self.path with the actual S3 URL
-        #: URL the object on S3
+        #: URL of the object on S3
         self.path = self._s3file.url
 
     @property
     def hash(self):
+        """Hash value based on the ETag of the S3 object
+
+        If no ETag is available, the MD5 hash of the first data chunk
+        is used.
+        """
         if self._s3file.etag is not None:
             # Set the HTTP ETag as the hash, it doesn't get
             # more unique than that!
@@ -219,17 +260,22 @@ class RTDC_S3(RTDC_HDF5):
             return hashlib.md5(self._s3file.get_chunk(0)).hexdigest()
 
     def close(self):
-        super(RTDC_S3, self).close()
+        super().close()
         self._s3file.close()
 
 
 class S3Basin(Basin):
+    """Basin for .rtdc files in an S3-compatible object store
+
+    The `location` of the basin is a full S3 object URL or a
+    `bucket/key` path (see :class:`.RTDC_S3`).
+    """
     basin_format = "s3"
     basin_type = "remote"
 
     def __init__(self, *args, **kwargs):
         self._available_verified = None
-        super(S3Basin, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def _load_dataset(self, location, **kwargs):
         h5file = RTDC_S3(location, **kwargs)
@@ -252,8 +298,8 @@ class S3Basin(Basin):
 
 
 def is_s3_object_available(url: str,
-                           access_key_id: str = None,
-                           secret_access_key: str = None,
+                           access_key_id: str | None = None,
+                           secret_access_key: str | None = None,
                            ):
     """Check whether an S3 object is available
 
@@ -275,8 +321,8 @@ def is_s3_object_available(url: str,
         if not endpoint_url:
             warnings.warn(
                 f"Could not determine endpoint from URL '{url}'. Please "
-                f"set the `S3_ENDPOINT_URL` environment variable or pass "
-                f"a full object URL.")
+                f"set the `DCLAB_S3_ENDPOINT_URL` environment variable or "
+                f"pass a full object URL.")
         else:
             # default to https if no scheme or port is specified
             urlp = urlparse(endpoint_url)
@@ -317,7 +363,7 @@ def is_s3_object_available(url: str,
     return avail
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def get_endpoint_url(url):
     """Given a URL of an S3 object, return the endpoint URL
 
@@ -333,7 +379,7 @@ def get_endpoint_url(url):
         return None
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def get_object_path(url):
     """Given a URL of an S3 object, return the `bucket_name/object_path` part
 
@@ -343,7 +389,7 @@ def get_object_path(url):
     return urlp.path.lstrip("/")
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def is_s3_url(string):
     """Check whether `string` is a valid S3 URL using regexp"""
     if not isinstance(string, str):
@@ -354,8 +400,5 @@ def is_s3_url(string):
     elif pathlib.Path(string).exists():
         # this is actually a file
         return False
-    elif REGEXP_S3_BUCKET_KEY.match(string.strip()):
-        # bucket_name/key
-        return True
-    else:
-        return False
+    # bucket_name/key
+    return bool(REGEXP_S3_BUCKET_KEY.match(string.strip()))

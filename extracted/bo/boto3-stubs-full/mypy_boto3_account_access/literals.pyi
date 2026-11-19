@@ -48,6 +48,7 @@ StatusType = Literal[
 ]
 AccountAccessServiceName = Literal["account-access"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -21,11 +21,11 @@ import pytest
 from click.testing import CliRunner
 
 from omnimarket.cli.cli_secret import models_group
+from omnimarket.handlers.routing import byok_model_discovery
 from omnimarket.inference.local_byok_credential_adapter import (
     LocalByokCredentialStore,
     resolve_local_byok_credential_model,
 )
-from omnimarket.routing import byok_model_discovery
 from tests.chains.local.harness import use_local_store
 
 pytestmark = pytest.mark.unit
@@ -130,7 +130,7 @@ def test_default_model_refuses_a_key_the_provider_rejects(
     assert _OPENAI_KEY not in result.output
 
 
-@pytest.mark.parametrize("provider", ["ollama", "local"])
+@pytest.mark.parametrize("provider", ["local"])  # OMN-23413: Ollama is a Local Model
 def test_default_model_names_no_model_for_a_provider_without_a_key(
     provider: str,
 ) -> None:

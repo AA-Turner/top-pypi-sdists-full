@@ -4,35 +4,62 @@ Asynchronous Unleash client. Requires the optional ``aiohttp`` dependency:
 """
 
 import asyncio
+import inspect
 import warnings
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import Callable, Optional, cast
 
 from yggdrasil_engine.engine import UnleashEngine
 
 from UnleashClient._async_metrics import _AsyncMetricsReporter
 from UnleashClient._async_scheduler import _AsyncScheduler
-from UnleashClient._async_transport import _AsyncTransport
 from UnleashClient._context import _ContextEnricher
 from UnleashClient._evaluator import _Evaluator
 from UnleashClient._event_dispatcher import _EventDispatcher
 from UnleashClient._feature_store import _FeatureStore
 from UnleashClient._headers import _HeaderFactory
-from UnleashClient._instance_registry import _get_instance_registry
+from UnleashClient._instance_registry import (
+    _get_instance_registry,
+    _instance_identifier,
+)
 from UnleashClient._payloads import _build_register_payload
+from UnleashClient.api_client._async import _AsyncUnleashApiClient
 from UnleashClient.cache import BaseCache, FileCache
 from UnleashClient.clients.unleash_client import _RunState
-from UnleashClient.config import ExperimentalMode, UnleashConfig
-from UnleashClient.connectors._async_connector import _AsyncPollingConnector
-from UnleashClient.constants import (
-    ETAG,
-    METRIC_LAST_SENT_TIME,
-    REQUEST_RETRIES,
-    REQUEST_TIMEOUT,
+from UnleashClient.config import (
+    IdentityOptions,
+    MetricsOptions,
+    PollingOptions,
+    StreamingOptions,
+    UnleashConfig,
 )
+from UnleashClient.connectors._async_connector import _AsyncPollingConnector
+from UnleashClient.constants import ETAG, METRIC_LAST_SENT_TIME
 from UnleashClient.events import BaseEvent
 from UnleashClient.impact_metrics import ImpactMetrics
+from UnleashClient.transport import AsyncTransport, _check_authorization
+from UnleashClient.transport._aiohttp import AiohttpTransport
 from UnleashClient.utils import LOGGER, InstanceAllowType
+
+
+def _check_transport(transport: Optional[AsyncTransport]) -> None:
+    if transport is None:
+        return
+    execute = getattr(transport, "execute", None)
+    if not callable(execute):
+        raise TypeError(
+            "transport must have an async execute(request) method, see "
+            "UnleashClient.transport.AsyncTransport. To use your own "
+            "aiohttp.ClientSession, pass transport=AiohttpTransport(session)."
+        )
+    if not (
+        inspect.iscoroutinefunction(execute)
+        or inspect.iscoroutinefunction(inspect.unwrap(execute))
+    ):
+        raise TypeError(
+            "transport.execute is not async: AsyncUnleashClient needs an async "
+            "transport."
+        )
 
 
 class AsyncUnleashClient:
@@ -41,14 +68,14 @@ class AsyncUnleashClient:
 
     The client keeps feature state fresh by polling the Unleash server on the
     event loop it was initialized on, and reports metrics on the same loop.
-    Streaming, offline mode and bootstrapping are not supported.
+    Streaming, offline mode and bootstrapping are not supported yet.
 
     Example::
 
         async with AsyncUnleashClient(
             url="https://unleash.example.com/api",
             app_name="my-app",
-            custom_headers={"Authorization": "<API token>"},
+            api_key="<API token>",
         ) as client:
             if client.is_enabled("new-checkout", {"userId": "42"}):
                 ...
@@ -59,57 +86,57 @@ class AsyncUnleashClient:
 
             client.impact_metrics.define_counter("purchases", "Number of purchases")
             client.impact_metrics.increment_counter("purchases")
+
+    :param url: URL of the Unleash server, required. Must be an absolute http(s) URL with a host.
+    :param app_name: Name of the application using the client, required.
+    :param api_key: Client API token.  Optional, because a client that only loads from a backup never talks to the server.
+    :param identity: How the client identifies itself.
+    :param mode: How often the client polls for flag updates.  Streaming is not supported yet.
+    :param metrics: How the client reports to the server.
+    :param verbose_log_level: Numerical log level (https://docs.python.org/3/library/logging.html#logging-levels) for cases where checking a feature flag fails.
+    :param custom_strategies: Dictionary of custom strategy names: custom strategy objects.
+    :param cache: Custom cache implementation that extends UnleashClient.cache.BaseCache.  When unset, the client will use FileCache.
+    :param cache_directory: Location of the cache directory.
+    :param multiple_instance_mode: Determines how multiple instances being instantiated is handled by the SDK.  Defaults to InstanceAllowType.WARN.
+    :param event_callback: Function to call if impression events are enabled.  Called on a dedicated background thread.
+    :param transport: Sends the requests to the server, see :class:`~UnleashClient.transport.AsyncTransport`.  Pass an :class:`AiohttpTransport` with your own ``aiohttp.ClientSession`` for a proxy, TLS settings or tracing.  The client never closes it.
     """
 
-    def __init__(  # noqa: PLR0913, PLR0917
+    def __init__(
         self,
         url: str,
         app_name: str,
-        environment: str = "default",
-        instance_id: str = "unleash-python-sdk",
-        refresh_interval: int = 15,
-        refresh_jitter: Optional[int] = None,
-        metrics_interval: int = 60,
-        metrics_jitter: Optional[int] = None,
-        disable_metrics: bool = False,
-        disable_registration: bool = False,
-        custom_headers: Optional[dict] = None,
-        custom_options: Optional[dict] = None,
-        request_timeout: int = REQUEST_TIMEOUT,
-        request_retries: int = REQUEST_RETRIES,
-        custom_strategies: Optional[dict] = None,
-        cache_directory: Optional[str] = None,
-        project_name: Optional[str] = None,
+        *,
+        api_key: Optional[str] = None,
+        identity: Optional[IdentityOptions] = None,
+        mode: Optional[PollingOptions] = None,
+        metrics: Optional[MetricsOptions] = None,
         verbose_log_level: int = 30,
+        custom_strategies: Optional[dict] = None,
         cache: Optional[BaseCache] = None,
+        cache_directory: Optional[str] = None,
         multiple_instance_mode: InstanceAllowType = InstanceAllowType.WARN,
         event_callback: Optional[Callable[[BaseEvent], None]] = None,
-        experimental_mode: Optional[ExperimentalMode] = None,
-        sdk_flavor: Optional[str] = None,
-        sdk_flavor_version: Optional[str] = None,
+        transport: Optional[AsyncTransport] = None,
     ) -> None:
+        _check_transport(transport)
+        if isinstance(mode, StreamingOptions):
+            raise ValueError(
+                "AsyncUnleashClient does not support streaming yet. "
+                "Use PollingOptions, or UnleashClient for streaming."
+            )
         self._config: UnleashConfig = UnleashConfig(
             url=url,
             app_name=app_name,
-            environment=environment,
-            instance_id=instance_id,
-            refresh_interval=refresh_interval,
-            refresh_jitter=refresh_jitter,
-            metrics_interval=metrics_interval,
-            metrics_jitter=metrics_jitter,
-            disable_metrics=disable_metrics,
-            disable_registration=disable_registration,
-            custom_headers=custom_headers,
-            custom_options=custom_options,
-            request_timeout=request_timeout,
-            request_retries=request_retries,
-            project_name=project_name,
+            api_key=api_key,
+            identity=identity,
+            mode=mode,
+            metrics=metrics,
             verbose_log_level=verbose_log_level,
-            sdk_flavor=sdk_flavor,
-            sdk_flavor_version=sdk_flavor_version,
-            experimental_mode=experimental_mode,
-            custom_strategies=custom_strategies,
         )
+        if isinstance(transport, AiohttpTransport):
+            _check_authorization(transport._headers, self._config.api_key)
+        self._custom_strategies: dict = custom_strategies or {}
         self._enricher: _ContextEnricher = _ContextEnricher(self._config)
         self._headers: _HeaderFactory = _HeaderFactory(self._config)
 
@@ -118,14 +145,14 @@ class AsyncUnleashClient:
         )
 
         _get_instance_registry().register(
-            identifier=self._config.instance_identifier, mode=multiple_instance_mode
+            identifier=_instance_identifier(self._config), mode=multiple_instance_mode
         )
 
         self._engine: UnleashEngine = UnleashEngine()
         self.impact_metrics: ImpactMetrics = ImpactMetrics(
             self._engine,
             self._config.app_name,
-            self._config.impact_metrics_environment,
+            self._config.environment,
         )
         self._cache: BaseCache = cache or FileCache(
             self._config.app_name, directory=cache_directory
@@ -139,11 +166,13 @@ class AsyncUnleashClient:
             config=self._config,
             events=self._event_dispatcher,
         )
-        self._transport: _AsyncTransport = _AsyncTransport(self._config, self._headers)
+        self._api: _AsyncUnleashApiClient = _AsyncUnleashApiClient(
+            self._config, self._headers, self._event_dispatcher, transport=transport
+        )
         self._metrics_scheduler: _AsyncScheduler = _AsyncScheduler()
         self._metrics: _AsyncMetricsReporter = _AsyncMetricsReporter(
             config=self._config,
-            transport=self._transport,
+            api_client=self._api,
             scheduler=self._metrics_scheduler,
             engine=self._engine,
             impact_metrics=self.impact_metrics,
@@ -211,7 +240,9 @@ class AsyncUnleashClient:
         Returns a dict containing all feature definitions known to the client at
         the time of calling, keyed by feature name. This is a pared down version
         of the response from the Unleash server, or of the cached state before
-        the client has fetched from the server.
+        the client has fetched from the server. ``enabled`` is whether the
+        feature is switched on in the environment, before any strategy is
+        evaluated.
 
         Notes:
 
@@ -225,12 +256,48 @@ class AsyncUnleashClient:
                 "feature1": {
                     "project": "default",
                     "type": "release",
+                    "enabled": True,
                 }
             }
 
         :return: Feature definitions keyed by feature name.
         """
         return self._evaluator.feature_definitions()
+
+    def evaluate_all_toggles(self, context: Optional[dict] = None) -> dict:
+        """
+        Evaluates every feature known to the client against one context, which
+        is built once.
+
+        Unlike ``is_enabled`` and ``get_variant``, it records no usage metrics
+        and emits no impression events, so evaluating every feature doesn't
+        report them all as in use. ``enabled`` is the feature's result for this
+        context, and ``variant.enabled`` is whether a variant was assigned.
+
+        Notes:
+
+        * It is a plain method, not a coroutine, and does not wait for the
+          server. Before the client has any feature state, it returns an empty
+          dict.
+
+        Example response::
+
+            {
+                "feature1": {"enabled": True, "variant": {"name": "disabled", "enabled": False}},
+                "feature2": {
+                    "enabled": True,
+                    "variant": {
+                        "name": "variant1",
+                        "enabled": True,
+                        "payload": {"type": "string", "value": "val1"},
+                    },
+                },
+            }
+
+        :param context: Dictionary with context (e.g. IPs, email) for feature toggles.
+        :return: Each feature's result and variant, keyed by feature name.
+        """
+        return self._evaluator.evaluate_all_toggles(context)
 
     async def initialize_client(self, fetch_toggles: bool = True) -> None:
         """
@@ -240,8 +307,8 @@ class AsyncUnleashClient:
 
         * Client registration
         * Loading the cached feature state
-        * Feature polling, every ``refresh_interval`` seconds
-        * Metrics reporting, every ``metrics_interval`` seconds
+        * Feature polling, every ``mode.interval`` seconds
+        * Metrics reporting, every ``metrics.interval`` seconds
 
         Awaits the first feature fetch attempt before returning, yielding to the
         event loop during network I/O. If the fetch fails, initialization still
@@ -258,15 +325,12 @@ class AsyncUnleashClient:
         .. code-block:: python
 
             async with AsyncUnleashClient(
-                url="https://foo.bar",
-                app_name="myClient1",
-                instance_id="myinstanceid",
+                url="https://foo.bar", app_name="myClient1"
             ) as client:
                 pass
 
         :param fetch_toggles: Accepted for parity with :class:`UnleashClient`. It
                               has no effect: the client always polls.
-        :raises aiohttp.InvalidURL: If registration is enabled and the URL is invalid.
         :raises ValueError: If a custom strategy is invalid.
         """
         if self._closed or self._starting or self._run_state > _RunState.UNINITIALIZED:
@@ -281,14 +345,12 @@ class AsyncUnleashClient:
                 {METRIC_LAST_SENT_TIME: datetime.now(timezone.utc), ETAG: ""}
             )
 
-            if self._config.custom_strategies:
-                self._engine.register_custom_strategies(self._config.custom_strategies)
+            if self._custom_strategies:
+                self._engine.register_custom_strategies(self._custom_strategies)
 
-            if not self._config.disable_registration:
-                await self._transport.register(
-                    _build_register_payload(
-                        self._config, self._config.custom_strategies
-                    )
+            if not self._config.metrics.disable_registration:
+                await self._api.register(
+                    _build_register_payload(self._config, self._custom_strategies)
                 )
 
             if self._closed:
@@ -296,13 +358,12 @@ class AsyncUnleashClient:
 
             self._connector = _AsyncPollingConnector(
                 store=self._store,
-                transport=self._transport,
-                refresh_interval=self._config.refresh_interval,
-                refresh_jitter=self._config.refresh_jitter,
+                api_client=self._api,
+                options=cast(PollingOptions, self._config.mode),
             )
             await self._connector.start()
 
-            if not self._config.disable_metrics:
+            if not self._config.metrics.disabled:
                 self._metrics.start()
                 self._metrics_scheduler.start()
 
@@ -342,7 +403,7 @@ class AsyncUnleashClient:
         except Exception as exc:
             LOGGER.warning("Exception during scheduler teardown: %s", exc)
 
-        await self._transport.aclose()
+        await self._api.aclose()
 
         if not isinstance(self._cache, FileCache):
             try:

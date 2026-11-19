@@ -15,8 +15,8 @@ def test_tsv_export(tmp_path):
     f2 = tmp_path / "test_unicode.tsv"
 
     ds.export.tsv(f1, keys, override=True)
-    ds.export.tsv(f2, [u"area_um", u"deform", u"time",
-                       u"frame", u"fl3_width"], override=True)
+    ds.export.tsv(f2, ["area_um", "deform", "time",
+                       "frame", "fl3_width"], override=True)
 
     with f1.open("r", encoding="utf-8") as fd:
         a1 = fd.read()
@@ -114,3 +114,13 @@ def test_tsv_not_filtered(tmp_path):
 
     f1 = tmp_path / "test.tsv"
     ds.export.tsv(f1, keys, filtered=False)
+
+
+def test_tsv_export_meta_data_not_modified(tmp_path):
+    """The `meta_data` dictionary of the caller must not be modified"""
+    keys = ["area_um", "deform"]
+    ddict = example_data_dict(size=222, keys=keys)
+    ds = dclab.new_dataset(ddict)
+    meta_data = {"sample": "test"}
+    ds.export.tsv(tmp_path / "test.tsv", keys, meta_data=meta_data)
+    assert meta_data == {"sample": "test"}

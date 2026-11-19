@@ -261,34 +261,60 @@ def _open_response(expiry: datetime) -> SimpleNamespace:
     )
 
 
+def _refreshable(access_key: str, expiry: datetime, url: str) -> S3Credentials:
+    return S3Credentials(
+        aws_access_key_id=access_key, aws_secret_access_key="secret", aws_session_token="token", expiration=expiry
+    ).with_refresh(url)
+
+
 def test_vcc_credentials_are_process_cached():
-    """Two back-to-back refreshes of the same virtual chunk container hit /open once."""
+    """Two back-to-back refreshes of the same virtual chunk container ask the server once, for that container only."""
     client = AsyncClient("https://test.example", token="ema_fake_token")
     expiry = datetime.now(UTC) + timedelta(hours=1)
     mstore = MagicMock()
     mstore.open_repo = AsyncMock(return_value=_open_response(expiry))
+    mstore.get_bucket_credentials_from_repo = AsyncMock(return_value=_refreshable("AKEY", expiry, "https://test.example/refresh-a"))
+
+    with patch.object(AsyncClient, "_metastore_for_org", return_value=mstore):
+        a = client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_A, "s3")
+        client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_A, "s3")
+
+    assert a.access_key_id == "AKEY"
+    mstore.get_bucket_credentials_from_repo.assert_awaited_once_with("repo-a", container=VCC_PREFIX_A)
+    mstore.open_repo.assert_not_awaited()
+
+
+def test_vcc_refresh_follows_the_servers_refresh_url():
+    client = AsyncClient("https://test.example", token="ema_fake_token", cache_credentials=False)
+    expiry = datetime.now(UTC) + timedelta(hours=1)
+    mstore = MagicMock()
+    mstore.get_bucket_credentials_from_repo = AsyncMock(return_value=_refreshable("AKEY", expiry, "https://test.example/refresh-a"))
+    mstore.get_credentials_from_refresh_url = AsyncMock(return_value=_refreshable("AKEY2", expiry, "https://test.example/refresh-a"))
 
     with patch.object(AsyncClient, "_metastore_for_org", return_value=mstore):
         client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_A, "s3")
-        client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_A, "s3")
+        second = client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_A, "s3")
 
-    assert mstore.open_repo.await_count == 1
+    assert second.access_key_id == "AKEY2"
+    mstore.get_bucket_credentials_from_repo.assert_awaited_once()
+    mstore.get_credentials_from_refresh_url.assert_awaited_once_with("https://test.example/refresh-a")
 
 
 def test_single_open_refreshes_repo_and_all_vccs():
-    """One /open seeds the repo bucket and every virtual chunk container, so refreshing the
-    other VCC and the repo bucket afterwards is served from cache without another /open."""
+    """A server without ``?container=`` returns no refresh url, so the client falls back to one /open,
+    which seeds the repo bucket and every virtual chunk container."""
     client = AsyncClient("https://test.example", token="ema_fake_token")
     expiry = datetime.now(UTC) + timedelta(hours=1)
     mstore = MagicMock()
     mstore.open_repo = AsyncMock(return_value=_open_response(expiry))
+    mstore.get_bucket_credentials_from_repo = AsyncMock(return_value=_vcc("REPOKEY", expiry).credentials)
 
     with patch.object(AsyncClient, "_metastore_for_org", return_value=mstore):
         # First refresh of one VCC triggers the single /open.
         a = client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_A, "s3")
         # The other VCC and the repo bucket are now served from the cache it seeded.
         b = client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_B, "s3")
-        repo = client._get_icechunk_s3_credentials_refresh_function_for_repo("org-a", "repo-a")
+        repo = client._get_icechunk_s3_credentials_refresh_function_for_repo(client._metastore_config("org-a", anonymous=False), "repo-a")
 
     assert mstore.open_repo.await_count == 1
     assert a.access_key_id == "AKEY"
@@ -323,10 +349,8 @@ def test_delegated_credentials_are_process_cached():
         clear()
         creds = s3_creds if platform == "s3" else gs_creds
         mstore = MagicMock()
-        mstore.get_s3_bucket_credentials_from_repo = AsyncMock(return_value=creds)
-        mstore.get_gs_bucket_credentials_from_repo = AsyncMock(return_value=creds)
-        mstore.get_s3_bucket_credentials_from_bucket = AsyncMock(return_value=creds)
-        mstore.get_gs_bucket_credentials_from_bucket = AsyncMock(return_value=creds)
+        mstore.get_bucket_credentials_from_repo = AsyncMock(return_value=creds)
+        mstore.get_bucket_credentials_from_bucket = AsyncMock(return_value=creds)
 
         method = getattr(client, method_name)
 
@@ -340,7 +364,7 @@ def test_delegated_credentials_are_process_cached():
         ):
             asyncio_run(invoke())
 
-        mstore_method = f"get_{'gs' if platform == 'gs' else 's3'}_bucket_credentials_from_{scope}"
+        mstore_method = f"get_bucket_credentials_from_{scope}"
         assert getattr(mstore, mstore_method).await_count == expected_calls, (
             f"case {name}: expected {expected_calls} metastore call(s), got {getattr(mstore, mstore_method).await_count}"
         )

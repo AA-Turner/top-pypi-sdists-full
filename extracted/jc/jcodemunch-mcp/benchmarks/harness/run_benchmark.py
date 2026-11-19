@@ -187,6 +187,12 @@ def _use_default_install_config() -> None:
         os.environ.pop(name, None)
 
     cfg._GLOBAL_CONFIG = deepcopy(cfg.DEFAULTS)
+    # A benchmark process is not a user: it must never report to the public
+    # savings total (cicd C-23). `DEFAULTS` has it on, and this replaces the
+    # config the `JCODEMUNCH_SHARE_SAVINGS=0` opt-out would have set, so the
+    # opt-out is pinned here. It gates a background post only; no served text
+    # depends on it.
+    cfg._GLOBAL_CONFIG["share_savings"] = False
     cfg._CONFIG_LOADED = True
     cfg._PROJECT_CONFIGS.clear()
     cfg._PROJECT_CONFIG_HASHES.clear()
@@ -216,22 +222,39 @@ def _decode_served(text: str) -> dict:
     return decode(text)
 
 
+def served_setup() -> None:
+    """Everything the served method sets up before its first lookup.
+
+    The one copy: `main` and `capture_served_lookup.py` both call it, so a
+    capture measures what the benchmark counts.
+    """
+    _use_default_install_config()
+    _quiet_once_per_process_notices()
+
+
 def _start_lookup_session() -> None:
     """Make each lookup stand alone, as the per-lookup figure claims.
 
     The server keeps per-session state that would otherwise leak from one
     lookup into the next: the steering counters (a one-time hint after a few
-    search and read calls) and the already-delivered ledger (a note on a symbol
-    an earlier lookup fetched). Both are real costs of a long session; neither
-    belongs to a single lookup. `served_session_costs` and
-    `served_one_session_extra` measure both.
+    search and read calls), the already-delivered ledger (a note on a symbol
+    an earlier lookup fetched) and the turn budget (a warning once a run of
+    calls without a 30 s pause passes `turn_budget_tokens`). Each is a real
+    cost of a long session; none belongs to a single lookup.
+    `served_session_costs` and `served_one_session_extra` measure the first
+    two. The turn budget is reset here because a run measures repo after repo
+    with no pause: without the reset its warning reached every answer of the
+    later repos (gin and part of fastapi on the pinned corpora), so a repo's
+    count depended on which repos ran before it.
     """
     from jcodemunch_mcp import server
     from jcodemunch_mcp.storage import token_tracker
+    from jcodemunch_mcp.tools.turn_budget import get_turn_budget
 
     server._steer_state.update({"hops": 0, "bundles": 0, "nudged": False, "repos": []})
     with token_tracker._state._lock:
         token_tracker._state._delivered.clear()
+    get_turn_budget().reset()
 
 
 def _quiet_once_per_process_notices() -> None:
@@ -1387,8 +1410,7 @@ def main():
         )
         return 2
     if MEASURE_METHOD == "served":
-        _use_default_install_config()
-        _quiet_once_per_process_notices()
+        served_setup()
 
     print(f"jcodemunch-mcp benchmark harness  |  tokenizer: {TOKENIZER}", flush=True)
     print(f"Counted: {MEASURE_METHOD}", flush=True)

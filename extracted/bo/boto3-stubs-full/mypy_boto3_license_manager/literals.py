@@ -191,6 +191,7 @@ ResourceTypeType = Literal[
 TokenTypeType = Literal["REFRESH_TOKEN"]
 LicenseManagerServiceName = Literal["license-manager"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

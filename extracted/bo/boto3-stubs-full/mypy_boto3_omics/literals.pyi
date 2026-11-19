@@ -292,6 +292,7 @@ WorkflowTypeType = Literal["PRIVATE", "READY2RUN"]
 WorkflowVersionActiveWaiterName = Literal["workflow_version_active"]
 OmicsServiceName = Literal["omics"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

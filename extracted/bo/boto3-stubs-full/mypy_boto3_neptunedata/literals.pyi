@@ -94,6 +94,7 @@ StatisticsAutoGenerationModeType = Literal["disableAutoCompute", "enableAutoComp
 WriteBufferSizeType = Literal["HIGH", "LOW", "MEDIUM"]
 NeptuneDataServiceName = Literal["neptunedata"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

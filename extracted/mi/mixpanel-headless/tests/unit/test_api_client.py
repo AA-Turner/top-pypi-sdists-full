@@ -24,6 +24,7 @@ from mixpanel_headless._internal.api_client import (
     QUERY_API_SERVER_DEADLINE_S,
     MixpanelAPIClient,
     _iter_jsonl_lines,
+    split_event_properties,
 )
 from mixpanel_headless._internal.auth.account import ServiceAccount
 from mixpanel_headless._internal.auth.session import Session
@@ -1012,25 +1013,70 @@ class TestDiscovery:
         assert captured_params["from_date"] == ""
         assert captured_params["to_date"] == ""
 
-    def test_get_event_properties(self, test_credentials: Session) -> None:
-        """Should list event properties from /events/properties/top endpoint."""
+    def test_get_event_property_types(self, test_credentials: Session) -> None:
+        """Should read the property map from the /events/properties/toptypes endpoint.
+
+        ``/events/properties/top`` fails the whole request with a 403 when
+        the project has any classified event property and the account cannot
+        read classified data. ``toptypes`` answers instead and marks each
+        classified property with ``"sensitive": true``.
+        """
         captured_params: dict[str, Any] = {}
         captured_path: str = ""
+        body = {
+            "prop1": {"count": 100, "type": "string"},
+            "email": {"count": 0, "type": "string", "sensitive": True},
+        }
 
         def handler(request: httpx.Request) -> httpx.Response:
+            """Capture the path and params, then answer with the property map."""
             nonlocal captured_path
             captured_path = request.url.path
             for key, value in request.url.params.items():
                 captured_params[key] = value
-            # /events/properties/top returns dict with property names as keys
-            return httpx.Response(200, json={"prop1": 100.0, "prop2": 50.5})
+            return httpx.Response(200, json=body)
 
         with create_mock_client(test_credentials, handler) as client:
-            props = client.get_event_properties("Purchase")
+            types = client.get_event_property_types("Purchase")
 
-        assert captured_path.endswith("/events/properties/top")
+        assert captured_path.endswith("/events/properties/toptypes")
         assert captured_params["event"] == "Purchase"
-        assert set(props) == {"prop1", "prop2"}
+        assert types == body
+
+    def test_get_event_properties(self, test_credentials: Session) -> None:
+        """Should return the sorted names that the account can query.
+
+        A classified property (``sensitive`` with a ``count`` of 0) and a
+        zero-count entry (which ``/events/properties/top`` drops) are left out.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Answer with readable, classified, and zero-count properties."""
+            return httpx.Response(
+                200,
+                json={
+                    "zeta": {"count": 5, "type": "string"},
+                    "alpha": {"count": 9, "type": "number"},
+                    "email": {"count": 0, "type": "string", "sensitive": True},
+                    "$event_name": {"count": 0, "type": "string"},
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            assert client.get_event_properties("Purchase") == ["alpha", "zeta"]
+
+    def test_get_event_properties_non_object_response(
+        self, test_credentials: Session
+    ) -> None:
+        """A response that is not an object reads as no properties."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Answer with a list instead of the property map."""
+            return httpx.Response(200, json=[])
+
+        with create_mock_client(test_credentials, handler) as client:
+            assert client.get_event_property_types("Purchase") == {}
+            assert client.get_event_properties("Purchase") == []
 
     def test_get_property_values(self, test_credentials: Session) -> None:
         """Should list property values with limit."""
@@ -1749,48 +1795,310 @@ class TestPublicRequest:
         assert "authorization" in captured_headers
         assert captured_headers["x-custom-header"] == "custom-value"
 
-    def test_request_auto_injects_query_origin(self, test_credentials: Session) -> None:
-        """request() should auto-inject query_origin even when caller omits it.
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://mixpanel.com/api/query/segmentation",
+            "https://mixpanel.com/api/query/engage",
+            "https://mixpanel.com/api/2.0/segmentation",
+            "https://eu.mixpanel.com/api/query/segmentation",
+            "https://example.com/api/query/segmentation",
+            "https://example.com/api/query",
+            "https://example.com/api/2.0",
+            "https://data-eu.mixpanel.com/api/2.0/export",
+        ],
+    )
+    def test_request_adds_query_origin_to_query_api_urls(
+        self, test_credentials: Session, url: str
+    ) -> None:
+        """request() adds query_origin to a Query API URL when the caller omits it.
 
-        Locks the literal value so a future typo or accidental deletion of
-        the telemetry tag is caught at PR time rather than silently
-        corrupting Mixpanel-internal analytics dashboards.
+        That covers the query and engage bases of the client's region, the
+        older ``/api/2.0`` paths on the main host, and a Query API path on
+        another host (the bare prefix too). A URL under no base of the
+        client goes by its path only, so the export host of another region
+        also gets the tag. Locks the literal value so a future typo or
+        accidental deletion of the telemetry tag is caught at PR time rather
+        than silently corrupting Mixpanel-internal analytics dashboards.
+
+        Args:
+            test_credentials: US service-account session.
+            url: A Query API URL.
         """
         captured_params: dict[str, str] = {}
 
         def handler(request: httpx.Request) -> httpx.Response:
+            """Capture the query params."""
             captured_params.update(dict(request.url.params))
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request("GET", url)
+
+        assert captured_params["query_origin"] == "mixpanel-headless"
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://mixpanel.com/api/app/me",
+            "https://mixpanel.com/api/app/projects/12345/schemas/event/Purchase",
+            "https://eu.mixpanel.com/api/app/me",
+            "https://data.mixpanel.com/api/2.0/export",
+            "https://example.com/v1/data",
+            "https://example.com/api/querystuff",
+            "https://example.com/api/2.0x/export",
+            "https://eu.mixpanel.com/api/querystuff",
+        ],
+    )
+    def test_request_sends_no_query_origin_outside_the_query_api(
+        self, test_credentials: Session, url: str
+    ) -> None:
+        """request() adds no query_origin to App API, export, or other URLs.
+
+        App API endpoints such as ``/me`` refuse unknown query parameters
+        ("Additional properties are not allowed ('query_origin' was
+        unexpected)"), so the escape hatch must not add one, also on the App
+        API host of another region. On a host outside the client's bases, a
+        path counts as a Query API path only at a segment boundary:
+        ``/api/querystuff`` is not under ``/api/query``.
+
+        Args:
+            test_credentials: US service-account session.
+            url: A URL outside the Query API.
+        """
+        captured_params: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            """Capture the query params."""
+            captured_params.update(dict(request.url.params))
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request("GET", url)
+
+        assert "query_origin" not in captured_params
+
+    def test_request_sends_app_api_params_as_given(
+        self, test_credentials: Session
+    ) -> None:
+        """request() sends the caller's params to an App API URL unchanged.
+
+        A list value goes out as a repeated key, which is the form the App
+        API list filters read (for example ``id[]=1&id[]=2``).
+        """
+        captured: list[list[tuple[str, str]]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            """Capture the query params in order."""
+            captured.append(request.url.params.multi_items())
             return httpx.Response(200, json={})
 
         with create_mock_client(test_credentials, handler) as client:
             client.request(
                 "GET",
-                "https://mixpanel.com/api/app/test",
+                "https://mixpanel.com/api/app/projects/12345/bookmarks",
+                params={"v": "2", "id[]": ["1", "2"]},
             )
 
-        assert captured_params["query_origin"] == "mixpanel-headless"
+        assert captured == [[("v", "2"), ("id[]", "1"), ("id[]", "2")]]
 
     def test_canonical_query_origin_wins_over_caller(
         self, test_credentials: Session
     ) -> None:
         """Caller-supplied ``query_origin`` cannot override the canonical value.
 
-        The telemetry tag is non-negotiable: even if a caller passes a spoofed
-        ``query_origin`` in ``params``, the canonical ``mixpanel-headless``
-        value must win.
+        The telemetry tag is non-negotiable on a Query API URL: even if a
+        caller passes a spoofed ``query_origin`` in ``params``, the canonical
+        ``mixpanel-headless`` value must win.
         """
         captured_params: dict[str, str] = {}
 
         def handler(request: httpx.Request) -> httpx.Response:
+            """Capture the query params."""
             captured_params.update(dict(request.url.params))
             return httpx.Response(200, json={})
 
         with create_mock_client(test_credentials, handler) as client:
             client.request(
                 "GET",
-                "https://mixpanel.com/api/app/test",
+                "https://mixpanel.com/api/query/segmentation",
                 params={"query_origin": "spoofed-by-caller"},
             )
+
+        assert captured_params["query_origin"] == "mixpanel-headless"
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://mixpanel.com/api/query/events/properties/top",
+            "https://mixpanel.com/api/app/me",
+        ],
+    )
+    def test_request_does_not_change_the_callers_params(
+        self, test_credentials: Session, url: str
+    ) -> None:
+        """request() works on a copy: the caller's params dict stays as it was.
+
+        Args:
+            test_credentials: US service-account session.
+            url: A Query API URL (which gets query_origin) or an App API URL.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Answer with an empty object."""
+            return httpx.Response(200, json={})
+
+        params: dict[str, Any] = {"event": "Signup"}
+        with create_mock_client(test_credentials, handler) as client:
+            client.request("GET", url, params=params)
+
+        assert params == {"event": "Signup"}
+
+    def test_request_classifies_urls_by_the_client_region(
+        self, eu_credentials: Session
+    ) -> None:
+        """An EU client tags its Query host and leaves its App API host alone."""
+        seen: dict[str, dict[str, str]] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            """Record the query params per path."""
+            seen[request.url.path] = dict(request.url.params)
+            return httpx.Response(200, json={})
+
+        with create_mock_client(eu_credentials, handler) as client:
+            client.request("GET", "https://eu.mixpanel.com/api/query/segmentation")
+            client.request("GET", "https://eu.mixpanel.com/api/app/me")
+
+        assert seen["/api/query/segmentation"]["query_origin"] == "mixpanel-headless"
+        assert "query_origin" not in seen["/api/app/me"]
+
+    def test_request_classifies_urls_under_a_base_url_override(
+        self, test_credentials: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With MP_API_BASE_URL set, the override base decides the API family.
+
+        Under the override, ``/api/2.0`` is the export family, so it gets no
+        tag there.
+
+        Args:
+            test_credentials: US service-account session.
+            monkeypatch: Sets the override for this test only.
+        """
+        monkeypatch.setenv("MP_API_BASE_URL", "http://127.0.0.1:8080")
+        seen: dict[str, dict[str, str]] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            """Record the query params per path."""
+            seen[request.url.path] = dict(request.url.params)
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request("GET", "http://127.0.0.1:8080/api/query/segmentation")
+            client.request("GET", "http://127.0.0.1:8080/api/app/me")
+            client.request("GET", "http://127.0.0.1:8080/api/2.0/export")
+            client.request("GET", "http://127.0.0.1:8080/api/2.0/segmentation")
+
+        assert seen["/api/query/segmentation"]["query_origin"] == "mixpanel-headless"
+        assert "query_origin" not in seen["/api/app/me"]
+        assert "query_origin" not in seen["/api/2.0/export"]
+        assert "query_origin" not in seen["/api/2.0/segmentation"]
+
+    @pytest.mark.parametrize(
+        ("app_base", "url"),
+        [
+            ("https://app-proxy.example", "https://app-proxy.example/api/app/me"),
+            (
+                "https://proxy.example/api/query",
+                "https://proxy.example/api/query/api/app/me",
+            ),
+        ],
+        ids=["own-host", "under-a-query-path"],
+    )
+    def test_request_leaves_an_app_base_url_override_alone(
+        self,
+        test_credentials: Session,
+        monkeypatch: pytest.MonkeyPatch,
+        app_base: str,
+        url: str,
+    ) -> None:
+        """With MP_APP_BASE_URL set, a URL under that base gets no query_origin.
+
+        A match with the App API base decides before the path rule, also
+        when that base sits under a path that looks like a Query API path.
+        The live Query host of the region keeps its tag.
+
+        Args:
+            test_credentials: US service-account session.
+            monkeypatch: Sets the override for this test only.
+            app_base: The ``MP_APP_BASE_URL`` value.
+            url: An App API URL under that base.
+        """
+        monkeypatch.setenv("MP_APP_BASE_URL", app_base)
+        seen: dict[str, dict[str, str]] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            """Record the query params per URL."""
+            seen[str(request.url.copy_with(query=None))] = dict(request.url.params)
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request("GET", url)
+            client.request("GET", "https://mixpanel.com/api/query/segmentation")
+
+        assert "query_origin" not in seen[url]
+        assert (
+            seen["https://mixpanel.com/api/query/segmentation"]["query_origin"]
+            == "mixpanel-headless"
+        )
+
+    @pytest.mark.parametrize(
+        ("method", "args"),
+        [
+            ("get_schemas", ()),
+            ("get_schema", ("event", "Purchase")),
+            ("list_bookmarks", ()),
+        ],
+    )
+    def test_internal_app_api_call_sends_no_query_origin(
+        self, test_credentials: Session, method: str, args: tuple[str, ...]
+    ) -> None:
+        """Each internal call that reaches an App API URL has no query_origin.
+
+        Three client methods send an App API URL through the Query API
+        request path: the two Lexicon schema reads and the bookmarks list.
+
+        Args:
+            test_credentials: US service-account session.
+            method: The client method to call.
+            args: Its positional arguments.
+        """
+        captured: list[httpx.URL] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            """Capture the request URL."""
+            captured.append(request.url)
+            return httpx.Response(200, json={"results": {}})
+
+        with create_mock_client(test_credentials, handler) as client:
+            getattr(client, method)(*args)
+
+        assert len(captured) == 1
+        assert captured[0].path.startswith("/api/app/")
+        assert "query_origin" not in captured[0].params
+
+    def test_internal_query_api_call_keeps_query_origin(
+        self, test_credentials: Session
+    ) -> None:
+        """An internal Query API call still carries the query_origin tag."""
+        captured_params: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            """Capture the query params."""
+            captured_params.update(dict(request.url.params))
+            return httpx.Response(200, json={"plan": {"count": 10, "type": "string"}})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.get_event_properties("Signup")
 
         assert captured_params["query_origin"] == "mixpanel-headless"
 
@@ -3776,10 +4084,10 @@ class TestRetryAfterHardening:
 
         assert recorded_sleeps == [0.125]
 
-    def test_huge_retry_after_is_capped(
+    def test_huge_retry_after_raises_without_sleeping(
         self, test_credentials: Session, recorded_sleeps: list[float]
     ) -> None:
-        """A day-long Retry-After is clamped to the 60s backoff ceiling.
+        """A day-long Retry-After raises at once, clamped, with no sleep.
 
         Args:
             test_credentials: Session fixture.
@@ -3792,10 +4100,11 @@ class TestRetryAfterHardening:
             session=test_credentials, max_retries=2, _transport=transport
         )
 
-        with client:
-            assert client.get_events() == ["event1"]
+        with client, pytest.raises(RateLimitError) as exc_info:
+            client.get_events()
 
-        assert recorded_sleeps == [60.0]
+        assert exc_info.value.retry_after == 3600
+        assert recorded_sleeps == []
 
     def test_garbage_retry_after_uses_backoff(
         self,
@@ -3900,7 +4209,7 @@ class TestRetryAfterHardening:
         ``time.sleep(e.retry_after or 60)``. Mixpanel's rate-limit window is
         one rolling hour, so a longer (or many-digit) server value would only
         park caller code or crash it. Every retry loop's exhaustion branch
-        reports at most 3600 seconds, while its own sleeps stay at 60.
+        reports at most 3600 seconds, and none of them sleeps first.
 
         Args:
             test_credentials: Session fixture.
@@ -3938,7 +4247,7 @@ class TestRetryAfterHardening:
         assert exc_info.value.retry_after == 3600
         assert exc_info.value.details["retry_after"] == 3600
         assert "Retry after 3600 seconds" in str(exc_info.value)
-        assert recorded_sleeps == [60.0]
+        assert recorded_sleeps == []
 
     def test_app_request_negative_retry_after_uses_backoff(
         self,
@@ -3966,10 +4275,10 @@ class TestRetryAfterHardening:
 
         assert recorded_sleeps == [0.5]
 
-    def test_app_request_huge_retry_after_is_capped(
+    def test_app_request_huge_retry_after_raises_without_sleeping(
         self, test_credentials: Session, recorded_sleeps: list[float]
     ) -> None:
-        """app_request clamps an oversized Retry-After to the backoff ceiling.
+        """app_request raises at once on an oversized Retry-After, with no sleep.
 
         Args:
             test_credentials: Session fixture.
@@ -3982,10 +4291,11 @@ class TestRetryAfterHardening:
             session=test_credentials, max_retries=2, _transport=transport
         )
 
-        with client:
-            assert client.app_request("GET", "/projects/12345/dashboards") == [1]
+        with client, pytest.raises(RateLimitError) as exc_info:
+            client.app_request("GET", "/projects/12345/dashboards")
 
-        assert recorded_sleeps == [60.0]
+        assert exc_info.value.retry_after == 3600
+        assert recorded_sleeps == []
 
     def test_export_events_negative_retry_after_uses_backoff(
         self,
@@ -4029,6 +4339,301 @@ class TestRetryAfterHardening:
 
         assert len(events) == 1
         assert recorded_sleeps == [0.75]
+
+
+_RETRY_OPERATIONS = ["get_events", "app_request", "export_events", "resolve_short_link"]
+
+
+def _drive_operation(client: MixpanelAPIClient, operation: str) -> None:
+    """Call one client entry point that runs a 429 retry loop.
+
+    Args:
+        client: The client under test.
+        operation: Which entry point to call.
+    """
+    if operation == "get_events":
+        client.get_events()
+    elif operation == "app_request":
+        client.app_request("GET", "/projects/12345/dashboards")
+    elif operation == "export_events":
+        list(client.export_events("2024-01-01", "2024-01-31"))
+    else:
+        client.resolve_short_link("abc123")
+
+
+class TestLongRetryAfterStopsRetrying:
+    """A Retry-After longer than the retry ceiling raises at once.
+
+    The client never sleeps longer than 60 seconds between attempts. When the
+    server asks for a longer wait (at the hourly limit, the Query API sends
+    the time until the next query slot frees, up to 3600 seconds), a retry
+    after 60 seconds is sent too early. It only gets another 429, and the
+    server logs each one.
+    """
+
+    @staticmethod
+    def _always_429(
+        retry_after: str, calls: list[int]
+    ) -> Callable[[httpx.Request], httpx.Response]:
+        """Build a handler that always rate limits and counts its calls.
+
+        Args:
+            retry_after: The Retry-After header value to send.
+            calls: A list that gets one item per request.
+
+        Returns:
+            An httpx.MockTransport handler.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Return a 429 with the given Retry-After.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                A 429 response.
+            """
+            calls.append(1)
+            return httpx.Response(429, headers={"Retry-After": retry_after})
+
+        return handler
+
+    @pytest.mark.parametrize("operation", _RETRY_OPERATIONS)
+    @pytest.mark.parametrize("retry_after", ["61", "3600"])
+    def test_long_retry_after_sends_one_request(
+        self,
+        test_credentials: Session,
+        recorded_sleeps: list[float],
+        operation: str,
+        retry_after: str,
+    ) -> None:
+        """Every retry loop raises after one request, with no sleep.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations.
+            operation: Which client entry point to drive.
+            retry_after: A Retry-After value above the 60-second ceiling.
+        """
+        calls: list[int] = []
+        transport = httpx.MockTransport(self._always_429(retry_after, calls))
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=3, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            _drive_operation(client, operation)
+
+        assert len(calls) == 1
+        assert recorded_sleeps == []
+        assert exc_info.value.retry_after == int(retry_after)
+        assert exc_info.value.project_id == "12345"
+        assert "longer than the 60-second retry ceiling" in str(exc_info.value)
+
+    @pytest.mark.parametrize("operation", _RETRY_OPERATIONS)
+    @pytest.mark.parametrize("retry_after", ["10", "60"])
+    def test_short_retry_after_still_retries(
+        self,
+        test_credentials: Session,
+        recorded_sleeps: list[float],
+        operation: str,
+        retry_after: str,
+    ) -> None:
+        """A Retry-After at or below the ceiling keeps the retry loop.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations.
+            operation: Which client entry point to drive.
+            retry_after: A Retry-After value at or below 60 seconds.
+        """
+        calls: list[int] = []
+        transport = httpx.MockTransport(self._always_429(retry_after, calls))
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=2, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            _drive_operation(client, operation)
+
+        assert len(calls) == 3
+        assert recorded_sleeps == [float(retry_after)] * 2
+        assert "after max retries" in str(exc_info.value)
+
+    @pytest.mark.parametrize("operation", ["get_events", "app_request"])
+    @pytest.mark.parametrize("retry_after", ["61", "0"])
+    def test_undecodable_429_body_still_raises_rate_limit_error(
+        self,
+        test_credentials: Session,
+        recorded_sleeps: list[float],
+        operation: str,
+        retry_after: str,
+    ) -> None:
+        """A 429 body that is not valid UTF-8 still gives a RateLimitError.
+
+        ``response.json()`` raises ``UnicodeDecodeError`` on such a body, which
+        is not a ``json.JSONDecodeError``. Both the early stop (61) and the
+        exhausted retries (0) must fall back to the text body.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations (guards real waits).
+            operation: Which client entry point to drive.
+            retry_after: A Retry-After that stops at once, or one that retries.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Always rate limit with a body that is not valid UTF-8.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                A 429 response.
+            """
+            return httpx.Response(
+                429, headers={"Retry-After": retry_after}, content=b"\xff"
+            )
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=1, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            _drive_operation(client, operation)
+
+        assert exc_info.value.retry_after == int(retry_after)
+        assert isinstance(exc_info.value.details["response_body"], str)
+
+    def test_long_retry_after_on_a_later_attempt_stops_there(
+        self, test_credentials: Session, recorded_sleeps: list[float]
+    ) -> None:
+        """A long Retry-After after a short one stops the loop at that attempt.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations.
+        """
+        headers = iter(["10", "3600", "10"])
+        calls: list[int] = []
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Return 429s whose Retry-After changes on each call.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                A 429 response.
+            """
+            calls.append(1)
+            return httpx.Response(429, headers={"Retry-After": next(headers)})
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=3, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            client.get_events()
+
+        assert len(calls) == 2
+        assert recorded_sleeps == [10.0]
+        assert exc_info.value.retry_after == 3600
+        # One retry already happened, so the message must not say "not retried".
+        assert "so the client stopped retrying" in str(exc_info.value)
+
+
+class TestUndecodableResponseBodies:
+    """A response body that is not valid UTF-8 never escapes as UnicodeDecodeError.
+
+    ``response.json()`` and ``json.loads(bytes)`` raise ``UnicodeDecodeError``
+    on such a body, which is not a ``json.JSONDecodeError``.
+    """
+
+    BAD_BYTES = b"\xff"
+
+    def _client(self, credentials: Session, status: int) -> MixpanelAPIClient:
+        """Build a client whose every response has the given status and bad bytes.
+
+        Args:
+            credentials: Session fixture.
+            status: HTTP status for every response.
+
+        Returns:
+            A mock-transport client.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Return the status with a body that is not valid UTF-8.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                The mocked response.
+            """
+            return httpx.Response(status, content=self.BAD_BYTES)
+
+        return create_mock_client(credentials, handler)
+
+    @pytest.mark.parametrize("status", [400, 401, 403, 500])
+    def test_error_status_raises_library_error(
+        self, test_credentials: Session, status: int
+    ) -> None:
+        """An error status reads the body as text and raises a library error.
+
+        Args:
+            test_credentials: Session fixture.
+            status: Error status under test.
+        """
+        with (
+            self._client(test_credentials, status) as client,
+            pytest.raises(MixpanelHeadlessError),
+        ):
+            client.get_events()
+
+    def test_success_status_raises_invalid_response(
+        self, test_credentials: Session
+    ) -> None:
+        """A 200 whose body is not valid UTF-8 is an INVALID_RESPONSE."""
+        with (
+            self._client(test_credentials, 200) as client,
+            pytest.raises(MixpanelHeadlessError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.code == "INVALID_RESPONSE"
+
+    def test_app_request_422_raises_query_error(
+        self, test_credentials: Session
+    ) -> None:
+        """app_request's 422 handler reads the body as text."""
+        with (
+            self._client(test_credentials, 422) as client,
+            pytest.raises(QueryError),
+        ):
+            client.app_request("GET", "/projects/12345/dashboards")
+
+    def test_export_400_raises_query_error(self, test_credentials: Session) -> None:
+        """export_events's 400 handler reads the body as text, with replacement."""
+        with (
+            self._client(test_credentials, 400) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            list(client.export_events("2024-01-01", "2024-01-31"))
+
+        assert isinstance(exc_info.value.details["response_body"], str)
+
+    def test_short_link_403_raises_query_error(self, test_credentials: Session) -> None:
+        """resolve_short_link's 403 handler reads the body as text."""
+        with (
+            self._client(test_credentials, 403) as client,
+            pytest.raises(QueryError),
+        ):
+            client.resolve_short_link("abc123")
 
 
 # =============================================================================
@@ -4530,3 +5135,53 @@ class TestCodedExportProfilesCodes:
                 list(client.export_profiles(include_all_users=True))
             assert isinstance(excinfo.value, ParamValidationError)
             assert excinfo.value.code == "AC4_INCLUDE_ALL_USERS_REQUIRES_COHORT"
+
+
+class TestSplitEventProperties:
+    """split_event_properties() separates queryable and classified names."""
+
+    @pytest.mark.parametrize(
+        ("types", "expected"),
+        [
+            ({}, ([], [])),
+            (
+                {
+                    "plan": {"count": 5, "type": "string"},
+                    "email": {"count": 0, "type": "string", "sensitive": True},
+                },
+                (["plan"], ["email"]),
+            ),
+            # toptypes keeps a zero-count $event_name for an event with no
+            # data; /events/properties/top drops it, so the split drops it.
+            ({"$event_name": {"count": 0, "type": "string"}}, ([], [])),
+            # A sensitive flag with a real count is never hidden.
+            ({"ssn": {"count": 7, "sensitive": True}}, (["ssn"], [])),
+            # A classified entry without a count is still classified.
+            ({"phone": {"sensitive": True}}, ([], ["phone"])),
+            # An entry without a count, or not an object, stays queryable.
+            ({"b": {"type": "string"}, "a": 3}, (["a", "b"], [])),
+            # sensitive false with a zero count is dropped, not classified.
+            ({"x": {"count": 0, "sensitive": False}}, ([], [])),
+        ],
+        ids=[
+            "empty",
+            "mixed",
+            "zero-count",
+            "sensitive-with-count",
+            "no-count",
+            "odd",
+            "not-sensitive-zero-count",
+        ],
+    )
+    def test_split(
+        self,
+        types: dict[str, Any],
+        expected: tuple[list[str], list[str]],
+    ) -> None:
+        """Each answer splits as the server's marking means.
+
+        Args:
+            types: A toptypes answer.
+            expected: The (queryable, classified) names.
+        """
+        assert split_event_properties(types) == expected

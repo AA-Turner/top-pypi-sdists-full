@@ -135,6 +135,7 @@ VectorEnrichmentJobTypeType = Literal["MAP_MATCHING", "REVERSE_GEOCODING"]
 ZonalStatisticsType = Literal["MAX", "MEAN", "MEDIAN", "MIN", "STANDARD_DEVIATION", "SUM"]
 SageMakergeospatialcapabilitiesServiceName = Literal["sagemaker-geospatial"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

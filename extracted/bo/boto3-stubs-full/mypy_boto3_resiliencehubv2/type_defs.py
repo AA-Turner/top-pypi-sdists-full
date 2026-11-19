@@ -253,6 +253,8 @@ __all__ = (
     "ListTestSourcesRequestPaginateTypeDef",
     "ListTestSourcesRequestTypeDef",
     "ListTestSourcesResponseTypeDef",
+    "ListTestTemplatesRequestPaginateTypeDef",
+    "ListTestTemplatesRequestTypeDef",
     "ListTestTemplatesResponseTypeDef",
     "ListTestsRequestPaginateTypeDef",
     "ListTestsRequestTypeDef",
@@ -350,6 +352,7 @@ __all__ = (
     "TargetSourceTypeDef",
     "TestActionTypeDef",
     "TestRunDependencySummaryTypeDef",
+    "TestRunEffectivePolicyValuesTypeDef",
     "TestRunEventTypeDef",
     "TestRunObservabilityAlarmSummaryTypeDef",
     "TestRunPolicySnapshotTypeDef",
@@ -985,6 +988,11 @@ ListTestSourcesRequestTypeDef = TypedDict(
         "nextToken": NotRequired[str],
     },
 )
+
+
+class ListTestTemplatesRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class TestTemplateSummaryTypeDef(TypedDict):
@@ -1657,6 +1665,17 @@ class EffectivePolicyValuesTypeDef(TypedDict):
     dataRecoveryTimeBetweenBackups: NotRequired[TargetSourceTypeDef]
 
 
+class TestRunEffectivePolicyValuesTypeDef(TypedDict):
+    availabilitySlo: NotRequired[SloSourceTypeDef]
+    multiAzRto: NotRequired[TargetSourceTypeDef]
+    multiAzRpo: NotRequired[TargetSourceTypeDef]
+    multiAzDrApproach: NotRequired[DisasterRecoverySourceTypeDef]
+    multiRegionRto: NotRequired[TargetSourceTypeDef]
+    multiRegionRpo: NotRequired[TargetSourceTypeDef]
+    multiRegionDrApproach: NotRequired[DisasterRecoverySourceTypeDef]
+    dataRecoveryTimeBetweenBackups: NotRequired[TargetSourceTypeDef]
+
+
 class EksLabelSelectorOutputTypeDef(TypedDict):
     matchLabels: NotRequired[dict[str, str]]
     matchExpressions: NotRequired[list[EksLabelSelectorRequirementOutputTypeDef]]
@@ -1829,6 +1848,10 @@ ListTestSourcesRequestPaginateTypeDef = TypedDict(
 )
 
 
+class ListTestTemplatesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListTestsRequestPaginateTypeDef(TypedDict):
     serviceArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1990,6 +2013,7 @@ class ListTestRunsResponseTypeDef(TypedDict):
 class ListTestTemplatesResponseTypeDef(TypedDict):
     testTemplates: list[TestTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ListTestsResponseTypeDef(TypedDict):
@@ -2398,6 +2422,7 @@ class TestRunTypeDef(TypedDict):
     roleName: NotRequired[str]
     reportConfiguration: NotRequired[TestRunReportConfigurationTypeDef]
     policy: NotRequired[TestRunPolicySnapshotTypeDef]
+    effectivePolicyValues: NotRequired[TestRunEffectivePolicyValuesTypeDef]
     reportOutput: NotRequired[ReportGenerationResultTypeDef]
     regionSwitchPlanArn: NotRequired[str]
     regionSwitchExecutionId: NotRequired[str]

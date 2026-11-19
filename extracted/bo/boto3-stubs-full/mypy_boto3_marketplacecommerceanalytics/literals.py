@@ -64,6 +64,7 @@ SupportDataSetTypeType = Literal[
 ]
 MarketplaceCommerceAnalyticsServiceName = Literal["marketplacecommerceanalytics"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

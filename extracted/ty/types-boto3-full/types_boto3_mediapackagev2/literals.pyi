@@ -151,6 +151,7 @@ UriPathTypeType = Literal["LEAF", "ROOT"]
 UriSeparatorType = Literal["HYPHEN", "UNDERSCORE"]
 Mediapackagev2ServiceName = Literal["mediapackagev2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

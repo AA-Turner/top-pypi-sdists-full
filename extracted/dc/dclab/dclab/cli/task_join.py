@@ -37,7 +37,8 @@ def join(
         output path
     metadata: dict
         optional metadata dictionary (configuration dict) to store
-        in the output file
+        in the output file (defaults to
+        ``{"experiment": {"run index": 1}}``)
     ret_path: bool
         whether to return the output path
 
@@ -48,9 +49,11 @@ def join(
 
     Notes
     -----
-    The first input file defines the metadata written to the output
-    file. Only features that are present in all input files are written
-    to the output file.
+    The input files are sorted by measurement date, time, and run
+    index; the earliest measurement defines the metadata written to
+    the output file. Only innate features of the earliest measurement
+    that are available in all other input files are written to the
+    output file.
     """
     cmp_kw = hdf5plugin.Zstd(clevel=5)
     if metadata is None:
@@ -133,12 +136,12 @@ def join(
                 else:
                     # Remove features from the feature list, if it is not in
                     # this dataset, or cannot be computed on-the-fly.
-                    for feat in features:
+                    for feat in list(features):  # [sic] iterate over a copy
                         if feat not in dsc.features:
                             features.remove(feat)
                             warnings.warn(
                                 f"Excluding feature '{feat}', because "
-                                + f"it is not present in '{pp}'!",
+                                f"it is not present in '{pp}'!",
                                 FeatureSetNotIdenticalJoinWarning)
                     # Warn the user if this dataset has an innate feature that
                     # is being ignored, because it is not an innate feature of
@@ -147,8 +150,8 @@ def join(
                         if feat not in features:
                             warnings.warn(
                                 f"Ignoring feature '{feat}' in '{pp}', "
-                                + "because it is not present in the "
-                                + "other files being joined!",
+                                "because it is not present in the "
+                                "other files being joined!",
                                 FeatureSetNotIdenticalJoinWarning)
         if w:
             logs["dclab-join-feature-warnings"] = common.assemble_warnings(w)
@@ -233,17 +236,23 @@ def join(
 
 
 def join_parser():
-    descr = "Join two or more RT-DC measurements. This will produce " \
-            + "one larger .rtdc file. The meta data of the dataset " \
-            + "that was recorded earliest will be used in the output " \
-            + "file. Please only join datasets that were recorded " \
-            + "in the same measurement run."
+    """Return the argument parser of the ``dclab-join`` command
+
+    Returns
+    -------
+    parser: argparse.ArgumentParser
+    """
+    descr = ("Join two or more RT-DC measurements. This will produce "
+             "one larger .rtdc file. The meta data of the dataset "
+             "that was recorded earliest will be used in the output "
+             "file. Please only join datasets that were recorded "
+             "in the same measurement run.")
     parser = argparse.ArgumentParser(description=descr)
-    parser.add_argument('input', metavar="INPUT", nargs="*", type=str,
-                        help='Input paths (.tdms or .rtdc files)')
-    required_named = parser.add_argument_group('required named arguments')
-    required_named.add_argument('-o', '--output', metavar="OUTPUT", type=str,
-                                help='Output path (.rtdc file)', required=True)
-    parser.add_argument('--version', action='version',
-                        version=f'dclab-join {version}')
+    parser.add_argument("input", metavar="INPUT", nargs="*", type=str,
+                        help="Input paths (.tdms or .rtdc files)")
+    required_named = parser.add_argument_group("required named arguments")
+    required_named.add_argument("-o", "--output", metavar="OUTPUT", type=str,
+                                help="Output path (.rtdc file)", required=True)
+    parser.add_argument("--version", action="version",
+                        version=f"dclab-join {version}")
     return parser

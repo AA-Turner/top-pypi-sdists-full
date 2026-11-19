@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import math
 import re
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
@@ -17,7 +16,6 @@ from types import MappingProxyType
 from typing import Any, Final
 from uuid import UUID, uuid4
 
-import yaml
 from omnibase_core.models.delegation.wire import ModelPremiumCounterfactual
 from omnibase_core.models.projection.model_upsert_plan import build_upsert_plan
 from pydantic import ValidationError
@@ -26,12 +24,14 @@ from omnimarket.events.delegation_judge_verdict import (
     ModelDelegationJudgeVerdictEvent,
 )
 from omnimarket.events.topics import TASK_DELEGATED_TOPIC_V1
+from omnimarket.handlers.delivery_cache import load_contract
 from omnimarket.handlers.handler_modelled_terminal_savings import (
     apply_modelled_terminal_savings,
 )
 from omnimarket.handlers.handler_projection_derived_write import (
     HandlerProjectionDerivedWrite,
 )
+from omnimarket.handlers.projection_dlq_source import route_malformed_with_source
 from omnimarket.models.delegation.quality_bar_evidence import (
     extract_quality_bar_evidence,
 )
@@ -42,6 +42,22 @@ from omnimarket.models.delegation.wire.model_delegate_skill_terminal_projection 
 )
 from omnimarket.models.delegation.wire.model_quality_gate import ModelQualityGateResult
 from omnimarket.models.model_projection_derived_write import ModelProjectionDerivedWrite
+from omnimarket.models.model_projection_request import ModelProjectionRequest
+from omnimarket.nodes.node_projection_delegation.handlers.delegation_aggregate_coalescer import (
+    AggregateCoalescer,
+    window_s_from_contract,
+)
+from omnimarket.nodes.node_projection_delegation.handlers.delegation_coercion import (
+    _as_decimal_local,
+    _as_int_local,
+    _coerce_gate_labels,
+    _gate_count,
+    _safe_int_or_none,
+    _safe_numeric_str,
+)
+from omnimarket.nodes.node_projection_delegation.handlers.delegation_runtime_coalescing import (
+    CoalescingProjectionBase,
+)
 from omnimarket.nodes.node_projection_delegation.handlers.handler_budget_state import (
     ModelDelegationBudgetStateEvent,
 )
@@ -53,6 +69,7 @@ from omnimarket.nodes.node_projection_delegation.handlers.handler_delegation_coh
 )
 from omnimarket.nodes.node_projection_delegation.handlers.handler_delegation_data_source_fold import (
     HandlerDelegationDataSourceFold,
+    ModelDataSourceFoldRequest,
 )
 from omnimarket.nodes.node_projection_delegation.handlers.handler_delegation_lineage_fold import (
     HandlerDelegationLineageFold,
@@ -65,6 +82,7 @@ from omnimarket.nodes.node_projection_delegation.handlers.handler_delegation_tic
     HandlerDelegationTicketFold,
 )
 from omnimarket.nodes.node_projection_delegation.handlers.handler_projection_delegation import (
+    AGGREGATE_READ_RELATIONS,
     ModelProjectionTaskDelegatedEvent,
     _canonical_result_to_task_delegated_payload,
     _deciding_rung_stop_reason,
@@ -99,14 +117,8 @@ from omnimarket.nodes.node_projection_delegation.models.model_terminal_precedenc
     rung_verdict_fill,
 )
 from omnimarket.pricing import build_premium_counterfactual, resolve_tier_cost
-from omnimarket.projection.discovery import (
-    load_projection_exposures_from_contract,
-)
-from omnimarket.projection.dlq import (
-    correlation_id_from_payload,
-    dlq_topics_from_contract,
-    route_to_dlq,
-)
+from omnimarket.projection.discovery import load_projection_exposures_from_contract
+from omnimarket.projection.dlq import dlq_topics_from_contract
 from omnimarket.projection.envelope import (
     DATA_SOURCE_REAL,
     envelope_data_source,
@@ -118,7 +130,6 @@ from omnimarket.projection.envelope import (
 from omnimarket.projection.models import ProjectionTableConfig
 from omnimarket.projection.relation_domains import assert_internal_relation
 from omnimarket.projection.runner import (
-    BaseProjectionRunner,
     MessageMeta,
     PublishFn,
     safe_parse_date,
@@ -208,11 +219,9 @@ KNOWN_PROJECTION_TABLES: frozenset[str] = frozenset(
         # typed contract does not name, which is what makes them reachable
         # from the in-process publisher; they appear here so this runner's own
         # role check accepts the same declaration rather than rejecting a
-        # contract the kernel accepts.
-        "projection_delegation_summary",
-        "projection_delegation_model_routing",
-        "projection_delegation_quality_gate",
-        "projection_delegation_token_usage",
+        # contract the kernel accepts. OMN-21970: one list for both handlers,
+        # the aggregate republish's read set, which names the per-day view too.
+        *AGGREGATE_READ_RELATIONS,
     }
 )
 
@@ -280,7 +289,7 @@ WRITE_ATTESTATION_COLUMNS: Final[Mapping[str, str]] = MappingProxyType(
 )
 
 
-class DelegationProjectionRunner(BaseProjectionRunner):
+class DelegationProjectionRunner(CoalescingProjectionBase):
     """Projects task-delegated and delegation-shadow-comparison events.
 
     Two topics -> two tables, each with ON CONFLICT (correlation_id) DO NOTHING.
@@ -312,8 +321,7 @@ class DelegationProjectionRunner(BaseProjectionRunner):
     ) -> None:
         super().__init__(publish_fn=publish_fn)
         _path = contract_path or Path(__file__).parent.parent / "contract.yaml"
-        with open(_path) as f:
-            self._contract: dict[str, Any] = yaml.safe_load(f)
+        self._contract: dict[str, Any] = load_contract(_path)
 
         _tables = self._contract.get("db_io", {}).get("db_tables", [])
         self._standalone_db_tables = tuple(_tables)
@@ -436,6 +444,11 @@ class DelegationProjectionRunner(BaseProjectionRunner):
         # SECOND resolver over the same event -- the "two divergent resolvers"
         # class OMN-15919 and OMN-17422 were each an instance of.
         self._last_delegation_write_tenant: str | None = None
+        # OMN-22874: in the consume loop the aggregate republish is coalesced
+        # per contract window, off the commit path; per-delivery stays inline.
+        self._coalescer = AggregateCoalescer(
+            window_s_from_contract(self._contract), self._publish_aggregate_snapshots
+        )
 
     def _resolve_aggregate_exposures(
         self, contract_path: Path
@@ -769,19 +782,15 @@ class DelegationProjectionRunner(BaseProjectionRunner):
     def subscribe_topics(self) -> list[str]:
         return list(self._contract.get("event_bus", {}).get("subscribe_topics", []))
 
-    def handle(self, input_data: dict[str, Any]) -> dict[str, Any]:
+    def project_request(self, request: ModelProjectionRequest) -> dict[str, Any]:
         """RuntimeLocal handler protocol shim.
 
         Delegates to project_event via asyncio.run().
         """
         topics = self.subscribe_topics
-        topic = str(input_data.pop("_topic", topics[0] if topics else ""))
-        meta = MessageMeta(
-            partition=int(input_data.pop("_partition", 0)),
-            offset=int(input_data.pop("_offset", 0)),
-            fallback_id=str(input_data.pop("_fallback_id", "")),
-        )
-        ok = asyncio.run(self.project_event(topic, input_data, meta))
+        topic = request.topic_or(topics[0] if topics else "")
+        meta = request.message_meta()
+        ok = asyncio.run(self.project_event(topic, request.payload, meta))
         return {"projected": ok}
 
     @property
@@ -843,15 +852,13 @@ class DelegationProjectionRunner(BaseProjectionRunner):
         True so the consumer still commits the offset (the message is durably
         captured on the DLQ, not reprocessed in a hot loop).
         """
-        fallback = meta.fallback_id if meta is not None else ""
-        correlation_id = correlation_id_from_payload(data, fallback=fallback)
-        await route_to_dlq(
+        await route_malformed_with_source(
             publish=await self.get_publish_fn(),
             dlq_topics=self._dlq_topics,
-            original_message=data,
+            data=data,
             failure_reason=reason,
             handler=HANDLER_ID_PROJECTION_DELEGATION,
-            correlation_id=correlation_id,
+            meta=meta,
         )
         return True
 
@@ -868,7 +875,7 @@ class DelegationProjectionRunner(BaseProjectionRunner):
             # handler — same payload shape, same generation_events table write.
             ok = await self._project_generation_completed(data, meta)
         elif topic == self._topic_judge_verdict:
-            ok = await self._project_judge_verdict(data)
+            ok = await self._project_judge_verdict(data, meta)
         elif topic in {
             self._topic_delegate_skill_completed,
             self._topic_delegate_skill_failed,
@@ -907,7 +914,10 @@ class DelegationProjectionRunner(BaseProjectionRunner):
                     "recording the tenant that write ran under; refusing to "
                     "republish the aggregates under an unnamed tenant"
                 )
-            await self._publish_aggregate_snapshots(meta, tenant=write_tenant)
+            if self._coalescer.enabled:
+                self._coalescer.mark_dirty(meta, tenant=write_tenant)
+            else:
+                await self._publish_aggregate_snapshots(meta, tenant=write_tenant)
 
         if ok and self._terminal_topic:
             correlation_id = (
@@ -921,7 +931,9 @@ class DelegationProjectionRunner(BaseProjectionRunner):
 
         return ok
 
-    async def _project_judge_verdict(self, data: dict[str, Any]) -> bool:
+    async def _project_judge_verdict(
+        self, data: dict[str, Any], meta: MessageMeta | None = None
+    ) -> bool:
         try:
             # OMN-16831: ``ModelDelegationJudgeVerdictEvent`` is extra="forbid",
             # and ``unwrap_envelope`` injects ``_envelope`` into every payload
@@ -935,7 +947,7 @@ class DelegationProjectionRunner(BaseProjectionRunner):
             )
         except ValidationError as exc:
             return await self._route_malformed_to_dlq(
-                data, f"judge verdict event failed model validation: {exc}"
+                data, f"judge verdict event failed model validation: {exc}", meta
             )
 
         row = _judge_verdict_projection_row(event)
@@ -999,6 +1011,7 @@ class DelegationProjectionRunner(BaseProjectionRunner):
                 f"{len(attribution_rows or [])} delegation row(s) yielding "
                 f"{len(attributions)} usable attribution(s) -- refusing rather "
                 "than letting the tenant column default absorb the write",
+                meta,
             )
         tenant_id = attributions.pop()
 
@@ -1633,8 +1646,8 @@ class DelegationProjectionRunner(BaseProjectionRunner):
 
         Event-sources the per-tenant ceiling budget state from a delegation's
         measured drawdown, exactly mirroring the sync reducer's accumulation
-        math (``resolve_tier_cost`` is pure and reused unmodified) with the
-        SELECT-then-UPSERT I/O ported to async ``self.db.execute()`` calls.
+        math (``resolve_tier_cost`` is pure; its None for the tenant overlay tier
+        is the skip) with the SELECT-then-UPSERT I/O ported to async calls.
         """
         cost = resolve_tier_cost(cost_tier_name)
         if cost is None or cost.monthly_cap_usd is None:
@@ -1924,21 +1937,20 @@ class DelegationProjectionRunner(BaseProjectionRunner):
         preservation (OMN-13596) were previously async-path-only absent.
         """
         # OMN-19448: the argument is envelope attribution, folded with provenance.
-        data_source = HandlerDelegationDataSourceFold().handle(event, data_source)
-        quality_gates_checked = list(row_model.quality_gates_checked)
-        quality_gates_failed = list(row_model.quality_gates_failed)
+        data_source = HandlerDelegationDataSourceFold().handle(
+            ModelDataSourceFoldRequest(terminal=event, envelope_source=data_source)
+        )
         # OMN-15905: row_model.timestamp is already an AwareDatetime
         # (ModelDelegationEventProjectionRow) -- bind it directly. Converting
         # to an isoformat() string here and back only to bind a str param to
         # a TIMESTAMPTZ column is exactly the class of bug asyncpg rejects
         # with DataError.
-        session_id = (
-            str(row_model.session_id) if row_model.session_id is not None else None
-        )
         row: dict[str, object] = {
             "correlation_id": str(row_model.correlation_id),
             "data_source": data_source,
-            "session_id": session_id,
+            "session_id": (
+                str(row_model.session_id) if row_model.session_id is not None else None
+            ),
             "timestamp": row_model.timestamp,
             # OMN-13171: explicit created_at injection for a backing store
             # without an implicit DB default (e.g. a warm-volume SQLite
@@ -1949,10 +1961,10 @@ class DelegationProjectionRunner(BaseProjectionRunner):
             "model_name": row_model.model_name,
             "delegated_by": row_model.delegated_by,
             "quality_gate_passed": row_model.quality_gate_passed,
-            "quality_gates_checked": len(quality_gates_checked),
-            "quality_gates_failed": len(quality_gates_failed),
-            "quality_gates_checked_jsonb": quality_gates_checked,
-            "quality_gates_failed_jsonb": quality_gates_failed,
+            "quality_gates_checked": len(row_model.quality_gates_checked),
+            "quality_gates_failed": len(row_model.quality_gates_failed),
+            "quality_gates_checked_jsonb": list(row_model.quality_gates_checked),
+            "quality_gates_failed_jsonb": list(row_model.quality_gates_failed),
             "quality_gate_detail": row_model.quality_gate_detail,
             "cost_usd": row_model.cost_usd,
             "cost_savings_usd": row_model.cost_savings_usd,
@@ -1997,13 +2009,12 @@ class DelegationProjectionRunner(BaseProjectionRunner):
             attempts=event.attempts,
             # OMN-19448: the terminal's own cause wins over the ladder's guess.
             declared_failure_cause=event.terminal_failure_cause,
+            # OMN-21607: a terminal that records its own failed acceptance
+            # projects as failed, whatever status it carries.
+            declared_failed_acceptance=event.failed_acceptance_declared,
         )
         row["terminal_ok"] = reduction.terminal_ok
-        row["terminal_failure_cause"] = (
-            reduction.terminal_failure_cause.value
-            if reduction.terminal_failure_cause is not None
-            else None
-        )
+        row["terminal_failure_cause"] = reduction.terminal_failure_cause_value
         # OMN-19448: match the sync writer's copy of the declared disposition.
         # Omitted values must leave a prior terminal's evidence untouched.
         for column, terminal_disposition in (
@@ -2345,83 +2356,6 @@ class DelegationProjectionRunner(BaseProjectionRunner):
             proof["projection_owner"],
         )
         return True
-
-
-def _safe_numeric_str(value: Any) -> str | None:
-    if value is None:
-        return None
-    try:
-        n = float(value)
-        if not math.isfinite(n):
-            return None
-        return str(n)
-    except (ValueError, TypeError):
-        return None
-
-
-def _safe_int_or_none(value: Any) -> int | None:
-    if value is None:
-        return None
-    try:
-        n = float(value)
-        if not math.isfinite(n):
-            return None
-        return round(n)
-    except (ValueError, TypeError):
-        return None
-
-
-def _coerce_gate_labels(value: Any) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return []
-        try:
-            decoded = json.loads(text)
-        except json.JSONDecodeError:
-            return [text]
-        return _coerce_gate_labels(decoded)
-    if isinstance(value, list | tuple | set):
-        return [str(item) for item in value if str(item)]
-    return [str(value)]
-
-
-def _gate_count(value: list[str] | None) -> int:
-    return len(value or [])
-
-
-def _as_decimal_local(value: object) -> Decimal:
-    if value is None:
-        return Decimal("0")
-    if isinstance(value, Decimal):
-        return value
-    if isinstance(value, bool):
-        return Decimal(int(value))
-    if isinstance(value, int | float):
-        return Decimal(str(value))
-    if isinstance(value, str):
-        try:
-            return Decimal(value)
-        except (ValueError, ArithmeticError):
-            return Decimal("0")
-    return Decimal("0")
-
-
-def _as_int_local(value: object) -> int:
-    if value is None:
-        return 0
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, int | float | Decimal):
-        return int(value)
-    if isinstance(value, str):
-        try:
-            return int(value)
-        except ValueError:
-            return 0
-    return 0
 
 
 if __name__ == "__main__":

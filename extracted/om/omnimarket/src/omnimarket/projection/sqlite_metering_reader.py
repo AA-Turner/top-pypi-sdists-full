@@ -44,8 +44,10 @@ from datetime import datetime
 from pathlib import Path
 
 from omnimarket.nodes.node_metering_summary_compute.models.model_metering_record_row import (
+    METERING_CALLS_PRESENT,
     METERING_CAUSE_COLUMN,
     METERING_COLUMNS,
+    metering_events_select,
     metering_record_from_row,
     normalise_occurred_at,
 )
@@ -63,12 +65,13 @@ __all__ = [
     "read_metering_records",
 ]
 
-_SELECT = f"SELECT {', '.join(METERING_COLUMNS)} FROM delegation_events"
 # OMN-19970: provenance column, present on stores written since migration 0049's
 # local twin. Read only when the store has it; a store written before the label
 # existed holds real rows only.
 _DATA_SOURCE_COLUMN = "data_source"
 _FIXTURE = "fixture"
+# OMN-23169: typed synthetic traffic. Never in a measured figure, with no opt-in.
+_EXPERIMENT = "experiment"
 
 
 class MeteringRecordsUnavailableError(RuntimeError):
@@ -120,12 +123,9 @@ def _iter_rows(db_path: Path) -> Iterator[sqlite3.Row]:
                 for column in (_DATA_SOURCE_COLUMN, METERING_CAUSE_COLUMN)
                 if column in columns
             )
-            select = (
-                f"SELECT {', '.join((*METERING_COLUMNS, *optional))} "
-                "FROM delegation_events"
-                if optional
-                else _SELECT
-            )
+            # OMN-24615 AC1: each run's provider usage, where the store has calls.
+            calls = conn.execute(METERING_CALLS_PRESENT).fetchone() is not None
+            select = metering_events_select((*METERING_COLUMNS, *optional), calls)
             cursor = conn.execute(select)
         except sqlite3.Error as exc:
             raise MeteringRecordsUnavailableError(
@@ -148,6 +148,8 @@ def read_metering_records(
     OMN-19970: rows the dev and demo seed wrote (``data_source = 'fixture'``)
     are measured nothing and are skipped unless ``include_fixtures`` is set, so
     a seeded store never inflates a measured spend or savings figure.
+    OMN-23169: rows typed ``experiment`` (synthetic traffic) are skipped always;
+    ``include_fixtures`` does not bring them back.
 
     Both bounds are optional; omitting ``window_start`` reads all time. The
     window is applied in Python against normalised instants, never in SQL --
@@ -161,12 +163,8 @@ def read_metering_records(
     resolved = db_path if db_path is not None else default_metering_db_path()
     records: list[ModelMeteringRecord] = []
     for row in _iter_rows(resolved):
-        if (
-            not include_fixtures
-            # sqlite3.Row: `in row` tests values, so the column names are keys().
-            and _DATA_SOURCE_COLUMN in row.keys()  # noqa: SIM118
-            and row[_DATA_SOURCE_COLUMN] == _FIXTURE
-        ):
+        source = dict(row).get(_DATA_SOURCE_COLUMN)
+        if source == _EXPERIMENT or (source == _FIXTURE and not include_fixtures):
             continue
         record = _to_record(row)
         if record is None:

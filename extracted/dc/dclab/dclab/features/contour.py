@@ -16,7 +16,7 @@ class NoValidContourFoundError(BaseException):
     pass
 
 
-class LazyContourList(object):
+class LazyContourList:
     def __init__(self, masks: npt.ArrayLike, max_events: int = 1000) -> None:
         """A list-like object that computes contours upon indexing
 
@@ -43,7 +43,7 @@ class LazyContourList(object):
         self.identifier = str(masks[0][:].tobytes())
         self.shape = len(masks), np.nan, 2
 
-    def __getitem__(self, idx) -> npt.NDArray:
+    def __getitem__(self, idx) -> npt.NDArray | list[npt.NDArray]:
         """Compute contour(s) if not already in self.contours"""
         if not isinstance(idx, numbers.Integral):
             # slicing!
@@ -77,7 +77,7 @@ class LazyContourList(object):
         return len(self.masks)
 
 
-def get_contour(mask: npt.NDArray[np.bool | np.int]
+def get_contour(mask: npt.NDArray[np.bool | np.integer]
                 ) -> npt.NDArray | list[npt.NDArray]:
     """Compute the image contour from a mask
 
@@ -116,8 +116,12 @@ def get_contour(mask: npt.NDArray[np.bool | np.int]
                               level=.9999,
                               positive_orientation="low",
                               fully_connected="high")
-        # get the longest contour
-        c0 = sorted(conts, key=lambda x: len(x))[-1]
+        if not conts:
+            # empty mask
+            raise NoValidContourFoundError("No contour found!")
+        # get the longest contour (the last one if there are several,
+        # `max` would return the first one)
+        c0 = sorted(conts, key=lambda x: len(x))[-1]  # noqa: FURB192
         # round all coordinates to pixel values
         c1 = np.asarray(np.round(c0), int)
         # remove duplicates
@@ -131,7 +135,7 @@ def get_contour(mask: npt.NDArray[np.bool | np.int]
         return contours[0]
 
 
-def get_contour_lazily(mask: npt.NDArray[np.bool | np.int]
+def get_contour_lazily(mask: npt.NDArray[np.bool | np.integer]
                        ) -> npt.NDArray | LazyContourList:
     """Like :func:`get_contour`, but computes contours on demand
 

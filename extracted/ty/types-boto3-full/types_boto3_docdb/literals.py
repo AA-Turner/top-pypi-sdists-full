@@ -83,6 +83,7 @@ SourceTypeType = Literal[
 ]
 DocDBServiceName = Literal["docdb"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

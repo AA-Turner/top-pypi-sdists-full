@@ -32,6 +32,53 @@ _ROOT = Path(__file__).resolve().parents[3]
 _ROLES = ("effects", "workers")
 
 
+def test_committed_stability_fold_attaches_effects_to_main(
+    discovered: ModelAutoWiringManifest,
+) -> None:
+    raw = yaml.safe_load(
+        (_ROOT / "contracts/services/runtime_policy.contract.yaml").read_text()
+    )
+    policy = ModelRuntimePolicyContract.model_validate(raw)
+    lane_name = next(
+        name
+        for name, profile in policy.profiles.items()
+        if "effects" in profile.processes["main"].folded_profiles
+    )
+    rendered = render_env(policy)
+    environment = {
+        "ONEX_RUNTIME_LANE": lane_name,
+        "ONEX_RUNTIME_FOLDED_PROFILES": rendered[
+            "STABILITY_TEST_RUNTIME_MAIN_FOLDED_PROFILES"
+        ],
+    }
+    main = filter_manifest_for_runtime_profile(
+        discovered, "main", environ={"ONEX_RUNTIME_LANE": lane_name}
+    )
+    effects = filter_manifest_for_runtime_profile(
+        discovered, "effects", environ={"ONEX_RUNTIME_LANE": lane_name}
+    )
+    folded = filter_manifest_for_runtime_profile(
+        discovered, "main", environ=environment
+    )
+    expected = {c.name for c in (*main.manifest.contracts, *effects.manifest.contracts)}
+    attached = {c.name for c in folded.manifest.contracts}
+    assert not folded.manifest.errors, folded.manifest.errors
+    assert folded.folded_profiles == ("effects",)
+    assert folded.folded_contracts
+    assert attached == expected
+    print(
+        json.dumps(
+            {
+                "policy": "committed-stability-effects",
+                "attached": len(attached),
+                "folded_contracts": len(folded.folded_contracts),
+                "missing": len(expected - attached),
+            },
+            sort_keys=True,
+        )
+    )
+
+
 # Discovery and the raw contract reads are the same for every lane and fold
 # case, so they run once per module; each case then only filters.
 @pytest.fixture(scope="module")
@@ -68,9 +115,11 @@ def test_rendered_fold_matches_separate_roles_on_real_contracts(
     raw = yaml.safe_load(
         (_ROOT / "contracts/services/runtime_policy.contract.yaml").read_text()
     )
-    raw["profiles"]["dev"]["services"]["main"]["folded_profiles"] = (
-        list(_ROLES) if folded else []
-    )
+    main_service = raw["profiles"]["dev"]["services"]["main"]
+    main_service["folded_profiles"] = list(_ROLES) if folded else []
+    if not folded:
+        # A fold handover names a folded profile; the unfolded case folds none.
+        main_service["fold_handovers"] = {}
     rendered = render_env(ModelRuntimePolicyContract.model_validate(raw))
     environment = {"ONEX_RUNTIME_LANE": lane}
     if "DEV_RUNTIME_MAIN_FOLDED_PROFILES" in rendered:

@@ -382,13 +382,9 @@ class EnumLabLane(StrEnum):
     reads OMN-19508 names (omnimarket's sibling read and its release-cut premise)
     may admit it.
 
-    ``COMPOSE_DEV_200`` (OMN-19543) is the third deployed dev lane, ``dev-200``
-    on the ``.200`` host (compose project ``omnibase-infra-dev-200``, ports
-    42085/42086), on exactly ``COMPOSE_DEV_202``'s terms: one emitter, omnimarket
-    changes only (operator ruling 2026-09-25T10:22:22Z, one deploy slot per lab
-    host), NOT in ``ANY_OF_DEFAULT_LANES``. Which repositories an instance lane
-    may prove is read from ``config/deploy_lane_routing.yaml``
-    (``scripts/ci/instance_receipt_lanes.py``), not from this enum.
+    Which repositories an instance lane may prove is read from
+    ``config/deploy_lane_routing.yaml`` (``scripts/ci/instance_receipt_lanes.py``),
+    not from this enum.
 
     ``PR_HEAD`` (OMN-19566) is the pre-merge proof lane. Its one emitter is the
     PR-head verifier, which mints a proof for one exact pull-request head and
@@ -408,7 +404,6 @@ class EnumLabLane(StrEnum):
     COMPOSE_DEV_CHAIN = "compose-dev-chain"
     COMPOSE_DEV_CORPUS = "compose-dev-corpus"
     COMPOSE_DEV_202 = "compose-dev-202"
-    COMPOSE_DEV_200 = "compose-dev-200"
     PR_HEAD = "pr-head"
 
 
@@ -416,9 +411,8 @@ class EnumLabLane(StrEnum):
 #: surfaces rule 24(b) means by "a passing lab receipt". The OMN-19312 verdict
 #: lanes are deliberately absent -- a chain canary PASS is not evidence that the
 #: candidate booted, and must never be able to stand in for that premise.
-#: ``COMPOSE_DEV_202`` is absent too (OMN-19507), and ``COMPOSE_DEV_200``
-#: (OMN-19543): they prove omnimarket changes only, so no unqualified read may
-#: take either for the any-of premise.
+#: ``COMPOSE_DEV_202`` is absent too (OMN-19507): it proves omnimarket changes
+#: only, so no unqualified read may take it for the any-of premise.
 ANY_OF_DEFAULT_LANES: Final[tuple[EnumLabLane, ...]] = (
     EnumLabLane.COMPOSE_DEV,
     EnumLabLane.ONEX_LAB_K3S,
@@ -2149,9 +2143,8 @@ def check_lane_sync(
 ) -> ModelLabPassCheck:
     """Run the existing census against this daemon; every finding refuses (OMN-19417).
 
-    The host identity comes from the daemon, as in the census refresh job.
-    Report-only transport reuses the collector and planner without publishing
-    another alert. A zero must name at least one checked lane.
+    Report-only: no broker is named, so a drift exits 8, unpublished (OMN-20798),
+    and is a finding like 30 (OMN-24976). A zero must name a checked lane.
     """
     run = runner or _run_read_only
     try:
@@ -2176,9 +2169,10 @@ def check_lane_sync(
                     "LANE_CENSUS_PYTHON": sys.executable,
                     "LANE_CENSUS_LOG_FILE": str(Path(scratch) / "census.log"),
                     "KAFKA_BOOTSTRAP_SERVERS": "",
+                    "LANE_MEMORY_BROKER_CONTAINER": "",
                 },
             )
-        if result.returncode not in (0, 30):
+        if result.returncode not in (0, 8, 30):
             raise ValueError(
                 f"census exit={result.returncode}: {result.stderr.strip()}"
             )
@@ -2199,7 +2193,7 @@ def check_lane_sync(
             or (not checked and not findings)
             or type(plan.get("has_drift")) is not bool
             or plan["has_drift"] != bool(findings)
-            or (result.returncode == 30) != bool(findings)
+            or (result.returncode != 0) != bool(findings)
         ):
             raise ValueError(
                 "census plan is empty, malformed or disagrees with its drift exit"
@@ -3645,25 +3639,29 @@ def build_post_merge_event(
     }
 
 
-def read_uv_override_pins(pyproject: Path) -> dict[str, str]:
-    """The exact dependency pins the delivered tree declares.
-
-    Read from ``[tool.uv] override-dependencies``, which is where this
-    repository pins ``omnibase-core`` exactly; a tree declaring none has no pins
-    to attest and RAISES rather than reporting an empty set as an identity.
-    """
+# Two places hold an exact pin: `[tool.uv] override-dependencies`, and a
+# `[tool.uv.sources]` git source resolved from a TAG. omnibase-core is pinned by
+# the second since it resolves solely from its dev-merge tag (RULING
+# 2026-10-29T01:50:26Z, OMN-17427), recorded as `<name> @ git+<url>@<tag>`. A
+# tree declaring neither has no pins to attest and RAISES rather than reporting
+# an empty set as an identity.
+def read_uv_pins(pyproject: Path) -> dict[str, str]:
+    """The exact dependency pins the delivered tree declares."""
     import tomllib  # stdlib since 3.11, imported here to keep import time flat
 
     document = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    entries = document.get("tool", {}).get("uv", {}).get("override-dependencies", [])
-    pins: dict[str, str] = {}
+    uv = document.get("tool", {}).get("uv", {})
+    entries = uv.get("override-dependencies", [])
+    pins = {
+        k.lower(): f"{k} @ git+{v['git']}@{v['tag']}"
+        for k, v in uv.get("sources", {}).items()
+        if "tag" in v
+    }
     for entry in entries:
-        match = re.match(r"^\s*([A-Za-z0-9_.-]+)", str(entry))
-        if match:
+        if match := re.match(r"^\s*([A-Za-z0-9_.-]+)", str(entry)):
             pins[match.group(1).lower()] = str(entry).strip()
     if not pins:
-        msg = f"{pyproject} declares no [tool.uv] override-dependencies pins"
-        raise ValueError(msg)
+        raise ValueError(f"{pyproject} declares no override or tag-sourced pins")
     return pins
 
 
@@ -3697,7 +3695,7 @@ def collect_post_merge_identity(
     fingerprint = hashlib.sha256("\n".join(sorted(applied)).encode("utf-8")).hexdigest()
     return {
         "generation": generation.to_dict(),
-        "pins": read_uv_override_pins(pyproject),
+        "pins": read_uv_pins(pyproject),
         "image_ids": image_ids,
         "overlay_digest": digest_files(overlay_files),
         "migration_fingerprint": f"sha256:{fingerprint}",
@@ -5983,6 +5981,7 @@ def evaluate_workflow_verdict(
     dispatch_title_contains: str = "",
     drill_red_until: str = "",
     drill_ticket: str = "",
+    no_verdict_conclusions: Sequence[str] = (),
 ) -> int:
     """Fail closed unless the NEWEST completed measurement of a workflow is green.
 
@@ -5996,10 +5995,9 @@ def evaluate_workflow_verdict(
     must be an ``OMN-<n>`` id and ``drill_red_until`` a parseable UTC
     timestamp no more than :data:`DRILL_MAX_WINDOW_HOURS` in the future. Past
     its own expiry the drill has NO effect at all -- nobody has to turn it
-    off. There is deliberately no symmetric flag that forces a PASS: the drill
-    can only make delivery more conservative, never less. When active it does
-    not call the GitHub API at all -- it is a synthetic, clearly-labelled red,
-    not a spoofed real one.
+    off. There is deliberately no flag that forces a PASS: the drill can only
+    make delivery more conservative. When active it calls no GitHub API -- it is
+    a synthetic, clearly-labelled red, not a spoofed real one.
 
     Operator ruling 2026-09-23T17:12:15Z (ledger RULING, amending the
     16:10:08Z every-check-blocks ruling) binds four chronically red checks to a
@@ -6158,6 +6156,11 @@ def evaluate_workflow_verdict(
         file=out,
     )
 
+    # OMN-22821: no_verdict_conclusions names conclusions that carry no verdict
+    # (the delegation-health config lists cancelled and skipped). Such a run
+    # measured nothing, so it is dropped here and the newest COMPLETED verdict
+    # decides; a failure still decides. The default is empty, so staging
+    # delivery and the lab alarm still block on a cancelled newest run.
     candidates = [
         r
         for r in runs
@@ -6165,6 +6168,7 @@ def evaluate_workflow_verdict(
         and r.get("status") == "completed"
         and r.get("head_branch") == branch
         and r.get("event") in admitted
+        and r.get("conclusion") not in no_verdict_conclusions
         and (
             not dispatch_title_contains
             or r.get("event") != "workflow_dispatch"
@@ -6173,8 +6177,7 @@ def evaluate_workflow_verdict(
     ]
     ignored = len(runs) - len(candidates)
     print(
-        f"  events read : {', '.join(admitted)} "
-        f"({len(candidates)} completed run(s) admitted, {ignored} other(s) ignored)",
+        f"  events read : {', '.join(admitted)} ({len(candidates)} completed run(s) admitted, {ignored} other(s) ignored)",
         file=out,
     )
     if dispatch_title_contains:

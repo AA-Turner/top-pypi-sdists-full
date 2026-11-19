@@ -25,7 +25,7 @@ class VolumeConnector(resource.Resource):
     allow_delete = True
     allow_list = True
     allow_patch = True
-    commit_method = 'PATCH'
+    commit_opts = resource.CommitOpts(method='PATCH')
 
     _query_mapping = resource.QueryParameters(
         'node',
@@ -34,6 +34,7 @@ class VolumeConnector(resource.Resource):
     )
 
     # Volume Connectors is available since 1.32
+    _min_microversion = '1.32'
     _max_microversion = '1.32'
 
     #: The identifier of Volume connector and this field depends on the "type"

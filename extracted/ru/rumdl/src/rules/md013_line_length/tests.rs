@@ -12397,8 +12397,8 @@ fn front_matter_checks_and_wraps_the_last_word_without_markdown_forgiveness() {
         let fixed = rule.fix(&ctx).unwrap();
         assert_ne!(fixed, input);
         if input.starts_with("---") {
-            let before: serde_yaml::Value = serde_yaml::from_str(&front_matter_body(input)).unwrap();
-            let after: serde_yaml::Value = serde_yaml::from_str(&front_matter_body(&fixed)).unwrap();
+            let before: serde_json::Value = serde_saphyr::from_str(&front_matter_body(input)).unwrap();
+            let after: serde_json::Value = serde_saphyr::from_str(&front_matter_body(&fixed)).unwrap();
             assert_eq!(before, after);
         } else {
             let before: toml::Value = toml::from_str(&front_matter_body(input)).unwrap();
@@ -12466,8 +12466,8 @@ fn front_matter_yaml_scalars_are_wrapped_without_changing_values() {
     let fixed = fix_front_matter(&rule, input);
     assert_ne!(fixed, input);
 
-    let before: serde_yaml::Value = serde_yaml::from_str(&front_matter_body(input)).unwrap();
-    let after: serde_yaml::Value = serde_yaml::from_str(&front_matter_body(&fixed)).unwrap();
+    let before: serde_json::Value = serde_saphyr::from_str(&front_matter_body(input)).unwrap();
+    let after: serde_json::Value = serde_saphyr::from_str(&front_matter_body(&fixed)).unwrap();
     assert_eq!(before, after);
     assert!(fixed.ends_with("---\n\n# Title\n"));
     for line in fixed.lines().take_while(|l| *l != "# Title") {
@@ -12517,8 +12517,8 @@ fn front_matter_yaml_wraps_other_values_the_parser_confirms_are_unchanged() {
         "comment must stay at the end: {fixed}"
     );
 
-    let before: serde_yaml::Value = serde_yaml::from_str(&front_matter_body(input)).unwrap();
-    let after: serde_yaml::Value = serde_yaml::from_str(&front_matter_body(&fixed)).unwrap();
+    let before: serde_json::Value = serde_saphyr::from_str(&front_matter_body(input)).unwrap();
+    let after: serde_json::Value = serde_saphyr::from_str(&front_matter_body(&fixed)).unwrap();
     assert_eq!(before, after);
     assert_front_matter_idempotent(&rule, &fixed);
 }
@@ -12529,8 +12529,8 @@ fn front_matter_yaml_never_breaks_inside_a_space_run_or_before_an_indicator() {
     let rule = front_matter_rule(30);
     let fixed = fix_front_matter(&rule, input);
     // The double space and the comment-looking `#eeee` keep their neighbours.
-    let before: serde_yaml::Value = serde_yaml::from_str(&front_matter_body(input)).unwrap();
-    let after: serde_yaml::Value = serde_yaml::from_str(&front_matter_body(&fixed)).unwrap();
+    let before: serde_json::Value = serde_saphyr::from_str(&front_matter_body(input)).unwrap();
+    let after: serde_json::Value = serde_saphyr::from_str(&front_matter_body(&fixed)).unwrap();
     assert_eq!(before, after);
 }
 
@@ -12621,4 +12621,57 @@ fn front_matter_toml_is_checked_but_not_wrapped_without_reflow() {
         ..Default::default()
     });
     assert!(default_rule.check(&ctx).unwrap().is_empty());
+}
+
+#[test]
+fn frontmatter_direct_inline_config_accepts_all_spellings() {
+    for key in ["frontmatter", "front-matter", "front_matter"] {
+        for enabled in [false, true] {
+            let rule = MD013LineLength::from_config_struct(MD013Config {
+                line_length: crate::types::LineLength::new(40),
+                front_matter: !enabled,
+                ..Default::default()
+            });
+            let input = format!(
+                "---\ndescription: This description is deliberately longer than forty characters.\n---\n\n<!-- rumdl-configure-file {{\"MD013\": {{\"{key}\": {enabled}}}}} -->\n"
+            );
+            let ctx = LintContext::new(&input, MarkdownFlavor::Standard, None);
+            let warnings = rule.check(&ctx).unwrap();
+            assert_eq!(warnings.len(), usize::from(enabled), "{key}={enabled}: {warnings:?}");
+            if enabled {
+                assert_eq!(warnings[0].line, 2);
+            }
+        }
+    }
+}
+
+#[test]
+fn frontmatter_direct_inline_config_prefers_the_canonical_spelling() {
+    for enabled in [false, true] {
+        let rule = MD013LineLength::from_config_struct(MD013Config {
+            line_length: crate::types::LineLength::new(40),
+            front_matter: !enabled,
+            ..Default::default()
+        });
+        let input = format!(
+            "---\ndescription: This description is deliberately longer than forty characters.\n---\n\n<!-- rumdl-configure-file {{\"MD013\": {{\"frontmatter\": {enabled}, \"front-matter\": {}, \"front_matter\": {}}}}} -->\n",
+            !enabled, !enabled
+        );
+        let ctx = LintContext::new(&input, MarkdownFlavor::Standard, None);
+        assert_eq!(rule.check(&ctx).unwrap().len(), usize::from(enabled));
+    }
+}
+
+#[test]
+fn front_matter_non_finite_numbers_do_not_disable_wrapping() {
+    let rule = front_matter_rule(30);
+    for number in [".inf", "-.inf", ".nan", ".Inf", ".NaN"] {
+        let input = format!("---\nscore: {number}\ntitle: alpha beta gamma delta epsilon zeta eta theta\n---\n");
+        let ctx = LintContext::new(&input, MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_ne!(fixed, input, "{number} must not disable wrapping unrelated titles");
+        assert!(fixed.contains(&format!("score: {number}\n")), "{fixed}");
+        assert!(fixed.contains("title: alpha beta gamma delta\n"), "{fixed}");
+        assert_front_matter_idempotent(&rule, &fixed);
+    }
 }

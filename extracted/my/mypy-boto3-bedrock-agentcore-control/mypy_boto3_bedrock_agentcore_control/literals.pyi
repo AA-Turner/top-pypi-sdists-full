@@ -163,6 +163,7 @@ __all__ = (
     "PolicyStatusType",
     "PolicyValidationModeType",
     "PrincipalMatchOperatorType",
+    "PrivilegeModeType",
     "ProviderType",
     "RecordExpiryActionType",
     "RegistryAuthorizerTypeType",
@@ -441,6 +442,7 @@ PolicyStatusType = Literal[
 ]
 PolicyValidationModeType = Literal["FAIL_ON_ANY_FINDINGS", "IGNORE_ALL_FINDINGS"]
 PrincipalMatchOperatorType = Literal["StringEquals", "StringLike"]
+PrivilegeModeType = Literal["PRIVILEGED", "STANDARD"]
 ProviderType = Literal["AWS", "AutoEval", "Custom", "DeepEval"]
 RecordExpiryActionType = Literal["REMOVE"]
 RegistryAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
@@ -502,6 +504,7 @@ TargetTypeType = Literal[
 WafFailureModeType = Literal["FAIL_CLOSE", "FAIL_OPEN"]
 BedrockAgentCoreControlServiceName = Literal["bedrock-agentcore-control"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

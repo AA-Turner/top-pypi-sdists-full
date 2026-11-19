@@ -119,6 +119,7 @@ TemplateType = Literal["API_ACTIVITY", "RESOURCE_ACCESS", "USER_ACTIONS"]
 TypeType = Literal["RequestContext", "TagContext"]
 CloudTrailServiceName = Literal["cloudtrail"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

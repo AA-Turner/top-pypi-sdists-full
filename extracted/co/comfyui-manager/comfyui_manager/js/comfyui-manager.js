@@ -232,6 +232,7 @@ var switch_comfyui_button = null;
 var update_all_button = null;
 var restart_stop_button = null;
 var update_policy_combo = null;
+var update_policy_chosen = false;
 
 let share_option = 'all';
 const share_options = [
@@ -494,6 +495,7 @@ async function updateComfyUI() {
 
 	const res = await api.fetchApi(`/v2/manager/queue/batch`, {
 		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(batch)
 	});
 }
@@ -643,15 +645,6 @@ async function switchComfyUI() {
 		}
 
 		showVersionSelectorDialog(versions, obj.current, async (selected_version) => {
-			if(selected_version == 'nightly') {
-				update_policy_combo.value = 'nightly-comfyui';
-				api.fetchApi('/v2/manager/policy/update', { method: 'POST', body: JSON.stringify({value: 'nightly-comfyui'}) });
-			}
-			else {
-				update_policy_combo.value = 'stable-comfyui';
-				api.fetchApi('/v2/manager/policy/update', { method: 'POST', body: JSON.stringify({value: 'stable-comfyui'}) });
-			}
-
 			let response = await api.fetchApi('/v2/comfyui_manager/comfyui_switch_version', {
 				method: 'POST',
 				cache: "no-store",
@@ -663,7 +656,15 @@ async function switchComfyUI() {
 				}),
 			});
 			if (response.status == 200) {
+				const update_policy = selected_version == 'nightly' ? 'nightly-comfyui' : 'stable-comfyui';
+				update_policy_chosen = true;
+				update_policy_combo.value = update_policy;
+				api.fetchApi('/v2/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({value: update_policy}) });
+
 				infoToast(`ComfyUI version is switched to ${selected_version}`);
+			}
+			else if (response.status == 403) {
+				customAlert('This action is not allowed with this security level configuration.');
 			}
 			else {
 				customAlert('Failed to switch ComfyUI version.');
@@ -813,6 +814,7 @@ async function updateAll(update_comfyui) {
 
 	const res = await api.fetchApi(`/v2/manager/queue/batch`, {
 		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(batch)
 	});
 }
@@ -829,7 +831,7 @@ function restartOrStop() {
 		rebootAPI();
 	}
 	else {
-		api.fetchApi('/v2/manager/queue/reset', { method: 'POST' });
+		api.fetchApi('/v2/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 		infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 	}
 }
@@ -841,7 +843,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		const isElectron = 'electronAPI' in window;
 		
 		update_comfyui_button =
-			$el("button.p-button.p-component.cm-button", {
+			$el("button.cm-ui-button.cm-button", {
 				type: "button",
 				textContent: "Update ComfyUI",
 				style: {
@@ -852,7 +854,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			});
 
 		switch_comfyui_button =
-			$el("button.p-button.p-component.cm-button", {
+			$el("button.cm-ui-button.cm-button", {
 				type: "button",
 				textContent: "Switch ComfyUI",
 				style: {
@@ -863,7 +865,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			});
 
 		restart_stop_button =
-			$el("button.p-button.p-component.cm-button-red", {
+			$el("button.cm-ui-button.cm-button-red", {
 				type: "button",
 				textContent: "Restart",
 				onclick: () => restartOrStop()
@@ -871,7 +873,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		if(isElectron) {
 			update_all_button =
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					type: "button",
 					textContent: "Update All Custom Nodes",
 					onclick:
@@ -880,7 +882,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		}
 		else {
 			update_all_button =
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					type: "button",
 					textContent: "Update All",
 					onclick:
@@ -890,7 +892,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		const res =
 			[
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					type: "button",
 					textContent: "Custom Nodes Manager",
 					onclick:
@@ -902,7 +904,7 @@ class ManagerMenuDialog extends ComfyDialog {
 						}
 				}),
 
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					type: "button",
 					textContent: "Install Missing Custom Nodes",
 					onclick:
@@ -914,7 +916,7 @@ class ManagerMenuDialog extends ComfyDialog {
 						}
 				}),
 
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					type: "button",
 					textContent: "Custom Nodes In Workflow",
 					onclick:
@@ -927,7 +929,7 @@ class ManagerMenuDialog extends ComfyDialog {
 				}),
 				
 				$el("div", {}, []),
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					type: "button",
 					textContent: "Model Manager",
 					onclick:
@@ -939,7 +941,7 @@ class ManagerMenuDialog extends ComfyDialog {
 						}
 				}),
 
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					type: "button",
 					textContent: "Install via Git URL",
 					onclick: async () => {
@@ -973,17 +975,20 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		this.datasrc_combo = document.createElement("select");
 		this.datasrc_combo.setAttribute("title", "Configure where to retrieve node/model information. If set to 'local,' the channel is ignored, and if set to 'channel (remote),' it fetches the latest information each time the list is opened.");
-		this.datasrc_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled ";
+		this.datasrc_combo.className = "cm-menu-combo cm-ui-input ";
 		this.datasrc_combo.appendChild($el('option', { value: 'cache', text: 'Channel (1day cache)' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'local', text: 'Local' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'remote', text: 'Channel (remote)' }, []));
 
+		// a choice made before the stored value arrives is not to be replaced by it
+		let db_mode_chosen = false;
 		api.fetchApi('/v2/manager/db_mode')
 			.then(response => response.text())
-			.then(data => { this.datasrc_combo.value = data; });
+			.then(data => { if(!db_mode_chosen) this.datasrc_combo.value = data; });
 
 		this.datasrc_combo.addEventListener('change', function (event) {
-			api.fetchApi('/v2/manager/db_mode', { method: 'POST', body: JSON.stringify({value: event.target.value}) });
+			db_mode_chosen = true;
+			api.fetchApi('/v2/manager/db_mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({value: event.target.value}) });
 		});
 
 		const dbRetrievalSetttingItem = createSettingsCombo("DB", this.datasrc_combo);
@@ -991,7 +996,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		// channel
 		let channel_combo = document.createElement("select");
 		channel_combo.setAttribute("title", "Configure the channel for retrieving data from the Custom Node list (including missing nodes) or the Model list.");
-		channel_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
+		channel_combo.className = "cm-menu-combo cm-ui-input";
 		api.fetchApi('/v2/manager/channel_url_list')
 			.then(response => response.json())
 			.then(async data => {
@@ -1005,7 +1010,7 @@ class ManagerMenuDialog extends ComfyDialog {
 					}
 
 					channel_combo.addEventListener('change', function (event) {
-						api.fetchApi('/v2/manager/channel_url_list', { method: 'POST', body: JSON.stringify({value: event.target.value}) });
+						api.fetchApi('/v2/manager/channel_url_list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({value: event.target.value}) });
 					});
 
 					channel_combo.value = data.selected;
@@ -1021,22 +1026,26 @@ class ManagerMenuDialog extends ComfyDialog {
 		// share
 		let share_combo = document.createElement("select");
 		share_combo.setAttribute("title", "Hide the share button in the main menu or set the default action upon clicking it. Additionally, configure the default share site when sharing via the context menu's share button.");
-		share_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
+		share_combo.className = "cm-menu-combo cm-ui-input";
 		for (const option of share_options) {
 			share_combo.appendChild($el('option', { value: option[0], text: `${option[1]}` }, []));
 		}
 
+		let share_option_chosen = false;
 		api.fetchApi('/v2/manager/share_option')
 			.then(response => response.text())
 			.then(data => {
-				share_option = to_share_option(data);
-				share_combo.value = share_option;
+				if(!share_option_chosen) {
+					share_option = to_share_option(data);
+					share_combo.value = share_option;
+				}
 			});
 
 		share_combo.addEventListener('change', function (event) {
+			share_option_chosen = true;
 			const value = event.target.value;
 			share_option = value;
-			api.fetchApi(`/v2/manager/share_option?value=${value}`);
+			api.fetchApi('/v2/manager/share_option', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }) });
 			const shareButton = document.getElementById("shareButton");
 			if (value === 'none') {
 				shareButton.style.display = "none";
@@ -1050,17 +1059,19 @@ class ManagerMenuDialog extends ComfyDialog {
 		update_policy_combo = document.createElement("select");
 		
 		update_policy_combo.setAttribute("title", "Sets the policy to be applied when performing an update.");
-		update_policy_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
+		update_policy_combo.className = "cm-menu-combo cm-ui-input";
 		update_policy_combo.appendChild($el('option', { value: 'stable-comfyui', text: 'ComfyUI Stable Version' }, []));
 		update_policy_combo.appendChild($el('option', { value: 'nightly-comfyui', text: 'ComfyUI Nightly Version' }, []));
 		api.fetchApi('/v2/manager/policy/update')
 			.then(response => response.text())
 			.then(data => {
-				update_policy_combo.value = data;
+				if(!update_policy_chosen)
+					update_policy_combo.value = data;
 			});
 
 		update_policy_combo.addEventListener('change', function (event) {
-			api.fetchApi('/v2/manager/policy/update', { method: 'POST', body: JSON.stringify({value: event.target.value}) });
+			update_policy_chosen = true;
+			api.fetchApi('/v2/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({value: event.target.value}) });
 		});
 
 		const updateSetttingItem = createSettingsCombo("Update", update_policy_combo);
@@ -1076,7 +1087,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			//[TODO] replace mt-2 with wrapper div with flex column gap
 			$el("filedset.cm-experimental.mt-auto", {}, [
 					$el("legend.cm-experimental-legend", {}, ["EXPERIMENTAL"]),
-					$el("button.p-button.p-component.cm-button.cm-experimental-button", {
+					$el("button.cm-ui-button.cm-button.cm-experimental-button", {
 						type: "button",
 						textContent: "Snapshot Manager",
 						onclick:
@@ -1086,7 +1097,7 @@ class ManagerMenuDialog extends ComfyDialog {
 								SnapshotManager.instance.show();
 							}
 					}),
-					$el("button.p-button.p-component.cm-button.cm-experimental-button.mt-2", {
+					$el("button.cm-ui-button.cm-button.cm-experimental-button.mt-2", {
 						type: "button",
 						textContent: "Install PIP packages",
 						onclick:
@@ -1104,7 +1115,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 	createControlsRight() {
 		const elts = [
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					id: 'cm-manual-button',
 					type: "button",
 					textContent: "Community Manual",
@@ -1155,7 +1166,7 @@ class ManagerMenuDialog extends ComfyDialog {
 					})
 				]),
 
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					id: 'workflowgallery-button',
 					type: "button",
 					style: {
@@ -1198,7 +1209,7 @@ class ManagerMenuDialog extends ComfyDialog {
 					})
 				]),
 
-				$el("button.p-button.p-component.cm-button", {
+				$el("button.cm-ui-button.cm-button", {
 					id: 'cm-nodeinfo-button',
 					type: "button",
 					textContent: "Nodes Info",

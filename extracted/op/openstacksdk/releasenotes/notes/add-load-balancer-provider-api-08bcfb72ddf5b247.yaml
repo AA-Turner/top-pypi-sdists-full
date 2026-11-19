@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Adds Octavia (load_balancer) support for the providers APIs.

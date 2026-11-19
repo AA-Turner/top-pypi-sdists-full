@@ -11,8 +11,7 @@ from .dml import _BaseDML
 from .dml import _make_first_stage_selector
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import (shape, check_input_arrays,
-                         cross_product, Summary)
+from ..utilities import shape, check_input_arrays, Summary
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
@@ -48,7 +47,7 @@ class _CausalForestFinalWrapper:
         if mask is not None:
             drpreds = drpreds[mask]
         point = np.nanmean(drpreds, axis=0).reshape(self._d_y + self._d_t)
-        nonnan = np.sum(~np.isnan(drpreds))
+        nonnan = np.sum(~np.isnan(drpreds), axis=0)
         stderr = (np.nanstd(drpreds, axis=0) / np.sqrt(nonnan)).reshape(self._d_y + self._d_t)
         return point, stderr
 
@@ -80,7 +79,7 @@ class _CausalForestFinalWrapper:
             propensities = T - T_res
             VarT = np.clip(propensities * (1 - propensities), 1e-2, np.inf)
             drpreds = oob_preds
-            drpreds += cross_product(residuals, T_res / VarT).reshape((-1, Y_res.shape[1], T_res.shape[1]))
+            drpreds += np.einsum('ij,ik->ijk', residuals, T_res / VarT)
             drpreds[np.isnan(oob_preds)] = np.nan
             self.ate_, self.ate_stderr_ = self._ate_and_stderr(drpreds)
             self.att_ = []
@@ -561,10 +560,10 @@ class CausalForestDML(_BaseDML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.62769..., 1.64575..., 0.68497...])
+    array([0.62769, 1.64575, 0.68497])
     >>> est.effect_interval(X[:3])
-    (array([0.18798..., 1.17144..., 0.10788...]),
-    array([1.06739..., 2.12006..., 1.26205...]))
+    (array([0.18798, 1.17144, 0.10788]),
+    array([1.06739, 2.12006, 1.26205]))
 
     Attributes
     ----------
@@ -838,8 +837,13 @@ class CausalForestDML(_BaseDML):
         c_y: float, default 0.05
             The level of confounding in the outcome. Ranges from 0 to 1.
 
-        c_d: float, default 0.05
+        c_t: float, default 0.05
             The level of confounding in the treatment. Ranges from 0 to 1.
+
+        rho: float, default 1.
+            The worst case correlation between the estimation errors in Y and T.
+            Should be in the range [-1, 1], with -1 and 1 being the most
+            conservative choices.
 
         decimals: int, default 3
             Number of decimal places to round each column to.
@@ -871,8 +875,13 @@ class CausalForestDML(_BaseDML):
         c_y: float, default 0.05
             The level of confounding in the outcome. Ranges from 0 to 1.
 
-        c_d: float, default 0.05
+        c_t: float, default 0.05
             The level of confounding in the treatment. Ranges from 0 to 1.
+
+        rho: float, default 1.
+            The worst case correlation between the estimation errors in Y and T.
+            Should be in the range [-1, 1], with -1 and 1 being the most
+            conservative choices.
 
         interval_type: str, default 'ci'
             The type of interval to return. Can be 'ci' or 'theta'
@@ -1158,7 +1167,7 @@ class CausalForestDML(_BaseDML):
         Returns
         -------
         att_stderr_ : ndarray (n_y, n_t)
-            The standard error of the corresponding `att_`
+            The standard error of the corresponding `att_`.
         """
         return self.rlearner_model_final_.att_stderr_[T]
 

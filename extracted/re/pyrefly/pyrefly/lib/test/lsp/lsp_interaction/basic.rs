@@ -16,6 +16,7 @@ use pyrefly_lsp_test::object_model::InitializeSettings;
 use pyrefly_lsp_test::object_model::LspInteraction;
 use serde_json::json;
 
+use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 
 #[test]
@@ -61,6 +62,11 @@ fn test_initialize_basic() {
             "documentSymbolProvider": true,
             "foldingRangeProvider":true,
             "selectionRangeProvider": true,
+            "semanticTokensProvider": {
+                "legend": SemanticTokensLegends::lsp_semantic_token_legends(),
+                "full": true,
+                "range": true
+            },
             "workspaceSymbolProvider": true,
             "workspace": {
                 "workspaceFolders": {
@@ -106,7 +112,7 @@ fn test_shutdown() {
 
 #[test]
 fn test_shutdown_with_messages_in_between() {
-    // This is a regression test for https://github.com/facebook/pyrefly/issues/1016
+    // This is a regression test for https://github.com/pyrefly-org/pyrefly/issues/1016
     // nvim sometimes sends messages in between shutdown and exit. The server should
     // handle this gracefully and not hang.
     // Per LSP spec, requests after shutdown should be rejected with InvalidRequest.

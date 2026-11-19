@@ -27,6 +27,7 @@ __all__ = ("ResourceServiceName", "ServiceName", "WorkMailMessageFlowServiceName
 
 WorkMailMessageFlowServiceName = Literal["workmailmessageflow"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

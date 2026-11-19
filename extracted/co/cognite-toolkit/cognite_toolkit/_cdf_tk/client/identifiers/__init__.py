@@ -25,6 +25,7 @@ from ._data_modeling import (
 )
 from ._identifiers import (
     AppVersionId,
+    DataProductRoleId,
     DataProductVersionId,
     DataSetId,
     ExternalId,
@@ -47,6 +48,7 @@ from ._identifiers import (
     SemanticVersion,
     SequenceRowId,
     SignalSinkId,
+    ThreeDJobId,
     ThreeDModelRevisionId,
     TransformationNotificationId,
     UserProfileId,
@@ -67,6 +69,7 @@ __all__ = [
     "ContainerReferenceUntyped",
     "DataModelId",
     "DataModelNoVersionId",
+    "DataProductRoleId",
     "DataProductVersionId",
     "DataSetId",
     "DatapointSubscriptionTimeSeriesId",
@@ -99,6 +102,7 @@ __all__ = [
     "SignalSinkId",
     "SpaceId",
     "T_InstanceId",
+    "ThreeDJobId",
     "ThreeDModelRevisionId",
     "TransformationNotificationId",
     "UserProfileId",

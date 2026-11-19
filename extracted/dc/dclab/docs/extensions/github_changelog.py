@@ -14,7 +14,6 @@ and hash) and a link is inserted
 
 where PROJECT ist the `project` variable defined in conf.py.
 """
-import io
 import re
 
 from docutils.statemachine import ViewList
@@ -35,12 +34,11 @@ class IncludeDirective(Directive):
             line = reobj.string
             instr = line[reobj.start():reobj.end()]
             issue = instr.strip("#()")
-            link = "https://github.com/{}/issues/".format(project)
-            rstlink = "(`#{issue} <{link}{issue}>`_)".format(issue=issue,
-                                                             link=link)
+            link = f"https://github.com/{project}/issues/"
+            rstlink = f"(`#{issue} <{link}{issue}>`_)"
             return rstlink
 
-        with io.open(full_path, "r") as myfile:
+        with open(full_path, "r") as myfile:
             text = myfile.readlines()
 
         rst = []
@@ -70,6 +68,6 @@ class IncludeDirective(Directive):
 
 
 def setup(app):
-    app.add_config_value('github_project', "user/project", 'html')
-    app.add_directive('include_changelog', IncludeDirective)
-    return {'version': '0.1'}   # identifies the version of our extension
+    app.add_config_value("github_project", "user/project", "html")
+    app.add_directive("include_changelog", IncludeDirective)
+    return {"version": "0.1"}   # identifies the version of our extension

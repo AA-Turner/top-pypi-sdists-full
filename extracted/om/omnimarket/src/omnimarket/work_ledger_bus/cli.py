@@ -31,13 +31,9 @@ from omnimarket.delegated_test_loop.lane_bus import (
     bound_lane_principal,
     open_lab_run_bus,
 )
-from omnimarket.events.topics import (
-    PR_HANDOFF_ACCEPTED_TOPIC_V1,
-    PR_HANDOFF_FAILED_TOPIC_V1,
-    PR_HANDOFF_HANDED_OFF_TOPIC_V1,
-    PR_HANDOFF_REQUESTED_TOPIC_V1,
-)
+from omnimarket.events import topics
 from omnimarket.handlers.bus_binding import outbox
+from omnimarket.handlers.bus_binding.guard_ports import local_guard_ports
 from omnimarket.handlers.bus_binding.select import (
     default_state_dir,
     open_bound_bus,
@@ -49,6 +45,9 @@ from omnimarket.handlers.work_ledger_consume.consume_watch import (
     load_consume_watch_policy,
     readiness_probe,
 )
+from omnimarket.handlers.work_ledger_consume.writer_overlay_watch import (
+    follow_overlay_writers,
+)
 from omnimarket.lab_work.bus import _bytes, _subscribe
 from omnimarket.lab_work.cli import _with_bus_options
 from omnimarket.models.bus_binding import EnumBusBinding
@@ -58,17 +57,18 @@ from omnimarket.models.pr_handoff import (
     ModelPrHandoffHandedOff,
     ModelPrHandoffRequested,
 )
-from omnimarket.nodes.node_operator_capture_effect.handlers.handler_capture_serve import (
+from omnimarket.nodes.node_operator_capture_effect.handlers.capture_ledger_host import (
     ledger_host_capture,
 )
 from omnimarket.nodes.node_work_ledger_append_effect import (
     EnumWorkLedgerAppendStatus,
-    HandlerWorkLedgerAppendEffect,
     ModelWorkLedgerAppendRequest,
+)
+from omnimarket.nodes.node_work_ledger_append_effect.local_serve import (
+    local_serve_handler,
 )
 from omnimarket.nodes.node_work_ledger_append_effect.protocols import (
     LocalLedgerAppendCommand,
-    LocalLedgerFile,
 )
 from omnimarket.work_ledger_bus.bus import (
     WorkLedgerAppendCaller,
@@ -88,10 +88,7 @@ def _writer_principals(
     ctx: click.Context, param: click.Parameter, values: tuple[str, ...]
 ) -> tuple[str, ...]:
     return tuple(
-        principal
-        for value in values
-        for principal in re.split(r"[,\s]+", value)
-        if principal
+        name for value in values for name in re.split(r"[,\s]+", value) if name
     )
 
 
@@ -153,10 +150,8 @@ def serve_command(
         )
     topics = load_work_ledger_append_topics()
     try:
-        for principal in writer_principal:
+        for principal in (*writer_principal, *filter(None, [operator_principal])):
             topics.writer_command_topic(principal)
-        if operator_principal is not None:
-            topics.writer_command_topic(operator_principal)
     except ValueError as exc:
         raise click.UsageError(str(exc)) from exc
     logging.basicConfig(
@@ -180,12 +175,8 @@ def serve_command(
         )
         sys.exit(75)
     append_runner = LocalLedgerAppendCommand(argv)
-    handler = HandlerWorkLedgerAppendEffect(
-        append_runner,
-        LocalLedgerFile(ledger),
-        host_name,
-        writer_principals=writer_principal,
-        operator_principal=operator_principal,
+    handler = local_serve_handler(
+        append_runner, ledger, host_name, writer_principal, operator_principal
     )
 
     async def main() -> None:
@@ -206,6 +197,10 @@ def serve_command(
                 writer_principals=writer_principal,
                 operator_principal=operator_principal,
             )
+
+            # OMN-21622: the overlay's machine rows are writers too, followed while serving,
+            # so a newly declared machine never needs this unit rendered again.
+            writers = await follow_overlay_writers(host, handler, writer_principal)
             await host.start()
             # OMN-20275: retake the subscriptions when the broker drops the group; degraded and alarmed.
             watch = ConsumeWatch(
@@ -223,7 +218,7 @@ def serve_command(
                     opened,
                     ledger=ledger,
                     append_runner=append_runner,
-                    host_name=host_name,
+                    append_handler=handler,
                     bus_lane=bus_lane,
                 )
                 if operator_capture
@@ -234,6 +229,7 @@ def serve_command(
             try:
                 await stop.wait()
             finally:
+                await writers.stop()
                 await watch.stop()
                 if capture is not None:
                     await capture.stop()
@@ -299,6 +295,9 @@ def append_command(
         raise click.ClickException(str(exc)) from exc
 
     state_dir = default_state_dir()
+    # OMN-20275: a retry of a row whose first attempt got no answer keeps that attempt's request id and rows,
+    # so the serve answers duplicate and the acknowledgement does not repeat.
+    request = outbox.first_attempt(state_dir, request)
 
     async def main() -> int:
         # OMN-20275: the lane overlay orders the bindings. A durable bus that fails its health read puts this
@@ -317,16 +316,7 @@ def append_command(
                 queued = outbox.queue_request(state_dir, request)
                 click.echo(
                     json.dumps(
-                        {
-                            "request_id": str(request_id),
-                            "status": "queued",
-                            "exit_code": 0,
-                            "binding": bound.decision.binding.value,
-                            "bus_state": bound.decision.state.value,
-                            "outbox": queued.name,
-                            "message": "durable bus unavailable; queued for replay under this request id",
-                        },
-                        sort_keys=True,
+                        outbox.queued_receipt(queued, bound.decision), sort_keys=True
                     )
                 )
                 return 0
@@ -342,6 +332,7 @@ def append_command(
                         bound,
                         state_dir,
                         lambda queued: caller.append(queued, timeout_s=timeout_s),
+                        guard=local_guard_ports(state_dir),
                     )
                     if replay.replayed or replay.duplicates or replay.refused:
                         click.echo(
@@ -349,10 +340,14 @@ def append_command(
                             f"refused={replay.refused} remaining={replay.remaining}",
                             err=True,
                         )
-                receipt = await caller.append(request, timeout_s=timeout_s)
+                receipt = await outbox.send_once(
+                    state_dir, request, caller.append, timeout_s
+                )
             except TimeoutError:
                 click.echo(
-                    json.dumps({"status": "pending", "request_id": str(request_id)})
+                    json.dumps(
+                        {"status": "pending", "request_id": str(request.request_id)}
+                    )
                 )
                 return 75
             finally:
@@ -374,9 +369,9 @@ def append_command(
 
 # OMN-20636: the answers a handoff request waits for, by the event's class name.
 _HANDOFF_ANSWERS: dict[str, type[BaseModel]] = {
-    PR_HANDOFF_ACCEPTED_TOPIC_V1: ModelPrHandoffAccepted,
-    PR_HANDOFF_HANDED_OFF_TOPIC_V1: ModelPrHandoffHandedOff,
-    PR_HANDOFF_FAILED_TOPIC_V1: ModelPrHandoffFailed,
+    topics.PR_HANDOFF_ACCEPTED_TOPIC_V1: ModelPrHandoffAccepted,
+    topics.PR_HANDOFF_HANDED_OFF_TOPIC_V1: ModelPrHandoffHandedOff,
+    topics.PR_HANDOFF_FAILED_TOPIC_V1: ModelPrHandoffFailed,
 }
 
 
@@ -467,12 +462,12 @@ def handoff_command(
             envelope = ModelEventEnvelope[dict[str, object]](
                 payload=request.model_dump(mode="json"),
                 correlation_id=request.correlation_id,
-                event_type=event_type_for(PR_HANDOFF_REQUESTED_TOPIC_V1),
+                event_type=event_type_for(topics.PR_HANDOFF_REQUESTED_TOPIC_V1),
                 payload_type=ModelPrHandoffRequested.__name__,
             )
             try:
                 await opened.publish(
-                    PR_HANDOFF_REQUESTED_TOPIC_V1,
+                    topics.PR_HANDOFF_REQUESTED_TOPIC_V1,
                     request.handoff_key.encode("utf-8"),
                     _bytes(envelope),
                 )

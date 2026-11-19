@@ -13,7 +13,7 @@ def check_feature_shape(name, data):
     ----------
     name: str
         name of the feature
-    data: array-like
+    data: ndarray
         data whose dimensionality will be checked
 
     Raises
@@ -37,7 +37,7 @@ def feature_exists(name, scalar_only=False):
     """Return True if `name` is a valid feature name
 
     This function not only checks whether `name` is in
-    :const:`feature_names`, but also validates against
+    :data:`.feature_names`, but also validates against
     the machine learning scores `ml_score_???` (where
     `?` can be a digit or a lower-case letter in the
     English alphabet).
@@ -91,13 +91,14 @@ def feature_register(name, label=None, is_scalar=True):
     Raises
     ------
     ValueError
-        If the feature already exists.
+        If the feature already exists or if `name` contains characters
+        other than lower-case letters, digits, and underscores.
     """
     allowed_chars = "abcdefghijklmnopqrstuvwxyz_1234567890"
     feat = "".join([f for f in name if f in allowed_chars])
     if feat != name:
         raise ValueError(
-            "`feature` must only contain lower-case characters, "
+            "`name` must only contain lower-case characters, "
             f"digits, and underscores; got '{name}'!"
         )
     if label is None:
@@ -127,12 +128,14 @@ def feature_deregister(name):
 
     Warnings
     --------
-    This function should only be used internally, i.e., You should not use
+    This function should only be used internally, i.e., you should not use
     this function. This function can break things.
     """
-    label = get_feature_label(name)
-    feat_const.feature_names.remove(name)
-    feat_const.feature_labels.remove(label)
+    # `feature_labels` is not unique, remove the label at the same
+    # position as the feature name
+    idx = feat_const.feature_names.index(name)
+    feat_const.feature_names.pop(idx)
+    feat_const.feature_labels.pop(idx)
     feat_const.feature_name2label.pop(name)
     if name in feat_const.scalar_feature_names:
         feat_const.scalar_feature_names.remove(name)
@@ -141,13 +144,17 @@ def feature_deregister(name):
 def get_feature_label(name, rtdc_ds=None, with_unit=True):
     """Return the label corresponding to a feature name
 
-    This function not only checks :const:`feature_name2label`,
-    but also supports registered `ml_score_???` features.
+    This function not only checks :data:`.feature_name2label`,
+    but also supports `ml_score_???` features (generic label
+    "ML score ???").
 
     Parameters
     ----------
     name: str
         name of a feature
+    rtdc_ds: dclab.rtdc_dataset.RTDCBase or None
+        Currently unused (reserved for extracting labels from ancillary
+        feature information)
     with_unit: bool
         set to False to remove units in square brackets
 
@@ -171,9 +178,8 @@ def get_feature_label(name, rtdc_ds=None, with_unit=True):
         msg = f"Could not find label for '{name}'"
         msg += " (feature does not exist)" if not exists else ""
         raise ValueError(msg)
-    if not with_unit:
-        if label.endswith("]") and label.count("["):
-            label = label.rsplit("[", 1)[0].strip()
+    if not with_unit and label.endswith("]") and label.count("["):
+        label = label.rsplit("[", 1)[0].strip()
     return label
 
 

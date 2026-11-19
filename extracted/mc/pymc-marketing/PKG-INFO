@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pymc-marketing
-Version: 1.4.0
+Version: 1.5.0
 Summary: Marketing Statistical Models in PyMC
 Project-URL: repository, https://github.com/pymc-labs/pymc-marketing
 Project-URL: homepage, https://www.pymc-marketing.io
@@ -228,6 +228,7 @@ Requires-Dist: h5py>=3.16.0
 Requires-Dist: matplotlib>=3.5.1
 Requires-Dist: narwhals
 Requires-Dist: numpy<2.6,>=2.0
+Requires-Dist: packaging
 Requires-Dist: pandas>=2.2
 Requires-Dist: patsy
 Requires-Dist: preliz<1.0,>=0.20.0
@@ -250,7 +251,7 @@ Requires-Dist: blackjax<1.6; extra == 'docs'
 Requires-Dist: dowhy; extra == 'docs'
 Requires-Dist: fastprogress; extra == 'docs'
 Requires-Dist: graphviz; extra == 'docs'
-Requires-Dist: impulso>=0.0.12; extra == 'docs'
+Requires-Dist: impulso>=0.1.4; extra == 'docs'
 Requires-Dist: ipython!=8.7.0; extra == 'docs'
 Requires-Dist: ipywidgets; extra == 'docs'
 Requires-Dist: labs-sphinx-theme; extra == 'docs'
@@ -287,6 +288,7 @@ Requires-Dist: coverage>=7.1; extra == 'test'
 Requires-Dist: dowhy; extra == 'test'
 Requires-Dist: fastprogress; extra == 'test'
 Requires-Dist: graphviz>=0.20.1; extra == 'test'
+Requires-Dist: impulso>=0.1.4; extra == 'test'
 Requires-Dist: ipykernel; extra == 'test'
 Requires-Dist: ipywidgets>=8.1.8; extra == 'test'
 Requires-Dist: jax; extra == 'test'
@@ -307,6 +309,8 @@ Requires-Dist: pytest-split; extra == 'test'
 Requires-Dist: pytest>=7.0.1; extra == 'test'
 Requires-Dist: watermark; extra == 'test'
 Requires-Dist: zarr>=3.0.8; extra == 'test'
+Provides-Extra: var
+Requires-Dist: impulso>=0.1.4; extra == 'var'
 Provides-Extra: zarr
 Requires-Dist: xarray>=2025.6.0; extra == 'zarr'
 Requires-Dist: zarr>=3.0.8; extra == 'zarr'
@@ -376,6 +380,7 @@ Some features are available as optional extras:
 ```bash
 pip install pymc-marketing[dag]  # causal identification tooling
 pip install pymc-marketing[pie]  # Predicted Incrementality by Experimentation (PIE), requires pymc-bart
+pip install pymc-marketing[var]  # VAR baseline for long-term brand effects, requires impulso
 ```
 
 For a comprehensive installation guide, refer to the [installation documentation](https://www.pymc-marketing.io/en/stable/getting_started/installation/index.html).
@@ -465,8 +470,8 @@ Media investments do not only drive short-term sales; they also build brand equi
 
 ### Essential Reading for Marketing Mix Modeling (MMM)
 
-- [Bayesian Media Mix Modeling for Marketing Optimization](https://www.pymc-labs.com/blog-posts/bayesian-media-mix-modeling-for-marketing-optimization/)
-- [Improving the Speed and Accuracy of Bayesian Marketing Mix Models](https://www.pymc-labs.com/blog-posts/reducing-customer-acquisition-costs-how-we-helped-optimizing-hellofreshs-marketing-budget/)
+- [Bayesian Media Mix Modeling for Marketing Optimization](https://www.pymc-labs.com/blog-posts/bayesian-media-mix-modeling-for-marketing-optimization)
+- [Improving the Speed and Accuracy of Bayesian Marketing Mix Models](https://www.pymc-labs.com/blog-posts/reducing-customer-acquisition-costs-how-we-helped-optimizing-hellofreshs-marketing-budget)
 - [Johns, Michael and Wang,  Zhenyu. "A Bayesian Approach to Media Mix Modeling"](https://www.youtube.com/watch?v=UznM_-_760Y)
 - [Orduz, Juan. "Media Effect Estimation with PyMC: Adstock, Saturation & Diminishing Returns"](https://juanitorduz.github.io/pymc_mmm/)
 - [A Comprehensive Guide to Bayesian Marketing Mix Modeling](https://1749.io/learn/f/a-comprehensive-guide-to-bayesian-marketing-mix-modeling)

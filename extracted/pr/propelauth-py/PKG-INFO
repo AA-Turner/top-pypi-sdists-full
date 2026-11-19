@@ -1,12 +1,12 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: propelauth-py
-Version: 4.4.0
+Version: 4.5.0
 Summary: A python authentication library
 Project-URL: Homepage, https://github.com/propelauth/propelauth-py
 Author-email: PropelAuth <support@propelauth.com>
 License: MIT
 License-File: LICENSE
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: pyjwt[crypto]<3,>=2
 Requires-Dist: requests

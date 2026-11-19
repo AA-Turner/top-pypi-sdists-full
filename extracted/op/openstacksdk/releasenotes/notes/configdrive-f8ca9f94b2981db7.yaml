@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Supports Bare Metal API version 1.56, which allows building a config drive
-    on the server side from a provided dictionary.

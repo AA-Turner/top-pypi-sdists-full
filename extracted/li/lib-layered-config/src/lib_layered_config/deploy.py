@@ -9,8 +9,6 @@ Contents:
     - ``deploy_config``: public entry point that resolves destinations and deploys each.
     - ``deploy_config_paths`` / ``read_deploy_config``: the files a deploy writes and the
       configuration it reads for its modes, for a caller that must see what the deploy sees.
-    - ``DeploymentStrategy`` and its ``Linux`` / ``Mac`` / ``Windows`` subclasses: one platform's
-      destination paths, asked of that platform's path resolver strategy, whose layout the reads use.
     - Conflict handling (``_handle_conflict`` / ``_execute_action``): backup-and-overwrite
       (``force``), keep-and-write-``.ucf`` (``batch``), or an interactive resolver, with
       identical-content smart-skip.
@@ -27,15 +25,17 @@ System Role:
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import shutil
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, NamedTuple, cast
 
 from ._platform import normalise_resolver_platform
+from .adapters._file_mode import apply_mode, modes_apply
 from .adapters._file_write import write_file
 from .adapters._path_probe import (
     PathKind,
@@ -45,10 +45,6 @@ from .adapters._path_probe import (
     uncreatable_reason,
 )
 from .adapters.file_loaders._dot_d import in_dot_d_order
-from .adapters.path_resolvers._base import PlatformStrategy, deploy_destination
-from .adapters.path_resolvers._linux import LinuxStrategy
-from .adapters.path_resolvers._macos import MacOSStrategy
-from .adapters.path_resolvers._windows import WindowsStrategy
 from .adapters.path_resolvers.default import DefaultPathResolver
 from .core import read_config_for_deploy, refuse_an_unusable_deploy_source
 from .domain.deploy_mode import DeployMode, DeployModeError, ModeKind
@@ -63,8 +59,7 @@ from .domain.deploy_permissions import (
     parse_deploy_permissions,
 )
 from .domain.errors import ConfigError, DeployDestinationError, ValidationError
-from .domain.identifiers import DEFAULT_MAX_PROFILE_LENGTH, DEPLOY_LAYERS, Layer
-from .domain.permissions import apply_mode, modes_apply
+from .domain.identifiers import DEFAULT_MAX_PROFILE_LENGTH, DEPLOY_LAYERS, Layer, deploy_layer
 from .domain.printable import escape_controls
 from .observability import log_warn
 
@@ -75,10 +70,6 @@ __all__ = [
     "ConflictResolver",
     "DeployAction",
     "DeployResult",
-    "DeploymentStrategy",
-    "LinuxDeployment",
-    "MacDeployment",
-    "WindowsDeployment",
     "deploy_config",
     "deploy_config_paths",
     "deployed_before_failure",
@@ -189,20 +180,58 @@ class _ExplicitModes(NamedTuple):
     file: DeployMode | None
 
 
-def _empty_deploy_results() -> list[DeployResult]:
-    """Return an empty list of DeployResult for default_factory."""
-    return []
+def _require_deploy_action(action: object) -> None:
+    """Refuse an *action* that is not a :class:`DeployAction` (a caller passing ``"created"``).
+
+    The parameter is typed ``object`` on purpose: the field is annotated ``DeployAction``, so a check
+    on the field itself reads as always true to the type checker, while at run time a caller can pass
+    anything.
+    """
+    if not isinstance(action, DeployAction):
+        raise ValidationError(f"action must be a DeployAction, got {type(action).__name__}")
 
 
-@dataclass
+@dataclass(frozen=True)
 class DeployResult:
-    """Result of a single file deployment."""
+    """Result of a single file deployment, frozen.
+
+    Attributes:
+        destination: The file written, skipped or left in conflict.
+        action: What was done.
+        backup_path: The ``.bak`` copy of the replaced file; only for ``OVERWRITTEN``.
+        ucf_path: The ``.ucf`` file holding the new content beside the kept one; only for ``KEPT``.
+        dot_d_results: The results of the destination's ``.d`` copies, in the order written,
+            stored as a tuple whatever sequence is passed.
+
+    Raises:
+        ValidationError: *action* is not a :class:`DeployAction`, or a path is set for an action
+            it does not belong to.
+
+    Examples:
+        >>> result = DeployResult(destination=Path("/opt/acme/config.toml"), action=DeployAction.CREATED)
+        >>> result.dot_d_results
+        ()
+        >>> DeployResult(destination=Path("/opt/acme/config.toml"), action=DeployAction.CREATED, ucf_path=Path("x"))
+        Traceback (most recent call last):
+            ...
+        lib_layered_config.domain.errors.ValidationError: ucf_path is set only for a KEPT result, not CREATED
+    """
 
     destination: Path
     action: DeployAction
-    backup_path: Path | None = None  # Set if action is OVERWRITTEN
-    ucf_path: Path | None = None  # Set if action is KEPT
-    dot_d_results: list[DeployResult] = field(default_factory=_empty_deploy_results)
+    backup_path: Path | None = None
+    ucf_path: Path | None = None
+    dot_d_results: Sequence[DeployResult] = ()
+
+    def __post_init__(self) -> None:
+        """Refuse a state no deploy produces and store ``dot_d_results`` as a tuple."""
+        _require_deploy_action(self.action)
+        if self.backup_path is not None and self.action is not DeployAction.OVERWRITTEN:
+            raise ValidationError(f"backup_path is set only for an OVERWRITTEN result, not {self.action.name}")
+        if self.ucf_path is not None and self.action is not DeployAction.KEPT:
+            raise ValidationError(f"ucf_path is set only for a KEPT result, not {self.action.name}")
+        # frozen: the one sanctioned write, normalising the caller's sequence before anyone reads it.
+        object.__setattr__(self, "dot_d_results", tuple(self.dot_d_results))
 
 
 # Type alias for conflict resolution callback
@@ -325,9 +354,7 @@ def _write_ucf(destination: Path, source: Path, *, modes: LayerModes | None) -> 
         Path to the created .ucf file.
     """
     ucf_path = _next_available_path(destination, _Sidecar.UCF)
-    ucf_path.parent.mkdir(parents=True, exist_ok=True)
-    if modes is not None:
-        _harden_directory(ucf_path.parent, modes.directory)
+    _prepare_directory(ucf_path.parent, modes)
     _write_from(ucf_path, source, restrict=modes is not None, acl_from=destination)
     if modes is not None:
         apply_mode(ucf_path, modes.file)
@@ -367,11 +394,7 @@ def _same_content(first: Path, second: Path) -> bool:
 
 def _validate_target(target: Layer | str) -> Layer:
     """Return the layer a caller-spelled *target* names (any case), refusing any other name."""
-    name = _target_text(target)
-    layer = _TARGET_LAYERS.get(name.lower())
-    if layer is None:
-        raise ValidationError(f"Unsupported deployment target: {name}")
-    return layer
+    return deploy_layer(target)
 
 
 def _target_text(target: Layer | str) -> str:
@@ -579,48 +602,6 @@ def _load_configured_permissions(
     raise DeployPermissionsError(problems, hint=_DEPLOY_ANYWAY_HINT)
 
 
-class DeploymentStrategy:
-    """Where a deploy writes each layer in one platform's layout.
-
-    The layout lives in the path resolvers (``adapters/path_resolvers``), the same one the reads
-    use, so a file deployed here is a file ``read_config`` reads; these classes only pick which
-    platform's layout to ask. ``deploy_config`` itself asks the resolver for its own platform
-    (:meth:`DefaultPathResolver.destination_for`).
-    """
-
-    def __init__(self, resolver: DefaultPathResolver) -> None:
-        """Initialise strategy with a path resolver providing identifiers."""
-        self.resolver = resolver
-
-    def _layout(self) -> PlatformStrategy:  # pragma: no cover - abstract
-        raise NotImplementedError
-
-    def destination_for(self, target: Layer) -> Path:
-        """Return the destination path for *target*, one of the deploy layers app, host and user."""
-        return deploy_destination(self._layout(), target, host_file_name=self.resolver.require_host_file_name)
-
-
-class LinuxDeployment(DeploymentStrategy):
-    """Linux deployment using XDG Base Directory paths, whatever the resolver's platform."""
-
-    def _layout(self) -> PlatformStrategy:
-        return LinuxStrategy(self.resolver.context)
-
-
-class MacDeployment(DeploymentStrategy):
-    """macOS deployment using Application Support paths, whatever the resolver's platform."""
-
-    def _layout(self) -> PlatformStrategy:
-        return MacOSStrategy(self.resolver.context)
-
-
-class WindowsDeployment(DeploymentStrategy):
-    """Windows deployment using ProgramData and AppData paths, whatever the resolver's platform."""
-
-    def _layout(self) -> PlatformStrategy:
-        return WindowsStrategy(self.resolver.context)
-
-
 def _deploy_to_destination(
     *,
     destination: Path,
@@ -634,9 +615,10 @@ def _deploy_to_destination(
 ) -> None:
     """Deploy to a single destination with optional .d directory handling.
 
-    The destination's result is appended to *written* as soon as its file is written, and its
-    ``.d`` copies to that result's ``dot_d_results`` one by one, so a failure part-way leaves
-    *written* holding exactly what was written before it (see :func:`deployed_before_failure`).
+    The destination's result is appended to *written* as soon as its file is written; its ``.d``
+    copies then replace that entry with one whose ``dot_d_results`` holds them (the record is
+    frozen), so a failure part-way leaves *written* holding exactly what was written before it
+    (see :func:`deployed_before_failure`).
 
     Args:
         destination: Target file path.
@@ -661,7 +643,14 @@ def _deploy_to_destination(
         modes=modes,
     )
 
-    if dot_d_files:
+    if not dot_d_files:
+        return
+    # The result is frozen, so the .d copies collect in a list and the result in *written* is
+    # replaced by one holding them, on success and on failure alike: deployed_before_failure then
+    # reports exactly the copies made before the error.
+    position = len(written) - 1
+    dot_d_written: list[DeployResult] = []
+    try:
         _deploy_dot_d_files(
             dot_d_files=dot_d_files,
             dest_dot_d=_get_dot_d_dir(destination),
@@ -669,8 +658,10 @@ def _deploy_to_destination(
             batch=batch,
             conflict_resolver=conflict_resolver,
             modes=modes,
-            written=result.dot_d_results,
+            written=dot_d_written,
         )
+    finally:
+        written[position] = dataclasses.replace(result, dot_d_results=tuple(dot_d_written))
 
 
 def deploy_config(
@@ -678,8 +669,8 @@ def deploy_config(
     *,
     vendor: str,
     app: str,
+    slug: str,
     targets: Sequence[Layer | str],
-    slug: str | None = None,
     profile: str | None = None,
     platform: str | None = None,
     force: bool = False,
@@ -707,7 +698,8 @@ def deploy_config(
         targets: Layer targets to deploy to (app, host, user), a sequence such as ``["user"]`` or ``[Layer.USER]``. An
             empty sequence deploys nothing and returns ``[]``, as iterating it does; a single str is
             refused, because it would be read character by character.
-        slug: Slug identifying the configuration set.
+        slug: The configuration folder name every layer path uses (``<root>/<slug>/``), the
+            same value ``read_config`` takes. Required: there is no fallback to *app*.
         profile: Configuration profile name.
         platform: Override the auto-detected platform. Takes the CLI's ``--platform`` names
             (``linux``, ``darwin``/``macos``/``mac``, ``win32``/``windows``/``win``, ...); any other
@@ -821,7 +813,7 @@ def deploy_config(
     resolver = _prepare_resolver(
         vendor=vendor,
         app=app,
-        slug=_slug_or_app(slug, app),
+        slug=slug,
         profile=profile,
         platform=platform,
         max_profile_length=max_profile_length,
@@ -900,27 +892,13 @@ def _record_written(error: BaseException, results: list[DeployResult]) -> None:
         setattr(error, _WRITTEN_BEFORE_FAILURE, list(results))
 
 
-def _slug_or_app(slug: str | None, app: str) -> str:
-    """Return *slug*, or *app* when no slug was given.
-
-    Only ``None`` means "not given". An empty string is a value, which the resolver then refuses as
-    ``read_config`` does; reading it as falsy deployed under the app name, where no read of the same
-    arguments looks.
-
-    Examples:
-        >>> _slug_or_app(None, "Demo"), _slug_or_app("demo", "Demo"), _slug_or_app("", "Demo")
-        ('Demo', 'demo', '')
-    """
-    return app if slug is None else slug
-
-
 def deploy_config_paths(
     source: str | Path,
     *,
     vendor: str,
     app: str,
+    slug: str,
     targets: Sequence[Layer | str],
-    slug: str | None = None,
     profile: str | None = None,
     platform: str | None = None,
     max_profile_length: int = DEFAULT_MAX_PROFILE_LENGTH,
@@ -966,7 +944,9 @@ def deploy_config_paths(
         >>> with TemporaryDirectory() as tmp:
         ...     source = Path(tmp) / "config.toml"
         ...     _ = source.write_text("[service]\nport = 1\n", encoding="utf-8")
-        ...     paths = deploy_config_paths(source, vendor="Acme", app="Demo", targets=["user"], platform="linux")
+        ...     paths = deploy_config_paths(
+        ...         source, vendor="Acme", app="Demo", slug="demo", targets=["user"], platform="linux"
+        ...     )
         ...     [path.name for path in paths]
         ['config.toml']
     """
@@ -974,7 +954,7 @@ def deploy_config_paths(
     resolver = _prepare_resolver(
         vendor=vendor,
         app=app,
-        slug=_slug_or_app(slug, app),
+        slug=slug,
         profile=profile,
         platform=platform,
         max_profile_length=max_profile_length,
@@ -988,8 +968,8 @@ def read_deploy_config(
     *,
     vendor: str,
     app: str,
+    slug: str,
     skip: Iterable[str | Path],
-    slug: str | None = None,
     profile: str | None = None,
     platform: str | None = None,
     max_profile_length: int = DEFAULT_MAX_PROFILE_LENGTH,
@@ -1029,7 +1009,8 @@ def read_deploy_config(
         >>> with TemporaryDirectory() as tmp:
         ...     source = Path(tmp) / "config.toml"
         ...     _ = source.write_text("[service]\nport = 1\n", encoding="utf-8")
-        ...     read_deploy_config(source, vendor="Acme", app="Demo", skip=(), platform="linux").get("service.port")
+        ...     config = read_deploy_config(source, vendor="Acme", app="Demo", slug="demo", skip=(), platform="linux")
+        ...     config.get("service.port")
         1
     """
     if isinstance(skip, (str, Path)):
@@ -1038,7 +1019,7 @@ def read_deploy_config(
     resolver = _prepare_resolver(
         vendor=vendor,
         app=app,
-        slug=_slug_or_app(slug, app),
+        slug=slug,
         profile=profile,
         platform=platform,
         max_profile_length=max_profile_length,
@@ -1342,13 +1323,55 @@ def _str_targets_remedy(targets: str) -> str:
 
 
 def _copy_file(destination: Path, source: Path, *, modes: LayerModes | None) -> None:
-    """Copy *source* to destination; with *modes*, harden the directory and then the file."""
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    if modes is not None:
-        _harden_directory(destination.parent, modes.directory)
+    """Copy *source* to destination; with *modes*, harden the directories and then the file."""
+    _prepare_directory(destination.parent, modes)
     _write_from(destination, source, restrict=modes is not None)
     if modes is not None:
         apply_mode(destination, modes.file)
+
+
+def _prepare_directory(directory: Path, modes: LayerModes | None) -> None:
+    """Create *directory* and its missing parents; with *modes*, set the layer's mode on them.
+
+    Every directory this call creates gets the mode, and so does *directory* itself, which may
+    have existed before. A parent that already existed keeps its mode: it can be a directory the
+    user set up (a group-readable layer root) or one reached through a link (user decision
+    2026-11-18, "Created dirs only"). Left to ``mkdir(parents=True)``, the parents a deploy
+    creates would keep the umask's mode, so a first profile deploy under umask 0002 left the
+    user layer's ``profile/`` group-writable.
+    """
+    created = _make_directories(directory)
+    if modes is None:
+        return
+    for path in created:
+        if path != directory:
+            _harden_directory(path, modes.directory)
+    _harden_directory(directory, modes.directory)
+
+
+def _make_directories(directory: Path) -> list[Path]:
+    """Create *directory* and every missing parent, returning the ones this call created, top first.
+
+    One ``mkdir`` per level, so a directory another process creates at the same moment
+    (``FileExistsError``) is not counted as this deploy's. Any other failure stops the walk, and the
+    final ``mkdir(parents=True, exist_ok=True)`` raises the error it raised before this helper.
+    """
+    missing: list[Path] = []
+    current = directory
+    while kind_or_raise(current) is PathKind.MISSING and current.parent != current:
+        missing.append(current)
+        current = current.parent
+    created: list[Path] = []
+    for path in reversed(missing):
+        try:
+            path.mkdir()
+        except FileExistsError:
+            continue
+        except OSError:
+            break
+        created.append(path)
+    directory.mkdir(parents=True, exist_ok=True)
+    return created
 
 
 def _harden_directory(directory: Path, mode: DeployMode) -> None:

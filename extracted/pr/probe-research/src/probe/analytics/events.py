@@ -147,6 +147,7 @@ def emit_outbox_drained(
     dead_lettered_by_status: dict[str, int] | None = None,
     dead_lettered_no_such_run: int = 0,
     dead_lettered_invalid_request: int = 0,
+    dead_lettered_in_trash: int = 0,
 ) -> None:
     """Report one finished drain episode. Never raises: the worker owns data.
     ``dead_lettered_by_status``: the server's answer per dead letter, keyed like
@@ -155,7 +156,9 @@ def emit_outbox_drained(
     "run not found" (`errors.names_no_such_run`), so the loss alert can tell a
     write naming no run from a 404 that lost it for reasons of ours.
     ``dead_lettered_invalid_request``: how many the server refused for the values they carried
-    (`errors.names_invalid_request`), a caller's mistake the alert does not page on."""
+    (`errors.names_invalid_request`), a caller's mistake the alert does not page on.
+    ``dead_lettered_in_trash``: how many the server answered with its trash notice
+    (`errors.is_trash_refusal`): the caller trashed the write's target first, not a loss of ours."""
     try:
         outbox_context(base_url, surface=surface).emit(
             EVENT_OUTBOX_DRAINED,
@@ -165,6 +168,7 @@ def emit_outbox_drained(
             dead_lettered_by_status=dict(dead_lettered_by_status or {}) or None,
             dead_lettered_no_such_run=int(dead_lettered_no_such_run) or None,
             dead_lettered_invalid_request=int(dead_lettered_invalid_request) or None,
+            dead_lettered_in_trash=int(dead_lettered_in_trash) or None,
             remaining=remaining,
             passes=passes,
             duration_s=round(duration_s, 2),

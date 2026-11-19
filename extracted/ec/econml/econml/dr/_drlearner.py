@@ -246,6 +246,9 @@ class _ModelFinal:
     def fit(self, Y, T, X=None, W=None, *, nuisances,
             sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         Y_pred, T_pred, T_pred_raw = nuisances
+        if sample_var is not None and np.shape(sample_var) not in [(len(Y),), (len(Y), 1)]:
+            raise ValueError(f"sample_var must have shape ({len(Y)},) or ({len(Y)}, 1), "
+                             f"instead got {np.shape(sample_var)}.")
 
         # Apply sample trimming based on Crump et al. (2009) if enabled
         # Use raw (unclipped) propensities for trimming decisions
@@ -271,7 +274,11 @@ class _ModelFinal:
         self.sensitivity_params = dr_sensitivity_values(Y, T, Y_pred, T_pred)
 
         T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
-        propensities = np.sum(T_pred * T_complete, axis=1).reshape((T.shape[0],))
+        weighted_sample_var = None
+        if sample_var is not None:
+            # Each contrast depends on the observed outcome only for its treatment or control arm.
+            outcome_derivative = T / T_pred[:, 1:] - T_complete[:, [0]] / T_pred[:, [0]]
+            weighted_sample_var = sample_var.reshape(-1, 1) * outcome_derivative**2
 
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
@@ -283,18 +290,18 @@ class _ModelFinal:
             ys = Y_pred[..., 1:] - Y_pred[..., [0]]  # subtract control results from each other arm
             if self.d_y:  # need to squeeze out singleton so that we fit on 2D array
                 ys = ys.squeeze(1)
-            weighted_sample_var = np.tile((sample_var / propensities**2).reshape((-1, 1)),
-                                          self.d_t) if sample_var is not None else None
             filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
                                                  freq_weight=freq_weight, sample_var=weighted_sample_var)
             self.model_cate = self._model_final.fit(X, ys, **filtered_kwargs)
         else:
-            weighted_sample_var = sample_var / propensities**2 if sample_var is not None else None
-            filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
-                                                 freq_weight=freq_weight, sample_var=weighted_sample_var)
-            self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[..., t] - Y_pred[..., 0],
-                                                                         **filtered_kwargs)
-                                for t in np.arange(1, Y_pred.shape[-1])]
+            self.models_cate = []
+            for t in range(self.d_t):
+                target_var = (weighted_sample_var[:, t].reshape((len(Y),) + self.d_y)
+                              if weighted_sample_var is not None else None)
+                filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
+                                                     freq_weight=freq_weight, sample_var=target_var)
+                self.models_cate.append(clone(self._model_final, safe=False).fit(
+                    X, Y_pred[..., t + 1] - Y_pred[..., 0], **filtered_kwargs))
         return self
 
     def predict(self, X=None):
@@ -520,18 +527,18 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.const_marginal_effect(X[:2])
-    array([[0.516888..., 0.995747...],
-           [0.356386..., 0.671889...]])
+    array([[0.516888, 0.995747],
+           [0.356386, 0.671889]])
     >>> est.effect(X[:2], T0=0, T1=1)
-    array([0.516888..., 0.356386...])
+    array([0.516888, 0.356386])
     >>> est.score_
-    np.float64(2.845660...)
+    np.float64(2.845660)
     >>> est.score(y, T, X=X)
-    np.float64(1.062668...)
+    np.float64(1.062668)
     >>> est.model_cate(T=1).coef_
-    array([ 0.447146..., -0.001025...,  0.018984...])
+    array([ 0.447146, -0.001025,  0.018984])
     >>> est.model_cate(T=2).coef_
-    array([ 0.925064..., -0.012351...,  0.033480...])
+    array([ 0.925064, -0.012351,  0.033480])
     >>> est.cate_feature_names()
     ['X0', 'X1', 'X2']
 
@@ -555,19 +562,19 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.score_
-    np.float64(1.73...)
+    np.float64(1.73)
     >>> est.const_marginal_effect(X[:3])
-    array([[0.68..., 1.10...],
-           [0.56..., 0.79... ],
-           [0.34..., 0.10... ]])
+    array([[0.68151771, 1.10936267],
+           [0.56679957, 0.7941794 ],
+           [0.34171272, 0.1045798 ]])
     >>> est.model_cate(T=2).coef_
-    array([0.74..., 0.        , 0.        ])
+    array([0.74925162, 0.        , 0.        ])
     >>> est.model_cate(T=2).intercept_
-    np.float64(1.9...)
+    np.float64(1.9227731541272008)
     >>> est.model_cate(T=1).coef_
-    array([0.24..., 0.00..., 0.        ])
+    array([0.24572861, 0.00720134, 0.        ])
     >>> est.model_cate(T=1).intercept_
-    np.float64(0.94...)
+    np.float64(0.94)
 
     Attributes
     ----------
@@ -700,10 +707,10 @@ class DRLearner(_OrthoLearner):
 
         Parameters
         ----------
-        Y: (n,) vector of length n
+        Y: (n,) or (n, 1) array_like
             Outcomes for each sample
-        T: (n,) vector of length n
-            Treatments for each sample
+        T: (n,) or (n, 1) array_like
+            Categorical treatment value for each sample.
         X:(n, d_x) matrix, optional
             Features for each sample
         W:(n, d_w) matrix, optional
@@ -714,9 +721,11 @@ class DRLearner(_OrthoLearner):
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : (n,) nd array_like, optional
+        sample_var : (n,) or (n, 1) array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
-            compute the mean outcome represented by observation i.
+            compute the mean outcome represented by observation i. Either shape is accepted for
+            vector or singleton-column outcomes. Variances are propagated separately to each
+            treatment-versus-control contrast.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -767,8 +776,8 @@ class DRLearner(_OrthoLearner):
         ----------
         Y: (n,) vector of length n
             Outcomes for each sample
-        T: (n,) vector of length n
-            Treatments for each sample
+        T: (n,) or (n, 1) array_like
+            Categorical treatment value for each sample.
         X:(n, d_x) matrix, optional
             Features for each sample
         W:(n, d_w) matrix, optional
@@ -967,6 +976,9 @@ class DRLearner(_OrthoLearner):
 
         Parameters
         ----------
+        T: alphanumeric
+            The treatment with respect to calculate the sensitivity summary.
+
         null_hypothesis: float, default 0
             The null_hypothesis value for the ATE.
 
@@ -976,8 +988,13 @@ class DRLearner(_OrthoLearner):
         c_y: float, default 0.05
             The level of confounding in the outcome. Ranges from 0 to 1.
 
-        c_d: float, default 0.05
+        c_t: float, default 0.05
             The level of confounding in the treatment. Ranges from 0 to 1.
+
+        rho: float, default 1.
+            The worst case correlation between the estimation errors in Y and T.
+            Should be in the range [-1, 1], with -1 and 1 being the most
+            conservative choices.
 
         decimals: int, default 3
             Number of decimal places to round each column to.
@@ -1014,8 +1031,13 @@ class DRLearner(_OrthoLearner):
         c_y: float, default 0.05
             The level of confounding in the outcome. Ranges from 0 to 1.
 
-        c_d: float, default 0.05
+        c_t: float, default 0.05
             The level of confounding in the treatment. Ranges from 0 to 1.
+
+        rho: float, default 1.
+            The worst case correlation between the estimation errors in Y and T.
+            Should be in the range [-1, 1], with -1 and 1 being the most
+            conservative choices.
 
         interval_type: str, default 'ci'
             The type of interval to return. Can be 'ci' or 'theta'
@@ -1245,19 +1267,19 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([ 0.432365...,  0.359694..., -0.085428...])
+    array([ 0.432365,  0.359694, -0.085428])
     >>> est.effect_interval(X[:3])
-    (array([ 0.084048..., -0.177951... , -0.734747...]),
-    array([0.780683..., 0.897341..., 0.563889...]))
+    (array([ 0.084048, -0.177951 , -0.734747]),
+    array([0.780683, 0.897341, 0.563889]))
     >>> est.coef_(T=1)
-    array([ 0.450666..., -0.008821...,  0.075271...])
+    array([ 0.450666, -0.008821,  0.075271])
     >>> est.coef__interval(T=1)
-    (array([ 0.156245..., -0.252216..., -0.159709...]),
-    array([0.745086..., 0.234572..., 0.310252...]))
+    (array([ 0.156245, -0.252216, -0.159709]),
+    array([0.745086, 0.234572, 0.310252]))
     >>> est.intercept_(T=1)
-    np.float64(0.909121...)
+    np.float64(0.909121)
     >>> est.intercept__interval(T=1)
-    (np.float64(0.668518...), np.float64(1.149723...))
+    (np.float64(0.668518), np.float64(1.149723))
 
     Attributes
     ----------
@@ -1328,10 +1350,10 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
         Parameters
         ----------
-        Y: (n,) vector of length n
+        Y: (n,) or (n, 1) array_like
             Outcomes for each sample
-        T: (n,) vector of length n
-            Treatments for each sample
+        T: (n,) or (n, 1) array_like
+            Categorical treatment value for each sample.
         X:(n, d_x) matrix, optional
             Features for each sample
         W:(n, d_w) matrix, optional
@@ -1342,9 +1364,11 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : (n,) nd array_like, optional
+        sample_var : (n,) or (n, 1) array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
-            compute the mean outcome represented by observation i.
+            compute the mean outcome represented by observation i. Either shape is accepted for
+            vector or singleton-column outcomes. Variances are propagated separately to each
+            treatment-versus-control contrast.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -1582,17 +1606,17 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([ 0.43...,  0.35..., -0.08...])
+    array([ 0.43296409,  0.35952902, -0.08460643])
     >>> est.effect_interval(X[:3])
-    (array([-0.01..., -0.26..., -0.81...]), array([0.87..., 0.98..., 0.65...]))
+    (array([-0.01363264, -0.26369244, -0.81995536]), array([0.87956083, 0.98275048, 0.65074251]))
     >>> est.coef_(T=1)
-    array([ 0.44..., -0.00...,  0.07...])
+    array([ 0.44991911, -0.00881137,  0.07449517])
     >>> est.coef__interval(T=1)
-    (array([ 0.19... , -0.24..., -0.17...]), array([0.70..., 0.22..., 0.32...]))
+    (array([ 0.1972161 , -0.24730627, -0.17104381]), array([0.70262212, 0.22968353, 0.32003415]))
     >>> est.intercept_(T=1)
-    np.float64(0.90...)
+    np.float64(0.9091174878444385)
     >>> est.intercept__interval(T=1)
-    (np.float64(0.66...), np.float64(1.14...))
+    (np.float64(0.6687723462464192), np.float64(1.1494626294424575))
 
     Attributes
     ----------
@@ -1683,8 +1707,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         ----------
         Y: (n,) vector of length n
             Outcomes for each sample
-        T: (n,) vector of length n
-            Treatments for each sample
+        T: (n,) or (n, 1) array_like
+            Categorical treatment value for each sample.
         X:(n, d_x) matrix, optional
             Features for each sample
         W:(n, d_w) matrix, optional
@@ -2040,8 +2064,8 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         ----------
         Y: (n × d_y) matrix or vector of length n
             Outcomes for each sample
-        T: (n × dₜ) matrix or vector of length n
-            Treatments for each sample
+        T: (n,) or (n, 1) array_like
+            Categorical treatment value for each sample.
         X:  (n × dₓ) matrix, optional
             Features for each sample
         W:  (n × d_w) matrix, optional

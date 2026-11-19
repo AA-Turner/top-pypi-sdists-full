@@ -52,6 +52,7 @@ use crate::report::cinderx::convert::qname_to_full_string;
 use crate::report::cinderx::types::LocatedType;
 use crate::report::cinderx::types::TypeTableEntry;
 use crate::state::state::Transaction;
+use crate::types::env::TypeEnv;
 
 /// A module entry in the cinderx index.
 #[derive(Debug, Serialize)]
@@ -137,12 +138,13 @@ pub struct CinderxSolutions {
 
 impl CinderxSolutions {
     fn build_class_info(
+        env: &dyn TypeEnv,
         class: &Class,
         metadata_is_protocol: bool,
         ancestor_classes: &[Class],
     ) -> CinderxClassInfo {
         CinderxClassInfo {
-            qname: canonicalize_class_qname(&qname_to_full_string(class.qname())),
+            qname: canonicalize_class_qname(&qname_to_full_string(class.qname(env))),
             ancestors: ancestor_classes
                 .iter()
                 .map(CinderxClassRef::from_class)
@@ -168,18 +170,18 @@ impl CinderxSolutions {
                 let ancestors: Vec<Class> = mro
                     .ancestors_no_object()
                     .iter()
-                    .map(|ancestor| ancestor.class_object().clone())
+                    .map(|ancestor| *ancestor.class_object())
                     .collect();
                 (
                     class_ref,
-                    Self::build_class_info(&class, metadata.is_protocol(), &ancestors),
+                    Self::build_class_info(answers, &class, metadata.is_protocol(), &ancestors),
                 )
             })
             .collect();
         Arc::new(Self { classes })
     }
 
-    pub fn build_from_answers(answers: &Answers) -> Arc<Self> {
+    pub fn build_from_answers(answers: &Answers, env: &dyn TypeEnv) -> Arc<Self> {
         let bindings = answers.bindings();
         let classes = bindings
             .keys::<KeyClass>()
@@ -200,11 +202,11 @@ impl CinderxSolutions {
                 let ancestors: Vec<Class> = mro
                     .ancestors_no_object()
                     .iter()
-                    .map(|ancestor| ancestor.class_object().clone())
+                    .map(|ancestor| *ancestor.class_object())
                     .collect();
                 (
                     class_ref,
-                    Self::build_class_info(&class, metadata.is_protocol(), &ancestors),
+                    Self::build_class_info(env, &class, metadata.is_protocol(), &ancestors),
                 )
             })
             .collect();

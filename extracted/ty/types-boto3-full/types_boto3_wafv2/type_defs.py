@@ -25,6 +25,7 @@ from botocore.response import StreamingBody
 
 from .literals import (
     ActionValueType,
+    AnalyticsModeType,
     AssociatedResourceTypeType,
     BlockchainChainType,
     BodyParsingFallbackBehaviorType,
@@ -93,6 +94,7 @@ __all__ = (
     "AllowActionOutputTypeDef",
     "AllowActionTypeDef",
     "AllowActionUnionTypeDef",
+    "AnalyticsConfigTypeDef",
     "AndStatementOutputTypeDef",
     "AndStatementTypeDef",
     "AndStatementUnionTypeDef",
@@ -478,6 +480,10 @@ class ActionConditionTypeDef(TypedDict):
 
 class AddressFieldTypeDef(TypedDict):
     Identifier: str
+
+
+class AnalyticsConfigTypeDef(TypedDict):
+    Mode: AnalyticsModeType
 
 
 class AndStatementOutputTypeDef(TypedDict):
@@ -2562,6 +2568,7 @@ class WebACLTypeDef(TypedDict):
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]
     ApplicationConfig: NotRequired[ApplicationConfigOutputTypeDef]
     MonetizationConfig: NotRequired[MonetizationConfigOutputTypeDef]
+    AnalyticsConfig: NotRequired[AnalyticsConfigTypeDef]
 
 
 RuleActionOverrideUnionTypeDef = Union[RuleActionOverrideTypeDef, RuleActionOverrideOutputTypeDef]
@@ -2680,6 +2687,7 @@ class CreateWebACLRequestTypeDef(TypedDict):
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]
     ApplicationConfig: NotRequired[ApplicationConfigUnionTypeDef]
     MonetizationConfig: NotRequired[MonetizationConfigUnionTypeDef]
+    AnalyticsConfig: NotRequired[AnalyticsConfigTypeDef]
 
 
 class UpdateRuleGroupRequestTypeDef(TypedDict):
@@ -2712,3 +2720,4 @@ class UpdateWebACLRequestTypeDef(TypedDict):
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]
     ApplicationConfig: NotRequired[ApplicationConfigUnionTypeDef]
     MonetizationConfig: NotRequired[MonetizationConfigUnionTypeDef]
+    AnalyticsConfig: NotRequired[AnalyticsConfigTypeDef]

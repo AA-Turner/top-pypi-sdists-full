@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: taskcluster-taskgraph
-Version: 24.9.0
+Version: 25.0.0
 Summary: Build taskcluster taskgraphs
 Project-URL: Repository, https://github.com/taskcluster/taskgraph
 Project-URL: Issues, https://github.com/taskcluster/taskgraph/issues
@@ -9,14 +9,13 @@ License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: appdirs>=1.4
 Requires-Dist: cookiecutter~=2.1
 Requires-Dist: json-e>=2.7
@@ -105,7 +104,7 @@ CI`_.
 Installation
 ------------
 
-Taskgraph supports Python 3.8 and up, and can be installed from Pypi:
+Taskgraph supports Python 3.10 and up, and can be installed from Pypi:
 
 .. code-block::
 

@@ -10,12 +10,11 @@ use std::sync::Arc;
 use pyrefly_graph::index::Idx;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::keywords::is_valid_identifier;
-use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::dimension::gradual_size;
-use pyrefly_types::meta_shape_dsl::ShapeDslFunction;
-use pyrefly_types::meta_shape_dsl::convert_shape_dsl_function;
+use pyrefly_types::function::FuncDefIndex;
 use pyrefly_types::quantified::AnchorIndex;
 use pyrefly_types::quantified::Quantified;
+use pyrefly_types::quantified::QuantifiedAnchor;
 use pyrefly_types::quantified::QuantifiedIdentity;
 use pyrefly_types::quantified::QuantifiedKind;
 use pyrefly_types::quantified::QuantifiedOrigin;
@@ -29,7 +28,6 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprTuple;
 use ruff_python_ast::Identifier;
-use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -39,10 +37,12 @@ use starlark_map::small_map::SmallMap;
 
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::LambdaKind;
-use crate::binding::binding::ShapedArrayMetadata;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamCollector;
 use crate::binding::expr::Usage;
+use crate::binding::shape_comments::ShapeCommentAnnotation;
+use crate::binding::shape_comments::ShapeCommentTarget;
+use crate::binding::shape_comments::TypeComponentStep;
 use crate::config::error_kind::ErrorKind;
 use crate::export::special::SpecialExport;
 
@@ -141,12 +141,28 @@ impl ShapeDeclaration {
     }
 }
 
-/// Shape declarations and class boundaries, used to resolve shape strings and
-/// record the `Shaped` annotations whose strings were parsed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShapeCommentMode {
+    Append,
+    Replace,
+}
+
+/// A bound comment transformation, keyed by the written type it applies to.
+#[derive(Clone, Debug)]
+pub struct BoundShapeComment {
+    pub payload: Expr,
+    pub range: TextRange,
+    pub mode: ShapeCommentMode,
+}
+
+/// Shape declarations and class boundaries, used to resolve shape expressions.
 #[derive(Clone, Debug, Default)]
 pub struct ShapeDeclarations {
     scopes: Vec<(TextRange, Arc<ShapeDeclaration>)>,
     classes: Vec<(TextRange, Idx<KeyClass>)>,
+    pub(crate) comment_targets: SmallMap<TextRange, BoundShapeComment>,
+    /// A diagnostic range for each commented base, avoiding scans of unrelated annotations.
+    pub(crate) commented_bases: SmallMap<TextRange, TextRange>,
     /// Binding replaces shape strings with parsed syntax, so keep their original
     /// metadata for aliases that must represent the runtime `Annotated` value.
     shaped_annotations: SmallMap<TextRange, Box<str>>,
@@ -232,12 +248,175 @@ impl ShapeDeclarations {
 }
 
 pub(super) struct ShapeFunctionMetadata {
-    pub shape_dsl_def: Option<Arc<ShapeDslFunction>>,
     pub type_shape_dsl_def: Option<Arc<ParsedTypeShapeDslFunction>>,
-    pub uses_shape_dsl_ir_name: Option<ShortIdentifier>,
 }
 
 impl BindingsBuilder<'_> {
+    /// Bind each comment in an annotation after its forward references have been parsed.
+    pub(super) fn bind_shape_comment(
+        &mut self,
+        annotation: &Expr,
+        written_range: TextRange,
+        mut tparams_builder: Option<&mut LegacyTParamCollector>,
+        usage: &mut Usage,
+    ) {
+        let Some(comments) = self.shape_comments.annotations.shift_remove(&written_range) else {
+            return;
+        };
+        let targets: Vec<_> = comments
+            .into_iter()
+            .filter_map(|comment| {
+                self.shape_comment_target(annotation, &comment)
+                    .map(|(range, mode)| (range, mode, comment))
+            })
+            .collect();
+        let mut overlapping = vec![false; targets.len()];
+        for (index, (range, _, comment)) in targets.iter().enumerate() {
+            for (previous, (other, _, _)) in targets[..index].iter().enumerate() {
+                if range.contains_range(*other) || other.contains_range(*range) {
+                    overlapping[index] = true;
+                    overlapping[previous] = true;
+                    self.error(
+                        comment.range,
+                        ErrorKind::InvalidAnnotation,
+                        "Shape comments in one annotation must target disjoint type components"
+                            .to_owned(),
+                    );
+                }
+            }
+        }
+        for ((range, mode, mut comment), overlaps) in targets.into_iter().zip(overlapping) {
+            if overlaps {
+                continue;
+            }
+            // Payload nodes keep their comment positions, but names resolve through
+            // the enclosing annotation, including comments beyond a one-line stub body.
+            let outer = self.shape_string_annotation.replace(annotation.range());
+            self.ensure_type_impl(
+                &mut comment.payload,
+                tparams_builder.as_deref_mut(),
+                true,
+                false,
+                &mut usage.as_postponed(),
+                false,
+            );
+            self.shape_string_annotation = outer;
+            self.shape_declarations.comment_targets.insert(
+                range,
+                BoundShapeComment {
+                    payload: comment.payload,
+                    range: comment.range,
+                    mode,
+                },
+            );
+        }
+    }
+
+    /// Resolve the component path and then any explicit selector relative to that component.
+    fn shape_comment_target(
+        &self,
+        annotation: &Expr,
+        comment: &ShapeCommentAnnotation,
+    ) -> Option<(TextRange, ShapeCommentMode)> {
+        let mut target = annotation;
+        let (mode, explicit) = match &comment.target {
+            ShapeCommentTarget::Append => (ShapeCommentMode::Append, &[][..]),
+            ShapeCommentTarget::Replace(path) => (ShapeCommentMode::Replace, path.as_ref()),
+        };
+        for step in comment
+            .component
+            .iter()
+            .copied()
+            .chain(explicit.iter().copied().map(TypeComponentStep::Argument))
+        {
+            match step {
+                TypeComponentStep::Argument(index) => {
+                    let Expr::Subscript(subscript) = target else {
+                        self.error(
+                            comment.range,
+                            ErrorKind::InvalidAnnotation,
+                            "A shape comment `.args` selector requires a written subscript"
+                                .to_owned(),
+                        );
+                        return None;
+                    };
+                    let special = self.as_special_export(&subscript.value);
+                    if special == Some(SpecialExport::Literal)
+                        || (index != 0 && special == Some(SpecialExport::Annotated))
+                    {
+                        self.error(
+                            comment.range,
+                            ErrorKind::InvalidAnnotation,
+                            "A shape comment cannot select literal values or annotation metadata"
+                                .to_owned(),
+                        );
+                        return None;
+                    }
+                    if special == Some(SpecialExport::Shaped) {
+                        self.error(
+                            comment.range,
+                            ErrorKind::InvalidAnnotation,
+                            "A shape comment cannot select inside an existing `Shaped` annotation"
+                                .to_owned(),
+                        );
+                        return None;
+                    }
+                    let Some(argument) = Ast::unpack_slice(&subscript.slice).get(index) else {
+                        self.error(
+                            comment.range,
+                            ErrorKind::InvalidAnnotation,
+                            format!("Shape comment type argument index {index} is out of range"),
+                        );
+                        return None;
+                    };
+                    target = argument;
+                }
+                TypeComponentStep::UnionLeft | TypeComponentStep::UnionRight => {
+                    let Expr::BinOp(binary) = target else {
+                        self.error(
+                            comment.range,
+                            ErrorKind::InvalidAnnotation,
+                            "A shape comment union component requires a written union".to_owned(),
+                        );
+                        return None;
+                    };
+                    target = match step {
+                        TypeComponentStep::UnionLeft => &binary.left,
+                        TypeComponentStep::UnionRight => &binary.right,
+                        TypeComponentStep::Argument(_) => unreachable!("matched a union step"),
+                    };
+                }
+            }
+        }
+        if matches!(target, Expr::Starred(_)) {
+            self.error(
+                comment.range,
+                ErrorKind::InvalidAnnotation,
+                "A shape comment cannot target a starred type component".to_owned(),
+            );
+            return None;
+        }
+        if matches!(target, Expr::List(_) | Expr::EllipsisLiteral(_)) {
+            self.error(
+                comment.range,
+                ErrorKind::InvalidAnnotation,
+                "A shape comment cannot select a list-valued or ellipsis type argument".to_owned(),
+            );
+            return None;
+        }
+        if let Expr::Subscript(subscript) = target
+            && self.as_special_export(&subscript.value) == Some(SpecialExport::Shaped)
+        {
+            self.error(
+                comment.range,
+                ErrorKind::InvalidAnnotation,
+                "A shape comment cannot target an existing `Shaped` annotation".to_owned(),
+            );
+            return None;
+        }
+        Some((target.range(), mode))
+    }
+
     /// Binds the arguments of the experimental `shape_extensions.MapIntTuples` operation.
     ///
     /// The first argument's lambda parameter denotes a type rather than a runtime value. Record
@@ -338,7 +517,7 @@ impl BindingsBuilder<'_> {
             tparams_builder,
             true,
             false,
-            usage,
+            &mut usage.as_postponed(),
             false,
         );
         self.shape_string_annotation = outer;
@@ -404,90 +583,21 @@ impl BindingsBuilder<'_> {
         function: &StmtFunctionDef,
         is_top_level: bool,
         enclosing_class: Option<Idx<KeyClass>>,
+        def_index: FuncDefIndex,
     ) -> ShapeFunctionMetadata {
-        let is_shape_dsl = function.decorator_list.iter().any(|decorator| {
-            self.as_special_export(&decorator.expression) == Some(SpecialExport::ShapeDslFunction)
-        });
         let is_type_shape_dsl = function.decorator_list.iter().any(|decorator| {
             self.as_special_export(&decorator.expression)
                 == Some(SpecialExport::TypeShapeDslFunction)
         });
-        if is_shape_dsl && is_type_shape_dsl {
-            self.error(
-                function.name.range(),
-                ErrorKind::InvalidArgument,
-                "`@shape_dsl_function` and `@type_shape_dsl_function` cannot be combined"
-                    .to_owned(),
-            );
-        }
 
-        let type_shape_dsl_def = if is_type_shape_dsl && !is_shape_dsl {
+        let type_shape_dsl_def = if is_type_shape_dsl {
             match ParsedTypeShapeDslFunction::try_new(function.clone(), is_top_level) {
                 Ok(definition) => Some(Arc::new(definition)),
                 Err(error) => {
                     self.error(
                         error.range,
                         ErrorKind::InvalidArgument,
-                        format!("@type_shape_dsl_function {}", error.message),
-                    );
-                    None
-                }
-            }
-        } else {
-            None
-        };
-
-        let uses_shape_dsl_ir_name = function.decorator_list.iter().find_map(|decorator| {
-            let call = decorator.expression.as_call_expr()?;
-            if self.as_special_export(&call.func) != Some(SpecialExport::UsesShapeDsl) {
-                return None;
-            }
-            let name = call.arguments.args.first()?.as_name_expr()?;
-            Some(ShortIdentifier::expr_name(name))
-        });
-
-        let shape_dsl_def = if is_shape_dsl && !is_type_shape_dsl {
-            if let Some(vararg) = &function.parameters.vararg {
-                self.error(
-                    vararg.range(),
-                    ErrorKind::InvalidArgument,
-                    "@shape_dsl_function: *args parameters are not supported in the shape DSL and will be ignored".to_owned(),
-                );
-            }
-            if let Some(kwarg) = &function.parameters.kwarg {
-                self.error(
-                    kwarg.range(),
-                    ErrorKind::InvalidArgument,
-                    "@shape_dsl_function: **kwargs parameters are not supported in the shape DSL and will be ignored".to_owned(),
-                );
-            }
-            if let Some(keyword_only) = function.parameters.kwonlyargs.first() {
-                self.error(
-                    keyword_only.range(),
-                    ErrorKind::InvalidArgument,
-                    "@shape_dsl_function: keyword-only parameters are not supported in the shape DSL and will be ignored".to_owned(),
-                );
-            }
-            if let Some(positional_only) = function.parameters.posonlyargs.first() {
-                self.error(
-                    positional_only.range(),
-                    ErrorKind::InvalidArgument,
-                    "@shape_dsl_function: positional-only parameters are not supported in the shape DSL and will be ignored".to_owned(),
-                );
-            }
-
-            match convert_shape_dsl_function(function) {
-                Ok(dsl_function) => {
-                    let dsl_function = Arc::new(dsl_function);
-                    self.metadata
-                        .push_shape_dsl(function.name.id.clone(), Arc::clone(&dsl_function));
-                    Some(dsl_function)
-                }
-                Err(error) => {
-                    self.error(
-                        error.range,
-                        ErrorKind::InvalidArgument,
-                        format!("@shape_dsl_function: {}", error.message),
+                        format!("@shape_transform {}", error.message),
                     );
                     None
                 }
@@ -501,13 +611,10 @@ impl BindingsBuilder<'_> {
             &function.name,
             function.range().end(),
             ShapeDeclarationOwner::Function(enclosing_class),
+            QuantifiedAnchor::Function(def_index),
         );
 
-        ShapeFunctionMetadata {
-            shape_dsl_def,
-            type_shape_dsl_def,
-            uses_shape_dsl_ir_name,
-        }
+        ShapeFunctionMetadata { type_shape_dsl_def }
     }
 
     /// Record a shape declaration against the range its names are in scope for,
@@ -522,8 +629,43 @@ impl BindingsBuilder<'_> {
         name: &Identifier,
         end: TextSize,
         owner: ShapeDeclarationOwner,
+        anchor: QuantifiedAnchor,
     ) {
-        let Some((kind, dims)) = self.extract_shape_declaration(decorators, owner) else {
+        let decorated = self.extract_shape_declaration(decorators, owner, anchor);
+        let commented = self.shape_comments.declarations.shift_remove(&name.range());
+        let declaration = match commented {
+            Some(comment) => {
+                if decorated.is_some()
+                    || decorators.iter().any(|decorator| {
+                        let expression = decorator
+                            .expression
+                            .as_call_expr()
+                            .map_or(&decorator.expression, |call| call.func.as_ref());
+                        self.shape_declaration_kind(expression).is_some()
+                    })
+                {
+                    self.error(name.range(), ErrorKind::InvalidArgument,
+                        "A definition cannot combine `# shapes:` with a shape declaration decorator".to_owned());
+                    decorated
+                } else {
+                    let kind = ShapeDeclarationKind::ShapeVars;
+                    let required = matches!(owner, ShapeDeclarationOwner::Function(_));
+                    Some((
+                        kind,
+                        self.parse_shape_declaration_names(
+                            &comment.text,
+                            comment.range,
+                            kind,
+                            owner,
+                            anchor,
+                            required,
+                        ),
+                    ))
+                }
+            }
+            None => decorated,
+        };
+        let Some((kind, dims)) = declaration else {
             return;
         };
         let mut unshadowed = Vec::new();
@@ -571,6 +713,7 @@ impl BindingsBuilder<'_> {
         &mut self,
         decorators: &[Decorator],
         owner: ShapeDeclarationOwner,
+        anchor: QuantifiedAnchor,
     ) -> Option<(ShapeDeclarationKind, Box<[Quantified]>)> {
         let mut declaration = None;
         let mut seen: Option<ShapeDeclarationKind> = None;
@@ -601,7 +744,7 @@ impl BindingsBuilder<'_> {
             }
             seen = Some(kind);
             declaration = self
-                .parse_shape_declaration(call, kind, owner)
+                .parse_shape_declaration(call, kind, owner, anchor)
                 .map(|dims| (kind, dims));
         }
         declaration
@@ -645,6 +788,7 @@ impl BindingsBuilder<'_> {
         call: &ExprCall,
         kind: ShapeDeclarationKind,
         owner: ShapeDeclarationOwner,
+        anchor: QuantifiedAnchor,
     ) -> Option<Box<[Quantified]>> {
         // A class's `@shape_vars` dimensions default to gradual ones, so adding the
         // decorator to a published class does not break a downstream `Encoder[T]`.
@@ -711,13 +855,31 @@ impl BindingsBuilder<'_> {
             );
             return None;
         };
-        let range = declaration.range();
+        Some(self.parse_shape_declaration_names(
+            declaration.value.to_str(),
+            declaration.range(),
+            kind,
+            owner,
+            anchor,
+            required,
+        ))
+    }
 
+    /// Parse the shared declaration language used by decorators and `# shapes:`.
+    fn parse_shape_declaration_names(
+        &mut self,
+        declaration: &str,
+        range: TextRange,
+        kind: ShapeDeclarationKind,
+        owner: ShapeDeclarationOwner,
+        anchor: QuantifiedAnchor,
+        required: bool,
+    ) -> Box<[Quantified]> {
         // A declaration may introduce any number of variadic shapes: each lowers to
         // its own `IntTuple`-bound quantified, so two of them are independent unless
         // they meet inside one shape string. That case is rejected at the use site.
         let mut dims: Vec<Quantified> = Vec::new();
-        for (index, token) in kind.split(declaration.value.to_str()).enumerate() {
+        for (index, token) in kind.split(declaration).enumerate() {
             let (quantified_kind, name, restriction, gradual) = match token.strip_prefix('*') {
                 Some(name) => (
                     QuantifiedKind::TypeVar,
@@ -771,8 +933,8 @@ impl BindingsBuilder<'_> {
             dims.push(Quantified::new(
                 QuantifiedIdentity::new(
                     self.module_info.name(),
-                    AnchorIndex::new(range, index as u32),
-                    QuantifiedOrigin::synthetic(),
+                    AnchorIndex::new(anchor, index as u32),
+                    QuantifiedOrigin::ShapeDeclaration,
                 ),
                 name,
                 quantified_kind,
@@ -782,167 +944,7 @@ impl BindingsBuilder<'_> {
             ));
         }
 
-        Some(dims.into_boxed_slice())
-    }
-
-    /// Extract `@shaped_array(shape="Shape")` metadata from class decorators.
-    pub(super) fn extract_shaped_array_metadata(
-        &mut self,
-        decorators: &[Decorator],
-    ) -> Option<Box<ShapedArrayMetadata>> {
-        let mut metadata = None;
-        let mut seen_shaped_array = false;
-        for decorator in decorators {
-            let Some(call) = decorator.expression.as_call_expr() else {
-                if self.as_special_export(&decorator.expression) == Some(SpecialExport::ShapedArray)
-                {
-                    if seen_shaped_array {
-                        self.error(
-                            decorator.range(),
-                            ErrorKind::InvalidArgument,
-                            "Duplicate `@shaped_array` decorator".to_owned(),
-                        );
-                        continue;
-                    }
-                    seen_shaped_array = true;
-                    self.error(
-                        decorator.range(),
-                        ErrorKind::InvalidArgument,
-                        "`@shaped_array` requires a `shape` keyword argument".to_owned(),
-                    );
-                }
-                continue;
-            };
-            if self.as_special_export(&call.func) != Some(SpecialExport::ShapedArray) {
-                continue;
-            }
-            if seen_shaped_array {
-                self.error(
-                    decorator.range(),
-                    ErrorKind::InvalidArgument,
-                    "Duplicate `@shaped_array` decorator".to_owned(),
-                );
-                continue;
-            }
-            seen_shaped_array = true;
-
-            let mut invalid = false;
-            if let Some(arg) = call.arguments.args.first() {
-                self.error(
-                    arg.range(),
-                    ErrorKind::InvalidArgument,
-                    "`@shaped_array` expects `shape` as a keyword argument".to_owned(),
-                );
-                invalid = true;
-            }
-
-            let mut shape_keyword = None;
-            let mut builtin_indexing = true;
-            for keyword in &call.arguments.keywords {
-                let Some(arg) = &keyword.arg else {
-                    self.error(
-                        keyword.range(),
-                        ErrorKind::InvalidArgument,
-                        "Unpacking is not supported in `@shaped_array`".to_owned(),
-                    );
-                    invalid = true;
-                    continue;
-                };
-                if arg.as_str() == "shape" {
-                    if shape_keyword.is_none() {
-                        shape_keyword = Some(keyword);
-                    }
-                } else if arg.as_str() == "builtin_indexing" {
-                    let Expr::BooleanLiteral(value) = &keyword.value else {
-                        self.error(
-                            keyword.value.range(),
-                            ErrorKind::InvalidArgument,
-                            "`@shaped_array` `builtin_indexing` argument must be a boolean literal"
-                                .to_owned(),
-                        );
-                        invalid = true;
-                        continue;
-                    };
-                    builtin_indexing = value.value;
-                } else {
-                    self.error(
-                        keyword.range(),
-                        ErrorKind::InvalidArgument,
-                        format!(
-                            "Unexpected keyword argument `{}` for `@shaped_array`; expected `shape` or `builtin_indexing`",
-                            arg.id
-                        ),
-                    );
-                    invalid = true;
-                }
-            }
-
-            let Some(shape_keyword) = shape_keyword else {
-                if !invalid {
-                    self.error(
-                        call.range(),
-                        ErrorKind::InvalidArgument,
-                        "`@shaped_array` requires a `shape` keyword argument".to_owned(),
-                    );
-                }
-                continue;
-            };
-            let Expr::StringLiteral(shape) = &shape_keyword.value else {
-                self.error(
-                    shape_keyword.value.range(),
-                    ErrorKind::InvalidArgument,
-                    "`@shaped_array` `shape` argument must be a string literal".to_owned(),
-                );
-                continue;
-            };
-            if !invalid {
-                metadata = Some(Box::new(ShapedArrayMetadata {
-                    shape_name: Name::new(shape.value.to_str()),
-                    range: shape_keyword.value.range(),
-                    builtin_indexing,
-                }));
-            }
-        }
-        metadata
-    }
-
-    /// Extract `capture_init` names from `@uses_shape_dsl` on a class's `forward` method.
-    pub(super) fn extract_capture_init(&mut self, body: &[Stmt]) -> Option<Vec<Name>> {
-        let forward = body
-            .iter()
-            .filter_map(|stmt| stmt.as_function_def_stmt())
-            .find(|function| function.name.as_str() == "forward")?;
-
-        forward.decorator_list.iter().find_map(|decorator| {
-            let call = decorator.expression.as_call_expr()?;
-            if self.as_special_export(&call.func) != Some(SpecialExport::UsesShapeDsl) {
-                return None;
-            }
-            let capture_init = call.arguments.keywords.iter().find(|keyword| {
-                keyword
-                    .arg
-                    .as_ref()
-                    .is_some_and(|arg| arg.as_str() == "capture_init")
-            })?;
-            let list = capture_init.value.as_list_expr()?;
-            Some(
-                list.elts
-                    .iter()
-                    .filter_map(|element| {
-                        if let Some(string) = element.as_string_literal_expr() {
-                            Some(Name::new(string.value.to_str()))
-                        } else {
-                            self.error(
-                                element.range(),
-                                ErrorKind::InvalidArgument,
-                                "`capture_init` entries must be string literals".to_owned(),
-                            );
-                            None
-                        }
-                    })
-                    .collect(),
-            )
-        })
+        dims.into_boxed_slice()
     }
 
     /// Record binding dependencies for a type parameter bound, including the
@@ -957,7 +959,7 @@ impl BindingsBuilder<'_> {
             && self.shape_extension_type_parameter_bound_marker(&subscript.value)
                 == Some(SpecialExport::Flag)
         {
-            self.ensure_expr(&mut subscript.value, usage);
+            self.ensure_expr(&mut subscript.value, &mut usage.as_static_value());
             self.ensure_type_with_usage(&mut subscript.slice, None, usage);
             return TypeParameterBound::ShapeFlag {
                 domain: Some((*subscript.slice).clone()),
@@ -968,18 +970,18 @@ impl BindingsBuilder<'_> {
         match self.shape_extension_type_parameter_bound_marker(bound_expr) {
             Some(SpecialExport::Flag) => {
                 let range = bound_expr.range();
-                self.ensure_expr(bound_expr, usage);
+                self.ensure_expr(bound_expr, &mut usage.as_static_value());
                 TypeParameterBound::ShapeFlag {
                     domain: None,
                     range,
                 }
             }
             Some(SpecialExport::Index) => {
-                self.ensure_expr(bound_expr, usage);
+                self.ensure_expr(bound_expr, &mut usage.as_static_value());
                 TypeParameterBound::ShapeIndex
             }
             Some(SpecialExport::NamedInts) => {
-                self.ensure_expr(bound_expr, usage);
+                self.ensure_expr(bound_expr, &mut usage.as_static_value());
                 TypeParameterBound::ShapeNamedInts
             }
             _ => {

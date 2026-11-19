@@ -23,7 +23,7 @@ license-files = [ "LICENSE.txt" ]
 # At the time of writing, this is 5.18.9 (Mar 2023), which is obviously not desirable.
 # Instead, use the machinery in setup.py.
 # See https://discuss.python.org/t/requires-python-upper-limits/12663
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
 
 [project.optional-dependencies]
@@ -60,7 +60,7 @@ exclude-newer-package = { contrast-agent-lib = false, contrast-fireball = false 
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 extend-exclude = [
   "src/contrast_vendor/",
   "*.golden",
@@ -168,6 +168,7 @@ faulthandler_timeout = 240 # in seconds => 4m; must stay below `timeout`
 timeout = 300 # in seconds => 5m
 xfail_strict = true
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 addopts = [
     "--disable-socket",
     "--allow-hosts=127.0.0.1,::1",

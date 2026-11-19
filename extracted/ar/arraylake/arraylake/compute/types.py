@@ -4,7 +4,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, field_validator
 
-from arraylake.types import RedactedReprModel
+from arraylake.types import OpenEnum, RedactedReprModel
 
 
 class ServiceType(StrEnum):
@@ -15,6 +15,7 @@ class ServiceType(StrEnum):
     zarr = "zarr"
     openeo = "openeo"
     sql = "sql"
+    zax = "zax"
 
 
 class ServiceStatus(StrEnum):
@@ -61,6 +62,7 @@ CRD_KIND: dict[ServiceType, str] = {
     ServiceType.zarr: "ZarrService",
     ServiceType.openeo: "OpeneoService",
     ServiceType.sql: "SqlService",
+    ServiceType.zax: "ZaxService",
 }
 
 
@@ -69,7 +71,7 @@ def crd_plural(service_type: ServiceType) -> str:
 
 
 class ServiceConfig(BaseModel):
-    service_type: ServiceType
+    service_type: OpenEnum[ServiceType]
     org: str
 
     # NOTE: This is necessary to have our unauthenticated, public-facing demos.
@@ -121,7 +123,7 @@ class ServiceConfig(BaseModel):
     zarr_max_workers: int | None = None
 
     # Optional log level for the service
-    log_level: LogLevel | None = LogLevel.info
+    log_level: OpenEnum[LogLevel] | None = LogLevel.info
 
     # Optionally force-enable Dask (threaded scheduler, 2GB cache) for protocols
     # other than DAP2. DAP2 always uses Dask regardless of this setting.
@@ -156,7 +158,7 @@ class ServiceConfig(BaseModel):
         return v
 
     def __str__(self) -> str:
-        as_str = f"{self.service_type.value}://{self.org}"
+        as_str = f"{self.service_type}://{self.org}"
         if self.deployment_name:
             as_str += f"/{self.deployment_name}"
         return as_str
@@ -169,7 +171,7 @@ class DeploymentInfo(BaseModel):
     url: str
     created: datetime
     config: ServiceConfig
-    status: ServiceStatus
+    status: OpenEnum[ServiceStatus]
     # Pods serving right now. A service that scales to zero sits at 0 while still being available,
     # so this is what separates "ready to answer" from "the next request has to start it".
     ready_replicas: int = 0

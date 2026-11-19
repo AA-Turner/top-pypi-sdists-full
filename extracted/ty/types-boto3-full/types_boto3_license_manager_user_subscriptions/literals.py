@@ -53,6 +53,7 @@ ListUserAssociationsPaginatorName = Literal["list_user_associations"]
 ServerTypeType = Literal["RDS_SAL"]
 LicenseManagerUserSubscriptionsServiceName = Literal["license-manager-user-subscriptions"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -96,6 +96,7 @@ ListEnvironmentsPaginatorName = Literal["list_environments"]
 NetworkTypeType = Literal["dual", "ipv4"]
 MainframeModernizationServiceName = Literal["m2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

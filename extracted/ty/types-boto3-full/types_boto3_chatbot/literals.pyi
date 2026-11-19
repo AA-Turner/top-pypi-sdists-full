@@ -52,6 +52,7 @@ ListMicrosoftTeamsConfiguredTeamsPaginatorName = Literal["list_microsoft_teams_c
 ListMicrosoftTeamsUserIdentitiesPaginatorName = Literal["list_microsoft_teams_user_identities"]
 ChatbotServiceName = Literal["chatbot"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

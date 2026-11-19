@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Added load balancer and listener get statistics methods.

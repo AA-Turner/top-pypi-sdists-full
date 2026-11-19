@@ -7,6 +7,9 @@ from ..models.forloop_flow_type import ForloopFlowType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.forloop_flow_iteration_label_type_0 import ForloopFlowIterationLabelType0
+    from ..models.forloop_flow_iteration_label_type_1 import ForloopFlowIterationLabelType1
+    from ..models.forloop_flow_iteration_label_type_2 import ForloopFlowIterationLabelType2
     from ..models.forloop_flow_iterator_type_0 import ForloopFlowIteratorType0
     from ..models.forloop_flow_iterator_type_1 import ForloopFlowIteratorType1
     from ..models.forloop_flow_iterator_type_2 import ForloopFlowIteratorType2
@@ -39,6 +42,9 @@ class ForloopFlow:
                 Unset]): Maps input parameters for a step. Can be a static value or a JavaScript expression that references
                 previous results or flow inputs
             squash (Union[Unset, bool]):
+            iteration_label (Union['ForloopFlowIterationLabelType0', 'ForloopFlowIterationLabelType1',
+                'ForloopFlowIterationLabelType2', Unset]): Maps input parameters for a step. Can be a static value or a
+                JavaScript expression that references previous results or flow inputs
     """
 
     modules: List["ForloopFlowModulesItem"]
@@ -50,9 +56,14 @@ class ForloopFlow:
         "ForloopFlowParallelismType0", "ForloopFlowParallelismType1", "ForloopFlowParallelismType2", Unset
     ] = UNSET
     squash: Union[Unset, bool] = UNSET
+    iteration_label: Union[
+        "ForloopFlowIterationLabelType0", "ForloopFlowIterationLabelType1", "ForloopFlowIterationLabelType2", Unset
+    ] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        from ..models.forloop_flow_iteration_label_type_0 import ForloopFlowIterationLabelType0
+        from ..models.forloop_flow_iteration_label_type_1 import ForloopFlowIterationLabelType1
         from ..models.forloop_flow_iterator_type_0 import ForloopFlowIteratorType0
         from ..models.forloop_flow_iterator_type_1 import ForloopFlowIteratorType1
         from ..models.forloop_flow_parallelism_type_0 import ForloopFlowParallelismType0
@@ -99,6 +110,24 @@ class ForloopFlow:
                 parallelism = self.parallelism.to_dict()
 
         squash = self.squash
+        iteration_label: Union[Dict[str, Any], Unset]
+        if isinstance(self.iteration_label, Unset):
+            iteration_label = UNSET
+
+        elif isinstance(self.iteration_label, ForloopFlowIterationLabelType0):
+            iteration_label = UNSET
+            if not isinstance(self.iteration_label, Unset):
+                iteration_label = self.iteration_label.to_dict()
+
+        elif isinstance(self.iteration_label, ForloopFlowIterationLabelType1):
+            iteration_label = UNSET
+            if not isinstance(self.iteration_label, Unset):
+                iteration_label = self.iteration_label.to_dict()
+
+        else:
+            iteration_label = UNSET
+            if not isinstance(self.iteration_label, Unset):
+                iteration_label = self.iteration_label.to_dict()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -116,11 +145,16 @@ class ForloopFlow:
             field_dict["parallelism"] = parallelism
         if squash is not UNSET:
             field_dict["squash"] = squash
+        if iteration_label is not UNSET:
+            field_dict["iteration_label"] = iteration_label
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.forloop_flow_iteration_label_type_0 import ForloopFlowIterationLabelType0
+        from ..models.forloop_flow_iteration_label_type_1 import ForloopFlowIterationLabelType1
+        from ..models.forloop_flow_iteration_label_type_2 import ForloopFlowIterationLabelType2
         from ..models.forloop_flow_iterator_type_0 import ForloopFlowIteratorType0
         from ..models.forloop_flow_iterator_type_1 import ForloopFlowIteratorType1
         from ..models.forloop_flow_iterator_type_2 import ForloopFlowIteratorType2
@@ -216,6 +250,52 @@ class ForloopFlow:
 
         squash = d.pop("squash", UNSET)
 
+        def _parse_iteration_label(
+            data: object,
+        ) -> Union[
+            "ForloopFlowIterationLabelType0", "ForloopFlowIterationLabelType1", "ForloopFlowIterationLabelType2", Unset
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _iteration_label_type_0 = data
+                iteration_label_type_0: Union[Unset, ForloopFlowIterationLabelType0]
+                if isinstance(_iteration_label_type_0, Unset):
+                    iteration_label_type_0 = UNSET
+                else:
+                    iteration_label_type_0 = ForloopFlowIterationLabelType0.from_dict(_iteration_label_type_0)
+
+                return iteration_label_type_0
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _iteration_label_type_1 = data
+                iteration_label_type_1: Union[Unset, ForloopFlowIterationLabelType1]
+                if isinstance(_iteration_label_type_1, Unset):
+                    iteration_label_type_1 = UNSET
+                else:
+                    iteration_label_type_1 = ForloopFlowIterationLabelType1.from_dict(_iteration_label_type_1)
+
+                return iteration_label_type_1
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _iteration_label_type_2 = data
+            iteration_label_type_2: Union[Unset, ForloopFlowIterationLabelType2]
+            if isinstance(_iteration_label_type_2, Unset):
+                iteration_label_type_2 = UNSET
+            else:
+                iteration_label_type_2 = ForloopFlowIterationLabelType2.from_dict(_iteration_label_type_2)
+
+            return iteration_label_type_2
+
+        iteration_label = _parse_iteration_label(d.pop("iteration_label", UNSET))
+
         forloop_flow = cls(
             modules=modules,
             iterator=iterator,
@@ -224,6 +304,7 @@ class ForloopFlow:
             parallel=parallel,
             parallelism=parallelism,
             squash=squash,
+            iteration_label=iteration_label,
         )
 
         forloop_flow.additional_properties = d

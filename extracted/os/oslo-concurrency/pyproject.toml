@@ -23,6 +23,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: Implementation :: CPython",
   "Typing :: Typed",
@@ -44,7 +45,21 @@ eventlet = [
 "lockutils-wrapper" = "oslo_concurrency.lockutils:main"
 
 [tool.setuptools.packages.find]
-include = ["oslo_concurrency"]
+include = ["oslo_concurrency*"]
+
+[tool.coverage.run]
+source = [
+    "oslo_concurrency"
+]
+branch = true
+parallel = true
+omit = [
+    "oslo_concurrency/tests/*"
+]
+
+[tool.coverage.report]
+ignore_errors = true
+show_missing = true
 
 [tool.mypy]
 python_version = "3.11"

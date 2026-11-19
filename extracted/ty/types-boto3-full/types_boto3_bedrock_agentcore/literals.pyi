@@ -419,6 +419,7 @@ ValidationExceptionReasonType = Literal[
 ]
 BedrockAgentCoreServiceName = Literal["bedrock-agentcore"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

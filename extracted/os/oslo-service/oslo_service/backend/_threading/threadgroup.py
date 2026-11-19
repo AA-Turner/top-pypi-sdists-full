@@ -12,9 +12,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
 import logging
 import threading
+
+from debtcollector import removals
 
 from oslo_service.backend._common import threadgroup
 from oslo_service.backend._threading import loopingcall
@@ -72,6 +73,7 @@ class ThreadGroup(threadgroup.ThreadGroupBase):
         :returns: A Thread object wrapping the new thread
         :raises RuntimeError: If max_threads limit is reached
         """
+
         def run_and_cleanup(*cb_args, **cb_kwargs):
             try:
                 callback(*cb_args, **cb_kwargs)
@@ -83,7 +85,8 @@ class ThreadGroup(threadgroup.ThreadGroupBase):
                 raise RuntimeError("Maximum number of threads reached")
 
             t = threading.Thread(
-                target=run_and_cleanup, args=args, kwargs=kwargs)
+                target=run_and_cleanup, args=args, kwargs=kwargs
+            )
             t.args = args
             t.kw = kwargs
 
@@ -129,8 +132,9 @@ class ThreadGroup(threadgroup.ThreadGroupBase):
                 except Exception:
                     LOG.exception('Error waiting on thread.')
 
-    def _perform_action_on_threads(self, action_func, on_error_func,
-                                   skip_current=True):
+    def _perform_action_on_threads(
+        self, action_func, on_error_func, skip_current=True
+    ):
         """Helper to perform an action on all threads.
 
         :param action_func: Function to call on each thread
@@ -147,6 +151,11 @@ class ThreadGroup(threadgroup.ThreadGroupBase):
                     action_func(thread)
                 except Exception:
                     on_error_func(thread)
+
+    @removals.remove(removal_version='?')
+    def cancel(self, *throw_args, **kwargs):
+        # Native threads cannot be cancelled
+        pass
 
     def waitall(self):
         """Block until all timers and threads in the group are complete."""

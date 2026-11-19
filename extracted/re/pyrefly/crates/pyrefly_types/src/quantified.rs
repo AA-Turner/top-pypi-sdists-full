@@ -13,37 +13,50 @@ use std::hash::Hasher;
 
 use parse_display::Display;
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::qname::QName;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::display::Fmt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
-use ruff_text_size::TextRange;
 
+use crate::class::ClassDefIndex;
 use crate::class::ClassType;
 use crate::dimension::gradual_size;
+use crate::env::TypeEnv;
+use crate::function::FuncDefIndex;
 use crate::heap::TypeHeap;
 use crate::stdlib::Stdlib;
+use crate::type_alias::TypeAliasIndex;
+use crate::type_ord::TypeOrd;
 use crate::type_var::PreInferenceVariance;
 use crate::type_var::Restriction;
-use crate::type_var::TypeVar;
 use crate::types::Type;
 
 /// Discriminator for the origin of a `Quantified`, making collisions structurally impossible
-/// between quantifieds that share the same anchor range but have different origins.
+/// between quantifieds that share the same anchor but have different origins.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum QuantifiedOrigin {
     /// Legacy TypeVar scoped to a function/class/alias owner.
     ScopedLegacy,
-    /// PEP 695 type parameter — has its own definition range, no ambiguity.
+    /// Legacy TypeVar that solving finds in a type, such as the value of a type alias or a
+    /// callable annotation, rather than one that binding finds in its owner's signature or bases.
+    InferredLegacy,
+    /// PEP 695 type parameter.
     Pep695,
     /// Synthetic quantified created by pyrefly rather than written in source.
     Synthetic {
         /// Is this a Self quantified synthesized for `__new__` on a class?
         is_self: bool,
     },
+    /// An inferred receiver shared by an instance method and a classmethod wrapper.
+    MethodReceiver,
+    /// A dimension or variadic shape declared by a shape declaration on a class or function.
+    ShapeDeclaration,
     /// Synthetic binder for the parameter of an `IntTuples` mapper.
     MapIntTuplesParameter,
     /// De Bruijn sentinel used only while comparing `MapIntTuples` lambdas.
@@ -56,47 +69,47 @@ impl QuantifiedOrigin {
     }
 }
 
-/// A source range plus an index that disambiguates multiple quantifieds sharing the same range.
-/// Index 0 is used when a range produces exactly one quantified; higher indices are used when
-/// a single range produces several (e.g. multiple type parameters anchored to the same scope).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// The definition that a quantified belongs to, named by its index in the module rather than by
+/// a source position, so that an edit that only moves code keeps every identity. Indices follow
+/// source order, so inserting a definition renumbers the definitions of the same kind after it,
+/// which also changes their `Class` or function identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum QuantifiedAnchor {
+    /// A quantified that no definition owns: a synthetic binder whose index alone tells it apart
+    /// from the others with the same origin, or a legacy type variable that solving promotes in
+    /// a closed `Forall`.
+    None,
+    Class(ClassDefIndex),
+    Function(FuncDefIndex),
+    TypeAlias(TypeAliasIndex),
+    /// The parameter of a type-level lambda, by its `LambdaParamId`.
+    LambdaParameter(u32),
+}
+
+/// A definition plus an index that disambiguates the quantifieds of the same origin that it owns,
+/// such as the position of a type parameter in its definition's list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AnchorIndex {
-    pub range: TextRange,
+    pub anchor: QuantifiedAnchor,
     pub index: u32,
 }
 
 impl AnchorIndex {
-    pub fn new(range: TextRange, index: u32) -> Self {
-        Self { range, index }
+    pub fn new(anchor: QuantifiedAnchor, index: u32) -> Self {
+        Self { anchor, index }
     }
 
-    pub fn first(range: TextRange) -> Self {
-        Self { range, index: 0 }
-    }
-}
-
-impl PartialOrd for AnchorIndex {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    pub fn first(anchor: QuantifiedAnchor) -> Self {
+        Self { anchor, index: 0 }
     }
 }
 
-impl Ord for AnchorIndex {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // TextRange doesn't implement Ord, so compare start/end as u32.
-        u32::from(self.range.start())
-            .cmp(&u32::from(other.range.start()))
-            .then_with(|| u32::from(self.range.end()).cmp(&u32::from(other.range.end())))
-            .then_with(|| self.index.cmp(&other.index))
-    }
-}
-
-/// Deterministic identity for a `Quantified`, derived from source locations rather than
-/// allocation order. Two quantifieds are the same iff their identity is the same.
+/// Deterministic identity for a `Quantified`, derived from the definition that owns it. Two
+/// quantifieds are the same iff their identity is the same.
 ///
-/// Globally unique because `module` distinguishes cross-module collisions, `anchor` pins
-/// the source location and index, and `origin` prevents collisions between quantifieds
-/// of different kinds at the same anchor.
+/// Globally unique because `module` distinguishes cross-module collisions, `anchor` pins the
+/// owning definition and index, and `origin` prevents collisions between quantifieds of different
+/// kinds at the same anchor.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct QuantifiedIdentity {
     pub module: ModuleName,
@@ -219,6 +232,9 @@ impl Ord for Quantified {
     }
 }
 
+/// A quantified's identity holds no class, so `TypeOrd` is `Ord`.
+impl TypeOrd for Quantified {}
+
 impl PartialOrd for Quantified {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -226,7 +242,7 @@ impl PartialOrd for Quantified {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum QuantifiedKind {
     TypeVar,
     IntVar,
@@ -257,19 +273,19 @@ impl Display for QuantifiedIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}@{}[{}]:{:?}",
-            self.module,
-            u32::from(self.anchor.range.start()),
-            self.anchor.index,
-            self.origin,
+            "{}@{:?}[{}]:{:?}",
+            self.module, self.anchor.anchor, self.anchor.index, self.origin,
         )
     }
 }
 
-impl Display for Quantified {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name)
-    }
+/// A legacy type variable, declared with `TypeVar(...)`, `ParamSpec(...)`, or `TypeVarTuple(...)`.
+pub trait TypeVarLike {
+    fn qname(&self) -> &QName;
+    fn kind(&self) -> QuantifiedKind;
+    fn default(&self) -> Option<&Type>;
+    fn restriction(&self) -> &Restriction;
+    fn variance(&self) -> PreInferenceVariance;
 }
 
 impl Quantified {
@@ -315,37 +331,14 @@ impl Quantified {
         )
     }
 
-    /// Creates a Quantified from a TypeVar, extracting all relevant fields.
-    pub fn from_type_var(tv: &TypeVar, identity: QuantifiedIdentity) -> Self {
+    pub fn from_type_var_like(x: &dyn TypeVarLike, identity: QuantifiedIdentity) -> Self {
         Self::new(
             identity,
-            tv.qname().id().clone(),
-            tv.kind(),
-            tv.default().cloned(),
-            tv.restriction().clone(),
-            tv.variance(),
-        )
-    }
-
-    pub fn param_spec(name: Name, identity: QuantifiedIdentity, default: Option<Type>) -> Self {
-        Self::new(
-            identity,
-            name,
-            QuantifiedKind::ParamSpec,
-            default,
-            Restriction::Unrestricted,
-            PreInferenceVariance::Invariant,
-        )
-    }
-
-    pub fn type_var_tuple(name: Name, identity: QuantifiedIdentity, default: Option<Type>) -> Self {
-        Self::new(
-            identity,
-            name,
-            QuantifiedKind::TypeVarTuple,
-            default,
-            Restriction::Unrestricted,
-            PreInferenceVariance::Invariant,
+            x.qname().id().clone(),
+            x.kind(),
+            x.default().cloned(),
+            x.restriction().clone(),
+            x.variance(),
         )
     }
 
@@ -392,18 +385,18 @@ impl Quantified {
 
     /// Display this type parameter with its bounds/constraints and default,
     /// in the format used for type parameter lists (e.g. `T: int = str`).
-    pub fn display_with_bounds(&self) -> impl Display + '_ {
+    pub fn display_with_bounds<'a>(&'a self, env: &'a dyn TypeEnv) -> impl Display + 'a {
         Fmt(move |f| {
             write!(f, "{}", self.display_name_with_prefix())?;
             match self.restriction() {
-                Restriction::Bound(t) => write!(f, ": {}", t)?,
+                Restriction::Bound(t) => write!(f, ": {}", t.display_with(env))?,
                 Restriction::Constraints(ts) => {
                     write!(f, ": (")?;
                     for (i, t) in ts.iter().enumerate() {
                         if i > 0 {
                             write!(f, ", ")?;
                         }
-                        write!(f, "{}", t)?;
+                        write!(f, "{}", t.display_with(env))?;
                     }
                     write!(f, ")")?;
                 }
@@ -411,7 +404,7 @@ impl Quantified {
                 Restriction::Unrestricted => {}
             }
             if let Some(default) = self.default() {
-                write!(f, " = {}", default)?;
+                write!(f, " = {}", default.display_with(env))?;
             }
             Ok(())
         })
@@ -419,6 +412,34 @@ impl Quantified {
 
     pub fn variance(&self) -> PreInferenceVariance {
         self.variance
+    }
+
+    pub fn name_in<'a, E: TypeEnv + ?Sized>(&'a self, _env: &'a E) -> &'a Name {
+        &self.name
+    }
+
+    pub fn restriction_in<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> &'a Restriction {
+        env.type_var_restriction(self)
+    }
+
+    pub fn default_in<'a, E: TypeEnv + ?Sized>(&'a self, env: &'a E) -> Option<&'a Type> {
+        env.type_var_default(self)
+    }
+
+    pub fn variance_in<E: TypeEnv + ?Sized>(&self, _env: &E) -> PreInferenceVariance {
+        self.variance
+    }
+
+    /// The restriction stored in this `Quantified`, which `TypeEnv::type_var_restriction`
+    /// returns by default.
+    pub(crate) fn inline_restriction(&self) -> &Restriction {
+        &self.restriction
+    }
+
+    /// The default stored in this `Quantified`, which `TypeEnv::type_var_default` returns by
+    /// default.
+    pub(crate) fn inline_default(&self) -> Option<&Type> {
+        self.default.as_ref()
     }
 
     pub fn is_type_var(&self) -> bool {

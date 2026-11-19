@@ -30,7 +30,7 @@ class HierarchyFilter(Filter):
         the manual filters are translated into event indices of the
         root parent (the highest member of the hierarchy, which is
         `RTDC_Hierarchy.hparent` if there is only one child).
-        This enables to keep track of the manually excluded events
+        This makes it possible to keep track of the manually excluded events
         even if
 
         - the parent changes its filters,
@@ -67,9 +67,9 @@ class HierarchyFilter(Filter):
         would not work.
         """
         if self.parent_changed:
-            msg = "Cannot apply filter, because parent changed: " \
-                  + f"dataset {rtdc_ds}. " \
-                  + "Run `RTDC_Hierarchy.apply_filter()` first!"
+            msg = ("Cannot apply filter, because parent changed: "
+                   f"dataset {rtdc_ds}. "
+                   "Run `RTDC_Hierarchy.apply_filter()` first!")
             raise HierarchyFilterError(msg)
         else:
             self._man_root_ids = list(manual_indices)
@@ -86,7 +86,7 @@ class HierarchyFilter(Filter):
         """Read from self.manual
 
         Read from the boolean array `self.manual`, index all
-        occurences of `False` and find the corresponding indices
+        occurrences of `False` and find the corresponding indices
         in the root hierarchy parent, return those and store them
         in `self._man_root_ids` as well.
 
@@ -99,7 +99,7 @@ class HierarchyFilter(Filter):
 
         If `self.parent_changed` is `True`, i.e. the parent applied
         a filter and the child did not yet hear about this, then
-        nothing is computed and `self._man_root_ids` as-is.  This
+        nothing is computed and `self._man_root_ids` is returned as-is. This
         is important, because the size of the current filter would
         not match the size of the filtered events of the parent and
         thus index-mapping would not work.
@@ -107,11 +107,14 @@ class HierarchyFilter(Filter):
         if self.parent_changed:
             # ignore
             pass
-        elif np.all(self.manual):
-            # Do not do anything and remember the events we manually
-            # excluded in case the parent reinserts them.
+        elif np.all(self.manual) and not self._man_root_ids:
+            # nothing to do
             pass
         else:
+            # Note that if all of `self.manual` is True, events that
+            # were manually excluded before and are now hidden (because
+            # the parent filtered them out) are kept in case the parent
+            # reinserts them, but visible events are not.
             # indices from boolean array
             pbool = map_indices_child2root(
                 child=rtdc_ds,

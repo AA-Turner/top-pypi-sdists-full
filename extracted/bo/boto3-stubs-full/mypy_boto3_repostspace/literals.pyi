@@ -61,6 +61,7 @@ TierLevelType = Literal["BASIC", "STANDARD"]
 VanityDomainStatusType = Literal["APPROVED", "PENDING", "UNAPPROVED"]
 RePostPrivateServiceName = Literal["repostspace"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

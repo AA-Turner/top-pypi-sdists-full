@@ -67,7 +67,7 @@ pub use crate::oracle::{LeafRelations, NoLeafRelations};
 /// bound.
 /// Every other step asks a smaller pair or unfolds a reference onto the trail,
 /// where a pair that comes back is answered by hypothesis, so every path is
-/// finite. `docs/dev/02-decision.md` writes the argument out, and
+/// finite. `docs/dev/decision.md` writes the argument out, and
 /// `decision::goal_tests` holds its premise. The closure is exponential in the
 /// subterms, a meet per subset, so a query that terminates can still outlast
 /// any caller, and that is what this ceiling is for.
@@ -237,7 +237,7 @@ pub(crate) const MAX_DECISION_DEPTH: u32 = 512;
 /// The steps are fuel [JV20, §10.5], a bound no theorem derives, so which
 /// pairs a query decides turns on the path it takes: a query no bound stopped
 /// answers alike with more steps, and one a bound stopped may not
-/// (`docs/dev/10-theory.md`, "The decision is fuel").
+/// (`docs/dev/theory.md`, "The decision is fuel").
 pub(crate) struct Budget {
     steps: Cell<u32>,
     depth: Cell<u32>,
@@ -557,7 +557,7 @@ impl SeqShape {
 }
 
 /// Whether `schema` is `dict[anything, anything]`, the dict kind's top, which
-/// holds every dict (`docs/dev/01-schema-ir.md`, "A bare builtin container is
+/// holds every dict (`docs/dev/schema-ir.md`, "A bare builtin container is
 /// its kind"). The kind walk does not read it whole: it is the reading a dict
 /// key asks too, and no dict is a key. A list's and a set's tops are read by
 /// the other readings where this one would be asked.
@@ -1165,6 +1165,11 @@ impl Schema {
                     Relation::Unknown
                 }
             })
+            // A product holding a component read empty, as `is_empty` reads it,
+            // is below every set. Last, since its components' readings spend the
+            // query's steps: asked among the parts, they starved a refutation the
+            // respellings reach.
+            .or_else(|| Relation::proven(self.a_component_read_empty(cx)))
             .or_else(|| self.below_by_emptiness(other, cx))
     }
 
@@ -3367,7 +3372,7 @@ const MEMBERS_HELD: usize = u64::BITS as usize;
 /// query rather than once a goal.
 ///
 /// Each answer rests on no open hypothesis, which is what a memo inside the
-/// coinductive procedure owes (`docs/dev/10-theory.md`, "A cache under
+/// coinductive procedure owes (`docs/dev/theory.md`, "A cache under
 /// coinduction is revertible or absent"): a reading takes the pool and the definitions and
 /// never the trail or the definitions being resolved, so no assumption a
 /// failed disjunct abandons is in what it answers.
@@ -3400,6 +3405,13 @@ type Readings = FxHashMap<(u64, Schema), bool>;
 /// for the query, and a failed disjunct has nothing in it to roll back.
 type Leaves = FxHashMap<(u64, Schema, Schema), Relation>;
 
+/// Whether the sets read a value of a schema the last asking hands them
+/// ([`Schema::a_value_the_sets_read`]), by the query and the schema, held for the
+/// reason [`Leaves`] is and emptied at the same bound. Every meet and complement
+/// of a pair is one, and a query of drawn JSON shapes asked the sets of a meet of
+/// nine nodes 3,609 times, where a reading of one thread's queries asks it once.
+type Values = FxHashMap<(u64, Schema), bool>;
+
 /// The most answers the memo holds before it is emptied.
 ///
 /// A query that repeats a reading repeats it within a few hundred goals, and
@@ -3413,6 +3425,8 @@ thread_local! {
     static READINGS: RefCell<Readings> = RefCell::new(Readings::default());
     /// The pairs the last askings on this thread read by the sets, by query number.
     static LEAVES: RefCell<Leaves> = RefCell::new(Leaves::default());
+    /// The values the last askings on this thread read by the sets, by query number.
+    static VALUES: RefCell<Values> = RefCell::new(Values::default());
     /// The query whose respelled meet is being asked on this thread, or zero
     /// where none is ([`a_meet_respelled_below`]). Held beside the query for the
     /// reason [`Readings`] is, and by number, so a query a callback starts
@@ -3532,6 +3546,24 @@ impl<'a> Cx<'a> {
                 readings.clear();
             }
             readings.insert(key, answer);
+        });
+        answer
+    }
+
+    /// Whether the set representation reads a value of `schema`, which holds no
+    /// reference, read once a query ([`Values`]).
+    fn reads_a_value(&self, schema: &Schema) -> bool {
+        let key = (self.query(), schema.clone());
+        if let Some(known) = VALUES.with_borrow(|values| values.get(&key).copied()) {
+            return known;
+        }
+        let answer =
+            lower(schema, self.oracle).is_some_and(|set| set.emptiness() == Verdict::Inhabited);
+        VALUES.with_borrow_mut(|values| {
+            if values.len() >= READINGS_HELD {
+                values.clear();
+            }
+            values.insert(key, answer);
         });
         answer
     }

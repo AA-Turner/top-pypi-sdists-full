@@ -11,10 +11,11 @@ from collections.abc import (
 from typing import (
     TYPE_CHECKING,
     Any,
+    LiteralString,
+    cast,
 )
 
 import packaging.version
-from typing_extensions import LiteralString
 
 from procrastinate import connector, exceptions, sql, sync_psycopg_connector, utils
 
@@ -276,6 +277,40 @@ class PsycopgConnector(connector.BaseAsyncConnector):
 
             return await cursor.fetchall()
 
+    def _get_external_sync_connector(
+        self,
+    ) -> sync_psycopg_connector.SyncPsycopgConnector:
+        # Only used to run queries on a caller-provided psycopg.Connection,
+        # so it is never opened and holds no pool.
+        return sync_psycopg_connector.SyncPsycopgConnector(
+            json_dumps=self._json_dumps, json_loads=self._json_loads
+        )
+
+    def execute_query_one_with_connection(
+        self, connection: Any, query: LiteralString, **arguments: Any
+    ) -> dict[str, Any]:
+        # When the async pool is open, get_sync_connector() returns self, so
+        # a sync psycopg.Connection passed by the caller ends up here and
+        # must not be handed to the async implementation.
+        if isinstance(connection, psycopg.Connection):
+            return (
+                self._get_external_sync_connector().execute_query_one_with_connection(
+                    cast("psycopg.Connection[Any]", connection), query, **arguments
+                )
+            )
+        return super().execute_query_one_with_connection(connection, query, **arguments)
+
+    def execute_query_all_with_connection(
+        self, connection: Any, query: LiteralString, **arguments: Any
+    ) -> list[dict[str, Any]]:
+        if isinstance(connection, psycopg.Connection):
+            return (
+                self._get_external_sync_connector().execute_query_all_with_connection(
+                    cast("psycopg.Connection[Any]", connection), query, **arguments
+                )
+            )
+        return super().execute_query_all_with_connection(connection, query, **arguments)
+
     def _make_dynamic_query(
         self,
         query: LiteralString,
@@ -315,6 +350,7 @@ class PsycopgConnector(connector.BaseAsyncConnector):
         self, on_notification: connector.Notify, channels: Iterable[str]
     ) -> None:
         while True:
+            utils.raise_if_cancelling()
             async with self._get_standalone_connection() as connection:
                 for channel_name in channels:
                     await connection.execute(
@@ -337,6 +373,7 @@ class PsycopgConnector(connector.BaseAsyncConnector):
         # We'll leave this loop with a CancelledError, when we get cancelled
 
         while True:
+            utils.raise_if_cancelling()
             try:
                 async for notification in utils.gen_with_timeout(
                     aiterable=connection.notifies(),
@@ -347,6 +384,7 @@ class PsycopgConnector(connector.BaseAsyncConnector):
                         channel=notification.channel, payload=notification.payload
                     )
 
+                utils.raise_if_cancelling()
                 await connection.execute("SELECT 1")
             except psycopg.OperationalError:
                 # Connection is dead, we need to reconnect

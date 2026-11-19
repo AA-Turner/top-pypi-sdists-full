@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: h3
-Version: 4.5.0
+Version: 4.5.1
 Summary: Uber's hierarchical hexagonal geospatial indexing system
 Author-Email: Uber Technologies <ajfriend@gmail.com>
 Maintainer-Email: AJ Friend <ajfriend@gmail.com>
@@ -218,6 +218,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows

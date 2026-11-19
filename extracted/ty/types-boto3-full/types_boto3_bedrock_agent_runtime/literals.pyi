@@ -303,6 +303,7 @@ TypeType = Literal[
 VectorSearchRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
 AgentsforBedrockRuntimeServiceName = Literal["bedrock-agent-runtime"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -22,26 +22,27 @@ def repack(
         check_suffix: bool = True,
         ret_path: bool = False,
         ):
-    """Repack/recreate an .rtdc file, optionally stripping the logs
+    """Repack/recreate an .rtdc file, optionally stripping the logs and basins
 
     Parameters
     ----------
     path_in: str or pathlib.Path
-        file to compress
-    path_out: str or pathlib
+        file to repack
+    path_out: str or pathlib.Path
         output file path
     strip_basins: bool
         do not write basin information to the output file
     strip_logs: bool
         do not write logs to the output file
     check_suffix: bool
-        check suffixes for input and output files
+        check the suffix of the input file (".rtdc" is always
+        appended to the output file name if missing)
     ret_path: bool
         whether to return the output path
 
     Returns
     -------
-    path_out: pathlib.Path
+    path_out: pathlib.Path (optional)
         output path (with possibly corrected suffix)
     """
     if path_in is None and path_out is None:
@@ -85,18 +86,20 @@ def repack(
             daemon=True)
         monitor_thread.start()
 
-        rtdc_copy(src_h5file=h5,
-                  dst_h5file=hc,
-                  features="all",
-                  include_basins=not strip_basins,
-                  include_logs=not strip_logs,
-                  include_tables=True,
-                  meta_prefix="",
-                  byte_book_keeper=bbk,
-                  )
-
-        stop_event.set()
-        monitor_thread.join()
+        try:
+            rtdc_copy(src_h5file=h5,
+                      dst_h5file=hc,
+                      features="all",
+                      include_basins=not strip_basins,
+                      include_logs=not strip_logs,
+                      include_tables=True,
+                      meta_prefix="",
+                      byte_book_keeper=bbk,
+                      )
+        finally:
+            # also stop the monitor thread if something went wrong
+            stop_event.set()
+            monitor_thread.join()
 
     # Finally, rename temp to out
     path_temp.rename(path_out)
@@ -107,26 +110,32 @@ def repack(
 
 
 def repack_parser():
-    descr = "Repack an .rtdc file. The difference to dclab-compress " \
-            + "is that no logs are added. Other logs can optionally be " \
-            + "stripped away. Repacking also gets rid of old clutter " \
-            + "data (e.g. previous metadata stored in the HDF5 file)."
+    """Return the argument parser of the ``dclab-repack`` command
+
+    Returns
+    -------
+    parser: argparse.ArgumentParser
+    """
+    descr = ("Repack an .rtdc file. The difference to dclab-compress "
+             "is that no logs are added. Other logs can optionally be "
+             "stripped away. Repacking also gets rid of old clutter "
+             "data (e.g. previous metadata stored in the HDF5 file).")
     parser = argparse.ArgumentParser(description=descr)
-    parser.add_argument('input', metavar="INPUT", type=str,
-                        help='Input path (.rtdc file)')
-    parser.add_argument('output',  metavar="OUTPUT", type=str,
-                        help='Output path (.rtdc file)')
-    parser.add_argument('--strip-basins',
-                        dest='strip_basins',
-                        action='store_true',
-                        help='Do not copy any basin information to the '
-                             'output file.')
+    parser.add_argument("input", metavar="INPUT", type=str,
+                        help="Input path (.rtdc file)")
+    parser.add_argument("output",  metavar="OUTPUT", type=str,
+                        help="Output path (.rtdc file)")
+    parser.add_argument("--strip-basins",
+                        dest="strip_basins",
+                        action="store_true",
+                        help="Do not copy any basin information to the "
+                             "output file.")
     parser.set_defaults(strip_basins=False)
-    parser.add_argument('--strip-logs',
-                        dest='strip_logs',
-                        action='store_true',
-                        help='Do not copy any logs to the output file.')
+    parser.add_argument("--strip-logs",
+                        dest="strip_logs",
+                        action="store_true",
+                        help="Do not copy any logs to the output file.")
     parser.set_defaults(strip_logs=False)
-    parser.add_argument('--version', action='version',
-                        version=f'dclab-repack {version}')
+    parser.add_argument("--version", action="version",
+                        version=f"dclab-repack {version}")
     return parser

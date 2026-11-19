@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 import pytest
 
+from dclab import cli
 import dclab.rtdc_dataset.config
 from dclab.rtdc_dataset import check, check_dataset, feat_basin, fmt_tdms, \
     new_dataset, RTDCWriter
@@ -15,7 +16,7 @@ from helper_methods import example_data_dict, retrieve_data
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_basic():
     h5path = retrieve_data("fmt-hdf5_fl_2017.zip")
     viol, aler, info = check_dataset(h5path)
@@ -70,15 +71,15 @@ def test_basin_features_internal_missing_feature(h5_obj_delete):
         )
         del hw.h5file[h5_obj_delete]
 
-    with pytest.warns(
-        feat_basin.BasinFeatureMissingWarning,
-            match="defined as an internal basin, but it cannot be found"):
-        # see if we can open the file without any error
-        with check.IntegrityChecker(path) as ic:
-            cues = [cc for cc in ic.check() if cc.level != "info"]
-            assert len(cues) == 1
-            assert cues[0].level == "violation"
-            assert cues[0].msg.count("Missing internal basin")
+    # see if we can open the file without any error
+    with (pytest.warns(
+            feat_basin.BasinFeatureMissingWarning,
+            match="defined as an internal basin, but it cannot be found"),
+          check.IntegrityChecker(path) as ic):
+        cues = [cc for cc in ic.check() if cc.level != "info"]
+        assert len(cues) == 1
+        assert cues[0].level == "violation"
+        assert cues[0].msg.count("Missing internal basin")
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
@@ -159,9 +160,9 @@ def test_exact():
         "Negative value for feature(s): fl2_max",
     ]
     known_info = [
-        'Compression: None',
-        'Data file format: tdms',
-        'Fluorescence: True',
+        "Compression: None",
+        "Data file format: tdms",
+        "Fluorescence: True",
     ]
     assert set(viol) == set(known_viol)
     assert set(aler) == set(known_aler)
@@ -274,6 +275,31 @@ def test_ic_external_links_logs():
                        "link: '/logs'")
 
 
+def test_ic_external_links_dangling():
+    """A dangling external link must be flagged and not crash the check"""
+    h5path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
+
+    with h5py.File(h5path, "a") as h5:
+        h5["/logs/dangling"] = h5py.ExternalLink(
+            str(h5path.with_name("does-not-exist.h5")), "/foo"
+        )
+
+    with check.IntegrityChecker(h5path) as ic:
+        cues1 = ic.check_external_links()
+
+    assert len(cues1) == 1
+    cue = cues1[0]
+    assert cue.level == "violation"
+    assert cue.category == "format HDF5"
+    assert cue.msg == ("The HDF5 file contains at least one external "
+                       "link: '/logs/dangling'")
+
+    # The other checks must not crash either
+    viol, _, _ = check_dataset(h5path)
+    assert ("The HDF5 file contains at least one external "
+            "link: '/logs/dangling'") in viol
+
+
 def test_ic_feature_size_scalar():
     ddict = example_data_dict(size=8472, keys=["area_um", "deform"])
     ddict["bright_sd"] = np.linspace(10, 20, 1000)
@@ -282,8 +308,8 @@ def test_ic_feature_size_scalar():
         cues = ic.check_feature_size()
     for cue in cues:
         if cue.category == "feature size":
-            assert cue.msg == "Features: wrong event count: 'bright_sd' " \
-                              + "(1000 of 8472)"
+            assert cue.msg == ("Features: wrong event count: 'bright_sd' "
+                               "(1000 of 8472)")
             break
     else:
         assert False
@@ -297,8 +323,8 @@ def test_ic_feature_size_trace():
         cues = ic.check_feature_size()
     for cue in cues:
         if cue.category == "feature size":
-            assert cue.msg == "Features: wrong event count: 'trace/fl1_raw'" \
-                              + " (1000 of 8472)"
+            assert cue.msg == ("Features: wrong event count: 'trace/fl1_raw'"
+                               " (1000 of 8472)")
             break
     else:
         assert False
@@ -371,8 +397,8 @@ def test_ic_fmt_hdf5_image1():
     with check.IntegrityChecker(h5path) as ic:
         cues = ic.check_fmt_hdf5()
     assert cues[0].category == "format HDF5"
-    assert cues[0].msg == "HDF5: '/image': attribute 'CLASS' should be " \
-                          + "fixed-length ASCII string"
+    assert cues[0].msg == ("HDF5: '/image': attribute 'CLASS' should be "
+                           "fixed-length ASCII string")
     assert cues[0].level == "alert"
 
 
@@ -385,8 +411,8 @@ def test_ic_fmt_hdf5_image2():
     with check.IntegrityChecker(h5path) as ic:
         cues = ic.check_fmt_hdf5()
     assert cues[0].category == "format HDF5"
-    assert cues[0].msg == "HDF5: '/image': attribute 'CLASS' should have " \
-                          + "value 'b'IMAGE''"
+    assert cues[0].msg == ("HDF5: '/image': attribute 'CLASS' should have "
+                           "value 'b'IMAGE''")
     assert cues[0].level == "alert"
 
 
@@ -431,7 +457,7 @@ def test_ic_fmt_hdf5_logs():
         cues = ic.check_fmt_hdf5()
     assert len(cues) == 1
     assert cues[0].category == "format HDF5"
-    assert cues[0].msg == 'Logs: test line 0 exceeds maximum line length 100'
+    assert cues[0].msg == "Logs: test line 0 exceeds maximum line length 100"
     assert cues[0].level == "alert"
 
 
@@ -525,7 +551,7 @@ def test_check_metadata_hdf5_type_issue_139():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.EmptyConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.EmptyConfigurationKeyWarning")
 def test_ic_metadata_empty_string():
     """Empty metadata values are ignored with a warning in dclab>0.33.2"""
     path = retrieve_data("fmt-hdf5_fl_2018.zip")
@@ -597,14 +623,38 @@ def test_ic_fl_max_ctc():
     assert not cues
 
 
+@pytest.mark.parametrize("feat,meth", [
+    ("fl1_max", "check_fl_max_positive"),
+    ("fl2_max_ctc", "check_fl_max_ctc_positive"),
+])
+def test_ic_fl_max_empty_and_nan(feat, meth):
+    """Empty data must not crash, NaN values must be ignored"""
+    ds = new_dataset({"deform": np.zeros(0), feat: np.zeros(0)})
+    with check.IntegrityChecker(ds) as ic:
+        assert not getattr(ic, meth)()
+
+    # The result must not depend on the position of NaN values
+    for data in [[np.nan, -5.0, 3.0], [-5.0, np.nan, 3.0]]:
+        ds = new_dataset({"deform": np.ones(3), feat: np.array(data)})
+        with check.IntegrityChecker(ds) as ic:
+            cues = getattr(ic, meth)()
+        assert len(cues) == 1
+        assert cues[0].msg == f"Negative value for feature(s): {feat}"
+
+    ds = new_dataset({"deform": np.ones(3),
+                      feat: np.array([np.nan, 5.0, 3.0])})
+    with check.IntegrityChecker(ds) as ic:
+        assert not getattr(ic, meth)()
+
+
 def test_ic_invalid_dataset():
     # Testing if IC throws NotImplementedError for hierarchy datasets
     ddict = example_data_dict(size=8472, keys=["area_um", "deform"])
     ds = new_dataset(ddict)
     ds_child = new_dataset(ds)
-    with check.IntegrityChecker(ds_child) as ic:
-        with pytest.raises(NotImplementedError):
-            ic.check()
+    with (check.IntegrityChecker(ds_child) as ic,
+          pytest.raises(NotImplementedError)):
+        ic.check()
 
     # Testing if IC throws NotImplementedError for raw-datasets with
     # applied filters
@@ -613,9 +663,8 @@ def test_ic_invalid_dataset():
     ds.config["filtering"]["area_um max"] = 100
     ds.config["filtering"]["area_um min"] = 1
     ds.apply_filter()
-    with check.IntegrityChecker(ds) as ic:
-        with pytest.raises(NotImplementedError):
-            ic.check()
+    with check.IntegrityChecker(ds) as ic, pytest.raises(NotImplementedError):
+        ic.check()
 
 
 def test_ic_sanity():
@@ -647,9 +696,9 @@ def test_ic_temp_allzero_issue_183():
         assert cues[0].level == "violation"
 
 
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'feat_anc_core.ancillary_feature.'
-                            + 'BadFeatureSizeWarning')
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "feat_anc_core.ancillary_feature."
+                            "BadFeatureSizeWarning")
 def test_invalid_medium():
     pytest.importorskip("nptdms")
     h5path = retrieve_data("fmt-tdms_minimal_2016.zip")
@@ -663,9 +712,9 @@ def test_invalid_medium():
     assert "Metadata: Invalid value [setup] medium: 'unknown_bad!'" not in viol
 
 
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'feat_anc_core.ancillary_feature.'
-                            + 'BadFeatureSizeWarning')
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "feat_anc_core.ancillary_feature."
+                            "BadFeatureSizeWarning")
 def test_load_with():
     pytest.importorskip("nptdms")
     h5path = retrieve_data("fmt-tdms_minimal_2016.zip")
@@ -708,17 +757,17 @@ def test_ml_class():
         assert "ml_score_001" in cues[0].msg
 
 
-@pytest.mark.filterwarnings('ignore::dclab.rtdc_dataset.'
-                            + 'feat_anc_core.ancillary_feature.'
-                            + 'BadFeatureSizeWarning')
+@pytest.mark.filterwarnings("ignore::dclab.rtdc_dataset."
+                            "feat_anc_core.ancillary_feature."
+                            "BadFeatureSizeWarning")
 def test_no_fluorescence():
     pytest.importorskip("nptdms")
     h5path = retrieve_data("fmt-tdms_minimal_2016.zip")
     _, _, info = check_dataset(h5path)
     known_info = [
-        'Compression: None',
-        'Data file format: tdms',
-        'Fluorescence: False',
+        "Compression: None",
+        "Data file format: tdms",
+        "Fluorescence: False",
     ]
     assert set(info) == set(known_info)
 
@@ -799,7 +848,11 @@ def test_online_polygon_filters_wrong_shape(shape):
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.parametrize("si_version", ["2.2.1.0", "2.2.1.0dev", "2.2.2.0dev",
                                         "2.2.2.0", "2.2.2.1", "2.2.2.2",
-                                        "2.2.2.4", "2.2.2.4", "2.3.0.0"])
+                                        "2.2.2.3", "2.2.2.4", "2.3.0.0",
+                                        # version branded by dclab
+                                        "2.2.1.0 | dclab 0.74.0",
+                                        "2.3.0.0 | dclab 0.62 | dclab 0.74",
+                                        ])
 def test_shapein_issue3_bad_medium(si_version):
     h5path = retrieve_data("fmt-hdf5_fl_2018.zip")
     with h5py.File(h5path, "a") as h5:
@@ -816,7 +869,8 @@ def test_shapein_issue3_bad_medium(si_version):
 
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
-@pytest.mark.parametrize("si_version", ["2.2.0.3", "2.3.1.0"])
+@pytest.mark.parametrize("si_version", ["2.2.0.3", "2.3.1.0",
+                                        "2.3.1.0 | dclab 0.74.0"])
 def test_shapein_issue3_bad_medium_control(si_version):
     h5path = retrieve_data("fmt-hdf5_fl_2018.zip")
     with h5py.File(h5path, "a") as h5:
@@ -828,13 +882,30 @@ def test_shapein_issue3_bad_medium_control(si_version):
         assert len(cues) == 0
 
 
+@pytest.mark.filterwarnings(
+    "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
+def test_shapein_issue3_bad_medium_after_compress():
+    """The check must also work for files written by dclab"""
+    h5path = retrieve_data("fmt-hdf5_fl_2018.zip")
+    with h5py.File(h5path, "a") as h5:
+        h5.attrs["setup:software version"] = "2.2.1.0"
+        h5.attrs["setup:medium"] = "CellCarrierB"
+    path_out = cli.compress(h5path, h5path.with_name("compressed.rtdc"),
+                            ret_path=True)
+    with new_dataset(path_out) as ds, check.IntegrityChecker(ds) as ic:
+        # sanity check
+        assert ds.config["setup"]["software version"].count("dclab")
+        cues = ic.check_shapein_issue3_bad_medium()
+        assert len(cues) == 1
+
+
 def test_temperature():
     # there are probably a million things wrong with this dataset, but
     # we are only looking for the temperature thing
     ddict = example_data_dict(size=8472, keys=["area_um", "deform", "temp"])
     ds = new_dataset(ddict)
-    sstr = "Metadata: Missing key [setup] 'temperature', " \
-           + "because the 'temp' feature is given"
+    sstr = ("Metadata: Missing key [setup] 'temperature', "
+            "because the 'temp' feature is given")
     _, aler, _ = check_dataset(ds)
     assert sstr in aler
 
@@ -844,7 +915,7 @@ def test_wrong_samples_per_event():
     h5path = retrieve_data("fmt-tdms_2fl-no-image_2017.zip")
     with h5path.with_name("M1_para.ini").open("a") as fd:
         fd.write("Samples Per Event = 10\n")
-    msg = "Metadata: wrong number of samples per event: fl1_median " \
-          + "(expected 10, got 566)"
+    msg = ("Metadata: wrong number of samples per event: fl1_median "
+           "(expected 10, got 566)")
     viol, _, _ = check_dataset(h5path)
     assert msg in viol

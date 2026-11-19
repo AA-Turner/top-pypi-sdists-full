@@ -366,6 +366,7 @@ WarmTierStateType = Literal["DISABLED", "ENABLED"]
 WorkspaceStateType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 IoTSiteWiseServiceName = Literal["iotsitewise"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

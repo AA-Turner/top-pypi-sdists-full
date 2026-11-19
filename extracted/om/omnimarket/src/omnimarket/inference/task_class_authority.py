@@ -35,6 +35,9 @@ from omnimarket.models.delegation.model_lab_rubric import (
     ModelLabFirstPolicy,
     ModelLabRubric,
 )
+from omnimarket.models.delegation.model_task_class_escalation_policy import (
+    ModelTaskClassEscalationPolicy,
+)
 
 _DEFAULT_AUTHORITY_PATH = (
     Path(__file__).resolve().parent.parent / "configs" / "task_class_contracts.v1.yaml"
@@ -391,16 +394,15 @@ class ModelShortPromptSelection(BaseModel):
 class ModelTaskClassExecutionBudget(BaseModel):
     """Declared ceiling and terminal margin for one task class.
 
-    The ceiling stays at or below 240 seconds, under the deployed dispatch
-    port's 300-second wait, so the handler's own deadline fires before the
-    port gives up on it. The delivery margin belongs to the terminal waiter,
-    not the model execution deadline. (The bound moved here from the onex
-    CLI's mirror model, OMN-19407.)
+    Each class declares its own ceiling, at most 900 s, and a site overlay may
+    override it per class (OMN-21344). The runtime port's wait and the handler
+    bound follow the largest declared class. The delivery margin belongs to
+    the terminal waiter. (Bound moved here from the CLI mirror, OMN-19407.)
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    task_class_timeout_ceiling_seconds: int = Field(ge=1, le=240)
+    task_class_timeout_ceiling_seconds: int = Field(ge=1, le=900)
     terminal_delivery_margin_seconds: int = Field(ge=1)
     requested_timeout_grace_seconds: int | None = Field(
         default=None,
@@ -857,23 +859,6 @@ class ModelSizeBandThresholds(BaseModel):
     steps: ModelBandEdges
 
 
-class ModelTaskClassEscalationPolicy(BaseModel):
-    """How far and in what tier order a task class escalates (OMN-20287 types it).
-
-    ``tier_order`` is the class's own ladder, a deployment's routing choice, so
-    it is marked as a deployment fact.
-    """
-
-    model_config = ConfigDict(frozen=True, extra="allow")
-
-    max_escalations: int | None = None
-    tier_order: tuple[str, ...] | None = Field(
-        default=None,
-        description="The closed, ordered set of routing tiers this class may use.",
-        json_schema_extra=deployment_fact(EnumDeploymentFactKind.ROUTING_ORDER),
-    )
-
-
 class ModelExternalAcceptance(BaseModel):
     """An acceptance authority that runs outside the quality gate (OMN-17427).
 
@@ -1002,6 +987,7 @@ class ModelTaskClassAuthority(BaseModel):
         default_factory=dict
     )
     size_band_thresholds: ModelSizeBandThresholds | None = None
+    paid_from_size_band: Literal["S", "M", "L"] | None = None
     facts_first_prompt: ModelFactsFirstPromptPolicy | None = Field(
         default=None,
         description=(
@@ -1115,13 +1101,10 @@ class ModelTaskClassAuthority(BaseModel):
         return None
 
     def execution_budget(self, task_class: str) -> ModelTaskClassExecutionBudget:
-        """Return the declared handler budget for ``task_class``, or refuse."""
-        try:
-            return self.execution_budgets[task_class]
-        except KeyError as exc:
-            raise ValueError(
-                f"no declared execution budget for task class: {task_class}"
-            ) from exc
+        """The declared budget for ``task_class``, a site overlay's when it sets one."""
+        from omnimarket.handlers.execution_budget_overlay import resolve_for_authority
+
+        return resolve_for_authority(self, task_class).budget
 
     def unroutable_refusal(self, task_class: str) -> str | None:
         """Return the refusal for a class declared unroutable, in the contract's words."""
@@ -1316,11 +1299,8 @@ def withheld_delegation_refusal(task_class: str) -> str | None:
     it, and a backend that does declare the capability still resolves.
     """
     authority = _delegation_task_class_authority()
-    declared = authority.unroutable_task_classes.get(task_class)
-    if (
-        declared is None
-        or declared.status is not EnumRoutingAvailabilityStatus.WITHHELD
-    ):
+    entry = authority.unroutable_task_classes.get(task_class)
+    if entry is None or entry.status is not EnumRoutingAvailabilityStatus.WITHHELD:
         return None
     return authority.unroutable_refusal(task_class)
 

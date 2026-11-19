@@ -33,7 +33,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final, cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from omnibase_core.enums.ticket.enum_dod_check_type import EnumDodCheckType
 from omnibase_core.enums.ticket.enum_dod_evidence_execution_scope import (
@@ -49,6 +49,7 @@ from omnibase_core.validation.validator_receipt_gate import (
 )
 from pydantic import ValidationError
 
+from omnimarket.config.service_endpoints import service_endpoint_url
 from omnimarket.delegated_test_loop.must_fail_control import (
     ProtocolMustFailTreeRunner,
     diff_derived_binding,
@@ -71,6 +72,12 @@ from omnimarket.enums.enum_dod_verify_execution_audience import (
 from omnimarket.enums.enum_dod_verify_unresolved_cause import (
     EnumDodVerifyUnresolvedCause,
 )
+from omnimarket.models.model_criteria_drift import (
+    ModelCriteriaCheck,
+)
+from omnimarket.models.model_criteria_pins import (
+    ModelCriteriaPins,
+)
 from omnimarket.nodes.node_dod_verify.handlers.dod_evidence_local_source import (
     SCM_CACHE_DIR_ENV,
 )
@@ -78,12 +85,6 @@ from omnimarket.nodes.node_dod_verify.handlers.handler_dod_evidence_github_effec
     HandlerDodEvidenceGithubEffect,
     HandlerDurableEvidenceGateEffect,
     pypi_release_files,
-)
-from omnimarket.nodes.node_dod_verify.models.model_criteria_drift import (
-    ModelCriteriaCheck,
-)
-from omnimarket.nodes.node_dod_verify.models.model_criteria_pins import (
-    ModelCriteriaPins,
 )
 from omnimarket.nodes.node_dod_verify.models.model_dod_acceptance_summary import (
     ModelDodAcceptanceSummary,
@@ -99,7 +100,6 @@ from omnimarket.nodes.node_dod_verify.models.model_dod_evidence_github_lookup im
 from omnimarket.nodes.node_dod_verify.models.model_dod_verify_state import (
     EnumEvidenceCheckStatus,
     EnumEvidenceUnverifiableCause,
-    EnumOccRefRefreshOutcome,
     EnumProductCloneFreshness,
     ModelCommandCheckFailure,
     ModelEvidenceCheckResult,
@@ -181,9 +181,6 @@ _DEFAULT_CONTRACT_ROOTS: list[str] = [
     "${CONTRACT_REPO_DIR}/contracts",
 ]
 
-# OCC governance ref supplied to the durable evidence gate.
-_DEFAULT_OCC_GOVERNANCE_REF = "origin/dev"
-
 # OMN-15443: ModelContractDodItem is the authoritative owner of item-level DoD
 # contract fields.  The local Done-gate consumer additionally supports explicit
 # PR bindings used by its live-state verifier; those fields are local execution
@@ -249,8 +246,9 @@ _DEFAULT_GIT_OP_TIMEOUT_S = 300
 _GIT_OP_TIMEOUT_ENV = "DOD_VERIFY_GIT_OP_TIMEOUT_S"
 
 # OMN-20886: a ticket's product-repository contract could not be resolved (its
-# merged PRs, the contract at a merge commit, or the check runs were unreadable
-# or malformed). Refuses: an OCC copy does not govern such a ticket.
+# merged PRs or the contract at a merge commit were unreadable or malformed).
+# Check-run read faults have their own retryable cause. Refuses: an OCC copy
+# does not govern such a ticket.
 _REPO_CONTRACT_UNRESOLVED_CODE = "REPO_CONTRACT_UNRESOLVED"
 
 
@@ -385,10 +383,6 @@ def _check_timeout_s() -> float:
     return value
 
 
-# Referenced by the handler's recorded OCC-refusal diagnostics. collect()
-# no longer reads this override or auto-resolves contracts from OCC.
-_ALLOW_STALE_OCC_REF_ENV = "DOD_VERIFY_ALLOW_STALE_OCC_REF"
-
 # OMN-16846 D2: fail closed on the product clone a check's declared
 # ``cwd`` names. Named and logged; a run under it records every affected
 # check as unverifiable rather than
@@ -402,6 +396,8 @@ _ALLOW_STALE_PRODUCT_CLONE_ENV = "DOD_VERIFY_ALLOW_STALE_PRODUCT_CLONE"
 # check is not measured on that run (``criteria_check`` stays None) rather than
 # refusing every replayed contract that records criteria. Named and logged.
 _HISTORICAL_REPLAY_ENV = "DOD_VERIFY_HISTORICAL_REPLAY"
+# OMN-21676: the contract that declares the ticket-read credential's secret ref.
+_CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contract.yaml"
 
 # OMN-18117: path to the pin file whoever materialised this run's product
 # clones wrote — see ``ModelProductClonePinSet``. Unset (the local operator
@@ -577,6 +573,61 @@ def _hermetic_venv_path(project_root: Path) -> Path:
     digest.update(str(project_root).encode("utf-8"))
     digest.update((project_root / "uv.lock").read_bytes())
     return _hermetic_venv_root() / f"{project_root.name}-{digest.hexdigest()[:12]}"
+
+
+_HERMETIC_VENV_RETENTION_ENV = "DOD_VERIFY_HERMETIC_VENV_RETENTION_S"
+_DEFAULT_HERMETIC_VENV_RETENTION_S = 6 * 3600
+
+
+def _hermetic_venv_retention_s() -> float:
+    """Seconds an unused ephemeral environment survives (OMN-22993).
+
+    Malformed or non-positive falls back to the default rather than turning
+    pruning off or deleting everything.
+    """
+    raw = os.environ.get(_HERMETIC_VENV_RETENTION_ENV, "").strip()
+    try:
+        value = float(raw) if raw else float(_DEFAULT_HERMETIC_VENV_RETENTION_S)
+    except ValueError:
+        value = 0.0
+    if value <= 0:
+        return float(_DEFAULT_HERMETIC_VENV_RETENTION_S)
+    return value
+
+
+def _prune_stale_hermetic_envs(keep: Path) -> list[Path]:
+    """Remove environments beside ``keep`` unused for the retention period.
+
+    The path is keyed by project root + lock bytes, so every lane worktree
+    makes its own ~0.5 GB environment and, before OMN-22993, none was ever
+    removed (39 of them, 20 GB, took a lab host under its disk floor).
+    ``keep`` is marked used first; a sibling is removed only when its mtime is
+    older than the retention, which a build or reuse refreshes. Failures are
+    logged and never fail the build.
+    """
+    root = _hermetic_venv_root()
+    removed: list[Path] = []
+    try:
+        os.utime(keep, None)
+        cutoff = time.time() - _hermetic_venv_retention_s()
+        for entry in root.iterdir():
+            if entry == keep or not entry.is_dir() or entry.is_symlink():
+                continue
+            if not (entry / "bin" / "python").exists():
+                continue  # not one of ours; never delete a foreign directory
+            if entry.stat().st_mtime >= cutoff:
+                continue
+            shutil.rmtree(entry, ignore_errors=True)
+            removed.append(entry)
+    except OSError as exc:
+        logger.warning("OMN-22993: could not prune %s: %s", root, exc)
+    if removed:
+        logger.info(
+            "OMN-22993: pruned %d stale hermetic environment(s) under %s",
+            len(removed),
+            root,
+        )
+    return removed
 
 
 # ---------------------------------------------------------------------------
@@ -1121,7 +1172,10 @@ _EVIDENCE_ID_BINDING_RE = re.compile(
 # repo from one field paired with a number from another).
 _HARDCODED_PR_NUM_RE = re.compile(r"gh pr (?:view|checks|diff)\s+(\d+)\b")
 _REPO_FLAG_RE = re.compile(r"--repo(?:=|\s+)([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)")
-_GH_PR_URL_RE = re.compile(r"https://github\.com/([^\s\"')]+/[^\s\"')]+)/pull/(\d+)")
+_GH_PR_URL_RE = re.compile(
+    re.escape(service_endpoint_url("github.web_url"))
+    + r"/([^\s\"')]+/[^\s\"')]+)/pull/(\d+)"
+)
 # OMN-15465: the two URL forms that carry repo AND number adjacent inside a
 # SINGLE token — the ``gh api`` REST path (``repos/<owner>/<repo>/pulls/<N>``)
 # and the github.com web URL (``.../<owner>/<repo>/pull/<N>``). These are a
@@ -1133,7 +1187,7 @@ _GH_PR_URL_RE = re.compile(r"https://github\.com/([^\s\"')]+/[^\s\"')]+)/pull/(\
 # perfectly and still fell through tier 2 to the receipt-carrier tier, because
 # the extractor only understood ``gh pr view|checks|diff``.
 _PR_PATH_URL_RE = re.compile(
-    r"(?:https://github\.com/|repos/)"
+    "(?:" + re.escape(service_endpoint_url("github.web_url")) + r"/|repos/)"
     r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)"
     r"/pulls?/(\d+)\b"
 )
@@ -2217,6 +2271,10 @@ class EvidenceCollector:
         self._ticket_reader = ticket_reader
         self._criteria_pins: ModelCriteriaPins | None = None
         self._criteria_read_before: ModelTicketCriteriaRead | None = None
+        # OMN-21676: True when the contract records criteria and this run, a hosted
+        # one with no ticket reader injected, left their comparison with the live
+        # ticket to the trusted pre-merge check.
+        self._criteria_delegated = False
         # OMN-20858: what the criteria-drift check established for the last
         # ticket-contract collect(). None when the contract records no criteria
         # (nothing to drift from) or no contract was loaded, so "not measured"
@@ -2247,16 +2305,19 @@ class EvidenceCollector:
         # two is non-None, and a failure is remembered so a broken environment
         # is not re-attempted once per check.
         self._hermetic_uv_envs: dict[Path, tuple[Path | None, str | None]] = {}
+        # OMN-23198: every environment directory THIS collector started building,
+        # and the token that makes its path unique to this run. A peer run's
+        # directory is never in the list, so ``close`` can remove everything in
+        # it without touching an environment another run is still using.
+        self._hermetic_uv_built: list[Path] = []
+        self._hermetic_run_token = uuid4().hex[:10]
+        self._hermetic_close_registered = False
         # OMN-17863: the JS sibling of the memo above. Same shape, same
         # per-run-once contract -- a project's stage is built at most once
         # per collector, and a build FAILURE is memoised too so a second
         # check in the same project reports the same typed non-result
         # instead of paying the whole install budget again to fail again.
         self._hermetic_node_envs: dict[Path, tuple[Path | None, str | None]] = {}
-        self._occ_governance_ref = (
-            os.environ.get("OCC_GOVERNANCE_REF", _DEFAULT_OCC_GOVERNANCE_REF).strip()
-            or _DEFAULT_OCC_GOVERNANCE_REF
-        )
         # OMN-15382: the dod_evidence item id currently being checked, set by
         # ``_check_evidence_item`` before it runs that item's checks. Read by
         # ``_lookup_pr_for_ticket`` / ``_lookup_repo_for_ticket`` to recover an
@@ -2282,17 +2343,6 @@ class EvidenceCollector:
         # earliest failure is the one that determines what could not be looked
         # at; later ones are usually its consequence.
         self._sticky_lookup_failure_code: str | None = None
-        # OMN-17796: the GOVERNANCE-REF counterpart of the sticky code above,
-        # kept as its own field rather than folded into it because the two
-        # carry different scopes and therefore earn different handler policies.
-        # A PR/repo lookup failure is discovered PER ITEM, while checks are
-        # already running, so its arm is guarded by ``verified == 0`` to avoid
-        # stealing a real red that ran beside it. This one is resolved BEFORE
-        # the contract is loaded: if it is set, no evidence item was read at
-        # all and nothing in the run is attributable to the ref the run
-        # reports, so its arm fires unconditionally. Merging the two fields
-        # would force one guard onto both scopes and lose that distinction.
-        self._occ_ref_failure_code: str | None = None
         # OMN-15382 (F2): set by ``_resolve_pr_bindings`` when it found NO
         # trustworthy binding but SOME evidence the item is PR-related (a PASS
         # receipt recording a pr_number that could not be consistently paired
@@ -2314,10 +2364,6 @@ class EvidenceCollector:
         # attribute leaves it None and therefore keeps its pre-OMN-16788
         # semantics exactly. Mirrors ``_last_binding_note`` above.
         self._last_checks_unreachable_cause: EnumEvidenceUnverifiableCause | None = None
-        # Read by handler_dod_verify when stamping state. collect() no longer
-        # resolves an OCC snapshot, so it leaves these provenance fields unset.
-        self.occ_refresh_outcome: EnumOccRefRefreshOutcome | None = None
-        self.occ_resolved_sha: str | None = None
         # OMN-16846 D2: product-clone freshness, memoised per repository root
         # for the lifetime of this collector. One ``git fetch`` per repo per
         # run, not one per check — a contract with a dozen ``test_passes``
@@ -2350,11 +2396,6 @@ class EvidenceCollector:
         self._last_contract: dict[str, Any] | None = None
         self._repo_merged_prs: tuple[ModelTicketMergedPr, ...] = ()
         self._durable_gate_inputs: ModelDurableEvidenceGateRunCommand | None = None
-
-    @property
-    def occ_governance_ref(self) -> str:
-        """The OCC governance ref supplied to the durable evidence gate."""
-        return self._occ_governance_ref
 
     @staticmethod
     def _github_lookup_result(
@@ -2440,6 +2481,11 @@ class EvidenceCollector:
                 commit_sha=sha,
             )
         )
+        if not event.resolved:
+            self._record_lookup_failure(
+                f"CHECK_RUN_READ_FAILED: {repo}@{sha}: "
+                f"{event.detail or 'no usable check-run listing returned'}"
+            )
         return event.check_runs if event.resolved else None
 
     def _collect_repo_governed(
@@ -2478,6 +2524,24 @@ class EvidenceCollector:
         )
         if isinstance(resolved, ModelRepoEvidenceVerdict):
             if resolved.outcome is EnumRepoEvidenceOutcome.REFUSED:
+                if resolved.unresolved_cause is (
+                    EnumDodVerifyUnresolvedCause.CHECK_RUN_READ_FAILED
+                ):
+                    self._record_lookup_failure("CHECK_RUN_READ_FAILED")
+                    return [
+                        ModelEvidenceCheckResult(
+                            evidence_id="contract",
+                            description=f"Merged PR check runs for {ticket_id} unreadable",
+                            status=EnumEvidenceCheckStatus.SKIPPED,
+                            unverifiable_cause=(
+                                EnumEvidenceUnverifiableCause.CHECK_RUN_READ_FAILED
+                            ),
+                            message=(
+                                f"{self.lookup_failure_code}: {resolved.detail} "
+                                "Closure stays blocked pending a readable check-run result."
+                            ),
+                        )
+                    ]
                 return [self._repo_contract_refusal(ticket_id, resolved.detail)]
             logger.info(
                 "No product repository governs %s (%s)",
@@ -2495,6 +2559,7 @@ class EvidenceCollector:
         # pins of every contract are kept here and unioned after the loop.
         pin_parts: list[tuple[str, ModelCriteriaPins]] = []
         first_criteria_read: ModelTicketCriteriaRead | None = None
+        any_delegated = False
         for engaged in governing:
             pr = engaged.pr
             logger.info(
@@ -2519,6 +2584,7 @@ class EvidenceCollector:
                 pin_parts.append((name, self._criteria_pins))
                 if first_criteria_read is None:
                     first_criteria_read = self._criteria_read_before
+            any_delegated = any_delegated or self._criteria_delegated
             if multi:
                 # Two contracts may reuse an item id; the repository keeps them
                 # apart in one verdict.
@@ -2533,6 +2599,7 @@ class EvidenceCollector:
                 summaries.append(self.acceptance_summary)
             if self.contract_subject is not None:
                 subjects.append(self.contract_subject)
+        self._criteria_delegated = any_delegated
         if multi:
             # One verdict row names one contract; a verdict over several names
             # none rather than one of them.
@@ -2551,8 +2618,6 @@ class EvidenceCollector:
             ticket_id=ticket_id,
             contract=dict(governing[0].contract),
             merged_prs=self._repo_merged_prs,
-            occ_repo_path=str(self._resolve_occ_root() or ""),
-            occ_governance_ref=self._occ_governance_ref,
         )
         return results
 
@@ -2569,18 +2634,6 @@ class EvidenceCollector:
             ),
         )
 
-    def _record_durable_gate_inputs(self, ticket_id: str) -> None:
-        """OMN-20886: the gate inputs of an onex_change_control-resolved run."""
-        if self._last_contract is None:
-            return
-        self._durable_gate_inputs = ModelDurableEvidenceGateRunCommand(
-            ticket_id=ticket_id,
-            contract=dict(self._last_contract),
-            merged_prs=self._repo_merged_prs,
-            occ_repo_path=str(self._resolve_occ_root() or ""),
-            occ_governance_ref=self._occ_governance_ref,
-        )
-
     @staticmethod
     def _make_durable_gate_effect() -> HandlerDurableEvidenceGateEffect:
         """The gate's EFFECT handler. Override in tests to inject probes."""
@@ -2595,13 +2648,6 @@ class EvidenceCollector:
         if self._durable_gate_inputs is None:
             return None
         return self._make_durable_gate_effect().handle(self._durable_gate_inputs)
-
-    def _resolve_occ_root(self) -> Path | None:
-        """Return the OCC repo root from ``ONEX_CC_REPO_PATH``, or None."""
-        cc_repo_path = os.environ.get("CONTRACT_REPO_DIR", "").strip()
-        if cc_repo_path and Path(cc_repo_path).is_dir():
-            return Path(cc_repo_path)
-        return None
 
     def _collect_impl(
         self,
@@ -2630,6 +2676,7 @@ class EvidenceCollector:
         self.criteria_check = None
         self._criteria_pins = None
         self._criteria_read_before = None
+        self._criteria_delegated = False
         self._last_contract = None
         raw: dict[str, Any] | None
         if loaded_contract is not None:
@@ -2707,7 +2754,7 @@ class EvidenceCollector:
         # in it, so no marker may retire one, whatever ids coincide.
         declared_count = len(dod_items)
         if inline_items is None:
-            self._begin_criteria_check(ticket_id, raw, dod_items)
+            self._begin_criteria_check(ticket_id, raw, dod_items, execution_audience)
             derived_items, self.acceptance_summary = derive_falsifier_items(
                 raw,
                 dod_items,
@@ -3798,10 +3845,24 @@ class EvidenceCollector:
         return _SupersessionResolution(superseded=superseded, malformed=malformed)
 
     def _begin_criteria_check(
-        self, ticket_id: str, contract: dict[str, Any], dod_items: list[Any]
+        self,
+        ticket_id: str,
+        contract: dict[str, Any],
+        dod_items: list[Any],
+        execution_audience: EnumDodVerifyExecutionAudience = (
+            EnumDodVerifyExecutionAudience.HOSTED
+        ),
     ) -> None:
         """OMN-20858: read the live ticket before any check runs, when the contract
-        records criteria to compare it with."""
+        records criteria to compare it with.
+
+        OMN-21676: a hosted run with no ticket reader injected reads nothing. The
+        hosted job holds no Linear credential by design, so it records that the
+        comparison is delegated to the trusted pre-merge check
+        (``node_dod_criteria_check_effect``) and the local Done gate, which read the
+        ticket through the project tracker. An injected reader is always used, and
+        every other audience reads through the tracker.
+        """
         pins = extract_criteria_pins(contract, dod_items)
         if pins is None:
             return
@@ -3818,6 +3879,12 @@ class EvidenceCollector:
             )
             return
         self._criteria_pins = pins
+        if (
+            self._ticket_reader is None
+            and execution_audience is EnumDodVerifyExecutionAudience.HOSTED
+        ):
+            self._criteria_delegated = True
+            return
         self._criteria_read_before = self._criteria_reader().read(ticket_id)
 
     def finish_criteria_check(self) -> ModelCriteriaCheck | None:
@@ -3825,9 +3892,16 @@ class EvidenceCollector:
 
         A second read, not the first reused, because an edit made while the
         checks ran is exactly what the verdict must refuse. Returns None, and
-        reads nothing, when the contract recorded no criteria.
+        reads nothing, when the contract recorded no criteria. A delegated run
+        (OMN-21676) returns the check that says so and reads nothing.
         """
         pins = self._criteria_pins
+        if self._criteria_delegated:
+            self.criteria_check = ModelCriteriaCheck(
+                delegated=True,
+                known_labels=pins.known_labels if pins is not None else (),
+            )
+            return self.criteria_check
         before = self._criteria_read_before
         if pins is None or before is None:
             return None
@@ -3837,11 +3911,16 @@ class EvidenceCollector:
 
     def _criteria_reader(self) -> ProtocolDodTicketCriteriaReader:
         if self._ticket_reader is None:
-            from omnimarket.nodes.node_dod_verify.handlers.handler_dod_ticket_criteria_linear_effect import (
-                HandlerDodTicketCriteriaLinearEffect,
+            from omnimarket.nodes.node_dod_verify.services.criteria_ticket_read import (
+                TrackerCriteriaReader,
+            )
+            from omnimarket.nodes.node_dod_verify.services.linear_criteria_tracker import (
+                linear_project_tracker,
             )
 
-            self._ticket_reader = HandlerDodTicketCriteriaLinearEffect()
+            self._ticket_reader = TrackerCriteriaReader(
+                lambda: linear_project_tracker(_CONTRACT_PATH)
+            )
         return self._ticket_reader
 
     def _contract_repo_dirs(self, dod_items: list[Any]) -> tuple[str, ...]:
@@ -4376,6 +4455,7 @@ class EvidenceCollector:
         cwd_template: str,
         ticket_id: str,
         own_repository: str | None = None,
+        contract_tree: Path | None = None,
     ) -> tuple[str | None, str | None]:
         """Resolve a ``cwd`` template string into an absolute, contained path.
 
@@ -4392,6 +4472,19 @@ class EvidenceCollector:
         - the resolved path must be relative to ``OMNI_HOME`` (when set);
           paths that escape via symlinks are rejected after ``Path.resolve()``
         - the resolved path must exist and be a directory
+
+        A relative ``cwd`` (``"."``, ``"src"``) names a place in the contract's
+        own repository tree, the same tree a check that omits ``cwd`` runs in
+        (``_infer_occ_cwd``). It is anchored at ``contract_tree`` when the
+        contract sits in one, and at the process cwd otherwise. Anchoring at
+        the process cwd alone made the verdict depend on where the verifier
+        was started: a check read verified from a clone under ``OMNI_HOME``
+        and "cwd escapes OMNI_HOME containment" from a lane clone outside it
+        or from the sweep's contract-roots clone (OMN-22315). The contract's
+        own tree counts as contained for a relative ``cwd`` only; an absolute
+        path or a template that renders outside ``OMNI_HOME`` stays refused,
+        and so does a symlink that leaves both roots, because containment is
+        tested on the resolved path.
         """
         if ".." in Path(cwd_template).parts:
             return None, f"cwd path traversal not allowed: {cwd_template}"
@@ -4418,12 +4511,15 @@ class EvidenceCollector:
                 f"substitution: {cwd_template!r} -> {rendered!r}"
             )
 
-        candidate = Path(rendered).resolve()
+        relative = not os.path.isabs(rendered)
+        anchor = contract_tree.resolve() if relative and contract_tree else None
+        candidate = (anchor / rendered if anchor else Path(rendered)).resolve()
 
         omni_home = os.environ.get("OMNI_HOME")
         if omni_home:
             base = Path(omni_home).resolve()
-            if not candidate.is_relative_to(base):
+            in_own_tree = anchor is not None and candidate.is_relative_to(anchor)
+            if not in_own_tree and not candidate.is_relative_to(base):
                 return None, (
                     f"cwd escapes OMNI_HOME containment: {cwd_template!r} "
                     f"resolved to {candidate}"
@@ -4571,31 +4667,12 @@ class EvidenceCollector:
     def lookup_failure_code(self) -> str | None:
         """The first PR/repo lookup failure code observed this run, verbatim.
 
-        Exposed the same way ``occ_refresh_outcome`` is: provenance the handler
-        reads AFTER ``collect()`` returns, so the classification is made from a
+        Provenance the handler reads AFTER ``collect()`` returns, so the
+        classification is made from a
         typed code the effect handler already emitted rather than by parsing a
         rendered message string.
         """
         return self._sticky_lookup_failure_code
-
-    @property
-    def occ_ref_failure_code(self) -> str | None:
-        """The governance-ref refusal code this run hit, verbatim (OMN-17796).
-
-        ``None`` unless ``collect()`` refused on the OCC ref itself. Read by
-        the handler AFTER ``collect()`` returns, exactly as
-        ``lookup_failure_code`` and ``occ_refresh_outcome`` are — typed
-        provenance the collector already holds, never a rendered message
-        parsed back out.
-        """
-        return self._occ_ref_failure_code
-
-    @property
-    def occ_ref_failure_cause(self) -> EnumDodVerifyUnresolvedCause | None:
-        """``occ_ref_failure_code`` mapped onto the OMN-17022 taxonomy."""
-        if self._occ_ref_failure_code is None:
-            return None
-        return EnumDodVerifyUnresolvedCause.from_error_code(self._occ_ref_failure_code)
 
     @property
     def lookup_failure_cause(self) -> EnumDodVerifyUnresolvedCause | None:
@@ -5297,9 +5374,8 @@ class EvidenceCollector:
 
         Returns ``(run_cwd, error, declared)``. ``declared`` is True only when
         the check itself carried a ``cwd`` key — the OMN-10476 auto-injected
-        OCC root does not count, because that repository's freshness is
-        already pinned by ``occ_refresh_outcome``/``occ_resolved_sha`` and
-        re-asserting it here would fetch the same clone twice per run.
+        contract repository root does not count, because re-asserting its
+        freshness here would fetch the same clone twice per run.
 
         Extracted from ``_run_command_check`` (OMN-16846) so the product-clone
         freshness gate resolves the SAME directory the command will run in,
@@ -5320,7 +5396,13 @@ class EvidenceCollector:
             own_repository = contract_path.parent.parent.name
         if own_repository is None:
             own_repository = os.environ.get("REPO", "").rsplit("/", 1)[-1] or None
-        resolved, err = self._resolve_cwd(cwd_template, ticket_id, own_repository)
+        tree = self._resolve_contract_repo_dir(contract_path)
+        resolved, err = self._resolve_cwd(
+            cwd_template,
+            ticket_id,
+            own_repository,
+            Path(tree) if tree else None,
+        )
         if err is not None:
             return None, err, True
         return resolved, None, True
@@ -5703,6 +5785,39 @@ class EvidenceCollector:
         """True only for the OMN-15620 gate's own verbatim refusal banner."""
         return all(marker in message for marker in _VENV_PURITY_REFUSAL_MARKERS)
 
+    def _register_close_at_exit(self) -> None:
+        """Remove this run's environments at interpreter exit as a backstop.
+
+        ``close`` is the path a run takes; this covers a caller that never
+        reached it (an unhandled signal that still unwinds the interpreter).
+        """
+        if not self._hermetic_close_registered:
+            self._hermetic_close_registered = True
+            atexit.register(self.close)
+
+    def close(self) -> None:
+        """Remove every hermetic environment this collector built (OMN-23198).
+
+        Called when a run ends, whether it succeeded, failed or timed out.
+        Idempotent, and it only ever removes directories this collector began
+        building, so an environment a peer run built under the same root is
+        never touched. A removal that fails is logged and the rest still run:
+        a stuck directory must not strand the others on disk.
+        """
+        built, self._hermetic_uv_built = self._hermetic_uv_built, []
+        self._hermetic_uv_envs.clear()
+        for env_path in built:
+            try:
+                shutil.rmtree(env_path)
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                logger.warning(
+                    "OMN-23198: could not remove hermetic environment %s: %s",
+                    env_path,
+                    exc,
+                )
+
     def _ensure_hermetic_uv_env(
         self, project_root: Path
     ) -> tuple[Path | None, str | None]:
@@ -5732,7 +5847,13 @@ class EvidenceCollector:
 
         result: tuple[Path | None, str | None]
         try:
-            env_path = _hermetic_venv_path(project_root)
+            # OMN-23198: the run token makes the path this run's own, so the
+            # directory is safe to remove when the run ends and a concurrent run
+            # on the same lock never shares (or loses) it.
+            shared_path = _hermetic_venv_path(project_root)
+            env_path = shared_path.with_name(
+                f"{shared_path.name}-{self._hermetic_run_token}"
+            )
         except OSError as exc:
             result = (
                 None,
@@ -5771,6 +5892,10 @@ class EvidenceCollector:
             project_root,
             env_path,
         )
+        # OMN-23198: recorded BEFORE the build so a build that times out or dies
+        # half-way is removed by ``close`` like a finished one.
+        self._hermetic_uv_built.append(env_path)
+        self._register_close_at_exit()
         try:
             env_path.parent.mkdir(parents=True, exist_ok=True)
             proc = subprocess.run(
@@ -5822,6 +5947,7 @@ class EvidenceCollector:
             self._hermetic_uv_envs[project_root] = result
             return result
 
+        _prune_stale_hermetic_envs(env_path)
         result = (env_path, None)
         self._hermetic_uv_envs[project_root] = result
         return result

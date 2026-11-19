@@ -25,6 +25,7 @@ Options: FbankOptions, MfccOptions, FrameExtractionOptions, MelBanksOptions,
     WhisperFeatureOptions, NemoFbankOptions, RawAudioSamplesOptions,
     StftConfig, CmvnOptions, PitchExtractionOptions, ProcessPitchOptions
 CMVN: compute_cmvn_stats, apply_cmvn, apply_cmvn_, CmvnAccumulator
+Streaming CMVN: OnlineCmvn, OnlineCmvnOptions, OnlineCmvnState
 Pitch: compute_and_process_kaldi_pitch
 Transforms: Stft, IStft, Rfft, MelBanks, FeatureWindowFunction
 
@@ -52,6 +53,9 @@ from kaldi_native_fbank.lib._kaldi_native_fbank import (
     MelBanksOptions,
     MfccOptions,
     NemoFbankOptions,
+    OnlineCmvn,
+    OnlineCmvnOptions,
+    OnlineCmvnState,
     OnlineFbank,
     OnlineMfcc,
     OnlineNemoFbank,
@@ -82,6 +86,9 @@ __all__ = [
     "MelBanksOptions",
     "MfccOptions",
     "NemoFbankOptions",
+    "OnlineCmvn",
+    "OnlineCmvnOptions",
+    "OnlineCmvnState",
     "OnlineFbank",
     "OnlineMfcc",
     "OnlineNemoFbank",
@@ -105,4 +112,4 @@ __all__ = [
     "transform_features",
     "splice_frames",
 ]
-__version__ = '1.23.1'
+__version__ = '1.23.3'

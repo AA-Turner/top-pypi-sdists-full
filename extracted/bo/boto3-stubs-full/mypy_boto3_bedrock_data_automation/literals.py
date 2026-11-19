@@ -143,6 +143,7 @@ VideoExtractionCategoryTypeType = Literal[
 VideoStandardGenerativeFieldTypeType = Literal["CHAPTER_SUMMARY", "IAB", "VIDEO_SUMMARY"]
 DataAutomationforBedrockServiceName = Literal["bedrock-data-automation"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

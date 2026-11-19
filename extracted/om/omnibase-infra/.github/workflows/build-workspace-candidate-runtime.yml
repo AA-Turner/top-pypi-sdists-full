@@ -65,11 +65,8 @@ on:
         # `fallback_from`. What CI did until now was pass the same branch name
         # as both, throwing that capability away.
         #
-        # Family-general by construction: `omnimarket`, `omnibase_core`,
-        # `omnibase_compat` and `omnibase_spi` are all staged by the same loop,
-        # so each names itself here with no per-repo code anywhere. `omniclaude`
-        # is deliberately outside the family -- it is not in SIBLING_REPOS and
-        # is not vendored into the image, so there is nothing for it to pin.
+        # The staging loop handles every repository in SIBLING_REPOS.
+        # Only a vendored sibling can use this exact-revision input.
         description: >-
           Sibling repository whose revision is pinned exactly (e.g. omnimarket).
           Empty means every sibling takes sibling_ref, which is the pre-OMN-17057
@@ -120,11 +117,8 @@ on:
         # `fallback_from`. What CI did until now was pass the same branch name
         # as both, throwing that capability away.
         #
-        # Family-general by construction: `omnimarket`, `omnibase_core`,
-        # `omnibase_compat` and `omnibase_spi` are all staged by the same loop,
-        # so each names itself here with no per-repo code anywhere. `omniclaude`
-        # is deliberately outside the family -- it is not in SIBLING_REPOS and
-        # is not vendored into the image, so there is nothing for it to pin.
+        # The staging loop handles every repository in SIBLING_REPOS.
+        # Only a vendored sibling can use this exact-revision input.
         description: >-
           Sibling repository whose revision is pinned exactly (e.g. omnimarket).
           Empty means every sibling takes sibling_ref, which is the pre-OMN-17057
@@ -174,7 +168,8 @@ env:
   PYTHON_VERSION: "3.12"
   # The sibling repos the workspace build stages. omnibase_core is staged FIRST
   # (Dockerfile workspace branch reinstalls dev-HEAD core before the others).
-  SIBLING_REPOS: "omnibase_core omnibase_compat omnimarket"
+  # OMN-22153: omniintelligence is staged too, at its newest dev-merge tag.
+  SIBLING_REPOS: "omnibase_core omnimarket omniintelligence"
 
 jobs:
   build-workspace-candidate:
@@ -309,13 +304,48 @@ jobs:
 
       # stage_workspace.sh runs the OMN-12977 sibling-lock-pin preflight
       # (scripts/runtime_build/check_sibling_lock_pins.py), which imports pydantic
-      # (BaseModel/ConfigDict/Field). The actions/setup-python interpreter carries
-      # no project deps, so without this install the preflight dies with
-      # ModuleNotFoundError: No module named 'pydantic' and stage_workspace.sh
-      # exits 3 before the docker build ever runs (OMN-13985). Everything else the
-      # script imports is stdlib.
-      - name: Install sibling-lock-pin preflight deps (pydantic)
-        run: python3 -m pip install --upgrade 'pydantic>=2'
+      # (BaseModel/ConfigDict/Field), and the OMN-17427 dev-merge-tag stamp
+      # (src/omnibase_infra/validation/checker_first_party_sources.py, loaded by
+      # path), which imports yaml. The actions/setup-python interpreter carries
+      # no project deps, so without this install stage_workspace.sh exits before
+      # the docker build (OMN-13985 for pydantic, OMN-19998 for yaml).
+      # Everything else those scripts import is stdlib.
+      - name: Install stage_workspace.sh host deps (pydantic, pyyaml)
+        run: python3 -m pip install --upgrade 'pydantic>=2' 'pyyaml>=6'
+
+      # OMN-19998/OMN-17427: checkout can race dev-merge-tag.yml pushing HEAD's
+      # tag. Fetch it before staging: the first-party source audit reads local
+      # tags at HEAD, and fetch-depth: 0 cannot include a tag not yet pushed.
+      - name: Fetch the build context's dev-merge tag
+        shell: bash
+        env:
+          DEV_TAG_WAIT_ATTEMPTS: "20"
+          DEV_TAG_WAIT_SECONDS: "15"
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          SHA12="${SHA:0:12}"
+          for ((attempt=1; attempt<=DEV_TAG_WAIT_ATTEMPTS; attempt++)); do
+            # A failed ls-remote or fetch is one more missed attempt, not an abort.
+            TAG=""
+            if REFS=$(git ls-remote --tags origin 'refs/tags/dev-*'); then
+              TAG=$(printf '%s\n' "${REFS}" |
+                sed -En "s#^${SHA}[[:space:]]refs/tags/(dev-[0-9]{14}-${SHA12})(\^\{\})?\$#\1#p" |
+                LC_ALL=C sort -u | tail -n 1)
+            fi
+            if [ -n "${TAG}" ]; then
+              if git fetch --no-tags origin "refs/tags/${TAG}:refs/tags/${TAG}" &&
+                [ "$(git rev-parse "refs/tags/${TAG}^{commit}")" = "${SHA}" ]; then
+                echo "build context ${SHA} carries ${TAG}"
+                exit 0
+              fi
+            fi
+            if [ "${attempt}" -lt "${DEV_TAG_WAIT_ATTEMPTS}" ]; then
+              sleep "${DEV_TAG_WAIT_SECONDS}"
+            fi
+          done
+          echo "::error::no dev-merge tag on origin points at ${SHA} after ${DEV_TAG_WAIT_ATTEMPTS} attempts; the first-party source audit would refuse the build context"
+          exit 1
 
       - name: Stage workspace sibling trees into the build context
         env:
@@ -323,9 +353,13 @@ jobs:
           # The consuming pin authority is omnimarket's uv.lock (OMN-12977).
           CONSUMER_LOCK: ${{ steps.stage-siblings.outputs.workspace_root }}/omnimarket/uv.lock
           # OMN-17291: stage_workspace.sh refuses an unpinned build. The clones
-          # above were cloned fresh AT sibling_ref, so arming RT-1 with the same
-          # ref makes the checkout a no-op and turns the vendored SHA into an
-          # asserted fact instead of an unfalsifiable claim.
+          # above were cloned fresh AT sibling_ref, so arming RT-1 with that
+          # branch turns the vendored SHA into an asserted fact instead of an
+          # unfalsifiable claim.
+          #
+          # OMN-19998/OMN-17427: unpinned, arm RT-1 with the remote-tracking ref
+          # so deploy_source_ref.py's --follow-dev-tag stages each sibling at
+          # its newest dev-merge tag. A bare branch name is never followed.
           #
           # OMN-17057: when a pin is requested, RT-1's primary ref becomes the
           # pinned COMMIT and sibling_ref becomes the fallback. That is exactly
@@ -334,7 +368,7 @@ jobs:
           # repository takes the fallback and records `fallback_from`. Both
           # values are still refs, so RT-1's own refusals (unresolvable ref,
           # vendored SHA not equal to the expected one) apply unchanged.
-          DEPLOY_REF: ${{ inputs.pinned_revision || inputs.sibling_ref }}
+          DEPLOY_REF: ${{ inputs.pinned_revision || format('origin/{0}', inputs.sibling_ref) }}
           DEPLOY_SIBLING_FALLBACK_REF: origin/${{ inputs.sibling_ref }}
           PINNED_REPO: ${{ inputs.pinned_repo }}
           PINNED_REVISION: ${{ inputs.pinned_revision }}
@@ -458,6 +492,35 @@ jobs:
             OMNI_HOME=/workspace
             PROMOTION_CLASS=stability-candidate
             NON_MAIN_LINEAGE=true
+
+      # OMN-21279: infra carries no omnimarket since #5261; the dev lane composes
+      # omnimarket's runtime layer since #5353. Delivery run 40272282023 failed
+      # with "FATAL omnimarket contracts unresolvable: No module named 'omnimarket'".
+      # Replace the candidate tag so the Trivy scan, source-hash attestation,
+      # lineage-label and config-path checks, and push below use the composed image.
+      - name: Compose the omnimarket layer onto the candidate (OMN-21279)
+        shell: bash
+        env:
+          CANDIDATE_IMAGE: ${{ steps.meta.outputs.tags }}
+          OMNIMARKET_TREE: ${{ steps.stage-siblings.outputs.workspace_root }}/omnimarket
+        run: |
+          set -euo pipefail
+          if [ ! -f "${OMNIMARKET_TREE}/Dockerfile.runtime" ]; then
+            echo "::error::missing ${OMNIMARKET_TREE}/Dockerfile.runtime"; exit 1
+          fi
+          OMNIMARKET_VCS_REF="$(jq -r '.siblings.omnimarket.vcs_ref // ""' workspace/sibling-vcs-provenance.json)"
+          if [ -z "${OMNIMARKET_VCS_REF}" ]; then
+            echo "::error::omnimarket vcs_ref is empty in workspace/sibling-vcs-provenance.json"; exit 1
+          fi
+          INFRA_IMAGE="${CANDIDATE_IMAGE}-infra"
+          docker tag "${CANDIDATE_IMAGE}" "${INFRA_IMAGE}"
+          docker buildx build --load --platform linux/amd64 \
+            --file "${OMNIMARKET_TREE}/Dockerfile.runtime" \
+            --build-arg "INFRA_RUNTIME_IMAGE=${INFRA_IMAGE}" \
+            --build-arg "OMNIMARKET_VCS_REF=${OMNIMARKET_VCS_REF}" \
+            --tag "${CANDIDATE_IMAGE}" "${OMNIMARKET_TREE}"
+          docker run --rm --entrypoint /app/.venv/bin/python "${CANDIDATE_IMAGE}" \
+            -c "import omnimarket, importlib.metadata; print('omnimarket', importlib.metadata.version('omnimarket'))"
 
       # OMN-16229: same unignored audit as the prod build path
       # (build-and-push-runtime.yml). The policy check must prove every ignore

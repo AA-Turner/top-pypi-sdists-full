@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    The ``openstack.format.Formatter`` class no longer defines a ``serialize``
-    method to override. This was unused and unneccessary complexity.

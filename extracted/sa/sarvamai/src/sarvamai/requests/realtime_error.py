@@ -13,11 +13,16 @@ class RealtimeErrorParams(typing_extensions.TypedDict):
 
     **WebSocket close codes:**
     - `1003`: Rate limit exceeded, quota exhausted, or invalid subscription key.
-    - `1008`: Inactivity timeout.
+    - `1008`: Inactivity timeout (no audio received for 60 seconds).
     - `1011`: Internal server error.
     - `4000`: Application rejection (beta denied, invalid model, unsupported `language_code` / query param, gRPC backend unavailable). The close reason string is capped at 123 bytes.
 
     **Known error codes:**
+    - `invalid_request` (fatal): A missing or invalid connection parameter (for example no `language_code`, an unsupported `sample_rate` or `encoding`, an out-of-range `threshold`, or `keyterms` on `saaras:v3-realtime`).
+    - `invalid_model` (fatal): `model` is not `saaras:v4` or `saaras:v3-realtime`.
+    - `invalid_subscription_key` (fatal): Missing or invalid API key (`status_code` 401).
+    - `inactivity_timeout` (fatal): No audio received for 60 seconds (`status_code` 408).
+    - `chunk_too_large` (non-fatal): One `audio_input` frame exceeds the per-frame cap (16,000 bytes on `stream_type` `fast`). The session stays open.
     - `invalid_config` (non-fatal): A `config.update` value was rejected (e.g. changing `stream_type` to/from `simulated`). The session continues with the previous config.
     """
 

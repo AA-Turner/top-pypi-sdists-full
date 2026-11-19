@@ -113,7 +113,6 @@ pub fn binding_memory(transaction: &Transaction) -> String {
 #[cfg(test)]
 mod tests {
     use pyrefly_graph::index::Idx;
-    use pyrefly_python::nesting_context::NestingContext;
     use pyrefly_python::short_identifier::ShortIdentifier;
     use ruff_python_ast::Identifier;
     use ruff_text_size::TextRange;
@@ -146,7 +145,6 @@ mod tests {
         let v = BindingClass::FunctionalClassDef(
             ClassDefIndex(0),
             Identifier::new("my_class", TextRange::default()),
-            NestingContext::toplevel(),
         );
         assert_eq!(
             ReportKey::new(module, &v),
@@ -167,8 +165,6 @@ mod tests {
             pydantic_config_dict: PydanticConfigDict::default(),
             pydantic_before_validator_fields: Box::default(),
             django_field_info: Box::default(),
-            capture_init: None,
-            shaped_array_metadata: None,
         };
         assert_eq!(
             ReportKey::new(module, &v),

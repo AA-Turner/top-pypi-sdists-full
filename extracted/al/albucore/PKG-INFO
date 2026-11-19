@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: albucore
-Version: 0.3.10
+Version: 0.3.11
 Summary: High-performance image processing functions for deep learning and computer vision.
 Author: Vladimir Iglovikov
 Maintainer: Vladimir Iglovikov
@@ -28,13 +28,13 @@ Requires-Dist: numkong>=7.8.7
 Requires-Dist: numpy>=1.24.4
 Requires-Dist: stringzilla>=5.3.2
 Provides-Extra: contrib
-Requires-Dist: opencv-contrib-python>=5.0.0.93; extra == 'contrib'
+Requires-Dist: opencv-contrib-python>=5.1.0.95; extra == 'contrib'
 Provides-Extra: contrib-headless
-Requires-Dist: opencv-contrib-python-headless>=5.0.0.93; extra == 'contrib-headless'
+Requires-Dist: opencv-contrib-python-headless>=5.1.0.95; extra == 'contrib-headless'
 Provides-Extra: gui
-Requires-Dist: opencv-python>=5.0.0.93; extra == 'gui'
+Requires-Dist: opencv-python>=5.1.0.95; extra == 'gui'
 Provides-Extra: headless
-Requires-Dist: opencv-python-headless>=5.0.0.93; extra == 'headless'
+Requires-Dist: opencv-python-headless>=5.1.0.95; extra == 'headless'
 Provides-Extra: torch
 Requires-Dist: torch>=2.14.1; extra == 'torch'
 Description-Content-Type: text/markdown

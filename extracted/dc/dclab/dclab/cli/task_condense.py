@@ -30,13 +30,14 @@ def condense(
     """Create a new dataset with all available scalar-only features
 
     Besides the innate scalar features, this also includes all
-    fast-to-compute ancillary and all basin features (`features_loaded`).
+    available scalar ancillary features (if `store_ancillary_features`)
+    and all scalar basin features (if `store_basin_features`).
 
     Parameters
     ----------
     path_in: str or pathlib.Path
-        file to compress
-    path_out: str or pathlib
+        file to condense
+    path_out: str or pathlib.Path
         output file path
     ancillaries: bool
         DEPRECATED, use `store_ancillary_features` instead
@@ -44,10 +45,11 @@ def condense(
         compute and store ancillary features in the output file
     store_basin_features: bool
         copy basin features from the input path to the output file;
-        Note that the basin information (including any internal
-        basin dataset) are always copied over to the new dataset.
+        note that the basin information (including any internal
+        basin dataset) is always copied over to the new dataset.
     check_suffix: bool
-        check suffixes for input and output files
+        check the suffix of the input file (".rtdc" is always
+        appended to the output file name if missing)
     ret_path: bool
         whether to return the output path
 
@@ -131,9 +133,9 @@ def condense_dataset(
         compute and store ancillary features in the output file
     store_basin_features: bool
         copy basin features from the input path to the output file;
-        Note that the basin information (including any internal
-        basin dataset) are always copied over to the new dataset.
-    warngins_list:
+        note that the basin information (including any internal
+        basin dataset) is always copied over to the new dataset.
+    warnings_list:
         List of warnings that should be written to the output file
     """
     if ancillaries is not None:
@@ -227,28 +229,34 @@ def condense_dataset(
 
 
 def condense_parser():
-    descr = "Reduce an RT-DC measurement to its scalar-only features " \
-            + "(i.e. without `contour`, `image`, `mask`, or `trace`). " \
-            + "All available ancillary features are computed."
+    """Return the argument parser of the ``dclab-condense`` command
+
+    Returns
+    -------
+    parser: argparse.ArgumentParser
+    """
+    descr = ("Reduce an RT-DC measurement to its scalar-only features "
+             "(i.e. without `contour`, `image`, `mask`, or `trace`). "
+             "All available ancillary features are computed.")
     parser = argparse.ArgumentParser(description=descr)
-    parser.add_argument('input', metavar="INPUT", type=str,
-                        help='Input path (.tdms or .rtdc file)')
-    parser.add_argument('output', metavar="OUTPUT", type=str,
-                        help='Output path (.rtdc file)')
-    parser.add_argument('--no-ancillary-features',
-                        dest='no_ancillaries',
-                        action='store_true',
-                        help='Do not compute expensive ancillary features '
-                             'such as volume'
+    parser.add_argument("input", metavar="INPUT", type=str,
+                        help="Input path (.tdms or .rtdc file)")
+    parser.add_argument("output", metavar="OUTPUT", type=str,
+                        help="Output path (.rtdc file)")
+    parser.add_argument("--no-ancillary-features",
+                        dest="no_ancillaries",
+                        action="store_true",
+                        help="Do not compute ancillary features (such as "
+                             "volume) and store them in the output file"
                         )
     parser.set_defaults(no_ancillaries=False)
-    parser.add_argument('--no-basin-features',
-                        dest='no_basins',
-                        action='store_true',
-                        help='Do not store basin-based feature data from the '
-                             'input file in the output file'
+    parser.add_argument("--no-basin-features",
+                        dest="no_basins",
+                        action="store_true",
+                        help="Do not store basin-based feature data from the "
+                             "input file in the output file"
                         )
     parser.set_defaults(no_basins=False)
-    parser.add_argument('--version', action='version',
-                        version=f'dclab-condense {version}')
+    parser.add_argument("--version", action="version",
+                        version=f"dclab-condense {version}")
     return parser

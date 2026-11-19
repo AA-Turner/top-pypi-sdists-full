@@ -3698,7 +3698,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         
         :param ticker: The crypto future ticker symbol
         :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
-        :param market: The The crypto future trading market, Market. Default value is null and looked up using IBrokerageModel.default_markets in AddSecurity{T}
+        :param market: The crypto future trading market, Market. Default value is null and looked up using IBrokerageModel.default_markets in AddSecurity{T}
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
         :param leverage: The requested leverage for this crypto future. Default is set by security_initializer
         :returns: The new CryptoFuture security.

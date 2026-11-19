@@ -34,6 +34,7 @@ ListRoutingControlsPaginatorName = Literal["list_routing_controls"]
 RoutingControlStateType = Literal["Off", "On"]
 Route53RecoveryClusterServiceName = Literal["route53-recovery-cluster"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -33,6 +33,7 @@ from oslo_service.backend._common import service as common_service
 from oslo_service.backend._threading import threadgroup
 from oslo_service.backend.base import ServiceBase
 from oslo_service import opts
+from oslo_service import systemd
 
 LOG = logging.getLogger(__name__)
 
@@ -43,16 +44,16 @@ def _check_spawn_picklable(service_instance, conf=None):
         if conf is not None:
             ForkingPickler.dumps(conf)
     except Exception:
-        LOG.error(
+        LOG.exception(
             "Service %s or its ConfigOpts is not serializable with spawn.",
             type(service_instance).__name__,
-            exc_info=True,
         )
         raise
 
 
 def _select_service_manager_context(
-        service_instance, conf=None, start_method=None):
+    service_instance, conf=None, start_method=None
+):
     """Select a multiprocessing context for a service manager.
 
     ``fork`` remains the default where it is available because serializing a
@@ -63,8 +64,9 @@ def _select_service_manager_context(
     available_methods = multiprocessing.get_all_start_methods()
     if start_method not in (None, "fork", "spawn"):
         raise ValueError(
-            "Invalid start_method %r; expected 'fork' or 'spawn'"
-            % start_method)
+            f"Invalid start_method {start_method!r}; "
+            f"expected 'fork' or 'spawn'"
+        )
 
     selected_method = start_method
     if selected_method is None:
@@ -72,8 +74,9 @@ def _select_service_manager_context(
 
     if selected_method not in available_methods:
         raise ValueError(
-            "Multiprocessing start method %r is not available on this "
-            "platform" % selected_method)
+            f"Multiprocessing start method {selected_method!r} is not "
+            f"available on this platform"
+        )
 
     if selected_method == "spawn":
         _check_spawn_picklable(service_instance, conf)
@@ -85,8 +88,13 @@ def _select_service_manager_context(
     return context
 
 
-def _get_service_manager(service_instance, graceful_shutdown_timeout, conf,
-                         restart_method, start_method=None):
+def _get_service_manager(
+    service_instance,
+    graceful_shutdown_timeout,
+    conf,
+    restart_method,
+    start_method=None,
+):
     """Create and link a cotyledon ServiceManager for the given service.
 
     :param service_instance: The service instance (used for spawn/fork check).
@@ -97,13 +105,13 @@ def _get_service_manager(service_instance, graceful_shutdown_timeout, conf,
     :returns: A tuple (manager_context, manager).
     """
     manager_context = _select_service_manager_context(
-        service_instance, conf, start_method)
+        service_instance, conf, start_method
+    )
     manager = cotyledon.ServiceManager(
         mp_context=manager_context,
-        graceful_shutdown_timeout=graceful_shutdown_timeout)
-    oslo_config_glue.link(
-        manager, conf,
-        reload_method=restart_method)
+        graceful_shutdown_timeout=graceful_shutdown_timeout,
+    )
+    oslo_config_glue.link(manager, conf, reload_method=restart_method)
     return (manager_context, manager)
 
 
@@ -111,7 +119,8 @@ class SignalHandler(metaclass=common_service.Singleton):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._signals_by_name, self.signals_to_name = (
-            common_service.get_signal_mappings())
+            common_service.get_signal_mappings()
+        )
         self._signal_handlers = collections.defaultdict(list)
         self.clear()
 
@@ -215,8 +224,7 @@ class Launcher:
 
 
 class ServiceLauncher:
-    def __init__(
-            self, conf, restart_method='reload', start_method=None):
+    def __init__(self, conf, restart_method='reload', start_method=None):
         self.conf = conf
         opts.register_service_opts(self.conf)
         self.restart_method = restart_method
@@ -245,13 +253,15 @@ class ServiceLauncher:
                 # platform-required) spawn manager.
                 if self._manager_context.get_start_method() == "spawn":
                     _check_spawn_picklable(service_instance, self.conf)
-            LOG.debug('Selected the multiprocessing context: %s and '
-                      'updated it in Cotyledon ServiceManager: %s',
-                      self._manager_context, self._manager.mp_context)
+            LOG.debug(
+                'Selected the multiprocessing context: %s and '
+                'updated it in Cotyledon ServiceManager: %s',
+                self._manager_context,
+                self._manager.mp_context,
+            )
 
         # ServiceManager.add() is thread-safe, no need to hold lock
-        self._manager.add(
-            ServiceWrapper, workers, args=(service_instance,))
+        self._manager.add(ServiceWrapper, workers, args=(service_instance,))
 
     def stop(self):
         with self._lock:
@@ -343,7 +353,8 @@ class Services:
             restart_service.reset()
             if self.restart_method == 'reload':
                 self.tg.add_thread(
-                    self.run_service, restart_service, self.done)
+                    self.run_service, restart_service, self.done
+                )
 
     @staticmethod
     def run_service(service, done):
@@ -358,8 +369,13 @@ class Services:
 
 class ProcessLauncher:
     def __init__(
-            self, conf, wait_interval=None, restart_method='reload',
-            no_fork=False, start_method=None):
+        self,
+        conf,
+        wait_interval=None,
+        restart_method='reload',
+        no_fork=False,
+        start_method=None,
+    ):
         self.conf = conf
         opts.register_service_opts(self.conf)
         self.restart_method = restart_method
@@ -370,6 +386,9 @@ class ProcessLauncher:
         self._manager_context = None
         self.service = None
         self.signal_handler = None
+        # For SIGHUP with no_fork; see _reload_service().
+        self._waiting = False
+        self._reload_pending = False
         # NOTE(gmaan): If service is launched with no_fork=True that means
         # service is running in the main process, and we need to handle the
         # signals. In other cases, service processes are handled by the
@@ -393,8 +412,15 @@ class ProcessLauncher:
         if self.no_fork:
             LOG.warning("no_fork=True: running service in main process")
             self.service = service
-            self.service.start()
-            self.service.wait()
+            try:
+                self.service.start()
+            except Exception:
+                # Stop what did start, and exit without waiting for the
+                # threads that the service may have left running.
+                LOG.exception('The service failed to start')
+                self._graceful_shutdown(status=1)
+            systemd.notify_once()
+            self._wait_no_fork()
             return
 
         # NOTE(gmaan): cotyledon.ServiceManager does not allow more than one
@@ -414,43 +440,86 @@ class ProcessLauncher:
             else:
                 if self._manager_context.get_start_method() == "spawn":
                     _check_spawn_picklable(service, self.conf)
-            LOG.debug('Selected the multiprocessing context: %s and '
-                      'updated it in Cotyledon ServiceManager: %s',
-                      self._manager_context, self._manager.mp_context)
+            LOG.debug(
+                'Selected the multiprocessing context: %s and '
+                'updated it in Cotyledon ServiceManager: %s',
+                self._manager_context,
+                self._manager.mp_context,
+            )
         # ServiceManager.add() is thread-safe, no need to hold lock
         self._manager.add(ServiceWrapper, workers, args=(service,))
 
-    def _graceful_shutdown(self, *args):
+    def _graceful_shutdown(self, *args, status=0):
         LOG.info('Graceful shutdown start')
         # At this time, first SIGTERM is caught and this handler started the
         # graceful shutdown. We need to ignore the another SIGTERM signal if
         # they comes during the graceful shutdown otherwise they will interupt
         # and race the already running graceful shutdown.
         self.signal_handler.ignore_handler('SIGTERM')
+        # A SIGHUP would interrupt the stop to reload the service.
+        self.signal_handler.ignore_handler('SIGHUP')
         # Register alarm signal with conf.graceful_shutdown_timeout.
         # If graceful shutdown is not finished within the
         # timeout, then alarm signal will exit the process.
-        if (self.conf.graceful_shutdown_timeout and
-                self.signal_handler.is_signal_supported('SIGALRM')):
+        if (
+            self.conf.graceful_shutdown_timeout
+            and self.signal_handler.is_signal_supported('SIGALRM')
+        ):
             signal.alarm(self.conf.graceful_shutdown_timeout)
-        self.service.stop()
+        try:
+            self.service.stop()
+        except Exception:
+            # Exit anyway: a normal exit would wait for the threads that
+            # the service left running.
+            LOG.exception('The service failed to stop')
+            status = status or 1
         LOG.info('Graceful shutdown finish')
-        os._exit(0)
+        os._exit(status)
 
     def _reload_service(self, *args):
-        # TODO(gmaan): This handler is suppose to reload the service but we
-        # need to implement the restart() method for no_fork case which can
-        # call reset/restart on the service instance.
-        self.signal_handler.clear()
-        raise common_service.SignalExit(signal.SIGHUP)
+        # Interrupt only service.wait(). During start() or restart(), the
+        # SIGHUP leaves a pending reload, which _wait_no_fork() runs once
+        # that call returns.
+        self._reload_pending = True
+        if self._waiting:
+            raise common_service.SignalExit(signal.SIGHUP)
+
+    def _wait_no_fork(self):
+        while True:
+            # The finally sits inside the try: a SIGHUP that lands before
+            # it clears the flag raises there, and is caught too.
+            try:
+                try:
+                    self._waiting = True
+                    if not self._reload_pending:
+                        self.service.wait()
+                        return
+                finally:
+                    self._waiting = False
+            except common_service.SignalExit as exc:
+                if exc.signo != signal.SIGHUP:
+                    raise
+            # This reload handles every SIGHUP so far. One that comes
+            # during the reload leaves one more pending reload.
+            self._reload_pending = False
+            # A terminal that hangs up ends the process, as SIGTERM does.
+            # Otherwise the process reads its configuration files again.
+            if not common_service.is_daemon():
+                self._graceful_shutdown()
+                return
+            LOG.info('Caught SIGHUP, reading the configuration files again')
+            try:
+                self.restart()
+            except Exception:
+                LOG.exception('The service failed to restart')
+                self._graceful_shutdown(status=1)
 
     def _fast_exit(self, *args):
         LOG.info('Caught SIGINT signal, instantaneous exiting')
         os._exit(1)
 
     def _on_alarm_exit(self, *args):
-        LOG.info('Graceful shutdown timeout exceeded, '
-                 'instantaneous exiting')
+        LOG.info('Graceful shutdown timeout exceeded, instantaneous exiting')
         os._exit(1)
 
     def add_signal_handlers(self):
@@ -479,12 +548,30 @@ class ProcessLauncher:
         manager.shutdown()
 
     def restart(self):
-        raise NotImplementedError()
+        """Reload config files and reset or restart a no_fork service.
+
+        cotyledon handles SIGHUP for the services that it forks.
+        """
+        if not self.no_fork:
+            raise NotImplementedError()
+        if self.restart_method == 'reload':
+            self.conf.reload_config_files()
+            self.service.stop()
+        else:  # self.restart_method == 'mutate'
+            self.conf.mutate_config_files()
+        self.service.reset()
+        if self.restart_method == 'reload':
+            self.service.start()
 
 
 def launch(
-        conf, service, workers=1, restart_method='reload', no_fork=False,
-        start_method=None):
+    conf,
+    service,
+    workers=1,
+    restart_method='reload',
+    no_fork=False,
+    start_method=None,
+):
     """Launch a service with a given number of workers.
 
     :param conf: an instance of ConfigOpts
@@ -510,11 +597,15 @@ def launch(
 
     if workers == 1 and not no_fork:
         launcher = ServiceLauncher(
-            conf, restart_method=restart_method, start_method=start_method)
+            conf, restart_method=restart_method, start_method=start_method
+        )
     else:
         launcher = ProcessLauncher(
-            conf, restart_method=restart_method, no_fork=no_fork,
-            start_method=start_method)
+            conf,
+            restart_method=restart_method,
+            no_fork=no_fork,
+            start_method=start_method,
+        )
 
     launcher.launch_service(service, workers=workers)
 

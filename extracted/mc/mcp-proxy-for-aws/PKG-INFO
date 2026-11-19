@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mcp-proxy-for-aws
-Version: 1.8.0
+Version: 2.0.0
 Summary: MCP Proxy for AWS
 Project-URL: documentation, https://github.com/aws/mcp-proxy-for-aws/blob/main/README.md
 Project-URL: repository, https://github.com/aws/mcp-proxy-for-aws.git
@@ -20,8 +20,8 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: boto3>=1.41.0
 Requires-Dist: botocore[crt]>=1.41.0
-Requires-Dist: fastmcp<3.5,>=3.2
-Requires-Dist: httpx<1.0,>=0.27.1
+Requires-Dist: fastmcp<5,>=4.0.3
+Requires-Dist: httpx2<3.0,>=2.13.1
 Description-Content-Type: text/markdown
 
 # MCP Proxy for AWS
@@ -170,7 +170,7 @@ export AWS_MCP_PROXY_PROFILES="prod-readonly dev staging"
 > `AWS_MCP_PROXY_PROFILES` takes precedence over `--profile` / `AWS_PROFILE` when set.
 
 > [!NOTE]
-> When getting a `NoRegionError` (surfaced by MCP clients as `-32602: Invalid request parameters`) and using `aws login` profiles, please configure the region for the given profile using `aws configure set region <region>` or set `AWS_REGION`.
+> When getting a `NoRegionError` (surfaced by MCP clients as `-32603: You must specify a region.`) and using `aws login` profiles, please configure the region for the given profile using `aws configure set region <region>` or set `AWS_REGION`.
 
 ### Multi-account access
 
@@ -377,6 +377,10 @@ async with mcp_tools:
 
 **Use with:** Frameworks that require direct access to the MCP sessions, e.g. LangChain, LlamaIndex. The `aws_iam_streamablehttp_client` provides the authenticated transport streams, which are then used to create an MCP `ClientSession`.
 
+> `aws_iam_streamablehttp_client` yields two streams, a reader and a writer. Frameworks that
+> cap the MCP Python SDK below the major this project requires (currently Microsoft Agent
+> Framework and the LangChain MCP adapters) cannot consume them.
+
 **Example - LangChain:**
 ```python
 from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
@@ -387,7 +391,7 @@ mcp_client = aws_iam_streamablehttp_client(
     aws_service=service  # The underlying AWS service, e.g. "bedrock-agentcore"
 )
 
-async with mcp_client as (read, write, session_id_callback):
+async with mcp_client as (read, write):
     async with ClientSession(read, write) as session:
         mcp_tools = await load_mcp_tools(session)
         agent = create_langchain_agent(tools=mcp_tools, ...)
@@ -403,7 +407,7 @@ mcp_client = aws_iam_streamablehttp_client(
     aws_service=service  # The underlying AWS service, e.g. "bedrock-agentcore"
 )
 
-async with mcp_client as (read, write, session_id_callback):
+async with mcp_client as (read, write):
     async with ClientSession(read, write) as session:
         mcp_tools = await McpToolSpec(client=session).to_tool_list_async()
         agent = ReActAgent(tools=mcp_tools, ...)

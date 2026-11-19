@@ -10,6 +10,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
+use anyhow::anyhow;
 use clap::ValueEnum;
 use enum_iterator::Sequence;
 use enum_iterator::all;
@@ -109,16 +110,16 @@ pub enum Preset {
     /// Enables additional error codes on top of the default for stricter checking.
     Strict,
     /// Enables every error kind at `Error` severity. Directives like
-    /// `reveal-type` keep their default severity.
+    /// `reveal-type`, `inactive-code`, and the unused-code kinds keep their
+    /// default severity.
     All,
 }
 
 impl Preset {
     /// Returns a `ConfigBase` carrying this preset's defaults. Only sets fields
-    /// the preset explicitly controls — leaves others as `None` so the
-    /// per-field defaults in `configure()` still apply. Applied to
-    /// `ConfigFile::root` only; sub-configs inherit these values through the
-    /// usual root-fallback pattern in the per-field accessors.
+    /// the preset explicitly controls and leaves others as `None`, so the
+    /// built-in defaults still apply to them. Settings that a config sets
+    /// explicitly take precedence over the preset.
     pub fn apply(self) -> ConfigBase {
         match self {
             Preset::Off => {
@@ -145,6 +146,7 @@ impl Preset {
                     (ErrorKind::BadRaise, Severity::Error),
                     (ErrorKind::BadUnpacking, Severity::Error),
                     (ErrorKind::DivisionByZero, Severity::Error),
+                    (ErrorKind::InactiveCode, Severity::Hint),
                     (ErrorKind::InvalidAnnotation, Severity::Error),
                     (ErrorKind::InvalidLiteral, Severity::Error),
                     (ErrorKind::InvalidSuperCall, Severity::Error),
@@ -152,10 +154,14 @@ impl Preset {
                     (ErrorKind::MissingImport, Severity::Error),
                     (ErrorKind::NotAsync, Severity::Error),
                     (ErrorKind::ParseError, Severity::Error),
+                    (ErrorKind::RevealType, Severity::Info),
                     (ErrorKind::UnexpectedKeyword, Severity::Error),
                     (ErrorKind::UnexpectedPositionalArgument, Severity::Error),
                     (ErrorKind::UnknownName, Severity::Error),
                     (ErrorKind::UnusedCoroutine, Severity::Error),
+                    (ErrorKind::UnusedImport, Severity::Hint),
+                    (ErrorKind::UnusedParameter, Severity::Hint),
+                    (ErrorKind::UnusedVariable, Severity::Hint),
                 ]);
                 // Silence every other error kind. Explicitly setting each one
                 // (rather than relying on `severity()`'s default fallback) is
@@ -169,7 +175,7 @@ impl Preset {
                     check_unannotated_defs: Some(false),
                     infer_return_types: Some(InferReturnTypes::Never),
                     infer_with_first_use: Some(false),
-                    permissive_ignores: Some(true),
+                    enabled_ignores: Some(Tool::all()),
                     ..Default::default()
                 }
             }
@@ -197,9 +203,11 @@ impl Preset {
                 let errors = HashMap::from([
                     (ErrorKind::DirectAbstractBaseInstantiation, Severity::Error),
                     (ErrorKind::ImplicitAny, Severity::Error),
+                    (ErrorKind::InstanceVarAssign, Severity::Error),
                     (ErrorKind::MethodAssign, Severity::Error),
                     (ErrorKind::MissingOverrideDecorator, Severity::Error),
                     (ErrorKind::OpenUnpacking, Severity::Error),
+                    (ErrorKind::PossiblyUninitializedAttribute, Severity::Error),
                     (ErrorKind::PotentialBadKeywordArgument, Severity::Error),
                     (ErrorKind::UnusedIgnore, Severity::Error),
                 ]);
@@ -213,11 +221,21 @@ impl Preset {
             Preset::All => {
                 // Promote every non-Error kind to Error. Directives (e.g.
                 // RevealType) are left at their default severity so they
-                // remain informational rather than becoming hard errors.
+                // remain informational rather than becoming hard errors, and
+                // inactive code and the unused-code kinds stay IDE hints.
+                // Unreachable also defaults to Hint, but is still promoted.
                 let errors: HashMap<ErrorKind, Severity> = all::<ErrorKind>()
                     .filter_map(|kind| {
-                        (!kind.is_directive() && kind.default_severity() != Severity::Error)
-                            .then_some((kind, Severity::Error))
+                        (!kind.is_directive()
+                            && kind.default_severity() != Severity::Error
+                            && !matches!(
+                                kind,
+                                ErrorKind::InactiveCode
+                                    | ErrorKind::UnusedImport
+                                    | ErrorKind::UnusedParameter
+                                    | ErrorKind::UnusedVariable
+                            ))
+                        .then_some((kind, Severity::Error))
                     })
                     .collect();
                 ConfigBase {
@@ -261,6 +279,10 @@ impl Display for Preset {
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct ConfigBase {
+    /// Named preset that provides default error severities and behavior settings.
+    /// Settings that any config sets explicitly override the preset.
+    pub preset: Option<Preset>,
+
     /// Errors to silence (or not) when printing errors.
     pub errors: Option<ErrorDisplayConfig>,
 
@@ -370,6 +392,11 @@ pub struct ConfigBase {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub treat_all_caps_as_final: Option<bool>,
 
+    /// Whether to use the parameter types declared in Sphinx style docstrings for unannotated
+    /// parameters. Off by default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub infer_param_types_from_docstring: Option<bool>,
+
     /// Any unknown config items
     #[serde(flatten)]
     pub(crate) extras: ExtraConfigs,
@@ -393,6 +420,114 @@ impl ConfigBase {
         Self {
             disable_type_errors_in_ide: Some(true),
             ..Default::default()
+        }
+    }
+
+    /// The values Pyrefly uses for settings that no config or preset sets.
+    pub(crate) fn builtin_defaults() -> Self {
+        Self {
+            enabled_ignores: Some(Tool::default_enabled()),
+            replace_imports_with_any: Some(Vec::new()),
+            ignore_missing_imports: Some(Vec::new()),
+            replace_untyped_imports_with_any: Some(Vec::new()),
+            check_unannotated_defs: Some(true),
+            infer_return_types: Some(InferReturnTypes::Checked),
+            disable_type_errors_in_ide: Some(false),
+            ignore_errors_in_generated_code: Some(false),
+            infer_with_first_use: Some(true),
+            strict_callable_subtyping: Some(false),
+            strict_partial_subtyping: Some(false),
+            spec_compliant_overloads: Some(false),
+            legacy_overload_expansion: Some(false),
+            treat_all_caps_as_final: Some(false),
+            infer_param_types_from_docstring: Some(false),
+            type_ignore_unknown_tag_behavior: Some(TypeIgnoreUnknownTagBehavior::Suppress),
+            ..Default::default()
+        }
+    }
+
+    /// Fills each setting that `self` leaves unset with the value from `other`.
+    /// `errors` is skipped because error maps are merged rather than replaced.
+    pub(crate) fn fill_unset_from(&mut self, other: &ConfigBase) {
+        // Destructure so that adding a field without handling it here is a compile error.
+        let ConfigBase {
+            preset,
+            errors: _,
+            permissive_ignores,
+            enabled_ignores,
+            type_ignore_unknown_tag_behavior,
+            replace_imports_with_any,
+            ignore_missing_imports,
+            replace_untyped_imports_with_any,
+            untyped_def_behavior,
+            check_unannotated_defs,
+            infer_return_types,
+            disable_type_errors_in_ide,
+            ignore_errors_in_generated_code,
+            infer_with_first_use,
+            pytorch_efficiency_lints,
+            recursion_depth_limit,
+            recursion_overflow_handler,
+            strict_callable_subtyping,
+            strict_partial_subtyping,
+            spec_compliant_overloads,
+            legacy_overload_expansion,
+            treat_all_caps_as_final,
+            infer_param_types_from_docstring,
+            extras: _,
+        } = other;
+        macro_rules! fill {
+            ($($field:ident),* $(,)?) => {
+                $(
+                    if self.$field.is_none() {
+                        self.$field.clone_from($field);
+                    }
+                )*
+            };
+        }
+        fill!(
+            preset,
+            permissive_ignores,
+            enabled_ignores,
+            type_ignore_unknown_tag_behavior,
+            replace_imports_with_any,
+            ignore_missing_imports,
+            replace_untyped_imports_with_any,
+            untyped_def_behavior,
+            check_unannotated_defs,
+            infer_return_types,
+            disable_type_errors_in_ide,
+            ignore_errors_in_generated_code,
+            infer_with_first_use,
+            pytorch_efficiency_lints,
+            recursion_depth_limit,
+            recursion_overflow_handler,
+            strict_callable_subtyping,
+            strict_partial_subtyping,
+            spec_compliant_overloads,
+            legacy_overload_expansion,
+            treat_all_caps_as_final,
+            infer_param_types_from_docstring,
+        );
+    }
+
+    /// Records `permissive-ignores` as the equivalent `enabled-ignores`, the setting
+    /// that per-file lookups read. Returns an error if both are set, in which case
+    /// `enabled-ignores` wins.
+    pub(crate) fn resolve_permissive_ignores(&mut self) -> anyhow::Result<()> {
+        match (self.permissive_ignores, &self.enabled_ignores) {
+            (None, _) => Ok(()),
+            (Some(_), Some(_)) => Err(anyhow!(
+                "Cannot use both `permissive-ignores` and `enabled-ignores`: `permissive-ignores` will be ignored."
+            )),
+            (Some(permissive), None) => {
+                self.enabled_ignores = Some(if permissive {
+                    Tool::all()
+                } else {
+                    Tool::default_enabled()
+                });
+                Ok(())
+            }
         }
     }
 
@@ -421,10 +556,6 @@ impl ConfigBase {
         }
     }
 
-    pub fn get_errors(base: &Self) -> Option<&ErrorDisplayConfig> {
-        base.errors.as_ref()
-    }
-
     pub(crate) fn get_replace_imports_with_any(base: &Self) -> Option<&[ModuleWildcard]> {
         base.replace_imports_with_any.as_deref()
     }
@@ -435,36 +566,6 @@ impl ConfigBase {
 
     pub(crate) fn get_replace_untyped_imports_with_any(base: &Self) -> Option<&[ModuleWildcard]> {
         base.replace_untyped_imports_with_any.as_deref()
-    }
-
-    pub fn get_check_unannotated_defs(base: &Self) -> Option<bool> {
-        base.check_unannotated_defs
-    }
-
-    pub fn get_infer_return_types(base: &Self) -> Option<InferReturnTypes> {
-        base.infer_return_types
-    }
-
-    pub fn get_disable_type_errors_in_ide(base: &Self) -> Option<bool> {
-        base.disable_type_errors_in_ide
-    }
-
-    pub fn get_ignore_errors_in_generated_code(base: &Self) -> Option<bool> {
-        base.ignore_errors_in_generated_code
-    }
-
-    pub fn get_infer_with_first_use(base: &Self) -> Option<bool> {
-        base.infer_with_first_use
-    }
-
-    pub fn get_enabled_ignores(base: &Self) -> Option<&SmallSet<Tool>> {
-        base.enabled_ignores.as_ref()
-    }
-
-    pub fn get_type_ignore_unknown_tag_behavior(
-        base: &Self,
-    ) -> Option<TypeIgnoreUnknownTagBehavior> {
-        base.type_ignore_unknown_tag_behavior
     }
 
     /// Get the recursion limit configuration, if enabled.
@@ -482,26 +583,6 @@ impl ConfigBase {
                 })
             }
         })
-    }
-
-    pub fn get_strict_callable_subtyping(base: &Self) -> Option<bool> {
-        base.strict_callable_subtyping
-    }
-
-    pub fn get_strict_partial_subtyping(base: &Self) -> Option<bool> {
-        base.strict_partial_subtyping
-    }
-
-    pub fn get_spec_compliant_overloads(base: &Self) -> Option<bool> {
-        base.spec_compliant_overloads
-    }
-
-    pub fn get_legacy_overload_expansion(base: &Self) -> Option<bool> {
-        base.legacy_overload_expansion
-    }
-
-    pub fn get_treat_all_caps_as_final(base: &Self) -> Option<bool> {
-        base.treat_all_caps_as_final
     }
 
     /// Set `replace-imports-with-any` from module patterns such as `["pandas"]`.
@@ -765,6 +846,27 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    // https://github.com/pyrefly-org/pyrefly/issues/5113
+    #[test]
+    fn test_deprecated_and_unreachable_severity() {
+        let severity = |preset: Preset, kind| match preset.apply().errors {
+            Some(errors) => errors.severity(kind),
+            None => kind.default_severity(),
+        };
+        assert_eq!(
+            severity(Preset::Default, ErrorKind::Deprecated),
+            Severity::Warn
+        );
+        assert_eq!(
+            severity(Preset::Default, ErrorKind::Unreachable),
+            Severity::Hint
+        );
+        for kind in [ErrorKind::Deprecated, ErrorKind::Unreachable] {
+            assert_eq!(severity(Preset::Basic, kind), Severity::Ignore);
+            assert_eq!(severity(Preset::All, kind), Severity::Error);
         }
     }
 }

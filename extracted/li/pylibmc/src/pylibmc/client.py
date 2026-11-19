@@ -3,7 +3,7 @@
 import _pylibmc
 from .consts import (hashers, distributions, all_behaviors,
                      hashers_rvs, distributions_rvs,
-                     all_callbacks, BehaviorDict)
+                     all_callbacks, BehaviorDict, warn_verify_keys)
 
 _all_behaviors_set = set(all_behaviors)
 _all_behaviors_set.update(set(all_callbacks))
@@ -88,22 +88,38 @@ def translate_server_specs(servers):
     return addr_tups
 
 def _behaviors_symbolic(behaviors):
-    """Turn numeric constants into symbolic strings"""
+    """Turn numeric constants into symbolic strings
+
+    A value pylibmc has no name for (a hash or distribution added in a newer
+    libmemcached, say) stays the integer libmemcached reported, rather than
+    making get_behaviors() raise KeyError.
+    """
 
     behaviors = behaviors.copy()
 
-    behaviors["hash"] = hashers_rvs[behaviors["hash"]]
-    behaviors["distribution"] = distributions_rvs[behaviors["distribution"]]
+    behaviors["hash"] = hashers_rvs.get(behaviors["hash"], behaviors["hash"])
+    behaviors["distribution"] = distributions_rvs.get(
+        behaviors["distribution"], behaviors["distribution"])
 
     return behaviors
 
-def _behaviors_numeric(behaviors):
-    """Inverse function of behaviors_symbolic"""
+def _behaviors_numeric(behaviors, stacklevel=3):
+    """Inverse function of behaviors_symbolic.
+
+    *stacklevel* is where a warning about ``verify_keys`` should point, counted
+    from the caller of this function.
+    """
 
     if not behaviors:
         return behaviors
 
     behaviors = behaviors.copy()
+
+    if "verify_keys" in behaviors:
+        # Keys are always verified by pylibmc itself; the libmemcached
+        # behavior is not forwarded (and not reported by get_behaviors).
+        del behaviors["verify_keys"]
+        warn_verify_keys(stacklevel)
 
     if "_retry_timeout" in behaviors:
         behaviors.setdefault("retry_timeout", behaviors.pop("_retry_timeout"))
@@ -113,11 +129,14 @@ def _behaviors_numeric(behaviors):
         names = ", ".join(map(str, sorted(unknown)))
         raise ValueError(f"unknown behavior names: {names}")
 
-    if behaviors.get("hash") is not None:
+    # Integers pass through as libmemcached constants, so that whatever
+    # get_behaviors() returned (see _behaviors_symbolic) can be set again.
+    if behaviors.get("hash") is not None and not isinstance(behaviors["hash"], int):
         behaviors["hash"] = hashers[behaviors["hash"]]
     if behaviors.get("ketama_hash") in hashers:
         behaviors["ketama_hash"] = hashers[behaviors["ketama_hash"]]
-    if behaviors.get("distribution") is not None:
+    if (behaviors.get("distribution") is not None
+            and not isinstance(behaviors["distribution"], int)):
         behaviors["distribution"] = distributions[behaviors["distribution"]]
 
     return behaviors
@@ -136,6 +155,9 @@ class Client(_pylibmc.client):
         SASL authentication is supported if libmemcached supports it (check
         *pylibmc.support_sasl*). Requires both username and password.
         Note that SASL requires *binary*=True.
+
+        Keys are always checked (``ValueError``); the *verify_keys* behavior is
+        ignored and warns. See the "Key checks" section of the documentation.
         """
         self.binary = binary
         self.addresses = list(servers)
@@ -170,6 +192,8 @@ class Client(_pylibmc.client):
             raise KeyError(key)
 
     def __contains__(self, key):
+        # Not self.exists(key): that is an add on the server, and a miss can
+        # evict another item from a full cache. See exists in the docs.
         return self.get(key, _MISS_SENTINEL) is not _MISS_SENTINEL
     # }}}
 

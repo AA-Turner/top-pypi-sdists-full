@@ -39,10 +39,14 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from typing import Final
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Final
 
 from .errors import ValidationError
 from .printable import escape_controls
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 #: Default maximum length for profile names (characters).
 #: Profile names are used as path segments, so reasonable limits prevent
@@ -247,6 +251,41 @@ class Layer(str, Enum):
 #: the layers ``DeployPermissions`` holds modes for.
 DEPLOY_LAYERS: Final[tuple[Layer, ...]] = (Layer.APP, Layer.HOST, Layer.USER)
 
+#: The deploy layers by the name a caller spells, matched case-insensitively.
+_DEPLOY_LAYER_NAMES: Final[Mapping[str, Layer]] = MappingProxyType({layer.value: layer for layer in DEPLOY_LAYERS})
+
+
+def deploy_layer(target: Layer | str) -> Layer:
+    """Return the deploy layer *target* names: a member, or its name in any case.
+
+    ``Layer`` is a ``str`` enum, so ``"app"`` and ``Layer.APP`` compare equal; every function that
+    takes a deploy layer (``deploy_config``, ``deploy_config_paths``, ``destination_for``) accepts
+    both through this one rule, instead of some comparing by identity and refusing the name.
+
+    Args:
+        target: ``Layer.APP``, ``Layer.HOST``, ``Layer.USER``, or ``"app"``, ``"host"``, ``"user"``.
+
+    Returns:
+        The member.
+
+    Raises:
+        ValidationError: *target* names no layer a deploy writes (``Layer.ENV``, ``"nope"``).
+
+    Examples:
+        >>> deploy_layer("User") is Layer.USER
+        True
+        >>> deploy_layer(Layer.ENV)
+        Traceback (most recent call last):
+            ...
+        lib_layered_config.domain.errors.ValidationError: Unsupported deployment target: env
+    """
+    # A member's value, not the member: an f-string over a (str, Enum) member reads Layer.ENV on 3.11+.
+    name = target.value if isinstance(target, Layer) else target
+    layer = _DEPLOY_LAYER_NAMES.get(name.lower())
+    if layer is None:
+        raise ValidationError(f"Unsupported deployment target: {name}")
+    return layer
+
 
 class PlatformFamily(str, Enum):
     """The directory layouts the path resolver and deploy know, one per operating-system family."""
@@ -354,6 +393,38 @@ def validate_identifier(value: str, name: str) -> str:
         ValidationError: slug contains invalid characters: ../etc
     """
     return validate_path_segment(value, name)
+
+
+def validate_slug(value: str) -> str:
+    """Validate a slug: a strict identifier that does not end in ``_`` or ``-``.
+
+    The environment prefix is the slug upper-cased with ``-`` as ``_``, then ``___``. A slug ending
+    in ``_`` or ``-`` (``app_``) gets ``APP____``, which starts with ``APP___``, the prefix of the
+    slug without it, so an app with that shorter slug would read the other's variables as a stray
+    ``_``-named section (user decision 2026-11-17, "Refuse slugs ending in _ or -").
+
+    Args:
+        value: The slug to validate.
+
+    Returns:
+        The validated slug (unchanged if valid).
+
+    Raises:
+        ValidationError: Everything :func:`validate_identifier` refuses, checked first, or a slug
+            ending in ``_`` or ``-``.
+
+    Examples:
+        >>> validate_slug("my-app_v2")
+        'my-app_v2'
+        >>> validate_slug("app_")
+        Traceback (most recent call last):
+            ...
+        lib_layered_config.domain.errors.ValidationError: slug cannot end in '_' or '-': app_
+    """
+    validate_identifier(value, "slug")
+    if value.endswith(("_", "-")):
+        raise _refused("slug", "cannot end in '_' or '-'", value)
+    return value
 
 
 def validate_vendor_app(value: str, name: str) -> str:
@@ -621,6 +692,7 @@ __all__ = [
     "ExamplePlatform",
     "Layer",
     "PlatformFamily",
+    "deploy_layer",
     "is_valid_profile_name",
     "platform_family",
     "validate_hostname",
@@ -628,5 +700,6 @@ __all__ = [
     "validate_path_segment",
     "validate_profile",
     "validate_profile_name",
+    "validate_slug",
     "validate_vendor_app",
 ]

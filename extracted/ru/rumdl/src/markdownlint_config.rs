@@ -10,7 +10,7 @@ use std::fs;
 
 /// Represents a generic markdownlint config (rule keys to values)
 #[derive(Debug, Deserialize)]
-pub struct MarkdownlintConfig(pub HashMap<String, serde_yaml::Value>);
+pub struct MarkdownlintConfig(pub HashMap<String, serde_json::Value>);
 
 fn strip_jsonc_comments(content: &str) -> String {
     let mut result = String::with_capacity(content.len());
@@ -85,15 +85,16 @@ fn strip_jsonc_comments(content: &str) -> String {
 /// Parse with insertion order intact: CLI2 uses JavaScript object spread, then
 /// markdownlint resolves aliases in property order. Resolving aliases before
 /// spreading would change precedence when an existing property is overwritten.
-fn read_markdownlint_options(path: &str) -> Result<IndexMap<String, serde_yaml::Value>, String> {
+fn read_markdownlint_options(path: &str) -> Result<IndexMap<String, serde_json::Value>, String> {
     let content = fs::read_to_string(path).map_err(|e| format!("Failed to read config file {path}: {e}"))?;
     if path.ends_with(".json") || path.ends_with(".jsonc") {
         serde_json::from_str(&strip_jsonc_comments(&content)).map_err(|e| format!("Failed to parse JSON {path}: {e}"))
     } else if path.ends_with(".yaml") || path.ends_with(".yml") {
-        serde_yaml::from_str(&content).map_err(|e| format!("Failed to parse YAML {path}: {e}"))
+        serde_saphyr::from_str_with_options(&content, crate::utils::yaml::options())
+            .map_err(|e| format!("Failed to parse YAML {path}: {e}"))
     } else {
         serde_json::from_str(&strip_jsonc_comments(&content))
-            .or_else(|_| serde_yaml::from_str(&content))
+            .or_else(|_| serde_saphyr::from_str_with_options(&content, crate::utils::yaml::options()))
             .map_err(|e| format!("Failed to parse config {path}: {e}"))
     }
 }
@@ -112,7 +113,7 @@ pub(crate) fn read_cli2_ignores(path: &str) -> Result<Option<Vec<String>>, Strin
     let options = read_markdownlint_options(path)?;
     options
         .get("ignores")
-        .map(|value| serde_yaml::from_value(value.clone()).map_err(|e| format!("Invalid CLI2 ignores in {path}: {e}")))
+        .map(|value| serde_json::from_value(value.clone()).map_err(|e| format!("Invalid CLI2 ignores in {path}: {e}")))
         .transpose()
 }
 
@@ -122,11 +123,8 @@ fn resolve_markdownlint_chain(paths: &[&str]) -> Result<(MarkdownlintConfig, Has
     let mut properties = IndexMap::new();
     for path in paths {
         let options = read_markdownlint_options(path)?;
-        let rules = if let Some(mapping) = options.get("config").and_then(|v| v.as_mapping()) {
-            mapping
-                .iter()
-                .filter_map(|(k, v)| k.as_str().map(|k| (k.to_string(), v.clone())))
-                .collect()
+        let rules = if let Some(mapping) = options.get("config").and_then(|v| v.as_object()) {
+            mapping.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
         } else {
             options
         };
@@ -176,7 +174,7 @@ pub(crate) fn load_sourced_markdownlint_chain(paths: &[&str]) -> Result<crate::c
         };
     }
     if let Some(origin) = origins.get("default")
-        && config.0.get("default").and_then(serde_yaml::Value::as_bool) == Some(false)
+        && config.0.get("default").and_then(serde_json::Value::as_bool) == Some(false)
     {
         fragment.global.enable.origin = Some(origin.clone());
     }
@@ -283,7 +281,7 @@ impl MarkdownlintConfig {
         let default_enabled = self
             .0
             .get("default")
-            .and_then(serde_yaml::Value::as_bool)
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(true);
 
         let mut disabled_rules = Vec::new();
@@ -300,7 +298,7 @@ impl MarkdownlintConfig {
                 let norm_rule_key = rumdl_key.to_ascii_uppercase();
 
                 // Handle boolean values according to `default` semantics
-                if value.is_bool() {
+                if value.is_boolean() {
                     let is_enabled = value.as_bool().unwrap_or(false);
                     if default_enabled {
                         if !is_enabled {
@@ -312,7 +310,7 @@ impl MarkdownlintConfig {
                     continue;
                 }
 
-                let toml_value: Option<toml::Value> = serde_yaml::from_value::<toml::Value>(value.clone()).ok();
+                let toml_value: Option<toml::Value> = serde_json::from_value::<toml::Value>(value.clone()).ok();
                 let toml_value = toml_value.map(normalize_toml_table_keys);
                 let rule_config = sourced_config.rules.entry(norm_rule_key.clone()).or_default();
                 if let Some(tv) = toml_value {
@@ -326,7 +324,10 @@ impl MarkdownlintConfig {
                         }
 
                         for (k, v) in table {
-                            let norm_config_key = k; // Already normalized
+                            let norm_config_key = crate::config::default_registry()
+                                .canonical_config_key(&norm_rule_key, &k)
+                                .unwrap_or(&k)
+                                .to_string();
                             rule_config
                                 .values
                                 .entry(norm_config_key.clone())
@@ -407,7 +408,7 @@ impl MarkdownlintConfig {
         let default_enabled = self
             .0
             .get("default")
-            .and_then(serde_yaml::Value::as_bool)
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(true);
 
         // Accumulate disabled and enabled rules
@@ -436,7 +437,7 @@ impl MarkdownlintConfig {
                     .insert(norm_rule_key.clone(), display_name.clone());
 
                 // Special handling for boolean values (true/false)
-                if value.is_bool() {
+                if value.is_boolean() {
                     let enabled = value.as_bool().unwrap_or(false);
                     if default_enabled {
                         // default: true — all rules on by default
@@ -453,7 +454,7 @@ impl MarkdownlintConfig {
                     }
                     continue;
                 }
-                let toml_value: Option<toml::Value> = serde_yaml::from_value::<toml::Value>(value.clone()).ok();
+                let toml_value: Option<toml::Value> = serde_json::from_value::<toml::Value>(value.clone()).ok();
                 let toml_value = toml_value.map(normalize_toml_table_keys);
                 if let Some(tv) = toml_value {
                     // Only materialize the rule entry once the value is known to
@@ -481,6 +482,10 @@ impl MarkdownlintConfig {
 
                         for (rk, rv) in table {
                             let norm_rk = crate::config::normalize_key(&rk);
+                            let norm_rk = crate::config::default_registry()
+                                .canonical_config_key(&norm_rule_key, &norm_rk)
+                                .unwrap_or(&norm_rk)
+                                .to_string();
                             let sv = rule_config.values.entry(norm_rk.clone()).or_insert_with(|| {
                                 crate::config::SourcedValue::new(rv.clone(), crate::config::ConfigSource::ProjectConfig)
                             });
@@ -731,6 +736,25 @@ mod tests {
     }
 
     #[test]
+    fn yaml_preserves_numeric_looking_names() {
+        let dir = tempfile::tempdir().unwrap();
+        for filename in [".markdownlint.yaml", ".markdownlint.yml", ".markdownlint"] {
+            let path = dir.path().join(filename);
+            std::fs::write(&path, "MD044:\n  names: [007, 1_000]\n").unwrap();
+            let loaded = load_markdownlint_config(path.to_str().unwrap()).unwrap();
+            let config = loaded.map_to_sourced_rumdl_config_fragment(None);
+            assert_eq!(
+                config.rules["MD044"].values["names"].value,
+                toml::Value::Array(vec![
+                    toml::Value::String("007".into()),
+                    toml::Value::String("1_000".into())
+                ]),
+                "numeric-looking names must remain strings in {filename}"
+            );
+        }
+    }
+
+    #[test]
     fn test_load_markdownlint_config_yaml() {
         let mut temp_file = NamedTempFile::new().unwrap();
         writeln!(
@@ -774,17 +798,17 @@ ul-style:
         let mut config_map = HashMap::new();
         config_map.insert(
             "MD013".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("line_length".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(100)),
+                    "line_length".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(100)),
                 );
                 map
             }),
         );
-        config_map.insert("MD025".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("MD026".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("MD025".to_string(), serde_json::Value::Bool(true));
+        config_map.insert("MD026".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let sourced_config = mdl_config.map_to_sourced_rumdl_config(Some("test.json"));
@@ -806,7 +830,7 @@ ul-style:
         let mut config_map = HashMap::new();
         // A YAML null has no toml::Value representation, so it hits the
         // conversion-failure branch on the production fragment path.
-        config_map.insert("MD013".to_string(), serde_yaml::Value::Null);
+        config_map.insert("MD013".to_string(), serde_json::Value::Null);
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(None);
@@ -823,7 +847,7 @@ ul-style:
     #[test]
     fn test_legacy_map_skips_unconvertible_value_without_exiting() {
         let mut config_map = HashMap::new();
-        config_map.insert("MD013".to_string(), serde_yaml::Value::Null);
+        config_map.insert("MD013".to_string(), serde_json::Value::Null);
 
         let mdl_config = MarkdownlintConfig(config_map);
         // Reaching the assertion proves the conversion-failure branch does not
@@ -839,24 +863,21 @@ ul-style:
         // Test line-length alias for MD013 with numeric value
         config_map.insert(
             "line-length".to_string(),
-            serde_yaml::Value::Number(serde_yaml::Number::from(120)),
+            serde_json::Value::Number(serde_json::Number::from(120)),
         );
 
         // Test rule disable (false)
-        config_map.insert("MD025".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("MD025".to_string(), serde_json::Value::Bool(false));
 
         // Test rule enable (true)
-        config_map.insert("MD026".to_string(), serde_yaml::Value::Bool(true));
+        config_map.insert("MD026".to_string(), serde_json::Value::Bool(true));
 
         // Test another rule with configuration
         config_map.insert(
             "MD003".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
-                map.insert(
-                    serde_yaml::Value::String("style".to_string()),
-                    serde_yaml::Value::String("atx".to_string()),
-                );
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
+                map.insert("style".to_string(), serde_json::Value::String("atx".to_string()));
                 map
             }),
         );
@@ -896,8 +917,8 @@ ul-style:
         assert!(sourced.rules.is_empty());
 
         // Test unknown rule (should be ignored)
-        config_map.insert("unknown-rule".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("MD999".to_string(), serde_yaml::Value::Bool(true));
+        config_map.insert("unknown-rule".to_string(), serde_json::Value::Bool(true));
+        config_map.insert("MD999".to_string(), serde_json::Value::Bool(true));
 
         let config = MarkdownlintConfig(config_map);
         let sourced = config.map_to_sourced_rumdl_config(None);
@@ -911,13 +932,13 @@ ul-style:
         // Test MD044 with array configuration
         config_map.insert(
             "MD044".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("names".to_string()),
-                    serde_yaml::Value::Sequence(vec![
-                        serde_yaml::Value::String("JavaScript".to_string()),
-                        serde_yaml::Value::String("GitHub".to_string()),
+                    "names".to_string(),
+                    serde_json::Value::Array(vec![
+                        serde_json::Value::String("JavaScript".to_string()),
+                        serde_json::Value::String("GitHub".to_string()),
                     ]),
                 );
                 map
@@ -927,12 +948,9 @@ ul-style:
         // Test nested configuration
         config_map.insert(
             "MD003".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
-                map.insert(
-                    serde_yaml::Value::String("style".to_string()),
-                    serde_yaml::Value::String("atx".to_string()),
-                );
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
+                map.insert("style".to_string(), serde_json::Value::String("atx".to_string()));
                 map
             }),
         );
@@ -962,20 +980,17 @@ ul-style:
         // Test different value types
         config_map.insert(
             "MD007".to_string(),
-            serde_yaml::Value::Number(serde_yaml::Number::from(4)),
+            serde_json::Value::Number(serde_json::Number::from(4)),
         ); // Simple number
         config_map.insert(
             "MD009".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("br_spaces".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(2)),
+                    "br_spaces".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(2)),
                 );
-                map.insert(
-                    serde_yaml::Value::String("strict".to_string()),
-                    serde_yaml::Value::Bool(true),
-                );
+                map.insert("strict".to_string(), serde_json::Value::Bool(true));
                 map
             }),
         );
@@ -1077,15 +1092,15 @@ ul-style:
         // default: true + MD001: true + MD013: { line_length: 120 }
         // Expected: no enable list (all rules already on), no disable list, MD013 config preserved
         let mut config_map = HashMap::new();
-        config_map.insert("default".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("MD001".to_string(), serde_yaml::Value::Bool(true));
+        config_map.insert("default".to_string(), serde_json::Value::Bool(true));
+        config_map.insert("MD001".to_string(), serde_json::Value::Bool(true));
         config_map.insert(
             "MD013".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("line_length".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(120)),
+                    "line_length".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(120)),
                 );
                 map
             }),
@@ -1114,15 +1129,15 @@ ul-style:
         // default: false + MD001: true + MD013: { line_length: 120 }
         // Expected: enable list contains both MD001 and MD013
         let mut config_map = HashMap::new();
-        config_map.insert("default".to_string(), serde_yaml::Value::Bool(false));
-        config_map.insert("MD001".to_string(), serde_yaml::Value::Bool(true));
+        config_map.insert("default".to_string(), serde_json::Value::Bool(false));
+        config_map.insert("MD001".to_string(), serde_json::Value::Bool(true));
         config_map.insert(
             "MD013".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("line_length".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(120)),
+                    "line_length".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(120)),
                 );
                 map
             }),
@@ -1151,8 +1166,8 @@ ul-style:
     fn test_default_absent_with_boolean_rules() {
         // No `default` key + MD001: true → same as default: true (no enable list)
         let mut config_map = HashMap::new();
-        config_map.insert("MD001".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("MD009".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("MD001".to_string(), serde_json::Value::Bool(true));
+        config_map.insert("MD009".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.yaml"));
@@ -1171,9 +1186,9 @@ ul-style:
         // default: false + MD001: true + MD009: false
         // Expected: enable list = [MD001], no disable list (false is no-op when default: false)
         let mut config_map = HashMap::new();
-        config_map.insert("default".to_string(), serde_yaml::Value::Bool(false));
-        config_map.insert("MD001".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("MD009".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("default".to_string(), serde_json::Value::Bool(false));
+        config_map.insert("MD001".to_string(), serde_json::Value::Bool(true));
+        config_map.insert("MD009".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.yaml"));
@@ -1189,16 +1204,16 @@ ul-style:
     fn test_default_true_with_boolean_rules_legacy() {
         // Test the legacy map_to_sourced_rumdl_config path
         let mut config_map = HashMap::new();
-        config_map.insert("default".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("MD001".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("MD009".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("default".to_string(), serde_json::Value::Bool(true));
+        config_map.insert("MD001".to_string(), serde_json::Value::Bool(true));
+        config_map.insert("MD009".to_string(), serde_json::Value::Bool(false));
         config_map.insert(
             "MD013".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("line_length".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(120)),
+                    "line_length".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(120)),
                 );
                 map
             }),
@@ -1223,15 +1238,15 @@ ul-style:
     fn test_default_false_with_config_rules_legacy() {
         // Test the legacy path with default: false
         let mut config_map = HashMap::new();
-        config_map.insert("default".to_string(), serde_yaml::Value::Bool(false));
-        config_map.insert("MD001".to_string(), serde_yaml::Value::Bool(true));
+        config_map.insert("default".to_string(), serde_json::Value::Bool(false));
+        config_map.insert("MD001".to_string(), serde_json::Value::Bool(true));
         config_map.insert(
             "MD013".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("line_length".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(120)),
+                    "line_length".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(120)),
                 );
                 map
             }),
@@ -1250,7 +1265,7 @@ ul-style:
     fn test_default_false_no_rules_disables_everything() {
         // default: false with no other rules should result in an empty-but-explicit enable list
         let mut config_map = HashMap::new();
-        config_map.insert("default".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("default".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.yaml"));
@@ -1268,8 +1283,8 @@ ul-style:
     fn test_default_false_only_false_rules_disables_everything() {
         // default: false + MD001: false → no rules enabled, enable list is explicit
         let mut config_map = HashMap::new();
-        config_map.insert("default".to_string(), serde_yaml::Value::Bool(false));
-        config_map.insert("MD001".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("default".to_string(), serde_json::Value::Bool(false));
+        config_map.insert("MD001".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.yaml"));
@@ -1286,16 +1301,16 @@ ul-style:
         let mut config_map = HashMap::new();
         config_map.insert(
             "line-length".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("line_length".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(120)),
+                    "line_length".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(120)),
                 );
                 map
             }),
         );
-        config_map.insert("no-bare-urls".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("no-bare-urls".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.json"));
@@ -1309,16 +1324,16 @@ ul-style:
         let mut config_map = HashMap::new();
         config_map.insert(
             "MD013".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("line_length".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(120)),
+                    "line_length".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(120)),
                 );
                 map
             }),
         );
-        config_map.insert("MD034".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("MD034".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.json"));
@@ -1333,16 +1348,16 @@ ul-style:
         let mut config_map = HashMap::new();
         config_map.insert(
             "line-length".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_json::Value::Object({
+                let mut map = serde_json::Map::new();
                 map.insert(
-                    serde_yaml::Value::String("line_length".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(120)),
+                    "line_length".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(120)),
                 );
                 map
             }),
         );
-        config_map.insert("MD034".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("MD034".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.json"));
@@ -1356,8 +1371,8 @@ ul-style:
     #[test]
     fn test_import_disable_list_uses_aliases() {
         let mut config_map = HashMap::new();
-        config_map.insert("line-length".to_string(), serde_yaml::Value::Bool(false));
-        config_map.insert("no-bare-urls".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("line-length".to_string(), serde_json::Value::Bool(false));
+        config_map.insert("no-bare-urls".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.json"));
@@ -1370,9 +1385,9 @@ ul-style:
     #[test]
     fn test_import_enable_list_uses_aliases_when_default_false() {
         let mut config_map = HashMap::new();
-        config_map.insert("default".to_string(), serde_yaml::Value::Bool(false));
-        config_map.insert("line-length".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("no-bare-urls".to_string(), serde_yaml::Value::Bool(true));
+        config_map.insert("default".to_string(), serde_json::Value::Bool(false));
+        config_map.insert("line-length".to_string(), serde_json::Value::Bool(true));
+        config_map.insert("no-bare-urls".to_string(), serde_json::Value::Bool(true));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.json"));
@@ -1385,7 +1400,7 @@ ul-style:
     #[test]
     fn test_import_underscore_aliases_normalized_to_kebab() {
         let mut config_map = HashMap::new();
-        config_map.insert("no_bare_urls".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("no_bare_urls".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.json"));
@@ -1535,12 +1550,29 @@ MD013:
     #[test]
     fn test_import_case_insensitive_alias_preserved_lowercase() {
         let mut config_map = HashMap::new();
-        config_map.insert("Line-Length".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("Line-Length".to_string(), serde_json::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let fragment = mdl_config.map_to_sourced_rumdl_config_fragment(Some("test.json"));
 
         // Display name is lowercased
         assert_eq!(fragment.rule_display_names.get("MD013").unwrap(), "line-length");
+    }
+
+    #[test]
+    fn frontmatter_import_spellings_use_the_canonical_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(".markdownlint.yaml");
+        for key in ["frontmatter", "front-matter", "front_matter", "Front-Matter"] {
+            let input = format!("MD013:\n  {key}: true\n");
+            std::fs::write(&path, input).unwrap();
+            let config = load_markdownlint_config(path.to_str().unwrap()).unwrap();
+            let sourced = config.map_to_sourced_rumdl_config(None);
+            let fragment = config.map_to_sourced_rumdl_config_fragment(None);
+            for values in [&sourced.rules["MD013"].values, &fragment.rules["MD013"].values] {
+                assert_eq!(values.len(), 1, "{key}");
+                assert_eq!(values["frontmatter"].value.as_bool(), Some(true));
+            }
+        }
     }
 }

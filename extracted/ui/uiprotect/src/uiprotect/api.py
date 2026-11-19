@@ -18,7 +18,16 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Self, TypedDict, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    NamedTuple,
+    Self,
+    TypedDict,
+    cast,
+    get_args,
+)
 from urllib.parse import SplitResult, quote
 
 import aiofiles
@@ -45,6 +54,7 @@ from .data import (
     Event,
     EventCategories,
     EventType,
+    ExternalArmProfile,
     Fob,
     LinkStation,
     ModelType,
@@ -75,6 +85,7 @@ from .data import (
     PublicSensorLightSettings,
     PublicSensorMotionSettings,
     PublicSensorTemperatureSettings,
+    PublicStoreName,
     PublicUlpUser,
     PublicUser,
     PublicViewer,
@@ -143,7 +154,7 @@ if TYPE_CHECKING:
         DeviceWSResult,
         FetchDiff,
         PublicStoreChange,
-        PublicStoreName,
+        PublicStoreObject,
     )
     from .devices import ProtectDeviceChange
     from .events import EventChange, ProtectEvent
@@ -278,6 +289,15 @@ def _log_or_raise(
         raise exc
 
 
+def _log_external_arm_profiles_failure(exc: Exception) -> None:
+    """Log a failed ``update_public`` fetch of the external arm profiles."""
+    # Before Protect 7.4 the endpoint answers 404, raised as ``BadRequest``.
+    if isinstance(exc, (BadRequest, NvrError)):
+        _LOGGER.debug("external-arm-profiles endpoint unavailable: %s", exc)
+    else:
+        _LOGGER.warning("external-arm-profiles fetch failed: %s", exc, exc_info=exc)
+
+
 def _merge_link_station_results(
     results: list[list[LinkStation] | BaseException],
     cached: Iterable[LinkStation],
@@ -313,12 +333,21 @@ class _PublicRefreshJob(NamedTuple):
 
 # Websocket-less public stores refreshed round robin on the
 # ``public_refresh_interval`` timer. Device stores stay off this list: a refetch
-# replaces their objects and would roll back fresher websocket state.
+# replaces their objects and would roll back fresher websocket state. The timer
+# skips the ``external_arm_profiles`` turn unless the cached NVR reports the
+# external alarm manager; ``update_public`` empties that store otherwise.
 _PUBLIC_REFRESH_JOBS = (
     _PublicRefreshJob("arm_profiles", "_fetch_arm_profiles", "arm-profiles", False),
     _PublicRefreshJob("ulp_users", "get_ulp_users_public", "ulp-users", True),
     _PublicRefreshJob("liveviews", "_fetch_liveviews", "liveviews", False),
+    _PublicRefreshJob(
+        "external_arm_profiles",
+        "_fetch_external_arm_profiles",
+        "external-arm-profiles",
+        True,
+    ),
 )
+_PUBLIC_STORE_ATTRS: frozenset[str] = frozenset(get_args(PublicStoreName))
 
 
 NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
@@ -1599,7 +1628,9 @@ class ProtectApiClient(BaseApiClient):
     _public_resync_pending: bool = False
     # Set by each ``update_public`` to the labels of the endpoint fetches that
     # failed transiently (``NvrError``) and were tolerated, leaving their
-    # stores stale.
+    # stores stale. ``external-arm-profiles`` is never listed, so its store
+    # may be stale after a run that reports no failure; the periodic refresh
+    # catches up, if enabled.
     _public_failed_endpoints: frozenset[str] = frozenset()
     # Index into ``_PUBLIC_REFRESH_JOBS`` of the job the next tick runs.
     _public_refresh_next: int = 0
@@ -2815,7 +2846,10 @@ class ProtectApiClient(BaseApiClient):
         after each step of :data:`PUBLIC_RESYNC_RETRY_DELAYS`, then waits for
         the next reconnect; ``NotAuthorized`` is never retried, and a reconnect
         or queued follow-up replaces a pending retry. Each of those fires the
-        callback again.
+        callback again. A failed fetch of the external arm profiles never fails
+        a resync, so ``True`` can leave that store stale until a later fetch
+        succeeds, which the periodic refresh retries every
+        ``public_refresh_interval`` while the timer is on.
 
         Returns a callback that will unsubscribe.
         """
@@ -2830,10 +2864,12 @@ class ProtectApiClient(BaseApiClient):
         Subscribe to changes of the public stores the devices websocket never covers.
 
         ``callback`` receives a :class:`PublicStoreChange` for ``arm_profiles``,
-        ``liveviews`` or ``ulp_users`` whenever ``update_public()``, a store
-        refresh, ``get_arm_profiles_public``, ``get_liveviews_public``,
-        ``get_liveview_public``, a devices-websocket liveview frame or an
-        arm-profile or liveview write changes that store's contents.
+        ``external_arm_profiles``, ``liveviews`` or ``ulp_users`` whenever
+        ``update_public()``, a store refresh, ``get_arm_profiles_public``,
+        ``get_external_arm_profiles_public``, ``get_external_arm_profile_public``,
+        ``get_liveviews_public``, ``get_liveview_public``, a devices-websocket
+        liveview frame, an arm-profile or liveview write, or an external
+        arm-profile arm or disarm changes that store's contents.
         A write that changes nothing does not fire. The prime that first
         materialises the bootstrap reports every cached id as ``added``.
         Callbacks run synchronously in the writing coroutine.
@@ -4643,6 +4679,11 @@ class ProtectApiClient(BaseApiClient):
             json=body,
         )
 
+    @public_post("/v1/speakers/{speaker_id}/stop-siren")
+    async def stop_speaker_siren_public(self, speaker_id: str) -> None:
+        """Stop the siren playing on a speaker."""
+        raise NotImplementedError
+
     @public_get("/v1/link-stations", items=LinkStation)
     async def get_link_stations_public(self) -> list[LinkStation]:
         """Get all link stations using public API."""
@@ -5113,6 +5154,51 @@ class ProtectApiClient(BaseApiClient):
         ):
             self._public_bootstrap.arm_mode.status = NvrArmModeStatus.DISABLED
 
+    async def get_external_arm_profiles_public(self) -> list[ExternalArmProfile]:
+        """Get all arm profiles of the external alarm manager (Protect 7.4+)."""
+        writes = self._public_store_writes.get("external_arm_profiles")
+        profiles = await self._fetch_external_arm_profiles()
+        if self._public_store_writes.get("external_arm_profiles") == writes:
+            self._emit_public_store_change(
+                self._apply_public_store(
+                    "external_arm_profiles", profiles, replace=True
+                )
+            )
+        return profiles
+
+    async def _fetch_external_arm_profiles(self) -> list[ExternalArmProfile]:
+        """Fetch external arm profiles without mutating the cached bootstrap."""
+        data = await self.api_request_list(
+            url="/v1/external/arm-profiles", public_api=True
+        )
+        return [ExternalArmProfile.from_unifi_dict(**item, api=self) for item in data]
+
+    async def get_external_arm_profile_public(
+        self, profile_id: str
+    ) -> ExternalArmProfile:
+        """Get one arm profile of the external alarm manager (Protect 7.4+)."""
+        writes = self._public_store_writes.get("external_arm_profiles")
+        data = await self.api_request_obj(
+            url=f"/v1/external/arm-profiles/{profile_id}", public_api=True
+        )
+        profile = ExternalArmProfile.from_unifi_dict(**data, api=self)
+        # A write during the request may be newer than this response.
+        if self._public_store_writes.get("external_arm_profiles") == writes:
+            self._write_external_arm_profile(profile)
+        return profile
+
+    async def arm_external_arm_profile_public(
+        self, profile_id: str
+    ) -> ExternalArmProfile:
+        """Arm an external arm profile; returns the profile from the response."""
+        return await self._external_arm_profile_action(profile_id, "arm")
+
+    async def disarm_external_arm_profile_public(
+        self, profile_id: str
+    ) -> ExternalArmProfile:
+        """Disarm an external arm profile; returns the profile from the response."""
+        return await self._external_arm_profile_action(profile_id, "disarm")
+
     @public_get("/v1/users", items=PublicUser)
     async def get_users_public(self) -> list[PublicUser]:
         """Get all Protect users using public API."""
@@ -5191,7 +5277,10 @@ class ProtectApiClient(BaseApiClient):
         is returned: an endpoint the NVR doesn't (yet) expose (``BadRequest``)
         and one that fails transiently (``NvrError``: timeout, 429, 5xx) are
         both logged at ``DEBUG`` and ignored. If an endpoint fails, the devices
-        it serves keep their previously cached data (not cleared). Link stations
+        it serves keep their previously cached data (not cleared). The external
+        arm profiles are the exception: any failure of that fetch is logged and
+        never raises or marks the run failed, and the store is kept only while
+        the NVR reports the external alarm manager, otherwise emptied. Link stations
         and alarm hubs share one store fed by two endpoints: a missing one keeps
         the cached devices of its kind, a transient failure of either keeps the
         whole store. All results are classified before any are applied: an
@@ -5227,16 +5316,18 @@ class ProtectApiClient(BaseApiClient):
         never gets flags is not announced, and neither is its removal. A call
         that raises announces nothing, and devices whose endpoint was
         tolerated as missing keep their previous data, so they have no
-        difference to announce. Liveviews, arm profiles and ULP users get no synthetic
-        frames; their changes go to :meth:`subscribe_public_store_changes`.
+        difference to announce. Liveviews, arm profiles, external arm profiles
+        and ULP users get no synthetic frames; their changes go to
+        :meth:`subscribe_public_store_changes`.
 
         Concurrent calls are serialized: an overlapping prime could otherwise
         apply an older snapshot over a newer one (and over live WS merges in
         between). Each caller returns the then-current bootstrap.
 
         A successful call starts the periodic refresh of ``arm_profiles``,
-        ``liveviews`` and ``ulp_users`` (see ``public_refresh_interval``) unless
-        the client was torn down while it ran.
+        ``ulp_users``, ``liveviews`` and ``external_arm_profiles`` (see
+        ``public_refresh_interval``) unless the client was torn down while it
+        ran.
         """
         epoch = self._public_refresh_epoch
         async with self._public_update_lock:
@@ -5294,6 +5385,11 @@ class ProtectApiClient(BaseApiClient):
         self._public_refresh_next = (self._public_refresh_next + 1) % len(
             _PUBLIC_REFRESH_JOBS
         )
+        pb = self._public_bootstrap
+        if job.store == "external_arm_profiles" and (
+            pb is None or pb.uses_external_alarm_manager is not True
+        ):
+            return
         running = self._public_refresh_tasks.get(job.store)
         if running is not None and not running.done():
             _LOGGER.debug("Skipping %s refresh; previous one still running", job.label)
@@ -5433,6 +5529,11 @@ class ProtectApiClient(BaseApiClient):
             (self.get_viewers_public(), "viewers", "viewers"),
             (self.get_ulp_users_public(), "ulp-users", "ulp_users"),
             (self._fetch_arm_profiles(), "arm-profiles", "arm_profiles"),
+            (
+                self._fetch_external_arm_profiles(),
+                "external-arm-profiles",
+                "external_arm_profiles",
+            ),
         ]
         if self._alarm_hubs:
             endpoints.append(
@@ -5479,7 +5580,11 @@ class ProtectApiClient(BaseApiClient):
             # logged; any other exception re-raises here, leaving the previous
             # consistent bootstrap intact instead of half-applied.
             for (_, label, _attr), result in zip(endpoints, results, strict=True):
-                if isinstance(result, BaseException):
+                if not isinstance(result, BaseException):
+                    continue
+                if label == "external-arm-profiles" and isinstance(result, Exception):
+                    _log_external_arm_profiles_failure(result)
+                else:
                     _log_or_raise(
                         label, result, tolerate_not_authorized=label == "ulp-users"
                     )
@@ -5488,7 +5593,7 @@ class ProtectApiClient(BaseApiClient):
             self._public_failed_endpoints = frozenset(
                 label
                 for (_, label, _attr), result in zip(endpoints, results, strict=True)
-                if isinstance(result, NvrError)
+                if isinstance(result, NvrError) and label != "external-arm-profiles"
             )
 
             # Classification passed: publish the candidate.
@@ -5549,21 +5654,13 @@ class ProtectApiClient(BaseApiClient):
                         [obj for obj in result if not obj.is_alarm_hub]
                     )
                 continue
-            if isinstance(result, BaseException):
-                continue
-            if attr in ("arm_profiles", "liveviews", "ulp_users"):
-                store = cast("PublicStoreName", attr)
-                # A setter wrote this store while the fetch was in flight; the
-                # fetched list may predate that write, so keep the cache.
-                if self._public_store_writes.get(store) != store_writes.get(store):
-                    continue
-                # Lets an in-flight periodic refresh of this store drop its
-                # possibly older result.
-                self._public_store_writes[store] = (
-                    self._public_store_writes.get(store, 0) + 1
-                )
-                if change := pb.apply_store(store, result, replace=True):
+            if attr in _PUBLIC_STORE_ATTRS:
+                if change := self._apply_fetched_public_store(
+                    pb, cast("PublicStoreName", attr), result, store_writes
+                ):
                     store_changes.append(change)
+            elif isinstance(result, BaseException):
+                continue
             elif attr == "nvr":
                 pb.nvr = result
             else:
@@ -5577,10 +5674,37 @@ class ProtectApiClient(BaseApiClient):
             diffs.append(pb.apply_fetch_result("link_stations", merged))
         return diffs, store_changes
 
+    def _apply_fetched_public_store(
+        self,
+        pb: PublicBootstrap,
+        store: PublicStoreName,
+        result: list[PublicStoreObject] | BaseException,
+        store_writes: dict[PublicStoreName, int],
+    ) -> PublicStoreChange | None:
+        if isinstance(result, BaseException):
+            # ``pb.nvr`` already holds this run's NVR (fetched first) or the
+            # cached one. Without the external alarm manager the endpoint is
+            # absent (404 before Protect 7.4) or the profiles are unused.
+            if (
+                store != "external_arm_profiles"
+                or pb.uses_external_alarm_manager is True
+                or not pb.external_arm_profiles
+            ):
+                return None
+            result = []
+        # A setter wrote this store while the fetch was in flight; the
+        # fetched list may predate that write, so keep the cache.
+        if self._public_store_writes.get(store) != store_writes.get(store):
+            return None
+        # Lets an in-flight periodic refresh of this store drop its
+        # possibly older result.
+        self._public_store_writes[store] = self._public_store_writes.get(store, 0) + 1
+        return pb.apply_store(store, result, replace=True)
+
     def _apply_public_store(
         self,
         store: PublicStoreName,
-        objs: Iterable[ArmProfile | PublicLiveview | PublicUlpUser],
+        objs: Iterable[PublicStoreObject],
         *,
         replace: bool = False,
         removed_ids: Iterable[str] = (),
@@ -5728,3 +5852,73 @@ class ProtectApiClient(BaseApiClient):
                 len(failed),
                 ", ".join(failed),
             )
+
+    async def _external_arm_profile_action(
+        self, profile_id: str, action: str
+    ) -> ExternalArmProfile:
+        data = await self.api_request_obj(
+            url=f"/v1/external/arm-profiles/{profile_id}/actions/{action}",
+            method="post",
+            public_api=True,
+        )
+        profile = ExternalArmProfile.from_unifi_dict(**data, api=self)
+        self._write_external_arm_profile(profile)
+        return profile
+
+    def _write_external_arm_profile(self, profile: ExternalArmProfile) -> None:
+        self._emit_public_store_change(
+            self._apply_public_store("external_arm_profiles", [profile])
+        )
+
+    def _process_external_arm_ws_message(self, msg: aiohttp.WSMessage) -> None:
+        """Apply an ``externalArmProfile`` subscribe/updates frame to the store."""
+        if (pb := self._public_bootstrap) is None:
+            _LOGGER.debug("Ignoring external arm frame before update_public")
+            return
+        if msg.type != aiohttp.WSMsgType.TEXT:
+            _LOGGER.debug("Ignoring non-text external arm frame: %s", msg.type)
+            return
+        try:
+            data = orjson.loads(msg.data)
+        except orjson.JSONDecodeError:
+            _LOGGER.debug("Ignoring non-JSON external arm frame: %s", msg.data)
+            return
+        item = data.get("item") if isinstance(data, dict) else None
+        if (
+            not isinstance(item, dict)
+            or item.get("modelKey") != "externalArmProfile"
+            or not isinstance(profile_id := item.get("id"), str)
+        ):
+            _LOGGER.debug("Ignoring external arm frame: %s", data)
+            return
+        action = data.get("type")
+        if action == "remove":
+            self._emit_public_store_change(
+                self._apply_public_store(
+                    "external_arm_profiles", [], removed_ids=[profile_id]
+                )
+            )
+        elif action == "add":
+            self._write_pushed_external_arm_profile(item)
+        elif action != "update":
+            _LOGGER.debug("Ignoring external arm frame of type %s", action)
+        elif (stored := pb.external_arm_profiles.get(profile_id)) is None:
+            _LOGGER.debug("Ignoring update of unknown arm profile %s", profile_id)
+        else:
+            # Keys are flat: a pushed ``schedule`` replaces the stored one whole.
+            self._write_pushed_external_arm_profile({**stored.unifi_dict(), **item})
+
+    def _write_pushed_external_arm_profile(self, wire: dict[str, Any]) -> None:
+        # ``null`` or a non-string would validate to UNKNOWN; ``from_unifi_dict``
+        # skips validation outside debug mode, so validate explicitly here.
+        if not isinstance(wire.get("state"), str):
+            _LOGGER.debug("Ignoring external arm profile without state: %s", wire)
+            return
+        try:
+            profile = ExternalArmProfile(
+                **ExternalArmProfile.unifi_dict_to_dict({**wire, "api": self})
+            )
+        except Exception as err:
+            _LOGGER.debug("Ignoring invalid external arm profile %s: %s", wire, err)
+            return
+        self._write_external_arm_profile(profile)

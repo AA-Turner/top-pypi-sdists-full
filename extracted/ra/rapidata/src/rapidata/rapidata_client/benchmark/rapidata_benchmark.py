@@ -22,6 +22,10 @@ from rapidata.rapidata_client.benchmark._vote_filters import (
 from rapidata.rapidata_client.benchmark.leaderboard.vote_aggregation import (
     VoteAggregation,
 )
+from rapidata.rapidata_client.benchmark.leaderboard._rapid_spec import (
+    flags_from_rapid_spec,
+    rapid_spec_from_flags,
+)
 from rapidata.rapidata_client.benchmark.participant._pricing import to_price_unit
 from rapidata.rapidata_client.benchmark.prompt_metadata import (
     DEFAULT_ASSET_SEGMENT_KEY,
@@ -32,9 +36,6 @@ from rapidata.rapidata_client.benchmark.prompt_metadata import (
     coerce_prompt_asset,
     coerce_tags,
     is_tag_list,
-)
-from rapidata.api_client.models.audience_audience_id_jobs_get_job_id_parameter import (
-    AudienceAudienceIdJobsGetJobIdParameter,
 )
 
 if TYPE_CHECKING:
@@ -374,8 +375,7 @@ class RapidataBenchmark:
                             RapidataLeaderboard(
                                 leaderboard.name,
                                 leaderboard.instruction,
-                                leaderboard.show_prompt,
-                                leaderboard.show_prompt_asset,
+                                *flags_from_rapid_spec(leaderboard.rapid_spec),
                                 leaderboard.is_inversed,
                                 leaderboard.response_budget,
                                 leaderboard.min_responses,
@@ -796,8 +796,7 @@ class RapidataBenchmark:
                         benchmarkId=self.id,
                         name=name,
                         instruction=instruction,
-                        showPrompt=show_prompt,
-                        showPromptAsset=show_prompt_asset,
+                        rapidSpec=rapid_spec_from_flags(show_prompt, show_prompt_asset),
                         isInversed=inverse_ranking,
                         minResponses=min_responses_per_matchup,
                         responseBudget=response_budget,

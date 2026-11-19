@@ -65,21 +65,23 @@ staff_access_approver:
     - staff_member
     - staff_access_approver_org/*
 staff_access_approver_org/org_id: []
-staff_release_manager:
-    - staff_member
-    - staff_release_manager_org/*
-staff_release_manager_org/org_id: []
 staff_support:
     - staff_member
     - staff_support_org/*
 staff_support_org/org_id:
-    - w:staff_break_glass/org_id
+    - w:staff_break_glass/org_id,{tier=inspect}
+    - w:staff_break_glass/org_id,{tier=config}
+staff_oncall:
+    - staff_member
+    - staff_oncall_org/*
+staff_oncall_org/org_id:
+    - w:staff_break_glass/org_id,{tier=*}
 staff_config_manager:
     - staff_member
     - staff_config_manager_org/*
 staff_config_manager_org/org_id: []
 # Scoped staff roles: time-limited access to one org or workspace through access requests.
-# The tiers nest each other; staff_org_viewer is only ever nested.
+# The tiers nest each other; staff_org_viewer is nested in all of them and can also be requested on its own.
 staff_org_viewer/org_id: []
 staff_org_admin/org_id:
     - staff_org_viewer/org_id
@@ -89,4 +91,3 @@ staff_ws_data_viewer/org_id,ws_id:
     - staff_ws_inspector/org_id,ws_id
 staff_ws_admin/org_id,ws_id:
     - staff_ws_data_viewer/org_id,ws_id
-staff_pii_viewer/org_id,ws_id: []

@@ -18,6 +18,7 @@ from typing import cast
 from unittest import mock
 
 from keystoneauth1 import adapter
+from keystoneauth1 import exceptions as ks_exceptions
 import requests
 
 from openstack import dns
@@ -268,7 +269,7 @@ class TestResource(base.TestCase):
         self.assertFalse(sot.allow_delete)
         self.assertFalse(sot.allow_list)
         self.assertFalse(sot.allow_head)
-        self.assertEqual('PUT', sot.commit_method)
+        self.assertEqual('PUT', sot.commit_opts.method)
 
     def test_repr(self):
         a = {"a": 1}
@@ -1856,7 +1857,7 @@ class TestResourceActions(base.TestCase):
         base_path=None,
         explicit_microversion=None,
     ):
-        self.sot.commit_method = commit_method
+        self.test_class.commit_opts = resource.CommitOpts(method=commit_method)
 
         # Need to make sot look dirty so we can attempt an update
         self.sot._body = mock.Mock()
@@ -1875,7 +1876,10 @@ class TestResourceActions(base.TestCase):
         )
 
         self.mock_prepare_request.assert_called_once_with(
-            prepend_key=prepend_key, base_path=base_path, patch=False
+            prepend_key=prepend_key,
+            base_path=base_path,
+            patch=False,
+            resource_request_key=None,
         )
 
         if commit_method == 'PATCH':
@@ -1963,6 +1967,79 @@ class TestResourceActions(base.TestCase):
             explicit_microversion='1.42',
         )
 
+    def test_commit_override_request_key_none(self):
+        class Test(_TestResource):
+            commit_opts = resource.CommitOpts(request_key=None)
+
+        sot = Test(id="id")
+        sot._body = mock.Mock()
+        sot._body.dirty = mock.Mock(return_value={"x": "y"})
+        sot._body._dirty = set()
+        sot._header = mock.Mock()
+        sot._header.dirty = dict()
+
+        with (
+            mock.patch.object(
+                sot, '_prepare_request', return_value=self.request
+            ) as mock_prep,
+            mock.patch.object(sot, '_translate_response'),
+        ):
+            sot.commit(self.session)
+            mock_prep.assert_called_once_with(
+                prepend_key=False,
+                base_path=None,
+                patch=False,
+                resource_request_key=None,
+            )
+
+    def test_commit_override_request_key_custom(self):
+        class Test(_TestResource):
+            commit_opts = resource.CommitOpts(request_key='custom')
+
+        sot = Test(id="id")
+        sot._body = mock.Mock()
+        sot._body.dirty = mock.Mock(return_value={"x": "y"})
+        sot._body._dirty = set()
+        sot._header = mock.Mock()
+        sot._header.dirty = dict()
+
+        with (
+            mock.patch.object(
+                sot, '_prepare_request', return_value=self.request
+            ) as mock_prep,
+            mock.patch.object(sot, '_translate_response'),
+        ):
+            sot.commit(self.session)
+            mock_prep.assert_called_once_with(
+                prepend_key=True,
+                base_path=None,
+                patch=False,
+                resource_request_key='custom',
+            )
+
+    def test_commit_no_response_body(self):
+        class Test(_TestResource):
+            commit_opts = resource.CommitOpts(response_has_body=False)
+
+        sot = Test(id="id")
+        sot._body = mock.Mock()
+        sot._body.dirty = mock.Mock(return_value={"x": "y"})
+        sot._body._dirty = set()
+        sot._header = mock.Mock()
+        sot._header.dirty = dict()
+
+        with (
+            mock.patch.object(
+                sot, '_prepare_request', return_value=self.request
+            ),
+            mock.patch.object(sot, '_translate_response') as mock_translate,
+        ):
+            sot.commit(self.session)
+            mock_translate.assert_called_once_with(
+                self.response,
+                has_body=False,
+            )
+
     def test_commit_not_dirty(self):
         self.sot._body = mock.Mock()
         self.sot._body.dirty = dict()
@@ -1972,6 +2049,28 @@ class TestResourceActions(base.TestCase):
         self.sot.commit(self.session)
 
         self.session.put.assert_not_called()
+
+    def test_commit_not_dirty_empty_request(self):
+        class Test(resource.Resource):
+            base_path = '/test'
+            allow_commit = True
+            commit_opts = resource.CommitOpts(request_has_body=False)
+
+        sot = Test(id='test-id')
+        sot._body = mock.Mock()
+        sot._body.dirty = dict()
+        sot._body._dirty = set()
+        sot._header = mock.Mock()
+        sot._header.dirty = dict()
+
+        with (
+            mock.patch.object(
+                sot, '_prepare_request', return_value=self.request
+            ),
+            mock.patch.object(sot, '_translate_response'),
+        ):
+            sot.commit(self.session)
+            self.session.put.assert_called_once()
 
     def test_commit_jsonpatch_original_body_sync(self):
         """Test _original_body is synced with _body.attributes after commit.
@@ -1986,7 +2085,7 @@ class TestResourceActions(base.TestCase):
             base_path = '/test'
             allow_commit = True
             allow_patch = True
-            commit_method = 'PATCH'
+            commit_opts = resource.CommitOpts(method='PATCH')
 
             name = resource.Body('name')
             description = resource.Body('description')
@@ -3899,6 +3998,98 @@ class TestWaitForDelete(TestWait):
             res,
             0.1,
             0.3,
+        )
+
+
+class TestGetMicroversion(base.TestCase):
+    def test_get_microversion(self):
+        cases = (
+            # Resources without a minimum retain their existing behavior.
+            (None, None, None, '1.99', None),
+            (None, '1.42', None, '1.99', '1.42'),
+            (None, '1.42', None, '1.20', '1.20'),
+            (None, '1.42', '1.10', '1.99', '1.10'),
+            # A minimum can stand alone or accompany a higher default.
+            ('1.6', None, None, '1.99', '1.6'),
+            ('1.6', '1.42', None, '1.99', '1.42'),
+            ('1.6', '1.42', None, '1.10', '1.10'),
+            ('1.6', '1.42', None, '1.6', '1.6'),
+            ('1.6', '1.42', '1.6', '1.99', '1.6'),
+            ('1.6', '1.42', '1.10', '1.99', '1.10'),
+            ('1.6', '1.42', '1.99', '1.99', '1.99'),
+            ('1.6', '1.42', 'latest', '1.99', 'latest'),
+        )
+        for minimum, maximum, default, server_maximum, expected in cases:
+            with self.subTest(
+                minimum=minimum,
+                maximum=maximum,
+                default=default,
+                server_maximum=server_maximum,
+                expected=expected,
+            ):
+
+                class Test(resource.Resource):
+                    _min_microversion = minimum
+                    _max_microversion = maximum
+
+                session = mock.Mock(spec=adapter.Adapter)
+                session.default_microversion = default
+                session.get_endpoint_data.return_value = mock.Mock(
+                    min_microversion='1.0', max_microversion=server_maximum
+                )
+
+                self.assertEqual(expected, Test._get_microversion(session))
+                if default:
+                    session.get_endpoint_data.assert_not_called()
+
+    def test_minimum_not_supported(self):
+        cases = (
+            # An explicit default must not be upgraded.
+            ('1.5', '1.42', '1.99'),
+            # The server's maximum is too low.
+            (None, '1.42', '1.5'),
+            # The resource's preferred version is too low.
+            (None, '1.5', '1.99'),
+            # Microversions are not supported.
+            (None, '1.42', None),
+        )
+        for default, maximum, server_maximum in cases:
+            with self.subTest(
+                default=default,
+                maximum=maximum,
+                server_maximum=server_maximum,
+            ):
+
+                class Test(resource.Resource):
+                    _min_microversion = '1.6'
+                    _max_microversion = maximum
+
+                session = mock.Mock(spec=adapter.Adapter)
+                session.default_microversion = default
+                session.get_endpoint_data.return_value = mock.Mock(
+                    min_microversion='1.0', max_microversion=server_maximum
+                )
+
+                self.assertRaisesRegex(
+                    exceptions.NotSupported,
+                    'Test requires API microversion 1.6',
+                    Test._get_microversion,
+                    session,
+                )
+
+    def test_minimum_discovery_failure(self):
+        class Test(resource.Resource):
+            _min_microversion = '1.6'
+
+        session = mock.Mock(spec=adapter.Adapter)
+        session.default_microversion = None
+        session.service_type = 'test'
+        session.get_endpoint_data.side_effect = (
+            ks_exceptions.discovery.DiscoveryFailure()
+        )
+
+        self.assertRaises(
+            exceptions.NotSupported, Test._get_microversion, session
         )
 
 

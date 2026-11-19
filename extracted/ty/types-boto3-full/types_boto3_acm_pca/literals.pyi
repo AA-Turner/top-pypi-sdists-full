@@ -128,6 +128,7 @@ SigningAlgorithmType = Literal[
 ValidityPeriodTypeType = Literal["ABSOLUTE", "DAYS", "END_DATE", "MONTHS", "YEARS"]
 ACMPCAServiceName = Literal["acm-pca"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

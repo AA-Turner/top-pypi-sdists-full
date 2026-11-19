@@ -160,7 +160,7 @@ WHAT --execute DOES, IN ORDER
     4. Build the image with the same OCI provenance build-args every
        omnibase-infra runtime container gets (VCS_REF, RUNTIME_VERSION,
        BUILD_DATE, COMPOSE_PROJECT, RUNTIME_SOURCE_HASH, PROMOTION_CLASS,
-       NON_MAIN_LINEAGE, OMNIBASE_COMPAT_REF, OMNIMARKET_REF).
+       NON_MAIN_LINEAGE, OMNIMARKET_REF).
     5. Resolve the built image's digest (sha256:<64 hex>).
     6. Build the ${SIDECAR_SERVICE_NAME} sidecar's image (OMN-16460).
        gateway-forwarder depends_on it (condition: service_healthy) and the
@@ -386,7 +386,7 @@ resolve_build_args() {
     # extras -- onex-runtime-deploy's build_images() passes them unconditionally
     # on every build_source (onex-runtime-deploy resolve+pass at
     # build_images()). Omitting them silently falls back to the Dockerfile's
-    # hardcoded ARG defaults (OMNIBASE_COMPAT_REF=v0.5.5, OMNIMARKET_REF=dev),
+    # hardcoded ARG defaults (OMNIMARKET_REF=dev),
     # which is how the gateway image previously drifted from the
     # omnibase-infra runtime image on the same box.
     #
@@ -394,10 +394,8 @@ resolve_build_args() {
     # onex_change_control is no longer installed into the runtime image, so the
     # ARG it fed no longer exists and there is no pin left to drift.
     local omni_home="${OMNI_HOME:-}"
-    local compat_ref="main"
     local omnimarket_ref="dev"
     if [[ -n "${omni_home}" ]]; then
-        compat_ref="$(read_repo_ref_or_main "${omni_home}/omnibase_compat" "main")"
         omnimarket_ref="$(read_repo_ref_or_main "${omni_home}/omnimarket" "dev")"
     fi
     cat <<EOF
@@ -412,7 +410,6 @@ EXPECTED_BUILD_SOURCE=${expected_build_source}
 PROMOTION_CLASS=${promotion_class}
 NON_MAIN_LINEAGE=${non_main_lineage}
 OMNI_HOME=${omni_home}
-OMNIBASE_COMPAT_REF=${compat_ref}
 OMNIMARKET_REF=${omnimarket_ref}
 EOF
     unset repo_root
@@ -596,7 +593,6 @@ check_sibling_lock_pins() {
         --repo "omnibase-infra=${omni_home}/omnibase_infra"
         --repo "omnibase-core=${omni_home}/omnibase_core"
         --repo "omnibase-spi=${omni_home}/omnibase_spi"
-        --repo "omnibase-compat=${omni_home}/omnibase_compat"
         # OMN-16296 (#2822) removed onex_change_control from the sibling clone
         # manifest -- it is no longer installed into the runtime image, so
         # check_sibling_lock_pins.py's DEFAULT_PACKAGE_REPO_DIRS no longer

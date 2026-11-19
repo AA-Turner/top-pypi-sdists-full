@@ -20,6 +20,7 @@ import functools
 import random
 import sys
 import time
+import warnings
 
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -54,6 +55,7 @@ class LoopingCallTimeOut(Exception):
     The LoopingCall will raise this exception when a timeout is provided
     and it is exceeded.
     """
+
     pass
 
 
@@ -66,9 +68,10 @@ def _safe_wrapper(f, kind, func_name):
         except LoopingCallDone:
             raise  # let the outer handler process this
         except Exception:
-            LOG.error('%(kind)s %(func_name)r failed',
-                      {'kind': kind, 'func_name': func_name},
-                      exc_info=True)
+            LOG.exception(
+                '%(kind)s %(func_name)r failed',
+                {'kind': kind, 'func_name': func_name},
+            )
             return 0
 
     return func
@@ -78,16 +81,35 @@ class LoopingCallBase(metaclass=abc.ABCMeta):
     """Base class for all looping call implementations."""
 
     _KIND = _("Unknown looping call")
-    _RUN_ONLY_ONE_MESSAGE = _("A looping call can only run one function"
-                              " at a time")
+    _RUN_ONLY_ONE_MESSAGE = _(
+        "A looping call can only run one function at a time"
+    )
 
-    def __init__(self, f=None, *args, **kw):
+    def __init__(self, f=None, *args, **kwargs):
         self.args = args
-        self.kw = kw
+        self.kwargs = kwargs
         self.f = f
         self._thread = None
         self.done = None
         self._init_abort_mechanism()
+
+    @property
+    def kw(self):
+        warnings.warn(
+            'The kw property is deprecated. Use kwargs property',
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.kwargs
+
+    @kw.setter
+    def kw(self, value):
+        warnings.warn(
+            'The kw property is deprecated. Use kwargs property',
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        self.kwargs = value
 
     def _init_abort_mechanism(self):
         """Initialize the abort mechanism for the specific backend."""
@@ -99,21 +121,20 @@ class LoopingCallBase(metaclass=abc.ABCMeta):
         pass
 
     @property
-    @abc.abstractmethod
     def _running(self):
         """Check if the looping call is currently running."""
+        return not self._abort.is_set()
 
-    @abc.abstractmethod
     def stop(self):
         """Stop the looping call."""
+        if self._running:
+            self._abort.set()
 
-    @abc.abstractmethod
     def wait(self):
-        """Wait for the looping call to complete."""
+        return self.done.wait()
 
-    @abc.abstractmethod
     def _sleep(self, timeout):
-        """Sleep for the given timeout."""
+        self._abort.wait(timeout)
 
     @abc.abstractmethod
     def _create_done_event(self):
@@ -153,17 +174,21 @@ class LoopingCallBase(metaclass=abc.ABCMeta):
         self._thread = self._spawn_loop(loop_func)
         return self.done
 
-    @abc.abstractmethod
     def _clear_abort(self):
         """Clear the abort flag."""
+        self._abort.clear()
 
-    def _run_loop(self, idle_for_func, initial_delay=None,
-                  stop_on_exception=True):
+    def _run_loop(
+        self, idle_for_func, initial_delay=None, stop_on_exception=True
+    ):
         """Common loop implementation."""
         kind = self._KIND
         func_name = reflection.get_callable_name(self.f)
-        func = (self.f if stop_on_exception
-                else _safe_wrapper(self.f, kind, func_name))
+        func = (
+            self.f
+            if stop_on_exception
+            else _safe_wrapper(self.f, kind, func_name)
+        )
 
         if initial_delay:
             self._sleep(initial_delay)
@@ -172,24 +197,26 @@ class LoopingCallBase(metaclass=abc.ABCMeta):
             watch = timeutils.StopWatch()
             while self._running:
                 watch.restart()
-                result = func(*self.args, **self.kw)
+                result = func(*self.args, **self.kwargs)
                 watch.stop()
                 if not self._running:
                     break
                 idle = idle_for_func(result, self._elapsed(watch))
-                LOG.trace('%(kind)s %(func_name)r sleeping '
-                          'for %(idle).02f seconds',
-                          {'func_name': func_name, 'idle': idle,
-                           'kind': kind})
+                LOG.trace(
+                    '%(kind)s %(func_name)r sleeping for %(idle).02f seconds',
+                    {'func_name': func_name, 'idle': idle, 'kind': kind},
+                )
                 self._sleep(idle)
         except LoopingCallDone as e:
             self._send_result(e.retvalue)
         except Exception:
             exc_info = sys.exc_info()
             try:
-                LOG.error('%(kind)s %(func_name)r failed',
-                          {'kind': kind, 'func_name': func_name},
-                          exc_info=exc_info)
+                LOG.error(
+                    '%(kind)s %(func_name)r failed',
+                    {'kind': kind, 'func_name': func_name},
+                    exc_info=exc_info,
+                )
                 self._send_exception(*exc_info)
             finally:
                 del exc_info
@@ -197,13 +224,13 @@ class LoopingCallBase(metaclass=abc.ABCMeta):
         else:
             self._send_result(True)
 
-    @abc.abstractmethod
     def _send_result(self, result):
         """Send the result to the done event."""
+        self.done.send(result)
 
-    @abc.abstractmethod
     def _send_exception(self, exc_type, exc_value, tb):
         """Send an exception to the done event."""
+        self.done.send_exception(exc_type, exc_value, tb)
 
     def _elapsed(self, watch):
         """Get elapsed time from watch."""
@@ -213,8 +240,9 @@ class LoopingCallBase(metaclass=abc.ABCMeta):
 class FixedIntervalLoopingCallBase(LoopingCallBase):
     """Base class for fixed interval looping calls."""
 
-    _RUN_ONLY_ONE_MESSAGE = _("A fixed interval looping call can only run"
-                              " one function at a time")
+    _RUN_ONLY_ONE_MESSAGE = _(
+        "A fixed interval looping call can only run one function at a time"
+    )
     _KIND = _('Fixed interval looping call')
 
     def start(self, interval, initial_delay=None, stop_on_exception=True):
@@ -222,72 +250,94 @@ class FixedIntervalLoopingCallBase(LoopingCallBase):
             delay = round(elapsed - interval, 2)
             if delay > 0:
                 func_name = reflection.get_callable_name(self.f)
-                LOG.warning('Function %(func_name)r run outlasted '
-                            'interval by %(delay).2f sec',
-                            {'func_name': func_name, 'delay': delay})
+                LOG.warning(
+                    'Function %(func_name)r run outlasted '
+                    'interval by %(delay).2f sec',
+                    {'func_name': func_name, 'delay': delay},
+                )
             return -delay if delay < 0 else 0
-        return self._start(_idle_for, initial_delay=initial_delay,
-                           stop_on_exception=stop_on_exception)
+
+        return self._start(
+            _idle_for,
+            initial_delay=initial_delay,
+            stop_on_exception=stop_on_exception,
+        )
 
 
 class FixedIntervalWithTimeoutLoopingCallBase(LoopingCallBase):
     """Base class for fixed interval looping calls with timeout."""
 
-    _RUN_ONLY_ONE_MESSAGE = _("A fixed interval looping call with timeout"
-                              " checking and can only run one function at"
-                              " at a time")
+    _RUN_ONLY_ONE_MESSAGE = _(
+        "A fixed interval looping call with timeout"
+        " checking and can only run one function at"
+        " at a time"
+    )
     _KIND = _('Fixed interval looping call with timeout checking.')
 
-    def start(self, interval, initial_delay=None,
-              stop_on_exception=True, timeout=0):
+    def start(
+        self, interval, initial_delay=None, stop_on_exception=True, timeout=0
+    ):
         start_time = time.time()
 
         def _idle_for(result, elapsed):
             delay = round(elapsed - interval, 2)
             if delay > 0:
                 func_name = reflection.get_callable_name(self.f)
-                LOG.warning('Function %(func_name)r run outlasted '
-                            'interval by %(delay).2f sec',
-                            {'func_name': func_name, 'delay': delay})
+                LOG.warning(
+                    'Function %(func_name)r run outlasted '
+                    'interval by %(delay).2f sec',
+                    {'func_name': func_name, 'delay': delay},
+                )
             elapsed_time = time.time() - start_time
             if timeout > 0 and elapsed_time > timeout:
                 raise LoopingCallTimeOut(
                     _('Looping call timed out after %.02f seconds')
-                    % elapsed_time)
+                    % elapsed_time
+                )
             return -delay if delay < 0 else 0
 
-        return self._start(_idle_for, initial_delay=initial_delay,
-                           stop_on_exception=stop_on_exception)
+        return self._start(
+            _idle_for,
+            initial_delay=initial_delay,
+            stop_on_exception=stop_on_exception,
+        )
 
 
 class DynamicLoopingCallBase(LoopingCallBase):
     """Base class for dynamic looping calls."""
 
-    _RUN_ONLY_ONE_MESSAGE = _("A dynamic interval looping call can only run"
-                              " one function at a time")
+    _RUN_ONLY_ONE_MESSAGE = _(
+        "A dynamic interval looping call can only run one function at a time"
+    )
     _TASK_MISSING_SLEEP_VALUE_MESSAGE = _(
         "A dynamic interval looping call should supply either an"
         " interval or periodic_interval_max"
     )
     _KIND = _('Dynamic interval looping call')
 
-    def start(self, initial_delay=None, periodic_interval_max=None,
-              stop_on_exception=True):
+    def start(
+        self,
+        initial_delay=None,
+        periodic_interval_max=None,
+        stop_on_exception=True,
+    ):
         def _idle_for(suggested_delay, elapsed):
             delay = suggested_delay
             if delay is None:
                 if periodic_interval_max is not None:
                     delay = periodic_interval_max
                 else:
-                    raise RuntimeError(
-                        self._TASK_MISSING_SLEEP_VALUE_MESSAGE)
+                    raise RuntimeError(self._TASK_MISSING_SLEEP_VALUE_MESSAGE)
             else:
                 if periodic_interval_max is not None:
                     delay = min(delay, periodic_interval_max)
             return delay
 
-        return self._start(_idle_for, initial_delay=initial_delay,
-                           stop_on_exception=stop_on_exception)
+        return self._start(
+            _idle_for,
+            initial_delay=initial_delay,
+            stop_on_exception=stop_on_exception,
+        )
 
 
 class BackOffLoopingCallBase(LoopingCallBase):
@@ -295,16 +345,25 @@ class BackOffLoopingCallBase(LoopingCallBase):
 
     _RNG = random.SystemRandom()
     _KIND = _('Dynamic backoff interval looping call')
-    _RUN_ONLY_ONE_MESSAGE = _("A dynamic backoff interval looping call can"
-                              " only run one function at a time")
+    _RUN_ONLY_ONE_MESSAGE = _(
+        "A dynamic backoff interval looping call can"
+        " only run one function at a time"
+    )
 
     def __init__(self, f=None, *args, **kw):
         super().__init__(f=f, *args, **kw)
         self._error_time = 0
         self._interval = 1
 
-    def start(self, initial_delay=None, starting_interval=1, timeout=300,
-              max_interval=300, jitter=0.75, min_interval=0.001):
+    def start(
+        self,
+        initial_delay=None,
+        starting_interval=1,
+        timeout=300,
+        max_interval=300,
+        jitter=0.75,
+        min_interval=0.001,
+    ):
         if self._thread is not None:
             raise RuntimeError(self._RUN_ONLY_ONE_MESSAGE)
 
@@ -332,7 +391,8 @@ class BackOffLoopingCallBase(LoopingCallBase):
                 if timeout > 0 and self._error_time + idle > timeout:
                     raise LoopingCallTimeOut(
                         _('Looping call timed out after %.02f seconds')
-                        % (self._error_time + idle))
+                        % (self._error_time + idle)
+                    )
                 self._error_time += idle
                 return idle
 
@@ -350,8 +410,13 @@ class RetryDecorator:
     exceptions.
     """
 
-    def __init__(self, max_retry_count=-1, inc_sleep_time=10,
-                 max_sleep_time=60, exceptions=()):
+    def __init__(
+        self,
+        max_retry_count=-1,
+        inc_sleep_time=10,
+        max_sleep_time=60,
+        exceptions=(),
+    ):
         """Configure the retry object using the input params.
 
         :param max_retry_count: maximum number of times the given
@@ -384,27 +449,39 @@ class RetryDecorator:
             result = None
             try:
                 if self._retry_count:
-                    LOG.debug("Invoking %(func_name)s; retry count is "
-                              "%(retry_count)d.",
-                              {'func_name': func_name,
-                               'retry_count': self._retry_count})
+                    LOG.debug(
+                        "Invoking %(func_name)s; retry count is "
+                        "%(retry_count)d.",
+                        {
+                            'func_name': func_name,
+                            'retry_count': self._retry_count,
+                        },
+                    )
                 result = f(*args, **kwargs)
             except self._exceptions:
                 with excutils.save_and_reraise_exception() as ctxt:
-                    LOG.debug("Exception which is in the suggested list of "
-                              "exceptions occurred while invoking function:"
-                              " %s.",
-                              func_name)
-                    if (self._max_retry_count != -1 and
-                            self._retry_count >= self._max_retry_count):
-                        LOG.debug("Cannot retry %(func_name)s upon "
-                                  "suggested exception "
-                                  "since retry count (%(retry_count)d) "
-                                  "reached max retry count "
-                                  "(%(max_retry_count)d).",
-                                  {'retry_count': self._retry_count,
-                                   'max_retry_count': self._max_retry_count,
-                                   'func_name': func_name})
+                    LOG.debug(
+                        "Exception which is in the suggested list of "
+                        "exceptions occurred while invoking function:"
+                        " %s.",
+                        func_name,
+                    )
+                    if (
+                        self._max_retry_count != -1
+                        and self._retry_count >= self._max_retry_count
+                    ):
+                        LOG.debug(
+                            "Cannot retry %(func_name)s upon "
+                            "suggested exception "
+                            "since retry count (%(retry_count)d) "
+                            "reached max retry count "
+                            "(%(max_retry_count)d).",
+                            {
+                                'retry_count': self._retry_count,
+                                'max_retry_count': self._max_retry_count,
+                                'func_name': func_name,
+                            },
+                        )
                     else:
                         ctxt.reraise = False
                         self._retry_count += 1

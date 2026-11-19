@@ -107,6 +107,7 @@ TransformationJobStatusType = Literal[
 ValidationLevelType = Literal["minimal", "strict", "structure-only"]
 HealthLakeServiceName = Literal["healthlake"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -31,6 +31,7 @@ from omnibase_infra.runtime.models.enum_bifrost_lane_locale import (
 from omnibase_infra.runtime.models.model_bifrost_lane_overlay import (
     ModelBifrostLaneOverlay,
 )
+from omnibase_infra.runtime.runtime_local_ingress import parse_active_runtime_packages
 
 pytestmark = pytest.mark.unit
 
@@ -152,11 +153,7 @@ def test_local_bundle_runs_both_runtime_kernels_the_writer_and_the_migration_gat
     ]
     assert sorted(runtime) == [
         "consumer-health-projection",
-        "omnimarket-projection-delegation",
-        "omnimarket-projection-llm-cost",
-        "omnimarket-projection-tenant-credentials",
         "omninode-runtime",
-        "projection-api",
         "runtime-effects",
         "tenant-projection-writer",
     ]
@@ -214,7 +211,9 @@ def test_local_runtime_kernels_mount_and_pin_the_local_overlay() -> None:
         assert len(mounts) == 1, f"{name}: {svc['volumes']}"
         assert mounts[0].startswith("${ONEX_LOCAL_BIFROST_OVERLAY:?")
         env = svc["environment"]
-        assert env["BIFROST_LANE_OVERLAY_PATH"] == _OVERLAY_PIN
+        assert "BIFROST_LANE_OVERLAY_PATH" not in env
+        assert "BIFROST_CONTRACT_PATH" not in env
+        assert "BIFROST_VERIFY_ENDPOINTS" not in env
         assert env["DELEGATION_ROUTING_TIERS_PATH"]
         assert env["GITHUB_TOKEN"] == ""
         assert env["DEPLOY_AGENT_HMAC_SECRET"] == ""
@@ -238,7 +237,7 @@ def test_local_projection_writer_binds_the_lab_principals_not_the_superuser(
     ``postgres`` where ``omninode_runtime`` was expected, and no
     ``delegation_events`` row was ever written.
     """
-    resolved = CatalogResolver(catalog_dir=_CATALOG_DIR).resolve(["local"])
+    resolved = CatalogResolver(catalog_dir=_CATALOG_DIR).resolve(["local-market"])
     services = generate_compose(resolved)["services"]
     assert isinstance(services, dict)
     env = services[writer]["environment"]
@@ -261,11 +260,11 @@ def test_local_projection_writer_binds_the_lab_principals_not_the_superuser(
 
 
 def test_local_tenant_credentials_projection_runs_with_its_own_healthcheck() -> None:
-    resolved = CatalogResolver(catalog_dir=_CATALOG_DIR).resolve(["local"])
+    resolved = CatalogResolver(catalog_dir=_CATALOG_DIR).resolve(["local-market"])
     services = generate_compose(resolved)["services"]
     assert isinstance(services, dict)
     writer = services["omnimarket-projection-tenant-credentials"]
-    assert writer["image"] == f"{_PROJECT}-runtime:latest"
+    assert writer["image"] == f"{_PROJECT}-omnimarket-runtime:latest"
     assert writer["command"] == [
         "python",
         "-m",
@@ -342,16 +341,18 @@ def test_the_runtime_family_that_resolves_a_tenant_key_shares_one_credentials_st
     compose = generate_compose(resolved)
     services = compose["services"]
     assert isinstance(services, dict)
-    target = "/home/omniinfra/.omninode/delegation"
+    prefix = "delegation_credentials:"
     owners = {
-        name: [v for v in svc.get("volumes", []) if f":{target}" in v]
+        name: [v for v in svc.get("volumes", []) if v.startswith(prefix)]
         for name, svc in services.items()
-        if any(f":{target}" in v for v in svc.get("volumes", []))
+        if any(v.startswith(prefix) for v in svc.get("volumes", []))
     }
-    assert owners == {
-        "omninode-runtime": [f"delegation_credentials:{target}"],
-        "runtime-effects": [f"delegation_credentials:{target}"],
-    }
+    assert set(owners) == {"omninode-runtime", "runtime-effects"}
+    mounts = {v for entries in owners.values() for v in entries}
+    assert len(mounts) == 1
+    assert all(len(entries) == 1 for entries in owners.values())
+    (mount,) = mounts
+    assert mount.removeprefix(prefix).endswith("/.omninode/delegation")
     volumes = compose["volumes"]
     assert isinstance(volumes, dict)
     assert volumes["delegation_credentials"] == {
@@ -834,11 +835,10 @@ def test_override_leaves_a_non_string_command_part_untouched(tmp_path: Path) -> 
 #      CI run 36729468068 attempt 2: "projection-api requires Kafka bootstrap
 #      servers", 16 restarts, never healthy).
 
-_PAGE_SERVICES = (
-    "projection-api",
-    "omnimarket-projection-llm-cost",
-    "consumer-health-projection",
-)
+_PAGE_SERVICES = {
+    "local": ("consumer-health-projection",),
+    "local-market": ("projection-api",),
+}
 _LAPTOP_PROJECTION_API_PORT = 3102
 
 
@@ -943,12 +943,18 @@ def test_local_tenant_registry_seed_skips_database_for_empty_or_invalid_tenant(
     assert not (tmp_path / "psql-calls").exists()
 
 
-def test_local_render_carries_the_services_the_pages_read() -> None:
-    assert set(_PAGE_SERVICES) <= set(_services(_render("local")))
+@pytest.mark.parametrize("bundle", _PAGE_SERVICES)
+def test_laptop_render_carries_the_services_the_pages_read(bundle: str) -> None:
+    assert set(_PAGE_SERVICES[bundle]) <= set(_services(_render(bundle)))
 
 
-def test_every_long_running_local_service_has_a_healthcheck() -> None:
-    services = _services(_render("local"))
+def test_infra_only_local_render_excludes_the_market_projection_api() -> None:
+    assert "projection-api" not in _services(_render("local"))
+
+
+@pytest.mark.parametrize("bundle", ["local", "local-market"])
+def test_every_long_running_laptop_service_has_a_healthcheck(bundle: str) -> None:
+    services = _services(_render(bundle))
     unwatched = sorted(
         name
         for name, svc in services.items()
@@ -957,8 +963,8 @@ def test_every_long_running_local_service_has_a_healthcheck() -> None:
     assert unwatched == []
 
 
-def test_local_projection_api_publishes_a_laptop_port_not_the_lab_port() -> None:
-    ports = _services(_render("local"))["projection-api"]["ports"]
+def test_local_market_projection_api_publishes_a_laptop_port_not_the_lab_port() -> None:
+    ports = _services(_render("local-market"))["projection-api"]["ports"]
     assert ports == [f"{_LOOPBACK}:{_LAPTOP_PROJECTION_API_PORT}:3002"]
 
 
@@ -969,10 +975,15 @@ def test_other_bundles_keep_the_projection_api_on_3002() -> None:
     assert ports == ["3002:3002"]
 
 
-def test_local_projection_api_waits_for_the_kernel_that_provisions_its_topics() -> None:
-    depends_on = _services(_render("local"))["projection-api"]["depends_on"]
+def test_local_market_projection_api_waits_for_the_kernel_that_provisions_its_topics() -> (
+    None
+):
+    depends_on = _services(_render("local-market"))["projection-api"]["depends_on"]
     assert isinstance(depends_on, dict)
     assert depends_on.get("omninode-runtime") == {"condition": "service_healthy"}
+    assert depends_on.get("redpanda-local-sasl") == {
+        "condition": "service_completed_successfully"
+    }
 
 
 def test_other_bundles_do_not_gain_the_kernel_dependency() -> None:
@@ -983,16 +994,22 @@ def test_other_bundles_do_not_gain_the_kernel_dependency() -> None:
     assert "omninode-runtime" not in depends_on
 
 
-def test_local_projection_api_is_given_the_compose_broker() -> None:
-    env = _services(_render("local"))["projection-api"]["environment"]
+def test_local_market_projection_api_is_given_the_compose_broker() -> None:
+    env = _services(_render("local-market"))["projection-api"]["environment"]
     assert isinstance(env, dict)
     assert env.get("KAFKA_BROKERS") == "redpanda:9092"
 
 
-def test_llm_cost_writer_builds_from_the_runtime_image_and_reports_ready() -> None:
-    for bundle in ("local", "omnimarket-projections"):
+def test_llm_cost_writer_uses_the_market_image_and_reports_ready() -> None:
+    for bundle in ("local-market", "omnimarket-projections"):
         svc = _services(_render(bundle))["omnimarket-projection-llm-cost"]
-        assert "omnimarket-projection:latest" not in str(svc["image"]), bundle
+        expected = (
+            f"{_PROJECT}-omnimarket-runtime:latest"
+            if bundle == "local-market"
+            else "omnimarket-runtime:latest"
+        )
+        assert svc["image"] == expected, bundle
+        assert "build" not in svc, bundle
         test = svc["healthcheck"]["test"]  # type: ignore[index]
         assert "/ready" in " ".join(test), bundle
         env = svc["environment"]
@@ -1016,7 +1033,9 @@ def test_two_bundles_overriding_one_service_port_differently_are_refused(
     }
     bundles_file.write_text(yaml.safe_dump(bundles, sort_keys=False))
     with pytest.raises(ValueError, match=r"[Pp]ort override conflict"):
-        CatalogResolver(catalog_dir=str(catalog)).resolve(["local", "other-laptop"])
+        CatalogResolver(catalog_dir=str(catalog)).resolve(
+            ["local-market", "other-laptop"]
+        )
 
 
 # The resolver's other override guards (hostile review, both models: each was
@@ -1051,7 +1070,7 @@ def test_two_bundles_waiting_differently_on_one_dependency_are_refused(
         },
     )
     with pytest.raises(ValueError, match="Extra dependency conflict"):
-        resolver.resolve(["local", "other-laptop"])
+        resolver.resolve(["local-market", "other-laptop"])
 
 
 def test_extra_dependency_on_a_service_the_stack_does_not_run_is_refused(
@@ -1168,20 +1187,38 @@ def test_local_render_has_the_redpanda_local_sasl_one_shot_sasl() -> None:
     assert str(env["KAFKA_SASL_PASSWORD"]).startswith("${REDPANDA_SUPERUSER_PASSWORD:?")
 
 
-def test_local_kafka_clients_carry_the_four_sasl_variables_and_wait_sasl() -> None:
-    compose = _render("local")
+@pytest.mark.parametrize("bundle", ["local", "local-market"])
+def test_local_kafka_clients_carry_the_four_sasl_variables_and_wait_sasl(
+    bundle: str,
+) -> None:
+    compose = _render(bundle)
     services = _services(compose)
     clients = _sasl_clients(compose)
     runtime_layer = sorted(
         name
         for name, m in CatalogResolver(catalog_dir=_CATALOG_DIR)
-        .resolve(["local"])
+        .resolve([bundle])
         .manifests.items()
         if m.layer == EnumInfraLayer.RUNTIME
     )
     # Every runtime-layer service of the bundle is a broker client.
     assert clients == runtime_layer
-    assert len(clients) >= 7
+    expected = {
+        "consumer-health-projection",
+        "omninode-runtime",
+        "runtime-effects",
+        "tenant-projection-writer",
+    }
+    if bundle == "local-market":
+        expected |= {
+            "projection-api",
+            "omnimarket-projection-delegation",
+            "omnimarket-projection-tenant-credentials",
+            "omnimarket-projection-llm-cost",
+            "omnimarket-projection-run-trace",
+        }
+        assert len(clients) >= 7
+    assert set(clients) == expected
     for name in clients:
         env = services[name]["environment"]
         assert isinstance(env, dict)
@@ -1327,21 +1364,21 @@ def test_local_sasl_one_shot_fails_when_the_superuser_password_is_wrong_sasl(
 
 _OTHER_BUNDLE_DIGESTS = {
     "auth": "1bf4de388a77a7d94e7a44cf785c7caba8a051c8aaf5501cc0b082cb5a25d28d",
-    "canary": "caa5d10df59f3f5a596bb4f565fd2a466612a46a156d67a398b51ef8134cb53f",
-    "core": "7c8f0182db15b6af0a70c6d05d6ffa7883db4725af31143b50fbdc83157a196b",
-    "fault-injection": "c0b3e10c858c1d20b24572e07018b09d8fbc6e34a8fa9094d9d3bbe6621571c5",
+    "canary": "5ab631eca245b2bdee989982d8e2e7b562e2632c149aadd7297a77dfdbdac76b",
+    "core": "6aadec4f0303690e429c3dbe6b4b72fec42b6ee4624d1b84f6941e6f8e09eb55",
+    "fault-injection": "8db0f73d370c5ad02ac45aface9ed797b564d3cdc2dffe31f4acc21890f5f7e9",
     "memgraph": "d55629512c84083550a018a068c3e394f352e06414192eff5a4f9f0967bd8bc3",
     "observability": "78d05c2b98b885da7867967c2189cc412cb2f1d408ac665a27170ec65fb1d936",
-    "omnidash": "60e9cefe84b508bf5dc65281e7da56f1f338535d7501329161083bf76c1dbc36",
-    "omnimarket-projections": "56e85c3eb64c72283ba5f7c98747520dadc79e95475272717ce5d6f2a0ac24ee",
+    "omnidash": "c8ec69a7177b270479e795459ad901c7608bfe5dafee676d83706f0c4ad267ba",
+    "omnimarket-projections": "2dddac4c21e6209ca3c09f04e43dc7a7f56b087e862fc565ed0315db3f5762e0",
     "omnimemory": "deff725fc3a399734a9052e09823d6f7e2b1c65e4935dd2b9e16d9b275294671",
-    "runtime": "4a833d6d081ccfb12f91b726d843e1bd60b6b8acfdd7dd66c4040079fc827da6",
-    "runtime-core": "c447ca929064c6169294e96b492c7aa703b6defd8680d051f6f32902ed500a28",
-    "runtime-infrastructure": "1ea50532b8d926b0bb56c262c8715894511532995c2fa434b36c5bf101e9036a",
-    "runtime-integrations": "1b498251ede09da9d3eeb9481777b10831100d4d71b7e6092e201dea0a25e6fe",
-    "runtime-observability-projections": "abdf89e68dfe87d77d24582604a514f9e90e186e264f64d0ebb78d1585a6a52e",
-    "secrets": "7c8f0182db15b6af0a70c6d05d6ffa7883db4725af31143b50fbdc83157a196b",
-    "tenant-path": "078b216879af2ccdedc8cc65c3ed4d6ee7a32e8f796b78dd8b2c6f63bf1232f0",
+    "runtime": "2a29d35947310d7879bac4841de654502c9281957b24e205fae6cfd5b7191252",
+    "runtime-core": "23f329c99668fd6ef4137edee9c07f59e3f73c9a1542f73af12c1d9044db21bf",
+    "runtime-infrastructure": "faf5e4ccaa9f09d9ccc9412a253d614573a865a31f274d6a68056ddd8538a78c",
+    "runtime-integrations": "becf59c5917d835f5148c9449bcec688b593792c89b1d31d6a62666b31d6b623",
+    "runtime-observability-projections": "843681c597dcf5ba7e0d1fd223c1bae557f8dc8a69c132f0c9376eb8365da052",
+    "secrets": "6aadec4f0303690e429c3dbe6b4b72fec42b6ee4624d1b84f6941e6f8e09eb55",
+    "tenant-path": "1fb380f0581987d63086c16fd37afe59721c927053e230ef5699324561b82d63",
     "tracing": "78d05c2b98b885da7867967c2189cc412cb2f1d408ac665a27170ec65fb1d936",
 }
 
@@ -1360,10 +1397,15 @@ def test_every_bundle_but_local_renders_byte_identically_to_its_pre_sasl_digest_
     in the same change; the failure names the bundle.
     """
     bundles = yaml.safe_load((Path(_CATALOG_DIR) / "bundles.yaml").read_text())
-    # local-lane-mirror (OMN-19983) is the laptop stack plus one service.
-    assert sorted(set(bundles) - {"local", "local-lane-mirror"}) == sorted(
-        _OTHER_BUNDLE_DIGESTS
-    )
+    # local-lane-mirror and local-market extend the laptop stack.
+    # OMN-21279: only market image tags (projection-api included) changed in the
+    # three updated digests. OMN-18087: the four runtime-bearing bundles moved
+    # when main's memory limit and the runtime user's home came from the policy.
+    # OMN-22391: runtime and runtime-core moved when the intelligence API left
+    # their service lists for the runtime's own HTTP mount.
+    assert sorted(
+        set(bundles) - {"local", "local-market", "local-lane-mirror"}
+    ) == sorted(_OTHER_BUNDLE_DIGESTS)
     drifted = sorted(
         name
         for name, pinned in _OTHER_BUNDLE_DIGESTS.items()
@@ -1590,3 +1632,124 @@ def test_status_local_group_listing_authenticates_as_the_local_superuser_sasl(
     assert "rpk group list user=onex-local" in calls
     assert "node_delegate_skill_orchestrator" in result.stdout
     assert "stub-secret" not in result.stdout + result.stderr + calls
+
+
+def test_local_kernels_activate_only_omnibase_infra() -> None:
+    services = _services(_render("local"))
+    for name in ("omninode-runtime", "runtime-effects", "tenant-projection-writer"):
+        env = services[name]["environment"]
+        value = env["ONEX_ACTIVE_RUNTIME_PACKAGES"]
+        assert value == "${ONEX_LOCAL_RUNTIME_PACKAGES:-omnibase_infra}"
+        assert "omnimarket" not in value.split(":-", 1)[1].removesuffix("}").split(",")
+
+
+def test_local_market_kernels_activate_omnimarket() -> None:
+    services = _services(_render("local-market"))
+    for name in ("omninode-runtime", "runtime-effects"):
+        env = services[name]["environment"]
+        assert (
+            env["ONEX_ACTIVE_RUNTIME_PACKAGES"]
+            == "${ONEX_LOCAL_RUNTIME_PACKAGES:-omnibase_infra,omnimarket}"
+        )
+
+
+def test_local_kernel_packages_resolve_without_omnimarket(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(os, "environ", {})
+    catalog_cli._load_env_file(_REPO / "docker" / "runtime-policy.env")
+    monkeypatch.delenv("ONEX_LOCAL_RUNTIME_PACKAGES", raising=False)
+    assert os.environ["ONEX_ACTIVE_RUNTIME_PACKAGES"] == "omnibase_infra,omnimarket"
+
+    env = _services(_render("local"))["omninode-runtime"]["environment"]
+    value = env["ONEX_ACTIVE_RUNTIME_PACKAGES"]
+    reference = re.fullmatch(r"\$\{([^:}]+):-([^}]+)\}", value)
+    assert reference is not None
+    resolved = os.environ.get(reference[1]) or reference[2]
+    packages = parse_active_runtime_packages(
+        ("omnibase_infra",), env={"ONEX_ACTIVE_RUNTIME_PACKAGES": resolved}
+    )
+    assert packages == ("omnibase_infra",)
+    assert "omnimarket" not in packages
+
+
+def test_local_is_infra_only_and_does_not_enable_bifrost_render() -> None:
+    bundles = yaml.safe_load((Path(_CATALOG_DIR) / "bundles.yaml").read_text())
+    assert "BIFROST_CONTRACT_PATH" not in bundles["local"]["inject_env"]
+    assert all(
+        "omnimarket" not in str(svc["image"])
+        for svc in _services(_render("local")).values()
+    )
+
+
+def test_local_market_adds_the_projection_api_market_writers_and_bifrost_render() -> (
+    None
+):
+    local = _services(_render("local"))
+    market = _services(_render("local-market"))
+    writers = {
+        "omnimarket-projection-delegation",
+        "omnimarket-projection-tenant-credentials",
+        "omnimarket-projection-llm-cost",
+        "omnimarket-projection-run-trace",
+    }
+    assert set(market) == set(local) | writers | {"projection-api"}
+    for name in (*sorted(writers), "projection-api"):
+        assert market[name]["image"] == f"{_PROJECT}-omnimarket-runtime:latest"
+        assert "build" not in market[name]
+        assert market[name]["depends_on"]["redpanda-local-sasl"] == {
+            "condition": "service_completed_successfully"
+        }
+    for name in ("omninode-runtime", "runtime-effects", *sorted(writers)):
+        env = market[name]["environment"]
+        assert (
+            env["BIFROST_CONTRACT_PATH"]
+            == "/app/data/delegation/bifrost_delegation.yaml"
+        )
+        assert env["BIFROST_LANE_OVERLAY_PATH"] == _OVERLAY_PIN
+        assert env["BIFROST_VERIFY_ENDPOINTS"] == "0"
+
+
+@pytest.mark.parametrize("project", [DEFAULT_PROJECT, "isolated-project"])
+@pytest.mark.parametrize(
+    ("bundle", "expected_count"), [("omnimarket-projections", 8), ("local-market", 5)]
+)
+def test_every_market_module_uses_the_project_scoped_market_image_without_build(
+    project: str,
+    bundle: str,
+    expected_count: int,
+) -> None:
+    resolved = CatalogResolver(catalog_dir=_CATALOG_DIR).resolve([bundle])
+    resolved.project = project
+    services = _services(generate_compose(resolved))
+    market_services = []
+    for name, manifest in resolved.manifests.items():
+        command = [*(manifest.command or []), *(manifest.entrypoint or [])]
+        # A ``python -m omnimarket...`` module or an omnimarket console script
+        # (projection-api runs ``omnimarket-projection-api``).
+        if not any(
+            str(part).startswith(("omnimarket.", "omnimarket-")) for part in command
+        ):
+            continue
+        market_services.append(name)
+        expected = (
+            "omnimarket-runtime:latest"
+            if project == DEFAULT_PROJECT
+            else f"{project}-omnimarket-runtime:latest"
+        )
+        assert services[name]["image"] == expected
+        assert "build" not in services[name]
+    assert len(market_services) == expected_count
+
+
+def test_local_env_template_broker_holds_the_omnimarket_topic_set_omn21968() -> None:
+    # One partition replica per MiB of broker memory: the 2G template stopped at 2048
+    # replicas while the local-market runtime provisions 2187 topics of one partition.
+    (line,) = [
+        raw
+        for raw in _ENV_TEMPLATE.read_text(encoding="utf-8").splitlines()
+        if raw.startswith("REDPANDA_MEMORY=")
+    ]
+    value = line.partition("=")[2]
+    assert value.endswith("G"), value
+    assert int(value[:-1]) * 1024 >= 2187 + 512, value

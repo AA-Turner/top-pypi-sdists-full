@@ -33,11 +33,11 @@ class SpaceArgs:
         """
         The set of arguments for constructing a Space resource.
 
-        :param pulumi.Input[_builtins.str] data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
-        :param pulumi.Input[_builtins.str] domain_id: The identifier of the domain the space belongs to.
-        :param pulumi.Input[_builtins.str] agent_core_evaluation_role_arn: The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
-        :param pulumi.Input['SpaceEncryptionConfigurationArgs'] encryption_configuration: The encryption configuration for the space.
-        :param pulumi.Input[_builtins.str] name: The name of the space.
+        :param pulumi.Input[_builtins.str] data_access_role_arn: The ARN of the IAM role used for data access.
+        :param pulumi.Input[_builtins.str] domain_id: The ID of the domain to create the space in.
+        :param pulumi.Input[_builtins.str] agent_core_evaluation_role_arn: The ARN of the IAM role used by AgentCore online evaluation. Absent when the space was created without one.
+        :param pulumi.Input['SpaceEncryptionConfigurationArgs'] encryption_configuration: How the space's data at rest is encrypted. Always populated.
+        :param pulumi.Input[_builtins.str] name: A name that identifies the space.
         :param pulumi.Input[Sequence[pulumi.Input['_root_inputs.TagArgs']]] tags: An array of key-value pairs to apply to this resource.
         """
         pulumi.set(__self__, "data_access_role_arn", data_access_role_arn)
@@ -55,7 +55,7 @@ class SpaceArgs:
     @pulumi.getter(name="dataAccessRoleArn")
     def data_access_role_arn(self) -> pulumi.Input[_builtins.str]:
         """
-        The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
+        The ARN of the IAM role used for data access.
         """
         return pulumi.get(self, "data_access_role_arn")
 
@@ -67,7 +67,7 @@ class SpaceArgs:
     @pulumi.getter(name="domainId")
     def domain_id(self) -> pulumi.Input[_builtins.str]:
         """
-        The identifier of the domain the space belongs to.
+        The ID of the domain to create the space in.
         """
         return pulumi.get(self, "domain_id")
 
@@ -79,7 +79,7 @@ class SpaceArgs:
     @pulumi.getter(name="agentCoreEvaluationRoleArn")
     def agent_core_evaluation_role_arn(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
+        The ARN of the IAM role used by AgentCore online evaluation. Absent when the space was created without one.
         """
         return pulumi.get(self, "agent_core_evaluation_role_arn")
 
@@ -91,7 +91,7 @@ class SpaceArgs:
     @pulumi.getter(name="encryptionConfiguration")
     def encryption_configuration(self) -> pulumi.Input[Optional['SpaceEncryptionConfigurationArgs']]:
         """
-        The encryption configuration for the space.
+        How the space's data at rest is encrypted. Always populated.
         """
         return pulumi.get(self, "encryption_configuration")
 
@@ -103,7 +103,7 @@ class SpaceArgs:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The name of the space.
+        A name that identifies the space.
         """
         return pulumi.get(self, "name")
 
@@ -133,21 +133,21 @@ class Space(pulumi.CustomResource):
                  agent_core_evaluation_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  data_access_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  domain_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 encryption_configuration: pulumi.Input[Optional[Union['SpaceEncryptionConfigurationArgs', 'SpaceEncryptionConfigurationArgsDict']]] = None,
+                 encryption_configuration: pulumi.Input[Optional[Union['SpaceEncryptionConfigurationArgs', 'SpaceEncryptionConfigurationArgsDict', 'outputs.SpaceEncryptionConfiguration']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         """
-        Resource type definition for AWS::CloudWatch::Space
+        Resource Type definition for AWS::CloudWatch::Space. A space is where you work in CloudWatch Omni. It gives you access to telemetry from the account and Region in which the space is hosted, and controls who can see it.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] agent_core_evaluation_role_arn: The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
-        :param pulumi.Input[_builtins.str] data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
-        :param pulumi.Input[_builtins.str] domain_id: The identifier of the domain the space belongs to.
-        :param pulumi.Input[Union['SpaceEncryptionConfigurationArgs', 'SpaceEncryptionConfigurationArgsDict']] encryption_configuration: The encryption configuration for the space.
-        :param pulumi.Input[_builtins.str] name: The name of the space.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]] tags: An array of key-value pairs to apply to this resource.
+        :param pulumi.Input[_builtins.str] agent_core_evaluation_role_arn: The ARN of the IAM role used by AgentCore online evaluation. Absent when the space was created without one.
+        :param pulumi.Input[_builtins.str] data_access_role_arn: The ARN of the IAM role used for data access.
+        :param pulumi.Input[_builtins.str] domain_id: The ID of the domain to create the space in.
+        :param pulumi.Input[Union['SpaceEncryptionConfigurationArgs', 'SpaceEncryptionConfigurationArgsDict', 'outputs.SpaceEncryptionConfiguration']] encryption_configuration: How the space's data at rest is encrypted. Always populated.
+        :param pulumi.Input[_builtins.str] name: A name that identifies the space.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: An array of key-value pairs to apply to this resource.
         """
         ...
     @overload
@@ -156,7 +156,7 @@ class Space(pulumi.CustomResource):
                  args: SpaceArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        Resource type definition for AWS::CloudWatch::Space
+        Resource Type definition for AWS::CloudWatch::Space. A space is where you work in CloudWatch Omni. It gives you access to telemetry from the account and Region in which the space is hosted, and controls who can see it.
 
         :param str resource_name: The name of the resource.
         :param SpaceArgs args: The arguments to use to populate this resource's properties.
@@ -176,9 +176,9 @@ class Space(pulumi.CustomResource):
                  agent_core_evaluation_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  data_access_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  domain_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 encryption_configuration: pulumi.Input[Optional[Union['SpaceEncryptionConfigurationArgs', 'SpaceEncryptionConfigurationArgsDict']]] = None,
+                 encryption_configuration: pulumi.Input[Optional[Union['SpaceEncryptionConfigurationArgs', 'SpaceEncryptionConfigurationArgsDict', 'outputs.SpaceEncryptionConfiguration']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -244,11 +244,17 @@ class Space(pulumi.CustomResource):
         __props__.__dict__["updated_at"] = None
         return Space(resource_name, opts=opts, __props__=__props__)
 
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:cloudwatch:Space', id, __props__, opts or pulumi.ResourceOptions())
+
     @_builtins.property
     @pulumi.getter(name="agentCoreEvaluationRoleArn")
     def agent_core_evaluation_role_arn(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        The Amazon Resource Name (ARN) of the IAM role used for AgentCore evaluation.
+        The ARN of the IAM role used by AgentCore online evaluation. Absent when the space was created without one.
         """
         return pulumi.get(self, "agent_core_evaluation_role_arn")
 
@@ -264,7 +270,7 @@ class Space(pulumi.CustomResource):
     @pulumi.getter(name="createdAt")
     def created_at(self) -> pulumi.Output[_builtins.str]:
         """
-        The time the space was created.
+        The timestamp when the space was created.
         """
         return pulumi.get(self, "created_at")
 
@@ -272,7 +278,7 @@ class Space(pulumi.CustomResource):
     @pulumi.getter(name="dataAccessRoleArn")
     def data_access_role_arn(self) -> pulumi.Output[_builtins.str]:
         """
-        The Amazon Resource Name (ARN) of the IAM role the space uses to access observability data.
+        The ARN of the IAM role used for data access.
         """
         return pulumi.get(self, "data_access_role_arn")
 
@@ -280,7 +286,7 @@ class Space(pulumi.CustomResource):
     @pulumi.getter(name="domainId")
     def domain_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The identifier of the domain the space belongs to.
+        The ID of the domain to create the space in.
         """
         return pulumi.get(self, "domain_id")
 
@@ -288,7 +294,7 @@ class Space(pulumi.CustomResource):
     @pulumi.getter(name="encryptionConfiguration")
     def encryption_configuration(self) -> pulumi.Output[Optional['outputs.SpaceEncryptionConfiguration']]:
         """
-        The encryption configuration for the space.
+        How the space's data at rest is encrypted. Always populated.
         """
         return pulumi.get(self, "encryption_configuration")
 
@@ -296,7 +302,7 @@ class Space(pulumi.CustomResource):
     @pulumi.getter
     def name(self) -> pulumi.Output[_builtins.str]:
         """
-        The name of the space.
+        A name that identifies the space.
         """
         return pulumi.get(self, "name")
 
@@ -304,7 +310,7 @@ class Space(pulumi.CustomResource):
     @pulumi.getter(name="ownerAccountId")
     def owner_account_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The AWS account that owns the space.
+        AWS account ID that owns this space.
         """
         return pulumi.get(self, "owner_account_id")
 
@@ -312,7 +318,7 @@ class Space(pulumi.CustomResource):
     @pulumi.getter
     def region(self) -> pulumi.Output[_builtins.str]:
         """
-        The AWS Region the space resides in.
+        The region where this space was created.
         """
         return pulumi.get(self, "region")
 
@@ -320,7 +326,7 @@ class Space(pulumi.CustomResource):
     @pulumi.getter(name="spaceId")
     def space_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The unique identifier of the space.
+        The unique ID of the space.
         """
         return pulumi.get(self, "space_id")
 
@@ -344,7 +350,7 @@ class Space(pulumi.CustomResource):
     @pulumi.getter(name="updatedAt")
     def updated_at(self) -> pulumi.Output[_builtins.str]:
         """
-        The time the space was last updated.
+        The timestamp when the space was last updated.
         """
         return pulumi.get(self, "updated_at")
 

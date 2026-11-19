@@ -37,9 +37,11 @@ from contrast.agent.policy.handlers import (
     cve_shield_handler_builder,
     file_open,
     graphql_request,
+    network,
     observe_log_handler_builder,
     observe_span_handler_builder,
     outbound_request,
+    scripting,
 )
 from contrast.utils.decorators import log_and_report_exception
 from contrast.utils.patch_utils import add_watermark
@@ -47,6 +49,7 @@ from contrast_vendor import wrapt
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
+    from types import FrameType
     from typing import Any
 
     from contrast.agent.context import ContrastContext
@@ -73,6 +76,8 @@ EVENT_HANDLER_BUILDERS: dict[str, dict[str, Any]] = {
     "file-move": {"shield": "file-move"},
     "file-permissions": {"shield": "file-permissions"},
     "nosql": {"shield": "data-access"},
+    "socket": {"shield_permissions": network.shield_permissions_builder},
+    "scripting": {"shield_permissions": scripting.shield_permissions_builder},
     "django-authn": {"observe_span": authn.django_authn_span_attrs_builder},
     "django-session-authn": {
         "observe_span": authn.django_session_authn_span_attrs_builder
@@ -420,6 +425,25 @@ def build_generic_contrast_wrapper(original_func, module_name: str | None = None
             return result
 
     return generic_contrast_wrapper(original_func)
+
+
+_WRAPPER_MODULES = frozenset(
+    {
+        __name__,
+        "contrast_vendor.wrapt.wrappers",
+        "contrast.agent.policy.handlers",
+    }
+)
+
+
+def caller_frame(frame: FrameType) -> FrameType:
+    """
+    Returns `frame`, or if it belongs to the generic v2 wrapper, the first frame outside
+    of the wrapper that it was called from.
+    """
+    while frame.f_globals.get("__name__") in _WRAPPER_MODULES and frame.f_back:
+        frame = frame.f_back
+    return frame
 
 
 inspect_signature = inspect.signature

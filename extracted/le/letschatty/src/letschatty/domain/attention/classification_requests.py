@@ -72,6 +72,9 @@ class ClassificationRequest(BaseModel):
     general_inquiry_applied: Optional[bool] = None
     general_inquiry_at: Optional[datetime] = None
     correction: Optional[Dict[str, Any]] = None
+    # 0.6.88 — «Identificar el motivo y pasarlo» (0.6.57.7): the request waits in `en_consulta_general` to
+    # reclassify the next message with content, and never steps on a reason the chat already has.
+    to_identify: Optional[bool] = None
     other_fields: Dict[str, Any] = Field(default_factory=dict)
 
 

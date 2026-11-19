@@ -65,6 +65,7 @@ WorkflowRunStatusType = Literal[
 WorkflowStatusType = Literal["DELETING", "READY"]
 MWAAServerlessServiceName = Literal["mwaa-serverless"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

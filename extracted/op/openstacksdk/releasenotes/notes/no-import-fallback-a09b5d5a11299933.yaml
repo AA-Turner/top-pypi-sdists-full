@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    Image upload will no longer fall back to attempting to use
-    the import workflow if the initial upload does not work.

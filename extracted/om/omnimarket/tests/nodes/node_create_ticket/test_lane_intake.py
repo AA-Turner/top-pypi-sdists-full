@@ -3,8 +3,7 @@
 """Lane intake for the nodes that open Linear items (OMN-17942).
 
 Every item opened from a lane or node context is labelled, stamped on its first
-line with its lane, refused without a lane identity, and counted against a
-per-day budget. The vocabulary and the budget belong to the omniclaude policy;
+line with its lane and refused without a lane identity. The vocabulary belongs to the omniclaude policy;
 these tests pin what the nodes do with them, with a stand-in guard script for the
 real one (whose own rules are tested in omniclaude).
 
@@ -148,23 +147,22 @@ def test_a_create_with_no_lane_is_not_stamped_so_the_guard_refuses_it(
     assert guard.inputs[0]["description"] == "plain"
 
 
-def test_a_dry_run_asks_the_guard_not_to_spend_the_budget(
+def test_a_dry_run_and_a_real_create_ask_the_guard_the_same_way(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("ONEX_LANE", "lane-a")
     echo = tmp_path / "echo.json"
     guard_path = _plugin(tmp_path / "plugin", _ARGV_ECHO, None)
     monkeypatch.setenv("ECHO_FILE", str(echo))
-    handler = HandlerCreateTicket(linear_client=_Client(), lane_intake_policy=_POLICY)
-    monkeypatch.setattr(
-        "omnimarket.nodes.node_create_ticket.handlers.handler_create_ticket.locate_ticket_guard",
-        lambda: guard_path,
+    handler = HandlerCreateTicket(
+        linear_client=_Client(),
+        lane_intake_policy=_POLICY,
+        ticket_guard=InstalledPluginTicketGuard(guard_path, "lane-a"),
     )
     handler.handle(ModelCreateTicketRequest(title="t", description="b", dry_run=True))
     seen = json.loads(echo.read_text(encoding="utf-8"))
-    assert seen["argv"] == ["--node", "--no-record"]
+    assert seen["argv"] == ["--node"]
     assert seen["lane"] == "lane-a"
-    # Control: a real create records, so it passes no --no-record.
     handler.handle(ModelCreateTicketRequest(title="t", description="b"))
     assert json.loads(echo.read_text(encoding="utf-8"))["argv"] == ["--node"]
 
@@ -205,6 +203,8 @@ def test_the_gateway_sends_the_label_ids_with_the_create(
             return {"data": {"viewer": {"id": "user-1"}}}
         if "issueLabels" in query:
             return {"data": {"issueLabels": {"nodes": [{"id": "label-1"}]}}}
+        if "GetIssueProject" in query:
+            return {"data": {"issue": {"identifier": "OMN-9", "project": None}}}
         return {"data": {"issueCreate": {"issue": {"identifier": "OMN-9", "url": "u"}}}}
 
     gateway = LinearTicketHttpGateway("k")

@@ -86,7 +86,7 @@ async def offline() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true", help="Use a qualified managed gateway")
-    parser.add_argument("--model", default="gpt-6-astra")
+    parser.add_argument("--model", default="gpt-6.2-astra")
     parser.add_argument("--max-cost", type=float, default=None, help="Optional cap in credits")
     args = parser.parse_args()
     if not args.live:

@@ -12,7 +12,6 @@
 #   Or pin each staged sibling independently using owned, clean disposable clones:
 #   OMNI_HOME=<disposable-clone-root> bash scripts/runtime_build/stage_workspace.sh \
 #     --repo-ref omnibase_core=<40-character-SHA> \
-#     --repo-ref omnibase_compat=<40-character-SHA> \
 #     --repo-ref omnimarket=<40-character-SHA>
 #   This mode requires every staged sibling and forbids global-ref/hotpatch/
 #   unpinned selectors. It resolves all pins before any non-forcing checkout.
@@ -259,13 +258,15 @@ if [[ ${#REPO_REF_ARGS[@]} -gt 0 || -n "${DEPLOY_REF}" || "${DEPLOY_HOTPATCH}" =
         # engages where the primary names no commit, so a DEPLOY_REF that
         # resolves everywhere (origin/dev) behaves exactly as before.
         checkout_args+=(--fallback-ref "${DEPLOY_SIBLING_FALLBACK_REF:-origin/dev}")
-        # OMN-19998: a lab caller names the siblings that build their newest
-        # dev-* tag in place of the branch (the deploy agent and the stability
-        # refresh name omnimarket). Unset, every sibling builds its branch.
-        read -r -a follow_dev_tag_repos <<< "${DEPLOY_FOLLOW_DEV_TAG_REPOS:-}"
-        for repo in ${follow_dev_tag_repos[@]+"${follow_dev_tag_repos[@]}"}; do
-            checkout_args+=(--follow-dev-tag "${repo}")
-        done
+        # OMN-19998, OMN-17427 stage 0: every vendored sibling builds its newest
+        # dev-merge tag in place of the branch, with no caller opt-in. A first-party
+        # package built from a branch, a sha or a release is what the dev lane
+        # forbids; a sibling with no dev-merge tag on origin refuses the build.
+        for repo in "${SIBLING_REPOS[@]}"; do checkout_args+=(--follow-dev-tag "${repo}"); done
+        # OMN-21611: explicit sibling release tags retain precedence over the
+        # dev-tag follow set in deploy_source_ref.py.
+        read -r -a sibling_refs <<< "${DEPLOY_SIBLING_REFS:-}"
+        for sibling_ref in ${sibling_refs[@]+"${sibling_refs[@]}"}; do checkout_args+=(--repo-ref "${sibling_ref}"); done
     fi
     if [[ "${DEPLOY_HOTPATCH}" == "1" ]]; then
         checkout_args+=(--hotpatch)
@@ -313,8 +314,14 @@ PIN_COMPARISON_OUT="workspace/sibling-pin-comparison.json"
 # list already named omnibase-spi, but ensure_runner_clones.sh never
 # provisioned OMNI_HOME/omnibase_spi for it to find). The manifest was sourced
 # at the top of this script.
+#
+# OMN-22153: a sibling in SIBLING_LOCK_UNPINNED_REPOS has no pin in the consuming
+# lock, so the preflight has nothing to compare it with and would refuse the
+# build for its absence. It is left out of the arguments; its dev-merge tag is
+# proven by the first-party source audit instead.
 PREFLIGHT_REPO_ARGS=()
 for i in "${!SIBLING_CLONE_MANIFEST[@]}"; do
+    [[ " ${SIBLING_LOCK_UNPINNED_REPOS[*]} " == *" ${SIBLING_CLONE_MANIFEST[$i]} "* ]] && continue
     PREFLIGHT_REPO_ARGS+=(
         --repo "${SIBLING_CLONE_MANIFEST_DIST_NAMES[$i]}=$(sibling_source "${SIBLING_CLONE_MANIFEST[$i]}")"
     )
@@ -470,9 +477,7 @@ VCS_PROVENANCE_OUT="workspace/sibling-vcs-provenance.json"
 missing=()
 for repo in "${SIBLING_REPOS[@]}"; do
     src="$(sibling_source "${repo}")"
-    if [[ ! -d "${src}" ]]; then
-        missing+=("${src}")
-    fi
+    [[ -d "${src}" ]] || missing+=("${src}")
 done
 
 if [[ ${#missing[@]} -gt 0 ]]; then
@@ -537,6 +542,25 @@ done
 echo "workspace staging complete: ${#SIBLING_REPOS[@]} repos staged to ${STAGING_DIR}"
 echo "per-repo VCS provenance written to ${VCS_PROVENANCE_OUT}"
 
+# OMN-21279: the delegation routing ladder is owned by omnimarket, and the
+# runtime image installs no omnimarket, so the Dockerfile COPYs the ladder from
+# the build context instead of out of an installed wheel. Overwrite the committed
+# placeholder with the ladder from the staged omnimarket tree; a staged tree
+# without it is an unverifiable build and ABORTS.
+ROUTING_TIERS_OUT="workspace/routing_tiers.yaml"
+ROUTING_TIERS_SRC="${STAGING_DIR}/omnimarket/src/omnimarket/configs/routing_tiers.yaml"
+if [[ ! -f "${ROUTING_TIERS_SRC}" ]]; then
+    echo "ERROR: staged omnimarket tree has no ${ROUTING_TIERS_SRC}; refusing to build an image with no routing ladder (OMN-21279)" >&2
+    exit 3
+fi
+python3 - "${ROUTING_TIERS_SRC}" "${ROUTING_TIERS_OUT}" <<'PY'
+import shutil
+import sys
+
+shutil.copyfile(sys.argv[1], sys.argv[2])
+PY
+echo "delegation routing ladder staged to ${ROUTING_TIERS_OUT}"
+
 # ---------------------------------------------------------------------------
 # RT-1 (OMN-14438): HARD-ASSERT the vendored-SHA manifest equals the intended ref
 # for every sibling. This is the load-bearing gate: a behind/dirty clone that
@@ -545,6 +569,8 @@ echo "per-repo VCS provenance written to ${VCS_PROVENANCE_OUT}"
 # present); the unpinned ambient path skips it (and is warned above).
 # ---------------------------------------------------------------------------
 if [[ "${RT1_ENGAGED}" == true ]]; then
+    # OMN-17427: record the dev-merge tag each tree sits at; the image audit refuses a tree with none.
+    python3 -c 'import importlib.util as u, sys; s = u.spec_from_file_location("c", sys.argv[1]); m = u.module_from_spec(s); sys.modules["c"] = m; s.loader.exec_module(m); m.stamp(*map(__import__("pathlib").Path, sys.argv[2:]))' "${SCRIPT_DIR}/../../src/omnibase_infra/validation/checker_first_party_sources.py" "${VCS_PROVENANCE_OUT}" "${EXPECTED_REFS_OUT}" . || exit 4
     echo "RT-1: asserting vendored SHAs == intended ref for every sibling (OMN-14438)" >&2
     if ! python3 "${DEPLOY_SOURCE_REF_SCRIPT}" assert \
         --vcs-provenance "${VCS_PROVENANCE_OUT}" \

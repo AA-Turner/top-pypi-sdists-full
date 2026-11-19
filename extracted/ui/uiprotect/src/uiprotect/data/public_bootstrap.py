@@ -48,6 +48,7 @@ from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
 from .public_devices import (
     ArmProfile,
+    ExternalArmProfile,
     Fob,
     LinkStation,
     NvrArmMode,
@@ -149,7 +150,10 @@ class FetchDiff:
     removed: list[ProtectModelWithId]
 
 
-PublicStoreName = Literal["arm_profiles", "liveviews", "ulp_users"]
+PublicStoreName = Literal[
+    "arm_profiles", "external_arm_profiles", "liveviews", "ulp_users"
+]
+PublicStoreObject = ArmProfile | ExternalArmProfile | PublicLiveview | PublicUlpUser
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,6 +235,8 @@ class PublicBootstrap:
 
     # Arm manager state.
     arm_profiles: dict[str, ArmProfile] = field(default_factory=dict)
+    # Profiles of the external (UniFi OS) alarm manager, Protect 7.4+.
+    external_arm_profiles: dict[str, ExternalArmProfile] = field(default_factory=dict)
 
     # Per-instance one-shot warning dedupe for merge/add failures.
     # This must not be module-global because callers can have multiple
@@ -264,10 +270,22 @@ class PublicBootstrap:
 
         Returns ``None`` when the NVR cache hasn't been primed yet or when the
         firmware does not expose the alarm manager.  A console using the
-        global alarm manager still populates the field — the local manager is
-        disabled there, so the status reads ``disabled``.
+        external alarm manager still populates the field — the local manager
+        is disabled there, so the status reads ``disabled``.
         """
         return self.nvr.arm_mode if self.nvr is not None else None
+
+    @property
+    def uses_external_alarm_manager(self) -> bool | None:
+        """
+        Whether UniFi OS runs the external alarm manager instead of Protect.
+
+        Returns ``None`` when the NVR cache hasn't been primed yet or the
+        firmware does not report the mode (before Protect 7.4).
+        """
+        if self.nvr is None or self.nvr.feature_flags is None:
+            return None
+        return self.nvr.feature_flags.use_external_alarm_manager
 
     def __post_init__(self) -> None:
         """Validate cache bounds used by event eviction logic."""
@@ -401,7 +419,7 @@ class PublicBootstrap:
     def apply_store(
         self,
         store: PublicStoreName,
-        objs: Iterable[ArmProfile | PublicLiveview | PublicUlpUser],
+        objs: Iterable[PublicStoreObject],
         *,
         replace: bool = False,
         removed_ids: Iterable[str] = (),
@@ -414,7 +432,7 @@ class PublicBootstrap:
         store dict is mutated in place.
         """
         cache = cast(
-            "dict[str, ArmProfile | PublicLiveview | PublicUlpUser]",
+            "dict[str, PublicStoreObject]",
             getattr(self, store),
         )
         written = {obj.id: obj for obj in objs}
@@ -427,10 +445,16 @@ class PublicBootstrap:
             old = cache.get(obj_id)
             if old is None:
                 added.add(obj_id)
-            # A refetch always builds new objects, so compare values; pydantic
-            # ``==`` would also compare private attributes.
-            elif old.model_dump() != obj.model_dump():
-                updated.add(obj_id)
+            else:
+                if store == "external_arm_profiles":
+                    _keep_pushed_authors(
+                        cast("ExternalArmProfile", old),
+                        cast("ExternalArmProfile", obj),
+                    )
+                # A refetch always builds new objects, so compare values;
+                # pydantic ``==`` would also compare private attributes.
+                if old.model_dump() != obj.model_dump():
+                    updated.add(obj_id)
             cache[obj_id] = obj
         if not (added or removed or updated):
             return None
@@ -1029,6 +1053,22 @@ def _dict_slot(
         _delete,
         factory=factory,
     )
+
+
+def _keep_pushed_authors(old: ExternalArmProfile, new: ExternalArmProfile) -> None:
+    # Only pushed items carry the authors (7.4.102); a REST response that
+    # omits them must not erase them. A different ``updated_at`` means an
+    # edit by someone the response does not name.
+    if "created_by" in old.model_fields_set and (
+        "created_by" not in new.model_fields_set
+    ):
+        new.created_by = old.created_by
+    if (
+        "updated_by" in old.model_fields_set
+        and "updated_by" not in new.model_fields_set
+        and old.updated_at == new.updated_at
+    ):
+        new.updated_by = old.updated_by
 
 
 def _parse_ws_envelope(

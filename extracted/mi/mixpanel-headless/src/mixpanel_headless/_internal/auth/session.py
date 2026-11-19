@@ -8,8 +8,6 @@ am I working on" — an ``Account`` plus a ``Project`` and an optional
 The naming distinction matters: :class:`WorkspaceRef` is the data type
 held inside a Session, while ``mixpanel_headless.Workspace`` (in the public
 API) is the facade class. Renaming avoids the collision.
-
-Reference: ``specs/042-auth-architecture-redesign/data-model.md`` §3, §4, §5.
 """
 
 from __future__ import annotations
@@ -145,7 +143,7 @@ class Session(BaseModel):
     headers: Mapping[str, str] = Field(default_factory=dict)
     """Custom HTTP headers attached at resolution time.
 
-    Populated from ``[settings].custom_header`` and/or ``bridge.headers``.
+    Populated from ``[settings].custom_header`` only.
     Never read from ``os.environ`` after Session construction (per FR-014).
 
     Wrapped in :class:`types.MappingProxyType` after validation, so any

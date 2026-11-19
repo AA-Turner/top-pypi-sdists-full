@@ -43,8 +43,7 @@ for lut_name in [
     "HE-3D-FEM-22"
 ]:
 
-    for channel_width in matrix:
-        flow_rates = matrix[channel_width]
+    for channel_width, flow_rates in matrix.items():
         # setup figure
         fig, axes = plt.subplots(nrows=3, ncols=3, sharex=True, sharey=True,
                                  gridspec_kw={"left": 0.12,
@@ -53,19 +52,19 @@ for lut_name in [
                                               "hspace": .15,
                                               },
                                  figsize=(7.5, 6.3))
-        fig.suptitle("{} µm channel".format(channel_width))
+        fig.suptitle(f"{channel_width} µm channel")
         axes[2][1].set_xlabel("Area [µm²]")
         axes[1][0].set_ylabel("Deformation")
         # column label (flow rate)
         for ii in range(3):
-            axes[0][ii].set_title("{} µL/s".format(flow_rates[ii]),
+            axes[0][ii].set_title(f"{flow_rates[ii]} µL/s",
                                   fontsize=10, fontweight="bold")
         # row label (medium)
         for jj in range(3):
             pos = axes[jj][0].get_position()
             x = pos.x0 - .11
             y = pos.y0 + pos.height/2
-            fig.text(x, y, media[jj], ha='left', va='center', rotation=90,
+            fig.text(x, y, media[jj], ha="left", va="center", rotation=90,
                      fontsize=10, fontweight="bold")
 
         # plot the LUTs channel-wise
@@ -75,7 +74,7 @@ for lut_name in [
         area_um = np.linspace(lut_base[:, 0].min(), lut_base[:, 0].max(),
                               grid_size, endpoint=True)
         for jj, medium in enumerate(media):  # rows
-            for ii, flow_rate in enumerate(matrix[channel_width]):  # columns
+            for ii, flow_rate in enumerate(flow_rates):  # columns
                 area_um_scaled = emodulus.scale_linear.scale_area_um(
                     area_um=area_um,
                     channel_width_in=lut_meta["channel_width"],
@@ -109,6 +108,6 @@ for lut_name in [
         plt.colorbar(pc, orientation="vertical", cax=cax, extend="both",
                      label=f"apparent Young's modulus ({lut_name}) [kPa]")
 
-        plt.savefig("_emodulus_{}um_{}.png".format(channel_width, lut_name),
+        plt.savefig(f"_emodulus_{channel_width}um_{lut_name}.png",
                     dpi=150)
         plt.close()

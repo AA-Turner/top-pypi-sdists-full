@@ -43,6 +43,7 @@ from .paginator import (
     DescribeGlobalClustersPaginator,
     DescribeOrderableDBInstanceOptionsPaginator,
     DescribePendingMaintenanceActionsPaginator,
+    DescribeServerlessV2PlatformVersionsPaginator,
 )
 from .type_defs import (
     AddRoleToDBClusterMessageTypeDef,
@@ -124,6 +125,7 @@ from .type_defs import (
     DescribeGlobalClustersMessageTypeDef,
     DescribeOrderableDBInstanceOptionsMessageTypeDef,
     DescribePendingMaintenanceActionsMessageTypeDef,
+    DescribeServerlessV2PlatformVersionsMessageTypeDef,
     DescribeValidDBInstanceModificationsMessageTypeDef,
     DescribeValidDBInstanceModificationsResultTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -170,6 +172,7 @@ from .type_defs import (
     RestoreDBClusterFromSnapshotResultTypeDef,
     RestoreDBClusterToPointInTimeMessageTypeDef,
     RestoreDBClusterToPointInTimeResultTypeDef,
+    ServerlessV2PlatformVersionsMessageTypeDef,
     StartDBClusterMessageTypeDef,
     StartDBClusterResultTypeDef,
     StopDBClusterMessageTypeDef,
@@ -745,6 +748,16 @@ class NeptuneClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_neptune/client/#describe_pending_maintenance_actions)
         """
 
+    def describe_serverless_v2_platform_versions(
+        self, **kwargs: Unpack[DescribeServerlessV2PlatformVersionsMessageTypeDef]
+    ) -> ServerlessV2PlatformVersionsMessageTypeDef:
+        """
+        Describes the properties of specific platform versions for Neptune Serverless.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptune/client/describe_serverless_v2_platform_versions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_neptune/client/#describe_serverless_v2_platform_versions)
+        """
+
     def describe_valid_db_instance_modifications(
         self, **kwargs: Unpack[DescribeValidDBInstanceModificationsMessageTypeDef]
     ) -> DescribeValidDBInstanceModificationsResultTypeDef:
@@ -1179,6 +1192,17 @@ class NeptuneClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_pending_maintenance_actions"]
     ) -> DescribePendingMaintenanceActionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptune/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_neptune/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_serverless_v2_platform_versions"]
+    ) -> DescribeServerlessV2PlatformVersionsPaginator:
         """
         Create a paginator for an operation.
 

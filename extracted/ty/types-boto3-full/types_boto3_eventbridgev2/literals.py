@@ -84,6 +84,7 @@ SuccessCodeType = Literal["DEDUPLICATED", "PUBLISHED"]
 TransformerTypeType = Literal["JSONATA", "RAW", "WITH_METADATA"]
 EventBridgeV2ServiceName = Literal["eventbridgev2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

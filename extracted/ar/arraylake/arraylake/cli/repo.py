@@ -66,7 +66,7 @@ def _repos_table(repos, org):
             repo.description,
             format_metadata(repo.metadata, max_line_length=25) if repo.metadata else None,
             repo.status.mode,
-            style=mode_colors[repo.status.mode],
+            style=mode_colors.get(repo.status.mode, "grey"),
         )
 
     return table
@@ -406,7 +406,7 @@ async def get_status(
     if output == "json":
         print_json(data=repo.status.model_dump())
     else:
-        print(repo.status.mode.value)
+        print(repo.status.mode)
 
 
 @app.command(hidden=True)
@@ -423,7 +423,7 @@ async def set_status(
     if output == "json":
         print_json(data=repo.status.model_dump())
     else:
-        print(repo.status.mode.value)
+        print(repo.status.mode)
 
 
 @app.command()

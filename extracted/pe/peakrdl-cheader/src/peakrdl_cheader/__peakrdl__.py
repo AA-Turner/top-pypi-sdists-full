@@ -5,6 +5,7 @@ from peakrdl.config import schema
 
 from .exporter import CHeaderExporter
 from .c_standards import CStandard
+from .udps import ALL_UDPS
 
 if TYPE_CHECKING:
     import argparse
@@ -12,6 +13,8 @@ if TYPE_CHECKING:
 
 class Exporter(ExporterSubcommandPlugin):
     short_desc = "Generate a C header definition of an address space"
+
+    udp_definitions = ALL_UDPS
 
     cfg_schema = {
         "std": schema.Choice(list(CStandard.__members__.keys())),
@@ -34,7 +37,7 @@ class Exporter(ExporterSubcommandPlugin):
             "--linux-kernel",
             action="store_true",
             default=False,
-            help=""""
+            help="""
             If set, output uses Linux kernel-compatible header includes.
             """
         )
@@ -56,7 +59,7 @@ class Exporter(ExporterSubcommandPlugin):
             "-x", "--explode-top",
             action="store_true",
             default=False,
-            help=""""
+            help="""
             If set, the top-level hierarchy is skipped. Instead, definitions for
             all the direct children are generated.
 
@@ -69,7 +72,7 @@ class Exporter(ExporterSubcommandPlugin):
             "-i", "--instantiate",
             action="store_true",
             default=False,
-            help=""""
+            help="""
             If set, header will also include a macro that instantiates each top-level
             block at a defined hardware address, allowing for direct access.
             """
@@ -140,6 +143,7 @@ class Exporter(ExporterSubcommandPlugin):
             top_node,
             path=options.output,
             std=std,
+            linux_kernel=options.linux_kernel,
             generate_bitfields=generate_bitfields,
             bitfield_order_ltoh=bitfield_order_ltoh,
             reuse_typedefs=reuse_typedefs,

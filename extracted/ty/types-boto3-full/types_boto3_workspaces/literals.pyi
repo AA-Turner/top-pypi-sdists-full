@@ -435,6 +435,7 @@ WorkspacesPoolStateType = Literal[
 ]
 WorkSpacesServiceName = Literal["workspaces"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

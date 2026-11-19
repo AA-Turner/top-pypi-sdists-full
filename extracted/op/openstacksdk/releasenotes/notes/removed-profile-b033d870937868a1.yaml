@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    ``openstack.profile.Profile`` has been removed. ``openstack.config``
-    should be used directly instead.

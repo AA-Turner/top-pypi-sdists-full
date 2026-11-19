@@ -426,9 +426,33 @@ _AC3_DECLARABLE_EXPOSURES = frozenset(
         # OMN-19988: local_environment declares its BIGSERIAL
         # `projection_cursor` from its first commit.
         "node_projection_local_environment::local_environment#0",
+        # OMN-19991: local_alerts declares its BIGSERIAL `projection_cursor`
+        # from its first commit.
+        "node_projection_local_alerts::local_alerts#0",
+        # OMN-19986: local_identity declares its BIGSERIAL `projection_cursor`
+        # from its first commit.
+        "node_projection_local_identity::local_identity#0",
         # OMN-21336: compaction_receipts declares its BIGSERIAL
         # `projection_cursor` from its first commit.
         "node_projection_compaction_receipts::compaction_receipts#0",
+        # OMN-21217: the two compacted state-topic exposures of the tenant
+        # credentials node declare a member cursor from their first commit:
+        # `api_key_ref` (the credential table's primary key) and `id` (the
+        # overlay row's never-changing id). Exposure #0 of that node stays in
+        # the baseline, unchanged.
+        "node_projection_tenant_credentials::tenant_inference_credentials#1",
+        "node_projection_tenant_credentials::delegation_routing_tenant_overlay#2",
+        # OMN-19486: the pr_state exposure declares `cursor_column:
+        # observed_at`, a member column, from its first commit.
+        "node_projection_pr_state::pr_state#0",
+        # OMN-22020: declares `cursor_column: read_at`, a member column.
+        "node_view_seam_reading_reducer::view_seam_readings#0",
+        # OMN-21970: decisions.v1 (delegation_events#2) now declares
+        # `projection_cursor`, the integer walk cursor of migration 0066, and
+        # leaves the never-declared baseline; the per-day view declares
+        # `latest_projection_updated_at` from its first commit.
+        "node_projection_delegation::delegation_events#2",
+        "node_projection_delegation::projection_delegation_daily#12",
     }
 )
 # 65 as of OMN-18769: runner_fleet_liveness (OMN-18768) and lab_lane_health
@@ -452,8 +476,21 @@ _AC3_DECLARABLE_EXPOSURES = frozenset(
 # 76 as of OMN-19988: local_environment declares its BIGSERIAL cursor in the
 # same change as the exposure, so the measured backlog remains unchanged.
 # 77 as of OMN-21336: compaction_receipts does the same.
-_AC3_TOTAL_EXPOSURES = 77
-_AC3_MEASURED_GAP = 55
+# 79 as of OMN-21217: the tenant credentials node's two state-topic exposures
+# declare their cursors in the same change, so the measured backlog is unmoved.
+# 80 as of OMN-19486: the pr_state exposure declares its cursor in the same
+# change, so the measured backlog is unmoved.
+# 81 as of OMN-19991: local_alerts declares its BIGSERIAL cursor in the same
+# change as the exposure, so the measured backlog is unmoved.
+# 82 as of OMN-22020: view_seam_readings declares its cursor in the same change.
+# 83 as of OMN-21970: the per-day delegation view declares its cursor in the
+# same change as the exposure, so the measured backlog is unmoved.
+# 54 as of OMN-21970: delegation_events#2 declared its cursor and left the
+# baseline, the first entry the backlog has lost.
+# 84 as of OMN-19986: local_identity declares its BIGSERIAL cursor in the same
+# change as the exposure, so the measured backlog is unmoved.
+_AC3_TOTAL_EXPOSURES = 84
+_AC3_MEASURED_GAP = 54
 
 
 class TestAc3DeclarableExposuresAndMeasuredGap:

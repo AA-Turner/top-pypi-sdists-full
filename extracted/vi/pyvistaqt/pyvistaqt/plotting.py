@@ -50,7 +50,7 @@ import contextlib
 from functools import wraps
 import logging
 import os
-import platform
+import sys
 import time
 from typing import Any
 from typing import cast
@@ -59,19 +59,8 @@ import warnings
 import numpy as np
 import pyvista
 from pyvista import global_theme
-
-try:
-    from pyvista.plotting import BasePlotter
-except ImportError:  # PV < 0.40
-    from pyvista.plotting.plotting import BasePlotter
+from pyvista.plotting import BasePlotter
 from pyvista.plotting.render_window_interactor import RenderWindowInteractor
-
-try:
-    from pyvista.core.utilities import conditional_decorator
-    from pyvista.core.utilities import threaded
-except ImportError:  # PV < 0.40
-    from pyvista.utilities import conditional_decorator
-    from pyvista.utilities import threaded
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy.QtCore import QTimer
@@ -104,19 +93,20 @@ from .utils import _setup_terminal_output_fix
 from .window import MainWindow
 
 LOG = logging.getLogger("pyvistaqt")
-LOG.setLevel(logging.CRITICAL)
-LOG.addHandler(logging.StreamHandler())
-
-
-# LOG is unused at the moment
-# LOG = logging.getLogger(__name__)  # noqa: ERA001
-# LOG.setLevel('DEBUG')  # noqa: ERA001
+LOG.addHandler(logging.NullHandler())
 
 # pyvista 0.50 deprecated ``ren_win`` and made ``render_window`` settable.
 _RENDER_WINDOW_SETTABLE = BasePlotter.render_window.fset is not None
 _PYVISTA_VERSION = tuple(int(part) for part in pyvista.__version__.split(".")[:2])
 # pyvista 0.49 moved trame to the lazily loaded ``trame`` plotter component.
 _HAS_TRAME_COMPONENT = _PYVISTA_VERSION >= (0, 49)
+
+# How ``render_signal`` reaches ``_render``. On macOS, render() defers the
+# actual render to a later event-loop iteration: rendering synchronously from
+# inside VTK callbacks (e.g., cell picking) segfaulted there (pyvista#603).
+# Elsewhere, AutoConnection renders directly when emitted on the GUI thread and
+# queues when emitted from a worker thread.
+_RENDER_CONNECTION = QtCore.Qt.ConnectionType.QueuedConnection if sys.platform == "darwin" else QtCore.Qt.ConnectionType.AutoConnection
 
 SAVE_CAM_BUTTON_TEXT = "Save Camera"
 CLEAR_CAMS_BUTTON_TEXT = "Clear Cameras"
@@ -129,8 +119,11 @@ def resample_image(arr: np.ndarray, max_size: int = 400) -> np.ndarray:
     x_size, y_size, _ = arr.shape
     s_x = int(np.ceil(x_size / max_size))
     s_y = int(np.ceil(y_size / max_size))
+    arr = arr[::s_x, ::s_y, :]
+    # With a non-divisible stride the result can be smaller than max_size
+    # (it is centered below) but never larger, as ceil(size / max_size)
+    # strides yield at most max_size samples.
     img = np.zeros((max_size, max_size, arr.shape[2]), dtype=arr.dtype)
-    arr = arr[0:-1:s_x, 0:-1:s_y, :]
     x_l = (max_size - arr.shape[0]) // 2
     y_l = (max_size - arr.shape[1]) // 2
     img[x_l : arr.shape[0] + x_l, y_l : arr.shape[1] + y_l, :] = arr
@@ -147,15 +140,30 @@ def pad_image(arr: np.ndarray, max_size: int = 400) -> np.ndarray:
     return resample_image(img, max_size=max_size)
 
 
+def _ndarray_to_qpixmap(img: np.ndarray) -> QtGui.QPixmap:
+    """Convert a C-ordered uint8 (h, w, 3 | 4) RGB(A) array to a QPixmap."""
+    fmt = QtGui.QImage.Format.Format_RGBA8888 if img.shape[2] == 4 else QtGui.QImage.Format.Format_RGB888
+    # QImage does not copy the data, so ``buf`` must outlive the QImage until
+    # QPixmap.fromImage has copied it. Pass the row stride explicitly:
+    # otherwise Qt assumes 32-bit-aligned scanlines, which skews RGB images
+    # whose width * 3 is not a multiple of 4 (and reads past the buffer).
+    # The bindings accept any buffer, but the stubs only declare bytes-likes.
+    buf = np.ascontiguousarray(img)
+    image = QtGui.QImage(buf, buf.shape[1], buf.shape[0], buf.strides[0], fmt)  # ty: ignore[no-matching-overload]
+    pixmap = QtGui.QPixmap.fromImage(image)
+    del image, buf
+    return pixmap
+
+
 @contextlib.contextmanager
 def _no_base_plotter_init() -> Generator[None, None, None]:
     init = BasePlotter.__init__
     # Deliberately monkeypatch BasePlotter.__init__ to a no-op for the duration.
-    BasePlotter.__init__ = lambda *args, **kwargs: None  # noqa: ARG005  # ty: ignore[invalid-assignment]
+    BasePlotter.__init__ = lambda *args, **kwargs: None  # noqa: ARG005
     try:
         yield
     finally:
-        BasePlotter.__init__ = init  # ty: ignore[invalid-assignment]
+        BasePlotter.__init__ = init
 
 
 class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
@@ -178,18 +186,26 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         impact on performance.
 
     line_smoothing :
-        If True, enable line smothing
+        If True, enable line smoothing
 
     point_smoothing :
-        If True, enable point smothing
+        If True, enable point smoothing
 
     polygon_smoothing :
-        If True, enable polygon smothing
+        If True, enable polygon smoothing
 
     auto_update :
         Number of updates per second.  Useful for automatically
         updating the render window when actors are change without
         being automatically ``Modified``.
+
+    wflags : optional
+        Qt window flags passed to the underlying ``QOpenGLWidget``.
+
+    stereo : optional
+        Not supported: this widget renders into Qt-managed framebuffer
+        objects, which have no quad-buffer stereo, so a truthy value warns
+        and is ignored. Use ``enable_stereo_render()`` for anaglyph stereo.
 
     """
 
@@ -212,6 +228,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         """Initialize Qt interactor."""
         LOG.debug("QtInteractor init start")
         self._url: QtCore.QUrl | None = None
+        self._render_pending = False
 
         # Cannot use super() here because
         # QVTKRenderWindowInteractor silently swallows all kwargs
@@ -249,7 +266,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
             renderer.view_isometric()
             render_window.AddRenderer(renderer)
 
-        self.render_signal.connect(self._render)
+        self.render_signal.connect(self._render, _RENDER_CONNECTION)
         self.key_press_event_signal.connect(super().key_press_event)
 
         self.background_color = global_theme.background
@@ -269,7 +286,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         # Make the render timer but only activate if using auto update
         self.render_timer = QTimer(parent=parent)
         if float(auto_update) > 0.0:  # Can be False as well
-            # Spawn a thread that updates the render window.
+            # Periodically re-render the window from the GUI thread.
             # Sometimes directly modifying object data doesn't trigger
             # Modified() and upstream objects won't be updated.  This
             # ensures the render window stays updated without consuming too
@@ -305,9 +322,9 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         if off_screen:
             self.iren: Any = None
         else:
-            self.iren = RenderWindowInteractor(self, interactor=self.render_window.GetInteractor())
+            self.iren = RenderWindowInteractor(self, interactor=self.GetRenderWindow().GetInteractor())
             # slows window update?
-            self.iren.interactor.RemoveObservers("MouseMoveEvent")  # ty: ignore[unresolved-attribute]
+            self.iren.interactor.RemoveObservers("MouseMoveEvent")  # ty: ignore[missing-union-attribute]
             self.iren.initialize()
             self.enable_trackball_style()
 
@@ -331,6 +348,11 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         if self.render_window is not None:
             self._ensure_initialized()
             self.render_window.MakeCurrent()
+            # pyvista renders and then reads the image back. Where ``render``
+            # is deferred to the event loop (macOS), the image would be the
+            # previous frame, so run the pending render now.
+            if self._render_pending:
+                self._render_now()
         BasePlotter._check_has_ren_win(self)  # noqa: SLF001
 
     def gesture_event(self, event: QGestureEvent) -> bool:
@@ -349,7 +371,16 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
     @wraps(BasePlotter.render)
     def _render(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         """Wrap ``BasePlotter.render``."""
+        self._render_pending = False
         return BasePlotter.render(self, *args, **kwargs)
+
+    def _render_now(self) -> None:
+        """Render synchronously on the GUI thread, or ask it to from another thread."""
+        if QtCore.QThread.currentThread() is self.thread():
+            self._render_pending = False
+            BasePlotter.render(self)
+        else:
+            self.render()
 
     def _auto_render(self) -> None:
         """
@@ -366,18 +397,33 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
             return
         self.render()
 
-    @conditional_decorator(threaded, platform.system() == "Darwin")
-    def render(self) -> None:
-        """Override the ``render`` method to handle threading issues."""
+    def render(self) -> None:  # ty: ignore[incompatible-method-override]
+        """
+        Render the scene through ``render_signal``.
+
+        The render runs on the GUI thread: directly when called from it (or
+        deferred to the event loop on macOS), and queued when called from a
+        worker thread. Use ``_render`` to render synchronously.
+        """
         # Never render after the plotter has been closed: the render window has
         # been finalized and touching its OpenGL context can crash (see #762).
         if getattr(self, "_closed", False):
-            return None
+            return
         self._rendered = True  # Crucial for BasePlotter to know this has rendered
-        try:
-            return self.render_signal.emit()
-        except RuntimeError:  #  wrapped C/C++ object has been deleted
-            return None
+        self._render_pending = True  # until ``_render`` runs
+        with contextlib.suppress(RuntimeError):  # wrapped C/C++ object has been deleted
+            self.render_signal.emit()
+
+    def write_frame(self) -> None:
+        """
+        Write a single frame to the movie file, rendering the scene first.
+
+        ``BasePlotter.write_frame`` relies on ``update()`` to render, but on a
+        Qt widget that only schedules a repaint, so without an explicit render
+        every frame written from a loop would be the same stale image.
+        """
+        self._render_now()
+        BasePlotter.write_frame(self)
 
     @wraps(BasePlotter.enable)
     def enable(self) -> None:
@@ -419,7 +465,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         else:
             other_views = np.asarray(other_views)
 
-        if not np.issubdtype(other_views.dtype, int):
+        if not np.issubdtype(other_views.dtype, np.integer):
             msg = f"Expected `other_views` type is int, or list or tuple of ints, but {other_views.dtype} is given"
             raise TypeError(msg)
 
@@ -437,7 +483,8 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         """
         try:
             for url in event.mimeData().urls():
-                if os.path.isfile(url.path()):  # noqa: PTH113
+                # toLocalFile, not path: on Windows path() is "/C:/..."
+                if os.path.isfile(url.toLocalFile()):  # noqa: PTH113
                     # only call accept on files
                     event.accept()
         except OSError as exception:  # pragma: no cover
@@ -448,9 +495,10 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         try:
             for url in event.mimeData().urls():
                 self._url = url
-                filename = self._url.path()
+                filename = self._url.toLocalFile()
                 if os.path.isfile(filename):  # noqa: PTH113
                     self.add_mesh(pyvista.read(filename))
+                    event.accept()
         except OSError as exception:  # pragma: no cover
             warnings.warn(f"Exception when dropping files: {exception!s}")  # noqa: B028
 
@@ -460,7 +508,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
             self.render_timer.stop()
         super().closeEvent(evt)
 
-    def close(self) -> None:  # ty: ignore[invalid-method-override]
+    def close(self) -> None:  # ty: ignore[incompatible-method-override]
         """Quit application (intentionally returns None, unlike QWidget.close)."""
         if getattr(self, "_closed", True):  # if it doesn't exist, error during init
             return
@@ -530,19 +578,20 @@ class BackgroundPlotter(QtInteractor):
         impact on performance.
 
     line_smoothing : bool, optional
-        If True, enable line smothing
+        If True, enable line smoothing
 
     point_smoothing : bool, optional
-        If True, enable point smothing
+        If True, enable point smoothing
 
     polygon_smoothing : bool, optional
-        If True, enable polygon smothing
+        If True, enable polygon smoothing
 
     auto_update : float, bool, optional
-        Automatic update rate in seconds.  Useful for automatically
+        Number of updates per second.  Useful for automatically
         updating the render window when actors are change without
-        being automatically ``Modified``.  If set to ``True``, update
-        rate will be 1 second.
+        being automatically ``Modified``.  If set to ``True``, the
+        window updates once per second; ``False`` or ``0`` disables
+        automatic updates.
 
     app_window_class : None, class, optional
         A subclass of MainWindow to use when creating the app window.
@@ -580,7 +629,7 @@ class BackgroundPlotter(QtInteractor):
         LOG.debug("BackgroundPlotter init start")
         _check_type(show, "show", [bool])
         _check_type(app, "app", [QApplication, type(None)])
-        _check_type(window_size, "window_size", [tuple, type(None)])
+        _check_type(window_size, "window_size", [tuple, list, type(None)])
         _check_type(off_screen, "off_screen", [bool, type(None)])
         _check_type(allow_quit_keypress, "allow_quit_keypress", [bool])
         _check_type(toolbar, "toolbar", [bool])
@@ -594,6 +643,8 @@ class BackgroundPlotter(QtInteractor):
         self.default_camera_tool_bar: QToolBar | None = None
         self.saved_camera_positions: list | None = None
         self.saved_cameras_tool_bar: QToolBar | None = None
+        self._saved_camera_key_positions: dict[str, list] = {}
+        self._saved_camera_keys: set[str] = set()
         # menu bar
         LOG.debug("BackgroundPlotter init menubar")
         self.main_menu: QMenuBar | None = None
@@ -635,7 +686,7 @@ class BackgroundPlotter(QtInteractor):
         vlayout.addWidget(self)
         self.frame.setLayout(vlayout)
         self.app_window.setCentralWidget(self.frame)
-        self.app_window.grabGesture(QtCore.Qt.PinchGesture)
+        self.app_window.grabGesture(QtCore.Qt.GestureType.PinchGesture)
         self.app_window.signal_gesture.connect(self.gesture_event)
         self.app_window.signal_close.connect(self._close)
 
@@ -751,19 +802,12 @@ class BackgroundPlotter(QtInteractor):
         if not (
             isinstance(img, np.ndarray) and img.ndim == 3 and img.shape[0] == img.shape[1] and img.dtype == np.uint8 and img.shape[-1] in (3, 4)
         ) and not isinstance(img, str):
-            msg = "img must be 3D uint8 ndarray with shape[1] == shape[2] and shape[2] == 3 or 4, or str"
+            msg = "img must be 3D uint8 ndarray with shape[0] == shape[1] and shape[2] == 3 or 4, or str"
             raise ValueError(msg)
-        if isinstance(img, np.ndarray):
-            fmt_str = "Format_RGB"
-            fmt_str += ("A8" if img.shape[2] == 4 else "") + "888"
-            fmt = getattr(QtGui.QImage, fmt_str)
-            pixmap = QtGui.QPixmap.fromImage(QtGui.QImage(img.copy(), img.shape[1], img.shape[0], fmt))
-            icon = QtGui.QIcon(pixmap)
-        else:
-            # Currently no way to check if str/path is actually correct (want to
-            # allow resource paths and the like so os.path.isfile is no good)
-            # and icon.isNull() returns False even if the path is bogus.
-            icon = QtGui.QIcon(img)
+        # For a str, there is currently no way to check if the path is actually
+        # correct (want to allow resource paths and the like so os.path.isfile
+        # is no good) and icon.isNull() returns False even if the path is bogus.
+        icon = QtGui.QIcon(_ndarray_to_qpixmap(img) if isinstance(img, np.ndarray) else img)
         self.app.setWindowIcon(icon)
 
     def _qt_screenshot(self, show: bool = True) -> FileDialog:  # noqa: FBT001, FBT002
@@ -771,7 +815,6 @@ class BackgroundPlotter(QtInteractor):
             self.app_window,
             filefilter=["Image File (*.png)", "JPEG (*.jpeg)"],
             show=show,
-            directory=bool(os.getcwd()),  # noqa: PTH109
             callback=self.screenshot,
         )
 
@@ -787,19 +830,13 @@ class BackgroundPlotter(QtInteractor):
             # ``filename`` is keyword-only on trame-pyvista 0.1.0.
             trame = self.trame
             callback = lambda fn: trame.export_vtksz(filename=fn)  # noqa: E731
-            ext = "vtksz"
-        elif hasattr(self, "export_vtksz"):
-            callback = self.export_vtksz  # pyvista 0.40 - 0.48
-            ext = "vtksz"
         else:
-            callback = self.export_vtkjs  # pre-v0.40
-            ext = "vtkjs"
+            callback = self.export_vtksz  # pyvista 0.40 to 0.48
 
         return FileDialog(
             self.app_window,
-            filefilter=[f"VTK.js File(*.{ext})"],
+            filefilter=["VTK.js File(*.vtksz)"],
             show=show,
-            directory=bool(os.getcwd()),  # noqa: PTH109
             callback=callback,
         )
 
@@ -815,12 +852,12 @@ class BackgroundPlotter(QtInteractor):
 
     @property
     def window_size(self) -> tuple[int, int]:
-        """Return render window size."""
-        the_size = self.app_window.baseSize()
+        """Return the application window size."""
+        the_size = self.app_window.size()
         return the_size.width(), the_size.height()
 
     @window_size.setter
-    def window_size(self, window_size: tuple[int, int]) -> None:
+    def window_size(self, window_size: tuple[int, int]) -> None:  # ty: ignore[incompatible-property-override]
         """Set the render window size."""
         self.app_window.setBaseSize(*window_size)
         self.app_window.resize(*window_size)
@@ -835,14 +872,15 @@ class BackgroundPlotter(QtInteractor):
         if self._ctx is None:
             # Match resizeGL, which sizes VTK in device pixels.
             dpr = self.devicePixelRatioF()
-            self.render_window.SetSize(*(max(1, round(s * dpr)) for s in window_size))
-            self.render_window.SetDPI(round(72 * dpr))
+            render_window = self.GetRenderWindow()
+            render_window.SetSize(*(max(1, round(s * dpr)) for s in window_size))
+            render_window.SetDPI(round(72 * dpr))
 
     def __del__(self) -> None:  # pragma: no cover
         """Delete the qt plotter."""
         self.close()
 
-    def add_callback(self, func: Callable, interval: int = 1000, count: int | None = None) -> None:
+    def add_callback(self, func: Callable, interval: int = 1000, count: int | None = None) -> QTimer:
         """
         Add a function that can update the scene in the background.
 
@@ -856,34 +894,55 @@ class BackgroundPlotter(QtInteractor):
             Number of times `func` will be called. If None,
             `func` will be called until the main window is closed.
 
+        Returns
+        -------
+        timer : QTimer
+            The timer that calls ``func``. Call its ``stop()`` method to stop
+            the callbacks early.
+
         """
-        self._callback_timer = QTimer(parent=self.app_window)
-        self._callback_timer.timeout.connect(func)
-        self._callback_timer.start(interval)
-        self.app_window.signal_close.connect(self._callback_timer.stop)
+        timer = QTimer(parent=self.app_window)
+        timer.timeout.connect(func)
+        timer.start(interval)
+        self.app_window.signal_close.connect(timer.stop)
         if count is not None:
             counter = Counter(count)
-            counter.signal_finished.connect(self._callback_timer.stop)
-            self._callback_timer.timeout.connect(counter.decrease)
+            counter.signal_finished.connect(timer.stop)
+            timer.timeout.connect(counter.decrease)
             self.counters.append(counter)
+        self._callback_timer = timer  # the most recent one, kept for backward compat
+        return timer
 
     def save_camera_position(self) -> None:
         """Save camera position to saved camera menu for recall."""
-        if self.saved_camera_positions is not None:
-            self.camera_position: Any
-            self.saved_camera_positions.append(self.camera_position)
-            ncam = len(self.saved_camera_positions)
-        if self.camera_position is not None:
-            camera_position: Any = self.camera_position[:]  # py2.7 copy compatibility
+        if self.saved_camera_positions is None or self.saved_cameras_tool_bar is None:
+            return  # no camera toolbar (toolbar=False)
+        self.saved_camera_positions.append(self.camera_position)
+        ncam = len(self.saved_camera_positions)
+        key = str(ncam)
+        # A snapshot of (position, focal_point, viewup), detached from the camera.
+        camera_position = self.camera_position.to_list()
 
-        if self.saved_cameras_tool_bar is not None:
+        def load_camera_position() -> None:
+            self.camera_position = camera_position
 
-            def load_camera_position() -> None:
-                self.camera_position = camera_position
+        self.saved_cameras_tool_bar.addAction(f"Cam {ncam}", load_camera_position)
+        if ncam >= 10:
+            return
+        self._saved_camera_key_positions[key] = camera_position
+        # Each number key is bound once and looks its position up when pressed,
+        # so clear_camera_positions never has to remove a key callback (pyvista
+        # can only drop every callback on a key, including the user's own).
+        # Older pyvista (e.g., 0.43) add_key_event fails on an off-screen (None) iren
+        if key not in self._saved_camera_keys and self.iren is not None:
 
-            self.saved_cameras_tool_bar.addAction(f"Cam {ncam}", load_camera_position)
-            if ncam < 10:
-                self.add_key_event(str(ncam), load_camera_position)
+            def load_saved_camera_position() -> None:
+                position = self._saved_camera_key_positions.get(key)
+                if position is not None:
+                    self.camera_position = position
+
+            self.add_key_event(key, load_saved_camera_position)
+            self._saved_camera_keys.add(key)
 
     def clear_camera_positions(self) -> None:
         """Clear all camera positions."""
@@ -891,6 +950,8 @@ class BackgroundPlotter(QtInteractor):
             for action in self.saved_cameras_tool_bar.actions():
                 if action.text() not in [SAVE_CAM_BUTTON_TEXT, CLEAR_CAMS_BUTTON_TEXT]:
                     self.saved_cameras_tool_bar.removeAction(action)
+        # The number-key shortcuts stay bound but find nothing to load.
+        self._saved_camera_key_positions.clear()
         self.saved_camera_positions = []
 
     def _add_action(self, tool_bar: QToolBar, key: str, method: Any) -> QAction:  # noqa: ANN401
@@ -977,9 +1038,16 @@ class BackgroundPlotter(QtInteractor):
         view_menu.addSeparator()
 
     def add_editor(self) -> None:
-        """Add the editor."""
+        """
+        Add the editor.
+
+        If the plotter has a menu bar (``menu_bar=True``), an "Editor" action
+        is added to it. Without a menu bar, the editor is still created and
+        can be shown programmatically with ``plotter.editor.toggle()``.
+        """
         self.editor = Editor(parent=self.app_window, renderers=self.renderers)
-        self._editor_action = self.main_menu.addAction("Editor", self.editor.toggle)
+        if self.main_menu is not None:
+            self._editor_action = self.main_menu.addAction("Editor", self.editor.toggle)
         self.app_window.signal_close.connect(self.editor.close)
 
 
@@ -1040,7 +1108,7 @@ class MultiPlotter:
         _check_type(nrows, "nrows", [int])
         _check_type(ncols, "ncols", [int])
         _check_type(show, "show", [bool])
-        _check_type(window_size, "window_size", [tuple, type(None)])
+        _check_type(window_size, "window_size", [tuple, list, type(None)])
         _check_type(title, "title", [str, type(None)])
         _check_type(off_screen, "off_screen", [bool, type(None)])
         self.ipython = _setup_ipython()

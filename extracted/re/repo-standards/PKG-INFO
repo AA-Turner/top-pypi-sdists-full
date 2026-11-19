@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: repo-standards
-Version: 8.2.1
+Version: 8.4.0
 Summary: Deterministic pull-request sizing and reviewed repository policy
 Keywords: architecture,github-actions,lint,openapi,repository
 Author: sarj-ai
@@ -68,7 +68,6 @@ the GitHub Action's full commit SHA.
 - Workflow YAML and API descriptions are parsed as inert data.
 - Missing required evidence produces an inconclusive result rather than a false pass.
 - Advisory commit-history analysis reports incomplete evidence without blocking local commits.
-- The linter has no autofix or repository mutation mode.
 
 ## Development
 
@@ -91,5 +90,5 @@ publication or GitHub Release from the same verified source revision.
 ## GitHub Action
 
 ```yaml
-- uses: sarj-ai/repo-standards@d4e4c431dd053f92db395b80e63e87ec17d16d39 # v8.2.1
+- uses: sarj-ai/repo-standards@43ec7ae7552b517eab5ac1cab86a150ed4985436 # v8.4.0
 ```

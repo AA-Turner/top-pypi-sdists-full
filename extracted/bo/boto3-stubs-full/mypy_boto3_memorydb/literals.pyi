@@ -77,6 +77,7 @@ SourceTypeType = Literal["acl", "cluster", "node", "parameter-group", "subnet-gr
 UpdateStrategyType = Literal["coordinated", "uncoordinated"]
 MemoryDBServiceName = Literal["memorydb"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

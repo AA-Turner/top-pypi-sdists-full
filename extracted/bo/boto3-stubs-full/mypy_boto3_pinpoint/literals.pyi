@@ -140,6 +140,7 @@ TimezoneEstimationMethodsElementType = Literal["PHONE_NUMBER", "POSTAL_CODE"]
 TypeType = Literal["ALL", "ANY", "NONE"]
 PinpointServiceName = Literal["pinpoint"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

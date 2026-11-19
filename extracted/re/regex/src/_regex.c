@@ -18599,9 +18599,14 @@ Py_LOCAL_INLINE(bool) state_init_2(RE_State* state, PatternObject* pattern,
 
     /* A state struct can sometimes be shared across threads. In such
      * instances, if multithreading is enabled we need to protect the state
-     * with a lock (mutex) during matching.
+     * with a lock (mutex) during matching. Without the GIL, the state always
+     * needs protecting.
      */
+#if defined(Py_GIL_DISABLED)
+    if (use_lock)
+#else
     if (state->is_multithreaded && use_lock)
+#endif
         state->lock = PyThread_allocate_lock();
 
     for (p = 0; p < MAX_SEARCH_POSITIONS; p++)
@@ -20913,12 +20918,15 @@ Py_LOCAL_INLINE(void) acquire_state_lock(PyObject* owner, RE_State* state) {
     if (state->lock) {
         /* In order to avoid deadlock we need to release the GIL while trying
          * to acquire the lock.
+         *
+         * Don't use release_GIL/acquire_GIL here: state->thread_state belongs
+         * to the thread that's currently holding the lock.
          */
         Py_INCREF(owner);
         if (!PyThread_acquire_lock(state->lock, 0)) {
-            release_GIL(state);
+            Py_BEGIN_ALLOW_THREADS
             PyThread_acquire_lock(state->lock, 1);
-            acquire_GIL(state);
+            Py_END_ALLOW_THREADS
         }
     }
 }
@@ -25168,6 +25176,7 @@ Py_LOCAL_INLINE(int) build_REPEAT(RE_CompileArgs* args) {
     bool greedy;
     RE_CODE min_count;
     RE_CODE max_count;
+    RE_CODE orig_min_count;
     int status;
 
     /* codes: opcode, min_count, max_count, ..., end. */
@@ -25180,6 +25189,7 @@ Py_LOCAL_INLINE(int) build_REPEAT(RE_CompileArgs* args) {
     if (args->code[1] > args->code[2])
         return RE_ERROR_ILLEGAL;
 
+    orig_min_count = min_count;
     args->code += 3;
 
     if (min_count == 1 && max_count == 1) {
@@ -25229,7 +25239,8 @@ Py_LOCAL_INLINE(int) build_REPEAT(RE_CompileArgs* args) {
                 if (subargs.code[0] != RE_OP_END)
                     return RE_ERROR_ILLEGAL;
 
-                args->visible_capture_count = subargs.visible_capture_count;
+                if (done_count == 0)
+                    args->visible_capture_count = subargs.visible_capture_count;
 
                 add_node(args->end, subargs.start);
                 args->end = subargs.end;
@@ -25289,7 +25300,9 @@ Py_LOCAL_INLINE(int) build_REPEAT(RE_CompileArgs* args) {
             args->is_fuzzy |= subargs.is_fuzzy;
             args->has_groups |= subargs.has_groups;
             args->has_repeats = true;
-            args->visible_capture_count = subargs.visible_capture_count;
+
+            if (orig_min_count == 0)
+                args->visible_capture_count = subargs.visible_capture_count;
 
             ++args->code;
 

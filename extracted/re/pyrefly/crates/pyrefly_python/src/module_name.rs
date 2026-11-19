@@ -289,6 +289,10 @@ impl ModuleName {
         Self::from_str("django.db.models.base")
     }
 
+    pub fn django_models_expressions() -> Self {
+        Self::from_str("django.db.models.expressions")
+    }
+
     pub fn django_models_fields() -> Self {
         Self::from_str("django.db.models.fields")
     }
@@ -472,6 +476,14 @@ impl ModuleName {
         self.0.split('.').map(Name::new).collect()
     }
 
+    /// Whether every component of this name is an identifier. Keywords are not rejected,
+    /// so `pkg.class` is accepted. A module such as `pkg.migrations.0001_initial` is not:
+    /// it has a name for resolving its own relative imports, but no import statement can
+    /// spell it.
+    pub fn is_importable(self) -> bool {
+        self.0.split('.').all(is_python_identifier)
+    }
+
     /// If the module is on the search path, return its name from that path. Otherwise, return None.
     /// `extra_extensions` lists non-Python file extensions (e.g. `["cinc", "cconf"]`)
     /// whose extension is part of the module name rather than being stripped.
@@ -532,9 +544,12 @@ impl ModuleName {
                     out.push(x.to_string_lossy());
                 }
             }
-            // strip `-stubs` from the top-level directory (e.g. `scipy-stubs/` -> `scipy`)
+            // strip `-shape-stubs` or `-stubs` from the top-level directory
+            // (e.g. `scipy-stubs/` -> `scipy`)
             if let Some(first) = out.first_mut()
-                && let Some(stripped) = first.strip_suffix("-stubs")
+                && let Some(stripped) = ["-shape-stubs", "-stubs"]
+                    .iter()
+                    .find_map(|suffix| first.strip_suffix(*suffix))
             {
                 *first = stripped.to_owned().into();
             }
@@ -585,6 +600,11 @@ pub fn is_python_identifier(s: &str) -> bool {
 /// separators. Only its stem (the first dot-separated segment, i.e. the base
 /// name) must be a valid identifier; the trailing extension segments are not
 /// checked.
+///
+/// A filename without `.` is accepted even when it is not an identifier, such
+/// as a Django migration `0001_initial.py` that is loaded through `importlib`.
+/// The name gives the file a package to resolve its own relative imports
+/// against, and no import statement can spell it.
 fn path_parts_form_valid_module_name(parts: &[impl AsRef<str>], is_init: bool) -> bool {
     if is_init {
         // Every remaining component is a directory.
@@ -593,8 +613,10 @@ fn path_parts_form_valid_module_name(parts: &[impl AsRef<str>], is_init: bool) -
     let (filename, dirs) = parts
         .split_last()
         .expect("path parts are non-empty when forming a module name");
+    let filename = filename.as_ref();
     dirs.iter().all(|c| is_python_identifier(c.as_ref()))
-        && is_python_identifier(filename.as_ref().split('.').next().unwrap_or(""))
+        && (!filename.contains('.')
+            || is_python_identifier(filename.split('.').next().unwrap_or("")))
 }
 
 #[cfg(test)]
@@ -762,6 +784,20 @@ mod tests {
         );
     }
 
+    // https://github.com/pyrefly-org/pyrefly/issues/5223
+    #[test]
+    fn test_module_from_path_digit_leading_filename() {
+        let includes = [PathBuf::from("/project")];
+        assert_eq!(
+            ModuleName::from_path(
+                Path::new("/project/pkg/migrations/0001_initial.py"),
+                includes.iter(),
+                &[]
+            ),
+            Some(ModuleName::from_str("pkg.migrations.0001_initial"))
+        );
+    }
+
     #[test]
     fn test_module_from_path_extra_extensions() {
         let includes = [PathBuf::from("/root")];
@@ -896,13 +932,14 @@ mod tests {
             &["service", "config.cinc"],
             false
         ));
-        // A filename whose stem is not a valid identifier is rejected.
+        // An extra-extension filename whose stem is not a valid identifier is rejected.
         assert!(!path_parts_form_valid_module_name(
             &["service", "1config.cinc"],
             false
         ));
-        assert!(!path_parts_form_valid_module_name(&["pkg-bad"], false));
-        assert!(!path_parts_form_valid_module_name(
+        // A filename without `.` is accepted even when it is not an identifier.
+        assert!(path_parts_form_valid_module_name(&["pkg-bad"], false));
+        assert!(path_parts_form_valid_module_name(
             &["service", "with space"],
             false
         ));
@@ -962,14 +999,14 @@ mod tests {
             None
         );
 
-        // A filename whose stem is not a valid identifier is also rejected.
+        // A filename without `.` is accepted even when it is not an identifier.
         assert_eq!(
             ModuleName::from_path(
                 Path::new("/outer/pkg/inner/bad-name.py"),
                 [&outer].into_iter(),
                 &[]
             ),
-            None
+            Some(ModuleName::from_str("pkg.inner.bad-name"))
         );
     }
 
@@ -993,5 +1030,20 @@ mod tests {
 
         // Plain package without `-stubs` is unchanged.
         assert_module_name("/sp/scipy/stats/foo.py", "scipy.stats.foo");
+    }
+
+    #[test]
+    fn test_module_from_path_shape_stubs_suffix() {
+        let includes = [PathBuf::from("/sp")];
+        let module_name = |path: &str| ModuleName::from_path(Path::new(path), includes.iter(), &[]);
+
+        assert_eq!(
+            module_name("/sp/torch-shape-stubs/nn/functional.pyi"),
+            Some(ModuleName::from_str("torch.nn.functional"))
+        );
+        assert_eq!(
+            module_name("/sp/torch-shape-stubs/__init__.pyi"),
+            Some(ModuleName::from_str("torch"))
+        );
     }
 }

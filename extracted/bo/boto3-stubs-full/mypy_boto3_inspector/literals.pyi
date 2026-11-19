@@ -108,6 +108,7 @@ SeverityType = Literal["High", "Informational", "Low", "Medium", "Undefined"]
 StopActionType = Literal["SKIP_EVALUATION", "START_EVALUATION"]
 InspectorServiceName = Literal["inspector"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

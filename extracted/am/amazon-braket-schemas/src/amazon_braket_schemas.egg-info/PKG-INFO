@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amazon-braket-schemas
-Version: 1.33.0
+Version: 1.33.0.post0
 Summary: An open source library that contains the schemas for Amazon Braket
 Home-page: https://github.com/amazon-braket/amazon-braket-schemas-python
 Author: Amazon Web Services
@@ -14,6 +14,8 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >= 3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE

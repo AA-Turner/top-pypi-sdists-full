@@ -36,10 +36,11 @@ from enum import StrEnum
 from typing import Literal, Protocol
 from uuid import UUID
 
-from omnibase_compat.contracts.evidence_pipeline.wire.types import ReadinessState
 from omnibase_core.models.runtime_deployment.wire import EnumRuntimeLane
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from omnimarket.models.evidence_pipeline.wire.types import ReadinessState
+from omnimarket.models.model_deploy_stamp import ModelDeployStamp, ModelHealthCheck
 from omnimarket.models.model_dev_deploy_route import (
     ModelDevDeployRoute,
 )
@@ -1133,17 +1134,10 @@ class ModelProdPromotionGateDecision(BaseModel):
             "Typed code for the branch that produced this decision (OMN-18999). "
             "Every branch of the gate sets it, and "
             "``test_the_gate_never_returns_a_decision_without_a_typed_outcome`` "
-            "is what enforces that -- NOT a required field.\n\n"
-            "It is optional here because this model is also the consumer's wire "
-            "model: the redeploy orchestrator validates a delivered payload with "
-            "it, and this topic has carried decisions since OMN-13211, none of "
-            "which have this field. Required, every retained message would fail "
-            "validation the moment this version deployed, and a correctly-gated "
-            "promotion would die on a field added to describe it. That is the "
-            "whole of 'new wire fields land consumer-first'.\n\n"
-            "``ModelProdGateDecision``'s own outcome IS required, because that "
-            "model never crosses the wire -- so the strict constraint lives "
-            "where it costs nothing."
+            "enforces that -- it is NOT a required field, because this model is "
+            "also the consumer's wire model and retained decisions since OMN-13211 "
+            "carry none; a required field would fail their validation. "
+            "``ModelProdGateDecision``'s own outcome IS required: it never crosses the wire."
         ),
     )
     grant_id: str | None = Field(
@@ -1469,17 +1463,6 @@ class EnumRedeployStatus(StrEnum):
     FAILED = "failed"
 
 
-class ModelHealthCheck(BaseModel):
-    """Single service health check result."""
-
-    model_config = ConfigDict(frozen=True, extra="ignore", from_attributes=True)
-
-    service: str = Field(..., description="Service name.")
-    endpoint: str = Field(..., description="Endpoint checked.")
-    status: Literal["pass", "fail"] = Field(..., description="Check result.")
-    latency_ms: int = Field(default=0, description="Latency in milliseconds.")
-
-
 class ModelDeployRebuildCommand(BaseModel):
     """Command to trigger a deploy agent rebuild.
 
@@ -1564,7 +1547,7 @@ class ModelDeployPhaseResults(BaseModel):
     publish: EnumPhaseResult = Field(default=EnumPhaseResult.PENDING)
 
 
-class ModelDeployRebuildCompleted(BaseModel):
+class ModelDeployRebuildCompleted(ModelDeployStamp):
     """Completion event from the deploy agent.
 
     Received from: onex.evt.deploy.rebuild-completed.v1
@@ -1644,9 +1627,10 @@ class EnumDeployRejectionReason(StrEnum):
     SUPERSEDED = "superseded"
     SUPERSEDED_BY_RUNNING_BUILD = "superseded_by_running_build"
     DIVERGENT_REF = "divergent_ref"
+    ROUTE_UNCONFIRMED = "route_unconfirmed"
 
 
-class ModelDeployRebuildRejected(BaseModel):
+class ModelDeployRebuildRejected(ModelDeployStamp):
     """Rejection event from the deploy agent (OMN-18816).
 
     Received from: onex.evt.deploy.rebuild-rejected.v1
@@ -1949,6 +1933,13 @@ class ModelDeployPublishCommand(BaseModel):
     dev_deploy_protocol: Literal["health-v1"] | None = Field(
         default=None,
         description="Explicit capability negotiation with health-route-aware agents and CI.",
+    )
+    roll_window_released: bool = Field(
+        default=False,
+        description=(
+            "True once the dev roll window gate released this command; the deploy "
+            "effect publishes it without holding it again."
+        ),
     )
 
     correlation_id: UUID = Field(..., description="Redeploy run correlation ID.")

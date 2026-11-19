@@ -34,6 +34,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import Field
 from pydantic.fields import PrivateAttr
+from pydantic_core import to_jsonable_python
 
 from ..exceptions import BadRequest, ChimeRingtoneNotSetError, StreamError
 from ..stream import TalkbackStream
@@ -46,7 +47,7 @@ from ..utils import (
     from_js_time,
     to_js_time,
 )
-from .base import ProtectBaseObject, ProtectModelWithId
+from .base import ProtectBaseObject, ProtectModel, ProtectModelWithId
 from .types import (
     DEFAULT,
     DEFAULT_TYPE,
@@ -62,6 +63,8 @@ from .types import (
     DeviceState,
     DoorbellMessageType,
     EventType,
+    ExternalArmProfileState,
+    ExternalArmScheduleType,
     FobAwayState,
     FobButton,
     FobButtonLabels,
@@ -1568,6 +1571,9 @@ class PublicSensor(PublicDeviceModel):
     )
     arm_profile_ids: list[str] | None = None
     has_custom_sensitivity_when_armed: bool = False
+    # Protect 7.4+; ``None`` when absent (7.3) or the sensor does not report its
+    # orientation.
+    is_mounted_incorrectly: bool | None = None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -2315,6 +2321,10 @@ class Speaker(PublicDeviceModel):
         """Test the speaker sound at the given volume."""
         await self._api.test_speaker_sound_public(self.id, volume=volume)
 
+    async def stop_siren(self) -> None:
+        """Stop the siren playing on the speaker."""
+        await self._api.stop_speaker_siren_public(self.id)
+
 
 class AlarmHubBattery(ProtectBaseObject):
     """
@@ -2586,6 +2596,91 @@ class ArmProfile(ProtectBaseObject):
     updated_at: datetime | None = None
 
 
+class _ExternalArmObject(ProtectBaseObject):
+    """Base for external arm-profile models: snake_case keys, ISO 8601 times."""
+
+    def unifi_dict(
+        self,
+        data: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
+    ) -> dict[str, Any]:
+        """Return the wire dict; fields never set are omitted, as on the wire."""
+        if data is None:
+            data = self.model_dump(exclude=exclude, exclude_unset=True)
+        serialized: dict[str, Any] = to_jsonable_python(data)
+        remaps = self._get_to_unifi_remaps()
+        for key in set(serialized).intersection(remaps):
+            serialized[remaps[key]] = serialized.pop(key)
+        return serialized
+
+
+class ExternalArmScheduleTime(_ExternalArmObject):
+    hour: int
+    minute: int
+
+
+class ExternalArmScheduleInterval(_ExternalArmObject):
+    start: ExternalArmScheduleTime
+    end: ExternalArmScheduleTime
+
+
+class ExternalArmScheduleDay(_ExternalArmObject):
+    """One weekday of an external arm-profile schedule; ``entries`` for intervals."""
+
+    type: ExternalArmScheduleType
+    entries: list[ExternalArmScheduleInterval] | None = None
+
+
+class ExternalArmSchedule(_ExternalArmObject):
+    sun: ExternalArmScheduleDay | None = None
+    mon: ExternalArmScheduleDay | None = None
+    tue: ExternalArmScheduleDay | None = None
+    wed: ExternalArmScheduleDay | None = None
+    thu: ExternalArmScheduleDay | None = None
+    fri: ExternalArmScheduleDay | None = None
+    sat: ExternalArmScheduleDay | None = None
+
+
+class ExternalArmProfile(_ExternalArmObject, ProtectModel):
+    """
+    Arm profile of the external (global) alarm manager (Protect 7.4+).
+
+    REST responses omit unset optional fields and carry no ``modelKey``;
+    websocket items send them as explicit ``null``. Delays are in seconds.
+    """
+
+    id: str
+    title: str
+    alarm_ids: list[str]
+    created_at: datetime
+    state: ExternalArmProfileState
+    state_set_at: datetime | None = None
+    state_promotion_due_at: datetime | None = None
+    updated_at: datetime | None = None
+    activation_delay: int | None = None
+    deactivation_delay: int | None = None
+    schedule: ExternalArmSchedule | None = None
+    created_by: str | None = None
+    updated_by: str | None = None
+    active_breach_id: int | None = None
+    has_pin: bool | None = None
+    model: ModelType | None = ModelType.EXTERNAL_ARM_PROFILE
+
+    async def arm(self) -> ExternalArmProfile:
+        """Arm this profile; returns the profile from the response."""
+        return await self._api.arm_external_arm_profile_public(self.id)
+
+    async def disarm(self) -> ExternalArmProfile:
+        """Disarm this profile; returns the profile from the response."""
+        return await self._api.disarm_external_arm_profile_public(self.id)
+
+    def update_from_dict(self, data: dict[str, Any]) -> Self:
+        """Merge a cleaned update; a ``schedule`` replaces the stored one whole."""
+        if isinstance(schedule := data.get("schedule"), dict):
+            data = {**data, "schedule": ExternalArmSchedule.model_validate(schedule)}
+        return super().update_from_dict(data)
+
+
 class NvrArmMode(ProtectBaseObject):
     """
     Current arm-manager state embedded in the NVR object (``armMode`` field).
@@ -2684,6 +2779,12 @@ class PublicDoorbellSettings(ProtectBaseObject):
         ]
 
 
+class PublicNvrFeatureFlags(ProtectBaseObject):
+    """Public API NVR feature flags (Protect 7.4+)."""
+
+    use_external_alarm_manager: bool | None = None
+
+
 class PublicNVR(PublicIdentifiedModel):
     """
     NVR device as exposed by the Public Integration API (``GET /v1/nvrs``).
@@ -2700,11 +2801,15 @@ class PublicNVR(PublicIdentifiedModel):
     expose the ``doorbellSettings`` key, and is absent from WS partial-update
     diffs (which only require ``id`` + ``modelKey``).
 
-    ``arm_mode`` reports the state of the **local** alarm manager, and is
-    ``None`` only when the firmware does not yet expose it (older releases).
-    A console whose alarm manager is set to global still returns a populated
-    ``armMode`` — the local manager is genuinely disabled there, so the
-    status reads ``disabled``; the global manager's own arm state is not
+    ``feature_flags`` is ``None`` on firmware before Protect 7.4, which does
+    not report it. ``feature_flags.use_external_alarm_manager`` is ``True``
+    when UniFi OS runs the external alarm manager instead of Protect.
+
+    ``arm_mode`` reports the state of the **local** (Protect) alarm manager,
+    and is ``None`` only when the firmware does not yet expose it (older
+    releases). A console using the external alarm manager still returns a
+    populated ``armMode`` — the local manager is genuinely disabled there, so
+    the status reads ``disabled``; the external manager's own arm state is not
     exposed by ``GET /v1/nvrs``.  WS device-update diffs that
     include ``armMode`` are handled automatically by
     :meth:`~uiprotect.data.base.ProtectBaseObject.update_from_dict` without
@@ -2714,6 +2819,7 @@ class PublicNVR(PublicIdentifiedModel):
     model: ModelType | None = ModelType.NVR
     name: str | None = None
     mac: str | None = None
+    feature_flags: PublicNvrFeatureFlags | None = None
     doorbell_settings: PublicDoorbellSettings | None = None
     arm_mode: NvrArmMode | None = None
 

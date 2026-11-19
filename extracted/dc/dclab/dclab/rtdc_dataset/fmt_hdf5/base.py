@@ -10,6 +10,7 @@ import warnings
 
 import h5py
 
+from ... import definitions as dfn
 from ...external.packaging import parse as parse_version
 from ...util import hashobj, hashfile
 
@@ -22,6 +23,10 @@ from . import tables
 
 #: rtdc files exported with dclab prior to this version are not supported
 MIN_DCLAB_EXPORT_VERSION = "0.3.3.dev2"
+
+
+class BrokenBasinDefinitionWarning(UserWarning):
+    pass
 
 
 class OldFormatNotSupportedError(BaseException):
@@ -142,9 +147,9 @@ class RTDC_HDF5(RTDCBase):
                        )
                 raise OldFormatNotSupportedError(msg)
 
-        self.title = "{} - M{}".format(
-            self.config["experiment"].get("sample", "undefined sample"),
-            self.config["experiment"].get("run index", "0"))
+        sample = self.config["experiment"].get("sample", "undefined sample")
+        run_index = self.config["experiment"].get("run index", "0")
+        self.title = f"{sample} - M{run_index}"
 
     def close(self):
         """Close the underlying HDF5 file"""
@@ -181,7 +186,7 @@ class RTDC_HDF5(RTDCBase):
     def parse_config(h5path):
         """Parse the RT-DC configuration of an HDF5 file
 
-        `h5path` may be a h5py.File object or an actual path
+        `h5path` may be an h5py.File object or an actual path
         """
         if not isinstance(h5path, h5py.File):
             with h5py.File(h5path, mode="r", locking=False) as fh5:
@@ -197,25 +202,53 @@ class RTDC_HDF5(RTDCBase):
 
         config = Configuration()
         for key in h5attrs:
-            section, pname = key.split(":")
+            if ":" not in key:
+                # Not a metadata key (e.g. written by other software)
+                continue
+            # Split only at the first colon, because user-defined
+            # metadata keys may contain colons (e.g. "user:time:start").
+            section, pname = key.split(":", 1)
             config[section][pname] = h5attrs[key]
         return config
 
     @property
     def hash(self):
-        """Hash value based on file name and content"""
+        """Hash value based on file name and content
+
+        For file-like objects, the hash is computed from the metadata
+        and the first events of up to five scalar features.
+        """
         if self._hash is None:
             tohash = []
-            if isinstance(self.path, pathlib.Path):
-                # actual path on file system
-                tohash.append(self.path.name)
-            elif isinstance(self.path, str):
-                # remote location (when `hash` not defined in subclass)
-                tohash.append(self.path)
-            tohash.append(
-                # Hash a maximum of ~1MB of the hdf5 file
-                hashfile(self.path, blocksize=65536, count=20)
-            )
+            if isinstance(self.path, (pathlib.Path, str)):
+                if isinstance(self.path, pathlib.Path):
+                    # actual path on file system
+                    tohash.append(self.path.name)
+                else:
+                    # remote location (when `hash` not defined in subclass)
+                    tohash.append(self.path)
+                tohash.append(
+                    # Hash a maximum of ~1MB of the hdf5 file
+                    hashfile(self.path, blocksize=65536, count=20)
+                )
+            else:
+                # File-like object (e.g. `io.BytesIO`). We cannot read
+                # from it directly without interfering with h5py, so we
+                # hash the metadata and parts of the feature data.
+                # Only use metadata sections that cannot be edited by the
+                # user (not "filtering" or "calculation").
+                for sec in sorted(dfn.CFG_METADATA) + ["user"]:
+                    if sec in self.config:
+                        tohash.append([sec, self.config[sec]])
+                # Use the first events of a few scalar features (reading
+                # all features might take long, e.g. for bad chunking).
+                h5events = self.h5file.get("events", {})
+                feats = [f for f in sorted(h5events)
+                         if f != "index"
+                         and isinstance(h5events[f], h5py.Dataset)
+                         and h5events[f].ndim == 1][:5]
+                for feat in feats:
+                    tohash.append([feat, h5events[feat][:200]])
             self._hash = hashobj(tohash)
         return self._hash
 
@@ -228,8 +261,17 @@ class RTDC_HDF5(RTDCBase):
         """Return list of dicts for all basins defined in `h5file`"""
         basins = []
         # Do not sort anything here, sorting is done in `RTDCBase`.
-        for bk in h5file.get("basins", []):
-            bdat = list(h5file["basins"][bk])
+        h5basins = h5file.get("basins", {})
+        for bk in h5basins:
+            h5bk = h5basins.get(bk)
+            if h5bk is None:
+                # e.g. dangling external link
+                warnings.warn(f"Ignoring basin definition '{bk}' in "
+                              f"{h5file.filename}, because it cannot be "
+                              f"accessed (e.g. dangling external link).",
+                              BrokenBasinDefinitionWarning)
+                continue
+            bdat = list(h5bk)
             if isinstance(bdat[0], bytes):
                 bdat = [bi.decode("utf") for bi in bdat]
             bdict = json.loads(" ".join(bdat))

@@ -62,6 +62,7 @@ OverwriteOptionType = Literal["CREATE_NEW_REPORT", "OVERWRITE_REPORT"]
 S3OutputTypeType = Literal["ATHENA", "CUSTOM", "REDSHIFT"]
 BillingandCostManagementDataExportsServiceName = Literal["bcm-data-exports"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

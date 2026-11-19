@@ -88,6 +88,7 @@ UpdateStatusType = Literal["RESOLVED"]
 VisibilityType = Literal["IGNORED", "VISIBLE"]
 ApplicationInsightsServiceName = Literal["application-insights"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -189,6 +189,7 @@ TemplateStatusType = Literal["ACTIVE", "DELETING"]
 ValidityPeriodTypeType = Literal["DAYS", "HOURS", "MONTHS", "WEEKS", "YEARS"]
 PcaConnectorAdServiceName = Literal["pca-connector-ad"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

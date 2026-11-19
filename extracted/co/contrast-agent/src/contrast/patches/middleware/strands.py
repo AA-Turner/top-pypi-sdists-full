@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from contrast_fireball import SpanType
@@ -50,7 +50,7 @@ def _gen_ai_attrs(operation_name: str, attributes: dict) -> dict:
     """
     attrs: dict = {
         "gen_ai.operation.name": operation_name,
-        "gen_ai.event.start_time": datetime.now(timezone.utc).isoformat(),
+        "gen_ai.event.start_time": datetime.now(UTC).isoformat(),
     }
     attrs.update({k: v for k, v in attributes.items() if v is not None})
     return attrs
@@ -81,9 +81,7 @@ def _span(
             yield span
         finally:
             if span is not None:
-                span.update(
-                    {"gen_ai.event.end_time": datetime.now(timezone.utc).isoformat()}
-                )
+                span.update({"gen_ai.event.end_time": datetime.now(UTC).isoformat()})
 
 
 def _call_llm_span(model):
@@ -324,7 +322,7 @@ def build_invoke_async_patch(orig_func, patch_policy):
                 trace.update(
                     {
                         **_agent_result_attrs(result),
-                        "gen_ai.event.end_time": datetime.now(timezone.utc).isoformat(),
+                        "gen_ai.event.end_time": datetime.now(UTC).isoformat(),
                     }
                 )
             return result

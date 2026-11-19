@@ -138,6 +138,8 @@ def _line(m: dict, cards: dict | None = None) -> str:
         bits.append(str(m["host"]))
     if m.get("address"):
         bits.append(str(m["address"]))
+    if m.get("address6"):
+        bits.append(str(m["address6"]))
     if m.get("ports"):
         bits.append("ports " + ",".join(str(p) for p in m["ports"]))
     if isinstance(_expected_ms(m), (int, float)) and not isinstance(_expected_ms(m), bool):
@@ -153,8 +155,7 @@ def _unmeasured(m: dict) -> str | None:
     e = m.get("expected_rtt")
     if not isinstance(e, dict) or _expected_ms(m) is not None:
         return None
-    return (f"no round trip was measured within {e.get('within_km')} km of {m.get('place') or 'the place asked'} in the "
-            f"last {e.get('days')} days")
+    return f"no round trip is known yet near {m.get('place') or 'the place asked'}"
 
 
 def gpu_add(place: str, gpu: str, count: int = 1, snapshot: str | None = None, ports: list | None = None,
@@ -234,6 +235,59 @@ def gpu_allow(gpu_id: str, ranges: list, *, base_url: str | None = None, echo: E
 
 
 
+def gpu_follow_token(gpu_id: str, robot: str, *, revoke: bool = False, base_url: str | None = None,
+                     echo: Echo = _silent) -> dict:
+    """`seq gpu follow-token <id> --robot NAME [--revoke]`: one of your robots made a follow token - printed once, for the robot
+    alone -, with which it lets its own address into this GPU's allow list as its network changes it; `--revoke`, it
+    follows no more."""
+    import sequence_ai
+
+    if revoke:
+        out = sequence_ai.gpu.follow_revoke(gpu_id, robot, base_url=base_url)
+        echo(f"{gpu_id}: robot {robot} follows it no more - its follow token works no more"
+             + (", and where it was let in from is taken away" if out.get("applied") else
+                "; the GPU has not confirmed its address is taken away yet (one starting takes it as it starts)"))
+        return out
+    out = sequence_ai.gpu.follow_token(gpu_id, robot, base_url=base_url)
+    if "applied" in out:
+        echo(f"{gpu_id}: robot {robot}'s earlier follow token works no more"
+             + (", and where it let the robot in from is taken away" if out["applied"] else
+                "; the GPU has not confirmed its address is taken away yet"))
+    echo(f"{gpu_id}: robot {robot}'s follow token - shown once; keep it on the robot alone:")
+    echo(str(out.get("token")))
+    echo(f"On the robot, as it starts and whenever it cannot reach the GPU: {sequence_ai.gpu.FOLLOW_ENV}=<token> seq gpu "
+         "follow, or sequence_ai.gpu.follow(token). It lets in the robot's own address alone, in place of where it was "
+         "let in from before.")
+    return out
+
+
+def gpu_follow(*, token: str | None = None, address: str | None = None, line: str | None = None,
+               base_url: str | None = None, echo: Echo = _silent) -> dict:
+    """`seq gpu follow [--token T] [--address ADDRESS] [--line INTERFACE]`, on a robot: its own address - by `line`
+    alone, given one - let into the allow list of the GPU its follow token is for (sequence_ai.gpu.follow), said with
+    where it reaches the GPU; over IPv4, the shared address's note (sequence_ai.gpu.FOLLOW_CGNAT) on stderr, as a line
+    of ours and not a Python warning."""
+    import warnings
+
+    import sequence_ai
+
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        out = sequence_ai.gpu.follow(token, to=address, base_url=base_url, **({"line": line} if line else {}))
+    where = " ".join(str(a) for a in (out.get("host") or out.get("address"), out.get("address6")) if a)
+    ports = ",".join(str(p) for p in out.get("ports") or [])
+    by = f" by {out['line']}" if out.get("line") else ""
+    said = f"{out.get('id')}: robot {out.get('robot')} is let in{by} from {out.get('range')}"
+    if out.get("applied"):
+        echo(said + (f" - reach it at {where}" if where else "") + (f", ports {ports}" if ports else ""))
+    else:
+        echo(said + " - the GPU has not confirmed it yet (one starting takes it as it starts); run this again to be sure")
+    if ":" not in str(out.get("range") or ""):
+        _note(sequence_ai.gpu.FOLLOW_CGNAT)
+    return out
+
+
+
 def gpu_places(text: str = "", limit: int = 8, *, base_url: str | None = None, echo: Echo = _silent) -> list:
     """`seq gpu places [words]`: the US cities whose name or another name they go by starts with the words, those of
     their own name first, the largest first, one a line - its name, state and country, then its latitude and longitude,
@@ -275,7 +329,8 @@ def _table(rows: list, echo: Echo, *, ended: bool) -> None:
     cells = [[str(m.get("id")), str(m.get("place") or "—"), _card(m), _status(m),
               stamp(m.get("started_at")) if m.get("started_at") else "—"]
              + ([stamp(m.get("ended_at")) if m.get("ended_at") else "—"] if ended else
-                [str(m.get("host") or m.get("address") or "—"), ",".join(str(p) for p in m.get("ports") or []) or "—",
+                [" ".join(str(a) for a in (m.get("host") or m.get("address"), m.get("address6")) if a) or "—",
+                 ",".join(str(p) for p in m.get("ports") or []) or "—",
                  _robots(m), str(m.get("image") or "—")])
              for m in rows]
 
@@ -286,6 +341,19 @@ def _table(rows: list, echo: Echo, *, ended: bool) -> None:
         echo("".join(f"{v:{w}}" for v, w in zip(c, widths)) + _usd(m.get("usd_so_far")))
         if m.get("reason"):
             echo(f"    ↳ {m['reason']}")
+        if not ended and isinstance(m.get("follow"), dict) and m["follow"]:
+
+
+            echo("    ↳ followed by " + ", ".join(_followed_from(r, v) for r, v in sorted(m["follow"].items())))
+
+
+def _followed_from(robot: str, where: Any) -> str:
+    """One robot of a GPU's list, where it was let in from: "arm-1 from 203.0.113.9/32", "arm-1 (not yet)", or, by its
+    lines, "arm-1 by eth0 from 2001:db8:7::/64 and by wwan0 from 198.51.100.4/32"."""
+    if isinstance(where, dict) and where:
+        return robot + " " + " and ".join(f"by {n} from {v}" if v else f"by {n} (not yet)"
+                                          for n, v in sorted(where.items()))
+    return f"{robot} from {where}" if where and not isinstance(where, dict) else f"{robot} (not yet)"
 
 
 def gpu_list(*, base_url: str | None = None, echo: Echo = _silent) -> dict:

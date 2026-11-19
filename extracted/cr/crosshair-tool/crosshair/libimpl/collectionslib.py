@@ -196,6 +196,7 @@ class ListBasedDeque(collections.abc.MutableSequence, CrossHairValue, Generic[T]
             + self._contents[: -n % len(self._contents)]
         )
 
+    @property
     def maxlen(self) -> Optional[int]:
         return self._maxlen
 
@@ -230,6 +231,21 @@ class PureDefaultDict(collections.abc.MutableMapping, CrossHairValue):
     def __len__(self):
         return self._internal.__len__()
 
+    def __contains__(self, k):
+        return self._internal.__contains__(k)
+
+    def get(self, k, default=None):
+        return self._internal.get(k, default)
+
+    def pop(self, k, *default):
+        return self._internal.pop(k, *default)
+
+    def popitem(self):
+        return self._internal.popitem()
+
+    def setdefault(self, k, default=None):
+        return self._internal.setdefault(k, default)
+
     def __repr__(self):
         return "defaultdict({!r}, {!r})".format(self.default_factory, self._internal)
 
@@ -242,13 +258,28 @@ class PureDefaultDict(collections.abc.MutableMapping, CrossHairValue):
 
 
 def make_registrations():
-    register_type(collections.defaultdict, lambda p, kt=Any, vt=Any: PureDefaultDict(p(Optional[Callable[[], vt]], "_initalizer"), p(Dict[kt, vt])))  # type: ignore
-    register_type(collections.ChainMap, lambda p, kt=Any, vt=Any: collections.ChainMap(*p(Tuple[Dict[kt, vt], ...])))  # type: ignore
+    register_type(
+        collections.defaultdict,
+        lambda p, kt=Any, vt=Any: PureDefaultDict(
+            p(Optional[Callable[[], vt]], "_initalizer"), p(Dict[kt, vt])
+        ),
+    )  # type: ignore
+    register_type(
+        collections.ChainMap,
+        lambda p, kt=Any, vt=Any: collections.ChainMap(*p(Tuple[Dict[kt, vt], ...])),
+    )  # type: ignore
     register_type(collections.abc.Mapping, lambda p, kt=Any, vt=Any: p(Dict[kt, vt]))  # type: ignore
-    register_type(collections.abc.MutableMapping, lambda p, kt=Any, vt=Any: p(Dict[kt, vt]))  # type: ignore
-    register_type(collections.OrderedDict, lambda p, kt=Any, vt=Any: collections.OrderedDict(p(Dict[kt, vt])))  # type: ignore
+    register_type(
+        collections.abc.MutableMapping, lambda p, kt=Any, vt=Any: p(Dict[kt, vt])
+    )  # type: ignore
+    register_type(
+        collections.OrderedDict,
+        lambda p, kt=Any, vt=Any: collections.OrderedDict(p(Dict[kt, vt])),
+    )  # type: ignore
     # TODO: This implementation of Counter probably over-realizes the symbolic map it is given:
-    register_type(collections.Counter, lambda p, t=Any: collections.Counter(p(Dict[t, int])))  # type: ignore
+    register_type(
+        collections.Counter, lambda p, t=Any: collections.Counter(p(Dict[t, int]))
+    )  # type: ignore
     # TODO: MappingView is missing
     register_type(
         collections.abc.ItemsView,

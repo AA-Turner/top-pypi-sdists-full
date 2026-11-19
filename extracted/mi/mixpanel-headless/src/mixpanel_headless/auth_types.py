@@ -10,8 +10,6 @@ they need to share helper functions and a mature module structure;
 import path. ``mixpanel_headless.__init__`` imports from here too, which
 keeps the top-level ``mp.Account`` / ``mp.Session`` / etc. names backed
 by the same single source.
-
-Reference: ``specs/042-auth-architecture-redesign/contracts/python-api.md``.
 """
 
 from mixpanel_headless._internal.auth.account import (
@@ -27,7 +25,6 @@ from mixpanel_headless._internal.auth.account import (
     TokenResolver,
     WorkspaceId,
 )
-from mixpanel_headless._internal.auth.bridge import BridgeFile, load_bridge
 from mixpanel_headless._internal.auth.session import (
     ActiveSession,
     Project,
@@ -60,7 +57,4 @@ __all__ = [
     "OAuthTokens",
     "TokenResolver",
     "OnDiskTokenResolver",
-    # Cowork bridge
-    "BridgeFile",
-    "load_bridge",
 ]

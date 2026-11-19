@@ -116,11 +116,13 @@ ConfidenceLevelType = Literal["FALSE_POSITIVE", "HIGH", "LOW", "MEDIUM", "UNCONF
 ContextTypeType = Literal["CLIENT_ERROR", "ERROR", "INFO", "WARNING"]
 DNSRecordTypeType = Literal["TXT"]
 DomainVerificationMethodType = Literal["DNS_TXT", "HTTP_ROUTE", "PRIVATE_VPC"]
-ErrorCodeType = Literal["CLIENT_ERROR", "INTERNAL_ERROR", "STOPPED_BY_USER"]
+ErrorCodeType = Literal["CLIENT_ERROR", "INTERNAL_ERROR", "PAUSED_BY_USER", "STOPPED_BY_USER"]
 FindingStatusType = Literal["ACCEPTED", "ACTIVE", "FALSE_POSITIVE", "RESOLVED"]
 GitLabTokenTypeType = Literal["GROUP", "PERSONAL"]
 IpAddressTypeType = Literal["DUAL_STACK", "IPV4", "IPV6"]
-JobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "STOPPED", "STOPPING"]
+JobStatusType = Literal[
+    "COMPLETED", "FAILED", "IN_PROGRESS", "PAUSED", "PAUSING", "STOPPED", "STOPPING"
+]
 JobTypeType = Literal["CICD", "FULL", "REVALIDATION"]
 ListActorMessagesPaginatorName = Literal["list_actor_messages"]
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
@@ -224,6 +226,7 @@ ValidationStatusType = Literal[
 WebhookActionType = Literal["CREATE_IF_ABSENT", "ROTATE"]
 SecurityAgentServiceName = Literal["securityagent"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

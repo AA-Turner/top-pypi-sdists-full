@@ -47,6 +47,7 @@ from .exceptions import (
     HomeAssistantError as HomeAssistantError,
 )
 from .models import ErrorLogPage
+from .service_identifiers import service_rest_path
 from .supervisor_client import make_supervisor_httpx_client
 from .transport_errors import is_ssl_error, redirect_message
 
@@ -598,15 +599,13 @@ class HomeAssistantClient:
         data: dict[str, Any] | None = None,
         return_response: bool = False,
     ) -> list[dict[str, Any]] | dict[str, Any]:
-        """
-        Call Home Assistant service.
+        """Call a Home Assistant service.
 
         Args:
             domain: Service domain (e.g., 'light', 'climate')
             service: Service name (e.g., 'turn_on', 'set_temperature')
             data: Optional service data
-            return_response: If True, returns the service response data (for services
-                           that support SupportsResponse.ONLY or SupportsResponse.OPTIONAL)
+            return_response: Request response data from a service that supports it.
 
         Returns:
             Service response data - list of affected states normally, or dict with
@@ -649,7 +648,6 @@ class HomeAssistantClient:
         A 401 means Home Assistant refused before running the service, so the
         WebSocket retry cannot apply it twice.
         """
-        # Build query params for return_response
         params = {}
         if return_response:
             params["return_response"] = "true"
@@ -657,7 +655,7 @@ class HomeAssistantClient:
         try:
             result = await self._request(
                 "POST",
-                f"/services/{domain}/{service}",
+                service_rest_path(domain, service),
                 json=payload,
                 params=params if params else None,
             )
@@ -1424,7 +1422,7 @@ class HomeAssistantClient:
     # cadence-measurement instrumentation also retired with the loop;
     # the WS waiter logs `time.monotonic()` elapsed via its own debug
     # line at ``ws_waiters._ws_wait_for_condition``.
-    _POLL_BUDGET_S: float = 6.0
+    POLL_BUDGET_S: float = 6.0
 
     async def _poll_for_automation_entity(self, unique_id: str) -> str | None:
         """Discover the entity_id assigned to a newly created automation.
@@ -1442,7 +1440,7 @@ class HomeAssistantClient:
 
         try:
             entity_id = await wait_for_automation_entity_by_unique_id(
-                self, unique_id, timeout=self._POLL_BUDGET_S
+                self, unique_id, timeout=self.POLL_BUDGET_S
             )
         except HomeAssistantError as e:
             # Narrow catch: programming bugs (TypeError/KeyError/etc.) propagate.

@@ -80,6 +80,7 @@ TargetSamplingRateType = Literal[
 ]
 LookoutEquipmentServiceName = Literal["lookoutequipment"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

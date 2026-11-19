@@ -26,15 +26,39 @@ import dclab
 # include parent directory
 pdir = op.dirname(op.dirname(op.abspath(__file__)))
 # include extensions
-sys.path.append(op.abspath('extensions'))
+sys.path.append(op.abspath("extensions"))
 
 # http://www.sphinx-doc.org/en/stable/ext/autodoc.html#confval-autodoc_member_order
 # Order class attributes and functions in separate blocks
-autodoc_member_order = 'groupwise'
-autoclass_content = 'both'
+autodoc_member_order = "groupwise"
+autoclass_content = "both"
 
 # type hints should be displayed next to the parameters
 autodoc_typehints = "description"
+
+# The docs are built with `-n` (nitpicky) in CI, so broken cross-references
+# fail the build. Informal type descriptions in numpydoc docstrings
+# (e.g. "1d ndarray of length N", "callable", "optional") cannot be
+# resolved and are ignored here, as are private module paths of
+# third-party classes that do not appear in their intersphinx inventories.
+nitpick_ignore_regex = [
+    # informal types and shape descriptions (lower-case words, single
+    # upper-case letters, numbers, and phrases containing spaces)
+    ("py:class", r"[a-z0-9_-]+s?"),
+    ("py:class", r"[A-Z]"),
+    ("py:class", r".* .*"),
+    # literal choices (e.g. "all", 'scalar')
+    ("py:class", r"[\"'].*[\"']"),
+    # ellipsis in type hints such as `tuple[int, ...]`
+    ("py:class", r"\.\.\.?"),
+    # third-party classes documented under a different (public) path
+    ("py:class", r"numpy\._typing\..*"),
+    ("py:class", r"h5py\._hl\..*"),
+    # abbreviated module names of numpy and multiprocessing
+    ("py:class", r"np\..*"),
+    ("py:class", r"npt\..*"),
+    ("py:class", r"mp\..*"),
+]
 
 # include source of matplotlib plots
 plot_include_source = True
@@ -48,50 +72,50 @@ plot_include_source = True
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.autosummary',
-              'sphinx.ext.intersphinx',
-              'sphinx.ext.mathjax',
-              'sphinx.ext.viewcode',
-              'sphinx.ext.napoleon',
-              'sphinx.ext.todo',
-              'sphinxcontrib.bibtex',
-              'matplotlib.sphinxext.plot_directive',
-              'IPython.sphinxext.ipython_directive',
-              'IPython.sphinxext.ipython_console_highlighting',
-              'fancy_include',
-              'github_changelog',
-              'dclab_defs',
-              'simple_argparse',
+extensions = ["sphinx.ext.autodoc",
+              "sphinx.ext.autosummary",
+              "sphinx.ext.intersphinx",
+              "sphinx.ext.mathjax",
+              "sphinx.ext.viewcode",
+              "sphinx.ext.napoleon",
+              "sphinx.ext.todo",
+              "sphinxcontrib.bibtex",
+              "matplotlib.sphinxext.plot_directive",
+              "IPython.sphinxext.ipython_directive",
+              "IPython.sphinxext.ipython_console_highlighting",
+              "fancy_include",
+              "github_changelog",
+              "dclab_defs",
+              "simple_argparse",
               ]
 
 # specify bibtex files (required for sphinxcontrib.bibtex>=2.0)
-bibtex_bibfiles = ['dclab.bib']
+bibtex_bibfiles = ["dclab.bib"]
 
 # enable enumeration of figures
 numfig = True
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = 'dclab'
-github_project = 'DC-analysis/' + project
+project = "dclab"
+github_project = "DC-analysis/" + project
 
 with (pathlib.Path(__file__).parent.parent / "pyproject.toml").open("rb") as f:
     data = tomllib.load(f)
 authors = [a["name"] for a in data["project"]["authors"]]
 author = ", ".join(authors)
-copyright = '2015, ' + author
+copyright = "2015, " + author
 
 
 # The version info for the project you're documenting, acts as replacement for
@@ -113,10 +137,10 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
@@ -127,10 +151,10 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 html_logo = "logo/dclab_large_white.png"
 html_theme_options = {
-    'logo_only': True,
+    "logo_only": True,
 }
 html_favicon = "logo/favicon.ico"
 
@@ -143,13 +167,13 @@ html_favicon = "logo/favicon.ico"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['data']
+html_static_path = ["data"]
 
 
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'dclabdoc'
+htmlhelp_basename = "dclabdoc"
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -176,9 +200,9 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'dclab.tex', 'dclab Documentation',
-     author.replace(', ', '\\and '),
-     'manual'),
+    (master_doc, "dclab.tex", "dclab Documentation",
+     author.replace(", ", "\\and "),
+     "manual"),
 ]
 
 
@@ -187,7 +211,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'dclab', 'dclab Documentation',
+    (master_doc, "dclab", "dclab Documentation",
      authors, 1)
 ]
 
@@ -198,19 +222,20 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'dclab', 'dclab Documentation',
-     author, 'dclab', 'post-measurement analysis of RT-DC data sets',
-     'Scientific'),
+    (master_doc, "dclab", "dclab Documentation",
+     author, "dclab", "post-measurement analysis of RT-DC data sets",
+     "Scientific"),
 ]
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    "python": ('https://docs.python.org/3/', None),
-    "boto3": ('https://boto3.amazonaws.com/v1/documentation/api/latest', None),
-    "h5py": ('https://h5py.readthedocs.io/en/stable/', None),
-    "numpy": ('https://numpy.org/doc/stable/', None),
-    "skimage": ('https://scikit-image.org/docs/stable/', None),
-    "scipy": ('https://docs.scipy.org/doc/scipy/', None),
-    "dcscope": ('https://dcscope.readthedocs.io/en/stable/', None),
+    "python": ("https://docs.python.org/3/", None),
+    "boto3": ("https://boto3.amazonaws.com/v1/documentation/api/latest", None),
+    "h5py": ("https://h5py.readthedocs.io/en/stable/", None),
+    "requests": ("https://requests.readthedocs.io/en/latest/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "skimage": ("https://scikit-image.org/docs/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "dcscope": ("https://dcscope.readthedocs.io/en/stable/", None),
     }

@@ -90,6 +90,7 @@ SharedResourceStatusType = Literal[
 SharedResourceTypeType = Literal["RESOURCE", "RESOURCE_SHARE"]
 MQServiceName = Literal["mq"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

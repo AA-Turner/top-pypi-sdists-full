@@ -116,6 +116,7 @@ __all__ = (
     "TransitionDefaultMinimumObjectSizeType",
     "TransitionStorageClassType",
     "TypeType",
+    "UseSourceMultiRegionKeyStatusType",
     "WaiterName",
 )
 
@@ -354,8 +355,10 @@ TransitionStorageClassType = Literal[
     "DEEP_ARCHIVE", "GLACIER", "GLACIER_IR", "INTELLIGENT_TIERING", "ONEZONE_IA", "STANDARD_IA"
 ]
 TypeType = Literal["AmazonCustomerByEmail", "CanonicalUser", "Group"]
+UseSourceMultiRegionKeyStatusType = Literal["Disabled", "Enabled"]
 S3ServiceName = Literal["s3"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

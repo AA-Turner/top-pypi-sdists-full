@@ -242,7 +242,7 @@ class ProjectsMixin:
                         f"{limit.label}: Probe here only sees that workspace, so it can neither "
                         f"use nor recreate it. Pick another project slug, or `probe workspace limit "
                         f"--team` (or `PROBE_WORKSPACE_LIMIT=team` for one job) to see the whole team.",
-                        detail=exc.detail if isinstance(exc, errors.ConflictError) else None,
+                        detail=exc.detail,
                     ) from exc
                 raise
             return found

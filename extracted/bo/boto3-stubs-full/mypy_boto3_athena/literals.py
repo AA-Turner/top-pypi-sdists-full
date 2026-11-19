@@ -132,6 +132,7 @@ TableAttributesType = Literal["NAME", "TABLE_TYPE"]
 WorkGroupStateType = Literal["DISABLED", "ENABLED"]
 AthenaServiceName = Literal["athena"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1235,7 +1235,7 @@ a: A | dict[int, str] = {'x': int(oops)}  # E: Could not find name `oops`
 testcase!(
     test_unpack_typed_dict_kwargs_validation,
     r#"
-from typing import TypedDict, Unpack
+from typing import TypeAlias, TypedDict, Unpack
 
 class Coord(TypedDict):
     x: int
@@ -1257,6 +1257,13 @@ def invalid_return() -> Unpack[Coord]:  # E: `Unpack` with a `TypedDict` is only
     pass
 
 x: Unpack[Coord] = ...  # E: `Unpack` with a `TypedDict` is only allowed in a **kwargs annotation
+
+# Invalid: the typing spec does not allow `Unpack` in a type alias value, so a `**kwargs`
+# annotation cannot reach one indirectly. `apply_special_form` relies on this: it decides
+# `UnpackKind` from the annotation position the special form is evaluated in, which is only
+# a complete answer because the kwargs spelling cannot be written anywhere else.
+BareAlias = Unpack[Coord]  # E: `Unpack` with a `TypedDict` is only allowed in a **kwargs annotation
+ExplicitAlias: TypeAlias = Unpack[Coord]  # E: `Unpack` with a `TypedDict` is only allowed in a **kwargs annotation
 
 # Invalid: Unpack with non-TypedDict in **kwargs
 def invalid_unpack_int(**kwargs: Unpack[int]):  # E: `Unpack` in **kwargs annotation must be used only with a `TypedDict`
@@ -1334,7 +1341,7 @@ from typing import TypedDict
 class A(TypedDict):
     x: int
 class B(A):
-    x: str  # E: `B.x` has type `str`, which is not consistent with `int` in `A.x`
+    x: str  # E: `B.x` has type `str`, which is not assignable to `int`, the type of `A.x`
     "#,
 );
 
@@ -1968,6 +1975,19 @@ a4: A = dict(**{'x': 'oops'})  # E: `Literal['oops']` is not assignable to Typed
 );
 
 testcase!(
+    test_builtins_dict_star_args,
+    r#"
+def test(xs: list[str]):
+    dict(*{"a": 2})  # E:
+    dict(*xs)
+    dict()
+    dict(a=1)
+    dict({"a": 1})
+    dict(**{"a": 1})
+"#,
+);
+
+testcase!(
     test_annotated_typeddict,
     r#"
 from typing import TypedDict
@@ -2010,6 +2030,26 @@ class TestBadUnpackingError(InheritFromMe):
 unpack_this: InheritFromMe = {"foo": True}
 test1: TestBadUnpackingError = {"bar": True, **unpack_this}
 test2: TestBadUnpackingError = {"bar": True, "foo": True}
+    "#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5184
+testcase!(
+    test_unpack_inherited_typeddict_with_union_hint,
+    r#"
+from typing import Literal, TypedDict
+
+class A(TypedDict):
+    x: int
+
+class B(A):
+    token: str | None
+
+def f(a: A) -> tuple[Literal[200], B] | tuple[Literal[400], str]:
+    return 200, {**a, "token": None}
+
+def g(a: A) -> B | None:
+    return {**a, "token": None}
     "#,
 );
 
@@ -2075,6 +2115,26 @@ t2: Target = {'y': '', **closed}
 t3: Target = {'y': '', **extra}
 # Not ok, the extra items have the wrong type
 t4: Target = {'y': '', **extra_wrong_type}  # E: `ExtraWrongType` is not assignable to `Target`
+# Not ok, same as `t1` but with a union hint
+t5: Target | None = {'y': '', **open}  # E: open TypedDict with unknown extra items
+    "#,
+);
+
+testcase!(
+    test_open_unpacking_does_not_hide_incompatible_field,
+    r#"
+from typing import Literal, TypedDict
+
+class Open(TypedDict):
+    tag: Literal["open"]
+
+class Target(TypedDict):
+    x: int
+    tag: Literal["target"]
+
+def f(o: Open) -> Target:
+    # `x` could come from a subclass of `Open`, but `tag` is incompatible regardless.
+    return {**o}  # E: Unpacked `Open` is not assignable to `Target` # E: Missing required key `x` for TypedDict `Target`
     "#,
 );
 
@@ -2328,6 +2388,25 @@ if "x" in d:
     assert_type(d.setdefault("x"), int)
     assert_type(d.setdefault("x", 5), int)
 assert_type(d.setdefault("y"), str | None)
+"#,
+);
+
+// One anonymous TypedDict is assignable to another when each of its fields fits the other's
+// field of the same name, so solving `T` from both arguments keeps the first one.
+testcase!(
+    test_anonymous_typed_dict_assignable_to_anonymous_typed_dict,
+    r#"
+from typing import TypeVar, assert_type
+
+T = TypeVar("T")
+
+def first(a: T, b: T) -> T:
+    return a
+
+def f() -> None:
+    x = {"a": 1.5}
+    y = {"a": 1}
+    assert_type(first(x, y), dict[str, float])
 "#,
 );
 
@@ -3014,4 +3093,259 @@ def f(x: Extra[int], key: str) -> None:
     assert_type(x[key], str | int)
     mapping: Mapping[str, str | int] = x
     "#,
+);
+
+// See `test_named_tuple_functional_walrus_arguments`.
+testcase!(
+    test_typed_dict_functional_walrus_arguments,
+    r#"
+from typing import Literal, TypedDict, assert_type
+
+L = TypedDict(l := "L", {"a": int})  # E: Expected string literal "L"
+assert_type(l, Literal["L"])
+
+M = TypedDict("M", m := {"a": int})  # E: Expected valid functional typed dictionary definition
+assert_type(m, dict[str, type[int]])
+"#,
+);
+
+testcase!(
+    test_typed_dict_functional_walrus_positional_before_keyword,
+    r#"
+from typing import Literal, TypedDict, assert_type
+
+M = TypedDict("M", (x := 1), total=(x := True))  # E: Expected valid functional typed dictionary definition  # E: Unrecognized keyword argument `total` in typed dictionary definition
+assert_type(x, Literal[True])
+"#,
+);
+testcase!(
+    test_typed_dict_unpacking_missing_required_key,
+    r#"
+from typing import TypedDict
+class Open(TypedDict):
+    x: int
+class Closed(TypedDict, closed=True):
+    x: int
+class Target(TypedDict):
+    x: int
+    y: int
+def from_open(a: Open) -> Target:
+    return {**a} # E: Missing required key `y` for TypedDict `Target`
+def from_closed(a: Closed) -> Target:
+    return {**a} # E: Missing required key `y` for TypedDict `Target`
+def from_target(t: Target) -> Target:
+    return {**t}
+"#,
+);
+
+testcase!(
+    test_typed_dict_unpacking_anonymous_typed_dict,
+    r#"
+from typing import NotRequired, TypedDict
+
+class Target(TypedDict):
+    x: int
+
+class PartialSource(TypedDict):
+    x: NotRequired[int]
+
+def from_dict_literal() -> Target:
+    source = {"x": 1}
+    return {**source}
+
+def from_not_required(s: PartialSource) -> Target:
+    return {**s} # E: Missing required key `x` for TypedDict `Target`
+"#,
+);
+
+// Indexing an anonymous TypedDict with a non-literal string key checks the value against the
+// dict's single value type -- but only when it has one. A heterogeneous dict literal is not
+// assignable to any `dict[str, VT]`, so it falls through to `__setitem__`/`__delitem__` and
+// reports `unsupported-operation`, exactly as a declared TypedDict whose fields disagree with
+// its extra items does. Real code suppresses that specific error kind, so routing it through
+// the TypedDict value check instead would silently break those suppressions.
+testcase!(
+    test_anonymous_typed_dict_non_literal_str_key,
+    r#"
+def heterogeneous(k: str) -> None:
+    d = {"a": 1, "b": "s"}
+    d[k] = 2
+    d[k] = object()  # E: Cannot set item in `dict[str, int | str]`
+    del d[k]
+
+def homogeneous(k: str) -> None:
+    d = {"a": 1, "b": 2}
+    d[k] = 3
+    d[k] = "s"  # E: `Literal['s']` is not assignable to dict key with type `int`
+    del d[k]
+"#,
+);
+
+// A dict literal assigned into an anonymous TypedDict is checked against it field by field,
+// whether or not the key already exists. The hint is anonymous, so it is inferred rather than
+// declared: its own check errors are not reported, but errors about the literal's values are.
+testcase!(
+    test_anonymous_typed_dict_hint_checks_dict_literal_values,
+    r#"
+def new_key() -> None:
+    d = {"a": {"x": 1}}
+    d["b"] = {"y": "s"}  # E: `Literal['s']` is not assignable to dict value type `int`
+
+def existing_key() -> None:
+    d = {"a": {"x": 1}}
+    d["a"] = {"y": "s"}  # E: `Literal['s']` is not assignable to dict value type `int`
+
+def matching_value() -> None:
+    d = {"a": {"x": 1}}
+    d["b"] = {"y": 2}
+"#,
+);
+
+// A generic TypedDict satisfies a TypeVar bound naming it. Solving a class's type parameters
+// rewrites the classes inside a bound, to stop the parameters from nesting deeper on every
+// fixpoint iteration. A TypedDict resolves its fields by substituting its type arguments, so a
+// rewrite that dropped them would leave the fields as the TypedDict's own type variables, and
+// it would stop matching even itself.
+testcase!(
+    test_generic_typed_dict_satisfies_type_var_bound,
+    r#"
+from typing import Any, Generic, TypedDict, TypeVar
+
+class Ctx(TypedDict, total=False):
+    source: str
+
+class AuthCtx(Ctx, total=False):
+    extra: int
+
+CtxT = TypeVar("CtxT", bound=Ctx)
+
+class Res(TypedDict, Generic[CtxT], total=False):
+    context: CtxT
+
+class AuthRes(Res[AuthCtx], total=False):
+    auth: bool
+
+ResT = TypeVar("ResT", bound=Res[Any])
+
+class Mgr(Generic[ResT]):
+    pass
+
+class UsesSelf(Mgr[Res[Ctx]]):
+    pass
+
+class UsesSubclass(Mgr[AuthRes]):
+    pass
+
+def uses_annotation(m: Mgr[AuthRes]) -> None:
+    pass
+"#,
+);
+
+// `x and y` returns `x` only when `x` is falsy. A TypedDict whose keys are all optional can be
+// falsy, so it is marked like any other class instance, and a truthy result is always `y`.
+testcase!(
+    test_typed_dict_boolean_and_result_truthy_narrow,
+    r#"
+from typing import TypedDict, assert_type
+
+class Foo(TypedDict, total=False):
+    x: int
+
+def f(foo: Foo | None) -> None:
+    x = foo and foo.get("x")
+    if x:
+        assert_type(x, int)
+"#,
+);
+
+// A TypedDict's keys are dictionary entries, not attributes, so a key named `__call__` does not
+// make its instances callable.
+testcase!(
+    test_typed_dict_call_key_is_not_callable,
+    r#"
+import functools
+from typing import Callable, TypedDict, TypeVar
+
+class TD(TypedDict):
+    __call__: Callable[[], int]
+
+T = TypeVar("T", bound=TD)
+
+def direct(d: TD) -> None:
+    d()  # E: Expected a callable, got `TD`
+
+def bounded(d: T) -> None:
+    d()  # E: Expected a callable, got `T`
+
+def partial(d: TD) -> None:
+    functools.partial(d)  # E: Argument `TD` is not assignable to parameter `func`
+"#,
+);
+
+// A key named like a descriptor method does not make a TypedDict instance a descriptor.
+testcase!(
+    test_typed_dict_descriptor_key_is_not_descriptor,
+    r#"
+from typing import Callable, TypedDict, assert_type
+
+class TD(TypedDict):
+    __get__: Callable[..., int]
+
+class A:
+    d: TD = {"__get__": lambda *args: 1}
+
+def f(a: A) -> None:
+    assert_type(a.d, TD)
+    assert_type(A.d, TD)
+"#,
+);
+
+// A TypedDict's keys are not attributes of its class object, so attribute access on `type[TD]`
+// resolves on the TypedDict fallback class: a key is not found there, and a key with the name of
+// a dict method does not shadow the method.
+testcase!(
+    test_typed_dict_type_attribute_uses_fallback,
+    r#"
+from typing import Generic, TypedDict, TypeVar, assert_type
+
+class TD(TypedDict):
+    x: int
+    get: str
+
+V = TypeVar("V")
+
+class GTD(TypedDict, Generic[V]):
+    x: V
+
+def f(c: type[TD], g: type[GTD[int]]) -> None:
+    c.x  # E: Class `TypedDictFallback` has no class attribute `x`
+    g.x  # E: Class `TypedDictFallback` has no class attribute `x`
+    assert_type(c.get, str)  # E: , str) failed
+    assert_type(c.__required_keys__, frozenset[str])
+"#,
+);
+
+// Calling `type[TD]` constructs the TypedDict through its synthesized `__init__`, the same way as
+// calling the class itself.
+testcase!(
+    test_typed_dict_construct_through_type,
+    r#"
+from typing import Generic, TypedDict, TypeVar, assert_type
+
+class TD(TypedDict):
+    x: int
+
+V = TypeVar("V")
+
+class GTD(TypedDict, Generic[V]):
+    x: V
+
+def f(c: type[TD], g: type[GTD[int]]) -> None:
+    assert_type(c(x=1), TD)
+    assert_type(c({"x": 1}), TD)
+    c(x="s")  # E: Argument `Literal['s']` is not assignable to parameter `x` with type `int`
+    c({"x": "s"})  # E: `Literal['s']` is not assignable to TypedDict key `x` with type `int`
+    assert_type(g(x=1), GTD[int])
+    g(x="s")  # E: Argument `Literal['s']` is not assignable to parameter `x` with type `int`
+"#,
 );

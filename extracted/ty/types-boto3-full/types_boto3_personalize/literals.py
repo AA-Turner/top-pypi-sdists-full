@@ -83,6 +83,7 @@ TrainingModeType = Literal["AUTOTRAIN", "FULL", "UPDATE"]
 TrainingTypeType = Literal["AUTOMATIC", "MANUAL"]
 PersonalizeServiceName = Literal["personalize"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

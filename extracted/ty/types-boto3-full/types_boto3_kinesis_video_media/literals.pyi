@@ -39,6 +39,7 @@ StartSelectorTypeType = Literal[
 ]
 KinesisVideoMediaServiceName = Literal["kinesis-video-media"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

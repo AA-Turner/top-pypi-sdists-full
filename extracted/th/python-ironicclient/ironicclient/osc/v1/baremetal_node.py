@@ -23,8 +23,11 @@ import json
 import logging
 import sys
 from typing import Any, cast
+import urllib.parse
+import webbrowser
 
 from osc_lib import utils as oscutils
+from oslo_utils import uuidutils
 
 from ironicclient.common.i18n import _
 from ironicclient.common import utils
@@ -479,6 +482,83 @@ class ConsoleShowBaremetalNode(command.ShowOne):
         )
 
 
+def _get_console_info(baremetal_client: Any, node: str) -> dict[str, Any]:
+    info = baremetal_client.node.get_console(node)
+    console_info = info.get('console_info')
+    if not console_info:
+        raise exc.CommandError(
+            _("Console is not enabled or has no console information "
+              "for node %s") % node)
+    return cast(dict[str, Any], console_info)
+
+
+class ConsoleUrlShowBaremetalNode(command.ShowOne):
+    """Show the console URL for a node
+
+    Like "openstack console url show", each item of the console information
+    is displayed as its own field.
+    """
+
+    log: logging.Logger = logging.getLogger(
+        __name__ + ".ConsoleUrlShowBaremetalNode")
+
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser: argparse.ArgumentParser
+        parser = super().get_parser(prog_name)
+
+        parser.add_argument(
+            'node',
+            metavar='<node>',
+            help=_("Name or UUID of the node")
+        )
+        return parser
+
+    def take_action(
+        self, parsed_args: argparse.Namespace,
+    ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
+        self.log.debug("take_action(%s)", parsed_args)
+
+        baremetal_client = self.app.client_manager.baremetal
+        console_info = _get_console_info(baremetal_client, parsed_args.node)
+        return cast(
+            tuple[tuple[str, ...], tuple[Any, ...]],
+            tuple(zip(*sorted(console_info.items()))),
+        )
+
+
+class ConsoleUrlOpenBaremetalNode(command.Command):
+    """Open the console URL for a node in a web browser"""
+
+    log: logging.Logger = logging.getLogger(
+        __name__ + ".ConsoleUrlOpenBaremetalNode")
+
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser: argparse.ArgumentParser
+        parser = super().get_parser(prog_name)
+
+        parser.add_argument(
+            'node',
+            metavar='<node>',
+            help=_("Name or UUID of the node")
+        )
+        return parser
+
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        self.log.debug("take_action(%s)", parsed_args)
+
+        baremetal_client = self.app.client_manager.baremetal
+        console_info = _get_console_info(baremetal_client, parsed_args.node)
+        url = console_info.get('url')
+        if not url or urllib.parse.urlparse(url).scheme != "https":
+            raise exc.CommandError(
+                _("Console for node %s does not have an https URL to open")
+                % parsed_args.node)
+        if not webbrowser.open(url):
+            raise exc.CommandError(
+                _("Could not open a web browser for the console URL of "
+                  "node %s") % parsed_args.node)
+
+
 class CreateBaremetalNode(command.ShowOne):
     """Register a new node with the baremetal service"""
 
@@ -897,6 +977,12 @@ class ListBaremetalNode(command.Lister):
             '--instance-name',
             metavar='<instance_name>',
             help=_("Filter the list of returned nodes by an instance name."))
+        parser.add_argument(
+            '--instance',
+            dest='instance',
+            metavar='<instance>',
+            help=_("Filter the list of returned nodes by an instance name "
+                   "or UUID."))
         sharded_group = parser.add_mutually_exclusive_group(required=False)
         sharded_group.add_argument(
             '--sharded',
@@ -976,6 +1062,11 @@ class ListBaremetalNode(command.Lister):
                       'instance_name']:
             if getattr(parsed_args, field):
                 params[field] = getattr(parsed_args, field)
+        if parsed_args.instance:
+            if uuidutils.is_uuid_like(parsed_args.instance):
+                params['instance_uuid'] = parsed_args.instance
+            else:
+                params['instance_name'] = parsed_args.instance
         if parsed_args.include_children:
             params['include_children'] = True
         if parsed_args.long:
@@ -2136,8 +2227,16 @@ class ValidateBaremetalNode(command.Lister):
                 (oscutils.get_dict_properties(s, fields) for s in data))
 
 
+_VIF_INTERNAL_INFO_SUFFIX = '_vif_port_id'
+_VIF_EXTRA_COLUMNS = ('purpose', 'attached_to', 'attached_uuid', 'address')
+
+
 class VifListBaremetalNode(command.Lister):
-    """Show attached VIFs for a node"""
+    """Show attached VIFs for a node
+
+    The port or port group each VIF is attached to is shown along with the
+    purpose (e.g. tenant, provisioning, cleaning) of the attachment.
+    """
 
     log: logging.Logger = logging.getLogger(
         __name__ + ".VifListBaremetalNode")
@@ -2158,13 +2257,36 @@ class VifListBaremetalNode(command.Lister):
     ) -> tuple[Sequence[str], Iterable[Any]]:
         self.log.debug("take_action(%s)", parsed_args)
 
-        columns = res_fields.VIF_RESOURCE.fields
+        columns = res_fields.VIF_RESOURCE.fields + _VIF_EXTRA_COLUMNS
 
         baremetal_client = self.app.client_manager.baremetal
         data = baremetal_client.node.vif_list(parsed_args.node)
 
-        return (columns,
-                (oscutils.get_item_properties(s, columns) for s in data))
+        # The VIF API only returns IDs. Which port or port group a VIF is
+        # attached to, and why, is recorded in their internal_info.
+        attachments: dict[str, dict[str, Any]] = {}
+        for attached_to, resources in (
+            ('port', baremetal_client.port.list(
+                node=parsed_args.node, detail=True, limit=0)),
+            ('portgroup', baremetal_client.portgroup.list(
+                node=parsed_args.node, detail=True, limit=0)),
+        ):
+            for res in resources:
+                for key, vif_id in (res.internal_info or {}).items():
+                    if not key.endswith(_VIF_INTERNAL_INFO_SUFFIX):
+                        continue
+                    attachments[vif_id] = {
+                        'purpose': key[:-len(_VIF_INTERNAL_INFO_SUFFIX)],
+                        'attached_to': attached_to,
+                        'attached_uuid': res.uuid,
+                        'address': res.address,
+                    }
+
+        rows = []
+        for vif in data:
+            row = dict(attachments.get(vif.id, {}), id=vif.id)
+            rows.append(tuple(row.get(c) for c in columns))
+        return columns, rows
 
 
 class VifAttachBaremetalNode(command.Command):

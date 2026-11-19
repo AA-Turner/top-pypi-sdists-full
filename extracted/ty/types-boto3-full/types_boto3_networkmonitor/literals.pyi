@@ -40,6 +40,7 @@ ProbeStateType = Literal["ACTIVE", "DELETED", "DELETING", "ERROR", "INACTIVE", "
 ProtocolType = Literal["ICMP", "TCP"]
 CloudWatchNetworkMonitorServiceName = Literal["networkmonitor"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

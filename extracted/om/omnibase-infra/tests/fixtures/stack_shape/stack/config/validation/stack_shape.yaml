@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# OMN-21891: a small stack in the real data file's format, for the checker tests.
+runtime:
+  services: [omninode-runtime]
+  max_replicas: 1
+dependencies: [postgres, redpanda]
+one_shots: [forward-migration, "*-topics"]
+compose_files: docker/docker-compose*.yml
+not_a_stack:
+  - docker/docker-compose.unrelated.yml
+allowed_commands:
+- argv:
+  - onex-runtime
+  match: executable
+  field: command
+  services: []
+  reason: The one-runtime kernel carries all in-process nodes.
+- argv:
+  - onex-gateway-forwarder
+  match: executable
+  field: command
+  services:
+  - gateway-forwarder
+  reason: T26 retains the standalone lane-mirror transport bridge between separately credentialed brokers.
+- argv:
+  - python
+  - -m
+  - example.legacy_consumer
+  match: exact
+  field: command
+  services:
+  - legacy-consumer
+  reason: Fixture-only legacy command; a changed command is refused.
+command_only_compose_files: []
+console_scripts: {}
+command_baseline: []
+baseline:
+  - service: legacy-consumer
+    files: 1
+    ticket: OMN-21288
+  - service: "*-image"
+    files: 2
+    ticket: OMN-21288

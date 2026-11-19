@@ -21,6 +21,7 @@ Exports:
     EnumCircuitState: Circuit breaker states (CLOSED, OPEN, HALF_OPEN)
     EnumConfirmationEventType: Registration confirmation event types
     EnumConfirmationState: Durability confirmation tri-state (CONFIRMED, UNCONFIRMED, UNKNOWN)
+    EnumConsumerCoordinatorRejoinReason: Coordinator rejoin decision reasons
     EnumConsumerGroupPurpose: Consumer group purpose (CONSUME, INTROSPECTION, REPLAY, AUDIT, BACKFILL)
     EnumContextSectionCategory: Semantic categories for static context sections (CONFIG, RULES, TOPOLOGY, etc.)
     EnumContractCheckType: Runtime contract check types (REGISTRATION, SUBSCRIPTION, PUBLICATION, etc.)
@@ -56,6 +57,7 @@ Exports:
     EnumRegistryResponseStatus: Registry operation response status (SUCCESS, PARTIAL, FAILED)
     EnumRetryErrorCategory: Error categories for retry decision making
     EnumRunVariant: A/B run variant (BASELINE, CANDIDATE) for baseline comparison
+    EnumRuntimeHeartbeatRefusalReason: Why a runtime refused to start (heartbeat is mandatory)
     EnumSecurityRuleId: Security validation rule identifiers for OMN-1098
     EnumSelectionStrategy: Selection strategies for capability-based discovery (FIRST, RANDOM, ROUND_ROBIN, LEAST_LOADED)
     EnumTopicStandard: Topic standards (ONEX_KAFKA, ENVIRONMENT_AWARE)
@@ -86,6 +88,9 @@ from omnibase_infra.enums.enum_circuit_state import EnumCircuitState
 from omnibase_infra.enums.enum_cloud_ledger_verdict import EnumCloudLedgerVerdict
 from omnibase_infra.enums.enum_confirmation_event_type import EnumConfirmationEventType
 from omnibase_infra.enums.enum_confirmation_state import EnumConfirmationState
+from omnibase_infra.enums.enum_consumer_coordinator_rejoin_reason import (
+    EnumConsumerCoordinatorRejoinReason,
+)
 from omnibase_infra.enums.enum_consumer_group_purpose import EnumConsumerGroupPurpose
 from omnibase_infra.enums.enum_context_section_category import (
     EnumContextSectionCategory,
@@ -106,6 +111,9 @@ from omnibase_infra.enums.enum_eval_finding_category import EnumEvalFindingCateg
 from omnibase_infra.enums.enum_eval_finding_severity import EnumEvalFindingSeverity
 from omnibase_infra.enums.enum_eval_task_status import EnumEvalTaskStatus
 from omnibase_infra.enums.enum_eval_task_type import EnumEvalTaskType
+from omnibase_infra.enums.enum_event_bus_lost_broker_policy import (
+    EnumEventBusLostBrokerPolicy,
+)
 from omnibase_infra.enums.enum_execution_shape_violation import (
     EnumExecutionShapeViolation,
 )
@@ -141,6 +149,9 @@ from omnibase_infra.enums.enum_response_status import EnumResponseStatus
 from omnibase_infra.enums.enum_retry_error_category import EnumRetryErrorCategory
 from omnibase_infra.enums.enum_run_variant import EnumRunVariant
 from omnibase_infra.enums.enum_runtime_backend import EnumRuntimeBackend
+from omnibase_infra.enums.enum_runtime_heartbeat_refusal_reason import (
+    EnumRuntimeHeartbeatRefusalReason,
+)
 from omnibase_infra.enums.enum_runtime_restart_policy import (
     EnumRuntimeRestartPolicy,
 )
@@ -174,7 +185,9 @@ __all__: list[str] = [
     "EnumCheckpointPhase",
     "EnumCircuitState",
     "EnumConfirmationEventType",
+    "EnumConsumerCoordinatorRejoinReason",
     "EnumConsumerGroupPurpose",
+    "EnumEventBusLostBrokerPolicy",
     "EnumContextSectionCategory",
     "EnumContractCheckType",
     "EnumContractType",
@@ -220,6 +233,7 @@ __all__: list[str] = [
     "EnumRetryErrorCategory",
     "EnumRunVariant",
     "EnumRuntimeBackend",
+    "EnumRuntimeHeartbeatRefusalReason",
     "EnumSecurityRuleId",
     "EnumSelectionStrategy",
     "EnumSessionLifecycleState",

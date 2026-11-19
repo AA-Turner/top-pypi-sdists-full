@@ -931,7 +931,14 @@ def extract_filters_and_projections(
     return _FiltersAndProjections(projections=projections, filters=filters)
 
 
-def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction]) -> List[Filter]:
+def clean_filters(
+    joined_class: Type[Features], filters: list[UnderscoreFunction], *, keep_query_row_operands: bool = False
+) -> List[Filter]:
+    """Resolve each filter's `_.<attr>` operands against `joined_class`.
+
+    With `keep_query_row_operands`, a `__.<attr>` operand names a feature of the query row rather
+    than of `joined_class`, so it is left as an underscore for the engine to resolve.
+    """
     parsed_filters: List[Filter] = []
     for filt in filters:
         op = filt._chalk__function_name
@@ -963,7 +970,7 @@ def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction
         if op not in ("==", "!=", ">", "<", ">=", "<=", "in"):
             raise ChalkParseError(f"expected a boolean operation for the filter, like `_.amount > 0`, but found `{op}`")
 
-        if isinstance(left, UnderscoreAttr):
+        if isinstance(left, UnderscoreAttr) and not (keep_query_row_operands and _is_query_row_feature(left)):
             left_attr = left._chalk__attr
             if left_attr not in ("chalk_window", "chalk_now"):
                 try:
@@ -973,7 +980,7 @@ def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction
             if left_attr == "chalk_now":
                 left = Now
 
-        if isinstance(right, UnderscoreAttr):
+        if isinstance(right, UnderscoreAttr) and not (keep_query_row_operands and _is_query_row_feature(right)):
             right_attr = right._chalk__attr
             if right_attr not in ("chalk_window", "chalk_now"):
                 try:
@@ -990,6 +997,13 @@ def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction
 
 
 _WINDOW_BOUND_COMPARISONS = ("<", "<=", ">", ">=")
+
+
+def _is_query_row_feature(expr: UnderscoreAttr) -> bool:
+    """Whether `expr` is `__.<feature>`, other than the query time `__.chalk_now`."""
+    return isinstance(expr._chalk__parent, DoubleUnderscore) and expr._chalk__attr != "chalk_now"
+
+
 _NOW_ATTRS = ("chalk_now", "chalk_window")
 
 
@@ -1010,6 +1024,8 @@ class _BucketOnChain:
     bucket_column: UnderscoreAttr
     resolution: timedelta | None
     window_bounds: list[UnderscoreFunction]
+    full_expr: Underscore | None
+    """The whole expression the chain was read from, for error messages."""
 
 
 def _as_method_call(expr: Any, method: str) -> UnderscoreCall | None:
@@ -1075,11 +1091,72 @@ def _mentions_now_or_outer(expr: Any) -> bool:
     return False
 
 
+def _is_now(expr: Any) -> bool:
+    """Whether `expr` is `_.chalk_now` or `__.chalk_now`, which both mean the query row's time."""
+    return (
+        isinstance(expr, UnderscoreAttr)
+        and isinstance(expr._chalk__parent, (UnderscoreRoot, DoubleUnderscore))
+        and expr._chalk__attr == "chalk_now"
+    )
+
+
+def _now_as_chalk_now(expr: Any) -> Any:
+    """`expr` with every `__.chalk_now` spelled `_.chalk_now`, for checks that only know the latter.
+
+    Unchanged nodes are returned as they are, and rebuilt ones keep their source location, so a
+    diagnostic about the result still points at what the user wrote.
+    """
+    rebuilt: Any
+    if _is_now(expr) and isinstance(expr._chalk__parent, DoubleUnderscore):
+        rebuilt = UnderscoreAttr(UnderscoreRoot(), "chalk_now", expr_id=expr._chalk__expr_id)
+    elif isinstance(expr, UnderscoreFunction):
+        args = [_now_as_chalk_now(a) for a in expr._chalk__args]
+        kwargs = {k: _now_as_chalk_now(v) for k, v in expr._chalk__kwargs.items()}
+        if all(new is old for new, old in zip(args, expr._chalk__args)) and all(
+            kwargs[k] is v for k, v in expr._chalk__kwargs.items()
+        ):
+            return expr
+        rebuilt = UnderscoreFunction(expr._chalk__function_name, *args, _chalk__expr_id=expr._chalk__expr_id, **kwargs)
+    elif isinstance(expr, UnderscoreCast):
+        value = _now_as_chalk_now(expr._chalk__value)
+        if value is expr._chalk__value:
+            return expr
+        rebuilt = UnderscoreCast(value, expr._chalk__to_type, expr_id=expr._chalk__expr_id)
+    else:
+        return expr
+    rebuilt._chalk_definition_location = expr._chalk_definition_location
+    return rebuilt
+
+
+def _is_root_attr(expr: Any, attr: str) -> bool:
+    return (
+        isinstance(expr, UnderscoreAttr)
+        and isinstance(expr._chalk__parent, UnderscoreRoot)
+        and expr._chalk__attr == attr
+    )
+
+
+def _is_window_far_edge(expr: Any) -> bool:
+    """Whether `expr` is literally `_.chalk_now - _.chalk_window`, or its shorthand `_.chalk_window`."""
+    if _is_root_attr(expr, "chalk_window"):
+        return True
+    return (
+        isinstance(expr, UnderscoreFunction)
+        and expr._chalk__function_name == "-"
+        and len(expr._chalk__args) == 2
+        and len(expr._chalk__kwargs) == 0
+        and _is_root_attr(expr._chalk__args[0], "chalk_now")
+        and _is_root_attr(expr._chalk__args[1], "chalk_window")
+    )
+
+
 def _is_constant_offset_from_now(expr: Any) -> bool:
     """Whether `expr` is `_.chalk_now` or `_.chalk_window`, optionally `+`/`-` constant timedeltas.
 
-    This is the only bound shape the engine can evaluate today.
+    These bounds are a fixed offset from the query time, so every row reads the same window.
     """
+    if _is_now(expr) or _is_window_far_edge(expr):
+        return True
     if isinstance(expr, UnderscoreAttr):
         return isinstance(expr._chalk__parent, UnderscoreRoot) and expr._chalk__attr in _NOW_ATTRS
     if isinstance(expr, UnderscoreFunction) and expr._chalk__function_name in ("+", "-"):
@@ -1093,12 +1170,70 @@ def _is_constant_offset_from_now(expr: Any) -> bool:
     return False
 
 
+def _query_row_bound_problem(expr: Any) -> Optional[Any]:
+    """The part of a per-row bound the engine cannot evaluate for the query row, or `None`.
+
+    A bound that is not a fixed offset from now is evaluated once per query row, before any
+    aggregated row is read, so it may refer only to the query row: its features, `__.<feature>`,
+    and its time, `_.chalk_now` or `__.chalk_now`, combined with constants and functions. A column
+    of the aggregated rows, like `_.amount`, would need a filter after bucketing, which a
+    materialized aggregation cannot apply.
+    """
+    if _is_now(expr):
+        return None
+    if isinstance(expr, UnderscoreAttr):
+        if isinstance(expr._chalk__parent, DoubleUnderscore) and expr._chalk__attr != "chalk_window":
+            return None
+        return expr
+    if isinstance(expr, UnderscoreFunction):
+        for arg in (*expr._chalk__args, *expr._chalk__kwargs.values()):
+            if (problem := _query_row_bound_problem(arg)) is not None:
+                return problem
+        return None
+    if isinstance(expr, UnderscoreCast):
+        return _query_row_bound_problem(expr._chalk__value)
+    if isinstance(expr, Underscore):
+        return expr
+    return None
+
+
+def _query_row_bound_features(expr: Any) -> list[UnderscoreAttr]:
+    """Every `__.<feature>` a per-row bound reads, in source order."""
+    if isinstance(expr, UnderscoreAttr):
+        if isinstance(expr._chalk__parent, DoubleUnderscore) and not _is_now(expr):
+            return [expr]
+        return []
+    if isinstance(expr, UnderscoreFunction):
+        return [
+            f for arg in (*expr._chalk__args, *expr._chalk__kwargs.values()) for f in _query_row_bound_features(arg)
+        ]
+    if isinstance(expr, UnderscoreCast):
+        return _query_row_bound_features(expr._chalk__value)
+    return []
+
+
+def _window_bound_edge(bound: UnderscoreFunction, bucket_column: UnderscoreAttr) -> Any:
+    """The side of a validated window bound that is not the bucket column."""
+    lhs, rhs = bound._chalk__args
+    return rhs if _is_bare_column(lhs, bucket_column) else lhs
+
+
 def _is_bare_column(expr: Any, column: UnderscoreAttr) -> bool:
     return (
         isinstance(expr, UnderscoreAttr)
         and isinstance(expr._chalk__parent, UnderscoreRoot)
         and expr._chalk__attr == column._chalk__attr
         and expr._chalk__version == column._chalk__version
+    )
+
+
+def _is_mandatory_lower_window_bound(bound: UnderscoreFunction, bucket_column: UnderscoreAttr) -> bool:
+    """Whether `bound` is literally `<column> > _.chalk_now - _.chalk_window` (or `>=`, or the `_.chalk_window` shorthand)."""
+    return (
+        bound._chalk__function_name in (">", ">=")
+        and len(bound._chalk__args) == 2
+        and _is_bare_column(bound._chalk__args[0], bucket_column)
+        and _is_window_far_edge(bound._chalk__args[1])
     )
 
 
@@ -1124,6 +1259,12 @@ def _validate_window_bound(
       one configured the upper edge is exact on both paths.
     - Tile-backed offline queries count a bucket straddling the lower bound in full but drop one
       straddling the upper bound.
+
+    No bound is implied: the window is exactly the bounds written. The lower bound
+    `_.ts > _.chalk_now - _.chalk_window` is required, because it sets how long buckets are kept,
+    and so is an upper bound that is a fixed offset from now. Further bounds on either side, fixed
+    or written against the query row (`_.ts < __.cutoff`, evaluated for each row), only narrow the
+    window, and each is treated at its edge as above.
     """
     op = bound._chalk__function_name
     args = bound._chalk__args
@@ -1152,10 +1293,14 @@ def _validate_window_bound(
             + "Filters that select rows belong before `.materialize_bucket_on(...)`.",
             bound,
         )
-    if not _is_constant_offset_from_now(edge):
+    if _is_constant_offset_from_now(edge):
+        return
+    problem = _query_row_bound_problem(edge)
+    if problem is not None:
         raise _BucketOnParseError(
-            f"the window bound `{edge}` in `{full_expr}` is not supported yet: a bound after `.materialize_bucket_on(...)` "
-            + "must currently be `_.chalk_now` or `_.chalk_window`, plus or minus a constant timedelta",
+            f"the window bound `{edge}` in `{full_expr}` refers to `{problem}`, but a bound after "
+            + "`.materialize_bucket_on(...)` may only refer to features of the query row, like `__.<feature>`, "
+            + "and its time, `_.chalk_now`. Filters on the aggregated rows belong before `.materialize_bucket_on(...)`.",
             bound,
         )
 
@@ -1338,16 +1483,6 @@ def _peel_bucket_on_chain(operand: Any, full_expr: Underscore | None) -> _Bucket
     for bound in window_bounds:
         _validate_window_bound(bound, bucket_column, full_expr)
 
-    # Leaving the upper bound out does not remove it: materialized reads fall back to `chalk_now`.
-    # Requiring it puts that bound in the expression.
-    if not any(_is_upper_window_bound(bound, bucket_column) for bound in window_bounds):
-        raise _BucketOnParseError(
-            f"`.materialize_bucket_on({bucket_column})` needs an explicit upper bound on `{bucket_column}`, such as "
-            + f"`.where({bucket_column} < _.chalk_now)`, which is the bound that "
-            + f"applies when none is written, in `{full_expr}`",
-            bucket_call,
-        )
-
     return _BucketOnChain(
         source=source,
         row_filters=row_filters,
@@ -1355,7 +1490,70 @@ def _peel_bucket_on_chain(operand: Any, full_expr: Underscore | None) -> _Bucket
         bucket_column=bucket_column,
         resolution=resolution,
         window_bounds=window_bounds,
+        full_expr=full_expr,
     )
+
+
+def _check_required_window_bounds(chain: _BucketOnChain) -> None:
+    """Require the two bounds a `materialize_bucket_on` window is built from; nothing is implied.
+
+    The lower bound `<column> > _.chalk_now - _.chalk_window` sets how long buckets are kept, and an
+    upper bound that is a fixed offset from now sets where every read stops. Any other bound only
+    narrows the window, so it cannot stand in for either. When a bound comes close, the error points
+    at it and says why it does not count; otherwise it points at `.materialize_bucket_on(...)`.
+
+    This runs after every other check on the chain, so a broken bucket column or filter is
+    reported before a missing bound.
+    """
+    column = chain.bucket_column
+    full_expr = chain.full_expr
+    required_lower = f"{column} > _.chalk_now - _.chalk_window"
+    lowers = [b for b in chain.window_bounds if not _is_upper_window_bound(b, column)]
+    uppers = [b for b in chain.window_bounds if _is_upper_window_bound(b, column)]
+
+    if not any(_is_mandatory_lower_window_bound(b, column) for b in lowers):
+        reversed_required = next((b for b in lowers if _is_window_far_edge(_window_bound_edge(b, column))), None)
+        if reversed_required is not None:
+            raise _BucketOnParseError(
+                f"write the required lower bound `{reversed_required}` with `{column}` on the left, as "
+                + f"`{required_lower}`, in `{full_expr}`",
+                reversed_required,
+            )
+        if lowers:
+            narrowing = lowers[0]
+            kind = (
+                "is evaluated for each query row"
+                if not _is_constant_offset_from_now(_window_bound_edge(narrowing, column))
+                else "is not the window's own lower edge"
+            )
+            raise _BucketOnParseError(
+                f"the lower bound `{narrowing}` {kind}, so it can only narrow the required lower bound "
+                + f"`{required_lower}`, which sets how long buckets are kept. Add `{required_lower}` to the "
+                + f"`.where(...)`; `{narrowing}` may stay beside it, in `{full_expr}`",
+                narrowing,
+            )
+        raise _BucketOnParseError(
+            f"`.materialize_bucket_on({column})` has no lower bound. Add `.where({required_lower})` after it: "
+            + "the window's duration sets how long buckets are kept, and further lower bounds may narrow it, "
+            + f"in `{full_expr}`",
+            chain.bucket_call,
+        )
+
+    if not any(_is_constant_offset_from_now(_window_bound_edge(b, column)) for b in uppers):
+        if uppers:
+            per_row = uppers[0]
+            raise _BucketOnParseError(
+                f"the upper bound `{per_row}` is evaluated for each query row, so it can only narrow an upper "
+                + f"bound that is a fixed offset from `_.chalk_now`. Add one, such as `{column} < _.chalk_now`, "
+                + f"beside it, in `{full_expr}`",
+                per_row,
+            )
+        raise _BucketOnParseError(
+            f"`.materialize_bucket_on({column})` has no upper bound. Add one that is a fixed offset from "
+            + f"`_.chalk_now`, such as `.where({column} < _.chalk_now)`; further upper bounds may narrow it, "
+            + f"in `{full_expr}`",
+            chain.bucket_call,
+        )
 
 
 def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
@@ -1520,13 +1718,38 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
                 _bucket_column_type_error(bucket_on_chain.bucket_column, bucket_dtype),
                 bucket_on_chain.bucket_column,
             )
+        for bound in bucket_on_chain.window_bounds:
+            query_row_features = _query_row_bound_features(_window_bound_edge(bound, bucket_on_chain.bucket_column))
+            if query_row_features and parent_class_for_has_many is not f.features_cls:
+                # Through a has-one prefix, `__` would mean the has-one's class rather than the
+                # query row the materialized aggregation is looked up for.
+                raise _BucketOnParseError(
+                    f"the window bound `{bound}` refers to `__`, which is not supported when the has-many "
+                    + f"is reached through a has-one, in `{f.underscore_expression}`",
+                    bound,
+                )
+            for attr in query_row_features:
+                try:
+                    query_row_feature = unwrap_feature(getattr(f.features_cls, attr._chalk__attr))
+                except Exception:
+                    raise _BucketOnParseError(
+                        f"the window bound `{bound}` refers to `{attr}`, but '{f.namespace}' has no feature "
+                        + f"'{attr._chalk__attr}'",
+                        attr,
+                    )
+                if query_row_feature.is_has_one or query_row_feature.is_has_many:
+                    raise _BucketOnParseError(
+                        f"the window bound `{bound}` refers to `{attr}`, which must be a scalar feature of "
+                        + f"'{f.namespace}', not a relationship",
+                        attr,
+                    )
 
     if bucket_on_chain is not None:
         # Parsed one at a time so an error points at the filter that caused it.
         parsed_filters: list[Filter] = []
         for filt in filters:
             try:
-                parsed_filters.extend(clean_filters(joined_class, [filt]))
+                parsed_filters.extend(clean_filters(joined_class, [filt], keep_query_row_operands=True))
             except ChalkParseError as e:
                 raise _BucketOnParseError(e.args[0], filt) from e
     else:
@@ -1591,6 +1814,9 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
             raise ChalkParseError(
                 f"No bucket duration was found for the window {timedelta_to_duration(window_duration)}"
             )
+
+    if bucket_on_chain is not None:
+        _check_required_window_bounds(bucket_on_chain)
 
     cache_aggregated_values = (
         f.window_materialization.get("cache_aggregated_values", False)
@@ -2289,10 +2515,30 @@ def _supplemental_validate_bucket_on_chain(
         raise _UnderscoreValidationError(
             f"Cannot call `.materialize_bucket_on(...)` on non-dataframe underscore expression `{chain.source}`"
         )
-    if source_result.namespace not in FeatureSetBase.registry:
-        return source_result
-    child_namespace = FeatureSetBase.registry[source_result.namespace]
-    for expr in (*chain.row_filters, chain.bucket_column, *chain.window_bounds):
+    if source_result.namespace in FeatureSetBase.registry:
+        _supplemental_validate_bucket_on_chain_columns(
+            state,
+            child_namespace=FeatureSetBase.registry[source_result.namespace],
+            chain=chain,
+            class_namespace=class_namespace,
+        )
+    try:
+        _check_required_window_bounds(chain)
+    except _BucketOnParseError as e:
+        raise _LocatedUnderscoreValidationError(e.args[0], e.at) from e
+    return source_result
+
+
+def _supplemental_validate_bucket_on_chain_columns(
+    state: _SupplementalState,
+    *,
+    child_namespace: type[FeaturesProtocol],
+    chain: _BucketOnChain,
+    class_namespace: type[FeaturesProtocol],
+) -> None:
+    """Resolve every filter, the bucket column, and every bound of a chain against the aggregated namespace."""
+    # In a window bound `__.chalk_now` is the query time, as `_.chalk_now` is.
+    for expr in (*chain.row_filters, chain.bucket_column, *(_now_as_chalk_now(b) for b in chain.window_bounds)):
         try:
             result = _supplemental_validate_underscore_expression(
                 state=state,
@@ -2313,7 +2559,6 @@ def _supplemental_validate_bucket_on_chain(
         # A `FeatureTime` column resolves to no type here; it is always a timestamp.
         if expr is chain.bucket_column and isinstance(result, _ScalarExpr) and not pa.types.is_timestamp(result.dtype):
             raise _LocatedUnderscoreValidationError(_bucket_column_type_error(chain.bucket_column, result.dtype), expr)
-    return source_result
 
 
 def _supplemental_validate_underscore_expression(

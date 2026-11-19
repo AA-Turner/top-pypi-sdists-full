@@ -284,7 +284,7 @@ def test_a_repo_whose_suite_demands_armed_hooks_arms_them_in_ci():
     MEASURED 2026-07-28. `assert_hooks_are_armed` moved into
     `invisible_core.testing` so that all three repos could make the claim, and
     all three began making it. Only `invisible_core`'s workflow ran
-    `install_hooks.py` - it had needed that step since the day its own version of
+    `python -m invisible_core.hooks install` - it had needed that step since the day its own version of
     the test was written. So the wrapper and the manager went red on every push,
     on all four matrix legs, with a message about `core.hooksPath` that reads
     like a developer's mistake rather than a missing CI step.
@@ -292,7 +292,7 @@ def test_a_repo_whose_suite_demands_armed_hooks_arms_them_in_ci():
     A GitHub checkout IS a git work tree, which is why the helper's "skip outside
     a git checkout" guard cannot cover this: the honest arrangement is for CI to
     do what a developer does once, not for the assertion to quietly excuse
-    itself. Arming it on the runner also means `install_hooks.py` is exercised on
+    itself. Arming it on the runner also means the installer is exercised on
     every leg instead of only on the one machine that ever ran it by hand.
 
     This test is the comparison that did not exist: whoever adds the assertion to
@@ -319,12 +319,12 @@ def test_a_repo_whose_suite_demands_armed_hooks_arms_them_in_ci():
         text = wf.read_text(encoding="utf-8")
         # Either spelling: the core checks first and installs on failure, the
         # consumers just install. What matters is that the step is there.
-        if re.search(r"install_hooks\.py", text):
+        if re.search(r"invisible_core\.hooks install", text):
             armed.append(repo)
         else:
             missing.append(
                 f"{repo}: its suite calls assert_hooks_are_armed but "
-                f"{_DEFAULT_SUITE_WORKFLOW[repo]} never runs install_hooks.py, so "
+                f"{_DEFAULT_SUITE_WORKFLOW[repo]} never runs `python -m invisible_core.hooks install`, so "
                 f"every CI run fails on core.hooksPath being unset")
 
     assert demanded, (

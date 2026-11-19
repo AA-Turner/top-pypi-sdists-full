@@ -56,6 +56,7 @@ MappingTypeType = Literal["COMMON_CONTROL", "FRAMEWORK", "RELATED_CONTROL"]
 ParameterRequirementSummaryType = Literal["NONE", "OPTIONAL", "REQUIRED"]
 ControlCatalogServiceName = Literal["controlcatalog"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

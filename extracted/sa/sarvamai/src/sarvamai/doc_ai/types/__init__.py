@@ -6,6 +6,7 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .doc_ai_extract_request_mode import DocAiExtractRequestMode
     from .doc_ai_extract_request_output_format import DocAiExtractRequestOutputFormat
     from .doc_ai_get_results_response import (
         DocAiGetResultsResponse,
@@ -17,6 +18,7 @@ if typing.TYPE_CHECKING:
     from .doc_ai_parse_request_content_type import DocAiParseRequestContentType
     from .format import Format
 _dynamic_imports: typing.Dict[str, str] = {
+    "DocAiExtractRequestMode": ".doc_ai_extract_request_mode",
     "DocAiExtractRequestOutputFormat": ".doc_ai_extract_request_output_format",
     "DocAiGetResultsResponse": ".doc_ai_get_results_response",
     "DocAiGetResultsResponse_Classify": ".doc_ai_get_results_response",
@@ -50,6 +52,7 @@ def __dir__():
 
 
 __all__ = [
+    "DocAiExtractRequestMode",
     "DocAiExtractRequestOutputFormat",
     "DocAiGetResultsResponse",
     "DocAiGetResultsResponse_Classify",

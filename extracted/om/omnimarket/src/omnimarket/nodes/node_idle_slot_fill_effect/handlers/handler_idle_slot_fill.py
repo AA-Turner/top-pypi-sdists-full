@@ -78,21 +78,59 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
+from collections.abc import (
+    Callable,
+    Collection,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+)
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from omnibase_core.models.contracts.subcontracts.model_fsm_subcontract import (
+    ModelFSMSubcontract,
+)
+
+from omnimarket.handlers.handler_engine_ladder import load_engine_ladder
+from omnimarket.handlers.handler_lab_fill_live_tickets import (
+    LabFillLiveReadError,
+    Post,
+    linear_post,
+)
 from omnimarket.handlers.node_overlay_reader import NodeOverlayError
 from omnimarket.handlers.rules_lab_fill_tickets import plan_ticket_backlog
 from omnimarket.handlers.rules_lane_requirements import claude_required, declarations
+from omnimarket.handlers.rules_stop_gate import (
+    engine_stop_scopes,
+    gate_dispatch,
+    load_andon_stop_contract,
+)
+from omnimarket.handlers.wip_admission_fill_gate import fill_wip_gate
 from omnimarket.handlers.work_ledger_fixer_holds import fixer_hold_reasons
 from omnimarket.handlers.work_ledger_text import split_ledger_rows
-from omnimarket.models.lab_fill import ModelLabFillTicketFacts
+from omnimarket.models.lab_fill import (
+    EnumLabFillTicketDrop,
+    ModelLabFillCriteriaReadRequest,
+    ModelLabFillCriteriaReadResult,
+    ModelLabFillLiveDescription,
+    ModelLabFillTicketFacts,
+)
 from omnimarket.models.landing_ledger_row import ModelLandingLedgerRow
+from omnimarket.models.lane_brief.enum_lane_engine import EnumLaneEngine
 from omnimarket.models.model_backlog_item import (
     REPO_KINDS_CONTEXT_KEY,
     backlog_item_refusal,
+)
+from omnimarket.models.model_engine_ladder import ModelEngineLadder
+from omnimarket.models.stop_gate import (
+    REPOSITORY_SCOPE_KIND,
+    EnumStopExemptionKind,
+    EnumStopGateOutcome,
+    ModelStopExemptionClaim,
+    ModelStopScope,
 )
 from omnimarket.nodes.node_idle_slot_fill_effect import overlay
 from omnimarket.nodes.node_idle_slot_fill_effect.models import (
@@ -151,6 +189,9 @@ KIND_SLUG = {
     "experiment-design": "exp",
     "ticket": "ticket",
     "readback": "readback",
+    "board-pr": "board-pr",
+    "board-stopped": "board-stopped",
+    "board-shared-red": "board-red",
 }
 
 
@@ -194,6 +235,21 @@ def kind_work(environ: Mapping[str, str] | None = None) -> dict[str, str]:
             "clear this M4 board red: read the board criterion's own probe, find why it reads red, and fix "
             f"the cause in one PR in its owning repository (no {out} work in M4, RULING "
             "2026-10-17T20:42:15Z), then /omni:pr-handoff it."
+        ),
+        "board-pr": (
+            "this red or conflicting in-scope PR has nobody on it (the board's work list): bring its head current, "
+            "fix the red checks the fact names on its own branch, then /omni:pr-handoff --needs land. The landing "
+            "controller stays the only lander."
+        ),
+        "board-stopped": (
+            "a lane ended this in-scope ticket blocked or partial with a named follow-up and no successor (the board's "
+            "work list): read the stopped lane's TERMINAL and its follow-up, finish what it left in one PR in the "
+            "owning repository (or name the PR already doing it), then /omni:pr-handoff it."
+        ),
+        "board-shared-red": (
+            "this required check has been red over an hour on several in-scope PRs and no cause lease or lane owns it "
+            "(the board's work list): write a CLAIM naming cause=<repo>:<check>, find the one root cause, fix it in one "
+            "PR at its root (or name the PR already fixing it), and /omni:pr-handoff it."
         ),
         "experiment-design": (
             "run this queued experiment design on the lab as written, record the measurement it names "
@@ -242,10 +298,59 @@ def _priority(kind: str, repo: str) -> str:
     ):
         return "process-fix"
     mvp = (
-        kind in ("dev-red", "cause-red", "m4-board-red", "ticket", "readback")
+        kind
+        in (
+            "dev-red",
+            "cause-red",
+            "m4-board-red",
+            "ticket",
+            "readback",
+            "board-pr",
+            "board-stopped",
+            "board-shared-red",
+        )
         and repo in overlay.mvp_repos()
     )
     return "mvp-landing" if mvp else "other"
+
+
+def read_board(now: str, env: Mapping[str, str]) -> tuple[list[dict[str, Any]], str]:
+    """Read the board's floor document the `idle_slot_fill_board` overlay names; no overlay declared reads none.
+
+    Returns the unowned work items the fill takes first and a reason when the board could not be used (an overlay that does
+    not load, a floor document that is absent or not JSON, a stale one).
+    """
+    try:
+        declaration = overlay.board(env)
+    except NodeOverlayError as exc:
+        return [], f"the idle_slot_fill overlay does not load: {exc}"
+    if declaration is None:
+        return [], ""
+    root = env.get("ONEX_REGISTRY_ROOT") or env.get("OMNI_HOME")
+    if not root:
+        return (
+            [],
+            "configure ONEX_REGISTRY_ROOT or a registry root before reading the board",
+        )
+    stamp = _stamp(now)
+    if stamp is None:
+        return [], f"the fill's clock {now!r} is not a UTC stamp"
+    try:
+        document = json.loads(
+            (Path(root).expanduser() / declaration.floor_relpath).read_text(
+                encoding="utf-8"
+            )
+        )
+    except (OSError, ValueError) as exc:
+        return [], f"the board's floor document is unread: {type(exc).__name__}: {exc}"
+    if not isinstance(document, dict):
+        return [], "the board's floor document is not an object"
+    return board_items(
+        document,
+        now=stamp,
+        max_age_s=declaration.max_age_s,
+        classes=declaration.classes,
+    )
 
 
 def read_fixer_holds(now: str, env: Mapping[str, str]) -> tuple[dict[str, str], str]:
@@ -306,6 +411,7 @@ def candidates(
     generated: Iterable[dict[str, Any]] = (),
     *,
     out_of_scope: Collection[str] = (),
+    board: Iterable[dict[str, Any]] = (),
 ) -> list[dict[str, Any]]:
     """The standing pillar backlog in fill order: the tick's unowned process-fix PRs, its unowned shared reds, then
     the backlog file's items. An item names kind, key, repo and title; the tick's own line is its fact. An item of a
@@ -323,6 +429,9 @@ def candidates(
                     "fact": line,
                 }
             )
+    # the board's unowned work items (OMN-23184): the operator's list of everything that is stopped or red and needs help is
+    # where the fill looks first, behind only a broken lab piece
+    out.extend(item for item in board if isinstance(item, dict))
     for line in (
         lines
     ):  # a red landing branch next: every PR of its repository lands on it (OMN-20730)
@@ -339,7 +448,7 @@ def candidates(
             )
     for line in lines:
         m = _PROCESS_FIX.match(line)
-        if m:
+        if m and f"{m['repo']}#{m['n']}" not in {i["key"] for i in out}:
             out.append(
                 {
                     "kind": "process-fix",
@@ -409,6 +518,80 @@ def candidates(
     return [
         item for item in out if not item["repo"] or item["repo"] not in out_of_scope
     ]
+
+
+BOARD_KINDS = {
+    "pr": "board-pr",
+    "stopped": "board-stopped",
+    "shared_red": "board-shared-red",
+}
+
+
+def board_items(
+    document: Mapping[str, Any] | None,
+    *,
+    now: datetime,
+    max_age_s: int,
+    classes: Collection[str],
+) -> tuple[list[dict[str, Any]], str]:
+    """The fill's candidates from the board (OMN-23184): every unowned member of the work-list classes ``classes`` names, in
+    the board's own order (class, then oldest first), and a reason when the board could not be used.
+
+    An item owned by a live lane, a landing lease or a cause lease is not taken: someone is on it. A document older than
+    ``max_age_s``, or one with no work list, yields no items and says why; an unread board never reads as an empty one.
+    """
+    if document is None:
+        return [], "the board's floor document is unread"
+    worklist = document.get("worklist")
+    if worklist is None:
+        return [], "the board's floor document carries no work list"
+    try:
+        made = datetime.strptime(
+            str(document["generated_at"])
+            .replace("+00:00", "Z")
+            .split(".")[0]
+            .rstrip("Z"),
+            "%Y-%m-%dT%H:%M:%S",
+        )
+    except (KeyError, ValueError):
+        return [], "the board's floor document has no readable generated_at"
+    at = now.replace(tzinfo=None) if now.tzinfo else now
+    if (at - made).total_seconds() > max_age_s:
+        return (
+            [],
+            f"the board's floor document is {int((at - made).total_seconds())} s old (limit {max_age_s} s)",
+        )
+    out: list[dict[str, Any]] = []
+    for cls in worklist:
+        kind = BOARD_KINDS.get(str(cls.get("kind")))
+        if kind is None or str(cls.get("kind")) not in classes:
+            continue
+        for page in cls.get("pages") or ():
+            for item in page:
+                if item.get("owner_state") != "unowned":
+                    continue
+                key = str(item["key"])
+                repo = (
+                    key.partition("#")[0]
+                    if cls["kind"] == "pr"
+                    else key.partition(":")[0]
+                    if cls["kind"] == "shared_red"
+                    else ""
+                )
+                age = item.get("age_s")
+                how_old = f", open {age // 3600} h" if isinstance(age, int) else ""
+                row: dict[str, Any] = {
+                    "kind": kind,
+                    "key": key if cls["kind"] == "pr" else f"{kind}:{key}",
+                    "repo": repo,
+                    "name": _slug(key.replace("#", "-")),
+                    "fact": f"board {cls['kind']} {key}: {item.get('title', '')} | {item.get('detail', '')}{how_old}",
+                    "_verify": "stored" if cls["kind"] == "pr" else "",
+                }
+                if item.get("ticket"):
+                    row["ticket"] = str(item["ticket"])
+                out.append(row)
+    return out, ""
 
 
 _PR_REF = re.compile(r"(?<![\w.-])(?:[\w.-]+/)?(?P<repo>[A-Za-z0-9_.-]+)#(?P<n>\d+)\b")
@@ -629,6 +812,7 @@ def brief(
         f"# Lane {lane}: {item['kind']} {item['key']} ({ticket})\n"
         f"ROUTE: model={model} effort={EFFORT}\n"
         f"{engine}"
+        f"Opens PR in: {item['repo'] or 'none'}\n"
         f"Parent: {parent or 'orchestrator'}. Ticket: {ticket}. Repo: {item['repo'] or 'none'}.\n"
         f"{required}"
         f'Authority: {RULING}: "fill those 27 shots and get things fixed"; the throughput tick dispatched this lane '
@@ -667,6 +851,48 @@ def admitted_slots(host: Mapping[str, Any], engine: str, now: str) -> int:
 
 
 class HandlerIdleSlotFill:
+    def __init__(
+        self,
+        *,
+        engines: ModelEngineLadder | None = None,
+        stop_fsm: ModelFSMSubcontract | None = None,
+    ) -> None:
+        self._engines = engines
+        self._stop_fsm = stop_fsm
+
+    def _stop_gate_line(
+        self, request: ModelIdleSlotFillRequest, item: Mapping[str, Any], model: str
+    ) -> tuple[bool, str | None]:
+        """(whether a stop in an enforce class keeps this candidate off, the stop line to report).
+
+        The candidate falls under the engine scopes of the model chosen for it and, when it names one, its
+        repository. A process-fix lane is a lane that fixes an open PR: it claims that exemption on the PR its
+        key names, and the gate honours it only against the facts' watcher-bound bindings.
+        """
+        facts = request.stop_gate
+        if facts is None:
+            return False, None
+        if self._engines is None:
+            self._engines = load_engine_ladder()
+        if self._stop_fsm is None:
+            self._stop_fsm = load_andon_stop_contract()[0]
+        scopes = engine_stop_scopes(model, self._engines)
+        if item["repo"]:
+            scopes += (
+                ModelStopScope(kind=REPOSITORY_SCOPE_KIND, key=str(item["repo"])),
+            )
+        claim = (
+            ModelStopExemptionClaim(
+                kind=EnumStopExemptionKind.PR_FIX, ref=str(item["key"])
+            )
+            if item["kind"] == "process-fix"
+            else None
+        )
+        gate = gate_dispatch(facts, scopes, self._stop_fsm, exemption=claim)
+        if gate.outcome is EnumStopGateOutcome.REFUSE:
+            return True, gate.line
+        return False, gate.line if gate.stop_id is not None else None
+
     def handle(self, request: ModelIdleSlotFillRequest) -> ModelIdleSlotFillResult:
         free_hosts = {
             m["host"] for line in request.lines if (m := _HEADROOM.match(line))
@@ -733,11 +959,13 @@ class HandlerIdleSlotFill:
         skipped: list[dict[str, str]] = []
         dropped: list[dict[str, str]] = []
         backlog_mismatched = 0
+        stop_observed: list[dict[str, str]] = []
         item_context = {REPO_KINDS_CONTEXT_KEY: tuple(request.repo_required_kinds)}
         for item in candidates(
             request.lines,
             request.backlog,
             request.generated,
+            board=request.board,
         ):
             # OMN-21475 (T-S3, SM-00): an item that is not a backlog item, a prose engine above all, is
             # counted and skipped; the fill never picks an engine for it.
@@ -757,6 +985,9 @@ class HandlerIdleSlotFill:
                 continue
             if why := fixer_hold_reason(item, request.fixer_holds):
                 dropped.append({"key": item["key"], "why": why})
+                continue
+            if request.wip_refusal and (why := request.wip_refusal(item)):
+                skipped.append({"key": item["key"], "why": why})
                 continue
             if request.fixer_holds_unread and (
                 item["repo"] or item["kind"] != "lab-repair"
@@ -891,7 +1122,7 @@ class HandlerIdleSlotFill:
             pinned = required in (
                 "claude",
                 "sonnet",
-                "claude-sonnet",
+                EnumLaneEngine.CLAUDE_SONNET.value,
             ) or claude_required(item.get("brief", ""))
             if required == "codex":
                 if pinned:
@@ -970,6 +1201,12 @@ class HandlerIdleSlotFill:
             ):
                 skipped.append({"key": item["key"], "why": refusal})
                 continue
+            stopped, stop_line = self._stop_gate_line(request, item, model)
+            if stopped:
+                skipped.append({"key": item["key"], "why": f"stop-gate: {stop_line}"})
+                continue
+            if stop_line is not None:
+                stop_observed.append({"key": item["key"], "line": stop_line})
             if decision.engine == "claude":
                 claude_left -= 1
                 if pin:
@@ -1007,6 +1244,7 @@ class HandlerIdleSlotFill:
             glm_only,
             dropped,
             backlog_mismatched,
+            stop_observed,
         )
 
 
@@ -1390,8 +1628,16 @@ def _issue(issue: dict[str, Any]) -> dict[str, Any]:
         "project": project.get("name", "") if isinstance(project, dict) else project,
         "repo": issue.get("repo") or "",
         "pillar": issue.get("pillar"),
-        "description": str(issue.get("description") or issue.get("body") or ""),
+        "description": _snapshot_description(issue),
     }
+
+
+def _snapshot_description(issue: dict[str, Any]) -> str | None:
+    """The description the snapshot carries; None when it carries no such field (unread, not empty)."""
+    for key in ("description", "body"):
+        if key in issue and issue[key] is not None:
+            return str(issue[key])
+    return None
 
 
 def _closed(issue: dict[str, Any]) -> bool:
@@ -1741,11 +1987,96 @@ def ledger_tickets(
     return claimed, readbacks
 
 
-def omnimarket_ticket_rule() -> Callable[[dict[str, Any]], dict[str, Any]]:
-    """The ticket plan rule of this package (omnimarket#4384), called in process with the facts as a JSON-shaped mapping."""
+# Live criteria read for tickets the snapshot carried no description for (a typed request and result).
+_CRITERIA_QUERY = """
+query LabFillLiveCriteria($numbers: [Float!], $first: Int) {
+  issues(first: $first, filter: {team: {key: {eq: "OMN"}}, number: {in: $numbers}}) {
+    nodes {
+      identifier
+      description
+    }
+  }
+}
+"""
+
+
+def _criteria_nodes(answer: Mapping[str, object]) -> list[object]:
+    issues = answer.get("issues")
+    nodes = issues.get("nodes") if isinstance(issues, dict) else None
+    if not isinstance(nodes, list):
+        raise LabFillLiveReadError("Linear returned malformed nodes")
+    return nodes
+
+
+def read_live_descriptions(
+    tickets: Sequence[str], *, post: Post = linear_post
+) -> tuple[ModelLabFillLiveDescription, ...]:
+    """Read the description of each requested ticket Linear returns, in request order."""
+    if not tickets:
+        return ()
+    answer = post(
+        _CRITERIA_QUERY,
+        {
+            "numbers": [int(ticket.removeprefix("OMN-")) for ticket in tickets],
+            "first": len(tickets),
+        },
+    )
+    requested = set(tickets)
+    found: dict[str, str] = {}
+    for node in _criteria_nodes(answer):
+        if not isinstance(node, dict):
+            raise LabFillLiveReadError("Linear returned malformed ticket")
+        identifier = node.get("identifier")
+        description = node.get("description")
+        if not isinstance(identifier, str):
+            raise LabFillLiveReadError("Linear returned malformed identifier")
+        if description is not None and not isinstance(description, str):
+            raise LabFillLiveReadError("Linear returned malformed description")
+        # a ticket Linear holds with no description reads as empty: read, no criteria
+        if identifier in requested:
+            found[identifier] = description or ""
+    return tuple(
+        ModelLabFillLiveDescription(id=ticket, description=found[ticket])
+        for ticket in tickets
+        if ticket in found
+    )
+
+
+def read_criteria(
+    request: ModelLabFillCriteriaReadRequest, *, post: Post = linear_post
+) -> ModelLabFillCriteriaReadResult:
+    """Fail closed: an unreadable Linear leaves every requested ticket unread."""
+    try:
+        descriptions = read_live_descriptions(request.tickets, post=post)
+    except LabFillLiveReadError as exc:
+        return ModelLabFillCriteriaReadResult(error=str(exc)[:200])
+    return ModelLabFillCriteriaReadResult(descriptions=descriptions)
+
+
+def omnimarket_ticket_rule(
+    criteria_post: Post | None = None,
+) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    """The ticket plan rule of this package (omnimarket#4384), called in process with the facts as a JSON-shaped mapping.
+
+    Tickets the snapshot carried no description for are read live once; an unreadable Linear leaves them criteria-unread."""
+    post = linear_post if criteria_post is None else criteria_post
 
     def rule(facts: dict[str, Any]) -> dict[str, Any]:
-        plan = plan_ticket_backlog(ModelLabFillTicketFacts.model_validate(facts))
+        parsed = ModelLabFillTicketFacts.model_validate(facts)
+        plan = plan_ticket_backlog(parsed)
+        unread = tuple(
+            drop.id
+            for drop in plan.drops
+            if drop.reason is EnumLabFillTicketDrop.CRITERIA_UNREAD
+        )
+        if unread:
+            read = read_criteria(
+                ModelLabFillCriteriaReadRequest(tickets=unread), post=post
+            )
+            if read.descriptions:
+                plan = plan_ticket_backlog(
+                    parsed.model_copy(update={"live_descriptions": read.descriptions})
+                )
         return plan.model_dump(mode="json")
 
     return rule
@@ -2017,12 +2348,20 @@ class HandlerLabFill:
             request.window_hours,
         )
         watcher = request.request.get("watcher_state")
+        board, board_unread = read_board(request.now, os.environ)
         lanes = request.lanes_dir or remote_lane_dir()
         completed = completed_experiments(backlog, sent, now=request.now, lanes=lanes)
         completed.update(answered_items(backlog, sent, lanes=lanes))
         scope = request.out_of_scope
         scope_unread = scope if isinstance(scope, str) else ""
         holds, holds_unread = read_fixer_holds(request.now, os.environ)
+        wip_sources = request.sources or default_sources(request.now, os.environ)
+        wip_refusal, wip_finding = fill_wip_gate(
+            ledger_tickets=wip_sources.ledger_tickets if wip_sources else None,
+            watcher_state=watcher,
+            now=(_stamp(request.now) or datetime.min).replace(tzinfo=UTC),
+            environ=os.environ,
+        )
         decision = HandlerIdleSlotFill().handle(
             ModelIdleSlotFillRequest(
                 now=request.now,
@@ -2042,13 +2381,26 @@ class HandlerLabFill:
                 queue_reserved=request.queue_reserved,
                 standing_tickets=standing,
                 watcher_state=watcher,
+                board=board,
                 completed=completed,
                 fixer_holds=holds,
                 fixer_holds_unread=holds_unread,
                 repo_required_kinds=overlay.repo_required_kinds(),
+                wip_refusal=wip_refusal,
             )
         )
         found: list[tuple[str, str, str, str]] = list(recovery.found)
+        if board_unread:
+            found.append(
+                (
+                    "unknown",
+                    "lab-fill-board",
+                    f"the board's work list is unusable, so the fill draws on its other candidates: {board_unread}",
+                    "restore the floor publish (floor-simple.json) so the board's unowned work leads the fill",
+                )
+            )
+        if wip_finding:
+            found.append(wip_finding)
         if holds_unread:
             found.append(
                 (
@@ -2100,6 +2452,7 @@ class HandlerLabFill:
                         dispatched=sent,
                         window_hours=request.window_hours,
                         parent=request.parent,
+                        board=board,
                         generated=[*recovery.items, *generated],
                         out_of_scope=dict(scope) if isinstance(scope, Mapping) else {},
                         scope_unread=scope_unread,
@@ -2111,6 +2464,7 @@ class HandlerLabFill:
                         fixer_holds=holds,
                         fixer_holds_unread=holds_unread,
                         repo_required_kinds=overlay.repo_required_kinds(),
+                        wip_refusal=wip_refusal,
                     )
                 )
         if decision.dropped:

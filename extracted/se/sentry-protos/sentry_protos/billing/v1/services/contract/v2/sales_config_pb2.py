@@ -26,7 +26,7 @@ from sentry_protos.billing.v1.common.v1 import pricing_tier_pb2 as sentry__proto
 from sentry_protos.billing.v1.common.v1 import soft_cap_type_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_soft__cap__type__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n@sentry_protos/billing/v1/services/contract/v2/sales_config.proto\x12-sentry_protos.billing.v1.services.contract.v2\x1a\x35sentry_protos/billing/v1/common/v1/pricing_tier.proto\x1a\x36sentry_protos/billing/v1/common/v1/soft_cap_type.proto\"\xc6\x01\n\x14SalesLineItemPricing\x12\x15\n\rline_item_uid\x18\x01 \x01(\t\x12!\n\x14reserved_price_cents\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12M\n\tpayg_rate\x18\x03 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRateH\x01\x88\x01\x01\x42\x17\n\x15_reserved_price_centsB\x0c\n\n_payg_rate\"l\n\x14SalesLineItemSoftCap\x12\x15\n\rline_item_uid\x18\x01 \x01(\t\x12=\n\x04type\x18\x02 \x01(\x0e\x32/.sentry_protos.billing.v1.common.v1.SoftCapType\"\xbb\x01\n\x0bSalesConfig\x12T\n\x07pricing\x18\x01 \x03(\x0b\x32\x43.sentry_protos.billing.v1.services.contract.v2.SalesLineItemPricing\x12V\n\tsoft_caps\x18\x02 \x03(\x0b\x32\x43.sentry_protos.billing.v1.services.contract.v2.SalesLineItemSoftCapb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n@sentry_protos/billing/v1/services/contract/v2/sales_config.proto\x12-sentry_protos.billing.v1.services.contract.v2\x1a\x35sentry_protos/billing/v1/common/v1/pricing_tier.proto\x1a\x36sentry_protos/billing/v1/common/v1/soft_cap_type.proto\"\xab\x02\n\x14SalesLineItemPricing\x12\x15\n\rline_item_uid\x18\x01 \x01(\t\x12!\n\x14reserved_price_cents\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12M\n\tpayg_rate\x18\x03 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRateH\x01\x88\x01\x01\x12Q\n\rreserved_rate\x18\x04 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRateH\x02\x88\x01\x01\x42\x17\n\x15_reserved_price_centsB\x0c\n\n_payg_rateB\x10\n\x0e_reserved_rate\"l\n\x14SalesLineItemSoftCap\x12\x15\n\rline_item_uid\x18\x01 \x01(\t\x12=\n\x04type\x18\x02 \x01(\x0e\x32/.sentry_protos.billing.v1.common.v1.SoftCapType\"9\n\x13SalesFeaturePricing\x12\r\n\x05title\x18\x01 \x01(\t\x12\x13\n\x0bprice_cents\x18\x02 \x01(\x04\"\x98\x02\n\x0bSalesConfig\x12T\n\x07pricing\x18\x01 \x03(\x0b\x32\x43.sentry_protos.billing.v1.services.contract.v2.SalesLineItemPricing\x12V\n\tsoft_caps\x18\x02 \x03(\x0b\x32\x43.sentry_protos.billing.v1.services.contract.v2.SalesLineItemSoftCap\x12[\n\x0f\x66\x65\x61ture_pricing\x18\x03 \x03(\x0b\x32\x42.sentry_protos.billing.v1.services.contract.v2.SalesFeaturePricingb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,9 +34,11 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_SALESLINEITEMPRICING']._serialized_start=227
-  _globals['_SALESLINEITEMPRICING']._serialized_end=425
-  _globals['_SALESLINEITEMSOFTCAP']._serialized_start=427
-  _globals['_SALESLINEITEMSOFTCAP']._serialized_end=535
-  _globals['_SALESCONFIG']._serialized_start=538
-  _globals['_SALESCONFIG']._serialized_end=725
+  _globals['_SALESLINEITEMPRICING']._serialized_end=526
+  _globals['_SALESLINEITEMSOFTCAP']._serialized_start=528
+  _globals['_SALESLINEITEMSOFTCAP']._serialized_end=636
+  _globals['_SALESFEATUREPRICING']._serialized_start=638
+  _globals['_SALESFEATUREPRICING']._serialized_end=695
+  _globals['_SALESCONFIG']._serialized_start=698
+  _globals['_SALESCONFIG']._serialized_end=978
 # @@protoc_insertion_point(module_scope)

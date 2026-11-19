@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, f
 from zarr import AsyncArray, AsyncGroup
 from zarr.abc.metadata import Metadata
 
-from arraylake.types import datetime_to_isoformat
+from arraylake.types import OpenEnum, datetime_to_isoformat
 
 CommitId = NewType("CommitId", str)
 TagName = NewType("TagName", str)
@@ -218,7 +218,7 @@ class ClassifiedArray(BaseModel):
     shard_shape: list[int | list[int]] | None = None  # Outer shard shape; None for unsharded arrays
     fill_value: Any = None
     codecs: list[dict[str, Any]] = []  # List of codec configurations
-    classification: ArrayClassification
+    classification: OpenEnum[ArrayClassification]
     preview: ArrayPreview | None = None  # Only populated for coordinates
     nbytes: int | None = None  # Total bytes consumed by array elements (uncompressed); None for variable-length dtypes
     chunk_nbytes: int | None = None  # Bytes per chunk (uncompressed); None for variable-length dtypes

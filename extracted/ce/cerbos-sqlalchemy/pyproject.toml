@@ -17,7 +17,7 @@ classifiers = [
 ]
 readme = "README.md"
 dynamic = []
-version = "0.6.1"
+version = "0.6.2"
 
 [project.license]
 text = "Apache-2.0"
@@ -39,6 +39,11 @@ build-backend = "pdm.backend"
 
 [tool.pdm.version]
 source = "scm"
+
+[tool.pdm.build]
+excludes = [
+    "tests",
+]
 
 [tool.pdm.dev-dependencies]
 test = [

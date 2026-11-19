@@ -56,6 +56,7 @@ SuccessfulSigningJobWaiterName = Literal["successful_signing_job"]
 ValidityTypeType = Literal["DAYS", "MONTHS", "YEARS"]
 SignerServiceName = Literal["signer"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

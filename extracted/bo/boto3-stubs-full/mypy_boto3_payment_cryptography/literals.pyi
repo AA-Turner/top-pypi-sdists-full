@@ -162,6 +162,7 @@ WrappedKeyMaterialFormatType = Literal["KEY_CRYPTOGRAM", "TR31_KEY_BLOCK", "TR34
 WrappingKeySpecType = Literal["RSA_OAEP_SHA_256", "RSA_OAEP_SHA_512"]
 PaymentCryptographyControlPlaneServiceName = Literal["payment-cryptography"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

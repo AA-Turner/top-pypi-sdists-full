@@ -455,6 +455,7 @@ UlimitNameType = Literal[
 VersionConsistencyType = Literal["disabled", "enabled"]
 ECSServiceName = Literal["ecs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

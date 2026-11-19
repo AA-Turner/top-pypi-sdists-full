@@ -21,11 +21,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from omnimarket.models.model_projection_request import ModelProjectionRequest
+from omnimarket.nodes.node_projection_runner_fleet.handlers.fleet_state_file import (
+    save_observation,
+    state_file_path,
+)
 from omnimarket.nodes.node_projection_runner_fleet.handlers.handler_projection_runner_fleet import (
     HandlerProjectionRunnerFleet,
 )
@@ -36,7 +42,10 @@ from omnimarket.nodes.node_projection_runner_fleet.models import (
 )
 from omnimarket.projection.discovery import load_projection_exposures_from_contract
 from omnimarket.projection.models import ProjectionTableConfig
-from omnimarket.projection.runner import BaseProjectionRunner, MessageMeta
+from omnimarket.projection.runner import (
+    BaseProjectionRunner,
+    MessageMeta,
+)
 
 TABLE_FLEET = "omninode_internal.runner_fleet_liveness"
 
@@ -177,17 +186,12 @@ class FleetLivenessProjectionWriter(BaseProjectionRunner):
     def topics(self) -> list[str]:
         return self.subscribe_topics
 
-    def handle(self, input_data: dict[str, Any]) -> dict[str, Any]:
+    def project_request(self, request: ModelProjectionRequest) -> dict[str, Any]:
         """RuntimeLocal handler protocol shim: one message, one loop, one pool."""
         topics = self.subscribe_topics
-        topic = str(input_data.pop("_topic", topics[0] if topics else ""))
-        meta = MessageMeta(
-            partition=int(input_data.pop("_partition", 0)),
-            offset=int(input_data.pop("_offset", 0)),
-            fallback_id=str(input_data.pop("_fallback_id", "")),
-            topic=topic,
-        )
-        return asyncio.run(self._project_one_message(topic, input_data, meta))
+        topic = request.topic_or(topics[0] if topics else "")
+        meta = request.message_meta(topic)
+        return asyncio.run(self._project_one_message(topic, request.payload, meta))
 
     async def _project_one_message(
         self, topic: str, data: dict[str, Any], meta: MessageMeta
@@ -210,13 +214,31 @@ class FleetLivenessProjectionWriter(BaseProjectionRunner):
             "rows_tombstoned": len(tombstoned),
             "runner_rows": written,
             "tombstoned_runner_names": tombstoned,
+            "state_file": self._save_state_file(data),
         }
+
+    def _save_state_file(self, data: dict[str, Any]) -> str:
+        """Save the observation for the factory floor; says why when it did not, never raises over the projection.
+
+        The projection above has already been written, so a file that cannot be written must not fail the message (a
+        redelivery would only be refused by the stale-write guard). The outcome is in the applied event's payload.
+        """
+        path = state_file_path(self._contract, os.environ)
+        if path is None:
+            return f"skipped: {self._contract['state_file']['dir_env']} is not set"
+        try:
+            return save_observation(
+                ModelRunnerFleetObservationWire.model_validate(data), path
+            )
+        except OSError as exc:
+            return f"failed: {type(exc).__name__}: {str(exc)[:160]}"
 
     async def project_event(
         self, topic: str, data: dict[str, Any], meta: MessageMeta
     ) -> bool:
         """Standalone-runner entrypoint: project one message, report success."""
         await self._project_observation(data, meta)
+        self._save_state_file(data)
         return True
 
     async def _project_observation(

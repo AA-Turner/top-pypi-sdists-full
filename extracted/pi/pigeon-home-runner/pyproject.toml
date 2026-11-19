@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pigeon-home-runner"
-version = "3.17.29.5"
+version = "3.17.30.17"
 description = "Self-hosted, email-driven agent: tell your cloud SI to send signed jobs via email that execute on your machine."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -291,6 +291,7 @@ pytest_add_cli_args_test_selection = [
     "runner/tests/test_negative_oracle_and_extensions.py",
     "runner/tests/test_noniterable_queries_and_concurrency.py",
     "runner/tests/test_notable_access.py",
+    "runner/tests/test_opener_cost.py",
     "runner/tests/test_oracle.py",
     "runner/tests/test_oracle_ab.py",
     "runner/tests/test_oracle_agent_stall.py",
@@ -453,6 +454,10 @@ pytest_add_cli_args_test_selection = [
     "runner/tests/test_v2_replay.py",
     "runner/tests/test_v31_verify.py",
     "runner/tests/test_v4_binding.py",
+    "runner/tests/test_v4_bindings.py",
+    "runner/tests/test_v4_draft.py",
+    "runner/tests/test_v4_general.py",
+    "runner/tests/test_v4_models.py",
     "runner/tests/test_version.py",
     "runner/tests/test_version4.py",
     "runner/tests/test_watchers.py",

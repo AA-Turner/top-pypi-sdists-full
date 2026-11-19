@@ -557,6 +557,7 @@ WaypointOptimizationTravelModeType = Literal["Car", "Pedestrian", "Scooter", "Tr
 WaypointOptimizationTruckTypeType = Literal["StraightTruck", "Tractor"]
 LocationServiceRoutesV2ServiceName = Literal["geo-routes"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

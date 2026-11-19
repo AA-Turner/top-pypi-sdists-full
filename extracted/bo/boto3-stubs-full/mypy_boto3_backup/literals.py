@@ -243,6 +243,7 @@ VaultTypeType = Literal[
 ]
 BackupServiceName = Literal["backup"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

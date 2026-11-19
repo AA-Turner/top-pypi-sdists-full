@@ -130,6 +130,7 @@ TargetTypeType = Literal["ACCOUNT"]
 WorkloadInsightsMetricType = Literal["DATA_TRANSFERRED", "RETRANSMISSIONS", "TIMEOUTS"]
 NetworkFlowMonitorServiceName = Literal["networkflowmonitor"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

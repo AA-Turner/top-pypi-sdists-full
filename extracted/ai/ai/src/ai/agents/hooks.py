@@ -27,13 +27,12 @@ from typing import TYPE_CHECKING, Any
 
 import pydantic
 
-from .. import experimental_telemetry as telemetry
-from .. import types
+from .. import telemetry, types
 from ..types import messages as messages_
 from . import runtime as runtime_
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
 
 
 class HookRegistry:
@@ -141,6 +140,15 @@ class HookDeferredException(Exception):  # noqa: N818
         super().__init__(hook.hook_id)
         self.hook = hook
 
+    def __reduce__(
+        self,
+    ) -> tuple[
+        Callable[..., HookDeferredException],
+        tuple[messages_.HookPart[Any]],
+        dict[str, Any],
+    ]:
+        return type(self), (self.hook,), self.__dict__
+
 
 def _label(target: str | messages_.HookPart[Any]) -> str:
     """Normalize a hook label or a HookPart down to its label string."""
@@ -162,8 +170,8 @@ async def hook[T: pydantic.BaseModel](
             whose ``hook_id`` supplies it.
         payload: Pydantic model class — the resolution data must validate
             against this type.  The return value is a validated instance.
-        metadata: Arbitrary metadata surfaced in the deferred signal message
-            and checkpoint.  Useful for UI rendering (e.g. which tool needs
+        metadata: Arbitrary metadata included in the HookPart emitted in
+            hook events.  Useful for UI rendering (e.g. which tool needs
             approval, what arguments it received).
         tool_call_id: The tool call this hook suspends, if any.  Stamped
             onto the emitted :class:`~ai.messages.HookPart` so consumers

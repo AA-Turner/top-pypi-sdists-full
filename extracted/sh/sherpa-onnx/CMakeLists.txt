@@ -12,6 +12,13 @@ if(POLICY CMP0169)
   set(CMAKE_POLICY_DEFAULT_CMP0169 OLD)
 endif()
 
+# Keep honoring CMAKE_WARN_DEPRECATED, which the vendored dependencies use
+# to silence deprecation warnings (see cmake/kaldi-native-fbank.cmake).
+if(POLICY CMP0218)
+  cmake_policy(SET CMP0218 OLD)
+  set(CMAKE_POLICY_DEFAULT_CMP0218 OLD)
+endif()
+
 if(POLICY CMP0177)
   cmake_policy(SET CMP0177 NEW)
 endif()
@@ -28,7 +35,7 @@ project(sherpa-onnx)
 # Remember to update
 # ./CHANGELOG.md
 # ./new-release.sh
-set(SHERPA_ONNX_VERSION "2.0.1")
+set(SHERPA_ONNX_VERSION "2.0.2")
 
 # Disable warning about
 #
@@ -60,6 +67,7 @@ option(SHERPA_ONNX_LINK_D3D "Whether static ONNX runtime lib with DML" OFF)
 option(SHERPA_ONNX_ENABLE_WASM "Whether to enable WASM" OFF)
 option(SHERPA_ONNX_ENABLE_WASM_SPEAKER_DIARIZATION "Whether to enable WASM for speaker diarization" OFF)
 option(SHERPA_ONNX_ENABLE_WASM_TTS "Whether to enable WASM for TTS" OFF)
+option(SHERPA_ONNX_ENABLE_WASM_FA "Whether to enable WASM for forced alignment" OFF)
 option(SHERPA_ONNX_ENABLE_WASM_ASR "Whether to enable WASM for ASR" OFF)
 option(SHERPA_ONNX_ENABLE_WASM_KWS "Whether to enable WASM for KWS" OFF)
 option(SHERPA_ONNX_ENABLE_WASM_VAD "Whether to enable WASM for VAD" OFF)
@@ -542,8 +550,13 @@ if(SHERPA_ONNX_ENABLE_PYTHON)
 endif()
 
 include(kaldi-native-fbank)
+include(kaldi-native-io)
+include(kissfft)
+include(openfst)
 include(utf8proc)
+include(kaldifst)
 include(kaldi-decoder)
+include(kaldi-hmm-gmm)
 include(onnxruntime)
 include(simple-sentencepiece)
 set(ONNXRUNTIME_DIR ${onnxruntime_SOURCE_DIR})

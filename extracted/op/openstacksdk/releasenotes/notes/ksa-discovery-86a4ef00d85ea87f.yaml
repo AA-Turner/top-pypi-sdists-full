@@ -1,5 +1,0 @@
----
-other:
-  - |
-    All endpoint discovery logic is now handled by keystoneauth. There should
-    be no behavior differences.

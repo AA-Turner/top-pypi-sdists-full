@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: developer_disk_image
-Version: 0.3.0
+Version: 0.3.1
 Summary: Download DeveloperDiskImage ans Personalized images from GitHub
 Author-email: doronz88 <doron88@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/doronz88/DeveloperDiskImage
 Project-URL: Bug Reports, https://github.com/doronz88/DeveloperDiskImage/issues
 Keywords: ios,DeveloperDiskImage
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -18,9 +18,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: requests
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
 
 [![Pypi version](https://img.shields.io/pypi/v/developer_disk_image.svg)](https://pypi.org/project/developer_disk_image/ "PyPi package")
 
@@ -49,8 +51,21 @@ image inside: `~/Library/Developer/DeveloperDiskImages`.
 | Directory | Consumed by |
 |---|---|
 | `DeveloperDiskImages/<version>/` | iOS < 17.0 |
-| `PersonalizedImages/Xcode_iOS_DDI_Personalized/` | the image mounter (`mounter auto-mount`) |
-| `PersonalizedImages/Xcode_iOS_DDI_Cryptex/` | `cryptexd` (`cryptex auto-install`) |
+| `PersonalizedImages/Xcode_iOS_DDI_Personalized/` | the image mounter (`mounter auto-mount` on iOS 17.0 - 17.3.1 without an RSD tunnel, and released pymobiledevice3 versions) |
+| `PersonalizedImages/Xcode_iOS_DDI_Cryptex/` | `cryptexd` (`mounter auto-mount` from iOS 17.4 or over an RSD tunnel, and `cryptex auto-install`) |
+
+**Newer devices, such as the iPhone 18 series, can only use the Cryptex variant.** Every
+`PersonalizedDMG` build identity is tied to an `ApChipID`/`ApBoardID` pair, so it only covers the
+devices listed in the DDI's build manifest -- even Xcode 27.1's DDI stops at `iPhone18,5`. A device
+outside that list has no identity to request a ticket for (pymobiledevice3 reports
+`NoSuchBuildIdentityError`). The Cryptex1 identity names no device at all
+(`Cryptex1,UseProductClass`, no chip or board), so the manifest doesn't limit which devices it can
+be personalized for; Apple's signing server decides, as it does for Xcode.
+
+This is why pymobiledevice3's `mounter auto-mount` installs the Cryptex variant through `cryptexd`
+from iOS 17.4, setting up the RSD tunnel it needs by itself. The Personalized variant is kept for
+backward compatibility: released pymobiledevice3 versions fetch exactly its paths, and iOS 17.0 -
+17.3.1 without a tunnel still mounts it.
 
 Every payload is published under a fixed file name, so download URLs stay predictable across
 releases:
@@ -132,3 +147,31 @@ restore.mkdir(parents=True, exist_ok=True)
 for field, name in CRYPTEX_IMAGE_PAYLOADS.items():
     (restore / name).write_bytes(getattr(cryptex_disk_image, field))
 ```
+
+# License
+
+The Python package and the scripts in this repository are released under the
+[MIT License](LICENSE).
+
+That license covers only this repository's own code. It does not cover, and grants no rights
+in, the disk images and their accompanying files under `DeveloperDiskImages/` and
+`PersonalizedImages/`: those are Apple's, see the legal notice below. They are not part of the
+Python package, which only downloads them on request.
+
+# Legal notice
+
+This repository is not affiliated with or endorsed by Apple Inc. Apple, iOS and Xcode are
+trademarks of Apple Inc.
+
+The disk images and their accompanying files are Apple's property, as shipped with Xcode.
+They are mirrored here solely for interoperability, mainly for Linux and Windows, where Xcode is
+not available: so developers there can use the developer services of their own devices.
+
+- The files are unmodified, except for the `Info.Path` key of the published
+  `BuildManifest.plist`, rewritten to match this repository's fixed file names.
+- Nothing here bypasses Apple's protections: on iOS 17 and later, every image still requires a
+  per-device signature issued by Apple's signing server before a device will mount it.
+- No fee is charged and nothing here is sold.
+
+**Rights holders:** to request removal, please open an issue or contact the
+[maintainer](https://github.com/doronz88). Valid requests will be honored promptly.

@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -27,7 +28,7 @@ use crate::types::Type;
 /// Any module that does not start with a prefix of the `path` is no longer accessible,
 /// but we keep them around (under an `Arc`) since it's more efficient not to recreate
 /// the `SmallMap` on each access.
-#[derive(Debug, Clone, TypeEq, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, TypeEq, TypeOrd, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ModuleType {
     parts: Box<[Name]>,
     /// Use an OrderedMap so we have a table Hash/Ord instance.
@@ -105,10 +106,15 @@ impl ModuleType {
         self.modules = Arc::new(modules);
     }
 
-    pub fn is_submodules_imported_directly(&self) -> bool {
-        let prefix = self.parts();
+    /// Directly imported modules accessible beneath this module value's current path.
+    pub fn imported_modules(&self) -> impl Iterator<Item = ModuleName> + '_ {
         self.modules
             .iter()
-            .any(|name| name.components().starts_with(prefix))
+            .copied()
+            .filter(|name| name.components().starts_with(self.parts()))
+    }
+
+    pub fn is_submodules_imported_directly(&self) -> bool {
+        self.imported_modules().next().is_some()
     }
 }

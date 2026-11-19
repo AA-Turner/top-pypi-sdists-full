@@ -107,7 +107,13 @@ def apply_broker(broker: FakeBroker, monkeypatch: pytest.MonkeyPatch) -> FakeBro
 
 def _grant_file(tmp_path: Path, grants: list[dict[str, object]]) -> Path:
     doc = yaml.safe_load(GRANTS.read_text())
+    shutil.copy(
+        GRANTS.parent / doc["machine_grants_from"],
+        tmp_path / doc["machine_grants_from"],
+    )
     del doc["grants_from"]
+    del doc["principal_grants_from"]
+    del doc["read_only_withholds"]
     doc["grants"] = grants
     path = tmp_path / "grants.yaml"
     path.write_text(yaml.safe_dump(doc))
@@ -139,8 +145,17 @@ def test_the_issuer_takes_its_grants_from_the_derived_file_not_the_policy_file()
         for r in derived
     }
     templated = [g for g in declaration.grants if g.templated]
+    # The ledger writer topic is written by its principal; the compaction replies are
+    # read by theirs (OMN-22103). A topic the principal owns is created for it either way,
+    # since the broker does not auto-create topics.
     assert [(g.name, g.create_topic) for g in templated] == [
-        ("onex.cmd.omnimarket.work-ledger-append-from-{principal}.v1", True)
+        (
+            "onex.cmd.omniintelligence.context-compaction-package-for-{principal}.v1",
+            True,
+        ),
+        ("onex.cmd.omnimarket.work-ledger-append-from-{principal}.v1", True),
+        ("onex.evt.omnimarket.context-compaction-fallback-for-{principal}.v1", True),
+        ("onex.evt.omnimarket.context-compaction-prepared-for-{principal}.v1", True),
     ]
     assert declaration.digest != hashlib.sha256(GRANTS.read_bytes()).hexdigest()
 
@@ -236,16 +251,49 @@ def test_only_the_commands_and_the_delegate_terminals_are_writable(
     # start command only: the lab runtime writes the two result topics. The morning
     # ground-state run (OMN-20673) adds write on its start command, its two terminals (as
     # for the delegate terminals) and the delegation request.
+    # The morning friction sweep caller (OMN-21400) adds write on its start command only: the
+    # lab runtime writes the two terminals.
     # The DoD closeout proof (OMN-21048) adds write on the decide command only.
+    # The work-ledger query path (OMN-21339) adds write on the query request only:
+    # the lab runtime writes the completed terminal.
     # The laptop lane mirror (OMN-19983) adds write on the delegation topic set it
     # republishes onto the lab lane, which reads none of them.
     # The Claude Code hook edge (OMN-17427) adds write on the 29 `onex.evt.omniclaude.*`
     # hook topics the operator's hook principal holds, and on no command topic.
+    # The compaction receipt-mode client (OMN-21099) adds write on its request topic only.
+    # The machine profile (OMN-21622) adds write on the twelve work-ledger row events the
+    # hook-emit drainer publishes and on credential registration, and on no command topic.
+    # The landing decision chain (OMN-23395) adds write on the decision node's command topic and
+    # its success terminal, which the chain tests serve themselves; the failure terminal is
+    # granted too (OMN-23459), so the principal may publish the node's decision or error.
+    # The lane ticket mint (OMN-23410) adds write on the ticket node's command topic only; the
+    # principal cannot write either terminal.
+    # The floor projection snapshots (OMN-23402) add write on the two snapshot topics the
+    # owner map publisher and the overlay store fleet reader publish.
+    # The floor task ticket mint (OMN-23471) adds write on the ticket node's command topic
+    # only; the principal cannot write its completed terminal.
+    # The landing snapshot record (OMN-23458) adds write on the record topic the snapshot step
+    # publishes and on its failure terminal, which no test process consumes; the principal
+    # holds no read on the failure terminal.
     writable = [g for g in declaration.grants if "write" in g.operations]
     hook_edge = {g.name for g in writable if g.name.startswith("onex.evt.omniclaude.")}
     assert len(hook_edge) == 29
     assert "onex.evt.omniclaude.hook-event.v1" in hook_edge
-    assert {g.name for g in writable} - hook_edge == {
+    machine = {
+        g.name
+        for g in writable
+        if g.name.startswith("onex.evt.omnimarket.work-ledger-")
+        or g.name == "onex.evt.omnimarket.credential-registered.v1"
+    }
+    assert machine == set()
+    machine_grants = declaration.machine_grants
+    assert len(machine_grants) == 13
+    assert all(g.operations == ("describe", "write") for g in machine_grants)
+    assert not {g.name for g in machine_grants} & {g.name for g in writable}
+    assert all(
+        g.operations == ("describe", "write") for g in writable if g.name in machine
+    )
+    assert {g.name for g in writable} - hook_edge - machine == {
         "onex.cmd.omnimarket.delegate-skill.v1",
         "onex.evt.omnimarket.delegate-skill-completed.v1",
         "onex.evt.omnimarket.delegate-skill-failed.v1",
@@ -255,13 +303,27 @@ def test_only_the_commands_and_the_delegate_terminals_are_writable(
         "onex.cmd.omnimemory.expire-memory.v1",
         "onex.cmd.omnimarket.pr-polish-start.v1",
         "onex.cmd.omnimarket.morning-ground-state-start.v1",
+        "onex.cmd.omnibase-internal.morning-friction-sweep.v1",
         "onex.evt.omnimarket.morning-ground-state-completed.v1",
         "onex.evt.omnimarket.morning-ground-state-failed.v1",
         "onex.cmd.omnibase-infra.delegation-request.v1",
         "onex.cmd.omnimarket.dod-closeout-sweep-decide-requested.v1",
+        "onex.cmd.omnimarket.work-ledger-query-requested.v1",
         "onex.evt.omnibase-infra.delegation-completed.v1",
         "onex.evt.omnibase-infra.delegation-failed.v1",
         "onex.evt.omniintelligence.llm-call-completed.v1",
+        "onex.cmd.omniintelligence.context-compaction-requested.v1",
+        "onex.cmd.omnimarket.pr-landing-decision-requested.v1",
+        "onex.evt.omnimarket.pr-landing-decision-completed.v1",
+        "onex.evt.omnimarket.pr-landing-decision-failed.v1",
+        "onex.cmd.omnimarket.linear-ticket-write-requested.v1",
+        "onex.cmd.omnimarket.floor-task-ticket-mint-requested.v1",
+        "onex.snapshot.projection.floor-owner-map.v1",
+        "onex.snapshot.projection.floor-overlay-store-fleet.v1",
+        "onex.evt.omnimarket.pr-landing-tick-facts-recorded.v1",
+        "onex.evt.omnimarket.pr-landing-snapshot-failed.v1",
+        "onex.evt.omnimarket.pr-landing-tick-compared.v1",
+        "onex.evt.omnimarket.pr-landing-tick-compare-failed.v1",
     }
     assert all(g.resource == "topic" and g.pattern == "literal" for g in writable)
 
@@ -508,7 +570,13 @@ def test_a_login_outside_the_allowed_domains_is_refused(
 ) -> None:
     doc = yaml.safe_load(GRANTS.read_text())
     doc["allowed_login_domains"] = ["omninode.ai"]
+    shutil.copy(
+        GRANTS.parent / doc["machine_grants_from"],
+        tmp_path / doc["machine_grants_from"],
+    )
     shutil.copy(DERIVED, tmp_path / DERIVED.name)
+    for source in doc["principal_grants_from"].values():
+        shutil.copy(GRANTS.parent / source, tmp_path / source)
     path = tmp_path / "grants.yaml"
     path.write_text(yaml.safe_dump(doc))
     issuer = lpi.Issuer(lpi.load_declaration(path), broker, lpi.Ledger(ledger_path))
@@ -534,8 +602,11 @@ def test_issuance_creates_the_user_applies_every_declared_grant_and_records_it(
         declaration.grants
     )
     assert broker.topic_calls == [
-        f"onex.cmd.omnimarket.work-ledger-append-from-{principal}.v1"
+        g.for_principal(principal).name for g in declaration.grants if g.create_topic
     ]
+    assert f"onex.cmd.omnimarket.work-ledger-append-from-{principal}.v1" in (
+        broker.topic_calls
+    )
     assert broker.acl_argvs == [
         [principal, g.resource, g.name, g.pattern, *g.operations]
         for declared in declaration.grants
@@ -732,8 +803,10 @@ def test_apply_grants_updates_every_issued_principal_in_the_lane(
         for principal in expected
     ]
     assert apply_broker.topic_calls == [
-        f"onex.cmd.omnimarket.work-ledger-append-from-{principal}.v1"
+        g.for_principal(principal).name
         for principal in expected
+        for g in declaration.grants
+        if g.create_topic
     ]
     assert apply_broker.acl_argvs == [
         [principal, g.resource, g.name, g.pattern, *g.operations]
@@ -1706,3 +1779,317 @@ def test_audit_refuses_a_listing_row_with_an_error(
     assert "missing=0 extra=0" not in captured.out
     assert not ledger_path.exists()
     assert broker.acl_argvs == [] and broker.set_calls == []
+
+
+# OPERATOR-CONSENT 2026-10-25T02:09:09Z, rolling ledger line 3204: h105 only, terminal
+# reads. OPERATOR-CONSENT 2026-10-25T23:01:04Z adds WRITE on the one command topic.
+H105 = "dev-jonah-omnibook"
+H105_DERIVED = GRANTS.parent / "h105-scm-pr-create-derived-grants.json"
+SCM_WRITE_TERMINALS = (
+    "onex.evt.omnimarket.github-repo-write-completed.v1",
+    "onex.evt.omnimarket.github-repo-write-failed.v1",
+)
+SCM_WRITE_REQUESTED = "onex.cmd.omnimarket.github-repo-write-requested.v1"
+SCM_TOPICS = (*SCM_WRITE_TERMINALS, SCM_WRITE_REQUESTED)
+
+
+def test_h105_scm_pr_create_adds_exactly_the_consented_grants(
+    declaration: lpi.Declaration,
+) -> None:
+    shared = frozenset(
+        lpi.AclRow(g.resource, g.name, g.pattern, operation)
+        for declared in declaration.grants
+        for g in [declared.for_principal(H105)]
+        for operation in g.operations
+    )
+    actual = lpi.expected_acl_rows(declaration, H105)
+    assert actual - shared == {
+        lpi.AclRow("topic", topic, "literal", operation)
+        for topic in SCM_WRITE_TERMINALS
+        for operation in ("read", "describe")
+    } | {
+        lpi.AclRow("topic", SCM_WRITE_REQUESTED, "literal", operation)
+        for operation in ("write", "describe")
+    }
+    assert shared - actual == set()
+    prefix = "local.omnimarket.scm_command_client.consume.v1."
+    assert {row for row in actual if row.name == prefix} == {
+        lpi.AclRow("group", prefix, "prefixed", operation)
+        for operation in ("read", "describe")
+    }
+    assert not any(
+        row.resource == "group" and row.operation == "read"
+        for row in actual
+        if "node_github_repo_write_effect" in row.name
+    )
+
+
+@pytest.mark.parametrize(
+    "principal",
+    [
+        "dev-fixture-laptop",
+        "dev-fixture-desktop",
+        H105 + "-other",
+        "dev-other-omnibook",
+    ],
+)
+def test_h105_scm_pr_create_does_not_grant_another_principal(
+    declaration: lpi.Declaration, principal: str
+) -> None:
+    assert declaration.grants_for(principal) == declaration.grants
+    assert not any(
+        row.name in SCM_TOPICS for row in lpi.expected_acl_rows(declaration, principal)
+    )
+
+
+def test_h105_apply_and_audit_use_the_scoped_grants_without_rotating(
+    declaration: lpi.Declaration, apply_broker: FakeBroker, ledger_path: Path
+) -> None:
+    apply_broker.users[H105] = "existing-fixture"
+    args = ["--grants", str(GRANTS), "--ledger", str(ledger_path), "--principal", H105]
+    assert lpi.main(["apply-grants", *args]) == 0
+    assert apply_broker.set_calls == []
+    assert apply_broker.users == {H105: "existing-fixture"}
+    applied = frozenset(
+        lpi.AclRow(resource, name, pattern, operation)
+        for principal, resource, name, pattern, *operations in apply_broker.acl_argvs
+        for operation in operations
+        if principal == H105
+    )
+    assert applied == lpi.expected_acl_rows(declaration, H105)
+    assert {row.name for row in applied if row.name in SCM_TOPICS} == set(SCM_TOPICS)
+    assert lpi.audit_acl_rows(declaration, H105, applied) == ((), ())
+    without = frozenset(row for row in applied if row.name not in SCM_TOPICS)
+    missing, extra = lpi.audit_acl_rows(declaration, H105, without)
+    assert frozenset(missing) == applied - without
+    assert len(missing) == 6
+    assert not extra
+
+
+def test_h105_scoped_only_apply_writes_exactly_the_principal_additions(
+    declaration: lpi.Declaration, apply_broker: FakeBroker, ledger_path: Path
+) -> None:
+    apply_broker.users[H105] = "existing-fixture"
+    args = ["--grants", str(GRANTS), "--ledger", str(ledger_path), "--principal", H105]
+    assert lpi.main(["apply-grants", "--scoped-only", *args]) == 0
+    assert apply_broker.set_calls == []
+    applied = frozenset(
+        lpi.AclRow(resource, name, pattern, operation)
+        for principal, resource, name, pattern, *operations in apply_broker.acl_argvs
+        for operation in operations
+        if principal == H105
+    )
+    assert applied == frozenset(
+        lpi.AclRow(g.resource, g.name, g.pattern, operation)
+        for g in declaration.scoped_grants_for(H105)
+        for operation in g.operations
+    )
+    assert lpi.AclRow("topic", SCM_WRITE_REQUESTED, "literal", "write") in applied
+    assert not any(row.name == "*" for row in applied)
+    assert len(applied) < len(lpi.expected_acl_rows(declaration, H105))
+
+
+def test_h105_scoped_only_apply_refuses_a_principal_without_additions(
+    apply_broker: FakeBroker, ledger_path: Path
+) -> None:
+    other = "dev-fixture-laptop"
+    apply_broker.users[other] = "existing-fixture"
+    args = ["--grants", str(GRANTS), "--ledger", str(ledger_path), "--principal", other]
+    assert lpi.main(["apply-grants", "--scoped-only", *args]) == 2
+    assert apply_broker.acl_argvs == []
+
+
+def _h105_policy_copy(tmp_path: Path) -> tuple[Path, dict[str, object]]:
+    doc = yaml.safe_load(GRANTS.read_text())
+    for source in [
+        doc["grants_from"],
+        doc["machine_grants_from"],
+        *doc["principal_grants_from"].values(),
+    ]:
+        shutil.copy(GRANTS.parent / source, tmp_path / source)
+    path = tmp_path / GRANTS.name
+    path.write_text(yaml.safe_dump(doc))
+    return path, doc
+
+
+def test_h105_scoped_grants_are_dev_only(tmp_path: Path) -> None:
+    path, doc = _h105_policy_copy(tmp_path)
+    doc["lane"] = "prod"
+    # Make the shared fixture valid for prod so the scoped-policy guard is exercised.
+    shared = tmp_path / DERIVED.name
+    derived = json.loads(shared.read_text())
+    for row in derived["grants"]:
+        row["broker"] = "prod"
+    shared.write_text(json.dumps(derived))
+    path.write_text(yaml.safe_dump(doc))
+    with pytest.raises(lpi.DeclarationError, match="dev-only"):
+        lpi.load_declaration(path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "refusal"),
+    [
+        ("principal", "dev-other-machine", "derived principal"),
+        ("broker", "prod", "not lane dev"),
+        ("operation", "WRITE", "concrete reads"),
+    ],
+)
+def test_h105_scoped_source_cannot_change_owner_lane_or_add_writes(
+    tmp_path: Path, field: str, value: str, refusal: str
+) -> None:
+    path, _ = _h105_policy_copy(tmp_path)
+    source = tmp_path / H105_DERIVED.name
+    doc = json.loads(source.read_text())
+    if field == "principal":
+        doc[field] = value
+    else:
+        doc["grants"][-1][field] = value
+    source.write_text(json.dumps(doc))
+    with pytest.raises(lpi.DeclarationError, match=refusal):
+        lpi.load_declaration(path)
+
+
+def test_h105_scoped_write_is_only_the_command_topic(tmp_path: Path) -> None:
+    path, _ = _h105_policy_copy(tmp_path)
+    source = tmp_path / H105_DERIVED.name
+    doc = json.loads(source.read_text())
+    writes = {row["resource"] for row in doc["grants"] if row["operation"] == "WRITE"}
+    assert writes == {SCM_WRITE_REQUESTED}
+    assert lpi.load_declaration(path)
+    for field, value in (("pattern", "PREFIXED"), ("resource", SCM_WRITE_TERMINALS[0])):
+        write = next(row for row in doc["grants"] if row["operation"] == "WRITE")
+        changed = {**doc, "grants": [{**write, field: value}]}
+        source.write_text(json.dumps(changed))
+        with pytest.raises(lpi.DeclarationError, match="concrete reads"):
+            lpi.load_declaration(path)
+
+
+def test_h105_scoped_source_is_part_of_the_audit_digest(tmp_path: Path) -> None:
+    path, _ = _h105_policy_copy(tmp_path)
+    before = lpi.load_declaration(path)
+    source = tmp_path / H105_DERIVED.name
+    source.write_text(source.read_text() + "\n")
+    assert lpi.load_declaration(path).digest != before.digest
+
+
+def test_h105_issuer_image_copies_every_scoped_source() -> None:
+    dockerfile = (REPO_ROOT / "docker/Dockerfile.principal-issuer").read_text()
+    doc = yaml.safe_load(GRANTS.read_text())
+    assert doc["principal_grants_from"] == {H105: H105_DERIVED.name}
+    for source in doc["principal_grants_from"].values():
+        assert f"COPY deploy/lab/{source} /app/{source}" in dockerfile
+
+
+@pytest.mark.parametrize("missing_terminals", [False, True])
+def test_h105_audit_cli_reports_missing_terminal_grants(
+    missing_terminals: bool,
+    apply_broker: FakeBroker,
+    monkeypatch: pytest.MonkeyPatch,
+    ledger_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    rows = _derived_listing(H105)
+    if not missing_terminals:
+        rows.extend(
+            f"User:{H105}  *  {g['resource_type']}  {g['resource']}  "
+            f"{g['pattern']}  {g['operation']}  ALLOW"
+            for g in json.loads(H105_DERIVED.read_text())["grants"]
+        )
+    broker = ListingBroker({H105: _listing(rows)})
+    monkeypatch.setattr(lpi, "Broker", lambda config: broker)
+    assert lpi.main(
+        [
+            "audit-grants",
+            "--grants",
+            str(GRANTS),
+            "--ledger",
+            str(ledger_path),
+            "--principal",
+            H105,
+        ]
+    ) == int(missing_terminals)
+    output = capsys.readouterr().out
+    assert f"missing={6 if missing_terminals else 0} extra=0" in output
+    assert broker.set_calls == []
+    assert broker.acl_argvs == []
+
+
+# --- onex scm pr-create is declared whole or not at all (OMN-17427, lane pr-create-acl-1310) ---
+# `onex scm pr-create` produces the command topic, then reads the completed or failed terminal. A
+# principal that holds only some of those six topic rows fails with TopicAuthorizationFailedError
+# on the first topic it lacks: h203's lane login did on github-repo-write-completed from
+# 2026-10-18 (declared 2026-10-21, still unapplied on 2026-10-30), and h105 sat on the terminal reads alone until
+# the command write was consented. Every principal addition that touches a pr-create topic must
+# hold all six rows; a later addition is held to the same rule without being named here.
+SCM_PR_CREATE_TOPIC_ROWS = frozenset(
+    {
+        lpi.AclRow("topic", SCM_WRITE_REQUESTED, "literal", operation)
+        for operation in ("write", "describe")
+    }
+    | {
+        lpi.AclRow("topic", topic, "literal", operation)
+        for topic in SCM_WRITE_TERMINALS
+        for operation in ("read", "describe")
+    }
+)
+
+
+def _missing_pr_create_rows(declaration: lpi.Declaration, principal: str) -> list[str]:
+    """The pr-create topic rows `principal` lacks, or nothing when it holds none of them."""
+    held = lpi.expected_acl_rows(declaration, principal)
+    if not any(row.name in SCM_TOPICS for row in held):
+        return []
+    return sorted(
+        f"{row.name} {row.operation}" for row in SCM_PR_CREATE_TOPIC_ROWS - held
+    )
+
+
+def test_every_declared_pr_create_principal_holds_all_six_topic_rows(
+    declaration: lpi.Declaration,
+) -> None:
+    owners = [owner for owner, _ in declaration.principal_grants]
+    assert H105 in owners
+    for principal in owners:
+        assert _missing_pr_create_rows(declaration, principal) == [], principal
+
+
+@pytest.mark.parametrize("row", sorted(SCM_PR_CREATE_TOPIC_ROWS, key=str))
+def test_a_pr_create_topic_without_its_acl_is_found(
+    tmp_path: Path, row: lpi.AclRow
+) -> None:
+    """The planted fault: one pr-create topic row is absent from the principal's grants."""
+    path, _ = _h105_policy_copy(tmp_path)
+    planted = tmp_path / H105_DERIVED.name
+    doc = json.loads(planted.read_text())
+    kept = [
+        grant
+        for grant in doc["grants"]
+        if not (
+            grant["resource"] == row.name
+            and grant["operation"] == row.operation.upper()
+        )
+    ]
+    assert len(kept) == len(doc["grants"]) - 1, "the row to remove must exist"
+    planted.write_text(json.dumps({**doc, "grants": kept}))
+    declaration = lpi.load_declaration(path)
+    assert _missing_pr_create_rows(declaration, H105) == [f"{row.name} {row.operation}"]
+    assert _missing_pr_create_rows(lpi.load_declaration(GRANTS), H105) == []
+
+
+def test_a_principal_holding_only_the_terminal_reads_is_found(tmp_path: Path) -> None:
+    """h105 before the command-write consent: the terminals are readable, nothing is published."""
+    path, _ = _h105_policy_copy(tmp_path)
+    planted = tmp_path / H105_DERIVED.name
+    doc = json.loads(planted.read_text())
+    doc["grants"] = [g for g in doc["grants"] if g["resource"] != SCM_WRITE_REQUESTED]
+    planted.write_text(json.dumps(doc))
+    assert _missing_pr_create_rows(lpi.load_declaration(path), H105) == [
+        f"{SCM_WRITE_REQUESTED} describe",
+        f"{SCM_WRITE_REQUESTED} write",
+    ]
+
+
+def test_a_principal_without_any_pr_create_topic_is_not_asked_to_hold_them(
+    declaration: lpi.Declaration,
+) -> None:
+    assert _missing_pr_create_rows(declaration, "dev-fixture-laptop") == []

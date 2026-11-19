@@ -19,23 +19,26 @@ authors = [
     {name = "Jukka Lehtosalo", email = "jukka.lehtosalo@iki.fi"},
     {name = "Ivan Levkivskyi", email = "levkivskyi@gmail.com"},
 ]
-version = "0.16.0"
+version = "0.17.0"
 license = "MIT"
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Software Development",
   "Typing :: Typed",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+dependencies = [
+    "mypy_extensions>=1.2.0",
+]
 [project.urls]
 Homepage = "https://github.com/mypyc/librt"
 Issues = "https://github.com/mypyc/mypyc/issues"

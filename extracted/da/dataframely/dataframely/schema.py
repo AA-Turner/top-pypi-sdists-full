@@ -3,11 +3,10 @@
 
 from __future__ import annotations
 
-import sys
 import warnings
 from abc import ABC
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal, overload
+from typing import Any, Literal, Self, overload
 
 import polars as pl
 
@@ -27,11 +26,6 @@ from .exc import (
 )
 from .filter_result import FailureInfo, FilterResult, LazyFilterResult
 from .random import Generator
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 _COLUMN_VALID = "__DATAFRAMELY_VALID__"
 
@@ -126,8 +120,9 @@ class Schema(BaseSchema, ABC):
         *,
         lazy: bool = False,
     ) -> DataFrame[Self] | LazyFrame[Self]:
-        """Impute `None` input with an empty, schema-compliant lazy or eager data frame
-        or return the input as lazy or eager frame.
+        """Impute `None` input with an empty, schema-compliant data frame.
+
+        Return the input as a lazy or eager frame when it is not `None`.
 
         Args:
             df: The data frame to check for `None`.
@@ -379,8 +374,7 @@ class Schema(BaseSchema, ABC):
         override_expressions: list[pl.Expr],
         missing_value_indices: dict[str, pl.Series],
     ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-        """Private method to sample a data frame with the schema including subsequent
-        filtering.
+        """Private method to sample a data frame with the schema including subsequent filtering.
 
         Returns:
             The filtered data frame, the used values, and the remaining values.
@@ -796,8 +790,7 @@ class Schema(BaseSchema, ABC):
 
     @classmethod
     def to_sqlalchemy_columns(cls, dialect: sa.Dialect) -> list[sa.Column]:
-        """Obtain the SQLAlchemy column definitions for a particular dialect for this
-        schema.
+        """Obtain the SQLAlchemy column definitions for a particular dialect for this schema.
 
         Args:
             dialect: The dialect for which to obtain the SQL schema. Note that column

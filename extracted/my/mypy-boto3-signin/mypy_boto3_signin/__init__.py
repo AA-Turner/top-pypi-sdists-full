@@ -12,6 +12,7 @@ Usage::
     from mypy_boto3_signin import (
         Client,
         ListResourcePermissionStatementsPaginator,
+        ListSessionsPaginator,
         SignInServiceClient,
     )
 
@@ -19,13 +20,19 @@ Usage::
     client: SignInServiceClient = session.client("signin")
 
     list_resource_permission_statements_paginator: ListResourcePermissionStatementsPaginator = client.get_paginator("list_resource_permission_statements")
+    list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
     ```
 """
 
 from .client import SignInServiceClient
-from .paginator import ListResourcePermissionStatementsPaginator
+from .paginator import ListResourcePermissionStatementsPaginator, ListSessionsPaginator
 
 Client = SignInServiceClient
 
 
-__all__ = ("Client", "ListResourcePermissionStatementsPaginator", "SignInServiceClient")
+__all__ = (
+    "Client",
+    "ListResourcePermissionStatementsPaginator",
+    "ListSessionsPaginator",
+    "SignInServiceClient",
+)

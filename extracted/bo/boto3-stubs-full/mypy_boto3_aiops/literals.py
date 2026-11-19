@@ -36,6 +36,7 @@ EncryptionConfigurationTypeType = Literal["AWS_OWNED_KEY", "CUSTOMER_MANAGED_KMS
 ListInvestigationGroupsPaginatorName = Literal["list_investigation_groups"]
 AIOpsServiceName = Literal["aiops"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

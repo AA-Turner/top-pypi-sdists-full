@@ -65,10 +65,14 @@ def test_runtime_port_exposes_consumer_handler_optional_parameters() -> None:
     ):
         parameters = inspect.signature(dispatch_method).parameters
         assert parameters["max_tokens"].annotation in {"int | None", int | None}
-        assert parameters["execution_timeout_seconds"].annotation in {"int", int}
+        # OMN-21604: unset means the class's declared budget, not a number.
+        assert parameters["execution_timeout_seconds"].annotation in {
+            "int | None",
+            int | None,
+        }
         assert parameters["terminal_delivery_margin_seconds"].annotation in {
-            "int",
-            int,
+            "int | None",
+            int | None,
         }
         assert parameters["backend_id"].default is None
         assert parameters["response_contract"].default is None
@@ -621,6 +625,48 @@ async def test_model_override_is_refused_before_runtime_bus_publication(
                 execution_timeout_seconds=1,
                 terminal_delivery_margin_seconds=1,
                 model=model,
+            )
+        assert published == []
+    finally:
+        await unsubscribe()
+        await bus.close()
+
+
+@pytest.mark.asyncio
+async def test_probe_ladder_is_accepted_by_signature_and_refused_before_publication() -> (
+    None
+):
+    """OMN-23162: a probe ladder never runs as an ordinary delegation here."""
+    route = _delegation_route()
+    bus = EventBusInmemory(environment="test", group="probe-ladder-refusal")
+    await bus.start()
+    published: list[bytes] = []
+
+    async def consumer(message: ModelEventMessage) -> None:
+        published.append(message.value)
+
+    unsubscribe = await bus.subscribe(
+        route.command_topic, group_id="probe-ladder-consumer", on_message=consumer
+    )
+    port = RuntimeDelegationDispatchPort(
+        event_bus=bus,
+        routes={"delegation.orchestrate": route},
+    )
+    try:
+        with pytest.raises(
+            NotImplementedError, match="probe_ladder is not yet supported"
+        ):
+            await port.dispatch(
+                prompt="Classify the changelog entry.",
+                task_type="summarization",
+                correlation_id=uuid4(),
+                max_tokens=None,
+                source_file_path=None,
+                source_session_id=None,
+                wait=True,
+                execution_timeout_seconds=1,
+                terminal_delivery_margin_seconds=1,
+                probe_ladder=object(),
             )
         assert published == []
     finally:

@@ -139,6 +139,7 @@ SavingsPlansFilterNameType = Literal[
 ]
 SavingsPlansServiceName = Literal["savingsplans"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

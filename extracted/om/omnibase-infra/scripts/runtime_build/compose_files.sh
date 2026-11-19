@@ -81,10 +81,7 @@ resolve_lane_name() {
     local compose_project="$1"
     local lane="${compose_project#omnibase-infra}"
     lane="${lane#-}"
-    if [[ -z "${lane}" ]]; then
-        lane="dev"
-    fi
-    echo "${lane}"
+    echo "${lane:-dev}"
 }
 
 resolve_lane_overlay_filename() {
@@ -107,18 +104,14 @@ resolve_lane_overlay_filename() {
             # Dev lane: no docker-compose.dev.yml exists. The dev overlay is
             # docker-compose.dev-lane.yml and is appended by
             # resolve_compose_file_args' else-branch, not named here.
-            return 0
             ;;
         stability-test|prod|judge|dogfood)
             echo "docker-compose.${lane}.yml"
-            return 0
             ;;
         *)
             _compose_files_log_error "Unknown lane '${lane}' derived from compose project '${compose_project}'."
             _compose_files_log_error "  Only the dev / stability-test / prod / judge lanes are known."
-            _compose_files_log_error "  Refusing to deploy: running a non-dev lane on the bare infra.yml config"
-            _compose_files_log_error "  would recreate the DEV-named redpanda and displace this lane's broker"
-            _compose_files_log_error "  (OMN-13581). Add the lane's overlay mapping before deploying it."
+            _compose_files_log_error "  Refusing to deploy: running a non-dev lane on the bare infra.yml config would recreate the DEV-named redpanda and displace this lane's broker (OMN-13581). Add the lane's overlay mapping before deploying it."
             exit 1
             ;;
     esac
@@ -134,11 +127,24 @@ resolve_lane_overlay_filename() {
 # There is no fallback to a committed overlay: this repository ships only the
 # neutral docker/lane-overlays/local.bifrost.example.yaml template.
 _lane_overlay_dir_candidate() {
-    local dir="${ONEX_LANE_OVERLAY_DIR:-}"
-    if [[ -z "${dir}" && -n "${ONEX_WORKSPACE_CONFIG_ROOT:-}" ]]; then
-        dir="${ONEX_WORKSPACE_CONFIG_ROOT}/config/lab/lane-overlays"
-    fi
-    printf '%s' "${dir}"
+    printf '%s' "${ONEX_LANE_OVERLAY_DIR:-${ONEX_WORKSPACE_CONFIG_ROOT:+${ONEX_WORKSPACE_CONFIG_ROOT}/config/lab/lane-overlays}}"
+}
+
+# OMN-24854: the dev lane compose files mount ${ONEX_LANE_DECLARATION_DIR:?...} (the folder
+# that holds ci_bus_lanes.yaml) at the runtime container's config/lab. The deploy agent points
+# ONEX_LANE_OVERLAY_DIR at a rendered copy under its own state directory, so that directory's
+# parent is not always the folder: the agent and the warm refresh pin the real one. In order, the
+# folder is (1) a pinned ONEX_LANE_DECLARATION_DIR, (2) the parent of the resolved overlay dir when
+# it holds ci_bus_lanes.yaml (the real overlay dir, as the Python derivation takes it), (3) config/lab
+# under ONEX_WORKSPACE_CONFIG_ROOT. A pinned folder that holds no ci_bus_lanes.yaml is stale: it is
+# never replaced and never exported, and the strict form refuses it by name (return 1). Any other
+# unresolved case leaves the variable unset, so compose itself refuses at the mount naming it. Run by
+# both overlay functions below, so every caller of resolve_compose_file_args and the pre-PR slot get it.
+_pin_lane_declaration_dir() {
+    local mode="$1" pin="${ONEX_LANE_DECLARATION_DIR:-}" overlay="${ONEX_LANE_OVERLAY_DIR:-}" dir; unset ONEX_LANE_DECLARATION_DIR
+    dir="${pin:-$([[ -f "${overlay}/../ci_bus_lanes.yaml" ]] && printf '%s' "${overlay}/.." || printf '%s' "${ONEX_WORKSPACE_CONFIG_ROOT:-/nonexistent}/config/lab")}"
+    if [[ -f "${dir}/ci_bus_lanes.yaml" ]]; then ONEX_LANE_DECLARATION_DIR="$(cd "${dir}" && pwd -P)"; export ONEX_LANE_DECLARATION_DIR; return 0; fi
+    [[ -z "${pin}" ]] || _compose_files_log_error "ONEX_LANE_DECLARATION_DIR names \"${pin}\", which holds no ci_bus_lanes.yaml: set it to the config/lab folder that holds it."; [[ -z "${pin}" || "${mode}" != strict ]]
 }
 
 # Strict form, for a caller that must stop before any compose call (the pre-PR
@@ -146,19 +152,15 @@ _lane_overlay_dir_candidate() {
 # refused naming both variables.
 #   resolve_lane_overlay_dir <compose_project>
 resolve_lane_overlay_dir() {
-    local compose_project="$1"
-    local dir
-    dir="$(_lane_overlay_dir_candidate)"
+    local compose_project="$1" dir; dir="$(_lane_overlay_dir_candidate)"
     if [[ -z "${dir}" || ! -f "${dir}/${compose_project}.bifrost.yaml" ]]; then
         _compose_files_log_error "No lane overlay for compose project '${compose_project}'${dir:+ in \"${dir}\"}."
-        _compose_files_log_error "  The lane compose files mount \${ONEX_LANE_OVERLAY_DIR}/\${COMPOSE_PROJECT_NAME}.bifrost.yaml,"
-        _compose_files_log_error "  and this repository ships no lab lane overlay. Set ONEX_LANE_OVERLAY_DIR to the"
+        _compose_files_log_error "  The lane compose files mount \${ONEX_LANE_OVERLAY_DIR}/\${COMPOSE_PROJECT_NAME}.bifrost.yaml, and this repository ships no lab lane overlay. Set ONEX_LANE_OVERLAY_DIR to the"
         _compose_files_log_error "  directory holding ${compose_project}.bifrost.yaml, or ONEX_WORKSPACE_CONFIG_ROOT to a"
         _compose_files_log_error "  config root whose config/lab/lane-overlays/ holds it (OMN-20932)."
         return 1
     fi
-    ONEX_LANE_OVERLAY_DIR="$(cd "${dir}" && pwd -P)"
-    export ONEX_LANE_OVERLAY_DIR
+    ONEX_LANE_OVERLAY_DIR="$(cd "${dir}" && pwd -P)"; export ONEX_LANE_OVERLAY_DIR; _pin_lane_declaration_dir strict
 }
 
 # Export form, run by resolve_compose_file_args before every lane compose call:
@@ -168,15 +170,12 @@ resolve_lane_overlay_dir() {
 # deploy agent's _compose_env.
 #   export_lane_overlay_dir <compose_project>
 export_lane_overlay_dir() {
-    local compose_project="$1"
-    local dir
-    dir="$(_lane_overlay_dir_candidate)"
+    local compose_project="$1" dir; dir="$(_lane_overlay_dir_candidate)"
     if [[ -n "${dir}" && -f "${dir}/${compose_project}.bifrost.yaml" ]]; then
-        ONEX_LANE_OVERLAY_DIR="$(cd "${dir}" && pwd -P)"
-        export ONEX_LANE_OVERLAY_DIR
+        ONEX_LANE_OVERLAY_DIR="$(cd "${dir}" && pwd -P)"; export ONEX_LANE_OVERLAY_DIR
     else
         unset ONEX_LANE_OVERLAY_DIR
-    fi
+    fi; _pin_lane_declaration_dir export
 }
 
 resolve_compose_file_args() {
@@ -199,22 +198,34 @@ resolve_compose_file_args() {
     # `deploy_target` is the directory that CONTAINS docker/ -- the versioned
     # deploy root for onex-runtime-deploy, the ambient clone for the refresh
     # wrappers. Both spell the same files.
-    local _out_args_name="$1"
+    local -n compose_files_out="$1"
     local deploy_target="$2"
     local compose_project="$3"
 
     local docker_dir="${deploy_target}/docker"
+    # OMN-21288: the existing writer definitions interpolate contract-owned
+    # gates only on primary dev. Other instances keep both legacy profiles.
+    local policy_key policy_value
+    if [[ -r "${docker_dir}/runtime-policy.env" ]]; then
+        while IFS='=' read -r policy_key policy_value; do
+            [[ "${policy_key}" =~ ^DEV_RUNTIME_MAIN_.*_(RUNTIME|FULL)_PROFILE$ ]] || continue
+            if [[ "${compose_project}" != "${DEV_COMPOSE_PROJECT:-omnibase-infra}" ]]; then
+                policy_value="${BASH_REMATCH[1],,}"
+            fi
+            export "${policy_key}=${policy_value}"
+        done < "${docker_dir}/runtime-policy.env"
+    fi
     export_lane_overlay_dir "${compose_project}"
     if [[ "${compose_project}" == "omnibase-infra-dogfood" ]]; then
-        eval "${_out_args_name}=(-f $(printf '%q' "${docker_dir}/docker-compose.dogfood.yml"))"
+        compose_files_out=(-f "${docker_dir}/docker-compose.dogfood.yml")
         return 0
     fi
-    eval "${_out_args_name}=(-f $(printf '%q' "${docker_dir}/docker-compose.infra.yml"))"
+    compose_files_out=(-f "${docker_dir}/docker-compose.infra.yml")
 
     local overlay_filename
     overlay_filename="$(resolve_lane_overlay_filename "${compose_project}")"
     if [[ -n "${overlay_filename}" ]]; then
-        eval "${_out_args_name}+=( -f $(printf '%q' "${docker_dir}/${overlay_filename}") )"
+        compose_files_out+=(-f "${docker_dir}/${overlay_filename}")
     else
         # Dev/lab lane (bare omnibase-infra project). OMN-15379: layer the
         # dev-lane overlay, whose content includes ONEX_MIGRATION_LANE=dev for
@@ -224,6 +235,13 @@ resolve_compose_file_args() {
         # family's KAFKA_SECURITY_PROTOCOL / KAFKA_SASL_* environment. It is a
         # separate file precisely so no non-dev lane can inherit it from the
         # base: see the header of docker/docker-compose.dev-lane.yml.
-        eval "${_out_args_name}+=( -f $(printf '%q' "${docker_dir}/docker-compose.dev-lane.yml") )"
+        compose_files_out+=(-f "${docker_dir}/docker-compose.dev-lane.yml" -f "${docker_dir}/docker-compose.dev-tenant-fold.yml")
+    fi
+
+    # OMN-24509: the stability lane's per-host advertised broker layer (OMN-19998) goes AFTER the lane's own overlay when the host
+    # supplies at least one of its two lane-specific address variables; a half declaration still layers it, so compose refuses the
+    # missing one by name. No other lane's overlay name matches, so no other lane gets it. (Two refusal messages were each joined onto one line to keep this file's size.)
+    if [[ "${overlay_filename}" == *stability* && -n "${STABILITY_TEST_REDPANDA_ADVERTISED_KAFKA_ADDR:-}${STABILITY_TEST_REDPANDA_ADVERTISED_PANDAPROXY_ADDR:-}" ]]; then
+        compose_files_out+=(-f "${docker_dir}/docker-compose.stability-host-broker.yml")
     fi
 }

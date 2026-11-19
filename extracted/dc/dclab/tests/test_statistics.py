@@ -24,7 +24,7 @@ def test_stat_simple():
         elif h.lower().startswith("median "):
             assert np.allclose(v, 0.494188566376)
         elif h.lower().startswith("mode "):
-            assert np.allclose(v, 0.260923009639)
+            assert np.allclose(v, 0.724786137886)
         elif h.lower().startswith("mean "):
             assert np.allclose(v, 0.497743857424)
 
@@ -76,7 +76,7 @@ def test_flow_rate():
         assert item in zip(headf, valsf)
 
 
-@pytest.mark.filterwarnings('ignore::dclab.statistics.BadMethodWarning')
+@pytest.mark.filterwarnings("ignore::dclab.statistics.BadMethodWarning")
 def test_false_method():
     def bad_method(x):
         return x + 1
@@ -99,6 +99,20 @@ def test_false_method():
             break
 
 
+def test_mode_bin_center():
+    """The mode is the center of the bin that contains the most events"""
+    peak = 0.4321
+    data = np.concatenate([np.linspace(0, 1, 101), np.full(50, peak)])
+    mode = dclab.statistics.mode(data)
+    n = data.size
+    iqr = np.percentile(data, 75) - np.percentile(data, 25)
+    bin_size = 2 * iqr / n**(1/3)
+    # the bin [k*bin_size, (k+1)*bin_size) that contains the peak
+    bin_left = np.floor(peak / bin_size) * bin_size
+    assert np.allclose(mode, bin_left + bin_size / 2, rtol=0, atol=1e-12)
+    assert abs(mode - peak) <= bin_size / 2
+
+
 def test_percentiles():
     ddict = example_data_dict(size=1_000, keys=["area_um", "deform"])
     np.random.seed(42)
@@ -118,10 +132,10 @@ def test_stats_without_features():
     ddict = example_data_dict(size=5085, keys=["area_um", "deform"])
     ds = dclab.new_dataset(ddict)
 
-    head1, vals1 = dclab.statistics.get_statistics(ds, features=["deform"])
-    head2, vals2 = dclab.statistics.get_statistics(
+    head1, _ = dclab.statistics.get_statistics(ds, features=["deform"])
+    head2, _ = dclab.statistics.get_statistics(
         ds, methods=["Events", "Mean"], features=[])
-    head3, vals2 = dclab.statistics.get_statistics(
+    head3, _ = dclab.statistics.get_statistics(
         ds, methods=[], features=[])
 
     assert "Events" in head1

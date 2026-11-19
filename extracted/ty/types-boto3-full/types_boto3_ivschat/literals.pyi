@@ -42,6 +42,7 @@ LoggingConfigurationStateType = Literal[
 UpdateLoggingConfigurationStateType = Literal["ACTIVE"]
 IvschatServiceName = Literal["ivschat"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

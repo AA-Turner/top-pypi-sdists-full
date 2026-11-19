@@ -989,9 +989,26 @@
     visibleRooms().forEach(function (r) { r.tiles.forEach(function (id) { ids[id] = 1; }); });
     return ids;
   }
+  // also devices in several rooms belong to each of them
+  function inRoom(x, name) {
+    var tl = S.tiles[x.id];
+    return x.room === name || !!(tl && tl.rooms && tl.rooms.indexOf(name) >= 0);
+  }
   function shownList(list) {
     var ids = shownIds();
-    return (list || []).filter(function (x) { return !ids || ids[x.id]; });
+    if (!ids) { return list || []; }
+    var hidden = layout().hidden_rooms || [];
+    return (list || []).filter(function (x) { return ids[x.id]; }).map(function (x) {
+      // a device in several rooms is named by a room this tablet shows
+      var tl = S.tiles[x.id], rooms = (tl && tl.rooms) || [];
+      if (!x.room || hidden.indexOf(x.room) < 0) { return x; }
+      var room = rooms.filter(function (r) { return hidden.indexOf(r) < 0; })[0];
+      if (!room) { return x; }
+      var copy = {};
+      Object.keys(x).forEach(function (k) { copy[k] = x[k]; });
+      copy.room = room;
+      return copy;
+    });
   }
   function warningText() {
     var open = warnOpen(S.header && S.header.open);
@@ -1015,7 +1032,7 @@
     var el = document.getElementById("tabs"); if (!el) { return; }
     var tabs = [{ id: "home", name: t("home") }];
     visibleRooms().forEach(function (r) {
-      var openHere = (S.header.open || []).some(function (o) { return o.room === r.name && !mayOpenNow(o.may_open); });
+      var openHere = (S.header.open || []).some(function (o) { return inRoom(o, r.name) && !mayOpenNow(o.may_open); });
       tabs.push({ id: "room:" + r.name, name: r.name, dot: openHere });
     });
     if (seesCameras()) { tabs.push({ id: "cameras", name: t("cameras") }); } else if (S.tab === "cameras") { S.tab = "home"; }
@@ -1036,26 +1053,38 @@
 
   function leaveHtml() {
     // plugs which only measure (fridge) are always on: not worth a line
+    // a tap on a line opens the details of the device, a group opens its overview
+    function tap(id) { return S.tiles[id] ? ' tap" data-ovopen="' + esc(id) : ""; }
+    var chev = I("chev");
     var h = S.header, open = warnOpen(h.open), running = shownList(h.running).filter(function (r) { return !r.measure; }), rows = "";
     open.forEach(function (o) {
-      rows += '<div class="row"><div class="ic" style="background:rgba(255,138,61,.16);color:var(--amber2)">' + I(o.door ? "door" : "win") + '</div><div class="t"><b>' + esc(o.name) + "</b><span>" +
-        esc([o.room, (o.tilted ? t("tilted") : t("open")) + " " + since(o.since)].filter(Boolean).join(" · ")) + "</span></div></div>";
+      rows += '<div class="row' + tap(o.id) + '"><div class="ic" style="background:rgba(255,138,61,.16);color:var(--amber2)">' + I(o.door ? "door" : "win") + '</div><div class="t"><b>' + esc(o.name) + "</b><span>" +
+        esc([o.room, (o.tilted ? t("tilted") : t("open")) + " " + since(o.since)].filter(Boolean).join(" · ")) + "</span></div>" + (tap(o.id) ? chev : "") + "</div>";
     });
     var wasted = heatingOpenRooms();
     if (wasted.length) {
-      rows += '<div class="row"><div class="ic" style="background:rgba(255,90,95,.16);color:var(--red)">' + I("thermo") + '</div><div class="t"><b>' + esc(t("heatingOpen")) + "</b><span>" + esc(wasted.join(", ")) + "</span></div></div>";
+      var heatTap = wasted.length === 1 ? ' tap" data-roompop="' + esc(wasted[0]) : ' tap" data-overview="climate';
+      rows += '<div class="row' + heatTap + '"><div class="ic" style="background:rgba(255,90,95,.16);color:var(--red)">' + I("thermo") + '</div><div class="t"><b>' + esc(t("heatingOpen")) + "</b><span>" + esc(wasted.join(", ")) + "</span></div>" + chev + "</div>";
     }
     var lights = running.filter(function (r) { return r.kind === "light" || r.kind === "dimmer"; });
     if (lights.length) {
       var rooms = []; lights.forEach(function (l) { if (l.room && rooms.indexOf(l.room) < 0) { rooms.push(l.room); } });
-      rows += '<div class="row"><div class="ic" style="background:rgba(255,181,71,.16);color:var(--amber)">' + I("bulb") + '</div><div class="t"><b>' +
-        esc(lights.length === 1 ? lights[0].name : t("lightsOn", { n: lights.length })) + "</b><span>" + esc(rooms.join(", ")) + "</span></div></div>";
+      var lightTap = lights.length === 1 ? tap(lights[0].id) : ' tap" data-overview="light';
+      rows += '<div class="row' + lightTap + '"><div class="ic" style="background:rgba(255,181,71,.16);color:var(--amber)">' + I("bulb") + '</div><div class="t"><b>' +
+        esc(lights.length === 1 ? lights[0].name : t("lightsOn", { n: lights.length })) + "</b><span>" + esc(rooms.join(", ")) + "</span></div>" + (lightTap ? chev : "") + "</div>";
     }
     running.filter(function (r) { return r.kind !== "light" && r.kind !== "dimmer"; }).forEach(function (r) {
-      rows += '<div class="row"><div class="ic" style="background:rgba(155,140,255,.16);color:var(--violet)">' + I("bolt") + '</div><div class="t"><b>' + esc(r.name) + "</b><span>" +
+      rows += '<div class="row' + tap(r.id) + '"><div class="ic" style="background:rgba(155,140,255,.16);color:var(--violet)">' + I("bolt") + '</div><div class="t"><b>' + esc(r.name) + "</b><span>" +
         esc([r.room, t("on") + (r.power ? " · " + watt(r.power) : ""), r.keep_on && !(S.tablet && S.tablet.arrange) ? t("staysOn") : ""].filter(Boolean).join(" · ")) + "</span></div>" +
         (S.tablet && S.tablet.arrange ? '<button class="pill keep' + (r.keep_on ? " kept" : "") + '" data-keepon="' + esc(r.id) + '">' + (r.keep_on ? I("check", 18) + " " + esc(t("staysOn")) : esc(t("keepBtn"))) + "</button>" : "") +
         '<button class="pill" data-off="' + esc(r.id) + '">' + esc(t("off")) + "</button></div>";
+    });
+    shownList(h.playing).forEach(function (r) {
+      var what = [r.title, r.artist].filter(Boolean).join(" · "), mt = S.tiles[r.id], art = mt && mt.state.art;
+      // the cover of what is playing, the note until it is loaded
+      rows += '<div class="row' + tap(r.id) + '"><div class="ic' + (art ? " rcover" : "") + '" style="background:rgba(90,169,255,.16);color:var(--blue)">' + I("music") + (art ? coverImg(r.id, art, "rimg") : "") + '</div><div class="t"><b>' + esc(r.name) + "</b><span>" +
+        esc([r.room, what || t("playing")].filter(Boolean).join(" · ")) + "</span></div>" +
+        '<button class="pill" data-mpause="' + esc(r.id) + '">' + I("pause", 18) + " " + esc(t("vwPause")) + "</button></div>";
     });
     var door = place() === "door";
     var title = door ? t("beforeLeave") : t("nowOn");
@@ -3509,6 +3538,11 @@
         (S.header.running || []).forEach(function (r) { if (r.id === kid) { r.keep_on = kt.keep_on; } });
         renderContent(); if (S.sheet) { renderSheet(); }
       }
+      return;
+    }
+    if ((el = closest(target, "data-mpause"))) {
+      var pid = el.getAttribute("data-mpause");
+      if (S.tiles[pid]) { act(pid, "pause", null, { playing: false }); }
       return;
     }
     if ((el = closest(target, "data-mplay")) && !S.edit) {

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import functools
 import json
 import logging
@@ -59,6 +60,7 @@ from deploy_agent.executor import (
     SCOPE_BUNDLES,
     DeployExecutor,
     DeployRolledBackError,
+    DevBootGuard,
     DevLaneMigrationPreflightError,
     EnumInstancePhase,
     VerificationFailedError,
@@ -68,6 +70,7 @@ from deploy_agent.executor import (
     capture_rollback_point,
     lane_config_for,
     lane_runs_phase,
+    load_dev_boot_guard,
     read_applied_migration_fingerprint,
     read_checkout_migration_fingerprint,
     resolve_prod_target_service,
@@ -76,6 +79,7 @@ from deploy_agent.executor import (
     set_lane_overlay_clone,
 )
 from deploy_agent.executor import _run as run_command
+from deploy_agent.executor import deliver_dev_boot_reports as deliver_reports
 from deploy_agent.health import create_health_app
 from deploy_agent.host_slot import (
     HostSlotHeldError,
@@ -110,10 +114,11 @@ from deploy_agent.idle_converge import (
     probe_blocking,
     read_dev_head,
     read_dev_tags,
+    read_lane_presence,
     read_running_image,
     read_running_ref,
-    read_runtime_presence,
     restore_command,
+    select_dev_ran_tag,
     stability_follow_command,
 )
 from deploy_agent.idle_converge import (
@@ -123,7 +128,13 @@ from deploy_agent.idle_converge import decide as decide_idle_converge
 from deploy_agent.job_state import EnumJobSettlingStage, JobState, JobStore
 from deploy_agent.kafka_config import load_deploy_agent_kafka_config_from_env
 from deploy_agent.lab_overlay import (
-    DEFAULT_APPLY_BUDGET_SECONDS,
+    API_BUILD_TIMEOUT_SECONDS,
+    API_CONTEXT,
+    API_DOCKERFILE,
+    API_IMAGE_NAME,
+    API_REVISION_LABEL,
+    API_RUNTIME_IMAGE_BUILD_ARG,
+    API_SOURCE_LABEL,
     LabOverlayApplier,
     ModelLabOverlayCapture,
 )
@@ -205,8 +216,7 @@ def _sibling_clone(repository: str) -> Path | None:
     ``OMNI_HOME`` has no default here, as in the executor's workspace build:
     unset, there is no clone and every read of it is unread.
     """
-    registry_root = os.environ.get("OMNI_HOME", "").strip()
-    if not registry_root:
+    if not (registry_root := os.environ.get("OMNI_HOME", "").strip()):
         return None
     return Path(registry_root) / repository
 
@@ -224,33 +234,50 @@ def _declared_branch_install_repos() -> list[str]:
 
 def _read_dev_tags(repository: str) -> list[ModelDevTag] | None:
     """Every dev tag on ``repository``'s origin, oldest first (OMN-19998)."""
-    clone = _sibling_clone(repository)
-    if clone is None:
+    if (clone := _sibling_clone(repository)) is None:
         return None
     return read_dev_tags(clone, AGENT_CLONE_ROOT)
 
 
 def _running_contains(repository: str, ancestor: str, running_ref: str) -> bool:
     """Whether the lane's running ``repository`` commit contains ``ancestor``."""
-    clone = _sibling_clone(repository)
-    if clone is None:
+    if (clone := _sibling_clone(repository)) is None:
         return False
     return contains_commit(clone, ancestor, running_ref)
 
 
-def _read_dev_head(repository: str) -> str | None:
-    """A followed repository's dev head, read in the clone its build uses.
+def _web_source() -> Any:
+    # OMN-22808: the web repository the estimator build declares, or None. It is
+    # followed like the runtime's siblings; no repository name is written here.
+    executor = sys.modules["deploy_agent.executor"]
+    return executor.load_dev_boot_guard(
+        "nodes.node_setup_local_provision_effect.runtime_cost_estimator_build"
+    ).dev_lane_web_follow(executor, EnumRuntimeLane.DEV)
 
-    OMN-19509. omnimarket's is the clone a workspace build stages from, under
-    ``OMNI_HOME``. OMN-20867: omnibase_infra's is the deploy-source clone the
-    git phase pulls. OMN-19998: for a tag-followed repository the head is its
-    newest ``dev-*`` tag on origin, the commit a lab build stages, and its dev
-    branch head only while origin carries no such tag.
-    """
+
+def _read_running_ref(repository: str) -> str | None:
+    web = _web_source()
+    if web is not None and repository == web.repository:
+        ref: str | None = web.running_ref()
+        return ref
+    container = _runtime_container_for_lane(EnumRuntimeLane.DEV)
+    return read_running_ref(container, repository)
+
+
+def _read_dev_head(repository: str) -> str | None:
+    # A followed repository's dev head, read in the clone its build uses.
+    # OMN-19509: omnimarket's is the clone a workspace build stages from, under
+    # OMNI_HOME. OMN-20867: omnibase_infra's is the deploy-source clone the git
+    # phase pulls. OMN-19998: a tag-followed repository's head is its newest
+    # dev-* tag on origin, and its dev branch head only while origin carries no
+    # such tag. OMN-22808: the declared web source's is its branch on its url.
+    web = _web_source()
+    if web is not None and repository == web.repository:
+        ref: str | None = web.head_ref()
+        return ref
     if repository == "omnibase_infra":
         return read_dev_head(Path(REPO_DIR))
-    clone = _sibling_clone(repository)
-    if clone is None:
+    if (clone := _sibling_clone(repository)) is None:
         return None
     if repository in DEV_TAG_FOLLOWED_REPOSITORIES:
         tags = read_dev_tags(clone, AGENT_CLONE_ROOT)
@@ -308,10 +335,14 @@ BRANCH_INSTALL_CHECK_INTERVAL_SECONDS = 120
 BRANCH_INSTALL_LOCK_TIMEOUT_SECONDS = 120.0
 BRANCH_INSTALL_CHECK_TIMEOUT_SECONDS = 180
 BRANCH_INSTALL_APPLY_TIMEOUT_SECONDS = 900
-#: The handler the declared installs are read, checked and applied by. It is run
-#: from the deploy-source clone's ``src`` (the same tree the job just built), so a
-#: change to it needs no release of the omnibase_infra package the agent venv holds.
-BRANCH_INSTALL_HANDLER = "omnibase_infra.handlers.handler_dev_lane_branch_install"
+#: The entry the declared installs are read, checked and applied through, run by file
+#: path like the agent's other host effects: it runs the branch install handler
+#: unchanged and publishes the dev runtime start event when the apply restarted a
+#: container (OMN-24013). It is run from the deploy-source clone's ``src`` (the same
+#: tree the job just built), so a change to it needs no release of the omnibase_infra
+#: package the agent venv holds.
+BRANCH_INSTALL_ENTRY = f"{REPO_DIR}/src/omnibase_infra/nodes/node_dev_roll_events_effect/runtime_dev_branch_install_reapply.py"
+JOB_READING = "nodes.node_deploy_job_reading_effect.runtime_deploy_job_reading"
 BRANCH_INSTALL_EXIT_NOT_WHOLE = 4
 
 #: OMN-18200 AC5. The k3s ``onex-lab`` overlay re-apply, ON by default.
@@ -323,9 +354,6 @@ BRANCH_INSTALL_EXIT_NOT_WHOLE = 4
 #: (OMN-19501; before it, the single-flight lock and the dev lane), and a
 #: disabled run says so in the journal rather than being silent.
 LAB_OVERLAY_ENABLED = os.environ.get("DEPLOY_AGENT_LAB_OVERLAY", "on").lower() != "off"
-LAB_OVERLAY_BUDGET_SECONDS = int(
-    os.environ.get("DEPLOY_AGENT_LAB_OVERLAY_BUDGET", str(DEFAULT_APPLY_BUDGET_SECONDS))
-)
 #: The ``omninode_infra`` clone the overlay is archived from. Derived from
 #: ``REPO_DIR``'s parent rather than written out, because the two are siblings in
 #: the same ``omni_home`` clone by construction and a second literal path is a
@@ -392,11 +420,6 @@ LAG_POOL_MAX_WORKERS = 1
 #: lock, a pin that re-acquires the lane lock), was model-checked before it was
 #: built: OMN-19421's ``LabReconcile.tla`` extended on OMN-19501.
 SETTLE_POOL_MAX_WORKERS = 1
-
-#: OMN-19501. The lock the k3s overlay apply holds instead of the compose lane's.
-#: Same helper, same lock directory, its own file: a writer that applies the
-#: onex-lab overlay by another path excludes this one only by taking it.
-LAB_OVERLAY_SURFACE_LOCK = "onex-lab-k3s"
 
 #: OMN-19501. How long the onex-api pin delivery waits for the dev lane lock.
 #:
@@ -520,9 +543,7 @@ class DeployAgent:
         self._branch_install_exec: Callable[
             [list[str], int, dict[str, str]], subprocess.CompletedProcess[str]
         ] = lambda argv, timeout, env: run_command(argv, timeout, env=env)
-        self._idle_read_running_ref: Callable[[str], str | None] = lambda repo: (
-            read_running_ref(_runtime_container_for_lane(EnumRuntimeLane.DEV), repo)
-        )
+        self._idle_read_running_ref: Callable[[str], str | None] = _read_running_ref
         self._idle_read_head_ref: Callable[[str], str | None] = _read_dev_head
         # OMN-19998: the stability lane follows the omnimarket tag dev runs, on
         # a lab dev agent whose fence admits it; its seams and its last verdict.
@@ -538,9 +559,7 @@ class DeployAgent:
         self._idle_restore_last_verdict: EnumIdleRestoreVerdict | None = None
         self._idle_read_runtime_presence: Callable[
             [], tuple[EnumRuntimePresence, str]
-        ] = lambda: read_runtime_presence(
-            _runtime_container_for_lane(EnumRuntimeLane.DEV)
-        )
+        ] = lambda: read_lane_presence(lane_config_for(EnumRuntimeLane.DEV))
         self._idle_probe_blocker: Callable[[datetime], str | None] = lambda now: (
             probe_blocking(now, load_probe_windows(AGENT_CLONE_ROOT))
         )
@@ -555,11 +574,12 @@ class DeployAgent:
             _read_dev_tags
         )
         self._idle_running_contains: Callable[[str, str, str], bool] = _running_contains
-        self._dev_tag_behind_since: dict[str, datetime] = {}
+        self._dev_tag_behind_since: dict[str, datetime | None] = {}
+        self._dev_tag_heartbeat_send: threading.Thread | None = None
         self._dev_tag_heartbeat: dict[str, ModelDevTagHeartbeat] = {}
         self._dev_tag_heartbeat_published_at: dict[str, datetime] = {}
-        self._idle_read_running_image: Callable[[], str] = lambda: (
-            read_running_image(_runtime_container_for_lane(EnumRuntimeLane.DEV))
+        self._idle_read_running_image: Callable[[], str] = lambda: read_running_image(
+            _runtime_container_for_lane(EnumRuntimeLane.DEV)
         )
         # OMN-19544 AC1. On a lab host this instance shares with a prover (the
         # .105 laptop's VM holds the lane or a proof stack, not both), both
@@ -654,10 +674,6 @@ class DeployAgent:
         with self._settle_guard:
             future = self._settle_future
         return future is not None and not future.done()
-
-    def _hand_to_settle(self, settle: Callable[[], None]) -> None:
-        with self._settle_guard:
-            self._settle_future = self._settle_pool.submit(settle)
 
     def drain_settle(self, timeout: float | None = None) -> bool:
         """Wait for every settle submitted so far. True when none is in flight.
@@ -788,13 +804,11 @@ class DeployAgent:
         logger.info("Deploy agent loaded code sha: %s", loaded_sha)
 
         # Step 1: Recover crashed jobs
-        recovered = self.job_store.recover_crashed_jobs()
-        if recovered:
+        if recovered := self.job_store.recover_crashed_jobs():
             logger.info("Recovered %d crashed job(s)", len(recovered))
 
         # Step 2: Prune old completed jobs
-        pruned = self.job_store.prune_completed()
-        if pruned:
+        if pruned := self.job_store.prune_completed():
             logger.info("Pruned %d old job(s)", pruned)
 
         # Step 3: Retry pending publishes. Called directly rather than through
@@ -937,6 +951,8 @@ class DeployAgent:
                     # deferred IS one already waiting, so no converge while a
                     # deferral holds its partition paused.
                     await self._offload(self._maybe_reapply_branch_installs)
+                    if EnumRuntimeLane.DEV in self._allowed_lanes:
+                        await self._offload(self._job_reading, "check_pin")
                     if getattr(consumer, "load_gate_paused", None) is None:
                         await self._offload(self._maybe_idle_converge)
                         await self._offload(self._maybe_converge_forward_migration)
@@ -1088,6 +1104,25 @@ class DeployAgent:
             on_before_reexec=_before_reexec,
         )
 
+    def _self_update_guarded(
+        self, boundary: EnumSelfUpdateBoundary, where: str
+    ) -> None:
+        """Self-update at one boundary; a failure is logged and the agent stays put."""
+        try:
+            self.executor.self_update(
+                boundary=boundary,
+                skip=self._skip_self_update,
+                on_before_reexec=self._await_settle_before_reexec,
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.error(  # noqa: TRY400
+                "Self-update at the %s boundary failed, "
+                "staying on the current image: %s "
+                "friction_type=self_update_boundary_failed",
+                where,
+                e,
+            )
+
     def _self_update_post_terminal(self) -> None:
         """Self-update boundary after a job reaches a terminal, published state.
 
@@ -1096,19 +1131,7 @@ class DeployAgent:
         the deploy completes on the version it started on, and the update fires
         here, at the next boundary.
         """
-        try:
-            self.executor.self_update(
-                boundary=EnumSelfUpdateBoundary.POST_TERMINAL,
-                skip=self._skip_self_update,
-                on_before_reexec=self._await_settle_before_reexec,
-            )
-        except Exception as e:  # noqa: BLE001
-            logger.error(  # noqa: TRY400
-                "Self-update at the post-terminal boundary failed, "
-                "staying on the current image: %s "
-                "friction_type=self_update_boundary_failed",
-                e,
-            )
+        self._self_update_guarded(EnumSelfUpdateBoundary.POST_TERMINAL, "post-terminal")
 
     def _maybe_self_update_idle(self) -> None:
         """Self-update boundary on the poll loop's idle branch (OMN-18200).
@@ -1151,8 +1174,7 @@ class DeployAgent:
                 EnumSelfUpdateBoundary.IDLE_HEARTBEAT.value,
             )
             return
-        pending = self.job_store.get_pending_publish()
-        if pending:
+        if pending := self.job_store.get_pending_publish():
             logger.info(
                 "self_update[boundary=%s]: %d result(s) still awaiting publish, "
                 "deferring",
@@ -1161,26 +1183,13 @@ class DeployAgent:
             )
             return
 
-        try:
-            self.executor.self_update(
-                boundary=EnumSelfUpdateBoundary.IDLE_HEARTBEAT,
-                skip=self._skip_self_update,
-                on_before_reexec=self._await_settle_before_reexec,
-            )
-        except Exception as e:  # noqa: BLE001
-            logger.error(  # noqa: TRY400
-                "Self-update at the idle boundary failed, "
-                "staying on the current image: %s "
-                "friction_type=self_update_boundary_failed",
-                e,
-            )
+        self._self_update_guarded(EnumSelfUpdateBoundary.IDLE_HEARTBEAT, "idle")
 
     def _branch_install_argv(self, command: str) -> list[str]:
         """The handler's argv; a merge probe gets each declared repository's clone and running ref."""
         argv = [
             sys.executable,
-            "-m",
-            BRANCH_INSTALL_HANDLER,
+            BRANCH_INSTALL_ENTRY,
             command,
             "--state-dir",
             str(STATE_DIR),
@@ -1264,6 +1273,13 @@ class DeployAgent:
         result = self._run_branch_installs("apply")
         return result is not None and result.returncode == 0
 
+    def _job_reading(self, call: str, *args: object) -> None:
+        """OMN-24562: run one job-reading entry; a load or call error is logged, never raised."""
+        try:
+            getattr(load_dev_boot_guard(JOB_READING), call)(*args)
+        except Exception:
+            logger.exception("deploy job reading %s failed", call)
+
     def _maybe_reapply_branch_installs(self) -> None:
         """Idle tick: detect a declared install missing from its container and put it back.
 
@@ -1327,17 +1343,15 @@ class DeployAgent:
         }
 
     def _maybe_idle_converge(self) -> None:
-        """Converge on a followed repository's dev head when idle (OMN-19509).
-
-        See ``deploy_agent.idle_converge`` for the rule and the model behind
-        it. Throttled to one check per interval. Each followed repository is
-        decided in turn (OMN-20867) and the first that says converge runs; a
-        converge builds every repository at its dev head, so one is enough.
-        Every refusal is logged once per change of verdict, not once per
-        second. A converge runs as an ordinary job through ``_execute_command``,
-        under the same single-flight and lane locks, with its own job record and
-        terminal event named ``agent/idle-converge``.
-        """
+        # Converge on a followed repository's dev head when idle (OMN-19509); see
+        # deploy_agent.idle_converge for the rule and the model behind it.
+        # Throttled to one check per interval. Each followed repository is decided
+        # in turn (OMN-20867), the declared web source (OMN-22808) after the
+        # runtime's siblings, and the first that says converge runs; a converge
+        # builds every repository at its dev head, so one is enough. A refusal is
+        # logged once per change of verdict. A converge runs as an ordinary job
+        # through _execute_command, under the same single-flight and lane locks,
+        # with its own job record and terminal event named agent/idle-converge.
         if self._router is None:
             return
         tick = time.monotonic()
@@ -1361,7 +1375,11 @@ class DeployAgent:
         if lane_down:
             return
         decision: ModelIdleConvergeDecision | None = None
-        for repository in IDLE_CONVERGE_REPOSITORIES:
+        web = _web_source()
+        for repository in (
+            *IDLE_CONVERGE_REPOSITORIES,
+            *((web.repository,) if web else ()),
+        ):
             decision = self._decide_idle_converge(repository, now)
             if decision.verdict is not self._idle_converge_last_verdicts.get(
                 repository
@@ -1402,34 +1420,38 @@ class DeployAgent:
     def _maybe_stability_follow(
         self, now: datetime
     ) -> ModelStabilityFollowDecision | None:
-        """Rebuild the stability lane onto the tag dev runs (OMN-19998).
-
-        Only on a lab dev agent whose fence admits the stability lane
-        (``lane_policy.follows_stability``); see
-        ``idle_converge.decide_stability_follow`` for the rule. The rebuild is
-        an ordinary job through ``_execute_command``, under the same
-        single-flight, lane lock and load gate, with its own job record and
-        terminal event named ``agent/stability-follow-tag``: the stability
-        lane's own receipt.
-        """
+        # Rebuild the stability lane onto the dev tag the dev lane ran with a
+        # passing deploy record (OMN-19998, OMN-21485). Only on a lab dev agent
+        # whose fence admits the stability lane (``lane_policy.follows_stability``);
+        # see ``idle_converge.decide_stability_follow`` for the rule. The rebuild
+        # is an ordinary job through ``_execute_command``, under the same
+        # single-flight, lane lock and load gate, with its own job record and
+        # terminal event named ``agent/stability-follow-tag``: the stability
+        # lane's own receipt.
         if not follows_stability(self._allowed_lanes):
             return None
         decisions: list[ModelStabilityFollowDecision] = []
         for repository in DEV_TAG_FOLLOWED_REPOSITORIES:
             tags = self._idle_read_dev_tags(repository)
-            newest = tags[-1] if tags else None
-            dev_ref = self._idle_read_running_ref(repository)
+            # OMN-21485: dev's own deploy record and the tag dev ran decide; the
+            # partial binds the repository so containment reads the same seam
+            # the heartbeat uses.
+            dev_tag = select_dev_ran_tag(
+                tags or [],
+                self._idle_read_running_ref(repository),
+                functools.partial(self._idle_running_contains, repository),
+            )
             stability_ref = self._stability_read_running_ref(repository)
             decision = decide_stability_follow(
                 ModelStabilityFollowInputs(
                     tags=tuple(tags) if tags is not None else None,
-                    dev_running_ref=dev_ref,
-                    dev_contains_newest=self._contains_newest(
-                        repository, newest, dev_ref
+                    dev_ran_tag_sha=dev_tag.sha if dev_tag else None,
+                    dev_receipt=self.job_store.latest_terminal_status(
+                        EnumRuntimeLane.DEV.value
                     ),
                     stability_running_ref=stability_ref,
-                    stability_contains_newest=self._contains_newest(
-                        repository, newest, stability_ref
+                    stability_contains_tag=self._contains_newest(
+                        repository, dev_tag, stability_ref
                     ),
                     job_active=self.job_store.has_active_job(),
                     frozen_reason=getattr(
@@ -1452,9 +1474,10 @@ class DeployAgent:
             return decision
         if not self._idle_converge_gate_open():
             return decision
-        assert decision.newest_tag_sha is not None  # FOLLOW names the tag
-        self._stability_follow_attempted.add(decision.newest_tag_sha)
-        cmd = stability_follow_command()
+        assert decision.followed_tag is not None  # FOLLOW names the tag
+        assert decision.followed_tag_sha is not None
+        cmd = stability_follow_command(decision.followed_tag, repository)
+        self._stability_follow_attempted.add(decision.followed_tag_sha)
         logger.info(
             "stability follow: running %s as %s: %s",
             cmd.correlation_id,
@@ -1507,7 +1530,7 @@ class DeployAgent:
                     "idle restore: %s (%s)", decision.verdict.value, decision.detail
                 )
             self._idle_restore_last_verdict = decision.verdict
-        if presence is not EnumRuntimePresence.DOWN:
+        if not presence.restorable:
             return False
         if decision.verdict is not EnumIdleRestoreVerdict.RESTORE:
             return True
@@ -1533,7 +1556,10 @@ class DeployAgent:
         routed_to = self._router.table.route(
             EnumRuntimeLane.DEV, f"gha/{repository}/idle-converge"
         )
-        routed_elsewhere = routed_to != self._router.instance.name
+        # OMN-22808: a web merge publishes no rebuild to any instance, so no
+        # routing row sends it elsewhere; this instance is its only follower.
+        web = getattr(_web_source(), "repository", None) == repository
+        routed_elsewhere = web or routed_to != self._router.instance.name
         running_ref = head_ref = probe_blocker = windows_error = None
         if routed_elsewhere:
             try:
@@ -1552,9 +1578,10 @@ class DeployAgent:
             self._dev_lag_behind_since.pop(repository, None)
         else:
             self._dev_lag_behind_since[repository] = behind_since
-        self._record_dev_lane_drift(
-            repository, running_ref, head_ref, behind_since, lane_flags, now
-        )
+        if not web:  # the drift record names the runtime container and image
+            self._record_dev_lane_drift(
+                repository, running_ref, head_ref, behind_since, lane_flags, now
+            )
         return decide_idle_converge(
             ModelIdleConvergeInputs(
                 now=now,
@@ -1586,15 +1613,13 @@ class DeployAgent:
         lane_flags: ModelLaneFlags,
         now: datetime,
     ) -> None:
-        """Keep the lane's drift behind ``repository``'s head, and say it (OMN-21146).
-
-        An overdue lane is published, then again every
-        :data:`DEV_LANE_DRIFT_REPUBLISH_AFTER` while it stays overdue, with a
-        WARNING carrying ``friction_type=dev_lane_drift``. A lane that was
-        published overdue and now runs the head is published once more, cleared.
-        """
-        max_lag = lane_flags.max_dev_lag()
-        if max_lag is None:
+        # Keep the lane's drift behind ``repository``'s head, and say it (OMN-21146).
+        #
+        # An overdue lane is published, then again every
+        # :data:`DEV_LANE_DRIFT_REPUBLISH_AFTER` while it stays overdue, with a
+        # WARNING carrying ``friction_type=dev_lane_drift``. A lane that was
+        # published overdue and now runs the head is published once more, cleared.
+        if (max_lag := lane_flags.max_dev_lag()) is None:
             return
         on_head = running_ref is not None and running_ref == head_ref
         if behind_since is None:
@@ -1688,10 +1713,7 @@ class DeployAgent:
                 and self._idle_running_contains(repository, newest.sha, running_ref)
             ),
         )
-        if behind_since is None:
-            self._dev_tag_behind_since.pop(repository, None)
-        else:
-            self._dev_tag_behind_since[repository] = behind_since
+        self._dev_tag_behind_since[repository] = behind_since
         beat = dev_tag_heartbeat(
             instance=self._router.instance.name,
             repository=repository,
@@ -1716,14 +1738,23 @@ class DeployAgent:
                 beat.alarm_after_seconds,
             )
         last = self._dev_tag_heartbeat_published_at.get(repository)
-        alarm_changed = previous is None or previous.alarm != beat.alarm
-        if (
-            not alarm_changed
-            and last is not None
-            and now - last < DEV_TAG_HEARTBEAT_INTERVAL
-        ):
+        held = last is not None and now - last < DEV_TAG_HEARTBEAT_INTERVAL
+        if held and previous is not None and previous.alarm == beat.alarm:
             return
-        publish_dev_tag_heartbeat(beat.model_dump(mode="json"), self._kafka_config)
+        # OMN-23540: off the tick, and never two at once. The send is a synchronous
+        # Kafka send and flush that a broker which accepts and never answers holds
+        # for 60 seconds, so it runs on its own daemon thread: a blocked send holds
+        # neither the tick nor a stop. While one is still running no second starts,
+        # and the published time is cleared so the next tick sends the newest beat
+        # at once (an alarm change is not lost behind a hung send). One attempt, no
+        # retry: the next heartbeat replaces a lost one.
+        if (send := self._dev_tag_heartbeat_send) is not None and send.is_alive():
+            self._dev_tag_heartbeat_published_at.pop(repository, None)
+            return
+        job = (beat.model_dump(mode="json"), self._kafka_config)
+        send = threading.Thread(target=publish_dev_tag_heartbeat, args=job, daemon=True)
+        send.start()
+        self._dev_tag_heartbeat_send = send
         self._dev_tag_heartbeat_published_at[repository] = now
 
     def _latest_dev_tag_heartbeat(self) -> dict[str, object]:
@@ -1795,8 +1826,7 @@ class DeployAgent:
 
     def _idle_converge_gate_open(self) -> bool:
         """Whether the load gate lets an idle converge start now (OMN-19507)."""
-        gate = getattr(self, "_load_gate", None)
-        if gate is None:
+        if (gate := getattr(self, "_load_gate", None)) is None:
             return True
         decision = gate.check()
         if decision.verdict is EnumLoadGateVerdict.DEFER:
@@ -1945,7 +1975,24 @@ class DeployAgent:
                     )
 
                 # Preflight
-                self.executor.preflight(on_phase_update=on_phase_update)
+                load_dev_boot_guard().run_preflight(self.executor, cmd, on_phase_update)
+
+                # OMN-21279: retain the previous generation's compose settings
+                # before git_pull replaces them. The guard has no non-dev path.
+                dev_guard = None
+                if cmd.runtime_lane is EnumRuntimeLane.DEV and cmd.scope in (
+                    Scope.RUNTIME,
+                    Scope.FULL,
+                ):
+                    # OMN-24216: mount the command's overlays revision, or clear it; a
+                    # refusal ends the job before any build.
+                    load_dev_boot_guard(
+                        "nodes.node_setup_local_provision_effect.runtime_overlay_revision"
+                    ).apply(
+                        sys.modules[__name__], STATE_DIR, os.environ, cmd.overlay_ref
+                    )
+                    dev_guard = DevBootGuard(self.executor, STATE_DIR)
+                    dev_guard.prepare(cmd.model_dump(mode="json"))
 
                 # Git pull -- OMN-18124: under the lane's host lock, the same
                 # per-compose-project lock refresh_dev_lane.sh takes. The
@@ -1974,51 +2021,88 @@ class DeployAgent:
                 if cmd.scope in (Scope.RUNTIME, Scope.FULL):
                     self.executor.validate_llm_endpoint_env_contract()
 
-                # Rebuild — pass git_sha so _compose_build can bust the COPY src/ layer
-                # cache. prod pulls the pinned digest instead of rebuilding from a ref.
-                rollback_point = (
-                    capture_rollback_point(self.executor, cmd.runtime_lane)
-                    if cmd.scope in (Scope.RUNTIME, Scope.FULL)
-                    and cmd.runtime_lane != EnumRuntimeLane.PROD
-                    else None
-                )
-                services_restarted = self.executor.rebuild_scope(
-                    cmd.scope,
-                    cmd.services,
-                    on_phase_update=on_phase_update,
-                    git_sha=self._current_git_sha,
-                    # OMN-16442/OMN-17291: the command's own pin, carried through to
-                    # stage_workspace.sh as DEPLOY_REF for workspace-mode builds.
-                    git_ref=cmd.git_ref,
-                    build_source=cmd.build_source,
-                    lane=cmd.runtime_lane,
-                    image_digest=cmd.image_digest,
-                )
-
-                # prod must serve exactly the pinned digest: verify the running
-                # container image digest equals the requested digest BEFORE any
-                # health check, failing closed on mismatch.
-                if cmd.runtime_lane == EnumRuntimeLane.PROD and cmd.image_digest:
-                    health_checks = self.executor.deploy_and_verify(
-                        lane=cmd.runtime_lane,
-                        expected_digest=cmd.image_digest,
-                        on_phase_update=on_phase_update,
-                        service=resolve_prod_target_service(cmd),
+                # A compose failure and a probe timeout are as capable of
+                # leaving dev down as VerificationFailedError. Recover all
+                # failed dev attempts while the lane lock is still held.
+                protection = (
+                    dev_guard.protect(
+                        str(cid),
+                        self._current_git_sha,
+                        lambda error: self.job_store.complete(
+                            cid,
+                            status="failed",
+                            errors=[error],
+                            settling_stage=EnumJobSettlingStage.BOOT_RECOVERY,
+                        ),
                     )
-                else:
-                    try:
-                        health_checks = self.executor.verify(
-                            on_phase_update=on_phase_update, lane=cmd.runtime_lane
+                    if dev_guard is not None
+                    else contextlib.nullcontext()
+                )
+                with protection:
+                    # Rebuild — pass git_sha so _compose_build can bust the COPY src/ layer
+                    # cache. prod pulls the pinned digest instead of rebuilding from a ref.
+                    # OMN-24562: a stability lane read down by the guard's own
+                    # probe may deploy with no point; see the handler.
+                    rollback_point = load_dev_boot_guard(
+                        "handler_stability_rollback_waiver"
+                    ).admit_rollback_point(
+                        lane=cmd.runtime_lane,
+                        scope=cmd.scope,
+                        correlation_id=cid,
+                        record_dir=self.job_store.state_dir / "rollback-waivers",
+                        targets=lane_config_for(
+                            cmd.runtime_lane
+                        ).runtime_health_targets,
+                        probe=lambda **kw: self.executor._probe_runtime_health(**kw),
+                        capture=lambda: capture_rollback_point(
+                            self.executor, cmd.runtime_lane
+                        ),
+                    )
+                    services_restarted = self.executor.rebuild_scope(
+                        cmd.scope,
+                        cmd.services,
+                        on_phase_update=on_phase_update,
+                        git_sha=self._current_git_sha,
+                        # OMN-16442/OMN-17291: the command's own pin, carried through to
+                        # stage_workspace.sh as DEPLOY_REF for workspace-mode builds.
+                        git_ref=cmd.git_ref,
+                        build_source=cmd.build_source,
+                        lane=cmd.runtime_lane,
+                        image_digest=cmd.image_digest,
+                        declared_pr=cmd.open_pr,
+                        sibling_tags=cmd.sibling_tags,
+                    )
+
+                    if dev_guard is not None:
+                        dev_guard.wait(deployed_generation=True)
+
+                    # prod must serve exactly the pinned digest: verify the running
+                    # container image digest equals the requested digest BEFORE any
+                    # health check, failing closed on mismatch.
+                    if cmd.runtime_lane == EnumRuntimeLane.PROD and cmd.image_digest:
+                        health_checks = self.executor.deploy_and_verify(
+                            lane=cmd.runtime_lane,
+                            expected_digest=cmd.image_digest,
+                            on_phase_update=on_phase_update,
+                            service=resolve_prod_target_service(cmd),
                         )
-                    except VerificationFailedError as exc:
-                        if rollback_point is not None:
-                            outcome = restore_rollback_point(
-                                self.executor, rollback_point, on_phase_update
+                    else:
+                        try:
+                            health_checks = self.executor.verify(
+                                on_phase_update=on_phase_update, lane=cmd.runtime_lane
                             )
-                            raise DeployRolledBackError(
-                                exc, outcome, rollback_point
-                            ) from exc
-                        raise
+                        except (
+                            VerificationFailedError,
+                            subprocess.TimeoutExpired,
+                        ) as exc:
+                            if rollback_point is not None:
+                                outcome = restore_rollback_point(
+                                    self.executor, rollback_point, on_phase_update
+                                )
+                                raise DeployRolledBackError(
+                                    exc, outcome, rollback_point
+                                ) from exc
+                            raise
 
                 # OMN-20867: the lane's mirror forwarders, on the image the
                 # runtime phase just verified, under this lane's lock. The
@@ -2066,7 +2150,10 @@ class DeployAgent:
                 # sha-keyed record and receipt. Only the dev lane: the fence
                 # below refuses every other lane.
                 lab_sha = self._resolve_lab_overlay_sha(
-                    cmd, action="re-apply", sha=self._current_git_sha
+                    cmd,
+                    action="onex-api build",
+                    sha=self._current_git_sha,
+                    phase=EnumInstancePhase.ONEX_API_PIN,
                 )
                 self.job_store.complete(
                     cid,
@@ -2226,7 +2313,8 @@ class DeployAgent:
             # the job thread, so the next command's compose job can start while
             # this one's overlay applies. The terminal event is published by the
             # settle, after the pin, exactly as OMN-18572 shaped it.
-            self._hand_to_settle(settle)
+            with self._settle_guard:
+                self._settle_future = self._settle_pool.submit(settle)
             self._state = "idle"
             return
 
@@ -2292,7 +2380,7 @@ class DeployAgent:
         cid = cmd.correlation_id
         delivery: ModelOnexApiDelivery | None = None
         try:
-            manifest_sha = self._apply_lab_overlay(
+            manifest_sha = self._build_onex_api_image(
                 cmd, sha=sha, stamp=stamp, capture=capture
             )
             self.job_store.set_settling(cid, EnumJobSettlingStage.ONEX_API_PIN)
@@ -2353,6 +2441,7 @@ class DeployAgent:
                 job.result_publish_pending = True
                 self.job_store._save(job)
                 logger.warning("Publish failed for %s, marked pending", cid)
+            self._job_reading("publish", job, sys.modules[__name__])
 
         # OMN-18636 AC5. Nothing further runs for this job, so it stops
         # reporting itself as settling. A flag that is only ever set makes every
@@ -2389,7 +2478,7 @@ class DeployAgent:
                 compose_version_error=reason,
             )
 
-    def _apply_lab_overlay(
+    def _build_onex_api_image(
         self,
         cmd: ModelRebuildRequested,
         *,
@@ -2397,104 +2486,68 @@ class DeployAgent:
         stamp: str,
         capture: ModelLabOverlayCapture,
     ) -> str | None:
-        """Re-apply the k3s onex-lab overlay for this merge (OMN-18200 AC5).
+        """Build the onex-api image the pin delivery advances to (OMN-23521).
 
-        OMN-19501: runs on the settle worker, AFTER the dev lane lock is
-        released, under the k3s surface lock instead. ``sha`` is the fence's
-        answer taken on the job thread and ``capture`` the compose-lane inputs
-        taken under the lane lock; nothing here reads the lane again.
+        Runs on the settle worker after the dev lane lock is released: the
+        overlay source is archived, then ``node_onex_api_image_build_effect`` runs one
+        host ``docker build`` against the runtime image ``capture`` took under
+        the lock. No cluster apply runs any more: that step is retired.
 
-        Called on the SUCCESS path only. The failing path takes the narrower
-        ``_build_lab_repair_image`` instead (OMN-18545), because the apply
-        promotes the runtime pin on a premise a failed job can falsify.
-
-        Swallows every exception by design. The record the applier writes is the
-        channel this result travels on; a raise here would convert a lab finding
-        into a failed compose deploy, which is the opposite of what the two
-        separate lane values exist to keep apart. An exception that escapes the
-        applier is itself logged and then dropped, because the applier's own
-        contract is that it writes a record on both outcomes -- so an escape is a
-        defect in the applier, reported as one, not a reason to lose the deploy.
-
-        Swallowing also protects the TERMINAL PUBLISH, which the settle runs
-        after this: an exception escaping here would skip it, and a job whose
-        verdict is durable but never published has no ``result_publish_pending``
-        either, so the retry loop would not replay it.
-
-        A contended surface lock is logged and swallowed the same way. No record
-        is written, so the onex-lab-k3s reader waits out its window and emits a
-        FAIL for the missing record -- the fail-closed path, unchanged.
+        Returns the overlay source commit the image is keyed by, or ``None``
+        when the source could not be archived, which the delivery records as a
+        named non-attempt. A refused or failed build still returns its commit,
+        so the delivery refuses for THAT lineage instead of saying nothing.
+        Swallows, because the terminal publish after the settle must always run.
         """
-        applier: LabOverlayApplier | None = None
         try:
-            with lane_lock(
-                LAB_OVERLAY_SURFACE_LOCK,
-                lane="onex-lab",
-                ref=sha,
-                timeout=float(LAB_OVERLAY_BUDGET_SECONDS),
-            ):
-                applier = self._lab_overlay_applier()
-                path = applier.apply(
-                    sha=sha,
-                    stamp=stamp,
-                    correlation_id=str(cmd.correlation_id),
-                    capture=capture,
-                )
-            logger.info("lab overlay re-apply recorded at %s", path)
-        except Exception:
-            logger.exception(
-                "lab overlay re-apply raised instead of recording for %s; the "
-                "onex-lab-k3s receipt for this sha will report a missing record",
-                sha,
+            applier = self._lab_overlay_applier()
+            tree = applier.state_dir / "lab-overlay" / "work" / "overlay-source"
+            revision = applier.archive_overlay(tree)
+            request = load_dev_boot_guard(
+                "models.model_onex_api_image_build_request"
+            ).ModelOnexApiImageBuildRequest(
+                sha=sha,
+                stamp=stamp,
+                capture_sha=capture.sha,
+                runtime_image=capture.runtime_image,
+                capture_error=capture.pin_error,
+                source_tree=tree,
+                source_revision=revision,
+                image_repository=API_IMAGE_NAME,
+                dockerfile=API_DOCKERFILE,
+                context=API_CONTEXT,
+                runtime_image_build_arg=API_RUNTIME_IMAGE_BUILD_ARG,
+                revision_label=API_REVISION_LABEL,
+                source_label=API_SOURCE_LABEL,
+                source_repo=LAB_OVERLAY_SOURCE_DIR.name,
+                timeout_seconds=API_BUILD_TIMEOUT_SECONDS,
             )
-        # Read AFTER the try/except, deliberately: an apply that raised partway
-        # may still have resolved its source, and the image built from that
-        # lineage is on the host either way. Returning it is what lets the
-        # delivery say "refused for THIS lineage" instead of nothing.
-        #
-        # In a try of its own for the same reason the apply is: this method
-        # runs inside the deploy job's own `try`, with the terminal publish
-        # after it, so ANY escape from here costs a published result. An
-        # applier that cannot report the commit it resolved is a defect in the
-        # applier, reported as one -- never a reason to lose the deploy, and
-        # never a reason to deliver an image of unknown lineage.
-        if applier is None:
-            return None
-        try:
-            return applier.manifest_sha
+            result = load_dev_boot_guard(
+                "handler_onex_api_image_build"
+            ).build_onex_api_image(applier._run, request)
         except Exception:
             logger.exception(
-                "the lab-overlay applier did not report the omninode_infra "
-                "commit it resolved for %s; the onex-api pin delivery will "
-                "record a named non-attempt rather than pin an image whose "
-                "lineage this job cannot name",
+                "onex-api image build for %s raised; the pin delivery will "
+                "record a named non-attempt",
                 sha,
             )
             return None
+        log = logger.info if result.built else logger.error
+        log("onex-api image build for %s: %s", sha, result.reason)
+        built_from: str | None = result.source_revision
+        return built_from
 
     def _deliver_onex_api_pin(
         self, cmd: ModelRebuildRequested, *, sha: str, manifest_sha: str | None
     ) -> ModelOnexApiDelivery | None:
-        """Advance ``ONEX_API_IMAGE`` to the image the apply just built (OMN-18572).
+        """Advance ``ONEX_API_IMAGE`` to the image the settle just built (OMN-18572).
 
-        The applier makes a correct onex-api image EXIST on this host. This is
-        the step that makes the lane RUN it. Without it the two facts diverge
-        silently and stay diverged until somebody delivers by hand -- which is
-        what a fix merged at 09:00:53Z on 2026-09-17 waited until 11:20Z for,
-        with tenant creation on the lab impossible throughout.
-
-        ``manifest_sha`` IS THE OMNINODE_INFRA COMMIT, AND THAT IS THE WHOLE
-        CORRECTION HERE. ``_resolve_lab_overlay_sha`` answers a different
-        question -- may this job touch the lab at all -- and its answer is the
-        merged **omnibase_infra** sha the record is keyed by. The lab image tags
-        are ``<omninode_infra sha8>-<stamp>``, so passing the fence's sha as
-        ``--sha`` searched for a lineage no image has ever carried. Every
-        delivery between the merge on 2026-09-17 and 2026-09-19 refused on that,
-        thirty consecutive canary runs stayed red behind it, and the refusal
-        text read "none of them for omninode_infra sha <an omnibase_infra sha>"
-        -- which describes an applier that produced nothing, not a caller that
-        asked for the wrong repository. The fence is still consulted, for the
-        question it actually answers; the lineage now comes from the apply.
+        The build makes a correct onex-api image EXIST on this host; this is the
+        step that makes the lane RUN it. ``manifest_sha`` is the overlay SOURCE
+        commit the image was built from (its tags are ``<sha8>-<stamp>``), not
+        the merged omnibase_infra sha the fence answered: passing the fence's
+        sha searched for a lineage no image ever carried, and thirty deliveries
+        refused on that between 2026-09-17 and 2026-09-19.
 
         A MISSING LINEAGE IS A NAMED NON-DELIVERY, NEVER A FALLBACK. The repoint
         script will happily take the newest resident image of any lineage when
@@ -2536,8 +2589,8 @@ class DeployAgent:
                     result=EnumOnexApiDeliveryResult.NOT_ATTEMPTED,
                     raw_result=EnumOnexApiDeliveryResult.NOT_ATTEMPTED.value,
                     reason=(
-                        "the lab-overlay apply for omnibase_infra "
-                        f"{fence_sha} resolved no omninode_infra overlay "
+                        "the onex-api image build for omnibase_infra "
+                        f"{fence_sha} resolved no overlay source "
                         "commit, so no image was built from any lineage this "
                         "job can name. Delivering the newest resident image "
                         "regardless of lineage would pin another merge's "
@@ -2639,7 +2692,7 @@ class DeployAgent:
         for why the failing path must not take the full apply, and the call site
         for the loop this opens.
 
-        Swallows for the same two reasons ``_apply_lab_overlay`` does, and the
+        Swallows for the same two reasons ``_build_onex_api_image`` does, and the
         second one binds harder here: this runs inside the deploy job's
         ``except`` block, so an escape would skip the terminal publish of a job
         that has ALREADY been recorded as failed.
@@ -2665,7 +2718,12 @@ class DeployAgent:
             )
 
     def _resolve_lab_overlay_sha(
-        self, cmd: ModelRebuildRequested, *, action: str, sha: str
+        self,
+        cmd: ModelRebuildRequested,
+        *,
+        action: str,
+        sha: str,
+        phase: EnumInstancePhase = EnumInstancePhase.LAB_OVERLAY,
     ) -> str | None:
         """The fence both lab-overlay paths pass through, or ``None`` to skip.
 
@@ -2682,12 +2740,14 @@ class DeployAgent:
         """
         if cmd.runtime_lane != EnumRuntimeLane.DEV:
             return None
-        if not lane_runs_phase(cmd.runtime_lane, EnumInstancePhase.LAB_OVERLAY):
-            # OMN-19522: the k3s onex-lab overlay lives on the .201 host only.
+        if not lane_runs_phase(cmd.runtime_lane, phase):
+            # OMN-19522, OMN-23521: the settle asks for the onex-api pin phase,
+            # the repair build for the lab-overlay phase.
             logger.info(
-                "lab overlay %s skipped: instance %s has no k3s onex-lab overlay",
+                "lab overlay %s skipped: instance %s disables the %s phase",
                 action,
                 active_dev_instance(),
+                phase.value,
             )
             return None
         if not LAB_OVERLAY_ENABLED:
@@ -2714,7 +2774,6 @@ class DeployAgent:
             repo_dir=Path(REPO_DIR),
             overlay_source_dir=LAB_OVERLAY_SOURCE_DIR,
             env=os.environ,
-            budget_seconds=LAB_OVERLAY_BUDGET_SECONDS,
         )
 
     def _publish_rejected(
@@ -2926,6 +2985,17 @@ class DeployAgent:
 
     def _retry_pending_publishes(self) -> None:
         """Replay any result still owed to the bus. BLOCKING — see ``_offload``."""
+        # Failure reports use their own durable outbox and survive a runtime
+        # bus outage. Retry only on a dev-capable instance.
+        if EnumRuntimeLane.DEV in self._allowed_lanes:
+            try:
+                deliver_reports(
+                    STATE_DIR
+                    / "dev-boot-guard"
+                    / lane_config_for(EnumRuntimeLane.DEV).compose_project
+                )
+            except (OSError, ValueError, RuntimeError):
+                logger.exception("Dev boot failure reports remain pending")
         pending = self.job_store.get_pending_publish()
         for job in pending:
             cid_str = str(job.correlation_id)

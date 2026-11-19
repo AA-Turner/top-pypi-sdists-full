@@ -93,7 +93,9 @@ class AuthConfigRetrieveResponse(BaseModel):
     "The type of the authentication configuration (custom or default)"
     uuid: str
     "The UUID of the authentication configuration (for backward compatibility)"
+    managed_app_id: str | None = None
     shared_connection_fields: dict[str, object | None] | None = None
+    keyring_routed: bool
 
 
 __all__ = [

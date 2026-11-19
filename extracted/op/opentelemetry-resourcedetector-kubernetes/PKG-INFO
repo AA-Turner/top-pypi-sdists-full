@@ -1,21 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: opentelemetry-resourcedetector-kubernetes
-Version: 0.3.0
-Summary: An OpenTelemetry package to populates Resource attributes for Kubernetes pods
-Home-page: https://github.com/chrisguidry/opentelemetry-resourcedetector-kubernetes
-Author: Chris Guidry
-Author-email: chris@theguidrys.us
+Version: 0.4.0
+Summary: An OpenTelemetry package to populate Resource attributes for Kubernetes pods
+Project-URL: Repository, https://github.com/chrisguidry/opentelemetry-resourcedetector-kubernetes
 Project-URL: Bug Tracker, https://github.com/chrisguidry/opentelemetry-resourcedetector-kubernetes/issues
-Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-Provides-Extra: dev
+Author-email: Chris Guidry <chris@theguidrys.us>
+License-Expression: MIT
 License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Requires-Dist: opentelemetry-sdk
+Requires-Dist: opentelemetry-semantic-conventions
+Description-Content-Type: text/markdown
 
 # opentelemetry-resourcedetector-kubernetes
 
-An OpenTelemetry package to populates Resource attributes for Kubernetes pods.
+An OpenTelemetry package to populate Resource attributes for Kubernetes pods.
 
 ## Usage
 
@@ -30,7 +38,7 @@ resource = get_aggregated_resources([
     SomeOtherResourceDetector()
 ])
 
-... pass the returned `resource` to a TracerProvder, for example ...
+... pass the returned `resource` to a TracerProvider, for example ...
 ```
 
 The `KubernetesResourceDetector` is able to detect the basic identifying information
@@ -121,7 +129,7 @@ resource = get_aggregated_resources([
     SomeOtherResourceDetector()
 ])
 
-... pass the returned `resource` to a TracerProvder, for example ...
+... pass the returned `resource` to a TracerProvider, for example ...
 ```
 
 In this example, the `Resource` for all traces would include the attributes:
@@ -190,7 +198,7 @@ resource = get_aggregated_resources([
     SomeOtherResourceDetector()
 ])
 
-... pass the returned `resource` to a TracerProvder, for example ...
+... pass the returned `resource` to a TracerProvider, for example ...
 ```
 
 In this example, the `Resource` for all traces would include the attributes:

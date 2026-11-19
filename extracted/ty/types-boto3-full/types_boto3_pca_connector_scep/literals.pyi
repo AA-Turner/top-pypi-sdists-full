@@ -47,6 +47,7 @@ ListChallengeMetadataPaginatorName = Literal["list_challenge_metadata"]
 ListConnectorsPaginatorName = Literal["list_connectors"]
 PrivateCAConnectorforSCEPServiceName = Literal["pca-connector-scep"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

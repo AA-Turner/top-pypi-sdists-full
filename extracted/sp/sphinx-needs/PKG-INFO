@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sphinx-needs
-Version: 9.2.0
+Version: 9.3.0
 Summary: Sphinx needs extension for managing needs/requirements and specifications
 Author-email: team useblocks <info@useblocks.com>
 Requires-Python: >=3.11,<4
@@ -29,14 +29,14 @@ Requires-Dist: jsonschema-rs>=0.37.1,<0.59
 Requires-Dist: sphinx-data-viewer~=0.1.5
 Requires-Dist: sphinxcontrib-jquery~=4.0
 Requires-Dist: typing-extensions>=4.14.0
-Requires-Dist: minijinja~=2.15
-Requires-Dist: ub-project>=1.2.0,<2
-Requires-Dist: ub-needs-exchange>=1.1.0,<2
+Requires-Dist: minijinja>=3.1.0,<4
+Requires-Dist: ub-project>=1.3.0,<2
+Requires-Dist: ub-needs-exchange>=1.2.0,<2
 Requires-Dist: matplotlib>=3.3.0 ; extra == "docs"
 Requires-Dist: sphinxcontrib-plantuml~=0.0 ; extra == "docs"
 Requires-Dist: sphinx-copybutton~=0.5 ; extra == "docs"
 Requires-Dist: sphinxcontrib-programoutput~=0.17 ; extra == "docs"
-Requires-Dist: sphinx-design~=0.6 ; extra == "docs"
+Requires-Dist: sphinx-design>=0.8.0,<1 ; extra == "docs"
 Requires-Dist: sphinx-ai-index>=1.0.0,<2 ; extra == "docs"
 Requires-Dist: sphinx-syntax-example~=0.2.0 ; extra == "docs"
 Requires-Dist: sphinxcontrib-mermaid>=1.0.0,<3 ; extra == "docs"

@@ -103,6 +103,7 @@ ReviewPolicyLevelType = Literal["Assignment", "HIT"]
 ReviewableHITStatusType = Literal["Reviewable", "Reviewing"]
 MTurkServiceName = Literal["mturk"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

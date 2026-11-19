@@ -1,5 +1,6 @@
 # ruff: noqa: N802, PLC0415
 import re
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
@@ -141,7 +142,7 @@ class ReloadMode(str, Enum):
     - `off`: No file watching. Changes are not picked up until the server is manually restarted.
     - `hot`: Clear the in-memory component cache so the next render reads fresh content from disk.
       The dev server keeps running - no restart.
-    - `restart`: Same as `hot`, but also restarts the dev server. Deprecated, will be removed in v1.
+    - `restart`: Same as `hot`, but also restarts the dev server. Deprecated, will be removed in 2.0.
     """
 
     OFF = "off"
@@ -153,12 +154,12 @@ class ReloadMode(str, Enum):
     render reads fresh content from disk. The dev server keeps running without a restart.
     """
 
-    # TODO_REMOVE_IN_V1
+    # TODO_REMOVE_IN_V2
     RESTART = "restart"
     """
     Same cache-clearing behavior as `hot`, but also triggers a full dev server restart.
 
-    Deprecated. Use `hot` instead. Will be removed in v1.
+    Deprecated. Use `hot` instead. Will be removed in 2.0.
     """
 
 
@@ -296,7 +297,15 @@ class ComponentsSettings(NamedTuple):
     to be used for storing component's JS and CSS files.
 
     If `None`, a [`LocMemCache`](https://docs.djangoproject.com/en/5.2/topics/cache/#local-memory-caching)
-    is used with default settings.
+    stores each component's JS and CSS, and a separate in-memory store holds the JS and CSS variables
+    from [`get_js_data()`][Component.get_js_data] and [`get_css_data()`][Component.get_css_data].
+    [`vars_cache_max_age`][ComponentsSettings.vars_cache_max_age] and
+    [`vars_cache_max_bytes`][ComponentsSettings.vars_cache_max_bytes] limit that second store.
+
+    If set, everything goes in the named cache, and that cache's own `TIMEOUT` and limits apply.
+    Variables can hold data from your users, so set a `TIMEOUT` or a size limit on that cache.
+    With `"TIMEOUT": None` and no limit, each new value that `get_js_data()` or `get_css_data()`
+    returns adds an entry that stays for good.
 
     Defaults to `None`.
 
@@ -336,12 +345,12 @@ class ComponentsSettings(NamedTuple):
     > [the rationale for this change](https://github.com/django-components/django-components/issues/498).
     """
 
-    # TODO_v1 - remove. Users should use extension defaults instead.
+    # TODO_V2 - remove. Users should use extension defaults instead.
     debug_highlight_components: bool | None = None
     """
     DEPRECATED. Use
     [`extensions_defaults`][ComponentsSettings.extensions_defaults]
-    instead. Will be removed in v1.
+    instead. Will be removed in 2.0.
 
     Enable / disable component highlighting.
     See [Troubleshooting](../guides/other/troubleshooting.md#component-and-slot-highlighting) for more details.
@@ -355,12 +364,12 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    # TODO_v1 - remove. Users should use extension defaults instead.
+    # TODO_V2 - remove. Users should use extension defaults instead.
     debug_highlight_slots: bool | None = None
     """
     DEPRECATED. Use
     [`extensions_defaults`][ComponentsSettings.extensions_defaults]
-    instead. Will be removed in v1.
+    instead. Will be removed in 2.0.
 
     Enable / disable slot highlighting.
     See [Troubleshooting](../guides/other/troubleshooting.md#component-and-slot-highlighting) for more details.
@@ -462,7 +471,7 @@ class ComponentsSettings(NamedTuple):
     ```
     """
 
-    # TODO_REMOVE_IN_V1
+    # TODO_REMOVE_IN_V2
     reload_on_template_change: bool | None = None
     """Deprecated. Use
     [`COMPONENTS.reload_on_file_change`][ComponentsSettings.reload_on_file_change]
@@ -483,7 +492,7 @@ class ComponentsSettings(NamedTuple):
     - `True` or `"hot"` - Clear the in-memory component cache so the next render reads fresh
       content from disk. The dev server keeps running without a restart.
     - `"restart"` - Same as `"hot"`, but also triggers a full dev server restart.
-      Deprecated, will be removed in v1.
+      Deprecated, will be removed in 2.0.
 
     Defaults to `"hot"`.
 
@@ -531,7 +540,7 @@ class ComponentsSettings(NamedTuple):
         See [Security notes](../overview/security_notes.md).
     """
 
-    # TODO_REMOVE_IN_V1
+    # TODO_REMOVE_IN_V2
     forbidden_static_files: list[str | re.Pattern] | None = None
     """Deprecated. Use
     [`COMPONENTS.static_files_forbidden`][ComponentsSettings.static_files_forbidden]
@@ -639,10 +648,10 @@ class ComponentsSettings(NamedTuple):
             ```
     """
 
-    # TODO_V1 - remove
+    # TODO_V2 - remove
     template_cache_size: int | None = None
     """
-    DEPRECATED. Template caching will be removed in v1.
+    DEPRECATED. Template caching will be removed in 2.0.
 
     Configure the maximum amount of Django templates to be cached.
 
@@ -691,6 +700,68 @@ class ComponentsSettings(NamedTuple):
         name=...
         origin=...
         engine=...
+    )
+    ```
+    """
+
+    vars_cache_max_age: int | None = None
+    """
+    How many seconds to keep the JS and CSS variables from
+    [`get_js_data()`][Component.get_js_data] and [`get_css_data()`][Component.get_css_data]
+    after they were last used.
+
+    Defaults to `86400` (24 hours).
+
+    This applies only to the default in-memory store. When you set
+    [`COMPONENTS.cache`][ComponentsSettings.cache], that cache's own `TIMEOUT` applies instead.
+
+    Rendering a component counts as using its variables, and so does replaying its HTML from
+    [`{% cache %}`](../concepts/advanced/component_caching.md) or
+    [`Component.Cache`][Component.Cache]. A whole page that you keep in a cache of your own
+    does not count. HTML rendered with the `"fragment"` strategy fetches the variables when
+    it loads, so keep this longer than you keep such HTML.
+
+    When a render finds that the variables are gone, the component's `$onComponent` callbacks
+    do not run, or its CSS variables are unset, and a warning is logged.
+
+    Must be `None`, which uses the default, or a positive integer of at most `sys.maxsize`.
+    Any other value raises a `ValueError` when Django starts. There is no way to turn
+    the limit off, but you can set a very large number.
+
+    ```python
+    COMPONENTS = ComponentsSettings(
+        vars_cache_max_age=7 * 24 * 60 * 60,
+    )
+    ```
+    """
+
+    vars_cache_max_bytes: int | None = None
+    """
+    How much memory each server process may use to keep the JS and CSS variables from
+    [`get_js_data()`][Component.get_js_data] and [`get_css_data()`][Component.get_css_data].
+
+    Defaults to `67108864` (64 MiB).
+
+    This applies only to the default in-memory store. When you set
+    [`COMPONENTS.cache`][ComponentsSettings.cache], that cache's own limits apply instead.
+
+    This is an estimate of the memory used, and it is close to the real figure.
+
+    Each distinct set of variables is stored once. When the store is full, it drops the variables
+    that were used longest ago, and they are missing as described in
+    [`COMPONENTS.vars_cache_max_age`][ComponentsSettings.vars_cache_max_age], until a render
+    produces the same variables again. So if your components produce many distinct values,
+    raise this limit.
+
+    Variables larger than the whole limit are not stored, and a warning is logged.
+
+    Must be `None`, which uses the default, or a positive integer of at most `sys.maxsize`.
+    Any other value raises a `ValueError` when Django starts. There is no way to turn
+    the limit off, but you can set a very large number.
+
+    ```python
+    COMPONENTS = ComponentsSettings(
+        vars_cache_max_bytes=256 * 1024 * 1024,
     )
     ```
     """
@@ -751,6 +822,8 @@ defaults = ComponentsSettings(
     ],
     tag_formatter="django_components.component_formatter",
     template_cache_size=128,
+    vars_cache_max_age=24 * 60 * 60,
+    vars_cache_max_bytes=64 * 1024 * 1024,
 )
 # --endsnippet:defaults--
 # fmt: on
@@ -803,6 +876,14 @@ class InternalSettings:
             static_files_forbidden=self._prepare_static_files_forbidden(components_settings),
             context_behavior=self._prepare_context_behavior(components_settings),
             tag_formatter=default(components_settings.tag_formatter, defaults.tag_formatter),  # type: ignore[arg-type]
+            vars_cache_max_age=self._prepare_positive_int(
+                "vars_cache_max_age",
+                default(components_settings.vars_cache_max_age, defaults.vars_cache_max_age),
+            ),
+            vars_cache_max_bytes=self._prepare_positive_int(
+                "vars_cache_max_bytes",
+                default(components_settings.vars_cache_max_bytes, defaults.vars_cache_max_bytes),
+            ),
         )
 
     def _get_settings(self) -> ComponentsSettings:
@@ -840,13 +921,13 @@ class InternalSettings:
 
     def _prepare_reload_on_file_change(self, new_settings: ComponentsSettings) -> ReloadModeType:
         val = new_settings.reload_on_file_change
-        # TODO_REMOVE_IN_V1
+        # TODO_REMOVE_IN_V2
         if val is None:
             val = new_settings.reload_on_template_change
 
         resolved = default(val, defaults.reload_on_file_change)
 
-        # TODO_REMOVE_IN_V1 - Normalize bool to ReloadMode string
+        # TODO_REMOVE_IN_V2 - Normalize bool to ReloadMode string
         if resolved is True:
             return "hot"
         if resolved is False:
@@ -862,11 +943,18 @@ class InternalSettings:
 
     def _prepare_static_files_forbidden(self, new_settings: ComponentsSettings) -> list[str | re.Pattern]:
         val = new_settings.static_files_forbidden
-        # TODO_REMOVE_IN_V1
+        # TODO_REMOVE_IN_V2
         if val is None:
             val = new_settings.forbidden_static_files
 
         return default(val, cast("list[str | re.Pattern]", defaults.static_files_forbidden))
+
+    def _prepare_positive_int(self, name: str, value: Any) -> int:
+        # `type()` rather than `isinstance()`, because `True` is an `int` and would pass as 1.
+        # The upper bound keeps a value from failing later, on each render, when added to the clock.
+        if type(value) is not int or not 0 < value <= sys.maxsize:
+            raise ValueError(f"COMPONENTS.{name} must be a positive integer of at most {sys.maxsize}, got {value!r}")
+        return value
 
     def _prepare_context_behavior(self, new_settings: ComponentsSettings) -> Literal["django", "isolated"]:
         raw_value = cast(
@@ -932,6 +1020,14 @@ class InternalSettings:
     @property
     def TEMPLATE_CACHE_SIZE(self) -> int:
         return self._get_settings().template_cache_size  # type: ignore[return-value]
+
+    @property
+    def VARS_CACHE_MAX_AGE(self) -> int:
+        return self._get_settings().vars_cache_max_age  # type: ignore[return-value]
+
+    @property
+    def VARS_CACHE_MAX_BYTES(self) -> int:
+        return self._get_settings().vars_cache_max_bytes  # type: ignore[return-value]
 
     @property
     def STATIC_FILES_ALLOWED(self) -> Sequence[str | re.Pattern]:

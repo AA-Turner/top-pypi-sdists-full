@@ -12,6 +12,45 @@ use pyrefly_util::thread_pool::ThreadCount;
 use crate::test::util::TestEnv;
 use crate::testcase;
 
+testcase!(
+    test_deferred_callbacks_keep_matched_keys_with_unpacking,
+    TestEnv::new().enable_implicit_any_lambda_error(),
+    r#"
+from typing import Callable, assert_type
+
+class Invoker:
+    def run[T](
+        self,
+        left: int,
+        right: str,
+        first: Callable[[T], T],
+        second: Callable[[T], T],
+        sample: T,
+        *rest: T,
+    ) -> T:
+        return second(first(sample))
+
+def check(rest: tuple[int, ...]) -> None:
+    invoker = Invoker()
+    plain = invoker.run(
+        1, "prefix",
+        lambda value: assert_type(value, int),
+        lambda value: assert_type(value, int),
+        0, *rest,
+    )
+    # One source argument supplies two parameters before the deferred callbacks.
+    prefix: tuple[int, str] = (1, "prefix")
+    expanded = invoker.run(
+        *prefix,
+        lambda value: assert_type(value, int),
+        lambda value: assert_type(value, int),
+        0, *rest,
+    )
+    assert_type(plain, int)
+    assert_type(expanded, int)
+"#,
+);
+
 // `CallArgPreEval::advance_after_match` is shared with shape-specific call matching. Keep this
 // regression in the general callable suite so the refactor cannot change ordinary variadic
 // type-variable consumption.
@@ -518,7 +557,7 @@ testcase!(
     test_missing_self_and_kwonly,
     r#"
 class A:
-    def f(*, x): ...
+    def f(*, x): ...  # E: Instance method `f` must accept the instance as its first positional parameter
 A().f(1)  # E: Expected argument `x` to be passed by name  # E: Expected 0 positional arguments, got 2 (including implicit `self`)
     "#,
 );
@@ -666,6 +705,52 @@ fun2(*{"1", "2", "3"})  # E: Expected 2 positional arguments, got 3
 );
 
 testcase!(
+    test_splat_dict_literal,
+    r#"
+def fun0():
+    return
+
+def fun1(a):
+    return
+
+def fun2(a, b):
+    return
+
+def takes_int(x: int):
+    return
+
+def key(x: list[int]) -> str: ...
+def value(x: list[str]) -> int: ...
+
+def test(d: dict[str, int]):
+    fun0(*{"a": 1})  # E: Expected 0 positional arguments, got 1
+    fun1(*{"a": 1})  # OK
+    fun2(*{"a": 1}, b=None)  # OK
+    fun2(*{"a": 1, "b": 2})  # OK
+    fun2(*{"a": 1})  # E: Missing argument `b`
+    fun2(*{"a": 1, "b": 2, "c": 3})  # E: Expected 2 positional arguments, got 3
+    fun1(*{})  # E: Missing argument `a`
+    takes_int(*{"a": 1})  # E: Argument `Literal['a']` is not assignable to parameter `x` with type `int`
+    fun0(*{**d})  # OK
+    fun1(*{"a": undefined_name})  # E: Could not find name `undefined_name`
+    x = []
+    fun1(*{key(x): value(x)})  # E: Argument `list[int]` is not assignable to parameter `x` with type `list[str]`
+"#,
+);
+
+testcase!(
+    bug = "Known keys in a dict literal with `**` items should count toward the arity",
+    test_splat_dict_literal_with_unpacking,
+    r#"
+def fun0():
+    return
+
+def test(d: dict[str, int]):
+    fun0(*{"a": 1, **d})
+"#,
+);
+
+testcase!(
     test_splat_unknown_length_with_keyword,
     r#"
 def fun(a: str, b: str, c: int):
@@ -677,6 +762,71 @@ def test(xs: list[str]):
     fun(*xs, b="", c=1)  # OK
     fun(*xs, c=1)  # OK
     fun(*xs)  # E:
+"#,
+);
+
+testcase!(
+    test_splat_unknown_length_after_positional_params,
+    r#"
+def f(): ...
+def unary(x: int): ...
+def variadic(*args: int): ...
+
+def test(xs: list[int]):
+    f(*xs)
+    unary(*xs)
+    f(*())
+    variadic(*xs)
+"#,
+);
+
+// An unknown-length splat may be empty, so it can match an overload with no positional
+// parameters, and the first matching overload wins. This matches mypy; pyright evaluates
+// `f(*xs)` as `Unknown`. A splat that is known to be nonempty skips the zero-arity overload.
+testcase!(
+    test_splat_unknown_length_zero_arity_overload,
+    r#"
+from typing import Any, assert_type, overload
+
+@overload
+def f() -> int: ...
+@overload
+def f(x: int, /) -> str: ...
+def f(*args: Any) -> Any: ...
+
+def test(xs: list[int], nonempty: tuple[int, *tuple[int, ...]]):
+    assert_type(f(*xs), int)
+    assert_type(f(*nonempty), str)
+"#,
+);
+
+testcase!(
+    test_splat_unknown_length_zero_positional_params_5542,
+    r#"
+def no_args() -> int:
+    return 0
+
+def unary(x: int) -> None: ...
+
+def forward(xs: list[int], rest: tuple[int, ...]) -> None:
+    no_args(*xs)
+    unary(1, *xs)
+    unary(1, *rest)
+
+def test_nonempty(
+    xs: tuple[int, *tuple[int, ...]],
+    ys: tuple[*tuple[int, ...], int],
+    zs: tuple[int, *tuple[int, ...], int],
+) -> None:
+    no_args(*xs)  # E: Expected 0 positional arguments
+    no_args(*ys)  # E: Expected 0 positional arguments
+    unary(1, *xs)  # E: Expected 1 positional argument
+    unary(1, *ys)  # E: Expected 1 positional argument
+    unary(*xs)
+    unary(*ys)
+    unary(*zs)  # E: Expected 1 positional argument
+
+forward([], ())
 "#,
 );
 
@@ -701,7 +851,7 @@ test2(1, *(2, 3), *(4, "5"))  # E: Unpacked argument `tuple[Literal[1], Literal[
 );
 
 // Splatting a tuple with a variadic middle preserves the positions of its fixed ends.
-// See https://github.com/facebook/pyrefly/issues/4482
+// See https://github.com/pyrefly-org/pyrefly/issues/4482
 testcase!(
     test_splat_unpacked_args_shape,
     r#"
@@ -1965,7 +2115,7 @@ class Pipeline:
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1178
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1178
 testcase!(
     test_callable_as_base_class,
     r#"
@@ -1976,7 +2126,7 @@ class A(Callable):  # E: Invalid base class
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/769
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/769
 testcase!(
     test_callable_no_args_assignable_to_varargs,
     r#"
@@ -1990,7 +2140,7 @@ schedule(1000, after_func)
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/3912
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3912
 testcase!(
     test_callable_ellipsis_return,
     r#"

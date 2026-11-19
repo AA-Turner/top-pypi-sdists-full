@@ -72,6 +72,7 @@ __all__ = [
     'AiGuardrailGuardrailRegexConfig',
     'AiGuardrailGuardrailTopicConfig',
     'AiGuardrailGuardrailWordConfig',
+    'AiPromptAiPromptInferenceConfiguration',
     'AiPromptAiPromptTemplateConfiguration',
     'AiPromptTextFullAiPromptEditTemplateConfiguration',
     'AssistantAssociationAssociationData0Properties',
@@ -668,7 +669,7 @@ class AiAgentDelegateAgentConfiguration(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 agent_target: Any,
+                 agent_target: Union['outputs.AiAgentAgentTarget0Properties', 'outputs.AiAgentAgentTarget1Properties'],
                  instruction: Optional['outputs.AiAgentMultiAgentInstruction'] = None):
         pulumi.set(__self__, "agent_target", agent_target)
         if instruction is not None:
@@ -676,7 +677,7 @@ class AiAgentDelegateAgentConfiguration(dict):
 
     @_builtins.property
     @pulumi.getter(name="agentTarget")
-    def agent_target(self) -> Any:
+    def agent_target(self) -> Union['outputs.AiAgentAgentTarget0Properties', 'outputs.AiAgentAgentTarget1Properties']:
         return pulumi.get(self, "agent_target")
 
     @_builtins.property
@@ -863,7 +864,7 @@ class AiAgentHandoffAgentConfiguration(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 agent_target: Any,
+                 agent_target: Union['outputs.AiAgentAgentTarget0Properties', 'outputs.AiAgentAgentTarget1Properties'],
                  audio_streaming_enabled: Optional[_builtins.bool] = None,
                  immediate_handoff: Optional[_builtins.bool] = None,
                  instruction: Optional['outputs.AiAgentMultiAgentInstruction'] = None):
@@ -877,7 +878,7 @@ class AiAgentHandoffAgentConfiguration(dict):
 
     @_builtins.property
     @pulumi.getter(name="agentTarget")
-    def agent_target(self) -> Any:
+    def agent_target(self) -> Union['outputs.AiAgentAgentTarget0Properties', 'outputs.AiAgentAgentTarget1Properties']:
         return pulumi.get(self, "agent_target")
 
     @_builtins.property
@@ -920,7 +921,7 @@ class AiAgentKnowledgeBaseAssociationConfigurationData(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 content_tag_filter: Optional[Any] = None,
+                 content_tag_filter: Optional[Union['outputs.AiAgentTagFilter0Properties', 'outputs.AiAgentTagFilter1Properties', 'outputs.AiAgentTagFilter2Properties']] = None,
                  max_results: Optional[_builtins.float] = None,
                  override_knowledge_base_search_type: Optional['AiAgentKnowledgeBaseSearchType'] = None):
         if content_tag_filter is not None:
@@ -932,7 +933,7 @@ class AiAgentKnowledgeBaseAssociationConfigurationData(dict):
 
     @_builtins.property
     @pulumi.getter(name="contentTagFilter")
-    def content_tag_filter(self) -> Optional[Any]:
+    def content_tag_filter(self) -> Optional[Union['outputs.AiAgentTagFilter0Properties', 'outputs.AiAgentTagFilter1Properties', 'outputs.AiAgentTagFilter2Properties']]:
         return pulumi.get(self, "content_tag_filter")
 
     @_builtins.property
@@ -1224,7 +1225,7 @@ class AiAgentOrchestrationAiAgentConfiguration(dict):
                  connect_instance_arn: Optional[_builtins.str] = None,
                  input_schemas: Optional[Sequence[Any]] = None,
                  locale: Optional[_builtins.str] = None,
-                 multi_agent_configurations: Optional[Sequence[Any]] = None,
+                 multi_agent_configurations: Optional[Sequence[Union['outputs.AiAgentMultiAgentConfiguration0Properties', 'outputs.AiAgentMultiAgentConfiguration1Properties']]] = None,
                  orchestration_ai_guardrail_id: Optional[_builtins.str] = None,
                  orchestration_ai_prompt_id: Optional[_builtins.str] = None,
                  output_schemas: Optional[Sequence[Any]] = None,
@@ -1263,7 +1264,7 @@ class AiAgentOrchestrationAiAgentConfiguration(dict):
 
     @_builtins.property
     @pulumi.getter(name="multiAgentConfigurations")
-    def multi_agent_configurations(self) -> Optional[Sequence[Any]]:
+    def multi_agent_configurations(self) -> Optional[Sequence[Union['outputs.AiAgentMultiAgentConfiguration0Properties', 'outputs.AiAgentMultiAgentConfiguration1Properties']]]:
         return pulumi.get(self, "multi_agent_configurations")
 
     @_builtins.property
@@ -1445,12 +1446,12 @@ class AiAgentTagFilter2Properties(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 or_conditions: Sequence[Any]):
+                 or_conditions: Sequence[Union['outputs.AiAgentOrCondition0Properties', 'outputs.AiAgentOrCondition1Properties']]):
         pulumi.set(__self__, "or_conditions", or_conditions)
 
     @_builtins.property
     @pulumi.getter(name="orConditions")
-    def or_conditions(self) -> Sequence[Any]:
+    def or_conditions(self) -> Sequence[Union['outputs.AiAgentOrCondition0Properties', 'outputs.AiAgentOrCondition1Properties']]:
         return pulumi.get(self, "or_conditions")
 
 
@@ -2535,6 +2536,64 @@ class AiGuardrailGuardrailWordConfig(dict):
         The custom word text.
         """
         return pulumi.get(self, "text")
+
+
+@pulumi.output_type
+class AiPromptAiPromptInferenceConfiguration(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxTokensToSample":
+            suggest = "max_tokens_to_sample"
+        elif key == "topK":
+            suggest = "top_k"
+        elif key == "topP":
+            suggest = "top_p"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AiPromptAiPromptInferenceConfiguration. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AiPromptAiPromptInferenceConfiguration.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AiPromptAiPromptInferenceConfiguration.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_tokens_to_sample: Optional[_builtins.int] = None,
+                 temperature: Optional[_builtins.float] = None,
+                 top_k: Optional[_builtins.int] = None,
+                 top_p: Optional[_builtins.float] = None):
+        if max_tokens_to_sample is not None:
+            pulumi.set(__self__, "max_tokens_to_sample", max_tokens_to_sample)
+        if temperature is not None:
+            pulumi.set(__self__, "temperature", temperature)
+        if top_k is not None:
+            pulumi.set(__self__, "top_k", top_k)
+        if top_p is not None:
+            pulumi.set(__self__, "top_p", top_p)
+
+    @_builtins.property
+    @pulumi.getter(name="maxTokensToSample")
+    def max_tokens_to_sample(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "max_tokens_to_sample")
+
+    @_builtins.property
+    @pulumi.getter
+    def temperature(self) -> Optional[_builtins.float]:
+        return pulumi.get(self, "temperature")
+
+    @_builtins.property
+    @pulumi.getter(name="topK")
+    def top_k(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "top_k")
+
+    @_builtins.property
+    @pulumi.getter(name="topP")
+    def top_p(self) -> Optional[_builtins.float]:
+        return pulumi.get(self, "top_p")
 
 
 @pulumi.output_type

@@ -122,7 +122,5 @@ HOST_NAMES = ("TZ", "LANG", "LANGUAGE")
 #: Written by the core, always, over whatever the caller's environment says
 #: (`_engine_env.DISPLAY_BACKEND`).
 TOOLKIT_SET_BY_THE_CORE = ("GDK_BACKEND",)
-#: Written by the core from the session's locale (`_engine_env.declared_locale`), after the host's are gone.
-LOCALE_SET_BY_THE_CORE = ("LANG", "LANGUAGE", "LC_ALL")
 #: Everything of `HOST_FAMILIES` the engine's environment may carry.
 FAMILIES_PASSED = MOZ_PASSED + TOOLKIT_SET_BY_THE_CORE

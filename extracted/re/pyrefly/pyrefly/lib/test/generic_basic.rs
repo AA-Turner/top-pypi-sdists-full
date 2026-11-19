@@ -11,6 +11,39 @@ use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
+    test_parenthesized_generic_arguments,
+    r#"
+from __future__ import annotations
+from typing import TypeVar, assert_type
+
+class Box[T]:
+    def __init__(self, value: T) -> None: ...
+
+type Mapping[K, V] = dict[K, V]
+type Wrapped[T] = Box[T]
+
+K = TypeVar("K")
+V = TypeVar("V")
+T = TypeVar("T")
+LegacyMapping = dict[K, V]
+LegacyWrapped = Box[T]
+
+def f(d: dict[(str, int)], b: Box[(int,)], m: Mapping[(str, int)], w: Wrapped[(int,)]):
+    assert_type(d, dict[str, int])
+    assert_type(b, Box[int])
+    assert_type(m, dict[str, int])
+    assert_type(w, Box[int])
+
+assert_type(dict[(str, int)](), dict[str, int])
+assert_type(Box[(int,)](1), Box[int])
+assert_type(LegacyMapping[(str, int)](), dict[str, int])
+assert_type(LegacyWrapped[(int,)](1), Box[int])
+
+x: list[(str, str)] = []  # E: Expected 1 type argument for `list`, got 2
+"#,
+);
+
+testcase!(
     test_tyvar_constructor,
     r#"
 def test[T](cls: type[T]) -> T:
@@ -57,6 +90,106 @@ class C(list[C[T]]):
 def f(c: C[int]):
     assert_type(c.t, int)
     assert_type(c[0], C[int])
+    "#,
+);
+
+testcase!(
+    test_type_of_type_var_in_base_class_type_argument,
+    r#"
+from typing import Generic, TypeVar, assert_type
+
+class Box[T]:
+    def __init__(self, x: T) -> None: ...
+    def get(self) -> T: ...
+
+class A[R](Box[type[R]]): ...
+class B[R](Box[list[type[R]]]): ...
+class C[R](Box[type[C[R]]]): ...
+
+R = TypeVar("R")
+class D(Box[type[R]], Generic[R]): ...
+
+def f(a: A[int], b: B[int], c: C[int], d: D[int]) -> None:
+    assert_type(a.get(), type[int])
+    assert_type(b.get(), list[type[int]])
+    assert_type(c.get(), type[C[int]])
+    assert_type(d.get(), type[int])
+
+assert_type(A(str), A[str])
+    "#,
+);
+
+// `type[...]` in a base class type argument is parsed by the full annotation path, which
+// validates bounds and may need the MRO of the class being defined.
+testcase!(
+    test_type_in_base_class_type_argument_referencing_class,
+    r#"
+from typing import Any, assert_type
+
+class Box[T]:
+    def get(self) -> T: ...
+
+class Base: ...
+class C[T: Base](Base, Box[type[C[C[Any]]]]): ...
+
+class P[T: Q](Box[type[P[Q]]]): ...
+class Q(P[Any]): ...
+
+class D[T](Box[type[list[D[T]]]]): ...
+
+def f(c: C[Any], p: P[Q], d: D[int]) -> None:
+    assert_type(c.get(), type[C[C[Any]]])
+    assert_type(p.get(), type[P[Q]])
+    assert_type(d.get(), type[list[D[int]]])
+
+def g(c: C[Any]) -> Base:
+    return c
+
+class Bad(Box[type[C[int]]]): ...  # E: `int` is not assignable to upper bound `Base` of type variable `T`
+    "#,
+);
+
+testcase!(
+    test_type_in_direct_base_class,
+    r#"
+from typing import assert_type
+
+class Meta(type[int]):
+    def m(cls) -> int: ...
+class C(metaclass=Meta): ...
+
+assert_type(C.m(), int)
+    "#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5303
+testcase!(
+    test_descriptor_with_type_of_type_var_in_base_class,
+    r#"
+from collections.abc import Callable
+from typing import Any, Concatenate, assert_type, overload
+
+class ClassAndInstanceMethod[T, **ClsParams, ClsResult, **SelfParams, SelfResult]:
+    @overload
+    def __get__(self, instance: T, owner: type[T]) -> Callable[SelfParams, SelfResult]: ...
+    @overload
+    def __get__(self, instance: None, owner: type[T]) -> Callable[ClsParams, ClsResult]: ...
+    def __get__(self, instance: T | None, owner: type[T]) -> Any: ...
+
+class A[T, **P, ClsResult, InstanceResult](
+    ClassAndInstanceMethod[T, P, ClsResult, P, InstanceResult]
+):
+    def __init__(self, class_method: Callable[Concatenate[type[T], P], ClsResult]) -> None: ...
+
+class B[T, **P, R](A[T, P, type[R], R]): ...
+
+class Foo:
+    @B
+    @classmethod
+    def fn(cls) -> type[str]: ...
+
+assert_type(Foo().fn(), str)
+assert_type(Foo.fn(), type[str])
     "#,
 );
 
@@ -385,7 +518,7 @@ def test(s: str, b: bytes, a: Any):
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/245
+// https://github.com/pyrefly-org/pyrefly/issues/245
 testcase!(
     test_dict_update,
     r#"
@@ -576,7 +709,7 @@ assert_type(f([None], [0]), int)
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1675
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1675
 testcase!(
     test_generic_should_equal_itself,
     r#"
@@ -621,7 +754,7 @@ def to_type[T](value: Any, kind: TypeForm[T]) -> T: ...
     "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/1970
+// https://github.com/pyrefly-org/pyrefly/issues/1970
 testcase!(
     test_implicit_any_for_special_forms,
     TestEnv::new().enable_implicit_any_error(),
@@ -679,7 +812,7 @@ class I(G, H): ...  # E: Class `I` has inconsistent type arguments for base clas
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/4876
+// https://github.com/pyrefly-org/pyrefly/issues/4876
 testcase!(
     test_indirect_diamond_union_member_order,
     r#"
@@ -703,6 +836,124 @@ class Combined(Mixin[int], Left):
 "#,
 );
 
+// Diamond base specializations that differ only in a contravariant position are
+// consistent: `Base[wide]` is a subtype of `Base[narrow]` there, so inheriting
+// through both paths is legal (pyright accepts this too).
+testcase!(
+    test_diamond_inconsistent_targs_allowed_by_contravariance,
+    r#"
+from typing import Generic, TypeVar
+
+ValueTContra = TypeVar("ValueTContra", contravariant=True)
+ValueTCo = TypeVar("ValueTCo", covariant=True)
+
+class Base(Generic[ValueTContra, ValueTCo]): ...
+
+class RangeBase(Base[ValueTContra, ValueTCo], Generic[ValueTContra, ValueTCo]): ...
+
+class WideParam(Base[int | str, int]): ...
+
+class NarrowRange(RangeBase[int, int], WideParam): ...
+"#,
+);
+
+testcase!(
+    test_diamond_inconsistent_targs_contravariant_still_conflicts,
+    r#"
+from typing import Generic, TypeVar
+
+ValueTContra = TypeVar("ValueTContra", contravariant=True)
+
+class Base(Generic[ValueTContra]): ...
+
+class IntBase(Base[int]): ...
+
+class StrBase(Base[str]): ...
+
+class Both(IntBase, StrBase): ...  # E: Class `Both` has inconsistent type arguments for base class `Base`: `Base[int]` and `Base[str]`
+"#,
+);
+
+// Later specializations are checked for assignability to the first one seen in
+// walk order, so a covariant diamond is legal only when the later (wider) base
+// is assignable to the first (narrower) one — and not the reverse.
+testcase!(
+    test_diamond_covariant_targs_wider_must_follow_narrower,
+    r#"
+from typing import Generic, TypeVar
+
+ValueTCo = TypeVar("ValueTCo", covariant=True)
+
+class Base(Generic[ValueTCo]): ...
+
+class NarrowBase(Base[int]): ...
+
+class WideBase(Base[int | str]): ...
+
+class WideFirst(WideBase, NarrowBase): ...
+
+class NarrowFirst(NarrowBase, WideBase): ...  # E: Class `NarrowFirst` has inconsistent type arguments for base class `Base`: `Base[int]` and `Base[int | str]`
+"#,
+);
+
+// Incompatible specializations cannot slip through by being compatible
+// position-by-position: each later specialization must be assignable to the
+// first as a whole.
+testcase!(
+    test_diamond_incompatible_specializations_conflict,
+    r#"
+from typing import Generic, TypeVar
+
+ValueTCo = TypeVar("ValueTCo", covariant=True)
+OtherTCo = TypeVar("OtherTCo", covariant=True)
+
+class Base(Generic[ValueTCo, OtherTCo]): ...
+
+class A(Base[int, object]): ...
+
+class B(Base[object, int]): ...
+
+class C(A, B): ...  # E: Class `C` has inconsistent type arguments for base class `Base`: `Base[int, object]` and `Base[object, int]`
+"#,
+);
+
+// Each specialization is checked against the first one seen, not the previous
+// one, so an incompatible later base is caught regardless of what came between.
+testcase!(
+    test_diamond_checked_against_first_specialization,
+    r#"
+from typing import Generic, TypeVar
+
+ValueTCo = TypeVar("ValueTCo", covariant=True)
+
+class Base(Generic[ValueTCo]): ...
+
+class A(Base[int]): ...
+
+class B(Base[object]): ...
+
+class X(Base[str]): ...
+
+class C(A, B, X): ...  # E: Class `C` has inconsistent type arguments for base class `Base`: `Base[int]` and `Base[object]`  # E: Class `C` has inconsistent type arguments for base class `Base`: `Base[int]` and `Base[str]`
+
+class D(B, A, X): ...
+"#,
+);
+
+testcase!(
+    test_diamond_inconsistent_targs_any_is_gradual,
+    r#"
+from typing import Any, Generic, TypeVar
+
+T = TypeVar("T")
+
+class A(Generic[T]): ...
+class B(A[int]): ...
+class C(A[Any]): ...
+class D(B, C): ...
+"#,
+);
+
 testcase!(
     test_typevar_union_with_type_of_typevar,
     r#"
@@ -723,7 +974,7 @@ assert_type(bad(Sub), Sub)
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/4187
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/4187
 testcase!(
     test_generic_keyword_inference_is_order_independent,
     r#"
@@ -807,7 +1058,7 @@ class Bar(Generic[_L]):
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1137
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1137
 testcase!(
     test_unresolved_typevar_in_union_resolves_to_never,
     r#"
@@ -827,7 +1078,7 @@ assert_type(b, A[int])
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/3387
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3387
 testcase!(
     test_future_annotations_forward_ref_in_generic_constructor,
     r#"
@@ -867,7 +1118,7 @@ assert_type(g(0, [""]), int | str)
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2130
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2130
 testcase!(
     test_generic_return_type_with_union_of_scoped_type_params,
     r#"
@@ -963,5 +1214,14 @@ def f(by_type: TypeVarCapture, by_elements: TypeVarTupleCapture) -> None:
     assert_type(by_type[1:5:2], slice[int, int, int])
     assert_type(by_type[0, :, None], tuple[int, slice[None, None, None], None])
     assert_type(by_elements[0, :, None], tuple[int, slice[None, None, None], None])
+"#,
+);
+
+// Parse recovery turns `[* *]` into two nameless type parameters, and the broken return
+// annotation makes the binder look up the empty name.
+testcase!(
+    test_nameless_type_params_with_broken_return_annotation,
+    r#"
+def f[* *]() -  # E: Expected an identifier # E: duplicate type parameter # E: Expected an identifier # E: Expected `:`, found `-` # E: Expected an expression
 "#,
 );

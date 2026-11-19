@@ -8,7 +8,7 @@ import {
 const EMPTY = '';
 
 const {toString} = {};
-const {keys} = Object;
+const {keys, is} = Object;
 
 const typeOf = value => {
   const type = typeof value;
@@ -29,13 +29,15 @@ const typeOf = value => {
       return [MAP, EMPTY];
     case 'Set':
       return [SET, EMPTY];
+    case 'DataView':
+      return [ARRAY, asString];
   }
 
   if (asString.includes('Array'))
     return [ARRAY, asString];
 
-  if (asString.includes('Error'))
-    return [ERROR, asString];
+  if (value instanceof Error)
+    return [ERROR, value.name || 'Error'];
 
   return [OBJECT, asString];
 };
@@ -66,6 +68,10 @@ const serializer = (strict, json, $, _) => {
             TYPE = BIGINT;
             entry = value.toString();
             break;
+          case 'number':
+            if (!value && is(value, -0))
+              return _.push(['-0']) - 1;
+            break;
           case 'function':
           case 'symbol':
             if (strict)
@@ -78,9 +84,17 @@ const serializer = (strict, json, $, _) => {
         return as([TYPE, entry], value);
       }
       case ARRAY: {
-        if (type)
-          return as([type, [...value]], value);
-  
+        if (type) {
+          let spread = value;
+          if (type === 'DataView') {
+            spread = new Uint8Array(value.buffer);
+          }
+          else if (type === 'ArrayBuffer') {
+            spread = new Uint8Array(value);
+          }
+          return as([type, [...spread]], value);
+        }
+
         const arr = [];
         const index = as([TYPE, arr], value);
         for (const entry of value)
@@ -111,7 +125,7 @@ const serializer = (strict, json, $, _) => {
         return index;
       }
       case DATE:
-        return as([TYPE, value.toISOString()], value);
+        return as([TYPE, isNaN(value.getTime()) ? EMPTY : value.toISOString()], value);
       case REGEXP: {
         const {source, flags} = value;
         return as([TYPE, {source, flags}], value);

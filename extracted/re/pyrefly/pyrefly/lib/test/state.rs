@@ -22,6 +22,7 @@ use pyrefly_build::source_db::LiveSourceDatabase;
 use pyrefly_build::source_db::ModuleEnumerator;
 use pyrefly_build::source_db::SourceDatabase;
 use pyrefly_build::source_db::map_db::MapDatabase;
+use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModuleStyle;
@@ -29,6 +30,7 @@ use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::events::CategorizedEvents;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::prelude::SliceExt;
@@ -36,23 +38,133 @@ use pyrefly_util::thread_pool::TEST_THREAD_COUNT;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
 use ruff_python_ast::name::Name;
+use ruff_text_size::TextRange;
+use ruff_text_size::TextSize;
 use starlark_map::small_set::SmallSet;
 use tempfile::TempDir;
 
+use crate::binding::binding::Binding;
+use crate::binding::binding::Key;
+use crate::binding::binding::KeyExport;
+use crate::binding::binding::KeyTParams;
 use crate::commands::config_finder::default_config_finder;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
+use crate::config::error_kind::ErrorKind;
+use crate::config::error_kind::Severity;
 use crate::config::finder::ConfigFinder;
+use crate::error::error::Error;
 use crate::error::error::print_errors;
-use crate::lsp::non_wasm::server::resolve_export_location;
+use crate::lsp::non_wasm::module_helpers::handle_from_module_path;
+use crate::lsp::wasm::hover::get_hover;
+use crate::module::bundled::BundledStub;
+use crate::module::bundled::set_readonly;
 use crate::module::finder::DirEntryCache;
 use crate::module::finder::FindImportOptions;
 use crate::module::finder::find_import;
+use crate::module::typeshed::typeshed;
 use crate::state::load::FileContents;
+use crate::state::lsp::FindPreference;
+use crate::state::lsp::ReferenceOptions;
 use crate::state::require::Require;
 use crate::state::require::RequireLevels;
 use crate::state::state::State;
+use crate::state::state::Transaction;
 use crate::test::util::TestEnv;
+use crate::tsp::type_conversion::resolve_export_location;
+use crate::types::class::Class;
+use crate::types::types::Type;
+
+#[test]
+fn test_use_shape_comments_and_stubs_config_reload() {
+    let root = TempDir::new().unwrap();
+    let config_path = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
+    let source_path = root.path().join("main.py");
+    fs::write(&config_path, "skip-interpreter-query = true\n").unwrap();
+    fs::write(
+        &source_path,
+        "# enable-shape-type-comments\nx: int = 0  # shaped: [3\nbad: str = 1\n",
+    )
+    .unwrap();
+    let state = State::new(default_config_finder(None), TEST_THREAD_COUNT);
+    let handle = Handle::new(
+        ModuleName::from_str("main"),
+        ModulePath::filesystem(source_path),
+        SysInfo::default(),
+    );
+
+    for setting in [None, Some(false), Some(true)] {
+        if let Some(enabled) = setting {
+            fs::write(
+                &config_path,
+                format!(
+                    "skip-interpreter-query = true\nuse-shape-comments-and-stubs = {enabled}\n"
+                ),
+            )
+            .unwrap();
+        }
+        let mut transaction = state.new_committable_transaction(Require::Everything, None);
+        if setting.is_some() {
+            transaction.as_mut().invalidate_config();
+        }
+        transaction
+            .as_mut()
+            .run(&[handle.dupe()], Require::Everything, None);
+        let errors = transaction
+            .as_mut()
+            .get_errors([&handle])
+            .collect_display_errors();
+        assert_eq!(
+            errors.len(),
+            if setting == Some(false) { 1 } else { 2 },
+            "only comment diagnostics should follow the compatibility setting: {errors:?}"
+        );
+        state.commit_transaction(transaction, None);
+    }
+}
+
+#[test]
+fn test_fallback_search_path_relative_import_emits_dedicated_diagnostic() {
+    let tdir = TempDir::new().unwrap();
+    let root = tdir.path();
+    let package = root.join("pkg");
+    fs::create_dir(&package).unwrap();
+    fs::write(root.join(ConfigFile::PYREFLY_FILE_NAME), "").unwrap();
+    fs::write(package.join("helper.py"), "answer: int = 42").unwrap();
+    let main_path = package.join("main.py");
+    fs::write(&main_path, "import helper\nvalue: int = helper.answer\n").unwrap();
+
+    let mut config = ConfigFile {
+        source: ConfigSource::File(root.join(ConfigFile::PYREFLY_FILE_NAME)),
+        enable_fallback_search_path: true,
+        ..Default::default()
+    };
+    config.python_environment.set_empty_to_default();
+    config.interpreters.skip_interpreter_query = true;
+    config.configure();
+    let config = ArcId::new(config);
+    let handle = Handle::new(
+        ModuleName::from_str("pkg.main"),
+        ModulePath::filesystem(main_path),
+        config.get_sys_info(),
+    );
+    let state = State::new(ConfigFinder::new_constant(config), TEST_THREAD_COUNT);
+    let mut transaction = state.new_transaction(Require::Errors, None);
+
+    transaction.run(&[handle.dupe()], Require::Errors, None);
+    let errors = transaction.get_errors([&handle]).collect_display_errors();
+
+    assert_eq!(errors.len(), 1, "expected one diagnostic, got {errors:?}");
+    assert_eq!(
+        errors[0].error_kind(),
+        ErrorKind::FallbackSearchPathRelativeImport
+    );
+    assert!(
+        errors[0]
+            .msg()
+            .contains("not found on the search path or the site package path")
+    );
+}
 
 #[derive(Debug)]
 struct MutableShapeExtensionsSourceDb {
@@ -178,6 +290,144 @@ else:
         .get_errors(&handles)
         .check_against_expectations()
         .unwrap();
+}
+
+fn one_shot_env() -> (TestEnv, [Handle; 2]) {
+    let mut env = TestEnv::new();
+    env.add("foo", "x: int = 1\n");
+    env.add(
+        "main",
+        "from foo import x\ny: str = x  # E: `int` is not assignable to `str`\n",
+    );
+    let sys_info = env.sys_info();
+    let handle = |name: &str| {
+        Handle::new(
+            ModuleName::from_str(name),
+            ModulePath::memory(PathBuf::from(format!("{name}.py"))),
+            sys_info.dupe(),
+        )
+    };
+    (env, [handle("foo"), handle("main")])
+}
+
+#[test]
+fn test_one_shot_transaction_checks_across_modules() {
+    let (env, handles) = one_shot_env();
+    let state = State::new(env.config_finder(), TEST_THREAD_COUNT);
+    let mut transaction = state.new_one_shot_transaction(Require::Errors);
+    transaction.set_memory(env.get_memory());
+    transaction.run(&handles, Require::Errors, None);
+    transaction
+        .get_errors(&handles)
+        .check_against_expectations()
+        .unwrap();
+}
+
+#[test]
+#[should_panic(expected = "does not track dependencies")]
+fn test_one_shot_transaction_rejects_export_changes() {
+    let (env, handles) = one_shot_env();
+    let state = State::new(env.config_finder(), TEST_THREAD_COUNT);
+    let mut transaction = state.new_one_shot_transaction(Require::Errors);
+    transaction.set_memory(env.get_memory());
+    transaction.run(&handles, Require::Errors, None);
+    // `main` depends on `x`, but nothing recorded that, so the change cannot reach it.
+    transaction.set_memory(vec![(
+        PathBuf::from("foo.py"),
+        Some(Arc::new(FileContents::from_source(
+            "x: str = ''\n".to_owned(),
+        ))),
+    )]);
+    transaction.run(&handles, Require::Errors, None);
+}
+
+#[test]
+fn test_ad_hoc_solve_does_not_persist_diagnostics() {
+    let mut env = TestEnv::new();
+    env.add("main", "from badmod import anchor\n");
+    env.add(
+        "badmod",
+        "anchor = 0\ndef f(x: int) -> int: return x\nf('bad')\n",
+    );
+    let sys_info = env.sys_info();
+    let handle = |name: &str| {
+        Handle::new(
+            ModuleName::from_str(name),
+            ModulePath::memory(PathBuf::from(format!("{name}.py"))),
+            sys_info.dupe(),
+        )
+    };
+    let (main, badmod) = (handle("main"), handle("badmod"));
+    let state = State::new(env.config_finder(), TEST_THREAD_COUNT);
+    let mut transaction = state.new_committable_transaction(Require::Exports, None);
+    transaction.as_mut().set_memory(env.get_memory());
+    transaction.as_mut().run(&[main], Require::Exports, None);
+    state.commit_transaction(transaction, None);
+
+    let transaction = state.transaction();
+    let answers = transaction
+        .get_answers(&badmod)
+        .expect("lazily reached module should retain answers");
+    let bindings = answers.bindings();
+    let call = bindings
+        .keys::<Key>()
+        .find(|idx| matches!(bindings.get(*idx), Binding::StmtExpr(..)))
+        .expect("bad module should bind the expression statement");
+    assert!(answers.get_idx(call).is_none());
+    assert_eq!(answers.errors().len(), 0);
+    for _ in 0..2 {
+        transaction
+            .ad_hoc_solve(&badmod, "test_ad_hoc_diagnostics", |solver| {
+                solver.get_idx(call);
+            })
+            .expect("module should support an ad hoc solve");
+        assert_eq!(answers.errors().len(), 0);
+    }
+}
+
+#[test]
+fn test_protocol_check_in_cycle_is_cached() {
+    let mut env = TestEnv::new();
+    env.add("main", "from foo import f\nf(1)\n");
+    env.add(
+        "foo",
+        r#"
+from typing import Protocol
+class SupportsBar(Protocol):
+    def bar(self) -> int: ...
+class A:
+    def bar(self) -> int: ...
+def takes(x: SupportsBar) -> int: ...
+def f(n: int):
+    if n:
+        return g(n)
+    return takes(A())
+def g(n: int):
+    return f(n - 1)
+"#,
+    );
+    let sys_info = env.sys_info();
+    let handle = |name: &str| {
+        Handle::new(
+            ModuleName::from_str(name),
+            ModulePath::memory(PathBuf::from(format!("{name}.py"))),
+            sys_info.dupe(),
+        )
+    };
+    let (main, foo) = (handle("main"), handle("foo"));
+    let state = State::new(env.config_finder(), TEST_THREAD_COUNT);
+    let mut transaction = state.new_committable_transaction(Require::Exports, None);
+    transaction.as_mut().set_memory(env.get_memory());
+    transaction.as_mut().run(&[main], Require::Errors, None);
+    state.commit_transaction(transaction, None);
+
+    let answers = state
+        .transaction()
+        .get_answers(&foo)
+        .expect("lazily reached module should retain answers");
+    // `A <: SupportsBar` is checked while the return types of `f` and `g` form a cycle. The
+    // check reads no provisional answer from that cycle, so its result is cached.
+    assert_eq!(answers.solver().protocol_cache_len(), 1);
 }
 
 /// Regression for the TSP type converter's export-location resolution.
@@ -332,6 +582,98 @@ fn test_cross_module_literal_promotion() {
         .unwrap();
 }
 
+/// Check `main`, and also `foo` if `check_foo`, then read the type parameters of classes that
+/// `foo` defines through the `TypeEnv` of `main`.
+fn assert_type_env_reads_tparams_from_other_module(check_foo: bool) {
+    let mut test_env = TestEnv::new();
+    test_env.add(
+        "foo",
+        r#"
+from typing import Generic, TypeVar
+T = TypeVar("T")
+class LegacyBox(Generic[T]): ...
+class Box[S]: ...
+class Plain: ...
+"#,
+    );
+    test_env.add("main", "from foo import LegacyBox, Box, Plain");
+    let config_file = test_env.config();
+    let sys_info = test_env.sys_info();
+    let handle = |name: &str| {
+        let name = ModuleName::from_str(name);
+        let path = find_import(
+            &config_file,
+            name,
+            FindImportOptions::new(&DirEntryCache::new()),
+        )
+        .finding()
+        .unwrap();
+        Handle::new(name, path, sys_info.dupe())
+    };
+    let main = handle("main");
+    let foo = handle("foo");
+    let state = State::new(test_env.config_finder(), TEST_THREAD_COUNT);
+    let mut transaction = state.new_transaction(Require::Exports, None);
+    transaction.set_memory(test_env.get_memory());
+    let checked = if check_foo {
+        vec![main.dupe(), foo.dupe()]
+    } else {
+        vec![main.dupe()]
+    };
+    transaction.run(&checked, Require::Everything, None);
+    assert_eq!(
+        transaction.get_solutions(&foo).is_some(),
+        check_foo,
+        "`foo` is fully solved exactly when it is checked"
+    );
+
+    let solutions = transaction.get_solutions(&main).unwrap();
+    let class = |name: &str| match solutions.get(&KeyExport(Name::new(name))) {
+        Type::ClassDef(cls) => cls.dupe(),
+        ty => panic!(
+            "`{name}` should be a class, got `{}`",
+            ty.display_with(&transaction.type_env(&main))
+        ),
+    };
+    let type_env = transaction.type_env(&main);
+    let tparam_names = |cls: &Class| {
+        cls.tparams(&type_env)
+            .iter()
+            .map(|q| q.name().to_string())
+            .collect::<Vec<_>>()
+    };
+    let legacy_box = class("LegacyBox");
+    assert_eq!(legacy_box.module_name(), ModuleName::from_str("foo"));
+    if !check_foo {
+        let answers = transaction.get_answers(&foo).unwrap();
+        let idx = answers
+            .bindings()
+            .key_to_idx(&KeyTParams(legacy_box.index()));
+        assert!(
+            answers.get_idx(idx).is_none(),
+            "checking `main` does not need the type parameters of `LegacyBox`"
+        );
+        assert_eq!(tparam_names(&legacy_box), ["T"]);
+        assert!(
+            answers.get_idx(idx).is_some(),
+            "the env solves them on demand"
+        );
+    }
+    assert_eq!(tparam_names(&legacy_box), ["T"]);
+    assert_eq!(tparam_names(&class("Box")), ["S"]);
+    assert!(class("Plain").tparams(&type_env).is_empty());
+}
+
+#[test]
+fn test_type_env_class_tparams_from_solved_module() {
+    assert_type_env_reads_tparams_from_other_module(true);
+}
+
+#[test]
+fn test_type_env_class_tparams_solved_on_demand() {
+    assert_type_env_reads_tparams_from_other_module(false);
+}
+
 #[test]
 fn test_multiple_path() {
     const LIB_PYI: &str = "x: int";
@@ -396,7 +738,6 @@ fn test_tensor_shapes_availability_uses_origin_sensitive_resolution() {
         r#"
 from typing import Any
 
-shaped_array: Any
 class IntTuple:
     def __class_getitem__(cls, params: Any) -> Any: ...
 "#,
@@ -461,6 +802,16 @@ def f(x: Tensor[[2, 3]]) -> None:
         enable_fallback_search_path: true,
         ..Default::default()
     };
+    // This test intentionally models third-party imports with the directory-relative
+    // fallback. Keep its assertions focused on origin-sensitive tensor shape state.
+    config
+        .root
+        .errors
+        .get_or_insert_default()
+        .set_error_severity(
+            ErrorKind::FallbackSearchPathRelativeImport,
+            Severity::Ignore,
+        );
     config.python_environment.set_empty_to_default();
     config.interpreters.skip_interpreter_query = true;
     let mut sourcedb = MapDatabase::new(config.get_sys_info());
@@ -585,7 +936,6 @@ def f(x: Tensor[[2, 3]]) -> None:
         r#"
 from typing import Any
 
-shaped_array: Any
 class IntTuple:
     def __class_getitem__(cls, params: Any) -> Any: ...
 "#,
@@ -715,7 +1065,6 @@ class Float[*Shape]: ...
                 r#"
 from typing import Any
 
-shaped_array: Any
 class IntTuple:
     def __class_getitem__(cls, params: Any) -> Any: ...
 "#
@@ -789,7 +1138,6 @@ fn test_tensor_shapes_find_invalidation_drops_shapes_on_removal() {
         r#"
 from typing import Any
 
-shaped_array: Any
 class IntTuple:
     def __class_getitem__(cls, params: Any) -> Any: ...
 "#,
@@ -960,6 +1308,88 @@ fn test_change_require() {
 }
 
 #[test]
+fn test_explicit_any_override_dependency_becomes_checked() {
+    for enabled in [false, true] {
+        let mut env = TestEnv::one("main", "from dependency import Child\nChild().f(1)");
+        if enabled {
+            env = env.enable_explicit_any_error();
+        }
+        env.add(
+            "dependency",
+            r#"
+from typing import Any, override
+
+class Base:
+    def f(self, value: Any) -> Any:
+        return value
+
+class Child(Base):
+    @override
+    def f(self, value: Any) -> Any:
+        return value
+
+class Extra(Base):
+    @override
+    def f(self, value: Any, extra: Any = None) -> Any:
+        return value
+"#,
+        );
+        let state = State::new(env.config_finder(), TEST_THREAD_COUNT);
+        let main = Handle::new(
+            ModuleName::from_str("main"),
+            ModulePath::memory(PathBuf::from("main.py")),
+            env.sys_info(),
+        );
+        let dependency = Handle::new(
+            ModuleName::from_str("dependency"),
+            ModulePath::memory(PathBuf::from("dependency.py")),
+            env.sys_info(),
+        );
+        let mut transaction = state.new_committable_transaction(Require::Exports, None);
+        transaction.as_mut().set_memory(env.get_memory());
+        transaction.as_mut().run(&[main], Require::Errors, None);
+        state.commit_transaction(transaction, None);
+        let before_activation = state
+            .transaction()
+            .get_errors([&dependency])
+            .collect_errors();
+        assert!(before_activation.ordinary.is_empty());
+        assert!(before_activation.disabled.is_empty());
+
+        // Raising Require rebuilds answers collected while the module was silent.
+        state.run(
+            &[dependency.dupe()],
+            RequireLevels {
+                specified: Require::Errors,
+                default: Require::Exports,
+            },
+            None,
+            None,
+            None,
+        );
+        let collected = state
+            .transaction()
+            .get_errors([&dependency])
+            .collect_errors();
+        let explicit_any_count = |errors: &[Error]| {
+            errors
+                .iter()
+                .filter(|e| e.error_kind() == ErrorKind::ExplicitAny)
+                .count()
+        };
+        assert_eq!(
+            explicit_any_count(&collected.ordinary),
+            if enabled { 3 } else { 0 }
+        );
+        // Disabled diagnostics on an active module are still collected and filtered.
+        assert_eq!(
+            explicit_any_count(&collected.disabled),
+            if enabled { 0 } else { 3 }
+        );
+    }
+}
+
+#[test]
 fn test_crash_on_search() {
     const REQUIRE: Require = Require::Everything; // Doesn't matter for the test
 
@@ -1049,14 +1479,6 @@ fn test_search_exports_stops_at_the_next_module_when_cancelled() {
 
 #[test]
 fn test_compute_stdlib_bootstraps_custom_typeshed_protocol() {
-    use std::fs;
-
-    use tempfile::TempDir;
-
-    use crate::module::bundled::BundledStub;
-    use crate::module::bundled::set_readonly;
-    use crate::module::typeshed::typeshed;
-
     let temp_dir = TempDir::new().unwrap();
     let typeshed_path = temp_dir.path().join("custom_typeshed");
     let stdlib_path = typeshed_path.join("stdlib");
@@ -1083,20 +1505,11 @@ fn test_compute_stdlib_bootstraps_custom_typeshed_protocol() {
     )
     .expect("failed to write custom typeshed VERSIONS");
 
-    // Model upstream's `Protocol` representation. Resolving its decorator evaluates
+    // Resolving the decorator on upstream's `Protocol` representation evaluates
     // `Callable[..., Any]`, which catches stdlib lookups made during bootstrap.
-    let typing_path = stdlib_path.join("typing.pyi");
-    let typing = fs::read_to_string(&typing_path).expect("failed to read typing.pyi");
-    let old_protocol = "Protocol: _SpecialForm";
-    let generic = "Generic: type[_Generic]";
-    assert_eq!(typing.matches(old_protocol).count(), 1);
-    assert_eq!(typing.matches(generic).count(), 1);
-    let typing = typing.replace(old_protocol, "").replace(
-        generic,
-        "Generic: type[_Generic]\n\n@type_check_only\nclass _Protocol: ...\n\nProtocol: type[_Protocol]",
-    );
-    set_readonly(&typing_path, false).expect("failed to make typing.pyi writable");
-    fs::write(&typing_path, typing).expect("failed to update typing.pyi");
+    let typing =
+        fs::read_to_string(stdlib_path.join("typing.pyi")).expect("failed to read typing.pyi");
+    assert_eq!(typing.matches("Protocol: type[_Protocol]").count(), 1);
 
     let mut config = ConfigFile::default();
     config.python_environment.set_empty_to_default();
@@ -1165,6 +1578,162 @@ y: dict[str, int] = {**DuckMapping()}
         "Expected custom typeshed bootstrap and duck mapping unpacking to succeed. Errors: {:?}",
         error_messages
     );
+}
+
+#[test]
+fn test_compute_stdlib_bootstraps_generic_method_type() {
+    let temp_dir = TempDir::new().unwrap();
+    let stdlib_path = temp_dir.path().join("stdlib");
+    typeshed().unwrap().write(&stdlib_path).unwrap();
+    fs::write(
+        stdlib_path.join("VERSIONS"),
+        pyrefly_bundled::bundled_typeshed_versions(),
+    )
+    .unwrap();
+
+    // Model the defaulted type parameters from python/typeshed#15993.
+    // Resolving MethodType's parameters must not require a populated Stdlib.
+    let types_path = stdlib_path.join("types.pyi");
+    let types = fs::read_to_string(&types_path).unwrap();
+    let types = types.replace("\r\n", "\n").replace('\n', "\r\n");
+    // Bundled stubs can use CRLF line endings on Windows.
+    let mut types = types.replace("\r\n", "\n");
+    for (old, new) in [
+        (
+            "from typing import Any, ClassVar,",
+            "from typing import Any, ClassVar, Concatenate, Generic,",
+        ),
+        (
+            "@final\nclass MethodType:",
+            r#"_P_default = ParamSpec("_P_default", default=...)
+_R_default = TypeVar("_R_default", default=Any)
+
+@final
+class MethodType(Generic[_P_default, _R_default]):"#,
+        ),
+        (
+            r#"    def __new__(cls, func: Callable[..., Any], instance: object, /) -> Self: ...
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:"#,
+            r#"    def __new__(
+        cls, func: Callable[Concatenate[Any, _P_default], _R_default], instance: object, /
+    ) -> Self: ...
+    def __call__(self, *args: _P_default.args, **kwargs: _P_default.kwargs) -> _R_default:"#,
+        ),
+    ] {
+        assert_eq!(
+            types.matches(old).count(),
+            1,
+            "Expected one match for {old:?}"
+        );
+        types = types.replace(old, new);
+    }
+    set_readonly(&types_path, false).unwrap();
+    fs::write(&types_path, types).unwrap();
+
+    let mut config = ConfigFile::default();
+    config.python_environment.python_version = Some(PythonVersion::new(3, 13, 0));
+    config.python_environment.python_platform = Some(PythonPlatform::windows());
+    config.typeshed_path = Some(temp_dir.path().to_owned());
+    config.configure();
+    let handle = Handle::new(
+        ModuleName::from_str("main"),
+        ModulePath::memory(PathBuf::from("main.py")),
+        config.get_sys_info(),
+    );
+    let state = State::new(
+        ConfigFinder::new_constant(ArcId::new(config)),
+        TEST_THREAD_COUNT,
+    );
+    let mut transaction = state.new_transaction(Require::Everything, None);
+    transaction.set_memory(vec![(
+        PathBuf::from("main.py"),
+        Some(Arc::new(FileContents::from_source(
+            r#"
+from types import MethodType
+from typing import Any, assert_type
+
+class C:
+    def method(self, x: int) -> str:
+        return str(x)
+
+assert_type(C().method.__name__, str)
+assert_type(C().method.__self__, object)
+assert_type(C().method.__call__(42, extra="value"), Any)
+bound = MethodType(C.method, C())
+assert_type(bound(42), str)
+
+def use_default(method: MethodType) -> None:
+    method(1, extra="value")
+"#
+            .to_owned(),
+        ))),
+    )]);
+    transaction.run(&[handle.dupe()], Require::Everything, None);
+    let errors = transaction.get_errors([&handle]).collect_errors();
+    assert!(errors.ordinary.is_empty(), "{errors:?}");
+}
+
+#[test]
+fn test_custom_typeshed_named_tuple_fallback_iter_is_not_an_override() {
+    let temp_dir = TempDir::new().unwrap();
+    let stdlib_path = temp_dir.path().join("stdlib");
+    typeshed().unwrap().write(&stdlib_path).unwrap();
+    fs::write(
+        stdlib_path.join("VERSIONS"),
+        pyrefly_bundled::bundled_typeshed_versions(),
+    )
+    .unwrap();
+
+    // Model a typeshed whose `NamedTupleFallback` declares `__iter__`. Every named tuple
+    // inherits it, so it is not a user override and must not hide the field types.
+    let internals_path = stdlib_path.join("_typeshed/_type_checker_internals.pyi");
+    // Bundled stubs can use CRLF line endings on Windows.
+    let internals = fs::read_to_string(&internals_path)
+        .unwrap()
+        .replace("\r\n", "\n");
+    let header = "class NamedTupleFallback(tuple[Any, ...]):\n";
+    assert_eq!(internals.matches(header).count(), 1);
+    let internals = internals.replace(
+        header,
+        &format!("{header}    def __iter__(self) -> Generator[Any, None, None]: ...\n"),
+    );
+    set_readonly(&internals_path, false).unwrap();
+    fs::write(&internals_path, internals).unwrap();
+
+    let mut config = ConfigFile::default();
+    config.python_environment.set_empty_to_default();
+    config.typeshed_path = Some(temp_dir.path().to_owned());
+    config.configure();
+    let handle = Handle::new(
+        ModuleName::from_str("main"),
+        ModulePath::memory(PathBuf::from("main.py")),
+        config.get_sys_info(),
+    );
+    let state = State::new(
+        ConfigFinder::new_constant(ArcId::new(config)),
+        TEST_THREAD_COUNT,
+    );
+    let mut transaction = state.new_transaction(Require::Everything, None);
+    transaction.set_memory(vec![(
+        PathBuf::from("main.py"),
+        Some(Arc::new(FileContents::from_source(
+            r#"
+from typing import NamedTuple, assert_type
+
+class Pair(NamedTuple):
+    x: int
+    y: str
+
+x, y = Pair(1, "")
+assert_type(x, int)
+assert_type(y, str)
+"#
+            .to_owned(),
+        ))),
+    )]);
+    transaction.run(&[handle.dupe()], Require::Everything, None);
+    let errors = transaction.get_errors([&handle]).collect_errors();
+    assert!(errors.ordinary.is_empty(), "{errors:?}");
 }
 
 const SEQUENTIAL_COMMITTABLE_TRANSACTIONS_SLEEP_TIME_MS: u64 = 100;
@@ -1465,4 +2034,428 @@ fn test_stdlib_cached_on_recheck() {
         "Cached stdlib should skip pre-warming entirely"
     );
     state.commit_transaction(t2, None);
+}
+
+/// Writes apps `app` and `app2` and a library `lib`, each with its own config and Python
+/// environment, and each environment with a module `dep`. The apps find the library through their
+/// site-package paths. The library's config uses `lib_site_package_path`, relative to `lib`.
+fn write_apps_and_library(root: &Path, lib_site_package_path: &[&str]) {
+    let config = |site_package_path: &[&str]| {
+        format!(
+            "site-packages-path = [{}]\nskip-interpreter-query = true\n",
+            site_package_path
+                .iter()
+                .map(|path| format!("'{path}'"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
+    for (app, env) in [("app", "app_env"), ("app2", "app2_env")] {
+        fs::create_dir_all(root.join(app)).unwrap();
+        fs::create_dir_all(root.join(env)).unwrap();
+        fs::write(
+            root.join(app).join(ConfigFile::PYREFLY_FILE_NAME),
+            config(&[&format!("../{env}"), "../lib"]),
+        )
+        .unwrap();
+        fs::write(root.join(env).join("dep.py"), "class C: ...\n").unwrap();
+        fs::write(
+            root.join(app).join("main.py"),
+            "import dep\nimport mylib\nmylib.f(x=dep.C())\nmylib.K().m()\nk = mylib.K\n",
+        )
+        .unwrap();
+    }
+    fs::create_dir_all(root.join("lib")).unwrap();
+    fs::create_dir_all(root.join("lib_env")).unwrap();
+    fs::write(
+        root.join("lib").join(ConfigFile::PYREFLY_FILE_NAME),
+        config(lib_site_package_path),
+    )
+    .unwrap();
+    fs::write(root.join("lib_env").join("dep.py"), "class C: ...\n").unwrap();
+    fs::write(
+        root.join("lib").join("mylib.py"),
+        r#"import dep
+def f(x: dep.C) -> None: ...
+class K:
+    """The K class."""
+    def m(self) -> None: ...
+"#,
+    )
+    .unwrap();
+}
+
+/// Checks the apps written by `write_apps_and_library` and returns the state and the handles of
+/// `app/main.py`, `app2/main.py` and `lib/mylib.py`.
+fn check_apps(root: &Path, require: Require) -> (State, [Handle; 3]) {
+    let state = State::new(default_config_finder(None), TEST_THREAD_COUNT);
+    let handles = ["app/main.py", "app2/main.py", "lib/mylib.py"]
+        .map(|path| handle_from_module_path(&state, ModulePath::filesystem(root.join(path))));
+    let mut transaction = state.new_committable_transaction(require, None);
+    transaction
+        .as_mut()
+        .run(&handles[..2], Require::Everything, None);
+    state.commit_transaction(transaction, None);
+    (state, handles)
+}
+
+fn import_handle(transaction: &Transaction, handle: &Handle, module: &str) -> Handle {
+    transaction
+        .import_handle(handle, ModuleName::from_str(module), None)
+        .finding()
+        .unwrap()
+}
+
+/// A library with its own config and environment, found through an app's site-package path, is
+/// checked in the app's environment. The app's copy of the library resolves `dep` to the same
+/// module as the app, so passing the app's `dep.C` to it is not an error. Each app gets its own
+/// copy, and the library checked on its own still resolves `dep` in its own environment. See
+/// https://github.com/pyrefly-org/pyrefly/issues/3556.
+#[test]
+fn test_library_imported_from_another_environment() {
+    let temp_dir = TempDir::new().unwrap();
+    let root = temp_dir.path();
+    write_apps_and_library(root, &["../lib_env"]);
+    let (state, [main, main2, mylib]) = check_apps(root, Require::Exports);
+    let mut transaction = state.transaction();
+    let errors = transaction
+        .get_errors([&main, &main2])
+        .collect_display_errors();
+    assert!(errors.is_empty(), "expected no errors, got {errors:?}");
+    assert_ne!(
+        import_handle(&transaction, &main, "mylib"),
+        import_handle(&transaction, &main2, "mylib")
+    );
+    for main in [&main, &main2] {
+        let app_mylib = import_handle(&transaction, main, "mylib");
+        assert_eq!(
+            import_handle(&transaction, &app_mylib, "dep"),
+            import_handle(&transaction, main, "dep")
+        );
+    }
+
+    transaction.run(&[mylib.dupe()], Require::Everything, None);
+    let errors = transaction.get_errors([&mylib]).collect_display_errors();
+    assert!(errors.is_empty(), "expected no errors, got {errors:?}");
+    assert_eq!(
+        import_handle(&transaction, &mylib, "dep").path().as_path(),
+        root.join("lib_env").join("dep.py")
+    );
+}
+
+/// From an app, go to definition, go to type definition and the docstring in a hover read the
+/// app's copy of the library, which is the only one loaded.
+#[test]
+fn test_library_definitions_from_app() {
+    let temp_dir = TempDir::new().unwrap();
+    let root = temp_dir.path();
+    write_apps_and_library(root, &["../lib_env"]);
+    let (state, [main, _, _]) = check_apps(root, Require::Exports);
+    let transaction = state.transaction();
+    let code = fs::read_to_string(root.join("app").join("main.py")).unwrap();
+    let position = |text: &str| TextSize::try_from(code.find(text).unwrap()).unwrap();
+    let paths = |definitions: &[TextRangeWithModule]| {
+        definitions
+            .iter()
+            .map(|definition| definition.module.path().as_path().to_owned())
+            .collect::<Vec<_>>()
+    };
+    let mylib = vec![root.join("lib").join("mylib.py")];
+    assert_eq!(
+        paths(
+            &transaction
+                .goto_type_definition(&main, position("f("))
+                .unwrap()
+        ),
+        mylib
+    );
+    let method = transaction
+        .find_definition(&main, position("m()"), FindPreference::default())
+        .unwrap();
+    assert_eq!(
+        method
+            .iter()
+            .map(|definition| definition.module.path().as_path().to_owned())
+            .collect::<Vec<_>>(),
+        mylib
+    );
+    let hover = get_hover(&transaction, &main, position("k ="), false).unwrap();
+    assert!(
+        format!("{:?}", hover.contents).contains("The K class."),
+        "{hover:?}"
+    );
+}
+
+/// The library is imported from two environments and also checked on its own. Its reverse
+/// dependencies, and find references on one of its functions, include both apps, and list each
+/// file once.
+#[test]
+fn test_library_references_from_each_environment() {
+    let temp_dir = TempDir::new().unwrap();
+    let root = temp_dir.path();
+    write_apps_and_library(root, &["../lib_env"]);
+    let (state, [main, main2, mylib]) = check_apps(root, Require::Exports);
+    let mut transaction = state.transaction();
+    let mut rdeps = transaction
+        .get_rdeps(&mylib)
+        .into_iter()
+        .map(|handle| handle.path().as_path().to_owned())
+        .collect::<Vec<_>>();
+    rdeps.sort();
+    assert_eq!(
+        rdeps,
+        vec![
+            main.path().as_path().to_owned(),
+            main2.path().as_path().to_owned()
+        ]
+    );
+
+    transaction.run(&[mylib.dupe()], Require::Everything, None);
+    let code = fs::read_to_string(root.join("app").join("main.py")).unwrap();
+    let position = TextSize::try_from(code.find("f(").unwrap()).unwrap();
+    let definitions = transaction
+        .find_definition(&main, position, FindPreference::default())
+        .unwrap();
+    let definition = definitions.first();
+    let mut references = transaction
+        .find_global_references_from_definition(
+            *main.sys_info(),
+            definition.metadata.clone(),
+            TextRangeWithModule::new(definition.module.clone(), definition.definition_range),
+            ReferenceOptions::textual_only(true),
+        )
+        .unwrap()
+        .into_iter()
+        .map(|(module, ranges)| (module.path().as_path().to_owned(), ranges.len()))
+        .collect::<Vec<_>>();
+    references.sort();
+    assert_eq!(
+        references,
+        vec![
+            (main.path().as_path().to_owned(), 1),
+            (main2.path().as_path().to_owned(), 1),
+            (mylib.path().as_path().to_owned(), 1)
+        ]
+    );
+}
+
+/// The library's config first uses the app's environment, so the app imports the library's own
+/// module. When the config switches to the library's own environment, the app must recheck its
+/// import and get a copy in its environment. Without the recheck, the library resolves `dep` in
+/// `lib_env` and the app's call is an error.
+#[test]
+fn test_library_environment_change_rechecks_importer() {
+    let temp_dir = TempDir::new().unwrap();
+    let root = temp_dir.path();
+    write_apps_and_library(root, &["../app_env", "."]);
+    let state = State::new(default_config_finder(None), TEST_THREAD_COUNT);
+    let main = handle_from_module_path(
+        &state,
+        ModulePath::filesystem(root.join("app").join("main.py")),
+    );
+    let error_count_after = |events: CategorizedEvents| {
+        let mut transaction = state.new_committable_transaction(Require::Everything, None);
+        transaction.as_mut().invalidate_events(&events);
+        transaction
+            .as_mut()
+            .run(&[main.dupe()], Require::Everything, None);
+        let count = transaction
+            .as_mut()
+            .get_errors([&main])
+            .collect_display_errors()
+            .len();
+        state.commit_transaction(transaction, None);
+        count
+    };
+
+    assert_eq!(error_count_after(CategorizedEvents::default()), 0);
+    let lib_config = root.join("lib").join(ConfigFile::PYREFLY_FILE_NAME);
+    fs::write(
+        &lib_config,
+        "site-packages-path = ['../lib_env']\nskip-interpreter-query = true\n",
+    )
+    .unwrap();
+    assert_eq!(
+        error_count_after(CategorizedEvents {
+            modified: vec![lib_config],
+            ..Default::default()
+        }),
+        0
+    );
+}
+
+/// The app reads a field of a library class whose module it never imports, because the library
+/// imports that module inside a function. Looking up the class's fields uses the class's module
+/// path rather than an import, and still finds the copy checked in the app's environment, so the
+/// field has the app's `dep.C`.
+#[test]
+fn test_library_class_fields_without_import() {
+    let temp_dir = TempDir::new().unwrap();
+    let root = temp_dir.path();
+    write_apps_and_library(root, &["../lib_env"]);
+    fs::write(
+        root.join("lib").join("fields.py"),
+        "import dep\nclass B:\n    c: dep.C\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("lib").join("factory.py"),
+        "def make():\n    from fields import B\n    return B()\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("app").join("main.py"),
+        "import dep\nimport factory\nc: dep.C = factory.make().c\n",
+    )
+    .unwrap();
+    let (state, [main, _, _]) = check_apps(root, Require::Exports);
+    let errors = state
+        .transaction()
+        .get_errors([&main])
+        .collect_display_errors();
+    assert!(errors.is_empty(), "expected no errors, got {errors:?}");
+}
+
+/// A Python environment outside any config: its modules have the default config, so a module the
+/// app imports from it is checked in the app's environment and resolves its own imports there.
+/// Checking that module on its own, as opening it in an editor does, makes a second copy.
+#[test]
+fn test_environment_outside_any_config() {
+    let temp_dir = TempDir::new().unwrap();
+    let root = temp_dir.path();
+    fs::create_dir_all(root.join("app")).unwrap();
+    fs::create_dir_all(root.join("env")).unwrap();
+    fs::write(
+        root.join("app").join(ConfigFile::PYREFLY_FILE_NAME),
+        "site-packages-path = ['../env']\nskip-interpreter-query = true\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("env").join("dep.py"),
+        "import dep2\nclass C:\n    d: dep2.D\n",
+    )
+    .unwrap();
+    fs::write(root.join("env").join("dep2.py"), "class D: ...\n").unwrap();
+    fs::write(
+        root.join("app").join("main.py"),
+        "import dep\nimport dep2\nd: dep2.D = dep.C().d\n",
+    )
+    .unwrap();
+    let state = State::new(default_config_finder(None), TEST_THREAD_COUNT);
+    let handle =
+        |path: &str| handle_from_module_path(&state, ModulePath::filesystem(root.join(path)));
+    let (main, dep) = (handle("app/main.py"), handle("env/dep.py"));
+    let mut transaction = state.new_transaction(Require::Exports, None);
+    transaction.run(&[main.dupe(), dep.dupe()], Require::Everything, None);
+    let errors = transaction
+        .get_errors([&main, &dep])
+        .collect_display_errors();
+    assert!(errors.is_empty(), "expected no errors, got {errors:?}");
+
+    let app_dep = import_handle(&transaction, &main, "dep");
+    assert!(app_dep.importer_site_package_path().is_some());
+    assert_eq!(
+        import_handle(&transaction, &app_dep, "dep2"),
+        import_handle(&transaction, &main, "dep2")
+    );
+    assert_eq!(dep.importer_site_package_path(), None);
+    assert_eq!(app_dep.path(), dep.path());
+}
+
+/// With the library file open and edited, find references reads the library file from the editor
+/// only: neither its file on disk nor the app's copy of that file adds references.
+#[test]
+fn test_library_open_in_editor_references() {
+    let temp_dir = TempDir::new().unwrap();
+    let root = temp_dir.path();
+    write_apps_and_library(root, &["../lib_env"]);
+    let state = State::new(default_config_finder(None), TEST_THREAD_COUNT);
+    let lib_path = root.join("lib").join("mylib.py");
+    // Shift the text in the editor, so that its ranges differ from the file on disk.
+    let code = format!("\n\n{}", fs::read_to_string(&lib_path).unwrap());
+    let main = handle_from_module_path(
+        &state,
+        ModulePath::filesystem(root.join("app").join("main.py")),
+    );
+    let mylib = handle_from_module_path(&state, ModulePath::memory(lib_path.clone()));
+    let mut transaction = state.new_committable_transaction(Require::Exports, None);
+    transaction.as_mut().set_memory(vec![(
+        lib_path.clone(),
+        Some(Arc::new(FileContents::from_source(code.clone()))),
+    )]);
+    transaction
+        .as_mut()
+        .run(&[main.dupe(), mylib.dupe()], Require::Everything, None);
+    state.commit_transaction(transaction, None);
+
+    let mut transaction = state.transaction();
+    let position = TextSize::try_from(code.find("f(").unwrap()).unwrap();
+    let definitions = transaction
+        .find_definition(&mylib, position, FindPreference::default())
+        .unwrap();
+    let definition = definitions.first();
+    let mut references = transaction
+        .find_global_references_from_definition(
+            *mylib.sys_info(),
+            definition.metadata.clone(),
+            TextRangeWithModule::new(definition.module.clone(), definition.definition_range),
+            ReferenceOptions::textual_only(true),
+        )
+        .unwrap()
+        .into_iter()
+        .map(|(module, ranges)| (module.path().dupe(), ranges))
+        .collect::<Vec<_>>();
+    references.sort_by_key(|(path, _)| path.dupe());
+    let main_code = fs::read_to_string(root.join("app").join("main.py")).unwrap();
+    let range = |code: &str| {
+        TextRange::at(
+            TextSize::try_from(code.find("f(").unwrap()).unwrap(),
+            TextSize::new(1),
+        )
+    };
+    let mut expected = vec![
+        (main.path().dupe(), vec![range(&main_code)]),
+        (mylib.path().dupe(), vec![range(&code)]),
+    ];
+    expected.sort_by_key(|(path, _)| path.dupe());
+    assert_eq!(references, expected);
+}
+
+/// The library has an error and is checked in the apps' environments, then also on its own. Each
+/// time, all errors, as `pyrefly check --check-all` and workspace diagnostics report them, include
+/// the library's error once: from an app's copy while that is the only one loaded, and from the
+/// library's own handle once that is loaded.
+#[test]
+fn test_library_all_errors_reported_once() {
+    let temp_dir = TempDir::new().unwrap();
+    let root = temp_dir.path();
+    write_apps_and_library(root, &["../lib_env"]);
+    let lib_path = root.join("lib").join("mylib.py");
+    let code = fs::read_to_string(&lib_path).unwrap();
+    fs::write(&lib_path, format!("{code}x: int = ''\n")).unwrap();
+    // `--check-all` keeps the errors of every module.
+    let (state, [_, _, mylib]) = check_apps(root, Require::Errors);
+    let mut transaction = state.transaction();
+    let check = |transaction: &Transaction, own_handle: bool| {
+        let lib_handles = transaction
+            .loaded_handles_one_per_file()
+            .into_iter()
+            .filter(|handle| handle.path().as_path() == lib_path)
+            .collect::<Vec<_>>();
+        assert_eq!(lib_handles.len(), 1, "{lib_handles:?}");
+        assert_eq!(
+            lib_handles[0].importer_site_package_path().is_none(),
+            own_handle
+        );
+        let errors = transaction
+            .get_all_errors()
+            .collect_display_errors()
+            .into_iter()
+            .filter(|error| error.path().as_path() == lib_path)
+            .collect::<Vec<_>>();
+        assert_eq!(errors.len(), 1, "{errors:?}");
+    };
+    check(&transaction, false);
+    transaction.run(&[mylib], Require::Errors, None);
+    check(&transaction, true);
 }

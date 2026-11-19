@@ -36,6 +36,7 @@ class MicrovmImageArgs:
                  hooks: pulumi.Input['HooksArgs'],
                  logging: pulumi.Input['MicrovmImageLoggingArgs'],
                  resources: pulumi.Input[Sequence[pulumi.Input['MicrovmImageResourcesArgs']]],
+                 kms_key_identifier: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Sequence[pulumi.Input['_root_inputs.TagArgs']]]] = None):
         """
@@ -48,6 +49,7 @@ class MicrovmImageArgs:
         :param pulumi.Input[_builtins.str] description: Human-readable description of the MicroVM image and its purpose.
         :param pulumi.Input[Sequence[pulumi.Input['MicrovmImageEnvironmentVariableArgs']]] environment_variables: Environment variables to set in the container during the snapshot build.
         :param pulumi.Input['MicrovmImageLoggingArgs'] logging: Configuration for MicroVM image logging.
+        :param pulumi.Input[_builtins.str] kms_key_identifier: The customer managed KMS key used to encrypt the MicroVM image configuration at rest. When omitted, a service owned key is used.
         :param pulumi.Input[_builtins.str] name: Unique name for the MicroVM image within the account.
         :param pulumi.Input[Sequence[pulumi.Input['_root_inputs.TagArgs']]] tags: Key-value pairs to associate with the MicroVM image for organization and management.
         """
@@ -63,6 +65,8 @@ class MicrovmImageArgs:
         pulumi.set(__self__, "hooks", hooks)
         pulumi.set(__self__, "logging", logging)
         pulumi.set(__self__, "resources", resources)
+        if kms_key_identifier is not None:
+            pulumi.set(__self__, "kms_key_identifier", kms_key_identifier)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if tags is not None:
@@ -198,6 +202,18 @@ class MicrovmImageArgs:
         pulumi.set(self, "resources", value)
 
     @_builtins.property
+    @pulumi.getter(name="kmsKeyIdentifier")
+    def kms_key_identifier(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The customer managed KMS key used to encrypt the MicroVM image configuration at rest. When omitted, a service owned key is used.
+        """
+        return pulumi.get(self, "kms_key_identifier")
+
+    @kms_key_identifier.setter
+    def kms_key_identifier(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "kms_key_identifier", value)
+
+    @_builtins.property
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
@@ -232,16 +248,17 @@ class MicrovmImage(pulumi.CustomResource):
                  base_image_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  base_image_version: pulumi.Input[Optional[_builtins.str]] = None,
                  build_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
-                 code_artifact: pulumi.Input[Optional[Union['MicrovmImageCodeArtifactArgs', 'MicrovmImageCodeArtifactArgsDict']]] = None,
-                 cpu_configurations: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageCpuConfigurationArgs', 'MicrovmImageCpuConfigurationArgsDict']]]]] = None,
+                 code_artifact: pulumi.Input[Optional[Union['MicrovmImageCodeArtifactArgs', 'MicrovmImageCodeArtifactArgsDict', 'outputs.MicrovmImageCodeArtifact']]] = None,
+                 cpu_configurations: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageCpuConfigurationArgs', 'MicrovmImageCpuConfigurationArgsDict', 'outputs.MicrovmImageCpuConfiguration']]]]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  egress_network_connectors: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 environment_variables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageEnvironmentVariableArgs', 'MicrovmImageEnvironmentVariableArgsDict']]]]] = None,
-                 hooks: pulumi.Input[Optional[Union['HooksArgs', 'HooksArgsDict']]] = None,
-                 logging: pulumi.Input[Optional[Union['MicrovmImageLoggingArgs', 'MicrovmImageLoggingArgsDict']]] = None,
+                 environment_variables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageEnvironmentVariableArgs', 'MicrovmImageEnvironmentVariableArgsDict', 'outputs.MicrovmImageEnvironmentVariable']]]]] = None,
+                 hooks: pulumi.Input[Optional[Union['HooksArgs', 'HooksArgsDict', 'outputs.Hooks']]] = None,
+                 kms_key_identifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging: pulumi.Input[Optional[Union['MicrovmImageLoggingArgs', 'MicrovmImageLoggingArgsDict', 'outputs.MicrovmImageLogging']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageResourcesArgs', 'MicrovmImageResourcesArgsDict']]]]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageResourcesArgs', 'MicrovmImageResourcesArgsDict', 'outputs.MicrovmImageResources']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         """
         Resource Type definition for AWS::Lambda::MicrovmImage
@@ -251,12 +268,13 @@ class MicrovmImage(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] base_image_arn: ARN of the base MicroVM image.
         :param pulumi.Input[_builtins.str] base_image_version: Specific version of the base MicroVM image to use.
         :param pulumi.Input[_builtins.str] build_role_arn: ARN of the IAM build role.
-        :param pulumi.Input[Union['MicrovmImageCodeArtifactArgs', 'MicrovmImageCodeArtifactArgsDict']] code_artifact: Code artifact for the active MicroVM image.
+        :param pulumi.Input[Union['MicrovmImageCodeArtifactArgs', 'MicrovmImageCodeArtifactArgsDict', 'outputs.MicrovmImageCodeArtifact']] code_artifact: Code artifact for the active MicroVM image.
         :param pulumi.Input[_builtins.str] description: Human-readable description of the MicroVM image and its purpose.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['MicrovmImageEnvironmentVariableArgs', 'MicrovmImageEnvironmentVariableArgsDict']]]] environment_variables: Environment variables to set in the container during the snapshot build.
-        :param pulumi.Input[Union['MicrovmImageLoggingArgs', 'MicrovmImageLoggingArgsDict']] logging: Configuration for MicroVM image logging.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['MicrovmImageEnvironmentVariableArgs', 'MicrovmImageEnvironmentVariableArgsDict', 'outputs.MicrovmImageEnvironmentVariable']]]] environment_variables: Environment variables to set in the container during the snapshot build.
+        :param pulumi.Input[_builtins.str] kms_key_identifier: The customer managed KMS key used to encrypt the MicroVM image configuration at rest. When omitted, a service owned key is used.
+        :param pulumi.Input[Union['MicrovmImageLoggingArgs', 'MicrovmImageLoggingArgsDict', 'outputs.MicrovmImageLogging']] logging: Configuration for MicroVM image logging.
         :param pulumi.Input[_builtins.str] name: Unique name for the MicroVM image within the account.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]] tags: Key-value pairs to associate with the MicroVM image for organization and management.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]] tags: Key-value pairs to associate with the MicroVM image for organization and management.
         """
         ...
     @overload
@@ -286,16 +304,17 @@ class MicrovmImage(pulumi.CustomResource):
                  base_image_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  base_image_version: pulumi.Input[Optional[_builtins.str]] = None,
                  build_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
-                 code_artifact: pulumi.Input[Optional[Union['MicrovmImageCodeArtifactArgs', 'MicrovmImageCodeArtifactArgsDict']]] = None,
-                 cpu_configurations: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageCpuConfigurationArgs', 'MicrovmImageCpuConfigurationArgsDict']]]]] = None,
+                 code_artifact: pulumi.Input[Optional[Union['MicrovmImageCodeArtifactArgs', 'MicrovmImageCodeArtifactArgsDict', 'outputs.MicrovmImageCodeArtifact']]] = None,
+                 cpu_configurations: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageCpuConfigurationArgs', 'MicrovmImageCpuConfigurationArgsDict', 'outputs.MicrovmImageCpuConfiguration']]]]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  egress_network_connectors: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
-                 environment_variables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageEnvironmentVariableArgs', 'MicrovmImageEnvironmentVariableArgsDict']]]]] = None,
-                 hooks: pulumi.Input[Optional[Union['HooksArgs', 'HooksArgsDict']]] = None,
-                 logging: pulumi.Input[Optional[Union['MicrovmImageLoggingArgs', 'MicrovmImageLoggingArgsDict']]] = None,
+                 environment_variables: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageEnvironmentVariableArgs', 'MicrovmImageEnvironmentVariableArgsDict', 'outputs.MicrovmImageEnvironmentVariable']]]]] = None,
+                 hooks: pulumi.Input[Optional[Union['HooksArgs', 'HooksArgsDict', 'outputs.Hooks']]] = None,
+                 kms_key_identifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 logging: pulumi.Input[Optional[Union['MicrovmImageLoggingArgs', 'MicrovmImageLoggingArgsDict', 'outputs.MicrovmImageLogging']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageResourcesArgs', 'MicrovmImageResourcesArgsDict']]]]] = None,
-                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
+                 resources: pulumi.Input[Optional[Sequence[pulumi.Input[Union['MicrovmImageResourcesArgs', 'MicrovmImageResourcesArgsDict', 'outputs.MicrovmImageResources']]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict', '_root_outputs.Tag']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -335,6 +354,7 @@ class MicrovmImage(pulumi.CustomResource):
             if hooks is None and not opts.urn:
                 raise TypeError("Missing required property 'hooks'")
             __props__.__dict__["hooks"] = hooks
+            __props__.__dict__["kms_key_identifier"] = kms_key_identifier
             if logging is None and not opts.urn:
                 raise TypeError("Missing required property 'logging'")
             __props__.__dict__["logging"] = logging
@@ -385,6 +405,7 @@ class MicrovmImage(pulumi.CustomResource):
         __props__.__dict__["environment_variables"] = None
         __props__.__dict__["hooks"] = None
         __props__.__dict__["image_arn"] = None
+        __props__.__dict__["kms_key_identifier"] = None
         __props__.__dict__["latest_active_image_version"] = None
         __props__.__dict__["latest_failed_image_version"] = None
         __props__.__dict__["logging"] = None
@@ -394,6 +415,12 @@ class MicrovmImage(pulumi.CustomResource):
         __props__.__dict__["tags"] = None
         __props__.__dict__["updated_at"] = None
         return MicrovmImage(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        return pulumi.runtime.exists_resource(None, 'aws-native:lambda:MicrovmImage', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="additionalOsCapabilities")
@@ -478,6 +505,14 @@ class MicrovmImage(pulumi.CustomResource):
         ARN of the MicroVM image.
         """
         return pulumi.get(self, "image_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyIdentifier")
+    def kms_key_identifier(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        The customer managed KMS key used to encrypt the MicroVM image configuration at rest. When omitted, a service owned key is used.
+        """
+        return pulumi.get(self, "kms_key_identifier")
 
     @_builtins.property
     @pulumi.getter(name="latestActiveImageVersion")

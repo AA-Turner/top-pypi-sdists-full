@@ -716,7 +716,7 @@ C().x  # E: `C` has no attribute `x`
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1210
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1210
 testcase!(
     test_mutable_capture_with_annotation_class_body,
     r#"
@@ -754,7 +754,7 @@ def f():
 );
 
 // Regression test against a panic in the presence of parser error recovery:
-// https://github.com/facebook/pyrefly/issues/1203
+// https://github.com/pyrefly-org/pyrefly/issues/1203
 testcase!(
     test_mutable_capture_syntax_error,
     r#"
@@ -782,6 +782,67 @@ y + 1  # E: `y` is uninitialized
 # check that we don't fall back to Any when the variable is annotated
 z: int
 z = str(z)  # E: `z` is uninitialized  # E: `str` is not assignable to variable `z` with type `int`
+"#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/5177
+// Inside a function, deleting a name from a target list must make the name local
+// to that function, the way `del e` does.
+testcase!(
+    test_del_target_list,
+    r#"
+a = 1
+b = 2
+del (a, b)
+a + b  # E: `a` is uninitialized  # E: `b` is uninitialized
+c = 3
+d = 4
+del [c, d]
+c + d  # E: `c` is uninitialized  # E: `d` is uninitialized
+g = h = i = 6
+del (g, [h, i])
+g + h + i  # E: `g` is uninitialized  # E: `h` is uninitialized  # E: `i` is uninitialized
+e = 5
+def f():
+    del (e,)  # E: `e` is uninitialized
+"#,
+);
+
+testcase!(
+    test_del_starred_target_in_function,
+    r#"
+def f():
+    del *h  # E: Parse error: Invalid delete target  # E: `h` is uninitialized
+    del (*e,)  # E: Parse error: Invalid delete target  # E: `e` is uninitialized
+"#,
+);
+
+testcase!(
+    test_del_empty_target_list,
+    r#"
+del ()
+del []
+"#,
+);
+
+testcase!(
+    test_del_target_list_attributes_and_items,
+    r#"
+from typing import Literal, NotRequired, TypedDict, assert_type
+class A:
+    x: int | None
+class TD(TypedDict):
+    k: int
+    opt: NotRequired[int]
+def f(a: A, b: A, td: TD, l: list[int]) -> None:
+    a.x = 1
+    b.x = 2
+    assert_type(a.x, Literal[1])
+    del (a.x, [b.x])
+    assert_type(a.x, int | None)
+    assert_type(b.x, int | None)
+    del (td["opt"], l[0])
+    del (td["k"],)  # E: Key `k` in TypedDict `TD` may not be deleted
 "#,
 );
 
@@ -846,6 +907,172 @@ def test(cond: bool):
         h = 1
         del h
     h  # E: `h` is uninitialized
+"#,
+);
+
+// A branch that ends in an expression statement may still define the name, so its termination
+// key says nothing about a different branch that does not.
+testcase!(
+    test_uninitialized_branch_not_covered_by_another_branch_termination,
+    r#"
+def f(c: bool, l: list[int]) -> None:
+    if c:
+        n = 1
+        l.append(1)
+    else:
+        pass
+    print(n)  # E: `n` may be uninitialized
+"#,
+);
+
+// A boolean operation merges flows in which `x` is still possibly uninitialized, which must not
+// make it initialized.
+testcase!(
+    test_uninitialized_survives_boolean_operation,
+    r#"
+def from_if(b: bool, c: bool, d: bool) -> int:
+    if b:
+        pass
+    else:
+        x = 1
+    y = c and d
+    return x  # E: `x` may be uninitialized
+
+def from_loop(xs: list[int], c: bool, d: bool) -> int:
+    for i in xs:
+        x = i
+    y = c and d
+    return x  # E: `x` may be uninitialized
+
+def g() -> int: ...
+
+def from_try(c: bool, d: bool) -> int:
+    try:
+        x = g()
+    except Exception:
+        pass
+    y = c or d
+    return x  # E: `x` may be uninitialized
+"#,
+);
+
+// A loop that may run zero times leaves `x` possibly uninitialized. Only the branch that ends in
+// a call that never returns is decided by its termination key, so the doubt from the other branch
+// remains.
+testcase!(
+    test_uninitialized_keeps_doubt_of_branch_without_termination_key,
+    r#"
+from typing import NoReturn
+
+def stop() -> NoReturn: ...
+
+def after_match(xs: list[int], n: int) -> None:
+    for i in xs:
+        x = i
+    match n:
+        case 1:
+            stop()
+        case _:
+            pass
+    print(x)  # E: `x` may be uninitialized
+
+def after_try(xs: list[int]) -> None:
+    for i in xs:
+        x = i
+    try:
+        pass
+    except ValueError:
+        stop()
+    print(x)  # E: `x` may be uninitialized
+
+def after_loop(xs: list[int], ys: list[int]) -> None:
+    for i in xs:
+        x = i
+    for y in ys:
+        stop()
+    print(x)  # E: `x` may be uninitialized
+"#,
+);
+
+// The first `if` leaves `x` unset in both branches. The fall-through of the exhaustive chain
+// below never runs, so its own termination key decides that branch, whatever keys the first
+// `if` had.
+testcase!(
+    test_uninitialized_later_merge_decided_by_own_termination_key,
+    r#"
+def f(n: int, r: bool) -> None:
+    x: int
+    if n in (1, 2):
+        if r:
+            print(0)
+        if n == 1:
+            x = 1
+        elif n == 2:
+            x = 2
+        print(x)
+"#,
+);
+
+// The loop may have set `x`, and only the `if` suite deletes it, so `x` is still bound when the
+// loop ran and `c` is false.
+testcase!(
+    test_uninitialized_possibly_set_branch_is_not_unassigned,
+    r#"
+def g(xs: list[int], c: bool) -> None:
+    for i in xs:
+        x = i
+    if c:
+        del x  # E: `x` may be uninitialized
+        print("a")
+    else:
+        print("b")
+    print(x)  # E: `x` may be uninitialized
+"#,
+);
+
+// No branch assigns `x`, so it is unset on every path that reaches the merge, even though each
+// branch ends in a call that might never return. When every branch ends in a call that never
+// returns, the read is dead and still reads a name no path assigns.
+testcase!(
+    test_uninitialized_when_no_branch_assigns,
+    r#"
+import sys
+def f() -> None: ...
+def g(c: bool) -> None:
+    x: int
+    if c:
+        f()
+    else:
+        f()
+    print(x)  # E: `x` is uninitialized
+def h(c: bool) -> None:
+    x: int
+    if c:
+        sys.exit(1)
+    else:
+        sys.exit(2)
+    print(x)  # E: This code is unreachable  # E: `x` is uninitialized
+"#,
+);
+
+// A loop that may run zero times leaves `path` possibly uninitialized. The `else` carries that
+// value, but it never reaches the merge, so it must not make `path` possibly uninitialized after it.
+testcase!(
+    test_uninitialized_ignores_possibly_unset_branch_that_diverges,
+    r#"
+from typing import Literal, assert_never
+
+def f(location: Literal["build", "install"], items: list[int]) -> None:
+    for i in items:
+        path = i
+        print(path)
+    if location == "build":
+        path = 1
+    elif location == "install":
+        path = 2
+    else:
+        assert_never(location)
+    print(path)
 "#,
 );
 
@@ -965,7 +1192,7 @@ y = 42
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/246
+// https://github.com/pyrefly-org/pyrefly/issues/246
 testcase!(
     test_declare_after_write_no_error,
     r#"
@@ -1022,7 +1249,7 @@ def try_except_multiple_finally():
     except OSError as e5:  # E: This `except` clause is unreachable, because an earlier clause already catches `OSError`
         e4 # E: `e4` is uninitialized
     finally:
-        e4 # E: `e4` is uninitialized
+        e4 # E: `e4` may be uninitialized
         e5 # E: `e5` is uninitialized
 
     e4
@@ -1056,7 +1283,7 @@ def try_except_else_finally():
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/959
+// https://github.com/pyrefly-org/pyrefly/issues/959
 testcase!(
     test_lambda_captures_narrowed_variable,
     r#"
@@ -1143,7 +1370,7 @@ assert_type(A, type[A])
     "#,
 );
 
-// This does come up in practice - see https://github.com/facebook/pyrefly/issues/1146
+// This does come up in practice - see https://github.com/pyrefly-org/pyrefly/issues/1146
 testcase!(
     test_class_scope_annotation_shadows_global,
     r#"
@@ -1174,7 +1401,7 @@ class D:
 
 // Nested scopes - except for parameter scopes - cannot see a containing class
 // body. This applies not only to methods but also other scopes like lambda, inner
-// class bodies, and comprehensions. See https://github.com/facebook/pyrefly/issues/264
+// class bodies, and comprehensions. See https://github.com/pyrefly-org/pyrefly/issues/264
 testcase!(
     test_class_scope_lookups_when_skip,
     r#"
@@ -1182,7 +1409,7 @@ from typing import assert_type, Literal
 x = 'string'
 class A:
     x = 42
-    def f():
+    def f(self):
         assert_type(x, str)
     lambda_f = lambda: assert_type(x, str)
     class B:
@@ -1191,8 +1418,8 @@ class A:
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/1073 and
-// https://github.com/facebook/pyrefly/issues/1074
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/1073 and
+// https://github.com/pyrefly-org/pyrefly/issues/1074
 testcase!(
     test_class_scope_lookups_when_permitted,
     r#"
@@ -1206,6 +1433,23 @@ class C:
     x_chars = [char for char in X]
     def __init__(self, x: str = X):
         self.x = x
+    "#,
+);
+
+// A method body cannot see a class-body name, even one that its signature mentions.
+testcase!(
+    test_class_scope_name_in_signature_is_not_visible_in_body,
+    r#"
+from typing import TypeVar
+class A:
+    import collections
+    def f(self, x: collections.OrderedDict) -> None:
+        collections  # E: Could not find name `collections`
+class B:
+    T = TypeVar("T")
+    def f(self, x: T) -> T:
+        T  # E: Could not find name `T`
+        return x
     "#,
 );
 
@@ -1620,7 +1864,7 @@ def test_2(cond: bool):
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2930
+// https://github.com/pyrefly-org/pyrefly/issues/2930
 testcase!(
     bug = "del in dead code should still make the variable local, hiding the outer binding",
     test_del_in_dead_code_makes_local,
@@ -1636,27 +1880,127 @@ def f():
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2929
+// https://github.com/pyrefly-org/pyrefly/issues/4318
 testcase!(
-    bug = "Should detect possibly-missing attribute on conditionally-defined class members",
     test_conditionally_defined_class_member,
+    TestEnv::new().enable_possibly_uninitialized_attribute_error(),
     r#"
+from typing import Any, Never
+
 def coin() -> bool:
     return True
+
+def stop() -> Never:
+    raise Exception()
 
 class Config:
     name: str = "default"
     if coin():
-        debug = True
+        debug = True  # E: Attribute `debug` may be uninitialized
+
+class Complete:
+    if coin():
+        value = 1
+    else:
+        value = 2
+
+class Child(Config):
+    pass
+
+class Instance:
+    def __init__(self) -> None:
+        if coin():
+            self.complete = 1
+        else:
+            self.complete = 2
+        if coin():
+            self.partial = 1  # E: Attribute `partial` may be uninitialized
+
+class DynamicInstance:
+    if coin():
+        class_value = 1  # E: Attribute `class_value` may be uninitialized
+
+    def __getattr__(self, name: str) -> Any: ...
+
+    def __init__(self) -> None:
+        if coin():
+            self.value = 1
+
+class CompleteWithReturn:
+    def __init__(self) -> None:
+        if coin():
+            self.value = 1
+            return
+        self.value = 2
+
+class PartialWithReturn:
+    def __init__(self) -> None:
+        if coin():
+            return
+        self.value = 1  # E: Attribute `value` may be uninitialized
+
+class BareAnnotation:
+    def __init__(self) -> None:
+        self.value: int  # E: Attribute `value` may be uninitialized
+
+class CompleteWithNever:
+    def __init__(self) -> None:
+        if coin():
+            self.value = 1
+        else:
+            stop()
+
+Config.name
+Config.debug
+Config().debug
+Child.debug
+Child().debug
+Complete.value
+Instance().complete
+Instance().partial
+CompleteWithReturn().value
+PartialWithReturn().value
+BareAnnotation().value
+CompleteWithNever().value
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/3398
+// https://github.com/pyrefly-org/pyrefly/issues/3398
 testcase!(
     test_walrus_in_comprehension_reads_enclosing_scope_param,
     r#"
 def demo(text: str) -> None:
     [text := text.replace(s, f"\\{s}") for s in "&#" if s in text]
+"#,
+);
+
+// https://github.com/pyrefly-org/pyrefly/issues/3670
+testcase!(
+    test_walrus_in_comprehension_read_before_write_multiple_defs,
+    r#"
+def f(xs: list[int]) -> None:
+    [(c := 1) for _ in xs if c]  # E: `c` is uninitialized
+    [(c := "") for _ in xs]
+"#,
+);
+
+testcase!(
+    test_walrus_in_comprehension_multiple_defs_read_from_nested_function,
+    r#"
+from typing import assert_type
+xs = [1]
+[(c := 1) for _ in xs]
+[(c := "") for _ in xs]
+def g() -> None:
+    assert_type(c, int | str)
+"#,
+);
+
+testcase!(
+    test_walrus_in_comprehension_inside_lambda,
+    r#"
+xs = [1]
+f = lambda: [(c := 1) for _ in xs]
 "#,
 );
 
@@ -1697,4 +2041,168 @@ def f():
         (y := 1)
         y: int
 "#,
+);
+
+testcase!(
+    test_circular_ref_is_illegal,
+    r#"
+class A:
+    str: "str" = ""  # E: Circular reference to `str` in annotation
+    "#,
+);
+
+testcase!(
+    test_indirect_circular_ref_is_illegal,
+    r#"
+x: "y" = 1  # E: Circular reference to `y` in annotation
+y: "x" = 2  # E: Circular reference to `x` in annotation
+    "#,
+);
+
+testcase!(
+    test_circular_ref_through_loop,
+    r#"
+y = 0
+for _ in range(3):
+    y: "x" = 1  # E: Circular reference to `x` in annotation
+x: "y" = 2  # E: Circular reference to `y` in annotation  # E: Expected a type form, got instance of `Literal[0] | Unknown`
+    "#,
+);
+
+testcase!(
+    test_circular_ref_through_narrow,
+    r#"
+y: "x" = 1  # E: Circular reference to `x` in annotation
+if isinstance(y, int):
+    pass
+else:
+    def y() -> None: ...
+x: y = 2  # E: Circular reference to `y` in annotation  # E: Expected a type form, got instance of `(() -> None) | int`
+    "#,
+);
+
+testcase!(
+    test_circular_ref_through_function,
+    r#"
+from __future__ import annotations
+def A() -> A: ...  # E: Expected a type form, got instance of `() -> Unknown`
+    "#,
+);
+
+testcase!(
+    test_circular_ref_through_property,
+    r#"
+from __future__ import annotations
+class A:
+    x: type[int]
+class B:
+    @property
+    def A(self) -> A.x: ...  # E: Expected a type form, got class attribute `A`
+    "#,
+);
+
+testcase!(
+    test_forward_reference_to_shadowing_method,
+    r#"
+from typing import assert_type
+class A:
+    x: "int"  # E: Expected a type form, got class attribute `int` of type `(self: Self@A) -> None`\n  Note: falling back to `builtins.int` from an enclosing scope
+    def int(self) -> None: ...
+assert_type(A().x, int)
+    "#,
+);
+
+// A method body cannot see the class scope, even when the method's postponed annotations can.
+testcase!(
+    test_method_body_ignores_class_scope_name_in_own_annotation,
+    r#"
+from __future__ import annotations
+class C:
+    def list(self) -> list[str]:  # E: falling back to `builtins.list` from an enclosing scope
+        return list({"a": 1}.keys())
+    "#,
+);
+
+testcase!(
+    test_method_body_ignores_class_scope_name_in_annotations,
+    r#"
+from __future__ import annotations
+from typing import assert_type
+class C:
+    def f(self, x: str, y: object) -> None:  # E: falling back to `builtins.str` from an enclosing scope
+        if isinstance(y, str):
+            assert_type(y, str)
+        assert_type(str(1), str)
+    str = 1
+    "#,
+);
+
+testcase!(
+    test_class_scope_non_type_without_fallback,
+    r#"
+from __future__ import annotations
+class C:
+    def f(self) -> g: ...  # E: Expected a type form, got instance of `(self: Self@C) -> None`
+    def g(self) -> None: ...
+    "#,
+);
+
+testcase!(
+    test_class_scope_module_is_not_replaced_by_fallback,
+    r#"
+from __future__ import annotations
+import collections.abc as abc
+class C:
+    def f(self) -> abc.Any: ...
+    import typing as abc
+    "#,
+);
+
+testcase!(
+    bug = "`ns.T` should resolve to `C.ns.T`, which is `str`, without an error",
+    test_class_scope_fallback_for_attribute_base,
+    r#"
+from __future__ import annotations
+from typing import assert_type, TypeAlias
+class Namespace1:
+    T: TypeAlias = int
+ns = Namespace1()
+class Namespace2:
+    T: TypeAlias = str
+class C:
+    x: ns.T  # E: Expected a type form, got class attribute `ns` of type `Namespace2`
+    ns = Namespace2()
+assert_type(C.x, str)  # E: assert_type(int, str) failed
+    "#,
+);
+
+// A type alias value is evaluated where it appears, even when annotations are postponed.
+testcase!(
+    test_alias_value_in_class_body_is_not_postponed,
+    r#"
+from __future__ import annotations
+from typing import TypeAlias
+class C:
+    X: TypeAlias = Y  # E: Could not find name `Y`
+    Y = int
+    "#,
+);
+
+fn class_scope_in_stub_file_env() -> TestEnv {
+    TestEnv::one_with_path(
+        "foo",
+        "foo.pyi",
+        r#"
+class A:
+    x: type[int]  # E: Expected a type form, got class attribute `type`
+    def type(self) -> int: ...
+    "#,
+    )
+}
+
+// See `class_scope_in_stub_file_env` - test checks `foo.pyi` for expected error
+testcase!(
+    test_class_scope_in_stub_file,
+    class_scope_in_stub_file_env(),
+    "import foo",
 );

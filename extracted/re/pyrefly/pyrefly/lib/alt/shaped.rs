@@ -34,6 +34,7 @@ use std::slice;
 
 use pyrefly_python::ast::Ast;
 use pyrefly_types::dimension::Int;
+use pyrefly_types::known_class::KnownClass;
 use pyrefly_types::shaped_array::IntTuple;
 use pyrefly_types::shaped_array::IntTupleView;
 use pyrefly_types::shaped_array::tuple_carrier_to_shape;
@@ -47,16 +48,17 @@ use ruff_text_size::TextRange;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
+use crate::binding::shape_type::BoundShapeComment;
+use crate::binding::shape_type::ShapeCommentMode;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
-use crate::types::types::AnyStyle;
 use crate::types::types::Type;
 
-/// The rank a carrier states to other checkers, if `base` is a carrier: a tuple
-/// type, or an explicit `Any`, which states no rank.
+/// The rank stated by a tuple carrier; gradual `Any` states no rank.
 fn carrier_int_tuple(base: &Type) -> Option<IntTuple> {
     match base {
-        Type::Any(AnyStyle::Explicit) => Some(IntTuple::shapeless()),
+        Type::Any(_) => Some(IntTuple::shapeless()),
+        Type::IntTuple(shape) => Some((**shape).clone()),
         Type::Tuple(_) => tuple_carrier_to_shape(base),
         _ => None,
     }
@@ -112,6 +114,15 @@ fn literals_agree(carrier: &[Int], dims: &[Int]) -> bool {
     })
 }
 
+struct ShapedAnnotation<'a> {
+    base_expr: &'a Expr,
+    payload: &'a Expr,
+    base: Type,
+    /// Bare generics report missing arguments that the payload may supply, so defer these errors.
+    base_errors: ErrorCollector,
+    mode: ShapeCommentMode,
+}
+
 impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     /// Parse `Shaped[T, "<shape>"]`, if the binder parsed its shape string.
     ///
@@ -131,36 +142,103 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         {
             return None;
         }
-        let [base, shape] = Ast::unpack_slice(slice) else {
+        let [base_expr, payload] = Ast::unpack_slice(slice) else {
             unreachable!("the binder only records `Shaped` with two arguments")
         };
-        Some(self.shaped_type(base, shape, range, type_form_context, errors))
+        let base_errors = self.error_collector();
+        let base = self.expr_untype(base_expr, TypeFormContext::type_argument(), &base_errors);
+        Some(self.shaped_type(
+            ShapedAnnotation {
+                base_expr,
+                payload,
+                base,
+                base_errors,
+                mode: ShapeCommentMode::Append,
+            },
+            range,
+            type_form_context,
+            errors,
+        ))
+    }
+
+    /// Apply a bound comment without re-entering its root's inference hook.
+    pub(crate) fn comment_shaped_type(
+        &self,
+        base: &Expr,
+        comment: &BoundShapeComment,
+        context: TypeFormContext<'_>,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let base_errors = self.error_collector();
+        let written_context = if matches!(context, TypeFormContext::BaseClassList) {
+            context
+        } else {
+            TypeFormContext::type_argument()
+        };
+        let ty = self.expr_untype_without_shape_comment(base, written_context, &base_errors);
+        if matches!(context, TypeFormContext::BaseClassList) && base_errors.has_hard() {
+            // A shape payload cannot make an invalid written base legal.
+            errors.extend(base_errors);
+            return ty;
+        }
+        if matches!(context, TypeFormContext::BaseClassList) && matches!(ty, Type::Tuple(_)) {
+            errors.extend(base_errors);
+            self.error(
+                errors,
+                comment.range,
+                ErrorKind::InvalidAnnotation,
+                "A shape comment on a tuple base must refine its type arguments instead of replacing the tuple carrier".to_owned(),
+            );
+            return ty;
+        }
+        self.shaped_type(
+            ShapedAnnotation {
+                base_expr: base,
+                payload: &comment.payload,
+                base: ty,
+                base_errors,
+                mode: comment.mode,
+            },
+            comment.range,
+            context,
+            errors,
+        )
     }
 
     fn shaped_type(
         &self,
-        base_expr: &Expr,
-        shape_expr: &Expr,
+        annotation: ShapedAnnotation<'_>,
         range: TextRange,
         type_form_context: TypeFormContext<'_>,
         errors: &ErrorCollector,
     ) -> Type {
-        // A bare generic base reports the type arguments the shape supplies, so its
-        // errors are kept only if the shape is not appended to it.
-        let base_errors = self.error_collector();
-        let base = self.expr_untype(base_expr, TypeFormContext::type_argument(), &base_errors);
+        let ShapedAnnotation {
+            base_expr,
+            payload: shape_expr,
+            base,
+            base_errors,
+            mode,
+        } = annotation;
+        if mode == ShapeCommentMode::Replace
+            && (carrier_int_tuple(&base).is_none() || base_errors.has_hard())
+        {
+            errors.extend_filtered(base_errors, |error| {
+                error.error_kind() != ErrorKind::ImplicitAnyTypeArgument
+            });
+            return self.expr_untype(shape_expr, type_form_context, errors);
+        }
         match &base {
-            Type::ClassType(cls) if cls.is_builtin("int") => {
+            Type::ClassType(cls) if cls.is(KnownClass::Int) => {
                 errors.extend(base_errors);
                 // `Shaped[int, "N"]` is `Int[N]`.
-                return match self.parse_int_type(
+                return match self.try_parse_int_type(
                     slice::from_ref(shape_expr),
                     range,
                     type_form_context,
                     errors,
                 ) {
-                    Type::Any(AnyStyle::Error) => base,
-                    int => self.untype(int, range, errors),
+                    Ok(int) => self.untype(int, range, errors),
+                    Err(()) => base,
                 };
             }
             Type::ClassType(cls) if !cls.tparams().is_empty() => {
@@ -175,20 +253,13 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     _ => slice::from_ref(shape_expr),
                 };
                 let class = self.expr_infer(class_expr, errors);
-                if let Type::ClassDef(cls) = &class
-                    && !self.is_shaped_array_class(cls)
-                {
+                if let Type::ClassDef(cls) = &class {
                     let args = explicit_args.iter().chain(shape_args);
-                    let targs = self.parse_class_type_args(
-                        cls,
-                        args,
-                        TypeFormContext::TypeExpression,
-                        errors,
-                    );
+                    let targs = self.parse_class_type_args(cls, args, type_form_context, errors);
                     return self.specialize(cls, targs, range, errors);
                 }
-                // Other subscriptable bases, such as type aliases and registered
-                // shaped arrays, use their own specialization rules.
+                // Other subscriptable bases, such as type aliases, use their own
+                // specialization rules.
                 let args = Expr::Tuple(ExprTuple {
                     node_index: AtomicNodeIndex::default(),
                     range,
@@ -196,12 +267,18 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     ctx: ExprContext::Load,
                     parenthesized: false,
                 });
-                let specialized = self.subscript_infer_for_type(&class, &args, range, errors);
+                let specialized = self.subscript_infer_for_type_with_key_present(
+                    &class,
+                    &args,
+                    range,
+                    errors,
+                    false,
+                    type_form_context,
+                );
                 return self.untype(specialized, range, errors);
             }
-            // A class without type parameters ignores the shape, and an unresolved
-            // base was already reported.
-            Type::ClassType(_) | Type::Any(AnyStyle::Error | AnyStyle::Implicit) => {
+            // A non-generic class ignores the shape, independently of recovery provenance.
+            Type::ClassType(_) => {
                 errors.extend(base_errors);
                 return base;
             }
@@ -214,7 +291,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 ErrorKind::InvalidAnnotation,
                 format!(
                     "`Shaped` needs a class, an integer tuple, or `Any`, got `{}`",
-                    self.for_display(base.clone())
+                    self.display(base.clone())
                 ),
             );
             return base;
@@ -229,9 +306,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 }
             }
             _ => {
-                let shape = self.expr_untype(shape_expr, shape_context, errors);
-                // An invalid shape was already reported.
-                if matches!(shape, Type::Any(AnyStyle::Error)) {
+                let parse_errors = self.error_collector();
+                let shape = self.expr_untype(shape_expr, shape_context, &parse_errors);
+                let failed = parse_errors.has_hard();
+                errors.extend(parse_errors);
+                if failed {
                     return base;
                 }
                 if !self.is_int_tuple_dsl_argument(&shape) {
@@ -242,7 +321,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         format!(
                             "A `Shaped` shape must be a list of dimensions, a variadic \
                              shape, or a shape function call, got `{}`",
-                            self.for_display(shape)
+                            self.display(shape)
                         ),
                     );
                     return base;
@@ -262,8 +341,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         } else {
             format!(
                 "`Shaped` tuple `{}` does not agree with its shape `{}`",
-                self.for_display(base.clone()),
-                self.for_display(shape)
+                self.display(base.clone()),
+                self.display(shape)
             )
         };
         // A malformed annotation means what other checkers read: the base alone.

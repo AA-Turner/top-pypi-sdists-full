@@ -45,14 +45,14 @@ from __future__ import annotations
 
 import atexit
 import logging
-import typing as ty
+from typing import Any, TYPE_CHECKING
 
 from oslo_config import cfg
 
 from oslo_middleware._i18n import _
 from oslo_middleware import base
 
-if ty.TYPE_CHECKING:
+if TYPE_CHECKING:
     from _typeshed.wsgi import WSGIApplication
     import webob.request
     import webob.response
@@ -143,7 +143,7 @@ _TRACER_PROVIDER = None
 _INITIALIZED = False
 
 
-def set_defaults(**kwargs: ty.Any) -> None:
+def set_defaults(**kwargs: Any) -> None:
     """Override default values for tracing configuration options.
 
     This is intended to be called by services during their configuration
@@ -160,11 +160,12 @@ def set_defaults(**kwargs: ty.Any) -> None:
 
 
 def init_tracing(conf: cfg.ConfigOpts | None = None) -> None:
-    """Initialize the OpenTelemetry TracerProvider.
+    """Initialize the middleware-owned OpenTelemetry TracerProvider.
 
     Sets up the TracerProvider, OTLP exporter, span processor, and W3C
     propagators. This function is idempotent — calling it multiple times
-    has no additional effect.
+    has no additional effect. It does not install the provider as the
+    process-global provider.
 
     The middleware calls this automatically in ``__init__``. Services
     that need early initialization (before paste pipeline loading) can
@@ -210,11 +211,14 @@ def init_tracing(conf: cfg.ConfigOpts | None = None) -> None:
     _TRACER_PROVIDER = otel_sdk_trace.TracerProvider(
         resource=resource,
         sampler=sampler,
+        # We own the provider lifecycle: shutdown_tracing() is registered as
+        # our atexit handler below. Disable the SDK's built-in atexit
+        # shutdown so the provider isn't shut down twice at exit.
+        shutdown_on_exit=False,
     )
     _TRACER_PROVIDER.add_span_processor(
         otel_export.BatchSpanProcessor(exporter)
     )
-    otel_trace.set_tracer_provider(_TRACER_PROVIDER)
 
     # Set W3C TraceContext + Baggage propagators
     otel_propagate.set_global_textmap(
@@ -239,7 +243,10 @@ def init_tracing(conf: cfg.ConfigOpts | None = None) -> None:
 
 
 def shutdown_tracing() -> None:
-    """Shut down the TracerProvider, flushing any pending spans."""
+    """Shut down the middleware-owned TracerProvider and flush its spans.
+
+    Providers owned by other libraries are unaffected.
+    """
     global _TRACER_PROVIDER, _INITIALIZED
     if _TRACER_PROVIDER is not None:
         _TRACER_PROVIDER.shutdown()
@@ -256,7 +263,7 @@ def _register_opts(conf: cfg.ConfigOpts) -> None:
     conf.register_opts(TRACING_OPTS, group='oslo_middleware_tracing')
 
 
-def _create_exporter(conf: cfg.ConfigOpts) -> ty.Any:
+def _create_exporter(conf: cfg.ConfigOpts) -> Any:
     """Create the OTLP span exporter based on configuration.
 
     The protocol-specific exporter package is imported here rather
@@ -321,12 +328,12 @@ class TracingMiddleware(base.ConfigurableMiddleware):
     def __init__(
         self,
         application: WSGIApplication | None,
-        conf: dict[str, ty.Any] | cfg.ConfigOpts | None = None,
+        conf: dict[str, Any] | cfg.ConfigOpts | None = None,
     ) -> None:
         super().__init__(application, conf)
         self._tracing_enabled = False
-        self._tracer: ty.Any = None
-        self._propagator: ty.Any = None
+        self._tracer: Any = None
+        self._propagator: Any = None
 
         _register_opts(self.oslo_conf)
 
@@ -335,7 +342,11 @@ class TracingMiddleware(base.ConfigurableMiddleware):
 
         init_tracing(self.oslo_conf)
 
-        self._tracer = otel_trace.get_tracer('oslo_middleware.tracing')
+        # init_tracing() always sets the provider when tracing is enabled.
+        provider = _TRACER_PROVIDER
+        if provider is None:
+            raise RuntimeError('provider not initialized')
+        self._tracer = provider.get_tracer('oslo_middleware.tracing')
         self._propagator = otel_propagate.get_global_textmap()
         self._tracing_enabled = True
 

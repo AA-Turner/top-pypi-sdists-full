@@ -21,7 +21,7 @@ long a robot's request may wait for a batch, and which requests are dispatched f
 With batches of 1, 2 and 4 that take 80, 110 and 130 ms, `seats, over` is `4, ["far"]`: the replica has capacity for
 four robots, and the one 200 ms away is the one to move: its request may arrive as the near robot's batch runs, and
 would then miss its deadline. A batch of four answers a robot 100 ms away within the buffer, and four such robots, run
-on a clock, have every response in time.
+on a clock with these batch times, had every response in time.
 
 Terms. A *request* is one robot's request for its next response, which carries an action chunk. A *replica* is one
 loaded model, which runs one batch at a time (replicas.py runs each as a process). A robot's *RTT* is the time its

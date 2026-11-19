@@ -50,6 +50,7 @@ QueryVectorsPaginatorName = Literal["query_vectors"]
 SseTypeType = Literal["AES256", "aws:kms"]
 S3VectorsServiceName = Literal["s3vectors"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -13,7 +13,6 @@ from typing import Any
 from bitfab.google_calls import CREDENTIAL_PARAM, HTTP_ERROR_KEY, request_credentials
 from bitfab.mock_override import MockOverrideCtx, SpanNodeMeta
 from bitfab.sandbox import (
-    Sandbox,
     SandboxStartCtx,
     sandbox_elapsed_ms,
     sandbox_state,
@@ -1582,53 +1581,6 @@ def answer_gmail_call(
 
 def is_gmail_call(node: SpanNodeMeta) -> bool:
     return node.trace_function_key.startswith("gmail.")
-
-
-def gmail_sandbox(
-    start: Callable[[SandboxStartCtx], Any] | None = None,
-    account: Callable[[Any], str | None] | None = None,
-) -> Sandbox:
-    """The Gmail sandbox: answers Gmail API calls during replay from a mailbox.
-
-    It answers calls made through Google's Python client
-    (``googleapiclient``), keeping sends, drafts and label changes in the
-    mailbox for the rest of the replay item, along with trashed, deleted
-    and relabeled messages and threads. It is on by default; pass it
-    only to change where its mailbox comes from.
-
-    Args:
-        start: Builds the mailbox for one replay item from a
-            ``SandboxStartCtx``. Return a list of messages, or
-            ``{"messages": [...], "emailAddress": ..., "drafts": [...],
-            "labels": [...], "sendAs": [...]}``. ``labels`` are the account's
-            own labels, each a Gmail label or a name; ``sendAs`` are Gmail
-            send-as entries (``sendAsEmail``, ``displayName``, ``signature``,
-            ...). Without ``sendAs``, the account's address is listed with no
-            signature.
-            ``clock`` (ISO 8601) is where the mailbox's time starts, in place
-            of the original trace's start time.
-            Each message is a Gmail API message or plain fields as
-            ``gmail_message`` takes them; a plain ``account`` field puts the
-            message in that account's mailbox. Each draft is
-            ``{"id": ..., "message": ...}``, where the message is a Gmail API
-            message (as ``drafts.get`` returns it, ``raw`` included), plain
-            fields, or only the ``id`` of a message in ``messages``. For several accounts, return
-            ``{"mailboxes": [{"emailAddress": ..., "messages": [...]}]}``.
-            ``None`` uses ``mailbox_from_recorded_calls``.
-        account: With several mailboxes, names the account a call is for
-            from the Google credentials it was made with, returning the
-            account's address. ``None`` routes by a ``userId`` that is an
-            address, then by the credential the original calls used, then
-            to the only mailbox; a call it cannot place fails the item.
-    """
-    chosen = start or mailbox_from_recorded_calls
-    return Sandbox(
-        name=GMAIL_SANDBOX_NAME,
-        match=is_gmail_call,
-        handle=lambda state, call: answer_gmail_call(state, call, account),
-        start=lambda ctx: as_mailboxes(ctx, chosen(ctx)),
-        integration="gmail",
-    )
 
 
 class SandboxGoogleCredentials:

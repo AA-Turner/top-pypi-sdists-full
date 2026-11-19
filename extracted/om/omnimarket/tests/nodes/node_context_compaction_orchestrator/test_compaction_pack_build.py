@@ -46,12 +46,15 @@ from omnimarket.nodes.node_context_compaction_orchestrator.handlers.handler_comp
     build_pack_command,
     map_pack_built,
 )
+from omnimarket.nodes.node_context_pack_orchestrator.container.container_context_pack_orchestrator import (
+    create_handler_context_pack_orchestrator,
+    create_handler_context_profile_resolver,
+)
 from omnimarket.nodes.node_context_pack_orchestrator.handlers.handler_context_pack_orchestrator import (
     HandlerContextPackOrchestrator,
 )
-from omnimarket.nodes.node_context_profile_resolver_effect.handlers.handler_context_profile_resolver import (
-    HandlerContextProfileResolver,
-)
+
+from .reply_topics import REPLY_TOPICS
 
 # The shipped compaction_orchestrator profile names extraction_proposer and
 # context_compaction; the fixture promotes both in a temporary routing contract.
@@ -125,9 +128,9 @@ def _sources(**statuses: EnumContextSourceStatus) -> dict[EnumContextFactor, _So
 def _pack_orchestrator(
     sources: dict[EnumContextFactor, _Source],
 ) -> HandlerContextPackOrchestrator:
-    return HandlerContextPackOrchestrator(
+    return create_handler_context_pack_orchestrator(
         sources,
-        profile_resolver=HandlerContextProfileResolver(PROFILES_DIR),
+        profile_resolver=create_handler_context_profile_resolver(PROFILES_DIR),
         implementation_identity=lambda: dict(FIXED_IDENTITY),
     )
 
@@ -147,6 +150,7 @@ def _request(
         input_messages_hash=_sha("input"),
         newest_turn="turn-9",
         barrier_id=barrier_id,
+        **REPLY_TOPICS,
     )
 
 

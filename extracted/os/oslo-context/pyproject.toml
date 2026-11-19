@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Typing :: Typed",
@@ -33,7 +34,21 @@ Homepage = "https://docs.openstack.org/oslo.context"
 Repository = "https://opendev.org/openstack/oslo.context"
 
 [tool.setuptools.packages.find]
-include = ["oslo_context"]
+include = ["oslo_context*"]
+
+[tool.coverage.run]
+source = [
+    "oslo_context"
+]
+branch = true
+parallel = true
+omit = [
+    "oslo_context/tests/*"
+]
+
+[tool.coverage.report]
+ignore_errors = true
+show_missing = true
 
 [tool.mypy]
 python_version = "3.11"

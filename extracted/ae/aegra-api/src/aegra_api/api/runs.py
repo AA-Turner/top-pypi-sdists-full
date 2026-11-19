@@ -24,10 +24,11 @@ from aegra_api.models import Run, RunCreate, RunsCancel, RunStatus, User
 from aegra_api.models.enums import RunCancellationAction
 from aegra_api.models.errors import CONFLICT, NOT_FOUND, SSE_RESPONSE
 from aegra_api.services.broker import broker_manager
-from aegra_api.services.run_preparation import _prepare_run
-from aegra_api.services.run_status import interrupt_unowned_run
+from aegra_api.services.run_preparation import _apply_create_run_auth, _prepare_run
+from aegra_api.services.run_status import interrupt_run_before_delete, interrupt_unowned_run
 from aegra_api.services.run_waiters import TERMINAL_STATES, encode_output, heartbeat_wait_body, run_result_body
 from aegra_api.services.streaming_service import streaming_service
+from aegra_api.services.webhook_delivery import job_for_run
 from aegra_api.settings import settings
 from aegra_api.utils.status_compat import validate_run_status
 
@@ -56,6 +57,7 @@ async def _request_run_interruption(
         run_orm.run_id,
         run_orm.thread_id,
         user_id=run_orm.user_id,
+        webhook_job=job_for_run(run_orm),
     )
 
     if reconciled:
@@ -81,31 +83,6 @@ async def _request_run_interruption(
         await streaming_service.interrupt_run(run_orm.run_id)
     else:
         await streaming_service.cancel_run(run_orm.run_id)
-
-
-async def _apply_create_run_auth(user: User, thread_id: str, request: RunCreate) -> None:
-    """Authorize threads.create_run and merge config/context overrides into request.
-
-    Handler-returned filter dict wins; otherwise fall back to in-place value mutations.
-    """
-    ctx = build_auth_context(user, "threads", "create_run")
-    value = {**request.model_dump(), "thread_id": thread_id}
-    filters = await handle_event(ctx, value)
-
-    source = filters if filters is not None else value
-    config_overrides = source.get("config")
-    if isinstance(config_overrides, dict):
-        request.config = {**(request.config or {}), **config_overrides}
-    context_overrides = source.get("context")
-    if isinstance(context_overrides, dict):
-        request.context = {**(request.context or {}), **context_overrides}
-
-    # Creating a run also reads its assistant, so per-assistant handler rules
-    # apply here exactly as they do in the cron-create chain.
-    await handle_event(
-        build_auth_context(user, "assistants", "read"),
-        {"assistant_id": request.assistant_id},
-    )
 
 
 @router.post("/threads/{thread_id}/runs", response_model=Run, responses={**NOT_FOUND, **CONFLICT})
@@ -495,16 +472,20 @@ async def cancel_run_endpoint(
     ),
     action: RunCancellationAction = Query(
         "cancel",
-        description="Cancellation strategy: 'cancel' for hard cancel, 'interrupt' for cooperative interrupt.",
+        description=(
+            "Accepted for compatibility: 'cancel' and 'interrupt' both stop the run immediately "
+            "and finalize it as interrupted."
+        ),
     ),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Run:
-    """Cancel or interrupt a running execution.
+    """Cancel a running execution.
 
-    Use `action=cancel` to hard-cancel the run immediately, or
-    `action=interrupt` to cooperatively interrupt (the graph can handle the
-    interrupt and save partial state). Set `wait=1` to wait up to 10 seconds
+    `action=cancel` and `action=interrupt` are currently aliases: both stop
+    the run immediately and finalize it as interrupted. Neither action
+    provides cooperative graph-level handling or guarantees saved partial
+    state. Set `wait=1` to wait up to 10 seconds
     for the background task to settle before returning the updated run. The
     response may still report `pending` or `running` if the timeout expires.
     Without `wait=1`, a live-owned run is cancelled asynchronously, so the
@@ -543,7 +524,10 @@ async def cancel_runs(
     request: RunsCancel,
     action: RunCancellationAction = Query(
         "interrupt",
-        description="Cancellation strategy: 'cancel' for hard cancel, 'interrupt' for cooperative interrupt.",
+        description=(
+            "Accepted for compatibility: 'cancel' and 'interrupt' both stop the run immediately "
+            "and finalize it as interrupted."
+        ),
     ),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
@@ -623,6 +607,7 @@ async def delete_run(
     # If forcing and active, cancel first
     if force and run_orm.status in ["pending", "running"]:
         logger.info(f"[delete_run] force-cancelling active run run_id={run_id}")
+        await interrupt_run_before_delete(run_orm)
         await streaming_service.cancel_run(run_id)
         # Best-effort: wait for bg task to settle
         task = active_runs.get(run_id)

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from agent_runtimes.mcp.displays import DisplayMCPToolset
@@ -110,6 +111,8 @@ def toolsets_for_the_run(
     users_token: str = "",
     companies: tuple[tuple[str, str], ...] = (),
     company_tools: frozenset[str] | None = None,
+    renew: Callable[[str], Awaitable[str]] | None = None,
+    owners_books: frozenset[str] = frozenset(),
 ) -> list[Any]:
     """
     A run's toolsets, with the Datalayer gateway reached as the run.
@@ -140,6 +143,16 @@ def toolsets_for_the_run(
         run is offered three (`visitors_pap.VISITOR_COMPANY_TOOLS`): the model
         never sees the others, so it cannot reach a company's operation
         around the approval the gateway records.
+    renew : Callable[[str], Awaitable[str]] | None
+        How `token` is renewed when the gateway refuses a call because the
+        execution it was issued for has ended (a deployment's principal token,
+        after the deployment moved to a new spec version): given the stale
+        token, the new one, or `""` for none. Given to the toolsets reached
+        with `token`, never to those reached with `users_token` or the books.
+    owners_books : frozenset[str]
+        The gateway's servers a visitor's run of a public demo of the account
+        that keeps the demo books reaches with that account's own key
+        (`battle_books.owners_servers_of_the_run`); none elsewhere.
 
     Returns
     -------
@@ -167,9 +180,10 @@ def toolsets_for_the_run(
         # key; a server started with it is left out of any other run.
         from agent_runtimes.apps.battle_books import books_bearer
 
-        books = books_bearer(server_id)
+        books = books_bearer(server_id, owners_books)
         if books is not None:
             bearer = books
+        renews = renew if books is None and server_id not in in_users_name else None
         if not bearer:
             # Nobody to reach it in the name of: left out of this run, which goes on
             # without it — an empty Bearer is no header, and broke the whole run.
@@ -182,6 +196,7 @@ def toolsets_for_the_run(
                 http_client=tracing_client(
                     headers={"Authorization": f"Bearer {bearer}"}
                 ),
+                renew_token=renews,
             )
         )
     from agent_runtimes.apps.pap_connections import (
@@ -207,6 +222,7 @@ def toolsets_for_the_run(
             f"{gateway_url()}?{query}",
             id=sid,
             http_client=tracing_client(headers={"Authorization": f"Bearer {bearer}"}),
+            renew_token=renew if acting == "owner" else None,
         )
         if company_tools is not None:
             # By the gateway's own names, before the company's prefix.

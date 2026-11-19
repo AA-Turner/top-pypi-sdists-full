@@ -20,14 +20,17 @@ import logging
 import multiprocessing
 import os
 import signal
-import socket
 import subprocess
+import sys
+import threading
 import time
 import traceback
 from unittest import mock
 
-import eventlet
-from eventlet import event
+if not os.environ.get('OSLO_SERVICE_SKIP_EVENTLET'):
+    import eventlet
+    from eventlet import patcher
+
 from oslotest import base as test_base
 
 from oslo_service import service
@@ -36,6 +39,11 @@ from oslo_service.tests import eventlet_service
 
 
 LOG = logging.getLogger(__name__)
+_os = patcher.original('os')
+_subprocess = patcher.original('subprocess')
+_select = patcher.original('select')
+_socket = patcher.original('socket')
+_time = patcher.original('time')
 
 
 class ExtendedService(service.Service):
@@ -45,6 +53,7 @@ class ExtendedService(service.Service):
 
 class ServiceManagerTestCase(test_base.BaseTestCase):
     """Test cases for Services."""
+
     def test_override_manager_method(self):
         serv = ExtendedService()
         serv.start()
@@ -79,10 +88,9 @@ class ServiceCrashOnStart(ServiceWithTimer):
 class ServiceTestBase(base.ServiceBaseTestCase):
     """A base class for ServiceLauncherTest and ServiceRestartTest."""
 
-    def _spawn_service(self,
-                       workers=1,
-                       service_maker=None,
-                       launcher_maker=None):
+    def _spawn_service(
+        self, workers=1, service_maker=None, launcher_maker=None
+    ):
         self.workers = workers
         pid = os.fork()
         if pid == 0:
@@ -121,7 +129,7 @@ class ServiceTestBase(base.ServiceBaseTestCase):
         while not cond():
             if time.time() - start > timeout:
                 break
-            time.sleep(.1)
+            time.sleep(0.1)
 
     def setUp(self):
         super().setUp()
@@ -152,7 +160,9 @@ class ServiceLauncherTest(ServiceTestBase):
         self.pid = self._spawn_service(workers=2)
 
         # Wait at most 10 seconds to spawn workers
-        cond = lambda: self.workers == len(self._get_workers())
+        def cond():
+            return self.workers == len(self._get_workers())
+
         timeout = 10
         self._wait(cond, timeout)
 
@@ -163,12 +173,16 @@ class ServiceLauncherTest(ServiceTestBase):
     def _get_workers(self):
         proc = subprocess.Popen(
             ['ps', 'ax', '-o', 'pid,ppid,command'],
-            stdout=subprocess.PIPE, encoding='utf-8')
+            stdout=subprocess.PIPE,
+            encoding='utf-8',
+        )
         # Skip ps header
         proc.stdout.readline()
 
-        processes = [tuple(int(p) for p in line.strip().split()[:2])
-                     for line in proc.stdout]
+        processes = [
+            tuple(int(p) for p in line.strip().split()[:2])
+            for line in proc.stdout
+        ]
         return [p for p, pp in processes if pp == self.pid]
 
     def test_killed_worker_recover(self):
@@ -179,7 +193,9 @@ class ServiceLauncherTest(ServiceTestBase):
         os.kill(start_workers[0], signal.SIGTERM)
 
         # Wait at most 5 seconds to respawn a worker
-        cond = lambda: start_workers != self._get_workers()
+        def cond():
+            return start_workers != self._get_workers()
+
         timeout = 5
         self._wait(cond, timeout)
 
@@ -194,7 +210,9 @@ class ServiceLauncherTest(ServiceTestBase):
         os.kill(self.pid, sig)
 
         # Wait at most 5 seconds to kill all workers
-        cond = lambda: not self._get_workers()
+        def cond():
+            return not self._get_workers()
+
         timeout = 5
         self._wait(cond, timeout)
 
@@ -215,7 +233,9 @@ class ServiceLauncherTest(ServiceTestBase):
         self.assertEqual(0, os.WEXITSTATUS(status))
 
     def test_crashed_service(self):
-        service_maker = lambda: ServiceCrashOnStart()
+        def service_maker():
+            return ServiceCrashOnStart()
+
         self.pid = self._spawn_service(service_maker=service_maker)
         status = self._reap_test()
         self.assertTrue(os.WIFEXITED(status))
@@ -225,8 +245,11 @@ class ServiceLauncherTest(ServiceTestBase):
         start_workers = self._spawn()
 
         os.kill(start_workers[0], signal.SIGHUP)
+
         # Wait at most 5 seconds to respawn a worker
-        cond = lambda: start_workers != self._get_workers()
+        def cond():
+            return start_workers != self._get_workers()
+
         timeout = 5
         self._wait(cond, timeout)
 
@@ -242,8 +265,9 @@ class ServiceLauncherTest(ServiceTestBase):
 
         def cond():
             workers = self._get_workers()
-            return (len(workers) == len(start_workers) and
-                    not set(start_workers).intersection(workers))
+            return len(workers) == len(start_workers) and not set(
+                start_workers
+            ).intersection(workers)
 
         # Wait at most 5 seconds to respawn a worker
         timeout = 10
@@ -252,10 +276,12 @@ class ServiceLauncherTest(ServiceTestBase):
 
 
 class ServiceRestartTest(ServiceTestBase):
-
     def _spawn(self):
         ready_event = multiprocessing.Event()
-        service_maker = lambda: ServiceWithTimer(ready_event=ready_event)
+
+        def service_maker():
+            return ServiceWithTimer(ready_event=ready_event)
+
         self.pid = self._spawn_service(service_maker=service_maker)
         return ready_event
 
@@ -292,7 +318,8 @@ class ServiceRestartTest(ServiceTestBase):
         mutate = multiprocessing.Event()
         self.conf.register_mutate_hook(lambda c, f: mutate.set())
         launcher = service.launch(
-            self.conf, ServiceWithTimer(), restart_method='mutate')
+            self.conf, ServiceWithTimer(), restart_method='mutate'
+        )
 
         self.assertFalse(mutate.is_set(), "Hook was called too early")
         launcher.restart()
@@ -339,11 +366,19 @@ class ServiceRestartTest(ServiceTestBase):
 class _Service(service.Service):
     def __init__(self):
         super().__init__()
-        self.init = event.Event()
+        if not os.environ.get('OSLO_SERVICE_SKIP_EVENTLET'):
+            from eventlet import event
+
+            self.init = event.Event()
+        else:
+            self.init = threading.Event()
         self.cleaned_up = False
 
     def start(self):
-        self.init.send()
+        if not os.environ.get('OSLO_SERVICE_SKIP_EVENTLET'):
+            self.init.send()
+        else:
+            self.init.set()
 
     def stop(self):
         self.cleaned_up = True
@@ -351,7 +386,6 @@ class _Service(service.Service):
 
 
 class LauncherTest(base.ServiceBaseTestCase):
-
     def test_graceful_shutdown(self):
         # test that services are given a chance to clean up:
         svc = _Service()
@@ -382,11 +416,13 @@ class LauncherTest(base.ServiceBaseTestCase):
     def test_launch_invalid_workers_number(self):
         svc = service.Service()
         for num_workers in [0, -1]:
-            self.assertRaises(ValueError, service.launch, self.conf,
-                              svc, num_workers)
+            self.assertRaises(
+                ValueError, service.launch, self.conf, svc, num_workers
+            )
         for num_workers in ["0", "a", "1"]:
-            self.assertRaises(TypeError, service.launch, self.conf,
-                              svc, num_workers)
+            self.assertRaises(
+                TypeError, service.launch, self.conf, svc, num_workers
+            )
 
     @mock.patch('signal.alarm')
     @mock.patch('oslo_service.service.ProcessLauncher.launch_service')
@@ -404,9 +440,9 @@ class LauncherTest(base.ServiceBaseTestCase):
     @mock.patch('signal.alarm')
     @mock.patch("oslo_service.service.Services.add")
     @mock.patch("oslo_service.eventlet_backdoor.initialize_if_enabled")
-    def test_check_service_base(self, initialize_if_enabled_mock,
-                                services_mock,
-                                alarm_mock):
+    def test_check_service_base(
+        self, initialize_if_enabled_mock, services_mock, alarm_mock
+    ):
         initialize_if_enabled_mock.return_value = None
         launcher = service.Launcher(self.conf)
         serv = _Service()
@@ -415,31 +451,35 @@ class LauncherTest(base.ServiceBaseTestCase):
     @mock.patch('signal.alarm')
     @mock.patch("oslo_service.service.Services.add")
     @mock.patch("oslo_service.eventlet_backdoor.initialize_if_enabled")
-    def test_check_service_base_fails(self, initialize_if_enabled_mock,
-                                      services_mock,
-                                      alarm_mock):
+    def test_check_service_base_fails(
+        self, initialize_if_enabled_mock, services_mock, alarm_mock
+    ):
         initialize_if_enabled_mock.return_value = None
         launcher = service.Launcher(self.conf)
 
         class FooService:
             def __init__(self):
                 pass
+
         serv = FooService()
         self.assertRaises(TypeError, launcher.launch_service, serv)
 
     def test_no_fork(self):
         with mock.patch(
-                'oslo_service.service.ServiceLauncher.launch_service'
+            'oslo_service.service.ServiceLauncher.launch_service'
         ) as mock_launch:
             svc = service.Service()
             service.launch(
-                self.conf, svc,
-                workers=1, restart_method="reload", no_fork=True)
+                self.conf,
+                svc,
+                workers=1,
+                restart_method="reload",
+                no_fork=True,
+            )
             mock_launch.assert_called_with(svc, workers=1)
 
 
 class ProcessLauncherTest(base.ServiceBaseTestCase):
-
     @mock.patch('signal.alarm')
     @mock.patch("signal.signal")
     def test_stop(self, signal_mock, alarm_mock):
@@ -449,8 +489,10 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
 
         pid_nums = [22, 222]
         fakeServiceWrapper = service.ServiceWrapper(service.Service(), 1)
-        launcher.children = {pid_nums[0]: fakeServiceWrapper,
-                             pid_nums[1]: fakeServiceWrapper}
+        launcher.children = {
+            pid_nums[0]: fakeServiceWrapper,
+            pid_nums[1]: fakeServiceWrapper,
+        }
         with mock.patch('os.kill') as mock_kill:
             with mock.patch.object(launcher, '_wait_child') as _wait_child:
 
@@ -459,29 +501,36 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
                     return launcher.children.pop(pid)
 
                 _wait_child.side_effect = fake_wait_child
-                with mock.patch('oslo_service.service.Service.stop') as \
-                        mock_service_stop:
+                with mock.patch(
+                    'oslo_service.service.Service.stop'
+                ) as mock_service_stop:
                     mock_service_stop.side_effect = lambda: None
                     launcher.stop()
 
         self.assertFalse(launcher.running)
         self.assertFalse(launcher.children)
-        mock_kill.assert_has_calls([mock.call(222, signal_mock.SIGTERM),
-                                    mock.call(22, signal_mock.SIGTERM)],
-                                   any_order=True)
+        mock_kill.assert_has_calls(
+            [
+                mock.call(222, signal_mock.SIGTERM),
+                mock.call(22, signal_mock.SIGTERM),
+            ],
+            any_order=True,
+        )
         self.assertEqual(2, mock_kill.call_count)
         mock_service_stop.assert_called_once_with()
 
     def test__handle_signal(self):
         signal_handler = service.SignalHandler()
         signal_handler.clear()
-        self.assertEqual(0,
-                         len(signal_handler._signal_handlers[signal.SIGTERM]))
+        self.assertEqual(
+            0, len(signal_handler._signal_handlers[signal.SIGTERM])
+        )
         call_1, call_2 = mock.Mock(), mock.Mock()
         signal_handler.add_handler('SIGTERM', call_1)
         signal_handler.add_handler('SIGTERM', call_2)
-        self.assertEqual(2,
-                         len(signal_handler._signal_handlers[signal.SIGTERM]))
+        self.assertEqual(
+            2, len(signal_handler._signal_handlers[signal.SIGTERM])
+        )
         signal_handler._handle_signal(signal.SIGTERM, 'test')
         # execute pending eventlet callbacks
         time.sleep(0)
@@ -494,13 +543,15 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
         # might already be initialized. We need to clear to clear the cache
         # in order to prevent race conditions between tests.
         service.SignalHandler.__class__._instances.clear()
-        with mock.patch('eventlet.patcher.original',
-                        return_value=object()) as get_original:
+        with mock.patch(
+            'eventlet.patcher.original', return_value=object()
+        ) as get_original:
             signal_handler = service.SignalHandler()
             get_original.assert_called_with('select')
         self.addCleanup(service.SignalHandler.__class__._instances.clear)
         self.assertFalse(
-            signal_handler._SignalHandler__force_interrupt_on_signal)
+            signal_handler._SignalHandler__force_interrupt_on_signal
+        )
 
     def test_setup_signal_interruption_select_poll(self):
         # NOTE(claudiub): SignalHandler is a singleton, which means that it
@@ -510,7 +561,8 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
         signal_handler = service.SignalHandler()
         self.addCleanup(service.SignalHandler.__class__._instances.clear)
         self.assertTrue(
-            signal_handler._SignalHandler__force_interrupt_on_signal)
+            signal_handler._SignalHandler__force_interrupt_on_signal
+        )
 
     @mock.patch('signal.alarm')
     @mock.patch("os.kill")
@@ -521,19 +573,23 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
     @mock.patch("oslo_service.systemd.notify_once")
     @mock.patch("oslo_config.cfg.CONF.reload_config_files")
     @mock.patch("oslo_service.service._is_sighup_and_daemon")
-    def test_parent_process_reload_config(self,
-                                          is_sighup_and_daemon_mock,
-                                          reload_config_files_mock,
-                                          notify_once_mock,
-                                          log_opt_values_mock,
-                                          handle_signal_mock,
-                                          respawn_children_mock,
-                                          stop_mock,
-                                          kill_mock,
-                                          alarm_mock):
+    def test_parent_process_reload_config(
+        self,
+        is_sighup_and_daemon_mock,
+        reload_config_files_mock,
+        notify_once_mock,
+        log_opt_values_mock,
+        handle_signal_mock,
+        respawn_children_mock,
+        stop_mock,
+        kill_mock,
+        alarm_mock,
+    ):
         is_sighup_and_daemon_mock.return_value = True
-        respawn_children_mock.side_effect = [None,
-                                             eventlet.greenlet.GreenletExit()]
+        respawn_children_mock.side_effect = [
+            None,
+            eventlet.greenlet.GreenletExit(),
+        ]
         launcher = service.ProcessLauncher(self.conf)
         launcher.sigcaught = 1
         launcher.children = {}
@@ -549,8 +605,9 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
     @mock.patch("oslo_service.service.ProcessLauncher.handle_signal")
     @mock.patch("eventlet.greenio.GreenPipe")
     @mock.patch("os.pipe")
-    def test_check_service_base(self, pipe_mock, green_pipe_mock,
-                                handle_signal_mock, start_child_mock):
+    def test_check_service_base(
+        self, pipe_mock, green_pipe_mock, handle_signal_mock, start_child_mock
+    ):
         pipe_mock.return_value = [None, None]
         launcher = service.ProcessLauncher(self.conf)
         serv = _Service()
@@ -560,14 +617,16 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
     @mock.patch("oslo_service.service.ProcessLauncher.handle_signal")
     @mock.patch("eventlet.greenio.GreenPipe")
     @mock.patch("os.pipe")
-    def test_check_service_base_fails(self, pipe_mock, green_pipe_mock,
-                                      handle_signal_mock, start_child_mock):
+    def test_check_service_base_fails(
+        self, pipe_mock, green_pipe_mock, handle_signal_mock, start_child_mock
+    ):
         pipe_mock.return_value = [None, None]
         launcher = service.ProcessLauncher(self.conf)
 
         class FooService:
             def __init__(self):
                 pass
+
         serv = FooService()
         self.assertRaises(TypeError, launcher.launch_service, serv, 0)
 
@@ -575,8 +634,9 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
     @mock.patch("oslo_service.service.ProcessLauncher.handle_signal")
     @mock.patch("eventlet.greenio.GreenPipe")
     @mock.patch("os.pipe")
-    def test_double_sighup(self, pipe_mock, green_pipe_mock,
-                           handle_signal_mock, start_child_mock):
+    def test_double_sighup(
+        self, pipe_mock, green_pipe_mock, handle_signal_mock, start_child_mock
+    ):
         # Test that issuing two SIGHUPs in a row does not exit; then send a
         # TERM that does cause an exit.
         pipe_mock.return_value = [None, None]
@@ -597,6 +657,7 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
                 launcher._handle_term(15, mock.sentinel.frame)
             else:
                 self.fail("TERM did not kill launcher")
+
         stager.stage = -1
         handle_signal_mock.side_effect = stager
 
@@ -607,12 +668,21 @@ class ProcessLauncherTest(base.ServiceBaseTestCase):
 class GracefulShutdownTestService(service.Service):
     def __init__(self):
         super().__init__()
-        self.finished_task = event.Event()
+        if not os.environ.get('OSLO_SERVICE_SKIP_EVENTLET'):
+            from eventlet import event
+
+            self.finished_task = event.Event()
+        else:
+            self.finished_task = threading.Event()
 
     def start(self, sleep_amount):
         def sleep_and_send(finish_event):
             time.sleep(sleep_amount)
-            finish_event.send()
+            if not os.environ.get('OSLO_SERVICE_SKIP_EVENTLET'):
+                finish_event.send()
+            else:
+                finish_event.set()
+
         self.tg.add_thread(sleep_and_send, self.finished_task)
 
 
@@ -624,8 +694,9 @@ def exercise_graceful_test_service(sleep_amount, time_to_wait, graceful):
     def wait_for_task(svc):
         svc.finished_task.wait()
 
-    return eventlet.timeout.with_timeout(time_to_wait, wait_for_task,
-                                         svc=svc, timeout_value="Timeout!")
+    return eventlet.timeout.with_timeout(
+        time_to_wait, wait_for_task, svc=svc, timeout_value="Timeout!"
+    )
 
 
 class ServiceTest(test_base.BaseTestCase):
@@ -635,11 +706,14 @@ class ServiceTest(test_base.BaseTestCase):
 
     def test_ungraceful_stop(self):
         # Here we stop ungracefully, and will never see the task finish.
-        self.assertEqual("Timeout!",
-                         exercise_graceful_test_service(1, 2, False))
+        self.assertEqual(
+            "Timeout!", exercise_graceful_test_service(1, 2, False)
+        )
 
 
 class EventletServerProcessLauncherTest(base.ServiceBaseTestCase):
+    process_exit_timeout = 15
+
     def setUp(self):
         super().setUp()
         self.conf(args=[], default_config_files=[])
@@ -647,42 +721,117 @@ class EventletServerProcessLauncherTest(base.ServiceBaseTestCase):
         self.workers = 3
 
     def run_server(self):
-        queue = multiprocessing.Queue()
+        port_receiver, port_sender = _os.pipe()
+        request_receiver, request_sender = _os.pipe()
+        self.addCleanup(_os.close, port_receiver)
+        self.addCleanup(_os.close, request_receiver)
         # NOTE(bnemec): process_time of 5 needs to be longer than the graceful
         # shutdown timeout in the "exceeded" test below, but also needs to be
         # shorter than the timeout in the regular graceful shutdown test.
-        kwargs = {'workers': self.workers, 'process_time': 5}
-        # graceful_shutdown_timeout is registered in
-        # ServiceBaseTestCase.setUp()
-        kwargs['graceful_shutdown_timeout'] = (
-            self.conf.graceful_shutdown_timeout)
-        proc = multiprocessing.Process(target=eventlet_service.run,
-                                       args=(queue,),
-                                       kwargs=kwargs)
-        proc.start()
+        # Use the native subprocess implementation.  Eventlet's green Popen
+        # wait relies on the stestr worker hub, which is exactly the state this
+        # subprocess is intended to isolate from.
+        proc = _subprocess.Popen(
+            [
+                sys.executable,
+                eventlet_service.__file__,
+                str(port_sender),
+                str(request_sender),
+                str(self.workers),
+                '5',
+                str(self.conf.graceful_shutdown_timeout),
+            ],
+            pass_fds=(port_sender, request_sender),
+            start_new_session=True,
+            stdout=_subprocess.DEVNULL,
+            stderr=_subprocess.DEVNULL,
+        )
+        _os.close(port_sender)
+        _os.close(request_sender)
+        self.addCleanup(self._stop_process, proc)
 
-        port = queue.get()
-        conn = socket.create_connection(('127.0.0.1', port))
+        port = int(
+            self._read_pipe(port_receiver, 'Server did not publish its port')
+        )
+        conn = _socket.create_connection(('127.0.0.1', port))
+        self.addCleanup(conn.close)
         # Send request to make the connection active.
         conn.sendall(b'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
 
-        # NOTE(blk-u): The sleep shouldn't be necessary. There must be a bug in
-        # the server implementation where it takes some time to set up the
-        # server or signal handlers.
-        time.sleep(1)
+        self._read_pipe(
+            request_receiver, 'Server did not start processing the request'
+        )
 
         return (proc, conn)
+
+    def _read_pipe(self, pipe, failure_message):
+        readable, _writable, _exceptional = _select.select(
+            [pipe], [], [], self.process_exit_timeout
+        )
+        self.assertTrue(readable, failure_message)
+        return _os.read(pipe, 64)
+
+    @staticmethod
+    def _reap_process(proc):
+        """Reap *proc* without using eventlet-patched subprocess helpers."""
+        if proc.returncode is not None:
+            return True
+        try:
+            pid, status = _os.waitpid(proc.pid, _os.WNOHANG)
+        except ChildProcessError:
+            # Another wait already reaped the child.  This is only possible
+            # during idempotent cleanup, where the exact status is irrelevant.
+            proc.returncode = 0
+            return True
+        if pid == 0:
+            return False
+        proc.returncode = _os.waitstatus_to_exitcode(status)
+        return True
+
+    def _wait_for_process(self, proc):
+        deadline = _time.monotonic() + self.process_exit_timeout
+        while not self._reap_process(proc):
+            remaining = deadline - _time.monotonic()
+            if remaining <= 0:
+                return False
+            # Use native select as a bounded sleep without entering the
+            # eventlet hub or subprocess' patched select/os dependencies.
+            _select.select([], [], [], min(0.05, remaining))
+        return True
+
+    @staticmethod
+    def _kill_process_group(proc, sig):
+        try:
+            _os.killpg(proc.pid, sig)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+    def _stop_process(self, proc):
+        if not self._reap_process(proc):
+            self._kill_process_group(proc, signal.SIGTERM)
+        try:
+            if not self._wait_for_process(proc):
+                self._kill_process_group(proc, signal.SIGKILL)
+                self._wait_for_process(proc)
+        finally:
+            # The ProcessLauncher server forks worker processes.  Its leader
+            # can exit before a broken worker, so always remove anything still
+            # left in the private process group without touching stestr.
+            self._kill_process_group(proc, signal.SIGKILL)
+
+    def _wait_process(self, proc, message):
+        self.assertTrue(self._wait_for_process(proc), message)
 
     def test_shuts_down_on_sigint_when_client_connected(self):
         proc, conn = self.run_server()
 
         # check that server is live
-        self.assertTrue(proc.is_alive())
+        self.assertFalse(self._reap_process(proc))
 
         # send SIGINT to the server and wait for it to exit while client still
         # connected.
-        os.kill(proc.pid, signal.SIGINT)
-        proc.join()
+        _os.kill(proc.pid, signal.SIGINT)
+        self._wait_process(proc, 'Server did not exit after SIGINT')
         conn.close()
 
     def test_graceful_shuts_down_on_sigterm_when_client_connected(self):
@@ -691,7 +840,7 @@ class EventletServerProcessLauncherTest(base.ServiceBaseTestCase):
 
         # send SIGTERM to the server and wait for it to exit while client still
         # connected.
-        os.kill(proc.pid, signal.SIGTERM)
+        _os.kill(proc.pid, signal.SIGTERM)
 
         # server with graceful shutdown must wait forever if
         # option graceful_shutdown_timeout is not specified.
@@ -702,10 +851,10 @@ class EventletServerProcessLauncherTest(base.ServiceBaseTestCase):
         # or the connection will be closed and the server will stop.
         time.sleep(1)
 
-        self.assertTrue(proc.is_alive())
+        self.assertFalse(self._reap_process(proc))
 
         conn.close()
-        proc.join()
+        self._wait_process(proc, 'Server did not exit after SIGTERM')
 
     def test_graceful_stop_with_exceeded_graceful_shutdown_timeout(self):
         # Server must exit if graceful_shutdown_timeout exceeded
@@ -714,13 +863,13 @@ class EventletServerProcessLauncherTest(base.ServiceBaseTestCase):
         proc, conn = self.run_server()
 
         time_before = time.time()
-        os.kill(proc.pid, signal.SIGTERM)
-        self.assertTrue(proc.is_alive())
+        _os.kill(proc.pid, signal.SIGTERM)
+        self.assertFalse(self._reap_process(proc))
         # If graceful_shutdown_timeout works, the process should exit.
         # If it doesn't work, the test will hang which is a useful signal.
-        proc.join()
-        self.assertFalse(proc.is_alive(),
-                         "Process should have exited after graceful timeout")
+        self._wait_process(
+            proc, "Process should have exited after graceful timeout"
+        )
         time_after = time.time()
 
         self.assertTrue(time_after - time_before > graceful_shutdown_timeout)

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import functools
 import logging
+from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal
@@ -24,6 +25,12 @@ from omnibase_core.models.delegation.wire import (
 from omnibase_infra.models.pricing.model_pricing_entry import ModelPricingEntry
 from omnibase_infra.models.pricing.model_pricing_table import ModelPricingTable
 from pydantic import BaseModel, ConfigDict, Field
+
+from omnimarket.models import model_tenant_routing_overlay_backend as _overlay
+from omnimarket.models.baseline_fallback import (
+    BaselineSelectionCase,
+    configured_or_most_used,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +81,7 @@ class BaselineModelSelection(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     model: str
-    selection_case: Literal["session_model", "overlay", "store", "fixed_default"]
+    selection_case: BaselineSelectionCase
     state: Literal["RESOLVED", "BASELINE_UNRESOLVED"]
     pricing_manifest_version: int
 
@@ -84,29 +91,16 @@ def resolve_baseline_model(
     overlay: object,
     store: object,
     session_model: str | None = None,
+    history: Mapping[str, int] | None = None,
 ) -> BaselineModelSelection:
-    """Resolve configured pricing.baseline_model, then validate it in the manifest."""
+    """Session model, configured, most used in ``history``, else the fixed default."""
     model = (session_model or "").strip()
-    selection_case: Literal["session_model", "overlay", "store", "fixed_default"] = (
-        "session_model"
-    )
+    selection_case: BaselineSelectionCase = "session_model"
     if not model:
-        configured: tuple[tuple[object, Literal["overlay", "store"]], ...] = (
-            (overlay, "overlay"),
-            (store, "store"),
+        model, selection_case = configured_or_most_used(overlay, store, history) or (
+            DEFAULT_BASELINE_MODEL,
+            "fixed_default",
         )
-        for config, case in configured:
-            if isinstance(config, dict):
-                pricing_config = config.get("pricing")
-                if isinstance(pricing_config, dict):
-                    candidate = pricing_config.get("baseline_model")
-                    if isinstance(candidate, str) and candidate.strip():
-                        model = candidate.strip()
-                        selection_case = case
-                        break
-    if not model:
-        model = DEFAULT_BASELINE_MODEL
-        selection_case = "fixed_default"
     state: Literal["RESOLVED", "BASELINE_UNRESOLVED"] = (
         "RESOLVED"
         if _load_table().get_entry(model) is not None
@@ -194,8 +188,8 @@ def compute_baseline_savings(
     """Resolve the baseline and state the saving against it, once.
 
     A local run has no overlay or store in hand, so the baseline is the
-    session-named model or the manifest default, exactly as the receipt resolves
-    it for the same run.
+    session-named model, the ONEX home's configured one, or the manifest
+    default, exactly as the receipt resolves it for the same run.
     """
     baseline = resolve_baseline_model(overlay={}, store={}, session_model=session_model)
     if baseline.state == "BASELINE_UNRESOLVED":
@@ -408,14 +402,15 @@ def resolve_tier_cost(tier_name: str) -> ModelTierCost | None:
     """Resolve a tier's typed ModelTierCost by name from the routing registry.
 
     None means the tier is absent from the registry OR has not been migrated to
-    the typed cost model — the caller treats that as ``no_cost_model``.
+    the typed cost model — the caller treats that as ``no_cost_model``, and a
+    ceiling reader as "tier not budgeted" (skip). The tenant overlay tier always
+    resolves to None, whatever the registry declares (OMN-24874).
     """
-    if not tier_name:
+    # OMN-24874: the tenant overlay tier is the customer's own key, never the
+    # platform's spend, so it resolves to None and never draws a ceiling.
+    if not tier_name or tier_name == _overlay.TENANT_OVERLAY_TIER_NAME:
         return None
-    for tier in _load_routing_config().tiers:
-        if tier.name == tier_name:
-            return tier.cost
-    return None
+    return next((t.cost for t in _load_routing_config().tiers if t.name == tier_name), None)  # fmt: skip
 
 
 class ModelActualCostMeasurement(BaseModel):

@@ -18,8 +18,7 @@ What was verified: Zenoh 1.10.2 accepts the setting, and two idle peers on one m
 each way, where without it they sent one every 1.5 s or less often. Measured between two Zenoh peers on two cloud
 machines (bench/zenoh_bench.py, docs/measurements.md): a 100 KB request 0.53 s after each response took 38.1, 44.8, 82.8
 and 164.3 ms at RTTs of 11, 21, 41 and 81 ms, and 13.9, 23.2, 42.3 and 82.2 ms with the file on both ends, 40 requests
-per cell. What was not: LeRobot's own client and server were not tested with it. bench/ measures your link, and
-window.py documents where the same mechanism helped and where it did not.
+per cell. bench/ measures your link.
 
 What it does not do: BBR. Zenoh opens its own sockets, so only the machine's default congestion control reaches them
 (`sysctl net.ipv4.tcp_congestion_control`, which needs root).

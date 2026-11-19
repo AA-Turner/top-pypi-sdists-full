@@ -38,6 +38,13 @@ LANE_VARIABLE = "ONEX_RUNTIME_LANE"
 PROFILE_VARIABLE = "RUNTIME_PROFILE"
 # omnimarket#3547 added effects-owned lane-scoped contracts (OMN-19812).
 LANE_SCOPED_PROFILES = frozenset({"main", "effects"})
+#: The compose profile no bring-up requests (docker-compose.infra.yml). A
+#: service whose merged profiles are exactly this is declared and never started
+#: on the stack, so it owns no contract there and needs no lane.
+INERT_CARRIER_PROFILE = "profile-carrier-optin"
+#: The dev fold overlay gates the retired hook-events writer under this profile:
+#: its node runs inside main, so the carrier owns no contract (OMN-21288).
+FOLDED_NODE_CARRIER_PROFILE = "folded-hook-events"
 
 _VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(:-|:\?|\?|-)([^{}]*))?\}")
 
@@ -73,7 +80,11 @@ _LANE_NAMING_SERVICES = frozenset({"omninode-runtime", "runtime-effects"})
 #: section 3.4 names for each lane.
 STACKS: dict[str, _Stack] = {
     "dev": _Stack(
-        files=("docker-compose.infra.yml", "docker-compose.dev-lane.yml"),
+        files=(
+            "docker-compose.infra.yml",
+            "docker-compose.dev-lane.yml",
+            "docker-compose.dev-tenant-fold.yml",
+        ),
         lane="compose-dev",
         lane_naming_services=_LANE_NAMING_SERVICES,
     ),
@@ -84,15 +95,6 @@ STACKS: dict[str, _Stack] = {
             "docker-compose.dev-105.yml",
         ),
         lane="compose-dev-105",
-        lane_naming_services=_LANE_NAMING_SERVICES,
-    ),
-    "dev-200": _Stack(
-        files=(
-            "docker-compose.infra.yml",
-            "docker-compose.dev-lane.yml",
-            "docker-compose.dev-200.yml",
-        ),
-        lane="compose-dev-200",
         lane_naming_services=_LANE_NAMING_SERVICES,
     ),
     "dev-202": _Stack(
@@ -183,7 +185,7 @@ def _load(compose_file: str) -> dict[str, Any]:
     text = (DOCKER_DIR / compose_file).read_text(encoding="utf-8")
     # `!override` is a compose-only tag SafeLoader refuses; merge semantics are
     # applied by `_merged_services`, which is what the tag changes.
-    document = yaml.safe_load(text.replace("!override", ""))
+    document = yaml.safe_load(text.replace("!override", "").replace("!reset", ""))
     assert isinstance(document, dict), f"{compose_file} did not parse to a mapping"
     return document
 
@@ -211,14 +213,26 @@ def _merged_lane_scoped_environments(stack: _Stack) -> dict[str, dict[str, str]]
     only services whose merged profile owns lane-scoped contracts.
     """
     merged: dict[str, dict[str, str]] = {}
+    profiles: dict[str, list[str]] = {}
     for compose_file in stack.files:
         services = _load(compose_file).get("services") or {}
         for name, service in services.items():
+            if service is None:
+                merged.pop(str(name), None)
+                profiles.pop(str(name), None)
+                continue
             merged.setdefault(str(name), {}).update(_service_environment(service))
+            if isinstance(service, dict) and "profiles" in service:
+                # Every overlay that sets `profiles:` on a base service does so
+                # with `!override` (the tag `_load` strips), so a later file
+                # replaces the earlier list.
+                profiles[str(name)] = [str(item) for item in service["profiles"]]
     return {
         name: env
         for name, env in merged.items()
         if env.get(PROFILE_VARIABLE) in LANE_SCOPED_PROFILES
+        and profiles.get(name) != [INERT_CARRIER_PROFILE]
+        and profiles.get(name) != [FOLDED_NODE_CARRIER_PROFILE]
     }
 
 

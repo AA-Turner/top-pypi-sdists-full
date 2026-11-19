@@ -1426,6 +1426,7 @@ WorkspaceFontFamilyType = Literal[
 ]
 ConnectServiceName = Literal["connect"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

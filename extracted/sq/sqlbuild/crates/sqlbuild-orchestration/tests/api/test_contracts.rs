@@ -26,6 +26,8 @@ mod person_sessions_helpers;
 mod person_sessions_test_types;
 #[path = "plans/helpers.rs"]
 mod plans_helpers;
+#[path = "proxy_provisioning/helpers.rs"]
+mod proxy_provisioning_helpers;
 #[path = "recall/helpers.rs"]
 mod recall_helpers;
 #[path = "state_history/helpers.rs"]
@@ -38,6 +40,8 @@ mod statistics_helpers;
 mod statistics_retention;
 #[path = "test_acknowledgements.rs"]
 mod test_acknowledgements;
+#[path = "test_attention_acknowledgements.rs"]
+mod test_attention_acknowledgements;
 #[path = "test_catalog_reads.rs"]
 mod test_catalog_reads;
 #[path = "test_changes.rs"]
@@ -90,6 +94,10 @@ mod test_person_sessions;
 mod test_providers;
 #[path = "test_proxy.rs"]
 mod test_proxy;
+#[path = "test_proxy_hosts.rs"]
+mod test_proxy_hosts;
+#[path = "test_proxy_provisioning.rs"]
+mod test_proxy_provisioning;
 #[path = "test_publish_encoding.rs"]
 mod test_publish_encoding;
 #[path = "test_reads.rs"]

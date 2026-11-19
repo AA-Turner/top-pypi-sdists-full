@@ -146,6 +146,7 @@ TermTypeType = Literal[
 ]
 MarketplaceDiscoveryServiceName = Literal["marketplace-discovery"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

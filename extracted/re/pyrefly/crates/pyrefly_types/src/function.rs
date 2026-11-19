@@ -14,6 +14,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use parse_display::Display;
 use pyrefly_derive::TypeEq;
+use pyrefly_derive::TypeOrd;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
@@ -29,23 +30,44 @@ use ruff_python_ast::name::Name;
 use crate::callable::Callable;
 use crate::class::Class;
 use crate::class::ClassType;
+use crate::env::TypeEnv;
 use crate::equality::TypeEq;
-use crate::identity::IdentityIgnored;
 use crate::keywords::DataclassTransformMetadata;
-use crate::meta_shape_dsl::ShapeDslFunction;
-use crate::meta_shape_dsl::ShapeTransform;
 use crate::type_level_dsl::ResolvedTypeShapeDslFunction;
+use crate::type_ord::TypeOrd;
+use crate::type_ord::TypeOrdCtx;
+use crate::types::TParams;
 use crate::types::Type;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct Function {
     pub signature: Callable,
     pub metadata: FuncMetadata,
 }
 
+impl Function {
+    /// Preserve a declared classification when rebuilding a substituted function.
+    pub fn initialize_unresolved_imports(&mut self, tparams: Option<&TParams>) {
+        if self.metadata.flags.unresolved_imports.is_none() {
+            self.metadata.flags.unresolved_imports =
+                Some(self.signature.classify_unresolved_imports(tparams));
+        }
+    }
+}
+
+/// Return-only import recovery does not weaken a signature's input contract.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Visit, VisitMut, TypeEq, TypeOrd
+)]
+pub enum UnresolvedImports {
+    Resolved,
+    ReturnOnly,
+    Inputs,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct FuncMetadata {
     pub kind: FunctionKind,
     pub flags: FuncFlags,
@@ -63,14 +85,14 @@ impl FuncMetadata {
         }
     }
 
-    pub fn method(cls: &Class, name: Name) -> Self {
-        Self::synthesized(cls.module(), Some(cls), name)
+    pub fn method(env: &dyn TypeEnv, cls: &Class, name: Name) -> Self {
+        Self::synthesized(cls.module(env), Some(cls), name)
     }
 }
 
 /// Metadata extracted from a `@deprecated` decorator.
 #[derive(
-    Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
+    Clone, Debug, Visit, VisitMut, TypeEq, TypeOrd, PartialEq, Eq, PartialOrd, Ord, Hash
 )]
 pub struct Deprecation {
     pub message: Option<String>,
@@ -91,7 +113,7 @@ impl Deprecation {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Visit, VisitMut, TypeEq
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Visit, VisitMut, TypeEq, TypeOrd
 )]
 pub enum PropertyRole {
     Getter,
@@ -102,7 +124,8 @@ pub enum PropertyRole {
 
 /// Shape of a function body.
 #[derive(
-    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Visit, VisitMut, TypeEq
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Visit, VisitMut, TypeEq,
+    TypeOrd
 )]
 pub enum BodyKind {
     /// Body is exactly `raise NotImplementedError(...)`. This is the canonical
@@ -161,7 +184,7 @@ impl FuncFacts {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Visit, VisitMut, TypeEq
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Visit, VisitMut, TypeEq, TypeOrd
 )]
 pub struct PropertyMetadata {
     pub role: PropertyRole,
@@ -187,19 +210,33 @@ impl PropertyMetadata {
     }
 }
 
+/// A generated descriptor setter that stores values compatible with its read type.
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Visit, VisitMut, TypeEq, TypeOrd
+)]
+pub struct DescriptorSetterMetadata {
+    pub read_type: Type,
+    /// The assignment contract required of replacements, excluding inferred coercions.
+    pub override_type: Type,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct FuncFlags {
+    /// The storage contract of a generated `__set__` method.
+    pub descriptor_setter: Option<Box<DescriptorSetterMetadata>>,
     pub is_overload: bool,
     pub is_staticmethod: bool,
     pub is_classmethod: bool,
     /// Parameter indices whose annotations directly name a type parameter of the defining class.
     /// This is used when a subclass binds that parameter to a shape `Flag`.
     pub shape_flag_constructor_sources: Option<Box<Vec<usize>>>,
-    /// A function decorated with `@deprecated`
-    pub deprecation: Option<Deprecation>,
+    /// A function decorated with `@deprecated`. Boxing keeps callable types small.
+    pub deprecation: Option<Box<Deprecation>>,
     /// Metadata for `@property`, `@foo.setter`, and `@foo.deleter`.
     pub property_metadata: Option<PropertyMetadata>,
+    /// The object referenced by `__wrapped__`, without changing the wrapper's signature.
+    pub wrapped: Option<Box<Type>>,
     /// A function decorated with `functools.cached_property` or equivalent.
     pub is_cached_property: bool,
     pub has_enum_member_decoration: bool,
@@ -234,9 +271,6 @@ pub struct FuncFlags {
     /// `dataclass_transform` call. See
     /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
     pub dataclass_transform_metadata: Option<DataclassTransformMetadata>,
-    /// A function decorated with `@uses_shape_dsl`, whose return type should be
-    /// refined by evaluating the referenced shape-DSL function at call sites.
-    pub shape_transform: Option<Arc<ShapeTransform>>,
     /// A function decorated with `@defines_assert_shape`.
     pub is_assert_shape: bool,
     /// A method directly inside a `Protocol` class.
@@ -249,6 +283,9 @@ pub struct FuncFlags {
     /// `Proto[Any]` where the params are `*args: T, **kwargs: T`) is not mistaken
     /// for a gradual signature.
     pub has_gradual_variadic_params: bool,
+    /// Preserve the defined contract across receiver and argument substitution.
+    /// Unclassified signatures use a structural fallback at their construction or call boundary.
+    pub unresolved_imports: Option<UnresolvedImports>,
 }
 
 impl FuncFlags {
@@ -266,7 +303,7 @@ impl FuncFlags {
 /// The index of a function definition (`def ..():` statement) within the module,
 /// used as a reference to data associated with the function.
 #[derive(Debug, Clone, Dupe, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
-#[derive(Display, Visit, VisitMut, TypeEq)]
+#[derive(Display, Visit, VisitMut, TypeEq, TypeOrd)]
 pub struct FuncDefIndex(pub u32);
 
 /// Identity of a source-backed function definition.
@@ -285,6 +322,7 @@ impl PartialEq for FuncDefId {
 
 impl Eq for FuncDefId {}
 impl TypeEq for FuncDefId {}
+impl TypeOrd for FuncDefId {}
 
 impl Ord for FuncDefId {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -356,6 +394,23 @@ impl PartialEq for FuncSymbol {
 impl Eq for FuncSymbol {}
 impl TypeEq for FuncSymbol {}
 
+/// Like `Ord`, but compares the class with `TypeOrd`.
+impl TypeOrd for FuncSymbol {
+    fn type_cmp(&self, other: &Self, ctx: &TypeOrdCtx) -> Ordering {
+        self.module
+            .name()
+            .cmp(&other.module.name())
+            .then_with(|| {
+                self.module
+                    .path()
+                    .to_key_eq()
+                    .cmp(&other.module.path().to_key_eq())
+            })
+            .then_with(|| self.cls.type_cmp(&other.cls, ctx))
+            .then_with(|| self.name.cmp(&other.name))
+    }
+}
+
 impl Ord for FuncSymbol {
     fn cmp(&self, other: &Self) -> Ordering {
         self.key().cmp(&other.key())
@@ -396,14 +451,14 @@ impl FuncSymbol {
         (
             self.module.name(),
             self.module.path().to_key_eq(),
-            self.cls.clone(),
+            self.cls,
             &self.name,
         )
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Visit, VisitMut, TypeEq)]
+#[derive(Visit, VisitMut, TypeEq, TypeOrd)]
 pub enum FunctionKind {
     IsInstance,
     IsSubclass,
@@ -436,6 +491,9 @@ pub enum FunctionKind {
     AssertType,
     AssertShape,
     RevealType,
+    InspectUnwrap,
+    FunctoolsWraps,
+    FunctoolsUpdateWrapper,
     Final,
     RuntimeCheckable,
     Synthesized(Arc<FuncSymbol>),
@@ -454,14 +512,6 @@ pub enum FunctionKind {
     NumbaJit,
     /// `numba.njit()`
     NumbaNjit,
-    /// A function whose return type is computed by a shape DSL definition.
-    /// The `FuncDefId` provides source identity for display and lookup; the
-    /// `ShapeDslFunction` carries the parsed DSL IR.
-    ShapeDsl(
-        Arc<FuncDefId>,
-        Arc<ShapeDslFunction>,
-        IdentityIgnored<Arc<Vec<Arc<ShapeDslFunction>>>>,
-    ),
     /// A user-defined type-level shape DSL function.
     ///
     /// The first field preserves ordinary function identity for generic type-system machinery.
@@ -469,23 +519,23 @@ pub enum FunctionKind {
     /// used during evaluation, so changes anywhere in the shape-specific program affect
     /// incremental equality.
     TypeShapeDsl(Arc<FuncDefId>, Arc<ResolvedTypeShapeDslFunction>),
-    /// The `shape_extensions.uses_shape_dsl` decorator function itself.
-    UsesShapeDsl,
     /// The `shape_extensions.defines_assert_shape` decorator function itself.
     DefinesAssertShape,
+    /// `sqlalchemy.orm.mapped_column()`.
+    SqlAlchemyMappedColumn(Arc<FuncDefId>),
 }
 
 impl FunctionKind {
     /// Return the nominal symbol carried by this function kind, if any.
     pub fn to_func_symbol(&self) -> Option<FuncSymbol> {
         match self {
-            Self::Def(func_id) | Self::ShapeDsl(func_id, ..) | Self::TypeShapeDsl(func_id, ..) => {
-                Some(FuncSymbol {
-                    module: func_id.qname.module().dupe(),
-                    cls: func_id.cls.as_ref().map(Dupe::dupe),
-                    name: func_id.qname.id().clone(),
-                })
-            }
+            Self::Def(func_id)
+            | Self::SqlAlchemyMappedColumn(func_id)
+            | Self::TypeShapeDsl(func_id, ..) => Some(FuncSymbol {
+                module: func_id.qname.module().dupe(),
+                cls: func_id.cls.as_ref().map(Dupe::dupe),
+                name: func_id.qname.id().clone(),
+            }),
             Self::Synthesized(symbol) => Some((**symbol).clone()),
             _ => None,
         }
@@ -494,7 +544,9 @@ impl FunctionKind {
     /// Return the source definition carried by this function kind, if any.
     pub fn as_func_def_id(&self) -> Option<&FuncDefId> {
         match self {
-            Self::Def(id) | Self::ShapeDsl(id, ..) | Self::TypeShapeDsl(id, ..) => Some(id),
+            Self::Def(id) | Self::SqlAlchemyMappedColumn(id) | Self::TypeShapeDsl(id, ..) => {
+                Some(id)
+            }
             _ => None,
         }
     }
@@ -525,6 +577,9 @@ impl FunctionKind {
             ("typing" | "typing_extensions", "assert_type") => Self::AssertType,
             ("shape_extensions", "assert_shape") => Self::AssertShape,
             ("typing" | "typing_extensions", "reveal_type") => Self::RevealType,
+            ("inspect", "unwrap") => Self::InspectUnwrap,
+            ("functools", "wraps") => Self::FunctoolsWraps,
+            ("functools", "update_wrapper") => Self::FunctoolsUpdateWrapper,
             ("typing" | "typing_extensions", "final") => Self::Final,
             ("typing" | "typing_extensions", "runtime_checkable") => Self::RuntimeCheckable,
             ("typing" | "typing_extensions", "dataclass_transform") => Self::DataclassTransform,
@@ -534,8 +589,10 @@ impl FunctionKind {
             ("typing" | "typing_extensions", "disjoint_base") => Self::DisjointBase,
             ("numba.core.decorators", "jit") => Self::NumbaJit,
             ("numba.core.decorators", "njit") => Self::NumbaNjit,
-            ("shape_extensions", "uses_shape_dsl") => Self::UsesShapeDsl,
             ("shape_extensions", "defines_assert_shape") => Self::DefinesAssertShape,
+            ("sqlalchemy.orm" | "sqlalchemy.orm._orm_constructors", "mapped_column") => {
+                Self::SqlAlchemyMappedColumn(id)
+            }
             _ => Self::Def(id),
         }
     }
@@ -564,8 +621,11 @@ impl FunctionKind {
             Self::AssertType => ModuleName::typing(),
             Self::AssertShape => ModuleName::from_str("shape_extensions"),
             Self::RevealType => ModuleName::typing(),
+            Self::InspectUnwrap => ModuleName::from_str("inspect"),
+            Self::FunctoolsWraps => ModuleName::functools(),
+            Self::FunctoolsUpdateWrapper => ModuleName::functools(),
             Self::RuntimeCheckable => ModuleName::typing(),
-            Self::CallbackProtocol(cls) => cls.qname().module_name(),
+            Self::CallbackProtocol(cls) => cls.class_object().module_name(),
             Self::SingleDispatchRegister(_) => ModuleName::functools(),
             Self::AbstractMethod => ModuleName::abc(),
             Self::NoTypeCheck => ModuleName::typing(),
@@ -575,9 +635,9 @@ impl FunctionKind {
             Self::NumbaNjit => ModuleName::from_str("numba"),
             Self::Synthesized(id) => id.module.name(),
             Self::Def(func_id) => func_id.qname.module_name(),
-            Self::ShapeDsl(id, _, _) | Self::TypeShapeDsl(id, _) => id.qname.module_name(),
-            Self::UsesShapeDsl => ModuleName::from_str("shape_extensions"),
+            Self::TypeShapeDsl(id, _) => id.qname.module_name(),
             Self::DefinesAssertShape => ModuleName::from_str("shape_extensions"),
+            Self::SqlAlchemyMappedColumn(id) => id.qname.module_name(),
         }
     }
 
@@ -605,6 +665,9 @@ impl FunctionKind {
             Self::AssertType => Cow::Owned(Name::new_static("assert_type")),
             Self::AssertShape => Cow::Owned(Name::new_static("assert_shape")),
             Self::RevealType => Cow::Owned(Name::new_static("reveal_type")),
+            Self::InspectUnwrap => Cow::Owned(Name::new_static("unwrap")),
+            Self::FunctoolsWraps => Cow::Owned(Name::new_static("wraps")),
+            Self::FunctoolsUpdateWrapper => Cow::Owned(Name::new_static("update_wrapper")),
             Self::RuntimeCheckable => Cow::Owned(Name::new_static("runtime_checkable")),
             Self::CallbackProtocol(_) => Cow::Owned(dunder::CALL),
             Self::SingleDispatchRegister(_) => Cow::Owned(Name::new_static("register")),
@@ -616,9 +679,9 @@ impl FunctionKind {
             Self::NumbaNjit => Cow::Owned(Name::new_static("njit")),
             Self::Synthesized(id) => Cow::Borrowed(&id.name),
             Self::Def(func_id) => Cow::Borrowed(func_id.qname.id()),
-            Self::ShapeDsl(id, _, _) | Self::TypeShapeDsl(id, _) => Cow::Borrowed(id.qname.id()),
-            Self::UsesShapeDsl => Cow::Owned(Name::new_static("uses_shape_dsl")),
+            Self::TypeShapeDsl(id, _) => Cow::Borrowed(id.qname.id()),
             Self::DefinesAssertShape => Cow::Owned(Name::new_static("defines_assert_shape")),
+            Self::SqlAlchemyMappedColumn(id) => Cow::Borrowed(id.qname.id()),
         }
     }
 
@@ -646,20 +709,23 @@ impl FunctionKind {
             Self::AssertType => None,
             Self::AssertShape => None,
             Self::RevealType => None,
+            Self::InspectUnwrap => None,
+            Self::FunctoolsWraps => None,
+            Self::FunctoolsUpdateWrapper => None,
             Self::RuntimeCheckable => None,
             Self::NumbaJit => None,
             Self::NumbaNjit => None,
-            Self::Synthesized(id) => id.cls.clone(),
+            Self::Synthesized(id) => id.cls,
             Self::CallbackProtocol(cls) => Some(cls.class_object().dupe()),
             Self::SingleDispatchRegister(_) => None,
             Self::AbstractMethod => None,
             Self::NoTypeCheck => None,
             Self::TotalOrdering => None,
             Self::DisjointBase => None,
-            Self::Def(func_id) => func_id.cls.clone(),
-            Self::ShapeDsl(id, _, _) | Self::TypeShapeDsl(id, _) => id.cls.clone(),
-            Self::UsesShapeDsl => None,
+            Self::Def(func_id) => func_id.cls,
+            Self::TypeShapeDsl(id, _) => id.cls,
             Self::DefinesAssertShape => None,
+            Self::SqlAlchemyMappedColumn(id) => id.cls,
         }
     }
 
@@ -668,7 +734,7 @@ impl FunctionKind {
         id.qname.parent().ancestor_function_path(id.qname.module())
     }
 
-    pub fn format(&self, current_module: ModuleName) -> String {
+    pub fn format(&self, env: &dyn TypeEnv, current_module: ModuleName) -> String {
         let func_module = self.module_name();
         let module_prefix = if func_module.as_str().is_empty()
             || func_module == current_module
@@ -680,7 +746,7 @@ impl FunctionKind {
         };
         let class_prefix = match &self.class() {
             Some(cls) => {
-                format!("{}.", cls.name())
+                format!("{}.", cls.name(env))
             }
             None => "".to_owned(),
         };
@@ -719,6 +785,7 @@ mod tests {
     use super::FuncDefId;
     use super::FuncDefIndex;
     use super::FunctionKind;
+    use crate::test_type_env::TestTypeEnv;
 
     fn identifier(source: &str, name: &str) -> Identifier {
         let start = source
@@ -762,9 +829,37 @@ mod tests {
             "Outer.factory.Inner.target"
         );
         assert_eq!(
-            FunctionKind::Def(Arc::new(id)).format(module.name()),
+            FunctionKind::Def(Arc::new(id)).format(&TestTypeEnv::new(), module.name()),
             "target"
         );
+    }
+
+    #[test]
+    fn mapped_column_definition_identity() {
+        for name in ["sqlalchemy.orm", "sqlalchemy.orm._orm_constructors"] {
+            let source = "mapped_column";
+            let module = Module::new(
+                ModuleName::from_str(name),
+                ModulePath::memory(PathBuf::from(format!("{name}.py"))),
+                Arc::new(source.to_owned()),
+            );
+            let id = Arc::new(FuncDefId {
+                qname: QName::new(
+                    identifier(source, "mapped_column"),
+                    NestingContext::toplevel(),
+                    module.dupe(),
+                ),
+                cls: None,
+                def_index: FuncDefIndex(0),
+            });
+            let kind = FunctionKind::from_definition(id.clone());
+            assert_eq!(kind.as_func_def_id(), Some(id.as_ref()));
+            let symbol = kind.to_func_symbol().expect("mapped_column is a function");
+            assert_eq!(symbol.module.name(), module.name());
+            assert_eq!(symbol.name, *id.qname.id());
+            assert!(symbol.cls.is_none());
+            assert_eq!(kind.module_name(), module.name());
+        }
     }
 
     #[test]

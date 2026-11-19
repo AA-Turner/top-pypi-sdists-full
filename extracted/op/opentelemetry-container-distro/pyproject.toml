@@ -1,36 +1,78 @@
 [build-system]
-requires = ["setuptools>=62", "setuptools_scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
-[tool.setuptools_scm]
-
-[tool.black]
-skip-string-normalization = true
-target-version = ['py39']
-
-[tool.coverage.report]
-omit = []
-
-[tool.isort]
-profile = "black"
-
-[tool.mypy]
-namespace_packages = true
-
-[[tool.mypy.overrides]]
-module = [
-    'opentelemetry.instryumentation.distro'
+[project]
+name = "opentelemetry-container-distro"
+dynamic = ["version"]
+description = "An OpenTelemetry distro which automatically discovers container attributes"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Chris Guidry", email = "chris@theguidrys.us" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
 ]
-implicit_reexport = true
+dependencies = [
+    "opentelemetry-api",
+    "opentelemetry-exporter-otlp",
+    "opentelemetry-instrumentation",
+    "opentelemetry-resourcedetector-docker>=0.3.0",
+    "opentelemetry-resourcedetector-kubernetes>=0.2.1",
+    "opentelemetry-resourcedetector-process>=0.1.1",
+    "opentelemetry-sdk",
+]
 
+[dependency-groups]
+dev = [
+    "codespell>=2.4.1",
+    "loq>=0.1.0a3",
+    "prek>=0.3.1",
+    "pyright>=1.1.408",
+    "pytest-cov>=6.0.0",
+    "pytest>=9.0.2",
+]
+
+[project.urls]
+"Repository" = "https://github.com/chrisguidry/opentelemetry-container-distro"
+"Bug Tracker" = "https://github.com/chrisguidry/opentelemetry-container-distro/issues"
+
+[project.entry-points.opentelemetry_distro]
+distro = "opentelemetry_container_distro:OpenTelemetryContainerDistro"
+
+[project.entry-points.opentelemetry_configurator]
+configurator = "opentelemetry_container_distro:OpenTelemetryContainerConfigurator"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/opentelemetry_container_distro"]
+
+[tool.ruff]
+target-version = "py311"
 
 [tool.pytest.ini_options]
-minversion = "6.0"
-addopts = """
-    --cov=src
-    --cov=tests
-    --cov-branch
-    --cov-report=term-missing
-    --cov-fail-under=87
-    --no-cov-on-fail
-"""
+addopts = [
+    "--cov=src/opentelemetry_container_distro",
+    "--cov=tests",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-branch",
+    "--cov-fail-under=87",
+]
+filterwarnings = ["error"]
+
+[tool.pyright]
+include = ["src", "tests"]
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"

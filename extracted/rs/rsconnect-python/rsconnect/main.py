@@ -9,32 +9,22 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import tomllib
 import traceback
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
-    ItemsView,
     Literal,
-    Optional,
-    Sequence,
+    Never,
+    ParamSpec,
     TypeVar,
     cast,
 )
+from collections.abc import Callable, ItemsView, Sequence
 
 import click
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
-if sys.version_info >= (3, 11):
-    from typing import Never
-else:
-    from typing_extensions import Never
 
 from rsconnect.certificates import read_certificate_file
 
@@ -148,7 +138,6 @@ from .models import (
 )
 from .pyproject import (
     InvalidPyprojectConfigError,
-    TOMLDecodeError,
     UnsupportedAppModeError,
     resolve_pyproject_deploy_target,
 )
@@ -201,20 +190,19 @@ def output_params(
     ctx: click.Context,
     vars: ItemsView[str, object],
 ):
-    if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
-        logger.log(VERBOSE, "Detected the following inputs:")
-        for k, v in vars:
-            if k in {"ctx", "verbose", "quiet", "kwargs"}:
-                continue
-            if v is not None:
-                val: object = v
-                if k in _MASKED_PARAMS:
-                    val = "**********"
-                elif k == "env_vars" and isinstance(v, dict):
-                    # The values are sent to the server as secrets; log names only.
-                    val = "%s (values hidden)" % sorted(cast("dict[str, str]", v))
-                sourceName = validation.get_parameter_source_name_from_ctx(k, ctx)
-                logger.log(VERBOSE, "    %-18s%s (from %s)", (k + ":"), val, sourceName)
+    logger.log(VERBOSE, "Detected the following inputs:")
+    for k, v in vars:
+        if k in {"ctx", "verbose", "quiet", "kwargs"}:
+            continue
+        if v is not None:
+            val: object = v
+            if k in _MASKED_PARAMS:
+                val = "**********"
+            elif k == "env_vars" and isinstance(v, dict):
+                # The values are sent to the server as secrets; log names only.
+                val = "%s (values hidden)" % sorted(cast("dict[str, str]", v))
+            sourceName = validation.get_parameter_source_name_from_ctx(k, ctx)
+            logger.log(VERBOSE, "    %-18s%s (from %s)", (k + ":"), val, sourceName)
 
 
 def device_login_args(kind: Literal["connect", "cloud"]) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -293,7 +281,7 @@ def preflight_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
     return wrapper
 
 
-def _resolve_guid_option(new: Optional[bool], app_id: Optional[str], guid: Optional[str]) -> Optional[str]:
+def _resolve_guid_option(new: bool | None, app_id: str | None, guid: str | None) -> str | None:
     """Fold --guid into the app_id that the deploy plumbing understands."""
     if guid is None:
         return app_id
@@ -372,8 +360,8 @@ def _start_connect_device_login(params: dict[str, Any]) -> dict[str, Any]:
     if params.get("identity_token") or params.get("identity_token_file"):
         raise RSConnectException("--no-wait cannot be combined with identity token authentication.")
     ctx = click.get_current_context()
-    server: Optional[str] = params.get("server")
-    positional: Optional[str] = params.get("server_arg")
+    server: str | None = params.get("server")
+    positional: str | None = params.get("server_arg")
     if positional and validation.get_parameter_source_name_from_ctx("server", ctx) == "COMMANDLINE":
         raise RSConnectException("You must specify only one of SERVER or -s/--server.")
     server = positional or server
@@ -399,7 +387,7 @@ def _start_cloud_device_login(params: dict[str, Any]) -> dict[str, Any]:
     account = validation.effective_connect_cloud_account(ctx, params.get("account"))
     if not account:
         raise RSConnectException("--no-wait requires --account for Posit Connect Cloud.")
-    server: Optional[str] = params.get("server")
+    server: str | None = params.get("server")
     validation.validate_connection_options(
         ctx=ctx,
         url=server,
@@ -600,7 +588,7 @@ def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tu
 
     for s in all_values:
         if not isinstance(s, str):
-            raise click.BadParameter("environment variable must be a string: '{}'".format(s))
+            raise click.BadParameter(f"environment variable must be a string: '{s}'")
 
         if "=" in s:
             name, value = s.split("=", 1)
@@ -609,18 +597,18 @@ def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tu
             # inherited value from the environment
             value = os.environ.get(s)
             if value is None:
-                raise click.BadParameter("'{}' not found in the environment".format(s))
+                raise click.BadParameter(f"'{s}' not found in the environment")
             vars[s] = value
 
     return vars
 
 
 def prepare_deploy_metadata(
-    directory: Optional[str],
+    directory: str | None,
     metadata_overrides: tuple[str, ...],
     no_metadata: bool,
-    server_version: Optional[str] = None,
-) -> Optional[dict[str, str]]:
+    server_version: str | None = None,
+) -> dict[str, str] | None:
     """
     Prepare metadata for bundle upload.
 
@@ -774,9 +762,9 @@ def publish_args(func: Callable[P, T]) -> Callable[P, T]:
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
-        guid = cast(Optional[str], kwargs.pop("guid"))
+        guid = cast(str | None, kwargs.pop("guid"))
         kwargs["app_id"] = _resolve_guid_option(
-            cast(Optional[bool], kwargs.get("new")), cast(Optional[str], kwargs.get("app_id")), guid
+            cast(bool | None, kwargs.get("new")), cast(str | None, kwargs.get("app_id")), guid
         )
         return func(*args, **kwargs)
 
@@ -794,7 +782,7 @@ def content_args(func: Callable[P, T]) -> Callable[P, T]:
 # otherwise returns None. This is so that we can pass the
 # non-negative (env_management_r, env_management_py) args to our API functions,
 # which is more consistent when writing these values to the manifest.
-def env_management_callback(ctx: click.Context, param: click.Parameter, value: Optional[bool]) -> bool | None:
+def env_management_callback(ctx: click.Context, param: click.Parameter, value: bool | None) -> bool | None:
     # eval the shorthand flag if it was provided
     disable_env_management = ctx.params.get("disable_env_management")
     if disable_env_management is not None:
@@ -938,7 +926,7 @@ def _test_server_and_api(server: str, api_key: str, insecure: bool, ca_cert: str
 
 
 def _test_rstudio_creds(server: api.PositServer):
-    with cli_feedback("Checking {} credential".format(server.remote_name)):
+    with cli_feedback(f"Checking {server.remote_name} credential"):
         test_rstudio_server(server)
 
 
@@ -949,9 +937,9 @@ def _test_spcs_creds(server: SPCSConnectServer):
 
 def _connect_cloud_login(
     account: str,
-    client_id: Optional[str],
-    client_secret: Optional[str],
-    url: Optional[str] = None,
+    client_id: str | None,
+    client_secret: str | None,
+    url: str | None = None,
 ) -> api.ConnectCloudServer:
     """Authenticate against Posit Connect Cloud and return the resulting server.
 
@@ -983,7 +971,7 @@ def _connect_cloud_login(
 
     # A token proves the credentials are good but says nothing about the account
     # name, so check it here rather than letting a typo surface at deploy time.
-    with cli_feedback("Checking {} account".format(server.remote_name)):
+    with cli_feedback(f"Checking {server.remote_name} account"):
         with api.ConnectCloudClient(server) as client:
             # Keep the id: deploys address the account by id, so they neither pay for
             # this lookup again nor break if the account is renamed.
@@ -1029,8 +1017,8 @@ def _connect_cloud_login(
 def bootstrap(
     server: str,
     insecure: bool,
-    cacert: Optional[str],
-    jwt_keypath: Optional[str],
+    cacert: str | None,
+    jwt_keypath: str | None,
     raw: bool,
     verbose: int,
 ):
@@ -1100,16 +1088,16 @@ def bootstrap(
 def add(
     ctx: click.Context,
     name: str,
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    account: Optional[str],
-    token: Optional[str],
-    secret: Optional[str],
-    client_id: Optional[str],
-    client_secret: Optional[str],
+    cacert: str | None,
+    account: str | None,
+    token: str | None,
+    secret: str | None,
+    client_id: str | None,
+    client_secret: str | None,
     connect_cloud: bool,
     set_default: bool,
     verbose: int,
@@ -1189,7 +1177,7 @@ def add(
             set_as_default=set_default,
         )
         verb = "Updated" if old_server else "Added"
-        click.echo('{} {} credential "{}" for account "{}".'.format(verb, cloud_server.remote_name, name, account))
+        click.echo(f'{verb} {cloud_server.remote_name} credential "{name}" for account "{account}".')
         if not in_keyring:
             click.secho(
                 "Note: keyring not available; credentials stored in local file (chmod 600).",
@@ -1212,9 +1200,9 @@ def add(
             set_as_default=set_default,
         )
         if old_server:
-            click.echo('Updated {} credential "{}".'.format(real_server.remote_name, name))
+            click.echo(f'Updated {real_server.remote_name} credential "{name}".')
         else:
-            click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
+            click.echo(f'Added {real_server.remote_name} credential "{name}".')
     else:
         if server and ("snowflakecomputing.app" in server or snowflake_connection_name):
             server = cast(str, server)
@@ -1232,9 +1220,9 @@ def add(
                 set_as_default=set_default,
             )
             if old_server:
-                click.echo('Updated {} credential "{}".'.format(real_server_spcs.remote_name, name))
+                click.echo(f'Updated {real_server_spcs.remote_name} credential "{name}".')
             else:
-                click.echo('Added {} credential "{}".'.format(real_server_spcs.remote_name, name))
+                click.echo(f'Added {real_server_spcs.remote_name} credential "{name}".')
 
         else:
             server = cast(str, server)
@@ -1330,12 +1318,12 @@ def list_servers(verbose: int):
 @click.pass_context
 def details(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -1403,17 +1391,17 @@ def preflight(
     directory: str,
     fix: bool,
     new: bool,
-    guid: Optional[str],
-    app_id: Optional[str],
+    guid: str | None,
+    app_id: str | None,
     runtime: str,
-    node: Optional[str],
-    python: Optional[str],
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    node: str | None,
+    python: str | None,
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
 ):
     from .preflight import load_preflight_app_store, run_preflight
@@ -1460,8 +1448,8 @@ def preflight(
 @click.pass_context
 def remove(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
+    name: str | None,
+    server: str | None,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -1522,8 +1510,8 @@ def remove(
 @click.pass_context
 def set_default(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
+    name: str | None,
+    server: str | None,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -1561,7 +1549,7 @@ server_group.add_command(set_default)
 server_group.add_command(bootstrap)
 
 
-def _resolve_identity_token(identity_token: Optional[str], identity_token_file: Optional[str]) -> Optional[str]:
+def _resolve_identity_token(identity_token: str | None, identity_token_file: str | None) -> str | None:
     """Resolve the identity token from the flag/env var or a file.
 
     Returns the token string, or None if neither source was provided (in which
@@ -1571,7 +1559,7 @@ def _resolve_identity_token(identity_token: Optional[str], identity_token_file: 
         raise RSConnectException("You must specify only one of --identity-token or --identity-token-file.")
 
     if identity_token_file is not None:
-        with open(identity_token_file, "r") as f:
+        with open(identity_token_file) as f:
             token = f.read()
     elif identity_token is not None:
         token = sys.stdin.read() if identity_token == "-" else identity_token
@@ -1589,7 +1577,7 @@ def _login_with_token_exchange(
     name: str,
     subject_token: str,
     insecure: bool,
-    ca_data: Optional[str | bytes],
+    ca_data: str | bytes | None,
     no_set_default: bool,
 ) -> None:
     """Exchange an identity token for a Connect API key and store it as the server credential."""
@@ -1683,15 +1671,15 @@ def _login_with_token_exchange(
 @cli_exception_handler
 @device_login_args("connect")
 def login(
-    server_arg: Optional[str],
-    server: Optional[str],
-    name: Optional[str],
+    server_arg: str | None,
+    server: str | None,
+    name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    identity_token: Optional[str],
-    identity_token_file: Optional[str],
+    cacert: str | None,
+    identity_token: str | None,
+    identity_token_file: str | None,
     use_device_code: bool,
-    client_id: Optional[str],
+    client_id: str | None,
     no_set_default: bool,
     verbose: int,
 ):
@@ -1823,9 +1811,9 @@ def login(
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cli_exception_handler
 def logout(
-    server_arg: Optional[str],
-    name: Optional[str],
-    server: Optional[str],
+    server_arg: str | None,
+    name: str | None,
+    server: str | None,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -1899,8 +1887,8 @@ TOKEN_EXIT_LOGIN_REQUIRED = 4
 @click.pass_context
 def token(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
+    name: str | None,
+    server: str | None,
     refresh: bool,
     output_format: str,
 ):
@@ -2029,7 +2017,7 @@ def info(file: str):
         "Create a new Posit Connect project of the given TYPE in ./<name>/. "
         "Supported TYPE values: streamlit, shiny, fastapi, api, flask, "
         "notebook, voila, quarto. Writes a pyproject.toml "
-        "with a [tool.rsconnect] section, creates a uv-managed virtualenv, "
+        "with a [tool.posit.connect] section, creates a uv-managed virtualenv, "
         "and prints the local-run and deploy commands."
     ),
     no_args_is_help=True,
@@ -2043,7 +2031,8 @@ def info(file: str):
     # vocabulary.
     type=click.Choice(AppModes.cli_aliases()),
 )
-@click.argument("name", metavar="NAME")
+@click.argument("project_name", metavar="NAME")
+@server_args
 @click.option(
     "--python",
     "python_version",
@@ -2053,18 +2042,89 @@ def info(file: str):
         "Python version for 'requires-python' in the generated pyproject.toml. "
         "A bare 'major.minor' like '3.10' means any 3.10.x; a full '3.11.14' is "
         "exact; pass an operator for full control (e.g. '>=3.11' or "
-        "'>=3.11,<3.14'). Defaults to '>=<major.minor>' of the interpreter "
-        "running rsconnect."
+        "'>=3.11,<3.14'). By default, use the newest publishable Python on "
+        "the selected Connect server, or the interpreter running rsconnect."
     ),
 )
 @cli_exception_handler
-def quickstart(app_type: str, name: str, python_version: Optional[str]):
+@click.pass_context
+def quickstart(
+    ctx: click.Context,
+    app_type: str,
+    project_name: str,
+    python_version: str | None,
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    insecure: bool,
+    cacert: str | None,
+    verbose: int,
+):
     # Resolve ``run_quickstart`` through the module at call time so tests can
     # monkeypatch ``rsconnect.quickstart.quickstart.run_quickstart`` without
     # binding a stale reference into ``main``'s namespace at import time.
     from .quickstart.quickstart import run_quickstart
 
-    run_quickstart(app_type=app_type, name=name, python_version=python_version)
+    set_verbosity(verbose)
+
+    if python_version is not None:
+        ignored_options = [
+            option
+            for option in ("name", "server", "api_key", "insecure", "cacert")
+            if validation.get_parameter_source_name_from_ctx(option, ctx) == "COMMANDLINE"
+        ]
+        if ignored_options:
+            click.echo("Server options are ignored because --python was supplied.")
+
+    def server_python_settings() -> tuple[object, str] | None:
+        if name and server and validation.get_parameter_source_name_from_ctx("server", ctx) == "COMMANDLINE":
+            raise RSConnectException("-n/--name cannot be specified together with -s/--server.")
+        if cacert:
+            read_certificate_file(cacert)
+        resolved = server_store.resolve(name, server)
+        if not resolved.url:
+            if server_store.count() > 1:
+                warn_user(
+                    "Warning: Multiple servers are saved with no default. "
+                    "Use --name or --server, or set a default, to check server compatibility."
+                )
+                return None, "fallback"
+            return None
+
+        if not (api_key or resolved.api_key or resolved.oauth_client_id):
+            warn_user(
+                "Warning: Could not check the Connect server's Python settings: "
+                "No Connect credentials are available; use --api-key or log in with rsconnect login.\n"
+                "Server compatibility was not checked."
+            )
+            return None, "fallback"
+
+        # The executor's validation requires a target even when the store
+        # can resolve a single saved server without an explicit default.
+        effective_name = name or (resolved.name if not server else None)
+        executor = RSConnectExecutor(
+            ctx, effective_name, server, api_key, insecure=insecure, cacert=cacert, logger=None
+        )
+        if not isinstance(executor.remote_server, RSConnectServer) or not isinstance(executor.client, RSConnectClient):
+            raise RSConnectException("The selected target is not a Posit Connect server.")
+        remote = executor.remote_server
+        click.echo(f"Checking Python versions on {remote.url}...")
+        try:
+            with executor.client:
+                return executor.client.python_settings(), remote.url
+        except Exception as exc:
+            warn_user(
+                f"Warning: Could not check the Connect server's Python settings: {exc}\n"
+                "Server compatibility was not checked."
+            )
+            return None, "fallback"
+
+    run_quickstart(
+        app_type=app_type,
+        name=project_name,
+        python_version=python_version,
+        server_python_settings=server_python_settings,
+    )
 
 
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Connect Cloud, or shinyapps.io.")
@@ -2224,39 +2284,39 @@ def _warn_on_options_ignored_by_static_notebook(ctx: click.Context, extra_files:
 def deploy_notebook(
     ctx: click.Context,
     quiet: bool,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    account: Optional[str],
-    client_id: Optional[str],
-    client_secret: Optional[str],
+    cacert: str | None,
+    account: str | None,
+    client_id: str | None,
+    client_secret: str | None,
     connect_cloud: bool,
     static: bool,
     new: bool,
-    app_id: Optional[str],
-    title: Optional[str],
-    python: Optional[str],
-    override_python_version: Optional[str],
+    app_id: str | None,
+    title: str | None,
+    python: str | None,
+    override_python_version: str | None,
     force_generate: bool,
-    requirements_file: Optional[str],
+    requirements_file: str | None,
     verbose: int,
     file: str,
     extra_files: tuple[str, ...],
     hide_all_input: bool,
     hide_tagged_input: bool,
     env_vars: dict[str, str],
-    image: Optional[str],
-    disable_env_management: Optional[bool],
-    env_management_py: Optional[bool],
-    env_management_r: Optional[bool],
+    image: str | None,
+    disable_env_management: bool | None,
+    env_management_py: bool | None,
+    env_management_r: bool | None,
     exclude_renv: bool,
     draft: bool,
-    visibility: Optional[str] = None,
+    visibility: str | None = None,
     no_verify: bool = False,
-    package_installer: Optional[PackageInstaller] = None,
+    package_installer: PackageInstaller | None = None,
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
@@ -2269,9 +2329,9 @@ def deploy_notebook(
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
-    python_interpreter: Optional[str] = None
-    environment: Optional[Environment] = None
-    r_environment: Optional[REnvironment] = None
+    python_interpreter: str | None = None
+    environment: Environment | None = None
+    r_environment: REnvironment | None = None
     if static:
         # The notebook is rendered locally and the bundle holds only the HTML, so Connect
         # never builds an environment for it. Only an interpreter to run nbconvert is needed.
@@ -2427,34 +2487,34 @@ def deploy_voila(
     ctx: click.Context,
     quiet: bool,
     path: str,
-    entrypoint: Optional[str],
-    python: Optional[str],
-    override_python_version: Optional[str],
+    entrypoint: str | None,
+    python: str | None,
+    override_python_version: str | None,
     force_generate: bool,
-    requirements_file: Optional[str],
+    requirements_file: str | None,
     extra_files: tuple[str, ...],
     exclude: tuple[str, ...],
-    image: Optional[str],
-    disable_env_management: Optional[bool],
-    env_management_py: Optional[bool],
-    env_management_r: Optional[bool],
+    image: str | None,
+    disable_env_management: bool | None,
+    env_management_py: bool | None,
+    env_management_r: bool | None,
     exclude_renv: bool,
-    title: Optional[str],
+    title: str | None,
     env_vars: dict[str, str],
     verbose: int,
     new: bool,
-    app_id: Optional[str],
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    app_id: str | None,
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     multi_notebook: bool,
     no_verify: bool,
     draft: bool = False,
-    connect_server: Optional[api.RSConnectServer] = None,  # TODO: This appears to be unused
-    package_installer: Optional[PackageInstaller] = None,
+    connect_server: api.RSConnectServer | None = None,  # TODO: This appears to be unused
+    package_installer: PackageInstaller | None = None,
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
@@ -2539,25 +2599,25 @@ def deploy_voila(
 def deploy_manifest(
     ctx: click.Context,
     quiet: bool,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    account: Optional[str],
-    token: Optional[str],
-    secret: Optional[str],
-    client_id: Optional[str],
-    client_secret: Optional[str],
+    cacert: str | None,
+    account: str | None,
+    token: str | None,
+    secret: str | None,
+    client_id: str | None,
+    client_secret: str | None,
     connect_cloud: bool,
     new: bool,
-    app_id: Optional[str],
-    title: Optional[str],
+    app_id: str | None,
+    title: str | None,
     verbose: int,
     file: str,
     env_vars: dict[str, str],
-    visibility: Optional[str],
+    visibility: str | None,
     no_verify: bool,
     draft: bool,
     metadata: tuple[str, ...] = tuple(),
@@ -2643,25 +2703,25 @@ def deploy_manifest(
 def deploy_bundle(
     ctx: click.Context,
     quiet: bool,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    account: Optional[str],
-    token: Optional[str],
-    secret: Optional[str],
-    client_id: Optional[str],
-    client_secret: Optional[str],
+    cacert: str | None,
+    account: str | None,
+    token: str | None,
+    secret: str | None,
+    client_id: str | None,
+    client_secret: str | None,
     connect_cloud: bool,
     new: bool,
-    app_id: Optional[str],
-    title: Optional[str],
+    app_id: str | None,
+    title: str | None,
     verbose: int,
     file: str,
     env_vars: dict[str, str],
-    visibility: Optional[str],
+    visibility: str | None,
     no_verify: bool,
     draft: bool,
     metadata: tuple[str, ...] = tuple(),
@@ -2727,7 +2787,7 @@ def deploy_bundle(
     short_help="Deploy content to Posit Connect, Posit Connect Cloud, or shinyapps.io by pyproject.",
     help=(
         "Deploy content described by a project's pyproject.toml. The given directory must contain "
-        "a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. "
+        "a pyproject.toml with a [tool.posit.connect] table specifying app_mode and entrypoint. "
         "Designed as the deploy partner for projects scaffolded by 'rsconnect quickstart'."
     ),
     no_args_is_help=True,
@@ -2744,7 +2804,7 @@ def deploy_bundle(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
         "defaults to ``pyproject.toml`` (the project's declared dependencies). "
         "Pass ``uv.lock`` for a fully resolved deploy, or any ``requirements.txt``-compatible file."
     ),
@@ -2765,26 +2825,26 @@ def deploy_bundle(
 def deploy_pyproject(
     ctx: click.Context,
     quiet: bool,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    account: Optional[str],
-    token: Optional[str],
-    secret: Optional[str],
-    client_id: Optional[str],
-    client_secret: Optional[str],
+    cacert: str | None,
+    account: str | None,
+    token: str | None,
+    secret: str | None,
+    client_id: str | None,
+    client_secret: str | None,
     connect_cloud: bool,
     new: bool,
-    app_id: Optional[str],
-    title: Optional[str],
+    app_id: str | None,
+    title: str | None,
     verbose: int,
     directory: str,
-    requirements_file: Optional[str],
+    requirements_file: str | None,
     env_vars: dict[str, str],
-    visibility: Optional[str],
+    visibility: str | None,
     no_verify: bool,
     draft: bool,
     exclude_renv: bool,
@@ -2811,7 +2871,7 @@ def deploy_pyproject(
         raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
     except FileNotFoundError as err:
         raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
-    except TOMLDecodeError as err:
+    except tomllib.TOMLDecodeError as err:
         raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
 
     app_mode = target.app_mode
@@ -2823,7 +2883,7 @@ def deploy_pyproject(
     bundle_builder: Callable[..., Any]
     bundle_args: tuple[Any, ...]
     bundle_kwargs: dict[str, Any] = {}
-    quarto_inputs: Optional[list[str]] = None
+    quarto_inputs: list[str] | None = None
     path = directory
 
     # renv.lock detection mirrors the dedicated deploy commands; --exclude-renv
@@ -2903,7 +2963,7 @@ def deploy_pyproject(
             "r_environment": r_environment,
         }
     else:
-        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in {target.table}")
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -2989,16 +3049,16 @@ def deploy_pyproject(
 def deploy_git(
     ctx: click.Context,
     quiet: bool,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     new: bool,
-    app_id: Optional[str],
-    title: Optional[str],
+    app_id: str | None,
+    title: str | None,
     env_vars: dict[str, str],
     no_verify: bool,
     draft: bool,
@@ -3127,38 +3187,38 @@ def deploy_git(
 def deploy_quarto(
     ctx: click.Context,
     quiet: bool,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    account: Optional[str],
-    client_id: Optional[str],
-    client_secret: Optional[str],
+    cacert: str | None,
+    account: str | None,
+    client_id: str | None,
+    client_secret: str | None,
     connect_cloud: bool,
     new: bool,
-    app_id: Optional[str],
-    title: Optional[str],
+    app_id: str | None,
+    title: str | None,
     exclude: tuple[str, ...],
-    quarto: Optional[str],
-    python: Optional[str],
-    override_python_version: Optional[str],
+    quarto: str | None,
+    python: str | None,
+    override_python_version: str | None,
     force_generate: bool,
-    requirements_file: Optional[str],
+    requirements_file: str | None,
     verbose: int,
     file_or_directory: str,
     extra_files: Sequence[str],
     env_vars: dict[str, str],
-    image: Optional[str],
+    image: str | None,
     disable_env_management: bool,
     env_management_py: bool,
     env_management_r: bool,
     exclude_renv: bool,
     no_verify: bool,
     draft: bool,
-    package_installer: Optional[PackageInstaller],
-    visibility: Optional[str] = None,
+    package_installer: PackageInstaller | None,
+    visibility: str | None = None,
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
@@ -3187,6 +3247,7 @@ def deploy_quarto(
                 requirements_file=requirements_file,
                 python=python,
                 override_python_version=override_python_version,
+                package_manager=package_installer,
             )
 
     # R/Quarto content can use renv regardless of the Quarto engine, so detect it
@@ -3289,21 +3350,21 @@ def deploy_quarto(
 def deploy_tensorflow(
     ctx: click.Context,
     quiet: bool,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     new: bool,
-    app_id: Optional[str],
-    title: Optional[str],
+    app_id: str | None,
+    title: str | None,
     exclude: tuple[str, ...],
     verbose: int,
     directory: str,
     extra_files: Sequence[str],
     env_vars: dict[str, str],
-    image: Optional[str],
+    image: str | None,
     no_verify: bool,
     draft: bool,
     metadata: tuple[str, ...] = tuple(),
@@ -3399,30 +3460,30 @@ def deploy_html(
     ctx: click.Context,
     quiet: bool,
     path: str,
-    entrypoint: Optional[str],
+    entrypoint: str | None,
     extra_files: tuple[str, ...],
     exclude: tuple[str, ...],
-    title: Optional[str],
+    title: str | None,
     env_vars: dict[str, str],
     verbose: int,
     new: bool,
-    app_id: Optional[str],
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    app_id: str | None,
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    account: Optional[str],
-    token: Optional[str],
-    secret: Optional[str],
-    client_id: Optional[str],
-    client_secret: Optional[str],
+    cacert: str | None,
+    account: str | None,
+    token: str | None,
+    secret: str | None,
+    client_id: str | None,
+    client_secret: str | None,
     connect_cloud: bool,
     no_verify: bool,
     draft: bool,
-    visibility: Optional[str] = None,
-    connect_server: Optional[api.RSConnectServer] = None,
+    visibility: str | None = None,
+    connect_server: api.RSConnectServer | None = None,
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
@@ -3494,7 +3555,7 @@ def deploy_html(
     ce.emit_content_url()
 
 
-def resolve_requirements_file(directory: str, requirements_file: Optional[str], force_generate: bool) -> Optional[str]:
+def resolve_requirements_file(directory: str, requirements_file: str | None, force_generate: bool) -> str | None:
     """
     Determine which requirements file to use.
 
@@ -3509,9 +3570,9 @@ def resolve_requirements_file(directory: str, requirements_file: Optional[str], 
 
 def generate_deploy_python(
     app_mode: AppMode,
-    min_version: Optional[str] = None,
-    alias: Optional[str] = None,
-    desc: Optional[str] = None,
+    min_version: str | None = None,
+    alias: str | None = None,
+    desc: str | None = None,
 ):
     # ``alias`` defaults to the mode's primary CLI alias (declared in
     # ``AppModes._cli_aliases``); callers pass it explicitly only for
@@ -3523,7 +3584,7 @@ def generate_deploy_python(
         desc = app_mode.desc()
 
     # Only surface a minimum Connect version indicator for recent (2024+) versions.
-    version_note = " [v{version}+]".format(version=min_version) if min_version else ""
+    version_note = f" [v{min_version}+]" if min_version else ""
 
     # Only advertise Connect Cloud for content types it accepts; FastAPI,
     # Gradio, Panel, and plain APIs are rejected at validation time.
@@ -3532,15 +3593,11 @@ def generate_deploy_python(
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to Posit Connect{version_note}{cloud_note} or shinyapps.io.".format(
-            desc=desc,
-            version_note=version_note,
-            cloud_note=cloud_note,
-        ),
+        short_help=f"Deploy a {desc} to Posit Connect{version_note}{cloud_note} or shinyapps.io.",
         help=(
-            "Deploy a {desc} module to Posit Connect{cloud_note} or shinyapps.io (if supported by the platform). "
+            f"Deploy a {desc} module to Posit Connect{cloud_note} or shinyapps.io (if supported by the platform). "
             'The "directory" argument must refer to an existing directory that contains the application code.'
-        ).format(desc=desc, cloud_note=cloud_note),
+        ),
         no_args_is_help=True,
     )
     @server_args
@@ -3552,9 +3609,7 @@ def generate_deploy_python(
     @click.option(
         "--entrypoint",
         "-e",
-        help=(
-            "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
-        ).format(desc=desc),
+        help=(f"The module and executable object which serves as the entry point for the {desc} (defaults to app)"),
     )
     @click.option(
         "--exclude",
@@ -3617,40 +3672,40 @@ def generate_deploy_python(
     def deploy_app(
         ctx: click.Context,
         quiet: bool,
-        name: Optional[str],
-        server: Optional[str],
-        api_key: Optional[str],
-        snowflake_connection_name: Optional[str],
+        name: str | None,
+        server: str | None,
+        api_key: str | None,
+        snowflake_connection_name: str | None,
         insecure: bool,
-        cacert: Optional[str],
-        entrypoint: Optional[str],
+        cacert: str | None,
+        entrypoint: str | None,
         exclude: tuple[str, ...],
         new: bool,
-        app_id: Optional[str],
-        title: Optional[str],
-        python: Optional[str],
-        override_python_version: Optional[str],
+        app_id: str | None,
+        title: str | None,
+        python: str | None,
+        override_python_version: str | None,
         force_generate: bool,
-        requirements_file: Optional[str],
+        requirements_file: str | None,
         verbose: int,
         directory: str,
         extra_files: tuple[str, ...],
-        visibility: Optional[str],
+        visibility: str | None,
         env_vars: dict[str, str],
-        image: Optional[str],
-        disable_env_management: Optional[bool],
-        env_management_py: Optional[bool],
-        env_management_r: Optional[bool],
+        image: str | None,
+        disable_env_management: bool | None,
+        env_management_py: bool | None,
+        env_management_r: bool | None,
         exclude_renv: bool,
-        account: Optional[str],
-        token: Optional[str],
-        secret: Optional[str],
-        client_id: Optional[str],
-        client_secret: Optional[str],
+        account: str | None,
+        token: str | None,
+        secret: str | None,
+        client_id: str | None,
+        client_secret: str | None,
         connect_cloud: bool,
         no_verify: bool,
         draft: bool,
-        package_installer: Optional[PackageInstaller],
+        package_installer: PackageInstaller | None,
         metadata: tuple[str, ...],
         no_metadata: bool,
     ):
@@ -3820,28 +3875,28 @@ generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, min_version="2025.10.0")
 def deploy_nodejs(
     ctx: click.Context,
     quiet: bool,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    entrypoint: Optional[str],
+    cacert: str | None,
+    entrypoint: str | None,
     exclude: tuple[str, ...],
     new: bool,
-    app_id: Optional[str],
-    title: Optional[str],
-    node: Optional[str],
+    app_id: str | None,
+    title: str | None,
+    node: str | None,
     verbose: int,
     directory: str,
     extra_files: tuple[str, ...],
-    visibility: Optional[str],
+    visibility: str | None,
     env_vars: dict[str, str],
-    image: Optional[str],
-    env_management_node: Optional[bool],
-    account: Optional[str],
-    token: Optional[str],
-    secret: Optional[str],
+    image: str | None,
+    env_management_node: bool | None,
+    account: str | None,
+    token: str | None,
+    secret: str | None,
     no_verify: bool,
     draft: bool,
     metadata: tuple[str, ...],
@@ -3997,21 +4052,21 @@ def write_manifest():
 def write_manifest_notebook(
     ctx: click.Context,
     overwrite: bool,
-    python: Optional[str],
-    override_python_version: Optional[str],
+    python: str | None,
+    override_python_version: str | None,
     force_generate: bool,
     verbose: int,
     file: str,
     extra_files: tuple[str, ...],
-    image: Optional[str],
-    disable_env_management: Optional[bool],
-    env_management_py: Optional[bool],
-    env_management_r: Optional[bool],
+    image: str | None,
+    disable_env_management: bool | None,
+    env_management_py: bool | None,
+    env_management_r: bool | None,
     exclude_renv: bool,
-    hide_all_input: Optional[bool] = None,
-    hide_tagged_input: Optional[bool] = None,
-    package_installer: Optional[PackageInstaller] = None,
-    requirements_file: Optional[str] = None,
+    hide_all_input: bool | None = None,
+    hide_tagged_input: bool | None = None,
+    package_installer: PackageInstaller | None = None,
+    requirements_file: str | None = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -4135,22 +4190,22 @@ def write_manifest_notebook(
 def write_manifest_voila(
     ctx: click.Context,
     path: str,
-    entrypoint: Optional[str],
+    entrypoint: str | None,
     overwrite: bool,
-    python: Optional[str],
-    override_python_version: Optional[str],
+    python: str | None,
+    override_python_version: str | None,
     force_generate: bool,
     verbose: int,
     extra_files: tuple[str, ...],
     exclude: tuple[str, ...],
-    image: Optional[str],
-    disable_env_management: Optional[bool],
-    env_management_py: Optional[bool],
-    env_management_r: Optional[bool],
+    image: str | None,
+    disable_env_management: bool | None,
+    env_management_py: bool | None,
+    env_management_r: bool | None,
     exclude_renv: bool,
     multi_notebook: bool,
-    package_installer: Optional[PackageInstaller] = None,
-    requirements_file: Optional[str] = None,
+    package_installer: PackageInstaller | None = None,
+    requirements_file: str | None = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -4278,20 +4333,20 @@ def write_manifest_quarto(
     ctx: click.Context,
     overwrite: bool,
     exclude: tuple[str, ...],
-    quarto: Optional[str],
-    python: Optional[str],
-    override_python_version: Optional[str],
+    quarto: str | None,
+    python: str | None,
+    override_python_version: str | None,
     force_generate: bool,
     verbose: int,
     file_or_directory: str,
     extra_files: tuple[str, ...],
-    image: Optional[str],
-    disable_env_management: Optional[bool],
-    env_management_py: Optional[bool],
-    env_management_r: Optional[bool],
+    image: str | None,
+    disable_env_management: bool | None,
+    env_management_py: bool | None,
+    env_management_r: bool | None,
     exclude_renv: bool,
-    package_installer: Optional[PackageInstaller],
-    requirements_file: Optional[str],
+    package_installer: PackageInstaller | None,
+    requirements_file: str | None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -4364,7 +4419,7 @@ def write_manifest_quarto(
     short_help="Create a manifest.json file from a project's pyproject.toml.",
     help=(
         "Create a manifest.json file for later deployment, for content described by a project's "
-        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.rsconnect] "
+        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.posit.connect] "
         "table specifying app_mode and entrypoint. This will also write the environment file the "
         'manifest references (e.g. "requirements.txt"), regenerating it on each run unless it is '
         "itself the requirements source. Designed as the write-manifest partner for projects "
@@ -4380,7 +4435,7 @@ def write_manifest_quarto(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
         "defaults to ``pyproject.toml`` (the project's declared dependencies). "
         "Pass ``uv.lock`` for a fully resolved manifest, or any ``requirements.txt``-compatible file."
     ),
@@ -4400,7 +4455,7 @@ def write_manifest_quarto(
 def write_manifest_pyproject(
     ctx: click.Context,
     overwrite: bool,
-    requirements_file: Optional[str],
+    requirements_file: str | None,
     verbose: int,
     exclude_renv: bool,
     directory: str,
@@ -4420,7 +4475,7 @@ def write_manifest_pyproject(
         raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
     except FileNotFoundError as err:
         raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
-    except TOMLDecodeError as err:
+    except tomllib.TOMLDecodeError as err:
         raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
 
     app_mode = target.app_mode
@@ -4440,7 +4495,7 @@ def write_manifest_pyproject(
         AppModes.SHINY_QUARTO,
     )
     if app_mode not in api_modes and app_mode not in entrypoint_manifest_modes:
-        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in {target.table}")
 
     with cli_feedback("Checking arguments"):
         # The bundle.py writers put manifest.json in different places: API modes
@@ -4464,7 +4519,7 @@ def write_manifest_pyproject(
                 override_python_version=None,
             )
 
-    environment: Optional[Environment] = None
+    environment: Environment | None = None
     if app_mode in api_modes:
         if app_mode == AppModes.PYTHON_SHINY:
             entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
@@ -4596,7 +4651,7 @@ def write_manifest_tensorflow(
     verbose: int,
     directory: str,
     extra_files: tuple[str, ...],
-    image: Optional[str],
+    image: str | None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -4618,8 +4673,8 @@ def write_manifest_tensorflow(
 
 def generate_write_manifest_python(
     app_mode: AppMode,
-    alias: Optional[str] = None,
-    desc: Optional[str] = None,
+    alias: str | None = None,
+    desc: str | None = None,
 ):
     # See :func:`generate_deploy_python` for the alias-resolution contract.
     alias = alias or app_mode.cli_alias()
@@ -4629,20 +4684,18 @@ def generate_write_manifest_python(
     # noinspection SpellCheckingInspection
     @write_manifest.command(
         name=alias,
-        short_help="Create a manifest.json file for a {desc}.".format(desc=desc),
+        short_help=f"Create a manifest.json file for a {desc}.",
         help=(
-            "Create a manifest.json file for a {desc} for later deployment. This will create an "
+            f"Create a manifest.json file for a {desc} for later deployment. This will create an "
             'environment file ("requirements.txt") if one does not exist. All files '
             "are created in the same directory as the API code."
-        ).format(desc=desc),
+        ),
     )
     @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
     @click.option(
         "--entrypoint",
         "-e",
-        help=(
-            "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
-        ).format(desc=desc),
+        help=(f"The module and executable object which serves as the entry point for the {desc} (defaults to app)"),
     )
     @click.option(
         "--exclude",
@@ -4704,21 +4757,21 @@ def generate_write_manifest_python(
     def manifest_writer(
         ctx: click.Context,
         overwrite: bool,
-        entrypoint: Optional[str],
+        entrypoint: str | None,
         exclude: tuple[str, ...],
-        python: Optional[str],
-        override_python_version: Optional[str],
+        python: str | None,
+        override_python_version: str | None,
         force_generate: bool,
         verbose: int,
         directory: str,
         extra_files: tuple[str, ...],
-        image: Optional[str],
-        disable_env_management: Optional[bool],
-        env_management_py: Optional[bool],
-        env_management_r: Optional[bool],
+        image: str | None,
+        disable_env_management: bool | None,
+        env_management_py: bool | None,
+        env_management_r: bool | None,
         exclude_renv: bool,
-        package_installer: Optional[PackageInstaller],
-        requirements_file: Optional[str],
+        package_installer: PackageInstaller | None,
+        requirements_file: str | None,
     ):
         resolved_requirements_file = resolve_requirements_file(directory, requirements_file, force_generate)
         _write_framework_manifest(
@@ -4810,14 +4863,14 @@ generate_write_manifest_python(AppModes.PYTHON_PANEL)
 def write_manifest_nodejs(
     ctx: click.Context,
     overwrite: bool,
-    entrypoint: Optional[str],
+    entrypoint: str | None,
     exclude: tuple[str, ...],
-    node: Optional[str],
+    node: str | None,
     verbose: int,
     directory: str,
     extra_files: tuple[str, ...],
-    image: Optional[str],
-    env_management_node: Optional[bool],
+    image: str | None,
+    env_management_node: bool | None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -4848,20 +4901,20 @@ def write_manifest_nodejs(
 def _write_framework_manifest(
     ctx: click.Context,
     overwrite: bool,
-    entrypoint: Optional[str],
+    entrypoint: str | None,
     exclude: tuple[str, ...],
-    python: Optional[str],
-    override_python_version: Optional[str],
+    python: str | None,
+    override_python_version: str | None,
     verbose: int,
     directory: str,
     extra_files: tuple[str, ...],
     app_mode: AppMode,
-    image: Optional[str],
-    env_management_py: Optional[bool],
-    env_management_r: Optional[bool],
+    image: str | None,
+    env_management_py: bool | None,
+    env_management_r: bool | None,
     exclude_renv: bool = False,
-    package_installer: Optional[PackageInstaller] = None,
-    requirements_file: Optional[str] = None,
+    package_installer: PackageInstaller | None = None,
+    requirements_file: str | None = None,
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, Bokeh, and Panel apps.
@@ -4898,6 +4951,7 @@ def _write_framework_manifest(
             requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
+            package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(directory)
 
@@ -4982,19 +5036,19 @@ def content():
 @click.pass_context
 def content_search(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     published: bool,
     unpublished: bool,
     content_type: tuple[str, ...],
-    r_version: Optional[VersionSearchFilter],
-    py_version: Optional[VersionSearchFilter],
-    title_contains: Optional[str],
-    order_by: Optional[Literal["created", "last_deployed"]],
+    r_version: VersionSearchFilter | None,
+    py_version: VersionSearchFilter | None,
+    title_contains: str | None,
+    order_by: Literal["created", "last_deployed"] | None,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -5038,12 +5092,12 @@ def content_search(
 @click.pass_context
 def content_describe(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     guid: str,
     verbose: int,
 ):
@@ -5096,12 +5150,12 @@ def content_describe(
 @click.pass_context
 def content_bundle_download(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     guid: ContentGuidWithBundle,
     output: str,
     overwrite: bool,
@@ -5163,12 +5217,12 @@ def content_bundle_download(
 @click.pass_context
 def content_get_lockfile(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     guid: str,
     output: str,
     overwrite: bool,
@@ -5228,13 +5282,13 @@ def content_get_lockfile(
 @click.pass_context
 def content_venv(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    guid: Optional[str],
+    cacert: str | None,
+    guid: str | None,
     env_path: str,
     verbose: int,
 ):
@@ -5246,13 +5300,13 @@ def content_venv(
             "uv is required for `rsconnect content venv`. make sure it's available in your PATH and try again."
         )
 
-    def _python_version_from_header(header: Optional[str]) -> str:
+    def _python_version_from_header(header: str | None) -> str:
         header = header or ""
         *_, version = header.split("python=", 1)
         version = version.split(".")[:2]  # major.minor
         return ".".join(version)
 
-    def _guid_for_current_server(server_url: str) -> Optional[str]:
+    def _guid_for_current_server(server_url: str) -> str | None:
         for candidate in _get_names_to_check(os.getcwd()):
             deployment = AppStore(candidate).get(server_url)
             if deployment:
@@ -5366,14 +5420,14 @@ one server.",
 @click.pass_context
 def content_migrate_to_connect_cloud(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    account: Optional[str],
-    client_id: Optional[str],
-    client_secret: Optional[str],
+    name: str | None,
+    server: str | None,
+    account: str | None,
+    client_id: str | None,
+    client_secret: str | None,
     connect_cloud: bool,
     content_id: str,
-    from_server: Optional[str],
+    from_server: str | None,
     overwrite: bool,
     file_or_directory: str,
     verbose: int,
@@ -5431,12 +5485,12 @@ def repository():
 @click.pass_context
 def repository_show(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     guid: str,
     verbose: int,
 ):
@@ -5490,12 +5544,12 @@ def repository_show(
 @click.pass_context
 def repository_delete(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     guid: str,
     force: bool,
     verbose: int,
@@ -5556,14 +5610,14 @@ def repository_delete(
 @click.pass_context
 def repository_redeploy(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     guid: str,
-    ref: Optional[str],
+    ref: str | None,
     verbose: int,
 ):
     """Trigger a new deployment from the git repository.
@@ -5629,12 +5683,12 @@ def build():
 @click.pass_context
 def add_content_build(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     guid: tuple[ContentGuidWithBundle, ...],
     verbose: int,
 ):
@@ -5690,13 +5744,13 @@ def add_content_build(
 @click.pass_context
 def remove_content_build(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    guid: Optional[str],
+    cacert: str | None,
+    guid: str | None,
     all: bool,
     purge: bool,
     verbose: int,
@@ -5746,13 +5800,13 @@ def remove_content_build(
 @click.pass_context
 def list_content_build(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    status: Optional[str],
+    cacert: str | None,
+    status: str | None,
     guid: str,
     verbose: int,
 ):
@@ -5791,12 +5845,12 @@ def list_content_build(
 @click.pass_context
 def get_build_history(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     guid: str,
     verbose: int,
 ):
@@ -5852,14 +5906,14 @@ def get_build_history(
 @click.pass_context
 def get_build_logs(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     guid: str,
-    task_id: Optional[str],
+    task_id: str | None,
     format: LogOutputFormat.All,
     verbose: int,
 ):
@@ -5930,12 +5984,12 @@ def get_build_logs(
 @click.pass_context
 def start_content_build(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     parallelism: int,
     aborted: bool,
     error: bool,
@@ -5986,11 +6040,11 @@ def caches():
 @spcs_args
 def system_caches_list(
     name: str,
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -6043,12 +6097,12 @@ def system_caches_list(
 @click.pass_context
 def system_caches_delete(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     language: str,
     version: str,
@@ -6122,12 +6176,12 @@ def environment():
 @click.pass_context
 def environment_list(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -6162,12 +6216,12 @@ def environment_list(
 @click.pass_context
 def environment_show(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     guid: str,
 ):
@@ -6245,18 +6299,18 @@ def environment_show(
 @click.pass_context
 def environment_add(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     image: str,
-    title: Optional[str],
-    description: Optional[str],
-    matching: Optional[str],
-    supervisor: Optional[str],
+    title: str | None,
+    description: str | None,
+    matching: str | None,
+    supervisor: str | None,
     python_installations: tuple[str, ...],
     quarto_installations: tuple[str, ...],
     r_installations: tuple[str, ...],
@@ -6354,18 +6408,18 @@ def environment_add(
 @click.pass_context
 def environment_edit(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     guid: str,
-    title: Optional[str],
-    description: Optional[str],
-    matching: Optional[str],
-    supervisor: Optional[str],
+    title: str | None,
+    description: str | None,
+    matching: str | None,
+    supervisor: str | None,
     python_installations: tuple[str, ...],
     quarto_installations: tuple[str, ...],
     r_installations: tuple[str, ...],
@@ -6416,12 +6470,12 @@ def environment_edit(
 @click.pass_context
 def environment_remove(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     guid: str,
 ):
@@ -6456,12 +6510,12 @@ def integration():
 @click.pass_context
 def integration_list(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -6496,12 +6550,12 @@ def integration_list(
 @click.pass_context
 def integration_show(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     guid: str,
 ):
@@ -6544,16 +6598,16 @@ def integration_show(
 @click.pass_context
 def integration_add(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     template: str,
-    integration_name: Optional[str],
-    description: Optional[str],
+    integration_name: str | None,
+    description: str | None,
     config: tuple[tuple[str, str], ...],
     allow_user: tuple[str, ...],
     allow_group: tuple[str, ...],
@@ -6606,16 +6660,16 @@ def integration_add(
 @click.pass_context
 def integration_edit(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     guid: str,
-    integration_name: Optional[str],
-    description: Optional[str],
+    integration_name: str | None,
+    description: str | None,
     config: tuple[tuple[str, str], ...],
     allow_user: tuple[str, ...],
     allow_group: tuple[str, ...],
@@ -6656,12 +6710,12 @@ def integration_edit(
 @click.pass_context
 def integration_remove(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     guid: str,
 ):
@@ -6696,12 +6750,12 @@ def integration_templates():
 @click.pass_context
 def integration_templates_list(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -6735,12 +6789,12 @@ def integration_templates_list(
 @click.pass_context
 def integration_templates_show(
     ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    api_key: Optional[str],
-    snowflake_connection_name: Optional[str],
+    name: str | None,
+    server: str | None,
+    api_key: str | None,
+    snowflake_connection_name: str | None,
     insecure: bool,
-    cacert: Optional[str],
+    cacert: str | None,
     verbose: int,
     template_id: str,
 ):

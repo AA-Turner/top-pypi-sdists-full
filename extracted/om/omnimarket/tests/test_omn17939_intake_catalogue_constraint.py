@@ -46,14 +46,17 @@ from __future__ import annotations
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from omnimarket.projection import credential_publisher as publisher_mod
+from omnimarket.handlers.routing.byok_provider_backends import (
+    ByokCatalogError,
+    customer_provider_catalogue,
+)
+
+# OMN-21217: the create request and its catalogue check live here now; the
+# publisher re-exports the request, so the patch goes where the check reads it.
+from omnimarket.models import model_inference_credential_create_request as request_mod
 from omnimarket.projection.credential_publisher import (
     ModelInferenceCredentialCreateRequest,
     ProviderCatalogueUnavailableError,
-)
-from omnimarket.routing.byok_provider_backends import (
-    ByokCatalogError,
-    customer_provider_catalogue,
 )
 
 pytestmark = pytest.mark.unit
@@ -181,7 +184,7 @@ def test_a_broken_catalogue_is_not_reported_as_a_client_input_error(
     def _boom() -> tuple[str, ...]:
         raise ByokCatalogError("catalogue unreadable")
 
-    monkeypatch.setattr(publisher_mod, "customer_provider_catalogue", _boom)
+    monkeypatch.setattr(request_mod, "customer_provider_catalogue", _boom)
 
     # Asserting the specific type IS the guarantee: ProviderCatalogueUnavailableError
     # is deliberately not a ValueError, so if the validator ever let the raw

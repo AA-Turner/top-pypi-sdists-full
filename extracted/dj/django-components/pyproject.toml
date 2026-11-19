@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django_components"
-version = "0.152.0"
-requires-python = ">=3.10, <4.0"
+version = "1.0.0"
+requires-python = ">=3.11, <4.0"
 description = "A way to create simple reusable template components in Django."
 keywords = ["django", "components", "css", "js", "html"]
 readme = "README.md"
@@ -14,27 +14,31 @@ authors = [
     { name = "Juro Oravec", email = "juraj.oravec.josefson@gmail.com" },
 ]
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
     "Framework :: Django",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 # Package dependencies
-dependencies = ["Django>=5.2", "djc-core>=1.3.1", "typing-extensions>=4.12.2"]
+# NOTE: Django added Python 3.15 support in 6.1.3. The marker keeps pip and uv from picking an older
+# Django on Python 3.15, and it applies to the tox lane that tests Python 3.15 too.
+dependencies = ["Django>=5.2", "Django>=6.1.3; python_version >= '3.15'", "djc-core>=1.4.0"]
 license = { text = "MIT" }
 
 # See https://docs.pypi.org/project_metadata/#icons
 [project.urls]
 Homepage = "https://github.com/django-components/django-components/"
 Documentation = "https://django-components.github.io/django-components/"
-Changelog = "https://django-components.github.io/django-components/latest/releases/"
+Changelog = "https://django-components.github.io/django-components/docs/releases/"
 Issues = "https://github.com/django-components/django-components/issues"
 Donate = "https://github.com/sponsors/EmilStenstrom"
 
@@ -47,20 +51,20 @@ Donate = "https://github.com/sponsors/EmilStenstrom"
 # Dev dependencies - install with `uv sync --group dev`
 dev = [
     "django",
-    "djc-core>=1.3.1",
+    "djc-core>=1.4.0",
     "django-template-partials",
     "tox",
     "pytest",
     "pytest-xdist",
     "pytest-django",
-    "pytest-asyncio==1.4.0",
+    "pytest-asyncio==1.5.0",
     "syrupy",
     # NOTE: Must stay in sync with the `ruff` pin in the `[testenv:ruff]` section
     # of `tox.ini`, which is what CI actually runs.
-    "ruff==0.16.3",
+    "ruff==0.17.5",
     "pre-commit",
-    "mypy==2.3.0",
-    "playwright",
+    "mypy==2.4.1",
+    "playwright>=1.61.0",
     "requests",
     "types-requests",
     "whitenoise",
@@ -71,10 +75,8 @@ dev = [
     "asv",
     # NOTE: pin virtualenv to <20.31 until asv fixes integration
     # See https://github.com/airspeed-velocity/asv/issues/1484
-    "virtualenv==21.7.4",
-    "typing-extensions>=4.12.2",
+    "virtualenv==21.15.6",
     "pathspec",
-    "PyGithub",
     "pyyaml",
     "beautifulsoup4>=4.14.3",
     "python-frontmatter>=1.3.0",
@@ -85,17 +87,16 @@ ci = [
     "tox",
     "tox-gh-actions",
     "pytest-xdist",
-    "playwright",
+    "playwright>=1.61.0",
     "requests",
     "types-requests",
     "whitenoise",
     "asv",
     # NOTE: pin virtualenv to <20.31 until asv fixes integration
     # See https://github.com/airspeed-velocity/asv/issues/1484
-    "virtualenv==21.7.4",
+    "virtualenv==21.15.6",
     "pytest-asyncio",
     "pytest-django",
-    "typing-extensions>=4.12.2",
     "pathspec",
     "beautifulsoup4>=4.14.3",
 ]
@@ -134,10 +135,10 @@ docs = [
     "packaging",
     # Pygments 2.20 breaks mkdocstrings signature rendering by rejecting the
     # None filename value passed through pymdownx.highlight.
-    "pygments<2.21",
+    "pygments<2.22",
     "pygments-djc",
     "django>=5.2",
-    "djc-core>=1.3.1",
+    "djc-core>=1.4.0",
 ]
 
 ###########################################
@@ -255,6 +256,7 @@ ignore = [
     "SLF001",  # Private member accessed: `_registry`
     "TRY300",  # Consider moving this statement to an `else` block
     "TRY301",  # Abstract `raise` to an inner function
+    "UP042",   # Use `StrEnum` (NOTE: Not the same, it changes what `str()` returns for public enums)
 
     # TODO: Following could be useful to start using, but might require more changes.
     "C420",    # Unnecessary dict comprehension for iterable; use `dict.fromkeys` instead
@@ -263,7 +265,7 @@ ignore = [
     "FBT001",  # Boolean-typed positional argument in function definition
     "FBT002",  # Boolean default positional argument in function definition
     "TRY003",  # Avoid specifying long messages outside the exception class
-    # TODO_V1 - Rename error to suffix with `Error` before v1?
+    # TODO_V2 - Rename error to suffix with `Error` in 2.0?
     "N818", # Exception name `NotRegistered` should be named with an Error suffix
 ]
 

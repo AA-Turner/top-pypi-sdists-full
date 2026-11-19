@@ -42,6 +42,23 @@ del p[0]  # E: Cannot delete item in `Pair`
     "#,
 );
 
+// https://github.com/pyrefly-org/pyrefly/issues/5630
+testcase!(
+    test_named_tuple_star_unpack,
+    r#"
+from typing import NamedTuple, assert_type, Literal
+class Key(NamedTuple):
+    name: str
+    version: int
+
+def test(key: Key, values: dict[tuple[str, int, int], str]) -> None:
+    values[*key, 0]
+    assert_type((*key, 0), tuple[str, int, Literal[0]])
+    assert_type((0, *key), tuple[Literal[0], str, int])
+    assert_type((*key,), tuple[str, int])
+    "#,
+);
+
 testcase!(
     test_named_tuple_functional_attr_types,
     r#"
@@ -63,7 +80,7 @@ assert_type(Point6(1, 2).x, int)
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2874
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2874
 testcase!(
     test_named_tuple_functional_name_mismatch,
     r#"
@@ -183,7 +200,27 @@ e._replace(anything="ok")
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2811
+testcase!(
+    test_named_tuple_dynamic_fields_underscore_attribute,
+    r#"
+import collections
+from typing import Any, Generator, Protocol, assert_type
+
+class HasAwait(Protocol):
+    def __await__(self) -> Generator[Any, None, int]: ...
+
+def f(x: HasAwait) -> None: ...
+
+Base = collections.namedtuple("Base", ["name"])
+Ext = collections.namedtuple("Ext", [*Base._fields, "extra"])
+e = Ext("n", "x")
+assert_type(e.extra, Any)
+y = e._private  # E: has no attribute `_private`
+f(e)  # E: Argument `Ext` is not assignable to parameter `x` with type `HasAwait` in function `f`
+    "#,
+);
+
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2811
 testcase!(
     test_inline_collections_namedtuple_constructor,
     r#"
@@ -196,7 +233,7 @@ assert_type(device.index, Any)
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2811
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2811
 testcase!(
     test_inline_typing_namedtuple_constructor,
     r#"
@@ -235,7 +272,7 @@ assert_type(t.count, str)
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2734
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2734
 // Starred expressions in field lists can't be fully resolved statically,
 // so the namedtuple has dynamic fields. String literals alongside the
 // starred expression are still extracted as known fields.
@@ -551,7 +588,7 @@ class C(B):
 testcase!(
     test_named_tuple_invalid_field,
     r#"
-# Used to crash, see https://github.com/facebook/pyrefly/issues/701
+# Used to crash, see https://github.com/pyrefly-org/pyrefly/issues/701
 from dataclasses import InitVar
 from typing import NamedTuple
 
@@ -733,7 +770,7 @@ class E(NamedTuple("E", 42)):  # E: Expected valid functional named tuple defini
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/3354
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/3354
 #[test]
 fn test_named_tuple_in_malformed_for_target() {
     // Keep the malformed source exact: adding inline expectations changes the unterminated string.
@@ -745,7 +782,7 @@ fn test_named_tuple_in_malformed_for_target() {
     );
 }
 
-// Regression test for https://github.com/facebook/pyrefly/issues/4177
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/4177
 #[test]
 fn test_named_tuple_in_malformed_with_item() {
     // Keep the malformed source exact: adding inline expectations changes the unterminated string.
@@ -757,7 +794,7 @@ fn test_named_tuple_in_malformed_with_item() {
     );
 }
 
-// Regression test for https://github.com/facebook/pyrefly/issues/4447
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/4447
 #[test]
 fn test_named_tuple_in_assert() {
     // Keep the malformed source exact: adding inline expectations changes the unterminated string.
@@ -769,7 +806,7 @@ fn test_named_tuple_in_assert() {
     );
 }
 
-// Regression test for https://github.com/facebook/pyrefly/issues/4459
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/4459
 #[test]
 fn test_named_tuple_in_match_subject() {
     // Keep the malformed source exact: adding inline expectations changes the unterminated string.
@@ -860,7 +897,7 @@ d.y  # This should probably be an error, but it's not today
     "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/832
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/832
 testcase!(
     test_functional_namedtuple_base_class_with_new,
     r#"
@@ -1044,7 +1081,7 @@ D.__new__.__defaults__ = (C(),)  # E: Could not find name `C`
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2622
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2622
 // `import collections.abc` should not break special handling of `collections.namedtuple`.
 testcase!(
     test_named_tuple_collections_submodule_import,
@@ -1069,7 +1106,7 @@ p = Point(x=1, y=2)
     "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2455
+// https://github.com/pyrefly-org/pyrefly/issues/2455
 testcase!(
     test_named_tuple_typevar_bound,
     r#"
@@ -1089,7 +1126,7 @@ assert_type(o, ImplementedModel)
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2924
+// https://github.com/pyrefly-org/pyrefly/issues/2924
 testcase!(
     test_named_tuple_reserved_method_override,
     r#"
@@ -1122,7 +1159,7 @@ class Record(NamedTuple):
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/2980
+// https://github.com/pyrefly-org/pyrefly/issues/2980
 testcase!(
     test_named_tuple_cls_field_name,
     r#"
@@ -1185,7 +1222,7 @@ assert_type(info.anything, Any)
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/2458
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/2458
 testcase!(
     test_namedtuple_from_function_missing_attribute,
     r#"
@@ -1211,7 +1248,7 @@ def f(X: int) -> None:
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/3763
+// https://github.com/pyrefly-org/pyrefly/issues/3763
 testcase!(
     test_named_tuple_super_call_disallowed,
     r#"
@@ -1342,7 +1379,7 @@ class Pair(NamedTuple):
 "#,
 );
 
-// Regression test for https://github.com/facebook/pyrefly/issues/5224
+// Regression test for https://github.com/pyrefly-org/pyrefly/issues/5224
 testcase!(
     test_named_tuple_custom_new_inherited,
     r#"
@@ -1426,4 +1463,39 @@ class Child(Base):
 Child(1, "x")
 Child(1)  # E: Missing argument `b`
     "#,
+);
+
+// A functional definition reads its arguments for their literal values rather
+// than evaluating them, but a walrus in one still defines a name.
+testcase!(
+    test_named_tuple_functional_walrus_arguments,
+    r#"
+import collections
+from typing import Literal, NamedTuple, assert_type
+
+X = collections.namedtuple(x := "X", ["a"])  # E: Expected string literal "X"
+assert_type(x, Literal["X"])
+
+Y = NamedTuple(y := "Y", [("a", int)])  # E: Expected string literal "Y"
+assert_type(y, Literal["Y"])
+
+Z = collections.namedtuple("Z", z := ["a"])  # E: Expected valid functional named tuple definition
+assert_type(z, list[str])
+
+W = collections.namedtuple("W", ["a", (w := "b")])  # E: Expected a string literal
+assert_type(w, Literal["b"])
+
+V = NamedTuple("V", [("a", int), (v := ("b", str))])  # E: Expected a tuple
+assert_type(v, tuple[Literal["b"], type[str]])
+"#,
+);
+
+testcase!(
+    test_named_tuple_functional_walrus_field_ordering,
+    r#"
+from typing import Literal, NamedTuple, assert_type
+
+T = NamedTuple("T", [("a", (x := int)), (x := ("b", str))])  # E: Expected a tuple
+assert_type(x, tuple[Literal["b"], type[str]])
+"#,
 );

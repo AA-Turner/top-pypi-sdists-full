@@ -80,6 +80,7 @@ RequestTypeType = Literal["AutomaticManagement"]
 ServiceQuotaTemplateAssociationStatusType = Literal["ASSOCIATED", "DISASSOCIATED"]
 ServiceQuotasServiceName = Literal["service-quotas"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

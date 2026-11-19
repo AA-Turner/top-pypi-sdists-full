@@ -27,6 +27,7 @@ __all__ = ("ApiGatewayManagementApiServiceName", "ResourceServiceName", "Service
 
 ApiGatewayManagementApiServiceName = Literal["apigatewaymanagementapi"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

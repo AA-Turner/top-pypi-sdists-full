@@ -1,18 +1,21 @@
 """Bitfab client for provider-based API calls."""
 
 from bitfab import finalizers
-from bitfab.approval import (
-    ApprovalFields,
-    ApprovalState,
-    Approver,
-    Assignee,
-    Justification,
-    JustificationSpan,
-)
 from bitfab.assertion_categories import (
     AssertionCategoriesClient,
     AssertionCategory,
     AssertionCategorySummary,
+)
+from bitfab.assertion_status import (
+    ApprovalFields,
+    ApprovalState,
+    Approver,
+    AssertionStatus,
+    Assignee,
+    Confirmer,
+    Justification,
+    JustificationSpan,
+    StatusFields,
 )
 from bitfab.categories import CategoriesClient, Category, CategorySummary
 from bitfab.client import (
@@ -80,7 +83,6 @@ from bitfab.experiments import (
 from bitfab.github_sandbox import github_sandbox, record_github_refs
 from bitfab.gmail_sandbox import (
     gmail_message,
-    gmail_sandbox,
     gmail_sandbox_accounts,
     google_sandbox_http,
 )
@@ -160,6 +162,7 @@ from bitfab.sandbox import (
     sandbox_state,
     without_sandbox,
 )
+from bitfab.sandbox_modes import gmail_sandbox
 from bitfab.selective_replay import ReplayNodeIdentity, SelectiveReplayOptions
 from bitfab.spans import (
     ListedSpan,
@@ -261,6 +264,7 @@ __all__ = [
     "AssertionLabelEvidence",
     "AssertionRewrite",
     "AssertionRewriteStatus",
+    "AssertionStatus",
     "AssertionVerdict",
     "AssertionVerdictEvidence",
     "Assignee",
@@ -275,6 +279,7 @@ __all__ = [
     "CodeChangeType",
     "CommitRef",
     "ConcurrencyPrimitive",
+    "Confirmer",
     "CurrentSpan",
     "CurrentTrace",
     "Dataset",
@@ -401,6 +406,7 @@ __all__ = [
     "SpanTarget",
     "SpanType",
     "SpansClient",
+    "StatusFields",
     "TraceAssertion",
     "TraceAssertionSource",
     "TraceAssertionsResult",

@@ -100,6 +100,7 @@ WorkspacePolicyStatusCodeType = Literal["ACTIVE", "CREATING", "DELETING", "UPDAT
 WorkspaceStatusCodeType = Literal["ACTIVE", "CREATING", "CREATION_FAILED", "DELETING", "UPDATING"]
 PrometheusServiceServiceName = Literal["amp"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

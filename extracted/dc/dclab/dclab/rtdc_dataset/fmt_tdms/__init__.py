@@ -2,26 +2,36 @@
 import copy
 import pathlib
 import time
+from typing import TYPE_CHECKING
 
 from ...external.packaging import parse as parse_version
 
 from .exc import ContourIndexingError  # noqa:F401
 from .exc import InvalidTDMSFileFormatError  # noqa:F401
-from .exc import IncompleteTDMSFileFormatError  # noqa:F401
+from .exc import IncompleteTDMSFileFormatError
 from .exc import InvalidVideoFileError  # noqa:F401
 
-try:
+if TYPE_CHECKING:
+    # Type checkers assume that the optional dependencies are available.
     import nptdms
-except ModuleNotFoundError:
-    NPTDMS_AVAILABLE = False
-else:
-    if parse_version(nptdms.__version__) < parse_version("0.23.0"):
-        raise ValueError("Please install nptdms>=0.23.0")
     NPTDMS_AVAILABLE = True
     from .event_contour import ContourColumn
     from .event_image import ImageColumn
     from .event_mask import MaskColumn
     from .event_trace import TraceColumn
+else:
+    try:
+        import nptdms
+    except ModuleNotFoundError:
+        NPTDMS_AVAILABLE = False
+    else:
+        if parse_version(nptdms.__version__) < parse_version("0.23.0"):
+            raise ValueError("Please install nptdms>=0.23.0")
+        NPTDMS_AVAILABLE = True
+        from .event_contour import ContourColumn
+        from .event_image import ImageColumn
+        from .event_mask import MaskColumn
+        from .event_trace import TraceColumn
 
 import numpy as np
 
@@ -56,7 +66,7 @@ class RTDC_TDMS(RTDCBase):
             raise ModuleNotFoundError(
                 "Package `nptdms` required for TDMS format!")
         # Initialize RTDCBase
-        super(RTDC_TDMS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         tdms_path = pathlib.Path(tdms_path)
         # Events is a simple dictionary
@@ -87,10 +97,10 @@ class RTDC_TDMS(RTDCBase):
             # Take into account special cases of the tdms file format:
             # tdms features "image", "trace", "contour", and "mask"
             # evaluate to True (len()!=0) if the data exist on disk
-            if key in self._events and self._events[key]:
+            if self._events.get(key):
                 ct = True
         else:
-            ct = super(RTDC_TDMS, self).__contains__(key)
+            ct = super().__contains__(key)
         return ct
 
     @staticmethod
@@ -102,24 +112,24 @@ class RTDC_TDMS(RTDCBase):
 
         Parameters
         ----------
-        path: str or pathlib.Path
+        path: pathlib.Path
             A path representing the dataset. This could be either a
             .tdms file or an .avi file. The only thing important here
             is the prefix (before the underscore "_") which determines
             the location of the camera.ini and para.ini files.
         features_available: list of str
             List of features known to be available for this dataset.
-            Used for defining e.g. fluorescnence metadata.
+            Used for defining e.g. fluorescence metadata.
         ret_source_files: bool
             Return the list of files used to extract metadata from.
         ignore_missing: bool
-            Nevermind when para.ini is missing.
+            Do not raise an error if para.ini is missing.
 
         Returns
         -------
         config: .Configuration
             The metadata Configuration instance
-        source_paths: str
+        source_files: list of pathlib.Path
             List of metadata file paths, only returned when ret_source_files
             is True
         """
@@ -212,11 +222,11 @@ class RTDC_TDMS(RTDCBase):
                     dclab_config["fluorescence"]["trace median"] = mfs
             # Add generic channel names (independent of lasers)
             for ii in range(1, 4):
-                chn = "channel {} name".format(ii)
-                fln = "fl{}_max".format(ii)
+                chn = f"channel {ii} name"
+                fln = f"fl{ii}_max"
                 if (fln in features_available
                         and chn not in dclab_config["fluorescence"]):
-                    dclab_config["fluorescence"][chn] = "FL{}".format(ii)
+                    dclab_config["fluorescence"][chn] = f"FL{ii}"
             lc = bool(p1) + bool(p2) + bool(p3)
             dclab_config["fluorescence"]["laser count"] = lc
             li = (p1 is not None) + (p2 is not None) + (p3 is not None)
@@ -329,7 +339,7 @@ class RTDC_TDMS(RTDCBase):
                 self._events[naming.tdms2dclab[arg]] = data
         if len(self._events) == 0:
             raise IncompleteTDMSFileFormatError(
-                "No usable feature data found in '{}'!".format(tdms_filename))
+                f"No usable feature data found in '{tdms_filename}'!")
 
         self.config, config_paths = self.extract_tdms_config(
             self.path,
@@ -384,12 +394,13 @@ class RTDC_TDMS(RTDCBase):
 
     @property
     def hash(self):
-        """Hash value based on file name and .ini file content"""
+        """Hash value based on file name, .ini file content, and the first
+        ~1 MB of the .tdms file"""
         if self._hash is None:
-            # Only hash _camera.ini and _para.ini
+            # Only hash _camera.ini and _para.ini (_camera.ini is optional)
             fsh = [self.path.with_name(self._mid + "_camera.ini"),
                    self.path.with_name(self._mid + "_para.ini")]
-            tohash = [hashfile(f) for f in fsh]
+            tohash = [hashfile(f) for f in fsh if f.exists()]
             tohash.append(self.path.name)
             # Hash a maximum of ~1MB of the tdms file
             tohash.append(hashfile(self.path, blocksize=65536, count=20))
@@ -397,16 +408,19 @@ class RTDC_TDMS(RTDCBase):
         return self._hash
 
     def close(self):
-        super(RTDC_TDMS, self).close()
+        super().close()
         del self._events["image"]._image_data
 
 
 def get_project_name_from_path(path, append_mx=False):
-    """Get the project name from a path.
+    """Get the project name from a path
 
-    For a path "/home/peter/hans/HLC12398/online/M1_13.tdms" or
-    For a path "/home/peter/hans/HLC12398/online/data/M1_13.tdms" or
-    without the ".tdms" file, this will return always "HLC12398".
+    The project name is read from the "Sample Name" entry of the
+    corresponding "M*_para.ini" file. If that is not available, it is
+    derived from the directory structure: For the paths
+    "/home/peter/hans/HLC12398/online/M1_13.tdms" and
+    "/home/peter/hans/HLC12398/online/data/M1_13.tdms" (or the
+    directories without the ".tdms" file), "HLC12398" is returned.
 
     Parameters
     ----------
@@ -414,6 +428,11 @@ def get_project_name_from_path(path, append_mx=False):
         path to tdms file
     append_mx: bool
         append measurement number, e.g. "M1"
+
+    Returns
+    -------
+    project: str
+        Project name (with " - M1" etc. appended if `append_mx` is True)
     """
     path = pathlib.Path(path)
     if path.suffix == ".tdms":
@@ -464,7 +483,7 @@ def get_project_name_from_path(path, append_mx=False):
 def get_tdms_files(directory):
     """Recursively find projects based on '.tdms' file endings
 
-    Searches the `directory` recursively and return a sorted list
+    Searches the `directory` recursively and returns a sorted list
     of all found '.tdms' project files, except fluorescence
     data trace files which end with `_traces.tdms`.
     """

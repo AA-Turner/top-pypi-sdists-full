@@ -104,6 +104,7 @@ SMBSecurityStrategyType = Literal[
 TapeStorageClassType = Literal["DEEP_ARCHIVE", "GLACIER"]
 StorageGatewayServiceName = Literal["storagegateway"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

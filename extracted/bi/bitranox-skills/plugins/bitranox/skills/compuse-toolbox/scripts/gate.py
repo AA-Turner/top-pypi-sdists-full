@@ -154,7 +154,9 @@ def default_log_path() -> str:
 
 # What a test runner says it RAN. Kept as module constants so the shapes are readable together
 # and a new runner is one line rather than a rewrite of the matcher.
-_CARGO_RUNNING = re.compile(r"^\s*running (\d+) tests?\b", re.MULTILINE)
+# `[^\S\n]*`, not `\s*`: a line start must not absorb the blank lines after it, or every one of
+# a long blank run rescans the rest of the run.
+_CARGO_RUNNING = re.compile(r"^[^\S\n]*running (\d+) tests?\b", re.MULTILINE)
 _PYTEST_SELECTED = re.compile(r"^.*?\b(\d+) selected\b", re.MULTILINE)
 _PYTEST_COLLECTED = re.compile(r"^.*?\bcollected (\d+) items?\b", re.MULTILINE)
 _PYTEST_NO_TESTS = re.compile(r"^.*\bno tests ran\b", re.MULTILINE)
@@ -838,7 +840,7 @@ def red_status(report: GateReport) -> int:
 
     Collapsing every failure to 1 would re-create, one layer out, the masking this tool exists to
     prevent - a pipe masks with its last element's status, a runner with its own. It costs most on
-    a gate whose codes are a TAXONOMY rather than pass/fail (the provmm Leg 3 perf gate: 0 clean,
+    a gate whose codes are a TAXONOMY rather than pass/fail (one project's perf gate: 0 clean,
     2 a metric regressed, 1 no metrics measured), where a reported 1 reads as "the measurement
     crashed" instead of "it returned a verdict". Not hypothetical: a background task's completion
     notification carries THIS process's code, not the gate's, so the collapse is what a caller

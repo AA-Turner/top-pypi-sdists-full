@@ -1008,6 +1008,7 @@ TerminationModeType = Literal["FORCE_TERMINATE", "TRIGGER_ON_PROCESS_TERMINATE"]
 ZeroCapacityStrategyType = Literal["MANUAL", "SCALE_TO_AND_FROM_ZERO"]
 GameLiftServiceName = Literal["gamelift"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

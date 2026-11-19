@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+name: node_factory_floor_publish_effect
+version: 1.0.0
+description: >-
+  Refresh the factory floor and lab delegation projection windows, expose the delegation tick read,
+  mirror the existing runner projection's saved observation before computing the floor,
+  and publish the record, local endpoint probes and pages to the lab web server. Large process-health
+  series publish small floor summaries and lossless compressed detail for the Process report.
+pack: operator_tooling
+node_role: effect
+display_name: Factory Floor Publish Effect
+omnibase_core_compat: '>=0.39.0,<1.0.0'
+entry_points:
+  onex.nodes:
+    node_factory_floor_publish_effect: omnimarket.nodes.node_factory_floor_publish_effect
+capabilities:
+  standalone: true
+  full_runtime: false
+  requires_network: true
+  requires_repo: true
+  requires_secrets: false
+  requires_docker: false
+  side_effect_class: external_write
+dependencies: []
+authors:
+- OmniNode Platform Team
+license: MIT
+tags:
+- declared-view-seam-emitter
+- effect
+- factory-floor-publish
+- delegation-report
+- OMN-21733

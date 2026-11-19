@@ -52,6 +52,7 @@ SearchSchemasPaginatorName = Literal["search_schemas"]
 TypeType = Literal["JSONSchemaDraft4", "OpenApi3"]
 SchemasServiceName = Literal["schemas"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

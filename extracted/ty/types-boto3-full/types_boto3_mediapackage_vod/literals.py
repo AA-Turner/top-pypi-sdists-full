@@ -74,6 +74,7 @@ SegmentTemplateFormatType = Literal[
 StreamOrderType = Literal["ORIGINAL", "VIDEO_BITRATE_ASCENDING", "VIDEO_BITRATE_DESCENDING"]
 MediaPackageVodServiceName = Literal["mediapackage-vod"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -9,7 +9,7 @@ import typing
 from abc import ABCMeta
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Annotated, Any, cast, get_args, get_origin
+from typing import Annotated, Any, Self, cast, get_args, get_origin
 
 import polars as pl
 
@@ -19,11 +19,6 @@ from dataframely._typing import DataFrame as TypedDataFrame
 from dataframely._typing import LazyFrame as TypedLazyFrame
 from dataframely.exc import AnnotationImplementationError, ImplementationError
 from dataframely.schema import Schema
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if sys.version_info >= (3, 14):
     from annotationlib import Format
@@ -318,8 +313,7 @@ class CollectionMeta(ABCMeta):
 
 
 class BaseCollection(metaclass=CollectionMeta):
-    """Internal utility abstraction to reference collections without introducing
-    cyclical dependencies."""
+    """Internal utility abstraction to reference collections without introducing cyclical dependencies."""
 
     @classmethod
     def members(cls) -> dict[str, MemberInfo]:
@@ -352,8 +346,7 @@ class BaseCollection(metaclass=CollectionMeta):
 
     @classmethod
     def non_ignored_members(cls) -> set[str]:
-        """The names of all members of the collection that are not ignored in filters
-        (default)."""
+        """The names of all members of the collection that are not ignored in filters (default)."""
         return {
             name
             for name, member in cls.members().items()
@@ -372,8 +365,7 @@ class BaseCollection(metaclass=CollectionMeta):
 
     @classmethod
     def _failure_propagating_members(cls) -> set[str]:
-        """The names of all members of the collection that propagate individual row
-        failures to the collection."""
+        """The names of all members of the collection that propagate individual row failures to the collection."""
         return {
             name
             for name, member in cls.members().items()

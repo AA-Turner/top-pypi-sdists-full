@@ -1,3 +1,0 @@
----
-features:
-  - Added allowed_cidrs parameter into load balancer listener.

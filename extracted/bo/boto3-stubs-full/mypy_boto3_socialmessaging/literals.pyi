@@ -58,6 +58,7 @@ WhatsAppDayOfWeekType = Literal[
 ]
 EndUserMessagingSocialServiceName = Literal["socialmessaging"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

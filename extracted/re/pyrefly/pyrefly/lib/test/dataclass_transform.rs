@@ -146,6 +146,23 @@ E(x=0, y="")
 );
 
 testcase!(
+    test_ordered_dataclass_transform_inheritance,
+    r#"
+from typing import dataclass_transform
+
+@dataclass_transform(order_default=True)
+def create[T](cls: type[T]) -> type[T]: ...
+
+@create
+class Parent:
+    x: int
+
+class Child(Parent):
+    pass
+    "#,
+);
+
+testcase!(
     test_metaclass_basic,
     r#"
 from typing import dataclass_transform
@@ -236,7 +253,7 @@ from typing import dataclass_transform
 class ModelMeta(type): ...
 class ModelBase(metaclass=ModelMeta): ...
 
-# `kw_only=True` on the base configures the whole subtree (facebook/pyrefly#3881), so a field
+# `kw_only=True` on the base configures the whole subtree (pyrefly-org/pyrefly#3881), so a field
 # without a default may follow one with a default.
 class Base(ModelBase, kw_only=True): ...
 
@@ -654,6 +671,24 @@ Data(x=NotConvertibleToInt())  # E: `NotConvertibleToInt` is not assignable to p
     "#,
 );
 
+// `converter=None` means no converter, as in attrs: https://github.com/pyrefly-org/pyrefly/issues/5283
+testcase!(
+    test_converter_none_init_param,
+    r#"
+from typing import dataclass_transform, Any, reveal_type
+def my_field(**kwargs) -> Any: ...
+def to_str(x: int) -> str: ...
+@dataclass_transform(field_specifiers=(my_field,))
+def build(x): ...
+@build
+class C:
+    x: str = my_field(converter=None)
+    y: str = my_field()
+    z: str = my_field(converter=to_str)
+reveal_type(C.__init__)  # E: revealed type: (self: C, x: str, y: str, z: int) -> None
+    "#,
+);
+
 testcase!(
     test_existing_init_decorator,
     r#"
@@ -863,7 +898,7 @@ class C:
     "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/5169: `Annotated` metadata is not type-checked, so
+// https://github.com/pyrefly-org/pyrefly/issues/5169: `Annotated` metadata is not type-checked, so
 // the lambda in it must not report errors regardless of which module is solved first. With a
 // single thread, `main` is always solved first, so these tests pin down both orders.
 testcase!(

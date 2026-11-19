@@ -66,6 +66,7 @@ SeverityType = Literal["HIGH", "LOW", "MEDIUM"]
 TextFormatType = Literal["MARKDOWN", "PLAIN_TEXT"]
 PIServiceName = Literal["pi"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

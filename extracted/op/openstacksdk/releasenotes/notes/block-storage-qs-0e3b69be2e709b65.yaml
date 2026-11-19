@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add block storage QuotaSet resource and proxy methods.

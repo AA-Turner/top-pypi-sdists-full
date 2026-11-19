@@ -27,7 +27,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 SIBLINGS = (
     "omnibase_core",
-    "omnibase_compat",
     "omnibase_spi",
     "omnibase_infra",
     "omnimemory",
@@ -38,7 +37,6 @@ SIBLINGS = (
 OWNED_ELSEWHERE_JOBS = {("ci.yml", "event-registry-drift")}
 LOCK_PACKAGE = {
     "omnibase_core": "omnibase-core",
-    "omnibase_compat": "omnibase-compat",
     "omnibase_spi": "omnibase-spi",
     "omnibase_infra": "omnibase-infra",
     "omnimemory": "omninode-memory",
@@ -49,9 +47,7 @@ _CLONE = re.compile(
     r"git clone\b[^\n]*github\.com/OmniNode-ai/(?P<repo>[a-z_]+)\.git[^\n]*"
 )
 _USES = re.compile(r"^OmniNode-ai/(?P<repo>[a-z_]+)/[^@]+@(?P<ref>\S+)$")
-_LOCK_EXPR = re.compile(
-    r"""\$\(grep -A1 '\^name = "(?P<pkg>[a-z-]+)"\$' uv\.lock[^\n]*?/p'\)"""
-)
+_LOCK_EXPR = re.compile(r"""\$\(awk -v p=(?P<pkg>[a-z-]+) '[^'\n]*' uv\.lock\)""")
 
 
 def _hosted_reusables() -> set[str]:
@@ -209,8 +205,8 @@ def test_lock_derived_clones_read_a_package_the_lock_has() -> None:
     assert used <= expected, used
 
 
-def test_lock_expression_resolves_to_the_lock_version() -> None:
-    """Dry run: the exact shell expression the workflows run prints the lock version."""
+def test_lock_expression_resolves_to_the_lock_ref() -> None:
+    """Dry run: the exact shell expression the workflows run prints the locked ref."""
     cmd = next(
         m.group(0)
         for _, _, s in _steps()
@@ -224,7 +220,8 @@ def test_lock_expression_resolves_to_the_lock_version() -> None:
         text=True,
         check=True,
     )
-    assert done.stdout == _lock_version("omnibase-core")
+    version, _, dev_tag = _lock_pin("omnibase-core")
+    assert done.stdout == (dev_tag or f"v{version}")
 
 
 # The sibling-release-compat job (OMN-19998) also accepts a uv.lock git source

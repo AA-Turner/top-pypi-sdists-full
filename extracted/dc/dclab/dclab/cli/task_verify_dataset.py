@@ -10,11 +10,23 @@ from . import common
 
 
 def verify_dataset(path_in=None):
-    """Perform checks on experimental datasets"""
+    """Perform checks on experimental datasets
+
+    The results of :func:`dclab.rtdc_dataset.check.check_dataset` are printed
+    to stdout and the function exits via :func:`sys.exit` with the
+    status 0 (valid), 1 (alerts), 2 (violations), 3 (alerts and
+    violations), or 4 (other error).
+
+    Parameters
+    ----------
+    path_in: str or pathlib.Path
+        Path to the dataset; if None, it is read from the command line
+    """
     if path_in is None:
         parser = verify_dataset_parser()
         args = parser.parse_args()
-        path_in = pathlib.Path(args.path).resolve()
+        path_in = args.path
+    path_in = pathlib.Path(path_in).resolve()
     if not path_in.exists():
         common.print_violation(f"File not found: {path_in}")
         return sys.exit(4)
@@ -46,7 +58,7 @@ def verify_dataset(path_in=None):
         for vio in viol:
             common.print_violation(vio)
         common.print_info(f"Check Complete: {len(viol)} violations and "
-                          + f"{len(aler)} alerts")
+                          f"{len(aler)} alerts")
         if aler and viol:
             exit_status = 3
         elif aler:
@@ -62,14 +74,20 @@ def verify_dataset(path_in=None):
 
 
 def verify_dataset_parser():
-    descr = "Check experimental datasets for completeness. This command " \
-            + "is used e.g. to enforce data integrity with Shape-In. The " \
-            + "following exit codes are defined: ``0: valid dataset``, " \
-            + "``1: alerts encountered``, ``2: violations encountered``, " \
-            + "``3: alerts and violations``, ``4: other error``."
+    """Return the argument parser of the ``dclab-verify-dataset`` command
+
+    Returns
+    -------
+    parser: argparse.ArgumentParser
+    """
+    descr = ("Check experimental datasets for completeness. This command "
+             "is used e.g. to enforce data integrity with Shape-In. The "
+             "following exit codes are defined: ``0: valid dataset``, "
+             "``1: alerts encountered``, ``2: violations encountered``, "
+             "``3: alerts and violations``, ``4: other error``.")
     parser = argparse.ArgumentParser(description=descr)
-    parser.add_argument('path', metavar='PATH', type=str,
-                        help='Path to experimental dataset')
-    parser.add_argument('--version', action='version',
-                        version=f'dclab-verify-dataset {version}')
+    parser.add_argument("path", metavar="PATH", type=str,
+                        help="Path to experimental dataset")
+    parser.add_argument("--version", action="version",
+                        version=f"dclab-verify-dataset {version}")
     return parser

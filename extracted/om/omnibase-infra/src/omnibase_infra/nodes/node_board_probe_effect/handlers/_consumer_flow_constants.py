@@ -11,8 +11,8 @@ from typing import Final
 import yaml
 
 
-def _contract_topic(name: str) -> str:
-    """Read an observed topic from this node's contract."""
+def _contract_topic(name: str, kind: str = "evt") -> str:
+    """Read an observed topic of one ``onex.<kind>.`` family from this node's contract."""
     contract = Path(__file__).resolve().parents[1] / "contract.yaml"
     raw = yaml.safe_load(contract.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
@@ -21,15 +21,14 @@ def _contract_topic(name: str) -> str:
     if not isinstance(topics, dict):
         raise ValueError(f"contract {contract} must declare consumer_flow_topics")
     topic = topics.get(name)
-    if not isinstance(topic, str) or not topic.startswith("onex.evt."):
-        raise ValueError(f"contract {contract} has no event topic for {name}")
+    if not isinstance(topic, str) or not topic.startswith(f"onex.{kind}."):
+        raise ValueError(f"contract {contract} has no {kind} topic for {name}")
     return topic
 
 
 # ---- the subject, as the readback named it ---------------------------------
-EXPOSURE_TOPIC: Final[str] = "onex.snapshot.projection.consumer-flow.v1"
+EXPOSURE_TOPIC: Final[str] = _contract_topic("exposure", "snapshot")
 CURSOR_FIELD: Final[str] = "projection_cursor"
-DEFAULT_BASE_URL: Final[str] = "http://host.docker.internal:3002"
 LIVE_WINDOW_MINUTES: Final[int] = 10
 # consumer_flow_windows keeps every window (48M rows, 32 GB on dev-201) and no
 # index leads with window_start, so a plain distinct over it is a whole-table
@@ -53,39 +52,51 @@ LIVE_WINDOW_SQL: Final[str] = (
     "and w.window_start > now() - interval '10 minutes')"
 )
 
-#: (kind, consumer-group prefix, subscribed topic, the counter that must move)
+#: (kind, consumer-group prefix after the environment segment, subscribed
+#: topic, the counter that must move). A group is ``{env}.{service}.{node}.
+#: {purpose}.{version}`` and the environment is the graded lane's own, so the
+#: prefix is matched after it (OMN-21485).
+#: The audit kind is the event-ledger projection on the node heartbeat, a topic
+#: every lab runtime produces. It was the gateway link-health projection on the
+#: gateway heartbeat, which has no producer on a lane that runs no gateway: the
+#: lab dev lane turned its gateway phase off when the cloud broker went away
+#: (#5485), and C28 read messages_in [0, 0] from then on (OMN-21916).
 KINDS: Final[tuple[tuple[str, str, str, str], ...]] = (
     (
         "audit_projection_consumer",
-        "local.omnibase_infra.node_gateway_link_health_projection_compute.consume.",
+        "omnibase_infra.node_ledger_projection_compute.consume.",
         _contract_topic("audit_projection"),
         "messages_in",
     ),
     (
         "publishing_reducer",
-        "local.omnimarket.projection_consumer_flow.consume.",
+        "omnimarket.projection_consumer_flow.consume.",
         _contract_topic("publishing_reducer"),
         "messages_out",
     ),
 )
 
 APPLIED_TOPIC: Final[str] = _contract_topic("applied")
-SEAM_DLQ: Final[str] = "onex.dlq.omnimarket.consumer-flow-stall-alert-malformed.v1"
+SEAM_DLQ: Final[str] = _contract_topic("seam_dlq", "dlq")
 
-RUNTIME_CONTAINERS: Final[tuple[str, ...]] = (
-    "omninode-runtime",
-    "omninode-runtime-effects",
-)
-BOOT_CONTAINERS: Final[tuple[str, ...]] = (
-    *RUNTIME_CONTAINERS,
-    "omnimarket-projection-api",
-)
-BROKER_CONTAINER: Final[str] = "omnibase-infra-redpanda"
+# OMN-21485: the containers C28 reads are the graded lane's own, derived from
+# that lane's compose project (models/model_consumer_flow_lane.py), so no lane's
+# container name is written here. The runtime roles are what every lane shares.
+RUNTIME_ROLES: Final[tuple[str, ...]] = ("-runtime", "-runtime-effects")
+
+
+def runtime_role(container: str) -> str | None:
+    """The runtime role a container name carries, or None."""
+    for role in sorted(RUNTIME_ROLES, key=len, reverse=True):
+        if container.endswith(role):
+            return role
+    return None
+
+
 # The broker's internal listener. Every rpk call pins it: an offset-range consume
 # otherwise dials the external advertised listener, whose tailnet name does not
 # resolve inside the container while the tailnet is down (C28 run 37140168388).
 BROKER_INTERNAL_ADDRESS: Final[str] = "redpanda:9092"
-PG_CONTAINER: Final[str] = "omnibase-infra-postgres"
 ANALYTICS_DB: Final[str] = "omnidash_analytics"
 
 #: Both names the stall-alert seam's input model has carried.

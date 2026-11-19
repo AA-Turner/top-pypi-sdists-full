@@ -283,6 +283,7 @@ VPCRegionType = Literal[
 ]
 Route53ServiceName = Literal["route53"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

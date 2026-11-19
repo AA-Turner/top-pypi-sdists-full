@@ -20,7 +20,7 @@ from helper_methods import retrieve_data
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_config():
     ds = new_dataset(retrieve_data("fmt-hdf5_fl_2017.zip"))
     assert ds.config["setup"]["channel width"] == 30
@@ -32,7 +32,7 @@ def test_config():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_contour_basic():
     ds = new_dataset(retrieve_data("fmt-hdf5_fl_2017.zip"))
     assert len(ds) == 5
@@ -226,7 +226,7 @@ def test_defective_feature_time_issue_204_new_dclab():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_defective_feature_time_issue_207_with_offset():
     # see https://github.com/DC-analysis/dclab/issues/207
     h5path = retrieve_data("fmt-hdf5_mask-contour_2018.zip")
@@ -312,7 +312,24 @@ def test_discouraged_array_dunder_childndarray():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
+def test_length_no_event_count_trace(tmp_path):
+    """Without "event count", the length is computed from the features"""
+    path = tmp_path / "test.rtdc"
+    with h5py.File(path, "w") as h5:
+        h5["events/trace/fl1_median"] = np.zeros((5, 10), dtype=np.int16)
+        h5["events/trace/fl1_raw"] = np.zeros((5, 10), dtype=np.int16)
+        h5["events/volume"] = np.arange(5, dtype=float)
+    with new_dataset(path) as ds:
+        assert "event count" not in ds.config["experiment"]
+        # This was the number of trace channels
+        assert len(ds) == 5
+
+
+@pytest.mark.filterwarnings(
+    "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
+@pytest.mark.filterwarnings(
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_hash():
     ds = new_dataset(retrieve_data("fmt-hdf5_fl_2017.zip"))
     assert ds.hash == "2c436daba22d2c7397b74d53d80f8931"
@@ -343,6 +360,45 @@ def test_fileio_basic():
     assert "volume" not in ds.features_innate
     assert np.allclose(ds["volume"][0], 2898.67525650645,
                        rtol=1e-6, atol=0)
+
+
+def test_fileio_hash():
+    """The hash of datasets opened from file objects"""
+    path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
+    data = path.read_bytes()
+
+    ds1 = dclab.new_dataset(io.BytesIO(data))
+    ds2 = dclab.new_dataset(io.BytesIO(data))
+    assert ds1.hash == ds2.hash
+
+    # modified data must result in a different hash
+    # (the hash uses the first five scalar features, e.g. "area_um")
+    path_mod = path.with_name("modified.rtdc")
+    path_mod.write_bytes(data)
+    with h5py.File(path_mod, "a") as h5:
+        h5["events/area_um"][2] += 0.01
+    ds3 = dclab.new_dataset(io.BytesIO(path_mod.read_bytes()))
+    assert ds1.hash != ds3.hash
+
+    # KDE computation uses the hash for caching
+    ds1.get_kde_scatter(xax="area_um", yax="deform")
+
+
+def test_fileio_hash_metadata():
+    """Only metadata that cannot be edited by the user is hashed"""
+    path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
+    data = path.read_bytes()
+
+    ds1 = dclab.new_dataset(io.BytesIO(data))
+    ds2 = dclab.new_dataset(io.BytesIO(data))
+    ds2.config["filtering"]["deform min"] = 0
+    ds2.config["filtering"]["deform max"] = .05
+    ds2.config["calculation"]["crosstalk fl12"] = 0.1
+    assert ds1.hash == ds2.hash
+
+    ds3 = dclab.new_dataset(io.BytesIO(data))
+    ds3.config["user"]["hans"] = "peter"
+    assert ds1.hash != ds3.hash
 
 
 @pytest.mark.filterwarnings(
@@ -460,7 +516,7 @@ def test_ignore_unknown_hdf5_meta_data_attribute():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_image_basic():
     ds = new_dataset(retrieve_data("fmt-hdf5_fl_2017.zip"))
     assert np.allclose(np.average(ds["image"][1]), 125.37133333333334)
@@ -470,7 +526,7 @@ def test_image_basic():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_image_bg():
     path = retrieve_data("fmt-hdf5_fl_2017.zip")
     # add a fake image_bg column
@@ -496,7 +552,7 @@ def test_image_bg_2():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 @pytest.mark.parametrize("idxs",
                          [slice(0, 5, 2),
                           [0, 2, 4],
@@ -725,7 +781,7 @@ def test_open_with_invalid_feature_names():
 @pytest.mark.filterwarnings(
     "ignore::dclab.rtdc_dataset.config.WrongConfigurationTypeWarning")
 @pytest.mark.filterwarnings(
-    'ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning')
+    "ignore::dclab.rtdc_dataset.config.UnknownConfigurationKeyWarning")
 def test_trace():
     ds = new_dataset(retrieve_data("fmt-hdf5_fl_2017.zip"))
     assert len(ds["trace"]) == 2

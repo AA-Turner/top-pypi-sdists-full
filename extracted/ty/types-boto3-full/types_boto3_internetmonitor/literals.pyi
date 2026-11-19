@@ -77,6 +77,7 @@ QueryTypeType = Literal[
 TriangulationEventTypeType = Literal["AWS", "Internet"]
 CloudWatchInternetMonitorServiceName = Literal["internetmonitor"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

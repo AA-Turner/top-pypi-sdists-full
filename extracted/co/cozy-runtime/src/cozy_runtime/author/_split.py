@@ -8,7 +8,7 @@ import itertools
 import math
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, cast, overload
 
 if TYPE_CHECKING:
@@ -32,7 +32,9 @@ class Pieces(Protocol):
     """The memory's side of `split`: `split` runs `run(most, host)` in windows of at most `most`
     of `total` elements, the least `finest`, once, its whole output in host memory with `host`
     (only where `hostable`); `piece` marks each window's start. `whole` is the output windows are
-    assembled in, `write` puts a window there and `read` brings an input's window to the device."""
+    assembled in (`ahead`: allocated before the first window, where measured), `write` puts a
+    window there, `read` brings an input's window to the device and `moved` a partly written
+    whole to host."""
 
     def split[T](
         self,
@@ -46,11 +48,20 @@ class Pieces(Protocol):
         run: Callable[[int, bool], T],
         pure: bool = False,
         hostable: bool = False,
+        exact: str = "",
     ) -> T: ...
 
     def piece(self) -> None: ...
 
-    def whole(self, part: Tensor, shape: Sequence[int], key: str, host: bool) -> Tensor: ...
+    def whole(
+        self, part: Tensor, shape: Sequence[int], key: str, host: bool, zeros: bool = False
+    ) -> Tensor: ...
+
+    def ahead(self, key: str, host: bool, zeros: bool) -> Tensor | None: ...
+
+    def moved(self, out: Tensor) -> Tensor: ...
+
+    def narrowed(self, whole: Tensor, dtype: torch.dtype) -> Tensor: ...
 
     def write(self, dst: Tensor, src: Tensor) -> None: ...
 
@@ -139,16 +150,21 @@ def split[W](
 
     Where the device has no room for the whole output beside the windows, the memory keeps it in
     host memory the device addresses (a CUDA tensor all the same), and a `split` reading it
-    brings each window back: slower, never out of memory. A blended cut's stays on the device."""
+    brings each window back: slower, never out of memory. A blended cut's float32 whole goes
+    there too, each window's weighted part added in place."""
     runtime = _RUNTIME
     shape = tuple(int(n) for n in x.shape)
     # Writing windows in place (`out`) can consume its input, so that never runs twice.
     pure = out is None and getattr(fn, "PURE_WINDOWS", False)
     if out is not None and any(c.scale != 1 or c.overlap for c in cuts):
         raise ValueError("split(out=) writes windows in place: its cuts take no scale or overlap")
-    whole = 0 if out is not None or host else _bytes(shape, cuts, x)
-    hostable = bool(whole) and not any(c.overlap for c in cuts)
+    # A blended whole accumulates in float32 (`_run`).
+    widen = max(4 // x.element_size(), 1) if any(c.overlap for c in cuts) else 1
+    whole = 0 if out is not None or host else _bytes(shape, cuts, x) * widen
+    hostable = bool(whole)
     key = _key(fn, shape, cuts, x.dtype)
+    exact = f"{key}|{shape}"  # what the memory measures this call's whole under: its shape too
+    progress = _Progress()  # what a retry of this call keeps: the windows it finished
     if most is not None and cuts:
         windows = _windows(shape, cuts, most)
         if runtime is None:
@@ -165,9 +181,10 @@ def split[W](
             whole,
             _item_bytes(cuts, x),
             holds,
-            lambda _, on_host: _run(fn, x, cuts, windows, runtime, key, out, on_host),
+            lambda _, on_host: _run(fn, x, cuts, windows, runtime, exact, out, on_host, progress),
             pure,
             hostable,
+            exact,
         )
     if runtime is None or not cuts:
         entire = cast("W", x)  # run whole, `fn` takes `x` as its own window (`Sliceable`)
@@ -184,10 +201,11 @@ def split[W](
         _item_bytes(cuts, x),
         holds,
         lambda most, on_host: _run(
-            fn, x, cuts, _windows(shape, cuts, most), runtime, key, out, on_host
+            fn, x, cuts, _windows(shape, cuts, most), runtime, exact, out, on_host, progress
         ),
         pure,
         hostable,
+        exact,
     )
 
 
@@ -372,6 +390,24 @@ def _largest(shape: tuple[int, ...], cuts: tuple[Cut, ...], longest: Sequence[in
     return rest * math.prod(longest)
 
 
+@dataclass(slots=True)
+class _Progress:
+    """What one split call finished, kept across the memory's retries of it (cr-305): its whole
+    output and blend weights so far, the windows written into them, and their dtype. A retry runs
+    only the windows no finished one contains."""
+
+    out: Tensor | None = None
+    total: Tensor | None = None
+    done: list[Window] = field(default_factory=list)
+    dtype: torch.dtype | None = None
+
+    def finished(self, window: Window) -> bool:
+        return any(
+            all(a0 <= a and b <= b0 for (a, b), (a0, b0) in zip(window, d, strict=True))
+            for d in self.done
+        )
+
+
 def _run[W](
     fn: Callable[[W], Tensor] | Callable[[W, Tensor], object],
     x: Sliceable[W],
@@ -381,11 +417,13 @@ def _run[W](
     key: str,
     into: Tensor | None = None,
     host: bool = False,
+    progress: _Progress | None = None,
 ) -> Tensor:
     """`fn` over `windows` of `x`, assembled whole (`into` where given), in host memory with
-    `host`."""
+    `host`, skipping the windows `progress` says a refused try finished."""
     ndim = x.dim()
     dims = [c.dim % ndim for c in cuts]
+    progress = progress if progress is not None else _Progress()
 
     def at(index: list[slice[int | None]]) -> W:
         window = x[tuple(index)]
@@ -402,14 +440,24 @@ def _run[W](
             write(at(index), into[tuple(index)])
         return into
     fn = cast("Callable[[W], Tensor]", fn)  # no `out`: the first overload
-    if len(windows) == 1:
+    if len(windows) == 1 and not progress.done:
         # run whole, `fn` takes `x` as its own window (`Sliceable`)
         return fn(cast("W", x if runtime is None else runtime.read(x)))
     blend = any(c.overlap for c in cuts)
-    out: Tensor | None = None
-    total: Tensor | None = None
     sizes = [math.ceil(x.shape[d] * c.scale - 1e-9) for d, c in zip(dims, cuts, strict=True)]
+    if runtime is not None:
+        if progress.out is not None and host:
+            progress.out = runtime.moved(progress.out)  # its finished windows come with it
+        elif progress.out is None:
+            progress.out = runtime.ahead(key, host, blend)  # measured: before any window runs
+    if blend and progress.out is not None and progress.total is None:
+        made = progress.out.shape
+        progress.total = progress.out.new_zeros(
+            [made[d] if d in dims else 1 for d in range(len(made))]
+        )
     for window in windows:
+        if progress.finished(window):
+            continue
         index = [slice(None)] * ndim
         for d, (a, b) in zip(dims, window, strict=True):
             index[d] = slice(a, b)
@@ -420,26 +468,35 @@ def _run[W](
         for d, c, (a, _), size in zip(dims, cuts, window, sizes, strict=True):
             start = round(a * c.scale)
             place[d] = slice(start, min(start + int(part.shape[d]), size))
-        if out is None:
+        if progress.out is None:
             shape = list(part.shape)
             for d, size in zip(dims, sizes, strict=True):
                 shape[d] = size
             if blend:
                 wide = part if part.dtype.itemsize >= 4 else part.float()
-                out = wide.new_zeros(shape)
-                total = out.new_zeros([size if d in dims else 1 for d, size in enumerate(shape)])
+                progress.out = (
+                    wide.new_zeros(shape)
+                    if runtime is None
+                    else runtime.whole(wide, shape, key, host, zeros=True)
+                )
+                progress.total = progress.out.new_zeros(
+                    [size if d in dims else 1 for d, size in enumerate(shape)]
+                )
             else:
-                out = (
+                progress.out = (
                     part.new_empty(shape)
                     if runtime is None
                     else runtime.whole(part, shape, key, host)
                 )
+        out = progress.out
+        progress.dtype = part.dtype
         trim = tuple(slice(0, s.stop - s.start) if s.start is not None else s for s in place)
         if not blend:
             if runtime is None:
                 out[tuple(place)] = part[trim]
             else:
                 runtime.write(out[tuple(place)], part[trim])
+            progress.done.append(window)
             continue
         weight = out.new_ones([1] * part.dim())
         for d, c, (a, b) in zip(dims, cuts, window, strict=True):
@@ -449,11 +506,14 @@ def _run[W](
             shape[d] = length
             weight = weight * out.new_tensor(ramp).view(shape)
         out[tuple(place)] += part[trim].to(out.dtype) * weight
-        held = cast("Tensor", total)  # blending: made with `out` at the first window
+        held = cast("Tensor", progress.total)  # blending: made with `out`
         held[tuple(s if i in dims else slice(None) for i, s in enumerate(place))] += weight
-    whole = cast("Tensor", out)  # made at the first of at least two windows
+        progress.done.append(window)
+    whole = cast("Tensor", progress.out)  # made at the latest at the first window
     if blend:
-        return whole.div_(cast("Tensor", total)).to(part.dtype)  # type: ignore[possibly-undefined]  # >= 2 windows ran
+        whole.div_(cast("Tensor", progress.total))
+        dtype = cast("torch.dtype", progress.dtype)  # at least one window ran
+        return whole.to(dtype) if runtime is None else runtime.narrowed(whole, dtype)
     return whole
 
 

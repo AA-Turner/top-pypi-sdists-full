@@ -104,6 +104,7 @@ RepositoryTriggerEventEnumType = Literal[
 SortByEnumType = Literal["lastModifiedDate", "repositoryName"]
 CodeCommitServiceName = Literal["codecommit"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

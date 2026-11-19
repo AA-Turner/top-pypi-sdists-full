@@ -549,7 +549,7 @@ def _turn(w: dict) -> str | None:
 
 def holds_gpus(f: dict) -> bool:
     """Whether a deployment holds GPUs, from its fleet reply: it does when the reply names a card - a `gpus` block (its
-    declared cards, which the gateway returns from the deploy on and leaves None for CPU, routes/fleet._gpu_list) or a
+    declared cards, which the platform returns from the deploy on and leaves None for CPU) or a
     `price` for a card (a running GPU worker). A CPU deployment has neither (its price.card is None, or "CPU" where its
     build check ran on a machine with no card), so max GPUs is nothing it needs and nothing to warn about. Read from
     `gpus`, not price alone: a fresh deploy is not priced yet, so a CPU deploy with no price was read as a GPU's and
@@ -775,8 +775,8 @@ def episodes_lost_line(lost: Any, name: str) -> str | None:
 
 def now_line(f: dict) -> str | None:
     """The card the deployment's live workers run on now and what one worker costs an hour on it, from the fleet's own
-    workers and GPU list (gpus.cards, priced as billed). None without a live worker. A deployment runs on its one card
-    , so this names one."""
+    workers and GPU list (gpus.cards, priced as billed). None without a live worker. A deployment runs on its one card,
+    so this names one."""
     cards = (f.get("gpus") or {}).get("cards") or []
     if not cards:
         return None
@@ -1128,8 +1128,8 @@ def show_sample(measured: dict | None, echo: Echo) -> None:
 
 
 def sample_said(played: dict) -> str:
-    """The sample episode the build check played whole
-, as the build's act step says it (harness/control_progress.py sample_said): its calls - observes and
+    """The sample episode the build check played whole (`measured.sample`), as the build's act step
+    says it: its calls - observes and
     acts - each act's time, the first and the median of the rest, and the GPU memory it held at most: the framework's
     own peak, else what the card showed in use.
 """

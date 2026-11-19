@@ -51,6 +51,11 @@ _ALLOWED_KWARGS = frozenset({
 
 
 
+
+    "robot",
+
+
+
     "cpu", "memory",
 
 

@@ -47,6 +47,7 @@ ListRequiredTagsPaginatorName = Literal["list_required_tags"]
 TargetIdTypeType = Literal["ACCOUNT", "OU", "ROOT"]
 ResourceGroupsTaggingAPIServiceName = Literal["resourcegroupstaggingapi"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+ticket_id: OMN-23054
+title: omnimarket's test durations record covers every test file, so Tests (Split 13/20) passes on dev and every pull request
+summary: 34 test files that dev's durations record did not hold are recorded as entry files under config/test_file_durations.d/, written by the check node's --sidecar --record command from one serial measured run, so the unrecorded count on dev is 0 and the freshness test passes with its full headroom. Not in this change - a full refresh of the shared list from CI run timings, which the entry files leave valid until one folds them in.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+- id: req-omn23054-record-covers-every-file
+  statement: Every test file pytest collects from tests/ has a duration in config/test_file_durations.json or in an entry file under config/test_file_durations.d/.
+  acceptance:
+  - id: AC1
+    statement: 'AC1: config/test_file_durations.json is regenerated from CI run timings through its declared route and covers every test file on dev, so the freshness test passes -- falsifier: uv run pytest of the freshness test on dev'
+evidence_requirements:
+- kind: tests
+  description: The freshness test, the shard planner tests and the check node tests pass at the pushed head.
+  command: uv run --frozen pytest tests/unit/test_ci_shard_plan_record_freshness_omn17427.py tests/unit/test_ci_shard_plan_omn19684.py tests/nodes/node_test_duration_record_check_effect -q --no-cov -n 0 -p no:randomly
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+- id: dod-omn23054-ac1
+  description: 'AC1: the freshness test passes at the pushed head, and the node count of test files with no entry (shared list plus entry files) reads 0 where it read 34 at the merge base.'
+  source: manual
+  binds_ac:
+  - AC1
+  checks:
+  - check_type: test_passes
+    check_value: uv run --frozen pytest tests/unit/test_ci_shard_plan_record_freshness_omn17427.py tests/nodes/node_test_duration_record_check_effect -q --no-cov -n 0 -p no:randomly
+    cwd: .

@@ -108,6 +108,7 @@ from bitfab.replay import replay as _run_replay
 from bitfab.replay_branch import DbBranchOptions, ReplayBranch
 from bitfab.replay_interrupt import ReplayInterrupt
 from bitfab.sandbox import SANDBOX_FIXTURE_PREFIX, SANDBOX_SESSION_KEY, Sandbox
+from bitfab.sandbox_modes import SandboxModeSetting
 from bitfab.selective_replay import SelectiveReplayOptions, json_fingerprint
 from bitfab.serialize import (
     exceeds_readable_budget,
@@ -2381,12 +2382,14 @@ class Bitfab:
         dataset_ids: list[str] | None = None,
         grader_ids: list[str] | None = None,
         only_with_assertions: bool = False,
+        only_drafts: bool = False,
         category_ids: list[str] | None = None,
         skip_assertion_judging: bool = False,
         judge_assertions: bool | None = None,
         mock: MockStrategy = "marked",
         mock_override: Union[MockOverrideInput, list[MockOverrideInput]] | None = None,
         sandboxes: list[Sandbox] | None = None,
+        sandbox_modes: Mapping[str, SandboxModeSetting] | None = None,
         experimental_selective_replay: SelectiveReplayOptions | None = None,
         adapt_inputs: Callable[
             [list[Any], dict[str, Any], AdaptContext], tuple[list[Any], dict[str, Any]]
@@ -2521,24 +2524,31 @@ class Bitfab:
                 active/live grader in the same org and trace function, or the
                 server rejects the replay.
             only_with_assertions: Replay only the selected traces that carry at
-                least one approved assertion. Narrows whatever ``limit``,
+                least one confirmed assertion. Narrows whatever ``limit``,
                 ``trace_ids`` or ``dataset_ids`` chose, so a run that measures
                 assertion outcomes doesn't pay to re-execute traces nothing can
                 grade. With ``limit`` it selects the N most recent traces that
-                HAVE approved assertions, rather than filtering the N most
-                recent down to however few do. An assertion still awaiting
-                review doesn't count, because a replay is only judged against
-                assertions a person has approved.
-            category_ids: Replay only the selected traces that carry an
-                approved assertion in one of these categories. Narrows a ``trace_ids`` or ``dataset_ids`` selection the way
+                HAVE confirmed assertions, rather than filtering the N most
+                recent down to however few do. A draft assertion doesn't
+                count, because a replay is only judged against assertions a
+                person has confirmed.
+            only_drafts: Replay only the selected traces that carry at least
+                one draft assertion: not confirmed, not rejected, and not
+                archived. Narrows whatever ``limit``, ``trace_ids`` or
+                ``dataset_ids`` chose, the way ``only_with_assertions`` does. With
+                ``dataset_ids`` it replays the part of the dataset with a draft
+                assertion, and the experiment shows as a subset of that
+                dataset. A selection that narrows to nothing replays nothing.
+            category_ids: Replay only the selected traces that carry a
+                confirmed assertion in one of these categories. Narrows a ``trace_ids`` or ``dataset_ids`` selection the way
                 ``only_with_assertions`` does, but counts only assertions filed
                 under a named category. It changes which traces replay, not
                 which assertions are judged on each replay. Passing it without
                 ``trace_ids``, ``dataset_id`` or ``dataset_ids`` raises
                 ``ValueError``. A selection that narrows to nothing replays
                 nothing.
-            skip_assertion_judging: Don't judge approved assertions on each
-                replay. Judging is on by default: every approved assertion is
+            skip_assertion_judging: Don't judge confirmed assertions on each
+                replay. Judging is on by default: every confirmed assertion is
                 judged as its replay finishes and the verdict is saved as that
                 assertion's agent verdict, and each judgement costs model calls.
             mock: Mock strategy for child spans during replay.
@@ -2562,6 +2572,17 @@ class Bitfab:
                 sandbox that matches a call answers it before any mock override
                 or ``mock`` strategy. Built-in sandboxes (the Gmail and
                 GitHub sandboxes) are always on; passing one with the same name replaces it.
+            sandbox_modes: The mode of each built-in sandbox, keyed by
+                service (``"gmail"``, ``"github"``). ``True`` runs the
+                service's default mode, ``False`` turns its sandbox off, and a
+                string names a mode: ``{"gmail": "read-real-write-fake"}``
+                reads the real mailbox and keeps writes in the sandbox (see
+                :func:`~bitfab.gmail_sandbox`), and ``{"gmail": "recorded"}``
+                answers from the original trace's recorded mail. Gmail's
+                default mode is ``"read-real-write-fake"``; a service left out
+                keeps the mode it runs in without this option (Gmail:
+                ``"recorded"``). A sandbox set here cannot also be passed in
+                ``sandboxes``.
             experimental_selective_replay: Opt-in must_run manifest. The
                 server protects required subtrees and ancestors, combining them
                 with each trace's assertions and recorded
@@ -2609,10 +2630,10 @@ class Bitfab:
                 with ``carried_over=True`` and no payloads. Passing
                 ``trace_ids``, ``limit``, ``dataset_id``, ``dataset_ids``,
                 ``attempts``, ``grader_ids``, ``only_with_assertions``,
-                ``category_ids`` or ``dry_run`` with it is an error, because
-                the experiment already fixed them. Database branching and its
-                settings also come from the experiment, so ``db_branch`` is
-                ignored.
+                ``only_drafts``, ``category_ids`` or ``dry_run`` with it is
+                an error, because the experiment already fixed them. Database
+                branching and its settings also come from the experiment, so
+                ``db_branch`` is ignored.
             force: Resume even when the experiment had activity in the last
                 two minutes or its code change differs from the one it started
                 with. Only valid with ``resume``.
@@ -2686,12 +2707,14 @@ class Bitfab:
             dataset_ids=dataset_ids,
             grader_ids=grader_ids,
             only_with_assertions=only_with_assertions,
+            only_drafts=only_drafts,
             category_ids=category_ids,
             skip_assertion_judging=skip_assertion_judging,
             judge_assertions=judge_assertions,
             mock=mock,
             mock_override=mock_override,
             sandboxes=sandboxes,
+            sandbox_modes=sandbox_modes,
             experimental_selective_replay=experimental_selective_replay,
             adapt_inputs=adapt_inputs,
             db_branch=db_branch,

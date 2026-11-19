@@ -8,9 +8,9 @@
 // @lint-ignore-every SPELL
 
 use std::cell::LazyCell;
-use std::collections::HashMap;
 use std::sync::LazyLock;
 
+use dupe::Dupe;
 use lsp_types::Contents;
 use lsp_types::Hover;
 use lsp_types::MarkupContent;
@@ -21,6 +21,7 @@ use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::docstring::parse_parameter_documentation;
+use pyrefly_python::dunder;
 use pyrefly_python::ignore::Ignore;
 use pyrefly_python::ignore::Tool;
 use pyrefly_python::ignore::TypeIgnoreUnknownTagBehavior;
@@ -38,11 +39,12 @@ use pyrefly_types::display::LspDisplayMode;
 use pyrefly_types::type_var::Variance;
 use pyrefly_types::types::Type;
 use pyrefly_util::absolutize::Absolutize as _;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::lined_buffer::LineNumber;
-use pyrefly_util::visit::Visit;
 use regex::Regex;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::CmpOp;
+use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -57,7 +59,10 @@ use vec1::Vec1;
 
 use crate::alt::answers_solver::AnswersSolver;
 use crate::binding::binding::Key;
+use crate::binding::bindings::BindingsBuilder;
 use crate::error::error::Error;
+use crate::export::doc_ranges::function_doc_ranges;
+use crate::export::exports::ExportLocation;
 use crate::lsp::module_helpers::collect_symbol_def_paths;
 use crate::lsp::module_helpers::to_real_path;
 use crate::lsp::wasm::signature_help::CallInfo;
@@ -73,6 +78,7 @@ use crate::state::lsp::IdentifierWithContext;
 use crate::state::lsp::attribute_symbol_kind_from_type;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionHandle;
+use crate::types::env::TypeEnv;
 
 /// Matches Sphinx cross-references like `:meth:`target``, `:class:`MyClass``, etc.
 /// The role name is captured but ignored — all roles resolve uniformly.
@@ -85,7 +91,7 @@ pub struct HoverValue {
     pub type_: Type,
     pub range: Option<Range>,
     pub docstring: Option<Docstring>,
-    pub parameter_doc: Option<(String, String)>,
+    pub parameter_docs: Vec<(String, String)>,
     pub type_sources: Vec<String>,
     pub display: Option<String>,
     pub show_go_to_links: bool,
@@ -114,8 +120,8 @@ fn qualify_hover_names(kind: Option<SymbolKind>, type_: &Type) -> bool {
 
 impl HoverValue {
     #[cfg(not(target_arch = "wasm32"))]
-    fn format_symbol_def_locations(t: &Type) -> Option<String> {
-        let symbol_paths = collect_symbol_def_paths(t);
+    fn format_symbol_def_locations(env: &dyn TypeEnv, t: &Type) -> Option<String> {
+        let symbol_paths = collect_symbol_def_paths(env, t);
         let linked_names = symbol_paths
             .into_iter()
             .filter_map(|(qname, file_path)| {
@@ -138,7 +144,7 @@ impl HoverValue {
     }
 
     #[cfg(target_arch = "wasm32")]
-    fn format_symbol_def_locations(t: &Type) -> Option<String> {
+    fn format_symbol_def_locations(_env: &dyn TypeEnv, t: &Type) -> Option<String> {
         None
     }
 
@@ -208,10 +214,7 @@ impl HoverValue {
             .and_then(|meta| {
                 let symbol = meta.kind.to_func_symbol()?;
                 let class = symbol.cls.as_ref()?;
-                Some(Type::ClassType(ClassType::new(
-                    class.clone(),
-                    Default::default(),
-                )))
+                Some(Type::ClassType(ClassType::new(*class, Default::default())))
             })
             .or_else(|| {
                 if let Type::Callable(callable) = context_type
@@ -246,6 +249,7 @@ impl HoverValue {
     }
 
     pub fn format(&self, transaction: &Transaction, handle: &Handle) -> Hover {
+        let type_env = transaction.type_env(handle);
         let docstring_formatted = match &self.docstring {
             Some(docstring) => {
                 let content = docstring.resolve();
@@ -255,18 +259,27 @@ impl HoverValue {
             }
             None => String::new(),
         };
-        let parameter_doc_formatted =
-            self.parameter_doc
-                .as_ref()
-                .map_or(String::new(), |(name, doc)| {
-                    let prefix = if self.docstring.is_some() {
-                        "\n\n---\n"
-                    } else {
-                        "\n---\n"
-                    };
-                    let cleaned = doc.trim().replace('\n', "  \n");
-                    format!("{prefix}**Parameter `{}`**\n{}", name, cleaned)
-                });
+        let parameter_docs_formatted = if self.parameter_docs.is_empty() {
+            String::new()
+        } else {
+            let prefix = if self.docstring.is_some() {
+                "\n\n---\n"
+            } else {
+                "\n---\n"
+            };
+            let docs = self
+                .parameter_docs
+                .iter()
+                .map(|(name, doc)| {
+                    format!(
+                        "**Parameter `{name}`**\n{}",
+                        doc.trim().replace('\n', "  \n")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            format!("{prefix}{docs}")
+        };
         let kind_formatted = self
             .resolve_symbol_kind()
             .map(|kind| format!("{} ", kind.display_for_hover()))
@@ -284,7 +297,7 @@ impl HoverValue {
             .map(|s| format!("{s}: "))
             .unwrap_or_default();
         let symbol_def_formatted = if self.show_go_to_links {
-            HoverValue::format_symbol_def_locations(&self.type_).unwrap_or_default()
+            HoverValue::format_symbol_def_locations(&type_env, &self.type_).unwrap_or_default()
         } else {
             String::new()
         };
@@ -301,6 +314,7 @@ impl HoverValue {
         };
         let type_display = self.display.clone().unwrap_or_else(|| {
             self.type_.as_lsp_string_with_options(
+                &type_env,
                 self.name.as_deref(),
                 LspDisplayMode::Hover,
                 false,
@@ -318,7 +332,7 @@ impl HoverValue {
                     type_display,
                     type_source_formatted,
                     docstring_formatted,
-                    parameter_doc_formatted,
+                    parameter_docs_formatted,
                     symbol_def_formatted
                 ),
             }),
@@ -431,7 +445,7 @@ fn position_is_in_docstring(ast: Option<&ModModule>, position: TextSize) -> bool
 /// If we can't determine a symbol name via go-to-definition, fall back to what the
 /// type metadata knows about the callable. This primarily handles third-party stubs
 /// where we only have typeshed information.
-fn fallback_hover_name_from_type(type_: &Type) -> Option<String> {
+fn fallback_hover_name_from_type(type_: &Type, env: &dyn TypeEnv) -> Option<String> {
     let name = type_
         .toplevel_func_metadata()
         .map(|meta| meta.kind.function_name());
@@ -440,9 +454,16 @@ fn fallback_hover_name_from_type(type_: &Type) -> Option<String> {
     }
     // Recurse through Type wrapper
     if let Type::Type(inner) = type_ {
-        return fallback_hover_name_from_type(inner);
+        return match inner.as_ref() {
+            Type::ClassType(cls) => Some(cls.name(env).to_string()),
+            _ => fallback_hover_name_from_type(inner, env),
+        };
     }
-    None
+    match type_ {
+        Type::ClassDef(cls) => Some(cls.name(env).to_string()),
+        Type::SpecializedClassDef(cls) => Some(cls.name(env).to_string()),
+        _ => None,
+    }
 }
 
 fn simple_python_string_literal_contents(snippet: &str) -> Option<&str> {
@@ -510,6 +531,69 @@ fn identifier_text_at(
     transaction
         .identifier_at(handle, position)
         .map(|id| id.identifier.id.to_string())
+}
+
+/// Find documentation for a class object, including classes in closed modules.
+fn docstring_for_class_object_type(
+    transaction: &Transaction<'_>,
+    handle: &Handle,
+    type_: &Type,
+) -> Option<Docstring> {
+    let env = transaction.type_env(handle);
+    let qname = match type_ {
+        Type::ClassDef(cls) => cls.qname(&env),
+        Type::SpecializedClassDef(cls) => cls.qname(&env),
+        Type::Type(inner) => match inner.as_ref() {
+            Type::ClassType(cls) => cls.qname(&env),
+            _ => return None,
+        },
+        _ => return None,
+    };
+    let definition_handle =
+        transaction.imported_handle(handle, qname.module_name(), qname.module_path().dupe());
+    let module = transaction.get_module_info(&definition_handle)?;
+    // Exported classes retain their docstring range after their AST is evicted.
+    let range = if let Some(ExportLocation::ThisModule(export)) =
+        transaction.get_exports(&definition_handle).get(qname.id())
+        && export.location == qname.range()
+    {
+        export.doc_ranges.docstring()
+    } else {
+        let ast = transaction.get_ast_or_parse_module(handle, &module);
+        Ast::locate_node(&ast, qname.range().start())
+            .into_iter()
+            .find_map(|node| match node {
+                AnyNodeRef::StmtClassDef(class) if class.name.range() == qname.range() => {
+                    Docstring::range_from_stmts(&class.body)
+                }
+                _ => None,
+            })
+    };
+    range
+        .map(|range| Docstring(range, module))
+        .and_then(nonempty_docstring)
+        .or_else(|| {
+            // A module export must not stand in for a nested class with the same name.
+            if !qname.module_path().is_interface() || !qname.parent().is_toplevel() {
+                return None;
+            }
+            let (implementation_handle, _, export) = transaction.resolve_named_import(
+                handle,
+                qname.module_name(),
+                qname.id().clone(),
+                FindPreference {
+                    prefer_pyi: false,
+                    include_interpreter_stdlib: true,
+                    ..FindPreference::default()
+                },
+            )?;
+            if export.symbol_kind != Some(SymbolKind::Class) {
+                return None;
+            }
+            let range = export.doc_ranges.docstring()?;
+            let module = transaction.get_module_info(&implementation_handle)?;
+            nonempty_docstring(Docstring(range, module))
+        })
 }
 
 fn collect_typed_dict_fields_for_hover<'a>(
@@ -605,7 +689,7 @@ fn type_parameter_hover_display(
     Some(format!(
         "{}@{} ({})",
         quantified.name(),
-        owner.name(),
+        owner.name(solver),
         display_variance_for_hover(variance.get(quantified.name()))
     ))
 }
@@ -613,7 +697,7 @@ fn type_parameter_hover_display(
 fn class_display_type(solver: &AnswersSolver<TransactionHandle<'_>>, type_: &Type) -> Option<Type> {
     let enum_class = match type_ {
         Type::ClassDef(cls) => Some(cls),
-        Type::ClassType(cls) => Some(cls.class_object()),
+        Type::ClassType(cls) | Type::SpecializedClassDef(cls) => Some(cls.class_object()),
         Type::Type(t) => match &**t {
             Type::ClassType(cls) => Some(cls.class_object()),
             _ => None,
@@ -641,54 +725,13 @@ fn class_display_type(solver: &AnswersSolver<TransactionHandle<'_>>, type_: &Typ
                 .type_order()
                 .constructor_to_callable(&solver.promote_nontypeddict_silently_to_classtype(cls)),
         ),
-        Type::Type(t) => match &**t {
-            Type::ClassType(cls) => Some(solver.type_order().constructor_to_callable(cls)),
-            _ => None,
-        },
+        Type::SpecializedClassDef(cls) => Some(solver.type_order().constructor_to_callable(cls)),
+        Type::Type(t) => solver.type_order().constructor_to_callable_for_type_of(t),
         _ => None,
     }?;
     constructor
         .transform_toplevel_callable_signatures(|c, _| expand_callable_kwargs_for_hover(solver, c));
     Some(solver.for_display(constructor))
-}
-
-fn parameter_documentation_for_callee(
-    transaction: &Transaction<'_>,
-    handle: &Handle,
-    callee_range: TextRange,
-) -> Option<HashMap<String, String>> {
-    let position = callee_range.start();
-    let docstring = transaction
-        .find_definition(
-            handle,
-            position,
-            FindPreference {
-                prefer_pyi: false,
-                include_interpreter_stdlib: true,
-                ..Default::default()
-            },
-        )
-        .map(Vec1::into_vec)
-        .unwrap_or_default()
-        .into_iter()
-        .find_map(|item| {
-            item.docstring_range
-                .map(|range| (range, item.module.clone()))
-        })
-        .or_else(|| {
-            transaction
-                .find_definition(handle, position, FindPreference::default())
-                .map(Vec1::into_vec)
-                .unwrap_or_default()
-                .into_iter()
-                .find_map(|item| {
-                    item.docstring_range
-                        .map(|range| (range, item.module.clone()))
-                })
-        })?;
-    let (range, module) = docstring;
-    let docs = parse_parameter_documentation(module.code_at(range));
-    if docs.is_empty() { None } else { Some(docs) }
 }
 
 fn keyword_argument_documentation(
@@ -701,7 +744,7 @@ fn keyword_argument_documentation(
         return None;
     }
     let CallInfo { callee_range, .. } = transaction.get_callables_from_call(handle, position)?;
-    let docs = parameter_documentation_for_callee(transaction, handle, callee_range)?;
+    let docs = transaction.parameter_documentation_for_callee(handle, callee_range)?;
     let name = identifier.identifier.id.to_string();
     docs.get(name.as_str()).cloned().map(|doc| (name, doc))
 }
@@ -724,10 +767,12 @@ fn parameter_definition_documentation(
         })
         .find(|func| func.range.contains_inclusive(definition_range.start()))?;
 
-    let doc_range = Docstring::range_from_stmts(func.body.as_slice())?;
-    let docs = parse_parameter_documentation(module.code_at(doc_range));
+    let mut docs = Docstring::range_from_stmts(func.body.as_slice())
+        .map(|range| parse_parameter_documentation(module.code_at(range)))
+        .unwrap_or_default();
+    docs.extend(function_doc_ranges(func).parameter_docs(&module));
     let key = name.as_str();
-    docs.get(key).cloned().map(|doc| (key.to_owned(), doc))
+    docs.remove(key).map(|doc| (key.to_owned(), doc))
 }
 
 fn keyword_argument_identifier(
@@ -1272,13 +1317,52 @@ fn in_keyword_hover(
             contents: Contents::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
                 value: format!(
-                    "```python\n(keyword) in\n```\n---\nIteration over `{iterable_type}`\n\n{documentation}\n\n[Python language reference]({reference})"
+                    "```python\n(keyword) in\n```\n---\nIteration over `{}`\n\n{documentation}\n\n[Python language reference]({reference})",
+                    iterable_type.display_with(&transaction.type_env(handle)),
                 ),
             }),
             range: Some(module.to_lsp_range(token.range())),
         },
         can_increase_verbosity: false,
     })
+}
+
+/// Find the innermost call enclosing the cursor, if the cursor is in its callee.
+/// The returned ranges identify the callee and arguments; the flag excludes receivers and indices.
+fn callee_at_position(
+    transaction: &Transaction<'_>,
+    handle: &Handle,
+    ast: &ModModule,
+    position: TextSize,
+) -> Option<(TextRange, TextRange, bool)> {
+    let call = Ast::locate_node(ast, position)
+        .into_iter()
+        .find_map(|node| match node {
+            AnyNodeRef::ExprCall(call) => Some(call),
+            _ => None,
+        })?;
+    // An inner call's argument must not be mistaken for part of an outer callee.
+    if !call.func.range().contains_inclusive(position) {
+        return None;
+    }
+    let mut name = call.func.as_ref();
+    // Class specialization names a constructor; ordinary indexing names a receiver.
+    while let Expr::Subscript(subscript) = name {
+        if !transaction
+            .get_answers(handle)?
+            .get_type_trace(subscript.value.range())
+            .is_some_and(is_constructor_call)
+        {
+            break;
+        }
+        name = subscript.value.as_ref();
+    }
+    let on_name = match name {
+        Expr::Name(name) => name.range().contains_inclusive(position),
+        Expr::Attribute(attr) => attr.attr.range().contains_inclusive(position),
+        _ => false,
+    };
+    Some((call.func.range(), call.arguments.range, on_name))
 }
 
 /// Resolve the type under the cursor, coercing it to a callable when hovering over a
@@ -1294,39 +1378,20 @@ fn resolve_hovered_type(
         .or_else(|| transaction.get_type_at(handle, position))
         .or_else(|| transaction.operator_type_at(handle, position))?;
 
-    // Find the innermost call whose callee (func) encloses the cursor, returning the
-    // callee's range and whether the cursor is on the callee's own name — the attribute
-    // in `a.b()`, or the whole callee otherwise. A receiver like `a` in `a.b()` is inside
-    // the callee range but not on the name, so hovering it must not coerce its type.
-    let callee_at_position = || -> Option<(TextRange, bool)> {
-        use ruff_python_ast::Expr;
-        let ast = ast?;
-        let mut result = None;
-        ast.visit(&mut |expr: &Expr| {
-            if let Expr::Call(call) = expr
-                && call.func.range().contains(position)
-            {
-                let on_callee_name = match &*call.func {
-                    Expr::Attribute(attr) => attr.attr.range(),
-                    _ => call.func.range(),
-                }
-                .contains(position);
-                result = Some((call.func.range(), on_callee_name));
+    // A nested callee takes precedence over the surrounding call's argument list.
+    // Receivers and other argument expressions retain their own types.
+    let (callee_range_opt, call_arguments_range, hovering_over_callee) =
+        match ast.and_then(|ast| callee_at_position(transaction, handle, ast, position)) {
+            Some((callee_range, arguments_range, on_name)) => {
+                (Some(callee_range), Some(arguments_range), on_name)
             }
-        });
-        result
-    };
-
-    // Prefer the enclosing call found from the argument list; only walk the AST for a
-    // callee hover when the cursor is not inside an argument. Hovering inside arguments
-    // is never "on the callee", so coercion stays disabled there.
-    let (callee_range_opt, hovering_over_callee) =
-        match transaction.get_callables_from_call(handle, position) {
-            Some(info) => (Some(info.callee_range), false),
-            None => match callee_at_position() {
-                Some((range, on_name)) => (Some(range), on_name),
-                None => (None, false),
-            },
+            None => (
+                transaction
+                    .get_callables_from_call(handle, position)
+                    .map(|info| info.callee_range),
+                None,
+                false,
+            ),
         };
 
     if let Some(callee_range) = callee_range_opt {
@@ -1337,7 +1402,16 @@ fn resolve_hovered_type(
         if is_constructor && let Some(new_type) = override_constructor_return_type(type_.clone()) {
             type_ = new_type;
         } else if hovering_over_callee {
-            type_ = transaction.coerce_type_to_callable(handle, type_);
+            // Signature help owns navigation through an overload set. Keep the hover
+            // compact by showing the same selected (or first) signature that it starts on.
+            type_ = call_arguments_range
+                .and_then(|range| transaction.get_callables_from_call(handle, range.start()))
+                .and_then(|info| {
+                    info.callables
+                        .get(info.chosen_overload_index.unwrap_or(0))
+                        .cloned()
+                })
+                .unwrap_or_else(|| transaction.coerce_type_to_callable(handle, type_));
         }
     }
     Some(type_)
@@ -1373,6 +1447,82 @@ fn resolve_hover_parameter_doc(
     }
 
     None
+}
+
+/// The docstring after a class field's definition, if `position` is on the field's name there.
+fn field_docstring_at_definition(
+    ast: &ModModule,
+    module: Module,
+    position: TextSize,
+) -> Option<Docstring> {
+    let nodes = Ast::locate_node(ast, position);
+    let AnyNodeRef::ExprName(name) = nodes.first()? else {
+        return None;
+    };
+    let class = nodes.iter().find_map(|node| match node {
+        AnyNodeRef::StmtClassDef(class) => Some(*class),
+        _ => None,
+    })?;
+    let range = BindingsBuilder::extract_field_docstrings(&class.body)
+        .get(&name.range)?
+        .docstring()?;
+    Some(Docstring(range, module))
+}
+
+fn is_constructor_dunder(name: Option<&str>) -> bool {
+    name.is_some_and(|name| name == dunder::INIT.as_str() || name == dunder::NEW.as_str())
+}
+
+fn nonempty_docstring(docstring: Docstring) -> Option<Docstring> {
+    docstring.has_content().then_some(docstring)
+}
+
+/// Class docstring for a constructor call whose `__init__` or `__new__` has none.
+///
+/// Eligibility comes from the callee's class type. `find_definition` with dunder
+/// resolution disabled reports `Attribute` or `Variable` for `lib.Person()` and
+/// for a class alias, even though the callee type is the class. A stub docstring
+/// wins over the implementation.
+fn class_docstring_for_constructor(
+    transaction: &Transaction<'_>,
+    handle: &Handle,
+    position: TextSize,
+) -> Option<Docstring> {
+    let ast = transaction.get_ast(handle)?;
+    let (callee_range, _, on_name) = callee_at_position(transaction, handle, &ast, position)?;
+    if !on_name {
+        return None;
+    }
+    let callee_type = transaction
+        .get_answers(handle)?
+        .get_type_trace(callee_range)?;
+    if !is_constructor_call(callee_type.clone()) {
+        return None;
+    }
+
+    let preferences = [
+        FindPreference {
+            resolve_call_dunders: false,
+            ..FindPreference::default()
+        },
+        FindPreference {
+            prefer_pyi: false,
+            include_interpreter_stdlib: true,
+            resolve_call_dunders: false,
+            ..FindPreference::default()
+        },
+    ];
+    let from_definition = preferences.into_iter().find_map(|preference| {
+        let item = transaction
+            .find_definition(handle, position, preference)
+            .ok()
+            .and_then(|items| items.into_vec().into_iter().next())?;
+        item.doc_ranges
+            .docstring()
+            .map(|range| Docstring(range, item.module))
+            .and_then(nonempty_docstring)
+    });
+    from_definition.or_else(|| docstring_for_class_object_type(transaction, handle, &callee_type))
 }
 
 pub fn get_hover(
@@ -1435,8 +1585,8 @@ pub fn get_hover_with_verbosity(
         return keyword_hover;
     };
 
-    // `a and b and c` is a single flat BoolOp, so hovering any operator in the
-    // chain highlights the whole expression. `not` highlights its unary expression.
+    // Binary operators, boolean operators, and `not` highlight their enclosing expression.
+    // `a and b and c` is a single flat BoolOp, so any operator highlights the whole chain.
     let range = ast
         .as_deref()
         .zip(module_info.as_ref())
@@ -1448,6 +1598,7 @@ pub fn get_hover_with_verbosity(
                     AnyNodeRef::ExprBoolOp(bool_op) => {
                         Some(module_info.to_lsp_range(bool_op.range()))
                     }
+                    AnyNodeRef::ExprBinOp(bin_op) => Some(module_info.to_lsp_range(bin_op.range())),
                     AnyNodeRef::ExprUnaryOp(unary_op) if unary_op.op == UnaryOp::Not => {
                         Some(module_info.to_lsp_range(unary_op.range()))
                     }
@@ -1455,7 +1606,8 @@ pub fn get_hover_with_verbosity(
                 })
         });
 
-    let fallback_name_from_type = fallback_hover_name_from_type(&type_);
+    let fallback_name_from_type =
+        fallback_hover_name_from_type(&type_, &transaction.type_env(handle));
     let keyword_argument_identifier = keyword_argument_identifier(transaction, handle, position);
     let definition = transaction
         .find_definition(
@@ -1463,6 +1615,7 @@ pub fn get_hover_with_verbosity(
             position,
             FindPreference {
                 prefer_pyi: false,
+                follow_pytest_conftest: true,
                 include_interpreter_stdlib: true,
                 ..Default::default()
             },
@@ -1485,7 +1638,14 @@ pub fn get_hover_with_verbosity(
         // Only borrow documentation from the same public symbol. Preferences may otherwise
         // redirect a factory function to an unrelated stub constructor.
         transaction
-            .find_definition(handle, position, FindPreference::default())
+            .find_definition(
+                handle,
+                position,
+                FindPreference {
+                    follow_pytest_conftest: true,
+                    ..Default::default()
+                },
+            )
             .ok()
             .and_then(|items| items.into_vec().into_iter().next())
             .filter(|interface| {
@@ -1494,32 +1654,46 @@ pub fn get_hover_with_verbosity(
                     && executable.display_name == interface.display_name
             })
     });
-    let (kind, name, fallback_docstring) = if let Some(FindDefinitionItemWithDocstring {
-        metadata,
-        definition_range: definition_location,
-        module,
-        docstring_range,
-        display_name,
-    }) = definition
-    {
-        let kind = metadata.symbol_kind();
-        let name = hover_name_from_definition_snippet(
-            module.code_at(definition_location),
-            display_name.as_deref(),
-            fallback_name_from_type,
-        );
-        let docstring = docstring_range.map(|range| Docstring(range, module));
-        (kind, name, docstring)
-    } else {
-        (None, fallback_name_from_type, None)
-    };
+    let hover_constructor_dunder = definition
+        .as_ref()
+        .is_some_and(|item| is_constructor_dunder(item.display_name.as_deref()));
+    let (kind, name, fallback_docstring, definition_parameter_docs) =
+        if let Some(FindDefinitionItemWithDocstring {
+            metadata,
+            definition_range: definition_location,
+            module,
+            doc_ranges,
+            display_name,
+        }) = definition
+        {
+            let kind = metadata.symbol_kind();
+            let name = hover_name_from_definition_snippet(
+                module.code_at(definition_location),
+                display_name.as_deref(),
+                fallback_name_from_type,
+            );
+            let parameter_docs = doc_ranges.parameter_docs(&module).collect::<Vec<_>>();
+            let docstring = doc_ranges.docstring().map(|range| Docstring(range, module));
+            (kind, name, docstring, parameter_docs)
+        } else {
+            (None, fallback_name_from_type, None, Vec::new())
+        };
     let docstring = interface_definition
         .and_then(|item| {
-            item.docstring_range
+            item.doc_ranges
+                .docstring()
                 .map(|range| Docstring(range, item.module))
         })
-        .filter(|docstring| !docstring.resolve().trim().is_empty())
-        .or(fallback_docstring);
+        .and_then(nonempty_docstring)
+        .or_else(|| fallback_docstring.and_then(nonempty_docstring))
+        .or_else(|| docstring_for_class_object_type(transaction, handle, &type_));
+
+    let docstring = if hover_constructor_dunder {
+        docstring.or_else(|| class_docstring_for_constructor(transaction, handle, position))
+    } else {
+        docstring
+    }
+    .or_else(|| field_docstring_at_definition(ast.as_deref()?, module_info?, position));
 
     let name = name.or_else(|| identifier_text_at(transaction, handle, position));
 
@@ -1528,7 +1702,8 @@ pub fn get_hover_with_verbosity(
     let type_parameter_owner_class = hover_identifier.as_ref().and_then(|id| {
         get_owner_class_of_pep695_type_parameter_at(id, transaction, handle, position)
     });
-    let show_constructor = kind == Some(SymbolKind::Class)
+    let show_constructor = (kind == Some(SymbolKind::Class)
+        || matches!(&type_, Type::SpecializedClassDef(_)))
         && hover_identifier
             .as_ref()
             .is_some_and(|id| !matches!(id.context, IdentifierContext::ClassDef { .. }));
@@ -1559,6 +1734,7 @@ pub fn get_hover_with_verbosity(
                     qualify_hover_names(kind, &display_type).then(|| handle.module());
                 let render = |expand| {
                     display_type.as_lsp_string_with_options(
+                        &solver,
                         name_for_display.as_deref(),
                         LspDisplayMode::Hover,
                         expand,
@@ -1577,7 +1753,12 @@ pub fn get_hover_with_verbosity(
             None => (None, false),
         };
 
-    let parameter_doc = resolve_hover_parameter_doc(transaction, handle, position);
+    // A function's own `Doc` texts, or the docs of the parameter under the cursor. At most one
+    // is nonempty, because a parameter's definition documents no parameters of its own.
+    let parameter_docs = resolve_hover_parameter_doc(transaction, handle, position)
+        .into_iter()
+        .chain(definition_parameter_docs)
+        .collect();
 
     let mut hover = HoverValue {
         kind,
@@ -1585,7 +1766,7 @@ pub fn get_hover_with_verbosity(
         type_,
         range,
         docstring,
-        parameter_doc,
+        parameter_docs,
         type_sources: type_sources_for_hover(transaction, handle, position),
         display: type_display,
         show_go_to_links: options.show_go_to_links,
@@ -1621,9 +1802,11 @@ mod tests {
     use pyrefly_types::function::FuncMetadata;
     use pyrefly_types::function::Function;
     use pyrefly_types::heap::TypeHeap;
+    use pyrefly_types::test_type_env::TestTypeEnv;
     use ruff_python_ast::name::Name;
 
     use super::*;
+    use crate::test::util::get_batched_lsp_operations_report;
 
     fn make_function_type(heap: &TypeHeap, module_name: &str, func_name: &str) -> Type {
         let module = Module::new(
@@ -1642,15 +1825,29 @@ mod tests {
     fn fallback_uses_function_metadata() {
         let heap = TypeHeap::new();
         let ty = make_function_type(&heap, "numpy", "arange");
-        let fallback = fallback_hover_name_from_type(&ty);
+        let fallback = fallback_hover_name_from_type(&ty, &TestTypeEnv::new());
         assert_eq!(fallback.as_deref(), Some("arange"));
+    }
+
+    #[test]
+    fn fallback_names_specialized_class_def() {
+        let code = "class Box[T]: ...\ndef f():\n    X = Box[int]\n    X\n#   ^\n";
+        let report =
+            get_batched_lsp_operations_report(&[("main", code)], |state, handle, position| {
+                let ty = state.transaction().get_type_at(handle, position).unwrap();
+                let name =
+                    fallback_hover_name_from_type(&ty, &state.transaction().type_env(handle));
+                assert_eq!(name.as_deref(), Some("Box"));
+                name.unwrap()
+            });
+        assert!(report.contains("Box"));
     }
 
     #[test]
     fn fallback_recurses_through_type_wrapper() {
         let heap = TypeHeap::new();
         let ty = heap.mk_type_of(make_function_type(&heap, "pkg.subpkg", "run"));
-        let fallback = fallback_hover_name_from_type(&ty);
+        let fallback = fallback_hover_name_from_type(&ty, &TestTypeEnv::new());
         assert_eq!(fallback.as_deref(), Some("run"));
     }
 

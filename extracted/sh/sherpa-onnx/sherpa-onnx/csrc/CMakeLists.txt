@@ -17,8 +17,12 @@ set(sources
   circular-buffer.cc
   context-graph.cc
   endpoint.cc
+  fa-feature-extractor.cc
+  fa-lexicon.cc
   features.cc
   file-utils.cc
+  forced-aligner-impl.cc
+  forced-aligner.cc
   fst-utils.cc
   homophone-replacer.cc
   hypothesis.cc
@@ -88,6 +92,7 @@ set(sources
   offline-wenet-ctc-model.cc
   offline-whisper-dtw.cc
   offline-whisper-greedy-search-decoder.cc
+  offline-whisper-lang-probs.cc
   offline-whisper-model-config.cc
   offline-whisper-model.cc
   offline-whisper-timestamp-rules.cc
@@ -136,7 +141,6 @@ set(sources
   phrase-matcher.cc
   provider-config.cc
   provider.cc
-  resample.cc
   session.cc
   silero-vad-model-config.cc
   silero-vad-model.cc
@@ -393,6 +397,7 @@ target_link_libraries(sherpa-onnx-core
   kaldi-native-fbank-core
   utf8proc
   kaldi-decoder-core
+  kaldi-hmm-gmm-core
   ssentencepiece_core
 )
 if(DEFINED OHOS AND x${OHOS} STREQUAL xOHOS)
@@ -502,6 +507,7 @@ endif()
 if(SHERPA_ONNX_ENABLE_BINARY)
   add_executable(sherpa-onnx sherpa-onnx.cc)
   add_executable(sherpa-onnx-keyword-spotter sherpa-onnx-keyword-spotter.cc)
+  add_executable(sherpa-onnx-fa sherpa-onnx-fa.cc)
   add_executable(sherpa-onnx-offline sherpa-onnx-offline.cc)
   add_executable(sherpa-onnx-offline-audio-tagging sherpa-onnx-offline-audio-tagging.cc)
   add_executable(sherpa-onnx-offline-denoiser sherpa-onnx-offline-denoiser.cc)
@@ -529,6 +535,7 @@ if(SHERPA_ONNX_ENABLE_BINARY)
   set(main_exes
     sherpa-onnx
     sherpa-onnx-keyword-spotter
+    sherpa-onnx-fa
     sherpa-onnx-offline
     sherpa-onnx-offline-audio-tagging
     sherpa-onnx-offline-denoiser
@@ -825,6 +832,8 @@ if(SHERPA_ONNX_ENABLE_TESTS)
     cat-test.cc
     circular-buffer-test.cc
     context-graph-test.cc
+    fa-lexicon-test.cc
+    forced-aligner-test.cc
     lfr-test.cc
     math-test.cc
     offline-recognizer-canary-impl-test.cc
@@ -834,9 +843,15 @@ if(SHERPA_ONNX_ENABLE_TESTS)
     offline-recognizer-moonshine-v2-impl-test.cc
     offline-recognizer-qwen3-asr-impl-test.cc
     offline-recognizer-shared-rng-test.cc
+    offline-recognizer-transducer-impl-test.cc
+    offline-whisper-lang-probs-test.cc
+    offline-whisper-language-candidates-test.cc
     offline-whisper-timestamp-rules-test.cc
     packed-sequence-test.cc
     pad-sequence-test.cc
+    online-stream-test.cc
+    online-recognizer-result-test.cc
+    online-recognizer-transducer-impl-test.cc
     recognizer-result-json-test.cc
     regex-lang-test.cc
     session-test.cc
@@ -893,6 +908,41 @@ set(srcs_to_check)
 foreach(s IN LISTS sources)
   list(APPEND srcs_to_check ${CMAKE_CURRENT_LIST_DIR}/${s})
 endforeach()
+
+# CI spreads clang-tidy across parallel jobs: configure with e.g.
+#   -DSHERPA_ONNX_TIDY_SHARD=2/6
+# to check only the 2nd of every 6 files (round-robin, so all shards cost
+# about the same). Without this variable every file is checked, as before.
+if(SHERPA_ONNX_TIDY_SHARD)
+  string(REPLACE "/" ";" _shard "${SHERPA_ONNX_TIDY_SHARD}")
+  list(LENGTH _shard _shard_len)
+  if(_shard_len LESS 2)
+    message(FATAL_ERROR
+      "SHERPA_ONNX_TIDY_SHARD must look like i/n with 1 <= i <= n, e.g. 2/6")
+  endif()
+  list(GET _shard 0 _shard_index)
+  list(GET _shard 1 _shard_count)
+  if(NOT _shard_index MATCHES "^[0-9]+$" OR
+     NOT _shard_count MATCHES "^[0-9]+$" OR _shard_count LESS 1 OR
+     _shard_index LESS 1 OR _shard_index GREATER _shard_count)
+    message(FATAL_ERROR
+      "SHERPA_ONNX_TIDY_SHARD must look like i/n with 1 <= i <= n, e.g. 2/6")
+  endif()
+  math(EXPR _shard_want "${_shard_index} - 1")
+  set(_sharded_srcs)
+  set(_i 0)
+  foreach(s IN LISTS srcs_to_check)
+    math(EXPR _rem "${_i} % ${_shard_count}")
+    if(_rem EQUAL ${_shard_want})
+      list(APPEND _sharded_srcs ${s})
+    endif()
+    math(EXPR _i "${_i} + 1")
+  endforeach()
+  set(srcs_to_check ${_sharded_srcs})
+  list(LENGTH srcs_to_check _shard_size)
+  message(STATUS
+    "clang-tidy shard ${SHERPA_ONNX_TIDY_SHARD}: checking ${_shard_size} files")
+endif()
 
 # For clang-tidy
 add_custom_target(

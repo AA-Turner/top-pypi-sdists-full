@@ -54,6 +54,7 @@ ListRulesPaginatorName = Literal["list_rules"]
 ReadinessType = Literal["NOT_AUTHORIZED", "NOT_READY", "READY", "UNKNOWN"]
 Route53RecoveryReadinessServiceName = Literal["route53-recovery-readiness"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

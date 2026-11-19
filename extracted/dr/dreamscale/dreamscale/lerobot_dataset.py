@@ -28,9 +28,11 @@ from dreamscale_core.training_data import (
     summarize_folders,
     valid_upload_path,
 )
-from dreamscale_core.training_families import widest_envelope
 
 from dreamscale import errors
+from dreamscale._training_families import families as training_families
+
+widest_envelope = training_families.widest_envelope
 
 # What an upload of a dataset sends: LeRobot's own folders, nothing hidden (.git, .cache).
 UPLOAD_DIRS = ("meta", "data", "videos")

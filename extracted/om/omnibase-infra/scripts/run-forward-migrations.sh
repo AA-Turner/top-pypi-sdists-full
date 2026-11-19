@@ -813,11 +813,18 @@ case "${ONEX_MIGRATION_LANE}" in
     # on this lane name tenant_projection_writer and role_omnidash, neither a
     # superuser nor BYPASSRLS, and the table is owned by postgres, so the
     # policy binds the writer here rather than being bypassed.
+    # OMN-24341: the arm also releases node_projection_skill_lifecycle 0002, which adds
+    # skill_executions.tenant_id and puts FORCE ROW LEVEL SECURITY and a tenant policy on
+    # the table. The skill lifecycle writer inserts tenant_id, so while the id is fenced
+    # every write is refused with UndefinedColumnError. The baseline fence entry stays;
+    # the release is consulted only on ONEX_MIGRATION_LANE=dev. Authority: the OPERATOR-CONSENT
+    # row of 2026-09-14T12:11:31Z (tenant row-level security on TENANT-class migrations, lab first).
     LANE_RELEASED_NODE_MIGRATION_IDS="\
 node:node_projection_registration:0002_node_service_registry_tenant_rls.sql
 node:node_projection_delegation:0026_delegation_judge_verdict_events_rls_tenant_isolation.sql
 node:node_projection_delegation:0037_delegation_events_uuid_mixed_representation_guard_before_set_role.sql
-node:node_projection_delegation:0041_delegation_budget_state_rls_tenant_isolation.sql"
+node:node_projection_delegation:0041_delegation_budget_state_rls_tenant_isolation.sql
+node:node_projection_skill_lifecycle:0002_grant_tenant_projection_writer_skill_executions.sql"
     ;;
   "")
     LANE_RELEASED_NODE_MIGRATION_IDS=""
@@ -830,9 +837,7 @@ esac
 
 is_lane_released_node_migration() {
   candidate="$1"
-  if [ -z "${LANE_RELEASED_NODE_MIGRATION_IDS}" ]; then
-    return 1
-  fi
+  # An empty release set holds one empty line, which equals no id, so no guard is needed (OMN-24341).
   printf '%s\n' "${LANE_RELEASED_NODE_MIGRATION_IDS}" | grep -Fxq "${candidate}"
 }
 # ---- END operator fence — node migration ids (OMN-15336) ----
@@ -892,13 +897,18 @@ MIGRATION_LOCK_OWNER_PID=""
 
 # True only when the lock is granted to OUR holder session. Matching on
 # application_name is what makes this specific: "somebody holds it" is not
-# proof that WE hold it. A psql error is reported as not-held.
+# proof that WE hold it. A psql error is reported as not-held. $$ is 1 in every
+# runner container, so the tag is shared with runners of other databases on this
+# server: the holder session must also be connected to THIS run's database
+# (OMN-21928). The key is matched by its two words, never as classid * 2^32 +
+# objid: that product overflows bigint for any other session's lock whose high
+# word is 2^31 or more, and the probe then errors and reads as not-held.
 migration_lock_held() {
   _mlh_granted="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" -tAc \
     "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
        WHERE l.locktype = 'advisory' AND l.granted AND l.objsubid = 1
-         AND l.classid::bigint * 4294967296 + l.objid::bigint = ${FORWARD_MIGRATION_LOCK_ID}
-         AND a.application_name = '${MIGRATION_LOCK_TAG}';" 2>/dev/null)" || return 1
+         AND l.classid = (${FORWARD_MIGRATION_LOCK_ID}::bigint >> 32)::oid AND l.objid = (${FORWARD_MIGRATION_LOCK_ID}::bigint & 4294967295)::oid
+         AND a.datname = '${PGDB}' AND a.application_name = '${MIGRATION_LOCK_TAG}';" 2>/dev/null)" || return 1
   [ "$_mlh_granted" = "1" ]
 }
 
@@ -962,12 +972,16 @@ acquire_migration_lock() {
   echo "[forward-migration] Advisory lock ${FORWARD_MIGRATION_LOCK_ID} acquired; held by session '${MIGRATION_LOCK_TAG}' for the whole run."
 }
 
-# Called as the last act before the sentinel is set TRUE: a holder session that
-# died mid-run means the migrations above may have run unserialized, so
-# reporting success (and flipping the migration gate HEALTHY) would be a lie.
+# Fails the run, naming the step, when the lock is no longer ours: a holder that
+# died mid-run means the migrations above may have run unserialized, and
+# reporting success (flipping the gate HEALTHY) would be a lie. Called before
+# each file is applied and as the last act before the sentinel; failing beats
+# re-acquiring, since a lock taken again after a gap says nothing about the
+# files applied during it. The message carries the holder's state and every
+# session on the lock id, so the cause is read from the failure itself.
 assert_migration_lock_still_held() {
   if ! kill -0 "$MIGRATION_LOCK_OWNER_PID" 2>/dev/null || ! migration_lock_held; then
-    echo "[forward-migration] FATAL: advisory lock ${FORWARD_MIGRATION_LOCK_ID} was NOT held for the whole run -- the holder session died mid-run and migrations above may have run unserialized" >&2
+    echo "[forward-migration] FATAL: advisory lock ${FORWARD_MIGRATION_LOCK_ID} was lost before ${1} -- the holder session died mid-run and migrations above may have run unserialized (holder pid ${MIGRATION_LOCK_OWNER_PID}, tag ${MIGRATION_LOCK_TAG}, sessions on the lock: $(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" -tAc "SELECT coalesce(string_agg(coalesce(a.application_name, '?') || ' db=' || l.database || ' granted=' || l.granted, '; '), 'none') FROM pg_locks l LEFT JOIN pg_stat_activity a ON a.pid = l.pid WHERE l.locktype = 'advisory' AND l.classid = (${FORWARD_MIGRATION_LOCK_ID}::bigint >> 32)::oid AND l.objid = (${FORWARD_MIGRATION_LOCK_ID}::bigint & 4294967295)::oid;" 2>&1))" >&2
     exit 1
   fi
 }
@@ -1924,6 +1938,7 @@ for migration_file in $(ls "${MIGRATIONS_DIR}"/*.sql | sort); do
     continue
   fi
 
+  assert_migration_lock_still_held "applying ${filename}"
   echo "[forward-migration]   apply ${filename}..."
 
   # Apply migration then record in tracking table
@@ -2140,6 +2155,7 @@ if [ -d "${NODE_MIGRATIONS_DIR}" ]; then
       fi
       # ---- END unclassified FORCE ROW LEVEL SECURITY guard call (OMN-15336 item 4) ----
 
+      assert_migration_lock_still_held "applying ${migration_id}"
       echo "[forward-migration]   apply ${migration_id}..."
 
       apply_file="$(slot_migration_file "$migration_file")" || exit 4
@@ -2371,10 +2387,8 @@ EOSQL
 
   echo "[forward-migration]   ok    ${grant_role} CONNECT + USAGE on ${grant_schema} + SELECT (${grant_columns}) on ${grant_schema}.${grant_table} asserted"
 
-  unset grant_schema grant_table grant_role_present grant_relation_present
-  unset grant_role_escalated
-  unset grant_privilege_predicate grant_column_rest grant_column grant_column_present
-  unset grant_readback
+  unset grant_schema grant_table grant_role_present grant_relation_present grant_role_escalated
+  unset grant_privilege_predicate grant_column_rest grant_column grant_column_present grant_readback
 }
 
 echo "[forward-migration] Re-asserting deployment-owned least-privilege grants..."
@@ -2859,7 +2873,7 @@ unset maintenance_db maintenance_db_present maintenance_public_connect
 # The lock must still be ours at this point (OMN-15291): flipping the gate
 # HEALTHY after a run that may have been unserialized is exactly the false
 # green this lock exists to prevent.
-assert_migration_lock_still_held
+assert_migration_lock_still_held "the sentinel was set"
 echo "[forward-migration] All migrations complete. Setting sentinel TRUE..."
 psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" -v ON_ERROR_STOP=1 -c "
 UPDATE public.db_metadata

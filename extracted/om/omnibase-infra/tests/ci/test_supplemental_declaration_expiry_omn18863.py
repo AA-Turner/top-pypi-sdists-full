@@ -106,8 +106,31 @@ _PINNED_CONTRACTS = _pinned_contracts_root(_PROOF_DEPENDENCIES)
 # contract; add it in the same pull request that vendors it, and this module
 # will tell you when to take it out.
 _INTERIM_ENTRIES: dict[str, str] = {
+    "compaction_activations": "omnimarket OMN-21115 (node_context_install_confirm_trigger_effect)",
+    "compaction_current_context": "omnimarket OMN-21090 (node_projection_compaction_current_context)",
     "demo_readiness_latest": "omnimarket OMN-19861 (node_projection_demo_readiness)",
-    "local_environment": "omnimarket OMN-19988 (node_projection_local_environment)",
+    "ledger_line_citation": "omnimarket OMN-21947 (node_projection_work_ledger)",
+    **dict.fromkeys(
+        (
+            "work_outcome_units",
+            "orchestration_style_outcomes",
+            "lane_drift_and_stalls",
+            "brief_quality_vs_outcome",
+            "subagent_waste",
+        ),
+        "omnimarket OMN-22320 writer half (node_projection_work_questions)",
+    ),
+    "gate_store_reservations": "omnimarket OMN-23055 writer half (node_gate_store_effect)",
+    "gate_store_safety": "omnimarket OMN-23055 writer half (node_gate_store_effect)",
+    "gate_store_state": "omnimarket OMN-23055 writer half (node_gate_store_effect)",
+    "gate_store_steps": "omnimarket OMN-23055 writer half (node_gate_store_effect)",
+    "eval_item_scores": "omnimarket OMN-24171 (node_projection_eval_results)",
+    "eval_item_traces": "omnimarket OMN-24171 (node_projection_eval_results)",
+    "eval_run_closes": "omnimarket OMN-24171 (node_projection_eval_results)",
+    "eval_run_rates": "omnimarket OMN-24171 (node_projection_eval_results)",
+    "experiment_arm_results": "omnimarket OMN-24286 (node_projection_experiment_result)",
+    "done_items": "omnimarket OMN-25104 (node_projection_done_items)",
+    "floor_integration_rows": "omnimarket OMN-25103 (node_projection_floor_integration)",
 }
 
 _SKIP_REASON = (

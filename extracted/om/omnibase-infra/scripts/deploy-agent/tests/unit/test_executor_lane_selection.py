@@ -100,6 +100,9 @@ class TestComposeUpLaneSelection:
         def fake_run(
             cmd: list[str], timeout: int, **kwargs: object
         ) -> subprocess.CompletedProcess:
+            if cmd[:2] == ["docker", "inspect"]:
+                # OMN-25106: the roll reads a service's health before it rolls it.
+                return subprocess.CompletedProcess(cmd, 1, "", "No such object")
             captured.append(cmd)
             return _ok()
 
@@ -125,7 +128,8 @@ class TestComposeUpLaneSelection:
         assert "-p" in cmd
         assert cmd[cmd.index("-p") + 1] == "omnibase-infra"
         # OMN-15379: dev/lab layers its own migration-fence overlay.
-        assert cmd.count("-f") == 2, f"dev lane must layer its overlay: {cmd}"
+        assert cmd.count("-f") == 3, f"dev lane must layer its overlays: {cmd}"
+        assert any("docker-compose.dev-tenant-fold.yml" in tok for tok in cmd)
         assert any("docker-compose.dev-lane.yml" in tok for tok in cmd)
 
     def test_stability_lane_compose_up_layers_overlay_and_project(self) -> None:
@@ -135,6 +139,9 @@ class TestComposeUpLaneSelection:
         def fake_run(
             cmd: list[str], timeout: int, **kwargs: object
         ) -> subprocess.CompletedProcess:
+            if cmd[:2] == ["docker", "inspect"]:
+                # OMN-25106: the roll reads a service's health before it rolls it.
+                return subprocess.CompletedProcess(cmd, 1, "", "No such object")
             captured.append(cmd)
             return _ok()
 
@@ -166,6 +173,9 @@ class TestComposeUpLaneSelection:
         def fake_run(
             cmd: list[str], timeout: int, **kwargs: object
         ) -> subprocess.CompletedProcess:
+            if cmd[:2] == ["docker", "inspect"]:
+                # OMN-25106: the roll reads a service's health before it rolls it.
+                return subprocess.CompletedProcess(cmd, 1, "", "No such object")
             captured.append(cmd)
             return _ok()
 

@@ -248,6 +248,7 @@ ToxicContentTypeType = Literal[
 ]
 ComprehendServiceName = Literal["comprehend"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",

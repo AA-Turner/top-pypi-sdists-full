@@ -612,7 +612,9 @@ def _current_repo_subpath(git_root) -> str:
         return ""
 
 
-def _linked_project_id_for_current_path(link: dict, git_root) -> str | None:
+def _linked_project_id_for_current_path(
+    link: dict, git_root, *, exact_subpath: bool = False
+) -> str | None:
     repo_subpath = _current_repo_subpath(git_root)
     projects = link.get("projects") if isinstance(link, dict) else None
     if isinstance(projects, dict):
@@ -622,6 +624,11 @@ def _linked_project_id_for_current_path(link: dict, git_root) -> str | None:
             if project_id:
                 return str(project_id)
 
+    if exact_subpath:
+        from skylos.cloud.project_context import normalize_repo_subpath
+
+        if normalize_repo_subpath(link.get("repo_subpath")) != repo_subpath:
+            return None
     project_id = link.get("project_id") or link.get("projectId")
     return str(project_id) if project_id else None
 
@@ -1577,6 +1584,8 @@ def _finalize_report_upload(
             gate_message=quality_gate.get("message"),
             trust_notice=data.get("upload_trust_notice"),
             gate_context=gate_context(result, BASE_URL),
+            gate_reported=result.get("quality_gate_reported") is not False,
+            upload_trust=result.get("upload_trust"),
         )
     if replayed:
         result["replayed"] = True
@@ -1621,12 +1630,16 @@ def _print_report_upload_success(
     gate_message=None,
     trust_notice=None,
     gate_context=None,
+    gate_reported=True,
+    upload_trust=None,
 ) -> None:
     if replayed:
         print(
             " done!\n✓ Scan was already saved by an earlier attempt; "
             "it was not saved twice."
         )
+    elif upload_trust == "unverified":
+        print(" done!\n✓ Scan saved")
     else:
         print(" done!\n✓ Scan uploaded")
     if isinstance(finding_warnings, list) and finding_warnings:
@@ -1644,8 +1657,25 @@ def _print_report_upload_success(
         print(assessment_coverage_text(assessment_data))
     else:
         _print_report_grade(grade_data)
-    _print_quality_gate_result(passed, new_violations, plan, gate_message, gate_context)
-    _print_upload_trust_notice(trust_notice)
+    if gate_reported:
+        _print_quality_gate_result(passed, new_violations, plan, gate_message, gate_context)
+    else:
+        print("No quality gate result was reported for this upload.")
+    if upload_trust == "unverified":
+        from skylos.cloud.upload_status import (
+            ci_workflow_present,
+            local_scan_next_step,
+            verification_receipt,
+        )
+
+        print(verification_receipt({"upload_trust": upload_trust}, BASE_URL)["message"])
+        try:
+            ci_configured = ci_workflow_present(_get_repo_root_for_link())
+        except Exception:
+            ci_configured = False
+        print(local_scan_next_step(ci_configured=ci_configured))
+    else:
+        _print_upload_trust_notice(trust_notice)
     if gate_context is not None:
         print(f"\n🔗 View details: {gate_context.details_url}")
     elif scan_id:
@@ -1703,6 +1733,14 @@ def _quality_gate_reasons(message) -> list[str]:
 def _print_quality_gate_result(
     passed: bool, new_violations: int, plan: str, message=None, context=None
 ) -> None:
+    from skylos.cloud.upload_status import TRUSTED_UPLOADS
+
+    if context is not None and context.upload_trust not in TRUSTED_UPLOADS:
+        print(context.status(passed))
+        if not passed:
+            for reason in _quality_gate_reasons(message):
+                print(f"   - {reason}")
+        return
     subject = "Quality gate"
     history = None
     if context is not None:
@@ -3492,8 +3530,8 @@ def _verification_limit_message(response) -> str:
         used = "today's verification checks"
     return (
         f"Verification limit reached: this Free workspace used {used}. "
-        "Try again tomorrow, or buy any credit pack on Billing to turn on "
-        "Workspace, which has no daily limit."
+        "Try again tomorrow, or start the Workspace plan on Billing, which "
+        "has no daily limit."
     )
 
 

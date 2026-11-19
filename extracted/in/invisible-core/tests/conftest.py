@@ -147,7 +147,7 @@ def _no_geoip_download(monkeypatch, request):
     """
     if request.node.get_closest_marker("e2e"):
         return
-    import invisible_core.download as _dl
+    import invisible_core._geo as _dl
 
     sentinella = pathlib.Path(__file__).with_name("_geoip_db_not_downloaded_in_tests.mmdb")
     monkeypatch.setattr(_dl, "ensure_geoip_mmdb", lambda *a, **kw: sentinella,
